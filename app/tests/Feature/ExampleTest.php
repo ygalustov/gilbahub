@@ -51,6 +51,18 @@ class ExampleTest extends TestCase
             ->assertSee('/legacy-assets/gilba-storage-ns.js', false);
     }
 
+    public function test_authenticated_user_can_open_stadium_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/stadium')
+            ->assertOk()
+            ->assertSee('id="gssh-hub"', false)
+            ->assertSee('/legacy-assets/stadium/unified-venue-selector.js', false)
+            ->assertSee('/legacy-assets/stadium-tab-ui.js', false);
+    }
+
     public function test_authenticated_user_can_load_legacy_field_log_asset(): void
     {
         $user = User::factory()->create();
