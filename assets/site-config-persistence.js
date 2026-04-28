@@ -140,7 +140,7 @@
      */
     function pushConfigsToServer() {
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
+        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_site_configs_save', cfg) : (cfg.ajaxUrl || '');
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
         if (Object.keys(_configs).length === 0) return;
@@ -150,6 +150,7 @@
             var body = new URLSearchParams();
             body.append('action',  'gilba_site_configs_save');
             body.append('nonce',   nonce);
+            if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
             body.append('configs', JSON.stringify(_configs));
 
             fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
@@ -173,7 +174,7 @@
      */
     function pullConfigsFromServer(onComplete) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
+        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_site_configs_load', cfg) : (cfg.ajaxUrl || '');
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
             if (onComplete) onComplete(false);
@@ -183,6 +184,7 @@
         var body = new URLSearchParams();
         body.append('action', 'gilba_site_configs_load');
         body.append('nonce',  nonce);
+        if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
 
         fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
             .then(function(r) { return r.json(); })

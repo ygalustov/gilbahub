@@ -5,8 +5,10 @@ services:
       dockerfile: docker/php/Dockerfile
     container_name: gilba_app
     working_dir: /var/www/html
+    command: sh -c "php artisan migrate --force && php artisan db:seed --force && php-fpm"
     volumes:
       - ./app:/var/www/html
+      - ./assets:/var/www/assets:ro
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -30,6 +32,7 @@ services:
       - "8080:80"
     volumes:
       - ./app:/var/www/html:ro
+      - ./assets:/var/www/assets:ro
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app

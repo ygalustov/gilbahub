@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\LegacySitePersistenceController;
 use App\Http\Controllers\SiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,8 +17,17 @@ Route::post('/logout', [AuthController::class, 'logout'])
     ->name('logout');
 
 Route::middleware('auth')->group(function () {
+    Route::get('/legacy-assets/{path}', function (string $path) {
+        $base = realpath(base_path('../assets'));
+        $file = $base ? realpath($base.DIRECTORY_SEPARATOR.$path) : false;
+
+        abort_unless($base && $file && str_starts_with($file, $base.DIRECTORY_SEPARATOR) && is_file($file), 404);
+
+        return response()->file($file);
+    })->where('path', '.*')->name('legacy-assets.show');
+
     Route::view('/hub', 'hub')->name('hub');
-    Route::view('/field-log', 'placeholder', ['title' => 'Field Log'])->name('field-log');
+    Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'placeholder', ['title' => 'Morning Briefing'])->name('morning-briefing');
     Route::view('/stadium', 'placeholder', ['title' => 'Stadium'])->name('stadium');
     Route::view('/settings', 'placeholder', ['title' => 'Settings'])->name('settings');
@@ -29,5 +39,10 @@ Route::middleware('auth')->group(function () {
         Route::patch('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
         Route::patch('/active-site', [SiteController::class, 'setActive'])->name('sites.active.update');
         Route::put('/sites/{site}/config/{namespace?}', [SiteController::class, 'updateConfig'])->name('sites.config.update');
+
+        Route::post('/legacy/gilba-sites-load', [LegacySitePersistenceController::class, 'loadSites'])->name('legacy.sites.load');
+        Route::post('/legacy/gilba-sites-save', [LegacySitePersistenceController::class, 'saveSites'])->name('legacy.sites.save');
+        Route::post('/legacy/gilba-site-configs-load', [LegacySitePersistenceController::class, 'loadSiteConfigs'])->name('legacy.site-configs.load');
+        Route::post('/legacy/gilba-site-configs-save', [LegacySitePersistenceController::class, 'saveSiteConfigs'])->name('legacy.site-configs.save');
     });
 });

@@ -274,7 +274,7 @@
      */
     function syncSiteListToServer(sites) {
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
+        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_sites_save', cfg) : (cfg.ajaxUrl || '');
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
 
@@ -287,6 +287,7 @@
         var body = new URLSearchParams();
         body.append('action', 'gilba_sites_save');
         body.append('nonce',  nonce);
+        if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
         body.append('sites',  JSON.stringify(toSync));
 
         fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
@@ -310,7 +311,7 @@
      */
     function fetchSiteListFromServer(onComplete) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
+        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_sites_load', cfg) : (cfg.ajaxUrl || '');
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
             onComplete(false);
@@ -320,6 +321,7 @@
         var body = new URLSearchParams();
         body.append('action', 'gilba_sites_load');
         body.append('nonce',  nonce);
+        if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
 
         fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
             .then(function(r) { return r.json(); })
