@@ -88,6 +88,31 @@
         .primary:hover { background: var(--brand-dark); }
         .error { margin-top: 8px; color: var(--danger); font-size: 14px; }
         .check-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); }
+        .section-title { margin: 28px 0 12px; font-size: 18px; }
+        .status-line { margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+        .site-list { display: grid; gap: 10px; margin-top: 12px; }
+        .site-row {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+            padding: 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fbfcfb;
+        }
+        .site-row strong { display: block; }
+        .site-meta { margin-top: 4px; color: var(--muted); font-size: 13px; }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 4px 9px;
+            background: #e8f3ed;
+            color: var(--brand-dark);
+            font-size: 12px;
+            font-weight: 700;
+        }
     </style>
 </head>
 <body>
