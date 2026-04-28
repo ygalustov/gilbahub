@@ -20,6 +20,7 @@ class SiteController extends Controller
             ->get();
 
         return response()->json([
+            'active_site_id' => $request->user()->last_active_site_id,
             'data' => $sites->map(fn (Site $site) => $this->sitePayload($site))->values(),
         ]);
     }
@@ -48,6 +49,10 @@ class SiteController extends Controller
             'config' => [],
             'synced_at' => now(),
         ]);
+
+        if ($request->user()->last_active_site_id === null) {
+            $request->user()->forceFill(['last_active_site_id' => $site->id])->save();
+        }
 
         return response()->json([
             'data' => $this->sitePayload($site->load('configs')),
@@ -82,6 +87,26 @@ class SiteController extends Controller
         $site->update($data);
 
         return response()->json([
+            'data' => $this->sitePayload($site->load('configs')),
+        ]);
+    }
+
+
+    public function setActive(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'site_id' => ['required', 'integer', 'exists:sites,id'],
+        ]);
+
+        $site = Site::query()->findOrFail($data['site_id']);
+        $this->abortUnlessMember($request, $site);
+
+        $request->user()->forceFill([
+            'last_active_site_id' => $site->id,
+        ])->save();
+
+        return response()->json([
+            'active_site_id' => $site->id,
             'data' => $this->sitePayload($site->load('configs')),
         ]);
     }

@@ -105,6 +105,7 @@
             var editStatus = document.getElementById('site-edit-status');
             var editCancel = document.getElementById('site-edit-cancel');
             var sites = [];
+            var activeSiteId = null;
 
             function text(value) {
                 return value === null || value === undefined || value === '' ? 'Not set' : String(value);
@@ -166,13 +167,23 @@
                 meta.textContent = [
                     'Location: ' + text(site.location_name),
                     'Timezone: ' + text(site.timezone),
-                    'GAIP config: ' + (site.configs && site.configs.gaip ? 'ready' : 'missing')
+                    'GAIP config: ' + (site.configs && site.configs.gaip ? 'ready' : 'missing'),
+                    'Status: ' + (Number(site.id) === Number(activeSiteId) ? 'active' : 'available')
                 ].join(' | ');
                 summary.appendChild(meta);
 
                 var badge = document.createElement('span');
                 badge.className = 'pill';
-                badge.textContent = site.slug || 'site';
+                badge.textContent = Number(site.id) === Number(activeSiteId) ? 'active' : (site.slug || 'site');
+
+                var active = document.createElement('button');
+                active.className = 'secondary compact-button';
+                active.type = 'button';
+                active.textContent = Number(site.id) === Number(activeSiteId) ? 'Active' : 'Set active';
+                active.disabled = Number(site.id) === Number(activeSiteId);
+                active.addEventListener('click', function () {
+                    setActiveSite(site);
+                });
 
                 var edit = document.createElement('button');
                 edit.className = 'secondary compact-button';
@@ -184,6 +195,7 @@
 
                 row.appendChild(summary);
                 row.appendChild(badge);
+                row.appendChild(active);
                 row.appendChild(edit);
 
                 return row;
@@ -216,7 +228,23 @@
                         return response.json();
                     })
                     .then(function (payload) {
+                        activeSiteId = payload.active_site_id;
                         sites = payload.data || [];
+                        renderSites();
+                    })
+                    .catch(function (error) {
+                        status.textContent = error.message;
+                    });
+            }
+
+
+            function setActiveSite(site) {
+                status.textContent = 'Setting active site...';
+
+                request('/api/active-site', 'PATCH', { site_id: site.id })
+                    .then(function (payload) {
+                        activeSiteId = payload.active_site_id;
+                        status.textContent = 'Active site set to ' + site.name + '.';
                         renderSites();
                     })
                     .catch(function (error) {

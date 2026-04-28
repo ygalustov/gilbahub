@@ -43,6 +43,8 @@ class DatabaseSeeder extends Seeder
             $user->id => ['role' => 'owner'],
         ]);
 
+        $user->forceFill(['last_active_site_id' => $site->id])->save();
+
         SiteConfig::query()->updateOrCreate(
             [
                 'site_id' => $site->id,

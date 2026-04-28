@@ -29,9 +29,12 @@ class SiteApiTest extends TestCase
             'synced_at' => now(),
         ]);
 
+        $user->forceFill(['last_active_site_id' => $site->id])->save();
+
         $this->actingAs($user)
             ->getJson('/api/sites')
             ->assertOk()
+            ->assertJsonPath('active_site_id', $site->id)
             ->assertJsonPath('data.0.name', 'Default Site')
             ->assertJsonPath('data.0.configs.gaip.config.status', 'ready_for_wp_liftout');
     }
@@ -53,6 +56,11 @@ class SiteApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.name', 'Training Ground')
             ->assertJsonPath('data.configs.gaip.config', []);
+
+        $this->assertSame(
+            Site::query()->where('name', 'Training Ground')->value('id'),
+            $user->refresh()->last_active_site_id
+        );
 
         $this->assertDatabaseHas('sites', [
             'owner_user_id' => $user->id,
@@ -93,6 +101,36 @@ class SiteApiTest extends TestCase
             'name' => 'Updated Site',
             'slug' => 'updated-site',
         ]);
+    }
+
+
+    public function test_authenticated_user_can_set_active_site(): void
+    {
+        $user = User::factory()->create();
+        $siteA = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Site A',
+            'slug' => 'site-a',
+        ]);
+        $siteB = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Site B',
+            'slug' => 'site-b',
+        ]);
+        $siteA->users()->attach($user->id, ['role' => 'owner']);
+        $siteB->users()->attach($user->id, ['role' => 'owner']);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->patchJson('/api/active-site', [
+                '_token' => 'test-token',
+                'site_id' => $siteB->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('active_site_id', $siteB->id)
+            ->assertJsonPath('data.name', 'Site B');
+
+        $this->assertSame($siteB->id, $user->refresh()->last_active_site_id);
     }
 
     public function test_authenticated_user_can_update_site_config(): void

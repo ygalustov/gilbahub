@@ -106,7 +106,7 @@
         .site-list { display: grid; gap: 10px; margin-top: 12px; }
         .site-row {
             display: grid;
-            grid-template-columns: 1fr auto auto;
+            grid-template-columns: 1fr auto auto auto;
             gap: 12px;
             align-items: center;
             padding: 14px;
