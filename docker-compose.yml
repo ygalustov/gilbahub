@@ -5,7 +5,6 @@ services:
       dockerfile: docker/php/Dockerfile
     container_name: gilba_app
     working_dir: /var/www/html
-    command: sh -c "php artisan migrate --force && php artisan db:seed --force && php-fpm"
     volumes:
       - ./app:/var/www/html
       - ./assets:/var/www/assets:ro

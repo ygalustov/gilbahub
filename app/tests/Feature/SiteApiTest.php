@@ -6,6 +6,7 @@ use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SiteApiTest extends TestCase
@@ -103,7 +104,6 @@ class SiteApiTest extends TestCase
         ]);
     }
 
-
     public function test_authenticated_user_can_set_active_site(): void
     {
         $user = User::factory()->create();
@@ -160,84 +160,125 @@ class SiteApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_create_spray_log_entry(): void
+    {
+        $user = User::factory()->create();
+        $site = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+        $site->users()->attach($user->id, ['role' => 'owner']);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/spray-log', [
+                '_token' => 'test-token',
+                'site_id' => $site->id,
+                'zone' => 'greens',
+                'application_date' => '2026-04-28',
+                'product_name' => 'Banner Maxx',
+                'product_category' => 'fungicide',
+                'rate' => 2.5,
+                'rate_unit' => 'L/ha',
+                'target' => 'Dollar Spot',
+                'notes' => 'Evening application.',
+                'source' => 'manual',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.site_id', $site->id)
+            ->assertJsonPath('data.product_name', 'Banner Maxx')
+            ->assertJsonPath('data.target', 'Dollar Spot');
+
+        $this->assertSame(1, DB::table('spray_logs')->count());
+
+        $this->assertDatabaseHas('spray_logs', [
+            'site_id' => $site->id,
+            'user_id' => $user->id,
+            'product_name' => 'Banner Maxx',
+            'product_category' => 'fungicide',
+            'zone' => 'greens',
+        ]);
+    }
+
     public function test_legacy_site_list_endpoints_use_wordpress_style_response_shape(): void
     {
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->withSession(["_token" => "test-token"])
-            ->postJson("/api/legacy/gilba-sites-save", [
-                "_token" => "test-token",
-                "sites" => [
-                    "training-ground" => ["label" => "Training Ground"],
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/legacy/gilba-sites-save', [
+                '_token' => 'test-token',
+                'sites' => [
+                    'training-ground' => ['label' => 'Training Ground'],
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath("success", true)
-            ->assertJsonPath("data.saved", 1);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.saved', 1);
 
-        $site = Site::query()->where("slug", "training-ground")->firstOrFail();
+        $site = Site::query()->where('slug', 'training-ground')->firstOrFail();
 
         $this->assertSame($site->id, $user->refresh()->last_active_site_id);
-        $this->assertDatabaseHas("site_user", [
-            "site_id" => $site->id,
-            "user_id" => $user->id,
-            "role" => "owner",
+        $this->assertDatabaseHas('site_user', [
+            'site_id' => $site->id,
+            'user_id' => $user->id,
+            'role' => 'owner',
         ]);
 
         $this->actingAs($user)
-            ->withSession(["_token" => "test-token"])
-            ->postJson("/api/legacy/gilba-sites-load", ["_token" => "test-token"])
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/legacy/gilba-sites-load', ['_token' => 'test-token'])
             ->assertOk()
-            ->assertJsonPath("success", true)
-            ->assertJsonPath("data.count", 1)
-            ->assertJsonPath("data.sites.".$site->id.".label", "Training Ground");
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.count', 1)
+            ->assertJsonPath('data.sites.'.$site->id.'.label', 'Training Ground');
     }
 
     public function test_legacy_site_config_endpoints_store_gaip_config_by_site(): void
     {
         $user = User::factory()->create();
         $site = Site::query()->create([
-            "owner_user_id" => $user->id,
-            "name" => "Default Site",
-            "slug" => "default-site",
+            'owner_user_id' => $user->id,
+            'name' => 'Default Site',
+            'slug' => 'default-site',
         ]);
-        $site->users()->attach($user->id, ["role" => "owner"]);
+        $site->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)
-            ->withSession(["_token" => "test-token"])
-            ->postJson("/api/legacy/gilba-site-configs-save", [
-                "_token" => "test-token",
-                "configs" => [
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/legacy/gilba-site-configs-save', [
+                '_token' => 'test-token',
+                'configs' => [
                     (string) $site->id => [
-                        "turf" => ["species" => "couch"],
-                        "location" => [
-                            "name" => "Sydney, NSW",
-                            "lat" => -33.8688,
-                            "lon" => 151.2093,
-                            "timezone" => "Australia/Sydney",
+                        'turf' => ['species' => 'couch'],
+                        'location' => [
+                            'name' => 'Sydney, NSW',
+                            'lat' => -33.8688,
+                            'lon' => 151.2093,
+                            'timezone' => 'Australia/Sydney',
                         ],
-                        "pgr" => ["enabled" => true],
+                        'pgr' => ['enabled' => true],
                     ],
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath("success", true)
-            ->assertJsonPath("data.saved", 1);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.saved', 1);
 
-        $this->assertDatabaseHas("sites", [
-            "id" => $site->id,
-            "location_name" => "Sydney, NSW",
-            "timezone" => "Australia/Sydney",
+        $this->assertDatabaseHas('sites', [
+            'id' => $site->id,
+            'location_name' => 'Sydney, NSW',
+            'timezone' => 'Australia/Sydney',
         ]);
 
         $this->actingAs($user)
-            ->withSession(["_token" => "test-token"])
-            ->postJson("/api/legacy/gilba-site-configs-load", ["_token" => "test-token"])
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/legacy/gilba-site-configs-load', ['_token' => 'test-token'])
             ->assertOk()
-            ->assertJsonPath("success", true)
-            ->assertJsonPath("data.count", 1)
-            ->assertJsonPath("data.configs.".$site->id.".turf.species", "couch")
-            ->assertJsonPath("data.configs.".$site->id.".location.name", "Sydney, NSW");
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.count', 1)
+            ->assertJsonPath('data.configs.'.$site->id.'.turf.species', 'couch')
+            ->assertJsonPath('data.configs.'.$site->id.'.location.name', 'Sydney, NSW');
     }
 }
