@@ -439,7 +439,8 @@
 
             return fetch(WP_REST_URL + '/media', {
                 method:  'POST',
-                headers: { 'X-WP-Nonce': REST_NONCE },
+                headers: { 'X-CSRF-TOKEN': (cfg.csrfToken || REST_NONCE), 'X-WP-Nonce': REST_NONCE },
+                credentials: 'same-origin',
                 body:    formData
             }).then(function (res) {
                 if (!res.ok) { throw new Error('Media upload failed: ' + res.status); }

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LegacySitePersistenceController;
+use App\Http\Controllers\MediaUploadController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/active-site', [SiteController::class, 'setActive'])->name('sites.active.update');
         Route::put('/sites/{site}/config/{namespace?}', [SiteController::class, 'updateConfig'])->name('sites.config.update');
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
+        Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
+        Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
 
         Route::post('/legacy/gilba-sites-load', [LegacySitePersistenceController::class, 'loadSites'])->name('legacy.sites.load');
         Route::post('/legacy/gilba-sites-save', [LegacySitePersistenceController::class, 'saveSites'])->name('legacy.sites.save');

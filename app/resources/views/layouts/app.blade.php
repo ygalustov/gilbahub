@@ -12,7 +12,7 @@
                 nonce: "{{ csrf_token() }}",
                 csrfToken: "{{ csrf_token() }}",
                 restUrl: "{{ url('/api') }}/",
-                wpRestUrl: "",
+                wpRestUrl: "{{ url('/api') }}",
                 restNonce: "{{ csrf_token() }}",
                 userId: {{ auth()->id() ?? 0 }},
                 siteUrl: "{{ url('/') }}",

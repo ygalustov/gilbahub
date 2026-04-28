@@ -6,7 +6,9 @@ use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class SiteApiTest extends TestCase
@@ -199,6 +201,28 @@ class SiteApiTest extends TestCase
             'product_category' => 'fungicide',
             'zone' => 'greens',
         ]);
+    }
+
+    public function test_authenticated_user_can_upload_media(): void
+    {
+        Storage::fake('local');
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/media', [
+                '_token' => 'test-token',
+                'title' => 'Disease Note',
+                'file' => UploadedFile::fake()->image('disease-note.jpg'),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('title.rendered', 'Disease Note');
+
+        $this->assertSame(1, DB::table('media_uploads')->count());
+
+        $path = DB::table('media_uploads')->value('path');
+
+        Storage::disk('local')->assertExists($path);
     }
 
     public function test_legacy_site_list_endpoints_use_wordpress_style_response_shape(): void
