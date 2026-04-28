@@ -32,7 +32,7 @@ Route::middleware('auth')->group(function () {
 
     Route::view('/hub', 'hub')->name('hub');
     Route::view('/field-log', 'field-log')->name('field-log');
-    Route::view('/morning-briefing', 'placeholder', ['title' => 'Morning Briefing'])->name('morning-briefing');
+    Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'placeholder', ['title' => 'Stadium'])->name('stadium');
     Route::view('/settings', 'placeholder', ['title' => 'Settings'])->name('settings');
 

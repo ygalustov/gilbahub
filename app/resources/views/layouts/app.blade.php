@@ -23,6 +23,7 @@
             restNonce: "{{ csrf_token() }}",
             userId: {{ auth()->id() ?? 0 }},
             siteUrl: "{{ url('/') }}",
+            hubUrl: "{{ route('hub') }}",
             hubMode: "agronomic",
             savedLocation: @json($savedLocation),
             legacyAjaxEndpoints: {

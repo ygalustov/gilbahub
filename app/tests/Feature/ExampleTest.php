@@ -39,6 +39,18 @@ class ExampleTest extends TestCase
             ->assertSee('/legacy-assets/gaip-field-log.js', false);
     }
 
+    public function test_authenticated_user_can_open_morning_briefing_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/morning-briefing')
+            ->assertOk()
+            ->assertSee('id="gaip-morning-briefing"', false)
+            ->assertSee('/legacy-assets/gaip-morning-briefing.js', false)
+            ->assertSee('/legacy-assets/gilba-storage-ns.js', false);
+    }
+
     public function test_authenticated_user_can_load_legacy_field_log_asset(): void
     {
         $user = User::factory()->create();
