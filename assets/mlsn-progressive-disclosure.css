@@ -1,0 +1,912 @@
+/**
+ * MLSN Progressive Disclosure Styles
+ * Integrates with Gilba Agronomic Intelligence Hub
+ */
+
+/* ============================================
+   MLSN PROGRESSIVE CONTAINER
+   ============================================ */
+
+.gaip-mlsn-progressive-container {
+    margin: 20px 0;
+}
+
+/* ============================================
+   MLSN CARDS GRID
+   ============================================ */
+
+.gaip-mlsn-cards-grid,
+.gaip-tissue-cards-grid,
+.gaip-water-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    .gaip-mlsn-cards-grid,
+    .gaip-tissue-cards-grid,
+    .gaip-water-cards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================
+   DIAGNOSTIC CARDS - COMPACT DEFAULT
+   ============================================ */
+
+.gaip-diagnostic-card {
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease;
+}
+
+.gaip-diagnostic-card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================
+   VERDICT SECTION (Always Visible)
+   ============================================ */
+
+.gaip-verdict {
+    padding: 12px;
+}
+
+.gaip-verdict-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.gaip-parameter {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+/* Status Badges */
+.gaip-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.gaip-status-badge.status-deficient {
+    background: var(--gaip-critical-bg);
+    color: #991b1b;
+}
+
+.gaip-status-badge.status-borderline {
+    background: var(--gaip-warning-bg);
+    color: #92400e;
+}
+
+.gaip-status-badge.status-adequate {
+    background: var(--gaip-good-bg);
+    color: #065f46;
+}
+
+.gaip-status-badge.status-high {
+    background: var(--gaip-info-bg);
+    color: #1e40af;
+}
+
+.gaip-status-badge.status-no-data {
+    background: var(--gaip-surface-hover);
+    color: var(--gaip-text);
+}
+
+/* Tissue conflict override - soil adequate but tissue deficient */
+.gaip-status-badge.status-tissue-conflict {
+    background: linear-gradient(135deg, var(--gaip-warning-bg) 0%, var(--gaip-warning-border) 100%);
+    color: #92400e;
+    border: 1px solid #f59e0b;
+    animation: pulse-warning 2s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 4px rgba(245, 158, 11, 0); }
+}
+
+/* Card border highlight when tissue conflict exists */
+.gaip-diagnostic-card.mlsn-tissue-conflict {
+    border: 2px solid #f59e0b;
+    background: linear-gradient(to bottom, var(--gaip-warning-bg) 0%, var(--gaip-surface) 20%);
+}
+
+.gaip-status-icon {
+    font-size: 12px;
+}
+
+/* Verdict Content */
+.gaip-verdict-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+    font-size: 13px;
+}
+
+.gaip-driver,
+.gaip-mlsn-threshold {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.gaip-label {
+    color: var(--gaip-text);
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.gaip-value {
+    color: var(--gaip-text);
+    font-weight: 600;
+}
+
+/* Confidence Indicator */
+.gaip-confidence {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.gaip-confidence-bars {
+    font-family: monospace;
+    letter-spacing: 1px;
+    font-size: 14px;
+}
+
+.gaip-confidence.confidence-high {
+    color: #10b981;
+}
+
+.gaip-confidence.confidence-medium {
+    color: #f59e0b;
+}
+
+.gaip-confidence.confidence-low {
+    color: #ef4444;
+}
+
+.gaip-confidence-percentage {
+    font-weight: 600;
+    min-width: 35px;
+}
+
+/* Verdict Actions */
+.gaip-verdict-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.gaip-expand-btn {
+    background: var(--gaip-surface-hover);
+    border: 1px solid var(--gaip-border);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--gaip-text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gaip-expand-btn:hover {
+    background: var(--gaip-border);
+    color: var(--gaip-text);
+}
+
+.gaip-icon {
+    font-size: 9px;
+    transition: transform 0.2s ease;
+}
+
+.gaip-assumptions-btn,
+.gaip-water-assumptions-btn,
+.gaip-tissue-assumptions-btn {
+    background: transparent;
+    border: 1px solid var(--gaip-border);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gaip-text);
+    transition: all 0.2s ease;
+}
+
+.gaip-assumptions-btn:hover,
+.gaip-water-assumptions-btn:hover,
+.gaip-tissue-assumptions-btn:hover {
+    background: var(--gaip-surface-hover);
+    color: #2563eb;
+}
+
+.gaip-icon-info {
+    font-size: 13px;
+    font-weight: bold;
+}
+
+/* ============================================
+   WHY SECTION (Collapsed by Default)
+   ============================================ */
+
+.gaip-why-section {
+    border-top: 1px solid var(--gaip-border);
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+}
+
+.gaip-why-section.gaip-collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 12px;
+}
+
+.gaip-why-section.gaip-expanded {
+    max-height: 600px;
+    opacity: 1;
+    padding: 12px;
+}
+
+.gaip-why-content {
+    font-size: 13px;
+}
+
+.gaip-rule-fired,
+.gaip-recommendation {
+    margin-bottom: 10px;
+}
+
+.gaip-recommendation-text {
+    margin-top: 4px;
+    padding: 8px;
+    background: var(--gaip-surface-muted);
+    border-left: 3px solid #2563eb;
+    border-radius: 4px;
+    line-height: 1.5;
+}
+
+.gaip-mlsn-calculations {
+    margin: 12px 0;
+    padding: 10px;
+    background: var(--gaip-surface-muted);
+    border-radius: 6px;
+}
+
+.gaip-calc-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.gaip-calc-label {
+    color: var(--gaip-text);
+}
+
+.gaip-calc-value {
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+/* ============================================
+   SENSITIVITY SECTION (Deeply Collapsed)
+   ============================================ */
+
+.gaip-sensitivity-section {
+    border-top: 1px solid var(--gaip-border);
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+}
+
+.gaip-sensitivity-section.gaip-collapsed {
+    max-height: 0;
+    opacity: 0;
+    padding: 0 12px;
+}
+
+.gaip-sensitivity-section.gaip-expanded {
+    max-height: 400px;
+    opacity: 1;
+    padding: 12px;
+}
+
+.gaip-supply-analysis h5 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+.gaip-supply-details {
+    margin-bottom: 10px;
+    padding: 10px;
+    background: var(--gaip-surface-muted);
+    border-radius: 6px;
+}
+
+.gaip-supply-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 12px;
+}
+
+.gaip-supply-row span {
+    color: var(--gaip-text);
+}
+
+.gaip-supply-row strong {
+    color: var(--gaip-text);
+}
+
+.gaip-supply-highlight {
+    padding-top: 8px;
+    margin-top: 8px;
+    border-top: 1px solid var(--gaip-border);
+}
+
+.gaip-supply-highlight strong {
+    color: #2563eb;
+    font-size: 13px;
+}
+
+.gaip-guidance {
+    margin: 10px 0 0 0;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.gaip-guidance.gaip-urgent {
+    background: var(--gaip-warning-bg);
+    border-left: 3px solid #f59e0b;
+}
+
+.gaip-guidance.gaip-normal {
+    background: var(--gaip-good-bg);
+    border-left: 3px solid #10b981;
+}
+
+.gaip-guidance.gaip-caution {
+    background: var(--gaip-info-bg);
+    border-left: 3px solid #2563eb;
+}
+
+/* ============================================
+   RATIOS SECTION
+   ============================================ */
+
+.gaip-mlsn-ratios-section {
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--gaip-surface-muted);
+    border-radius: 8px;
+    border: 1px solid var(--gaip-border);
+}
+
+.gaip-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.gaip-section-header h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+.gaip-collapsible-content {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+
+.gaip-collapsible-content.gaip-collapsed {
+    max-height: 0;
+    opacity: 0;
+}
+
+.gaip-collapsible-content.gaip-expanded {
+    max-height: 500px;
+    opacity: 1;
+}
+
+.gaip-ratios-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.gaip-ratio-card {
+    padding: 12px;
+    background: var(--gaip-surface);
+    border-radius: 6px;
+    border: 1px solid var(--gaip-border);
+}
+
+.gaip-ratio-card.ratio-balanced {
+    border-left: 3px solid #10b981;
+}
+
+.gaip-ratio-card.ratio-caution {
+    border-left: 3px solid #f59e0b;
+}
+
+.gaip-ratio-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.gaip-ratio-header strong {
+    font-size: 13px;
+    color: var(--gaip-text);
+}
+
+.gaip-ratio-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: #2563eb;
+}
+
+.gaip-ratio-status {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.ratio-balanced .gaip-ratio-status {
+    color: #10b981;
+}
+
+.ratio-caution .gaip-ratio-status {
+    color: #f59e0b;
+}
+
+.gaip-ratio-interpretation {
+    font-size: 12px;
+    color: var(--gaip-text);
+    line-height: 1.4;
+}
+
+/* ============================================
+   CONTEXT SECTION
+   ============================================ */
+
+.gaip-mlsn-context-section {
+    margin: 20px 0;
+    padding: 16px;
+    background: var(--gaip-surface-muted);
+    border-radius: 8px;
+    border: 1px solid var(--gaip-border);
+}
+
+.gaip-context-details {
+    font-size: 13px;
+}
+
+.gaip-context-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--gaip-border);
+}
+
+.gaip-context-row:last-child {
+    border-bottom: none;
+}
+
+.gaip-context-label {
+    color: var(--gaip-text);
+}
+
+.gaip-context-value {
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+.gaip-context-note {
+    margin-top: 12px;
+    padding: 10px;
+    background: var(--gaip-warning-bg);
+    border-left: 3px solid #f59e0b;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ============================================
+   TOOLTIP
+   ============================================ */
+
+.gaip-tooltip {
+    position: fixed;
+    z-index: 3000;
+    max-width: 300px;
+    background: var(--gaip-text);
+    color: var(--gaip-surface);
+    padding: 12px 14px;
+    border-radius: 6px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    font-size: 12px;
+}
+
+.gaip-tooltip-content h5 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-surface);
+}
+
+.gaip-tooltip-content ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.gaip-tooltip-content li {
+    margin: 4px 0;
+    line-height: 1.4;
+}
+
+/* ============================================
+   UTILITIES
+   ============================================ */
+
+.gaip-note {
+    font-size: 12px;
+    color: var(--gaip-text);
+    font-style: italic;
+    margin: 8px 0;
+}
+
+.gaip-no-data {
+    padding: 20px;
+    text-align: center;
+    color: var(--gaip-text);
+    font-style: italic;
+}
+
+/* ============================================
+   MOBILE RESPONSIVENESS
+   ============================================ */
+
+@media (max-width: 640px) {
+    .gaip-verdict {
+        padding: 10px;
+    }
+    
+    .gaip-parameter {
+        font-size: 14px;
+    }
+    
+    .gaip-status-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+    
+    .gaip-verdict-content {
+        font-size: 12px;
+    }
+    
+    .gaip-expand-btn {
+        font-size: 11px;
+        padding: 4px 8px;
+    }
+    
+    .gaip-ratios-cards {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ============================================================
+   MULTI-SOURCE OVERLAY  (nutrient-trend.js)
+   ============================================================ */
+.gaip-multi-source-overlay {
+    margin: 12px 0;
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--gaip-surface);
+}
+.gaip-mso-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--gaip-surface-muted);
+    border-bottom: 1px solid var(--gaip-border);
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    color: #1e3a5f;
+}
+.gaip-mso-header:hover { background: var(--gaip-surface-hover); }
+.gaip-mso-toggle { font-size: 10px; color: var(--gaip-text-secondary); min-width: 10px; }
+.gaip-mso-subtitle { font-weight: normal; color: var(--gaip-text-secondary); font-size: 11px; }
+.gaip-mso-body { padding: 10px 12px; }
+.gaip-mso-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--gaip-surface-hover);
+}
+.gaip-mso-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--gaip-text);
+}
+.gaip-mso-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.gaip-mso-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+.gaip-mso-cell {
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-surface-hover);
+    border-radius: 6px;
+    padding: 6px 8px 4px;
+}
+.gaip-mso-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text-secondary);
+    margin-bottom: 4px;
+}
+.gaip-mso-expandable {
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+.gaip-mso-expandable:hover {
+    box-shadow: 0 2px 10px rgba(37,99,235,0.15);
+    border-color: var(--gaip-info-bg);
+}
+.gaip-mso-expand-hint {
+    font-size: 9px;
+    color: #93c5fd;
+    vertical-align: middle;
+    margin-left: 2px;
+}
+@media (max-width: 600px) {
+    .gaip-mso-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ============================================================
+   REDESIGNED SOIL & WATER CARDS  v2.0
+   ============================================================ */
+
+/* Import strip */
+.gaip-import-strip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    background: var(--gaip-good-bg);
+    border: 1px dashed #86efac;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+.gaip-import-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+.gaip-import-primary {
+    background: #16a34a;
+    color: var(--gaip-surface);
+}
+.gaip-import-primary:hover {
+    background: #15803d;
+    box-shadow: 0 2px 8px rgba(22,163,74,0.25);
+}
+.gaip-import-icon { font-size: 15px; }
+.gaip-import-or {
+    font-size: 12px;
+    color: var(--gaip-text-secondary);
+}
+
+/* Field groups */
+.gaip-field-group {
+    margin-bottom: 16px;
+    padding: 12px 14px;
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-surface-hover);
+    border-radius: 8px;
+}
+.gaip-field-group-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gaip-text-secondary);
+    margin-bottom: 10px;
+}
+
+/* Field rows */
+.gaip-field-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.gaip-field-row-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+}
+@media (max-width: 560px) {
+    .gaip-field-row-2,
+    .gaip-field-row-3 { grid-template-columns: 1fr; }
+}
+
+/* Individual field */
+.gaip-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    margin-bottom: 4px;
+}
+.gaip-field input,
+.gaip-field select {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 5px;
+    font-size: 13px;
+    color: var(--gaip-text);
+    background: var(--gaip-surface);
+    box-sizing: border-box;
+    transition: border-color 0.12s, box-shadow 0.12s;
+}
+.gaip-field input:focus,
+.gaip-field select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+}
+.gaip-field small {
+    display: block;
+    font-size: 10px;
+    color: var(--gaip-text-muted);
+    margin-top: 3px;
+}
+
+/* Nutrient grid — replaces gaip-grid-mini */
+.gaip-nutrient-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+}
+.gaip-nutrient-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    padding: 6px 4px 4px;
+    transition: border-color 0.12s;
+}
+.gaip-nutrient-cell:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.08);
+}
+.gaip-nutrient-cell--secondary {
+    opacity: 0.7;
+}
+.gaip-nutrient-symbol {
+    font-size: 12px;
+    font-weight: 700;
+    color: #1e3a5f;
+    margin-bottom: 4px;
+    line-height: 1;
+}
+.gaip-nutrient-cell input {
+    width: 100%;
+    border: none;
+    border-top: 1px solid var(--gaip-border);
+    border-radius: 0 0 4px 4px;
+    font-size: 12px;
+    text-align: center;
+    padding: 4px 2px;
+    color: var(--gaip-text);
+    background: transparent;
+}
+.gaip-nutrient-cell input:focus {
+    outline: none;
+    background: var(--gaip-info-bg);
+}
+.gaip-nutrient-cell input::placeholder { color: var(--gaip-border); font-size: 10px; }
+
+/* Collapsible sections */
+.gaip-collapsible-section {
+    margin-bottom: 8px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.gaip-collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 9px 14px;
+    background: var(--gaip-surface-muted);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    user-select: none;
+}
+.gaip-collapsible-header:hover { background: var(--gaip-surface-hover); }
+.gaip-collapsible-toggle {
+    font-size: 10px;
+    color: var(--gaip-text-muted);
+    transition: transform 0.15s;
+}
+.gaip-collapsible-header.open .gaip-collapsible-toggle {
+    transform: rotate(90deg);
+}
+.gaip-collapsible-body {
+    padding: 12px 14px;
+    background: var(--gaip-surface);
+    border-top: 1px solid var(--gaip-border);
+}
+
+/* Switcher mount areas */
+.gaip-soil-switcher-mount,
+.gaip-water-switcher-mount {
+    margin-bottom: 12px;
+}

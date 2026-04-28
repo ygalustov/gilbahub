@@ -1,0 +1,394 @@
+/* =============================================================================
+   GILBA EVENT PLANNER v1.0.0
+   ============================================================================= */
+
+.gssh-event-planner-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    z-index: 999999;
+}
+
+.gssh-event-planner-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 999998;
+}
+
+.gssh-ep-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border-bottom: 2px solid #10b981;
+}
+
+.gssh-ep-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #064e3b;
+}
+
+.gssh-ep-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--gaip-text-secondary);
+    padding: 0 4px;
+    line-height: 1;
+}
+
+.gssh-ep-close:hover { color: var(--gaip-text); }
+
+.gssh-ep-body {
+    padding: 16px;
+}
+
+.gssh-ep-intro {
+    font-size: 12px;
+    color: var(--gaip-text-secondary);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.gssh-ep-intro p { margin: 0; }
+
+/* Form */
+.gssh-ep-add-form {
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.gssh-ep-form-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.gssh-ep-form-row:last-child { margin-bottom: 0; }
+
+.gssh-ep-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 100px;
+}
+
+.gssh-ep-field label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gaip-text);
+}
+
+.gssh-ep-field input,
+.gssh-ep-field select {
+    padding: 6px 8px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--gaip-text);
+    background: var(--gaip-surface);
+}
+
+.gssh-ep-btn-primary {
+    background: #10b981;
+    color: var(--gaip-surface);
+    border: none;
+    padding: 7px 14px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.gssh-ep-btn-primary:hover { background: #059669; }
+
+.gssh-ep-btn-run {
+    background: #2563eb;
+    color: var(--gaip-surface);
+    border: none;
+    padding: 10px 24px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.gssh-ep-btn-run:hover { background: #1d4ed8; }
+.gssh-ep-btn-run:disabled { background: var(--gaip-text-muted); cursor: not-allowed; }
+
+/* Event list */
+.gssh-ep-event-list { margin-bottom: 8px; }
+
+.gssh-ep-empty {
+    font-size: 12px;
+    color: var(--gaip-text-muted);
+    font-style: italic;
+    padding: 8px 0;
+}
+
+.gssh-ep-events {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gssh-ep-event-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+}
+
+.gssh-ep-event-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.gssh-ep-event-info {
+    flex: 1;
+    font-size: 12px;
+    color: var(--gaip-text);
+    line-height: 1.4;
+}
+
+.gssh-ep-event-meta {
+    font-size: 11px;
+    color: var(--gaip-text-secondary);
+}
+
+.gssh-ep-event-remove {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: var(--gaip-text-muted);
+    cursor: pointer;
+    padding: 2px 6px;
+}
+
+.gssh-ep-event-remove:hover { color: #ef4444; }
+
+.gssh-ep-tag {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-weight: 500;
+}
+
+.gssh-ep-tag-low {
+    background: var(--gaip-critical-bg);
+    color: #dc2626;
+    border: 1px solid var(--gaip-critical-border);
+}
+
+/* Results */
+.gssh-ep-results { margin-top: 16px; }
+
+/* Summary */
+.gssh-ep-summary {
+    padding: 12px 16px;
+    border-left: 4px solid;
+    border-radius: 8px;
+    background: var(--gaip-surface-muted);
+    margin-bottom: 16px;
+}
+
+.gssh-ep-summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.gssh-ep-summary-risk {
+    color: var(--gaip-surface);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+}
+
+.gssh-ep-summary-conf {
+    font-size: 11px;
+    color: var(--gaip-text-secondary);
+}
+
+.gssh-ep-summary-metrics {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+}
+
+/* Metrics (shared) */
+.gssh-ep-metric {
+    flex: 1;
+    min-width: 65px;
+    text-align: center;
+    padding: 6px 4px;
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+}
+
+.gssh-ep-metric-val {
+    display: block;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gaip-text);
+    line-height: 1.2;
+}
+
+.gssh-ep-metric-label {
+    display: block;
+    font-size: 10px;
+    color: var(--gaip-text-secondary);
+    margin-top: 1px;
+}
+
+/* Chart */
+.gssh-ep-chart-container {
+    margin-bottom: 16px;
+}
+
+.gssh-ep-chart-container h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--gaip-text);
+}
+
+#gssh-ep-chart {
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    padding: 8px;
+    overflow-x: auto;
+}
+
+/* Event cards */
+.gssh-ep-event-card {
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.gssh-ep-event-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: var(--gaip-surface-muted);
+    border-bottom: 1px solid var(--gaip-border);
+    font-size: 13px;
+    font-weight: 600;
+    color: #1e3a5f;
+}
+
+.gssh-ep-event-card-date {
+    font-size: 12px;
+    color: var(--gaip-text-secondary);
+    font-weight: 400;
+}
+
+.gssh-ep-event-card-metrics {
+    display: flex;
+    gap: 4px;
+    padding: 10px;
+    flex-wrap: wrap;
+}
+
+/* Pinch points */
+.gssh-ep-pinch {
+    padding: 8px 12px;
+    border-left: 3px solid;
+    border-radius: 4px;
+    background: var(--gaip-critical-bg);
+    font-size: 12px;
+    color: #7f1d1d;
+    margin-bottom: 6px;
+}
+
+/* Recovery gap warning */
+.gssh-ep-gap-warning {
+    padding: 12px;
+    border: 1px solid var(--gaip-warning-border);
+    border-radius: 8px;
+    background: var(--gaip-warning-bg);
+    margin: 12px 0;
+    font-size: 12px;
+}
+
+.gssh-ep-gap-header {
+    font-weight: 600;
+    color: #92400e;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+.gssh-ep-gap-warning p {
+    margin: 4px 0;
+    color: #78350f;
+}
+
+.gssh-ep-recs {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--gaip-warning-border);
+}
+
+.gssh-ep-recs ul {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+
+.gssh-ep-recs li {
+    margin: 3px 0;
+    line-height: 1.4;
+    color: #78350f;
+}
+
+/* Confidence disclosure */
+.gssh-ep-confidence-note {
+    font-size: 11px;
+    color: var(--gaip-text-muted);
+    margin-top: 16px;
+    padding-top: 10px;
+    border-top: 1px solid var(--gaip-surface-hover);
+    line-height: 1.5;
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .gssh-ep-form-row { flex-direction: column; }
+    .gssh-ep-field { min-width: auto; }
+    .gssh-ep-summary-metrics { flex-wrap: wrap; }
+    .gssh-ep-event-card-metrics { flex-wrap: wrap; }
+}

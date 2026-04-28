@@ -1,0 +1,298 @@
+/**
+ * Gilba Hub — Priority Action Queue Styles
+ * Version: 1.0.0
+ * 
+ * Designed to sit naturally within the existing Hub UI.
+ * Uses the same font stack and colour palette visible in the current dashboard.
+ */
+
+/* ── Container (now inside dashboard) ── */
+#gpq-container {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* ── Queue wrapper ── */
+.gpq-queue {
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Header ── */
+.gpq-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--gaip-surface-muted);
+    border-bottom: 1px solid var(--gaip-border);
+}
+
+.gpq-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gpq-header-icon {
+    font-size: 14px;
+}
+
+.gpq-header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    letter-spacing: 0.01em;
+}
+
+.gpq-header-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    border-radius: 10px;
+    background: var(--gaip-text);
+    color: var(--gaip-surface);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.gpq-header-right {
+    display: flex;
+    gap: 8px;
+}
+
+.gpq-summary-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.gpq-summary-badge.gpq-critical {
+    background: var(--gaip-critical-bg);
+    color: #991b1b;
+}
+
+.gpq-summary-badge.gpq-warning {
+    background: var(--gaip-warning-bg);
+    color: #92400e;
+}
+
+/* ── Action items ── */
+.gpq-items {
+    /* No padding — items go edge to edge */
+}
+
+.gpq-item {
+    display: grid;
+    grid-template-columns: 5px 40px 1fr auto;
+    align-items: center;
+    padding: 0;
+    border-bottom: 1px solid var(--gaip-surface-hover);
+    cursor: pointer;
+    transition: background-color 0.12s ease;
+}
+
+.gpq-item:last-child {
+    border-bottom: none;
+}
+
+.gpq-item:hover {
+    background: var(--gaip-surface-muted);
+}
+
+/* ── Urgency bar (left edge) ── */
+.gpq-urgency-bar {
+    width: 5px;
+    height: 100%;
+    min-height: 56px;
+    align-self: stretch;
+}
+
+.gpq-urgency-bar.gpq-critical {
+    background: #dc2626;
+}
+
+.gpq-urgency-bar.gpq-warning {
+    background: #d97706;
+}
+
+.gpq-urgency-bar.gpq-advisory {
+    background: #2563eb;
+}
+
+.gpq-urgency-bar.gpq-info {
+    background: var(--gaip-text-muted);
+}
+
+/* ── Icon ── */
+.gpq-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2px 0 10px;
+}
+
+.gpq-icon-inner {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.gpq-icon-inner.gpq-engine-disease    { background: var(--gaip-critical-bg); }
+.gpq-icon-inner.gpq-engine-pgr        { background: var(--gaip-warning-bg); }
+.gpq-icon-inner.gpq-engine-climate    { background: var(--gaip-info-bg); }
+.gpq-icon-inner.gpq-engine-soil       { background: var(--gaip-info-bg); }
+.gpq-icon-inner.gpq-engine-water      { background: var(--gaip-good-bg); }
+.gpq-icon-inner.gpq-engine-irrigation { background: var(--gaip-good-bg); }
+.gpq-icon-inner.gpq-engine-nutrition  { background: var(--gaip-good-bg); }
+.gpq-icon-inner.gpq-engine-stress     { background: var(--gaip-warning-bg); }
+
+/* ── Content ── */
+.gpq-item-content {
+    padding: 10px 14px;
+    min-width: 0; /* prevent grid blowout */
+}
+
+.gpq-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
+.gpq-item-detail {
+    font-size: 12px;
+    color: var(--gaip-text-secondary);
+    line-height: 1.4;
+    /* Truncate long details to 2 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Meta column (right side) ── */
+.gpq-item-meta {
+    padding: 8px 14px 8px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    white-space: nowrap;
+}
+
+.gpq-engine-badge {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 2px 7px;
+    border-radius: 3px;
+}
+
+.gpq-engine-badge.gpq-engine-disease    { background: var(--gaip-critical-bg); color: #991b1b; }
+.gpq-engine-badge.gpq-engine-pgr        { background: var(--gaip-warning-bg); color: #92400e; }
+.gpq-engine-badge.gpq-engine-climate    { background: var(--gaip-info-bg); color: #6b21a8; }
+.gpq-engine-badge.gpq-engine-soil       { background: var(--gaip-info-bg); color: #1e40af; }
+.gpq-engine-badge.gpq-engine-water      { background: var(--gaip-good-bg); color: #065f46; }
+.gpq-engine-badge.gpq-engine-irrigation { background: var(--gaip-good-bg); color: #065f46; }
+.gpq-engine-badge.gpq-engine-nutrition  { background: var(--gaip-good-bg); color: #166534; }
+.gpq-engine-badge.gpq-engine-stress     { background: var(--gaip-warning-bg); color: #854d0e; }
+
+.gpq-timeframe {
+    font-size: 11px;
+    font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+    color: var(--gaip-text-muted);
+}
+
+.gpq-confidence {
+    font-size: 10px;
+    font-family: 'SF Mono', 'Consolas', 'Liberation Mono', monospace;
+    color: var(--gaip-border);
+}
+
+/* ── Empty state ── */
+.gpq-queue.gpq-empty {
+    border-color: var(--gaip-good-bg);
+    background: var(--gaip-good-bg);
+}
+
+.gpq-empty-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+}
+
+.gpq-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--gaip-good-bg);
+    color: #059669;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.gpq-empty-text {
+    font-size: 13px;
+    font-weight: 600;
+    color: #065f46;
+}
+
+.gpq-empty-sub {
+    font-size: 12px;
+    color: var(--gaip-good-border);
+}
+
+/* ── Highlight animation (when clicking through to module) ── */
+.gpq-highlight {
+    animation: gpq-pulse 2s ease-out;
+}
+
+@keyframes gpq-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+    50%  { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.1); }
+    100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .gpq-item {
+        grid-template-columns: 4px 1fr;
+        grid-template-rows: auto auto;
+    }
+    
+    .gpq-item-icon {
+        display: none;
+    }
+    
+    .gpq-item-content {
+        grid-column: 2;
+        padding: 10px 12px 4px;
+    }
+    
+    .gpq-item-meta {
+        grid-column: 2;
+        flex-direction: row;
+        padding: 0 12px 10px;
+        gap: 8px;
+        align-items: center;
+        justify-content: flex-start;
+    }
+}

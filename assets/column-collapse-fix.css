@@ -1,0 +1,220 @@
+/**
+ * Column Collapse Fix v1.2
+ * 
+ * Fixes the issue where table/grid columns collapse to near-zero width,
+ * causing text to wrap character-by-character vertically.
+ * 
+ * Root cause: The parent .gaip-grid layout constrains child cards,
+ * which then squeezes nested tables below their minimum content width.
+ * 
+ * Affected modules:
+ * - Tissue Testing table (rendered by tissue-ui.js into #gaipTissueModule)
+ *   - <td data-range="..."> shows "25-300 mg/kg" 
+ *   - <td data-band="..."> shows "Sufficient/Deficient"
+ * - TDR/Irrigation zone summary table
+ */
+
+/* ==========================================================================
+   TISSUE TABLE FIX (tissue-ui.js)
+   The table is: .gaip-tissue-module .gaip-table
+   Problem cells: td[data-range], td[data-band]
+   ========================================================================== */
+
+/* Ensure the tissue module wrapper allows horizontal scroll */
+#gaipTissueModule,
+.gaip-tissue-module {
+    overflow-x: auto !important;
+    min-width: 300px !important;
+}
+
+/* The table wrapper needs to allow scroll */
+#gaipTissueModule .gaip-tablewrap,
+.gaip-tissue-module .gaip-tablewrap {
+    overflow-x: auto !important;
+    min-width: 100% !important;
+}
+
+/* Force the tissue table to not collapse */
+#gaipTissueModule .gaip-table,
+.gaip-tissue-module .gaip-table {
+    table-layout: auto !important;
+    min-width: 450px !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+}
+
+/* CRITICAL: All table cells must not wrap text vertically */
+#gaipTissueModule .gaip-table th,
+#gaipTissueModule .gaip-table td,
+.gaip-tissue-module .gaip-table th,
+.gaip-tissue-module .gaip-table td {
+    white-space: nowrap !important;
+    padding: 8px 10px !important;
+}
+
+/* Range column (e.g., "25-300 mg/kg") - THIS IS THE PROBLEM COLUMN */
+#gaipTissueModule td[data-range],
+.gaip-tissue-module td[data-range],
+td[data-range] {
+    white-space: nowrap !important;
+    min-width: 100px !important;
+}
+
+/* Status/Band column (e.g., "Sufficient") - THIS IS THE OTHER PROBLEM COLUMN */
+#gaipTissueModule td[data-band],
+.gaip-tissue-module td[data-band],
+td[data-band] {
+    white-space: nowrap !important;
+    min-width: 80px !important;
+}
+
+/* Band classes applied to the status cells */
+.band-Sufficient,
+.band-Deficient,
+.band-Marginal,
+.band-High,
+.band-Missing,
+[class^="band-"],
+[class*=" band-"] {
+    white-space: nowrap !important;
+    display: inline-block !important;
+}
+
+/* Element column */
+#gaipTissueModule .gaip-table td:first-child,
+.gaip-tissue-module .gaip-table td:first-child {
+    min-width: 40px !important;
+    font-weight: 600 !important;
+}
+
+/* Value input column */
+#gaipTissueModule .gaip-table td:nth-child(2),
+.gaip-tissue-module .gaip-table td:nth-child(2) {
+    min-width: 80px !important;
+}
+
+/* Unit select column */
+#gaipTissueModule .gaip-table td:nth-child(3),
+.gaip-tissue-module .gaip-table td:nth-child(3) {
+    min-width: 70px !important;
+}
+
+/* Input and select elements inside the table */
+#gaipTissueModule .gaip-table input,
+#gaipTissueModule .gaip-table select,
+.gaip-tissue-module .gaip-table input,
+.gaip-tissue-module .gaip-table select {
+    min-width: 60px !important;
+}
+
+/* ==========================================================================
+   TDR / IRRIGATION TABLE FIX
+   The Zone Irrigation Summary table has the same column collapse issue
+   ========================================================================== */
+
+/* Force TDR/irrigation tables to not collapse columns */
+.gaip-tdr-table,
+.gaip-irrigation-table,
+.gaip-zone-summary,
+table[class*="tdr"],
+table[class*="irrigation"],
+#gaip-sensor-result table,
+#gaip-sensor-summary-container table {
+    table-layout: auto !important;
+    min-width: 450px !important;
+    width: max-content !important;
+}
+
+/* All table cells need white-space: nowrap */
+.gaip-tdr-table td,
+.gaip-tdr-table th,
+.gaip-irrigation-table td,
+.gaip-irrigation-table th,
+.gaip-zone-summary td,
+.gaip-zone-summary th,
+#gaip-sensor-result td,
+#gaip-sensor-result th,
+#gaip-sensor-summary-container td,
+#gaip-sensor-summary-container th {
+    white-space: nowrap !important;
+    padding: 8px 10px !important;
+    min-width: 50px !important;
+}
+
+/* Status column specifically */
+td[class*="status"],
+th[class*="status"],
+.status-column,
+td:last-child,
+th:last-child {
+    min-width: 70px !important;
+    white-space: nowrap !important;
+}
+
+/* Ensure wrapper allows horizontal scroll */
+#gaip-sensor-result,
+#gaip-sensor-summary-container,
+.gaip-tdr-section,
+.gaip-irrigation-section {
+    overflow-x: auto !important;
+    max-width: 100% !important;
+}
+
+/* ==========================================================================
+   PARENT CONTAINER FIXES
+   The .gaip-grid is the main layout container that wraps all cards.
+   When it distributes space, child cards can get squeezed.
+   ========================================================================== */
+
+/* The main hub grid should allow cards to have natural width */
+#gaip-hub > .gaip-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)) !important;
+}
+
+/* Cards should allow internal content to scroll */
+.gaip-card {
+    overflow: visible !important;
+    min-width: 0 !important;
+}
+
+.gaip-card-body {
+    overflow-x: auto !important;
+    min-width: 0 !important;
+}
+
+/* Ensure tissue module card specifically doesn't squeeze the table */
+.gaip-card:has(#gaipTissueModule),
+.gaip-card:has(.gaip-tissue-module) {
+    min-width: 350px !important;
+}
+
+/* Fallback for browsers without :has() support */
+#gaipTissueModule,
+.gaip-tissue-module {
+    min-width: 100% !important;
+    overflow-x: auto !important;
+}
+
+/* ==========================================================================
+   RESPONSIVE: Allow horizontal scroll on small screens
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    #gaipTissueModule .gaip-tablewrap,
+    .gaip-tissue-module .gaip-tablewrap {
+        overflow-x: scroll !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #gaipTissueModule .gaip-table,
+    .gaip-tissue-module .gaip-table {
+        min-width: 400px !important;
+    }
+    
+    #gaip-sensor-result,
+    #gaip-sensor-summary-container {
+        overflow-x: scroll !important;
+        -webkit-overflow-scrolling: touch;
+    }
+}

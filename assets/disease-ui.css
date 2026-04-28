@@ -1,0 +1,441 @@
+/**
+ * =============================================================================
+ * GILBA DISEASE ENGINE STYLES v1.0
+ * =============================================================================
+ */
+
+/* Dashboard Container */
+.gaip-disease-dashboard {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Risk Level Colors */
+.gaip-risk-minimal { --risk-color: #22c55e; --risk-bg: var(--gaip-good-bg); }
+.gaip-risk-low { --risk-color: #22c55e; --risk-bg: var(--gaip-good-bg); }
+.gaip-risk-moderate { --risk-color: #f59e0b; --risk-bg: var(--gaip-warning-bg); }
+.gaip-risk-high { --risk-color: #f97316; --risk-bg: var(--gaip-warning-bg); }
+.gaip-risk-severe { --risk-color: #ef4444; --risk-bg: var(--gaip-critical-bg); }
+
+/* Summary Card */
+.gaip-disease-summary {
+    border-left: 4px solid var(--risk-color);
+    background: var(--risk-bg);
+}
+
+.gaip-disease-summary .gaip-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.gaip-risk-icon {
+    font-size: 24px;
+}
+
+.gaip-disease-summary h3 {
+    flex: 1;
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.gaip-risk-label {
+    color: var(--risk-color);
+    font-weight: 700;
+}
+
+.gaip-overall-score {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--risk-color);
+}
+
+.gaip-disease-summary .gaip-card-body {
+    padding: 16px;
+}
+
+.gaip-top-threats h4 {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gaip-threat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.gaip-threat-item:last-child {
+    border-bottom: none;
+}
+
+.gaip-threat-name {
+    font-weight: 500;
+}
+
+.gaip-threat-score {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--risk-bg);
+    color: var(--risk-color);
+}
+
+.gaip-species-note {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    font-size: 13px;
+    color: var(--gaip-text);
+}
+
+/* Alerts Section */
+.gaip-alerts-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gaip-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.gaip-alert-critical {
+    background: var(--gaip-critical-bg);
+    border-color: #ef4444;
+}
+
+.gaip-alert-high {
+    background: var(--gaip-warning-bg);
+    border-color: #f97316;
+}
+
+.gaip-alert-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.gaip-alert-content {
+    flex: 1;
+}
+
+.gaip-alert-message {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.gaip-alert-action {
+    font-size: 13px;
+    color: var(--gaip-text);
+}
+
+/* Disease Cards */
+.gaip-disease-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gaip-disease-cards > h4 {
+    margin: 8px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+.gaip-disease-card {
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: var(--gaip-surface);
+}
+
+.gaip-disease-card.gaip-risk-severe,
+.gaip-disease-card.gaip-risk-high {
+    border-color: var(--risk-color);
+    border-width: 2px;
+}
+
+.gaip-disease-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    cursor: pointer;
+    background: var(--gaip-surface-muted);
+    transition: background 0.15s;
+}
+
+.gaip-disease-header:hover {
+    background: var(--gaip-surface-hover);
+}
+
+.gaip-disease-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+
+.gaip-expand-icon {
+    font-size: 10px;
+    color: var(--gaip-text);
+    transition: transform 0.15s;
+}
+
+.gaip-disease-score {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gaip-score-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--risk-color);
+}
+
+.gaip-score-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--risk-bg);
+    color: var(--risk-color);
+}
+
+.gaip-disease-detail {
+    padding: 16px;
+    border-top: 1px solid var(--gaip-border);
+    background: var(--gaip-surface);
+}
+
+/* Drivers Section */
+.gaip-drivers-section h5 {
+    margin: 0 0 12px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gaip-drivers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gaip-driver-item {
+    display: grid;
+    grid-template-columns: 120px 1fr auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.gaip-driver-label {
+    font-size: 13px;
+    color: var(--gaip-text);
+}
+
+.gaip-driver-bar {
+    height: 8px;
+    background: var(--gaip-border);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.gaip-driver-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #22c55e 0%, #f59e0b 50%, #ef4444 100%);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+}
+
+.gaip-driver-value {
+    font-size: 12px;
+    color: var(--gaip-text);
+    min-width: 80px;
+    text-align: right;
+}
+
+/* Key Message */
+.gaip-key-message {
+    margin: 16px 0;
+    padding: 12px;
+    background: var(--gaip-warning-bg);
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #92400e;
+}
+
+/* Interventions */
+.gaip-interventions {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gaip-border);
+}
+
+.gaip-timing {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--gaip-surface-hover);
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.gaip-timing.gaip-urgent-critical {
+    background: var(--gaip-critical-bg);
+    color: #991b1b;
+}
+
+.gaip-timing.gaip-urgent-high {
+    background: var(--gaip-warning-bg);
+    color: #9a3412;
+}
+
+.gaip-intervention-group {
+    margin-bottom: 12px;
+}
+
+.gaip-intervention-group h6 {
+    margin: 0 0 6px 0;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gaip-intervention-group ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.gaip-intervention-group li {
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 4px;
+}
+
+.gaip-resistance-note,
+.gaip-emergency-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+}
+
+.gaip-resistance-note {
+    background: var(--gaip-warning-bg);
+    color: #92400e;
+}
+
+.gaip-emergency-note {
+    background: var(--gaip-critical-bg);
+    color: #991b1b;
+    font-weight: 600;
+}
+
+/* Source */
+.gaip-source {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--gaip-border);
+    font-size: 11px;
+    color: var(--gaip-text);
+    font-style: italic;
+}
+
+/* Spray Timing Card */
+.gaip-spray-timing {
+    background: var(--gaip-good-bg);
+    border: 1px solid var(--gaip-good-bg);
+}
+
+.gaip-spray-timing .gaip-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gaip-good-bg);
+}
+
+.gaip-spray-timing h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #166534;
+}
+
+.gaip-spray-timing .gaip-card-body {
+    padding: 12px 16px;
+}
+
+.gaip-spray-note {
+    margin: 0 0 8px 0;
+    font-size: 13px;
+    color: #166534;
+}
+
+.gaip-spray-conditions {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.gaip-spray-conditions li {
+    font-size: 13px;
+    color: var(--gaip-text);
+    margin-bottom: 4px;
+}
+
+/* Empty State */
+.gaip-disease-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--gaip-text);
+    font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .gaip-driver-item {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    
+    .gaip-driver-bar {
+        order: 2;
+    }
+    
+    .gaip-driver-value {
+        text-align: left;
+        order: 1;
+    }
+    
+    .gaip-disease-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .gaip-disease-score {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

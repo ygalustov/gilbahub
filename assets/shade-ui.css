@@ -1,0 +1,293 @@
+/**
+ * Gilba Shade UI Styles v1.0.0
+ * Progressive disclosure styling for shade analysis
+ */
+
+/* ============================================================
+   SHADE RESULT CONTAINER
+============================================================ */
+
+.gssh-shade-result {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.gssh-shade-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--gssh-text-muted, var(--gaip-text-secondary));
+}
+
+.gssh-empty-message {
+    font-size: 0.85rem;
+    font-style: italic;
+}
+
+/* ============================================================
+   VERDICT HEADER (State 1)
+============================================================ */
+
+.gssh-shade-verdict {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: 1px solid;
+}
+
+.gssh-shade-verdict.gssh-severity-good {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.4);
+    color: #22c55e;
+}
+
+.gssh-shade-verdict.gssh-severity-watch {
+    background: rgba(234, 179, 8, 0.1);
+    border-color: rgba(234, 179, 8, 0.4);
+    color: #eab308;
+}
+
+.gssh-shade-verdict.gssh-severity-concern {
+    background: rgba(249, 115, 22, 0.1);
+    border-color: rgba(249, 115, 22, 0.4);
+    color: #f97316;
+}
+
+.gssh-shade-verdict.gssh-severity-critical {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.gssh-verdict-icon {
+    font-size: 1.1rem;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
+}
+
+.gssh-verdict-text {
+    flex: 1;
+}
+
+.gssh-verdict-metrics {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+/* ============================================================
+   METRIC CHIPS
+============================================================ */
+
+.gssh-metric-chip {
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--gssh-surface-muted, var(--gaip-surface-muted));
+    border: 1px solid var(--gssh-border, var(--gaip-border));
+    color: var(--gssh-text-secondary, var(--gaip-text));
+    white-space: nowrap;
+}
+
+.gssh-metric-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+/* ============================================================
+   EXPANDABLE PANELS
+============================================================ */
+
+.gssh-shade-panel {
+    border: 1px solid var(--gssh-border, var(--gaip-border));
+    border-radius: 8px;
+    background: var(--gssh-surface, var(--gaip-surface));
+    overflow: hidden;
+}
+
+.gssh-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s ease;
+}
+
+.gssh-panel-header:hover {
+    background: var(--gssh-surface-hover, var(--gaip-surface-hover));
+}
+
+.gssh-chevron {
+    font-size: 0.7rem;
+    color: var(--gssh-text-muted, var(--gaip-text-secondary));
+    transition: transform 0.2s ease;
+}
+
+.gssh-panel-title {
+    flex: 1;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--gssh-text, var(--gaip-text));
+}
+
+.gssh-panel-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.gssh-panel-badge.gssh-severity-good {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--gaip-good);
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.gssh-panel-badge.gssh-severity-watch {
+    background: rgba(234, 179, 8, 0.15);
+    color: #facc15;
+    border: 1px solid rgba(234, 179, 8, 0.4);
+}
+
+.gssh-panel-badge.gssh-severity-concern {
+    background: rgba(249, 115, 22, 0.15);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.4);
+}
+
+.gssh-panel-badge.gssh-severity-critical {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.gssh-panel-content {
+    padding: 10px 12px;
+    border-top: 1px solid var(--gssh-border-light, var(--gaip-surface-hover));
+    font-size: 0.82rem;
+    color: var(--gssh-text-secondary, var(--gaip-text));
+}
+
+/* ============================================================
+   WHY SECTION (State 2)
+============================================================ */
+
+.gssh-shade-why {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.gssh-why-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.gssh-why-label {
+    min-width: 120px;
+    font-size: 0.78rem;
+    color: var(--gssh-text-muted, var(--gaip-text-secondary));
+}
+
+.gssh-why-value {
+    font-size: 0.82rem;
+    color: var(--gssh-text, var(--gaip-text));
+}
+
+.gssh-why-reason {
+    padding-left: 128px;
+    font-style: italic;
+    color: var(--gssh-text-secondary, var(--gaip-text));
+}
+
+/* ============================================================
+   HINTS
+============================================================ */
+
+.gssh-hint {
+    font-size: 0.75rem;
+    color: var(--gssh-text-muted, var(--gaip-text-secondary));
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+.gssh-hint-warn {
+    color: #fbbf24;
+}
+
+/* ============================================================
+   SENSITIVITY ANALYSIS (State 3)
+============================================================ */
+
+.gssh-sensitivity-scenario {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--gssh-border-light, var(--gaip-surface-hover));
+}
+
+.gssh-sensitivity-scenario:last-child {
+    border-bottom: none;
+}
+
+.gssh-scenario-label {
+    min-width: 180px;
+    font-size: 0.78rem;
+    color: var(--gssh-text-muted, var(--gaip-text-secondary));
+}
+
+.gssh-scenario-value {
+    font-size: 0.82rem;
+    color: var(--gssh-accent, #2d7a4f);
+    font-family: ui-monospace, monospace;
+}
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+@media (max-width: 600px) {
+    .gssh-shade-verdict {
+        flex-wrap: wrap;
+    }
+    
+    .gssh-verdict-metrics {
+        width: 100%;
+        margin-top: 6px;
+    }
+    
+    .gssh-why-row {
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .gssh-why-label {
+        min-width: unset;
+    }
+    
+    .gssh-why-reason {
+        padding-left: 0;
+    }
+    
+    .gssh-sensitivity-scenario {
+        flex-direction: column;
+        gap: 2px;
+    }
+    
+    .gssh-scenario-label {
+        min-width: unset;
+    }
+}

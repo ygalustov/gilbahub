@@ -1,0 +1,622 @@
+/**
+ * Gilba Hub Sensor Import Styles
+ * Version 1.0.0
+ */
+
+/* Sensor Upload Area */
+.gaip-sensor-upload {
+    border: 2px dashed var(--gaip-border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    background: var(--gaip-surface-muted);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.gaip-sensor-upload:hover {
+    border-color: #10b981;
+    background: var(--gaip-good-bg);
+}
+
+.gaip-sensor-upload.dragging {
+    border-color: #10b981;
+    background: var(--gaip-good-bg);
+    border-style: solid;
+}
+
+.gaip-sensor-upload-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.gaip-sensor-upload-text {
+    color: var(--gaip-text);
+    font-size: 13px;
+}
+
+.gaip-sensor-upload-text strong {
+    color: #10b981;
+}
+
+.gaip-sensor-upload-hint {
+    font-size: 11px;
+    color: var(--gaip-text);
+    margin-top: 6px;
+}
+
+/* Sensor Summary Panel */
+.gaip-sensor-summary {
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.gaip-sensor-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--gaip-text);
+    font-size: 13px;
+}
+
+.gaip-sensor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--gaip-good-bg);
+}
+
+.gaip-sensor-device {
+    font-weight: 600;
+    color: #166534;
+    font-size: 13px;
+}
+
+.gaip-sensor-age {
+    font-size: 11px;
+    color: var(--gaip-text);
+    background: var(--gaip-surface);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+/* Metrics Grid */
+.gaip-sensor-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.gaip-sensor-metric {
+    background: var(--gaip-surface);
+    border-radius: 6px;
+    padding: 8px;
+    text-align: center;
+    border: 1px solid var(--gaip-border);
+}
+
+.gaip-sensor-metric.gaip-status-ok {
+    border-color: #86efac;
+}
+
+.gaip-sensor-metric.gaip-status-low {
+    border-color: #fbbf24;
+    background: var(--gaip-warning-bg);
+}
+
+.gaip-sensor-metric.gaip-status-high {
+    border-color: #f87171;
+    background: var(--gaip-critical-bg);
+}
+
+.gaip-sensor-metric.gaip-status-warning {
+    border-color: #fbbf24;
+    background: var(--gaip-warning-bg);
+}
+
+.gaip-sensor-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gaip-text);
+    line-height: 1.2;
+}
+
+.gaip-sensor-label {
+    font-size: 10px;
+    color: var(--gaip-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gaip-sensor-range {
+    font-size: 10px;
+    color: var(--gaip-text);
+    margin-top: 2px;
+}
+
+/* Problem Alerts */
+.gaip-sensor-problems {
+    background: var(--gaip-warning-bg);
+    border: 1px solid var(--gaip-warning-border);
+    border-radius: 6px;
+    padding: 8px;
+    margin-top: 8px;
+}
+
+.gaip-sensor-problems-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: #92400e;
+    margin-bottom: 6px;
+}
+
+.gaip-sensor-problem {
+    font-size: 11px;
+    color: #78350f;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--gaip-warning-border);
+}
+
+.gaip-sensor-problem:last-child {
+    border-bottom: none;
+}
+
+.gaip-sensor-problem.gaip-severity-critical {
+    color: #dc2626;
+}
+
+.gaip-sensor-problem.gaip-severity-warning {
+    color: #d97706;
+}
+
+.gaip-sensor-problem.gaip-severity-info {
+    color: #0369a1;
+}
+
+/* Zone Table */
+.gaip-sensor-zones-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 12px;
+}
+
+.gaip-sensor-zones-table th {
+    background: var(--gaip-surface-hover);
+    padding: 6px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--gaip-text);
+    border-bottom: 2px solid var(--gaip-border);
+}
+
+.gaip-sensor-zones-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--gaip-border);
+    color: var(--gaip-text);
+}
+
+.gaip-sensor-zones-table tr:hover td {
+    background: var(--gaip-surface-muted);
+}
+
+/* Import Result */
+.gaip-sensor-import-result {
+    padding: 12px;
+    border-radius: 6px;
+    margin-top: 10px;
+}
+
+.gaip-sensor-import-result.success {
+    background: var(--gaip-good-bg);
+    border: 1px solid #86efac;
+    color: #166534;
+}
+
+.gaip-sensor-import-result.error {
+    background: var(--gaip-critical-bg);
+    border: 1px solid #fca5a5;
+    color: #dc2626;
+}
+
+.gaip-sensor-import-stats {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+
+.gaip-sensor-import-stats span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Clear Button */
+.gaip-sensor-clear-btn {
+    font-size: 11px;
+    color: #dc2626;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-top: 8px;
+}
+
+.gaip-sensor-clear-btn:hover {
+    text-decoration: underline;
+}
+
+/* Integration Badge */
+.gaip-sensor-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    background: var(--gaip-good-bg);
+    color: #059669;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid var(--gaip-good-border);
+}
+
+.gaip-sensor-badge-unmapped {
+    background: var(--gaip-warning-bg);
+    color: #b45309;
+    border-color: var(--gaip-warning-border);
+}
+
+/* Override indicator in irrigation module */
+.gaip-irrigation-sensor-override {
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    font-size: 12px;
+}
+
+.gaip-irrigation-sensor-override strong {
+    color: #166534;
+}
+
+/* ================================================
+   Golf Zone Labelling UI (v2.0)
+   ================================================ */
+
+.gaip-sensor-labelling {
+    margin-top: 16px;
+}
+
+.gaip-sensor-bulk-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: var(--gaip-surface-muted);
+    border-radius: 4px;
+}
+
+.gaip-bulk-zone-select {
+    min-width: 160px;
+    padding: 6px 10px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.gaip-sensor-table-wrapper {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--gaip-border);
+    border-radius: 4px;
+}
+
+.gaip-sensor-readings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.gaip-sensor-readings-table th {
+    position: sticky;
+    top: 0;
+    background: var(--gaip-surface-muted);
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 1px solid var(--gaip-border);
+    font-size: 12px;
+}
+
+.gaip-sensor-readings-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--gaip-surface-hover);
+}
+
+.gaip-sensor-readings-table tr:hover td {
+    background: var(--gaip-surface-muted);
+}
+
+.gaip-sensor-readings-table input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+}
+
+.gaip-zone-select {
+    width: 100%;
+    padding: 5px 8px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 4px;
+    font-size: 12px;
+    background: var(--gaip-surface);
+}
+
+.gaip-sensor-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+}
+
+.gaip-sensor-zone-results {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--gaip-border);
+}
+
+.gaip-sensor-zone-results .gaip-table {
+    margin-top: 12px;
+}
+
+/* Button styles for labelling UI */
+.gaip-sensor-bulk-controls .gaip-btn-secondary {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+/* ================================================
+   Zone Selector Panel (v2.1)
+   ================================================ */
+
+.gaip-zone-selector-panel {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    margin-bottom: 16px;
+}
+
+.gaip-zone-selector-panel label {
+    font-size: 13px;
+    color: #166534;
+    white-space: nowrap;
+}
+
+.gaip-analyse-zone-select {
+    flex: 1;
+    max-width: 280px;
+    padding: 8px 12px;
+    border: 1px solid #86efac;
+    border-radius: 4px;
+    font-size: 13px;
+    background: var(--gaip-surface);
+    color: var(--gaip-text);
+}
+
+.gaip-analyse-zone-select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.gaip-zone-indicator {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.gaip-zone-indicator.gaip-status-good {
+    background: var(--gaip-good-bg);
+    color: #166534;
+}
+
+.gaip-zone-indicator.gaip-status-warning {
+    background: var(--gaip-warning-bg);
+    color: #92400e;
+}
+
+.gaip-zone-indicator.gaip-status-critical {
+    background: var(--gaip-critical-bg);
+    color: #dc2626;
+}
+
+/* Selected row highlight */
+.gaip-zone-selected-row {
+    background: var(--gaip-good-bg) !important;
+}
+
+.gaip-zone-selected-row td {
+    font-weight: 600;
+}
+
+/* Zone irrigation summary */
+.gaip-zone-irrigation-summary {
+    display: flex;
+    gap: 20px;
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--gaip-surface-muted);
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.gaip-zone-irrigation-summary span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Info status color */
+.gaip-text-info {
+    color: #0369a1;
+}
+
+.gaip-status-info {
+    background: var(--gaip-info-bg);
+    color: #0369a1;
+}
+
+/* Labelling option prompt */
+.gaip-sensor-labelling-prompt {
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.gaip-sensor-labelling-prompt p {
+    margin: 0 0 12px 0;
+    color: var(--gaip-text);
+    font-size: 14px;
+}
+
+.gaip-sensor-labelling-prompt .gaip-btn,
+.gaip-sensor-labelling-prompt .gaip-btn-secondary {
+    margin-right: 8px;
+}
+
+/* ========================================
+   Device Selector (v2.0.0)
+   ======================================== */
+
+.gaip-device-selector {
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+}
+
+.gaip-device-selector-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.gaip-device-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text);
+    min-width: 90px;
+}
+
+.gaip-device-select,
+.gaip-tdr-depth-select {
+    padding: 6px 10px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    font-size: 13px;
+    background: var(--gaip-surface);
+    color: var(--gaip-text);
+    cursor: pointer;
+}
+
+.gaip-device-select:focus,
+.gaip-tdr-depth-select:focus {
+    outline: none;
+    border-color: #10b981;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+.gaip-tdr-depth-container {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--gaip-border);
+}
+
+.gaip-device-info {
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: var(--gaip-info-bg);
+    border-radius: 6px;
+    border-left: 3px solid #0ea5e9;
+}
+
+.gaip-device-info-text {
+    font-size: 12px;
+    color: #0369a1;
+}
+
+.gaip-device-info-text strong {
+    color: #0c4a6e;
+}
+
+/* Device header in results */
+.gaip-sensor-device-header {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.gaip-device-badge {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: var(--gaip-surface);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.gaip-depth-badge {
+    background: var(--gaip-info-bg);
+    color: #0369a1;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+/* POGO-specific extras in import result */
+.gaip-sensor-pogo-extras {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,255,255,0.3);
+    font-size: 12px;
+}
+
+.gaip-sensor-pogo-extras span {
+    background: rgba(255,255,255,0.2);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+/* Warnings in import result */
+.gaip-warnings {
+    color: #f59e0b !important;
+}
+
+/* Salinity index column styling */
+.gaip-sensor-zone-table td:nth-child(5),
+.gaip-sensor-readings-table td:nth-child(7) {
+    color: #6366f1;
+}

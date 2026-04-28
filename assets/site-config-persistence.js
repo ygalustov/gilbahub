@@ -1,0 +1,1143 @@
+/**
+ * =============================================================================
+ * GILBA SITE CONFIG PERSISTENCE v1.0.0
+ * =============================================================================
+ *
+ * Saves and restores per-site configuration (turf profile, location, climate
+ * settings) when the user switches between sites. Without this, switching sites
+ * only changes the soil/water/tissue samples but leaves the turf type, species,
+ * variety, HOC, etc. stuck on the previous site's settings.
+ *
+ * Architecture:
+ *   - Hooks into gaip:siteChanged (dispatched AFTER _currentSite updates)
+ *   - BEFORE the switch: snapshots current turf/location config
+ *   - AFTER the switch: restores the target site's saved config (if any)
+ *   - Persists via localStorage alongside existing hub state
+ *
+ * Storage key: gilba_hub_site_configs
+ * Structure:  { siteId: { turf: {...}, location: {...}, savedAt: ISO } }
+ *
+ * Dependencies: site-selector-ui.js, sample-manager.js
+ * Optional:     turf-profile-controller.js (GaipTurfProfile),
+ *               site-settings-panel.js (for snapshot/restore patterns)
+ * =============================================================================
+ */
+(function(global) {
+    'use strict';
+
+    // b35fix274: namespaced storage adapter — all reads/writes go through this
+    var _ls = window.GilbaStorageNS ? window.GilbaStorageNS.get() : localStorage;
+
+    // Set immediately at script-parse time — before TurfProfile.init() runs.
+    // TurfProfile.loadProfile() checks this flag and skips applying species/identity
+    // if site-config-persistence is about to restore the correct per-site species.
+    // Cleared after the page-load restore cascade completes.
+    global.GAIP_SITE_CONFIG_PENDING = true;
+
+    var VERSION = '1.0.0';
+    var STORAGE_KEY = 'gilba_hub_site_configs';
+    var DEBUG = false;
+
+    // =========================================================================
+    // LOGGING
+    // =========================================================================
+
+    function log() {
+        if (!DEBUG) return;
+        var args = ['[SiteConfig]'].concat(Array.prototype.slice.call(arguments));
+        console.log.apply(console, args);
+    }
+
+    function warn() {
+        var args = ['[SiteConfig]'].concat(Array.prototype.slice.call(arguments));
+        console.warn.apply(console, args);
+    }
+
+    // =========================================================================
+    // STORAGE
+    // =========================================================================
+
+    var _configs = {};  // { siteId: { turf, location, savedAt } }
+    var _previousSiteId = null;
+
+    function loadFromStorage() {
+        try {
+            var raw = _ls.getItem(STORAGE_KEY);
+            if (raw) {
+                _configs = JSON.parse(raw);
+                log('Loaded configs for', Object.keys(_configs).length, 'sites');
+            }
+        } catch (e) {
+            warn('Failed to load site configs:', e);
+            _configs = {};
+        }
+    }
+
+    // b35fix268: One-time cleanup — remove corrupted location.name values caused by
+    // GSSH venue ID bleed into GAIP site configs (race condition in gaip:turf-profile-change).
+    // Symptom: all GAIP site cards showing "Campbelltown Stadium, Pembroke Road".
+    // Strategy: for each site config, if location.name contains a known bleed value
+    // AND the site ID does not match that venue, clear the location name.
+    // The user will re-enter correct addresses; lat/lon (used for weather) are preserved.
+    // Keyed by a localStorage flag so it runs once per device.
+    function _cleanupLocationBleed() {
+        var cleanupKey = 'gilba_location_bleed_cleanup_b35fix268';
+        try {
+            if (_ls.getItem(cleanupKey)) return;
+            var BLEED_STRINGS = [
+                'campbelltown', 'pembroke road', 'gtech community', 'brentford community'
+            ];
+            var cleaned = 0;
+            Object.keys(_configs).forEach(function(siteId) {
+                var cfg = _configs[siteId];
+                if (!cfg || !cfg.location || !cfg.location.name) return;
+                var nameLower = cfg.location.name.toLowerCase();
+                var isBleed = BLEED_STRINGS.some(function(s) { return nameLower.indexOf(s) !== -1; });
+                // Only clear if the site ID doesn't match the bleed source
+                var siteIdLower = siteId.toLowerCase();
+                var isOwner = BLEED_STRINGS.some(function(s) { return siteIdLower.indexOf(s.split(' ')[0]) !== -1; });
+                if (isBleed && !isOwner) {
+                    log('b35fix268: clearing corrupted location.name for', siteId, '(was:', cfg.location.name + ')');
+                    cfg.location.name = '';
+                    cleaned++;
+                }
+            });
+            if (cleaned > 0) {
+                saveToStorage();
+                log('b35fix268: location bleed cleanup — cleared', cleaned, 'corrupted site configs');
+            }
+            _ls.setItem(cleanupKey, '1');
+        } catch(e) {
+            warn('b35fix268: location bleed cleanup failed:', e);
+        }
+    }
+
+    function saveToStorage() {
+        try {
+            _ls.setItem(STORAGE_KEY, JSON.stringify(_configs));
+        } catch (e) {
+            warn('Failed to save site configs:', e);
+        }
+    }
+
+    // =========================================================================
+    // SERVER SYNC — push/pull full site configs to/from WP user meta
+    // Enables cross-device species and profile consistency.
+    // Push: called after every saveToStorage().
+    // Pull: called once on init when localStorage is empty or stale.
+    // =========================================================================
+
+    var _serverSyncPending = false;
+    var _serverSyncTimer = null;
+    // b35fix179a: companion species value to apply once #gaip-companion-species
+    // exists. Set by restoreConfig() when the element is absent at restore time
+    // (element is injected by daily-dashboard after orchestrator-complete, which
+    // fires after the 300ms site-switch restore window).
+    var _pendingCompanionRestore = null;
+
+    /**
+     * Push current _configs to server (debounced 2s to batch rapid switches).
+     */
+    function pushConfigsToServer() {
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        var ajaxUrl = cfg.ajaxUrl || '';
+        var nonce   = cfg.nonce   || '';
+        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
+        if (Object.keys(_configs).length === 0) return;
+
+        clearTimeout(_serverSyncTimer);
+        _serverSyncTimer = setTimeout(function() {
+            var body = new URLSearchParams();
+            body.append('action',  'gilba_site_configs_save');
+            body.append('nonce',   nonce);
+            body.append('configs', JSON.stringify(_configs));
+
+            fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (data && data.success) {
+                        log('Site configs synced to server (' + data.data.saved + ' sites)');
+                    } else {
+                        warn('Server config sync failed:', (data && data.data && data.data.message) || 'unknown');
+                    }
+                })
+                .catch(function() { /* offline — silently ignore */ });
+        }, 2000);
+    }
+
+    /**
+     * Pull site configs from server and merge into localStorage.
+     * Server wins for turf identity fields (species, turfType, variety, subCategory).
+     * Called once on init when localStorage has no configs or is missing a site.
+     * @param {function} onComplete  called when done
+     */
+    function pullConfigsFromServer(onComplete) {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        var ajaxUrl = cfg.ajaxUrl || '';
+        var nonce   = cfg.nonce   || '';
+        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
+            if (onComplete) onComplete(false);
+            return;
+        }
+
+        var body = new URLSearchParams();
+        body.append('action', 'gilba_site_configs_load');
+        body.append('nonce',  nonce);
+
+        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data || !data.success || !data.data || !data.data.configs) {
+                    if (onComplete) onComplete(false);
+                    return;
+                }
+                var serverConfigs = data.data.configs;
+                var count = Object.keys(serverConfigs).length;
+                if (count === 0) {
+                    if (onComplete) onComplete(false);
+                    return;
+                }
+
+                var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'grassSpecies', 'companionSpecies'];
+                var merged = 0;
+                Object.keys(serverConfigs).forEach(function(siteId) {
+                    var serverCfg = serverConfigs[siteId];
+                    if (!serverCfg || !serverCfg.turf) return;
+                    if (!_configs[siteId]) {
+                        // Site not in localStorage at all — take server version wholesale
+                        _configs[siteId] = serverCfg;
+                        merged++;
+                    } else {
+                        // Site exists locally — server wins for identity fields only
+                        var local = _configs[siteId];
+                        var serverSavedAt = serverCfg.savedAt ? new Date(serverCfg.savedAt).getTime() : 0;
+                        var localSavedAt  = local.savedAt     ? new Date(local.savedAt).getTime()     : 0;
+                        if (serverSavedAt > localSavedAt) {
+                            // Server is newer — overwrite identity fields
+                            identityFields.forEach(function(f) {
+                                if (serverCfg.turf[f] !== undefined) {
+                                    local.turf[f] = serverCfg.turf[f];
+                                }
+                            });
+                            merged++;
+                        }
+                    }
+                });
+
+                if (merged > 0) {
+                    saveToStorage();
+                    log('Pulled ' + merged + ' updated site configs from server');
+                }
+                if (onComplete) onComplete(merged > 0);
+            })
+            .catch(function() {
+                if (onComplete) onComplete(false);
+            });
+    }
+
+    // =========================================================================
+    // DOM HELPERS
+    // =========================================================================
+
+    function domVal(selector) {
+        var el = document.querySelector(selector);
+        return el ? (el.value || '') : '';
+    }
+
+    function setDomVal(selector, value) {
+        var el = document.querySelector(selector);
+        if (!el || value === undefined || value === null) return false;
+        el.value = value;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+    }
+
+    function isChecked(selector) {
+        var el = document.querySelector(selector);
+        return el ? el.checked : false;
+    }
+
+    function setChecked(selector, val) {
+        var el = document.querySelector(selector);
+        if (!el) return;
+        el.checked = !!val;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // =========================================================================
+    // SNAPSHOT: capture current turf + location config from DOM
+    // =========================================================================
+
+    function snapshotConfig() {
+        var tp = global.GaipTurfProfile;
+        var tpState = (tp && tp.state) ? tp.state : {};
+
+        var turf = {
+            turfType:       tpState.turfType || getSelectedTurfType(),
+            subCategory:    tpState.subCategory || getSelectedSubCategory(),
+            species:        domVal('.gaip-species'),
+            variety:        domVal('.gaip-variety'),
+            construction:   domVal('.gaip-construction'),
+            drainage:       domVal('.gaip-drainage'),
+            hoc:            domVal('.gaip-hoc'),
+            nProgram:       domVal('.gaip-n-program'),
+            methodology:    domVal('.gaip-soil-methodology'),
+            overseedSpecies:  domVal('.gaip-cool-overseed'),
+            overseedVariety:  domVal('.gaip-overseed-variety'),
+            overseedStatus:   domVal('.gaip-overseed-status'),
+            summerIntent:     domVal('.gaip-overseed-summer-intent'),
+            c3Cover:          domVal('.gaip-c3-cover'),
+            yearsEstablished: domVal('.gaip-years-established'),
+            thatchDepth:      domVal('.gaip-thatch-depth'),
+            winterMinTemp:    domVal('.gaip-winter-min-temp'),
+            poaPercent:       domVal('.gaip-poa-percent'),
+            aaTexture:        domVal('.gaip-aa-soil-texture'),
+            // Traffic/wear settings
+            trafficEnabled:   isChecked('.gaip-enable-turf-traffic'),
+            trafficLevel:     domVal('.gaip-traffic-level'),
+            eventsPerWeek:    domVal('.gaip-events-per-week'),
+            // Companion surface (golf greens only — fairway/tee species for parallel disease analysis)
+            // b35fix230: Only snapshot if element exists — selector is injected 350ms after
+            // gaip:analysis-complete, so it's absent on the first auto-save. Don't overwrite
+            // a previously saved value with empty string when the element hasn't rendered yet.
+            companionSpecies: document.getElementById('gaip-companion-species')
+              ? (domVal('#gaip-companion-species') || '')
+              : undefined
+        };
+
+        var location = {
+            lat:  parseFloat(domVal('.gaip-lat')) || null,
+            lon:  parseFloat(domVal('.gaip-lon')) || null,
+            name: (document.getElementById('gaip-location-search') || {}).value || ''
+        };
+
+        // b35fix210: PGR product, date, and rate are owned by the spray log cascade —
+        // site-config-persistence must not snapshot or restore them. The spray log
+        // is the authoritative record of what was applied. Persisting DOM values here
+        // caused stale product codes (e.g. PBZ200 from a testing session) to survive
+        // indefinitely and override correct spray log autofill on every page load.
+        // Only GDD threshold override and base temp are persisted here (user settings,
+        // not application records). enabled flag retained for the checkbox UI.
+        var pgrEnabled = isChecked('.gaip-enable-pgr');
+        var SM_snap = global.GAIP_SampleManager;
+        var _snapSiteId = SM_snap && typeof SM_snap.getActiveSiteId === 'function'
+            ? SM_snap.getActiveSiteId() : null;
+        var pgr = {
+            enabled:         pgrEnabled,
+            productType:     null,          // NOT persisted — spray log owns this
+            applicationDate: null,          // NOT persisted — spray log owns this
+            rateLperHa:      null,          // NOT persisted — spray log owns this
+            // Persist GDD threshold override only if user has manually entered one
+            gddThreshold:    domVal('.gaip-pgr-gdd') || null,
+            _savedForSite:   _snapSiteId || null
+        };
+
+        return {
+            turf: turf,
+            location: location,
+            pgr: pgr,
+            savedAt: new Date().toISOString()
+        };
+    }
+
+    function getSelectedTurfType() {
+        var selected = document.querySelector('.gaip-turf-type-option.selected, .gaip-turf-type-option.active');
+        return selected ? (selected.dataset.type || '') : '';
+    }
+
+    function getSelectedSubCategory() {
+        var selected = document.querySelector('.gaip-subcategory-option.selected, .gaip-subcategory-option.active');
+        return selected ? (selected.dataset.surface || selected.dataset.sport || '') : '';
+    }
+
+    // =========================================================================
+    // RESTORE: apply saved config to DOM
+    // =========================================================================
+
+    function restoreConfig(config) {
+        if (!config) return;
+        _isRestoring = true;
+
+        var turf = config.turf || {};
+        var location = config.location || {};
+        var tp = global.GaipTurfProfile;
+
+        // b35fix154b: On GSSH venue pages the venue selector is the authoritative
+        // source for turfType and species — the saved GAIP site config (which may
+        // have been saved with wrong turfType, e.g. 'lawns') must not overwrite it.
+        // Skip only the turf identity restore (turfType/species/variety).
+        // Location, water, soil, and other config are unaffected.
+        var _isGSSHPage = !!(
+            document.getElementById('gssh-venue-readiness') ||
+            document.querySelector('[id^="gssh-"]') ||
+            global.GSSH_EUE ||
+            (global.location && global.location.search && global.location.search.indexOf('gssh_venue') !== -1)
+        );
+        var skipTurfIdentity = _isGSSHPage;
+        if (_isGSSHPage) {
+            log('GSSH page — skipping turf identity restore (venue selector is authority)');
+        }
+
+        // --- Restore turf type (triggers species dropdown population) ---
+        if (!skipTurfIdentity && turf.turfType && tp) {
+            tp.selectTurfType(turf.turfType);
+
+            // Bowls/cotula: fire handleBowlsSelection to restore AA methodology,
+            // species, and GAIP_STATE.turf.cotula flag
+            if (turf.turfType === 'bowls' && global.GAIP_CotulaBowling) {
+                global.GAIP_CotulaBowling.handleBowlsSelection();
+            }
+        }
+
+        // Sub-category needs a small delay (DOM updates after turfType selection)
+        setTimeout(function() {
+            if (!skipTurfIdentity && turf.subCategory && tp && tp.selectSubCategory) {
+                tp.selectSubCategory(turf.subCategory);
+            }
+
+            // Species and variety need delay for dropdown to populate
+            setTimeout(function() {
+                if (!skipTurfIdentity && turf.species) {
+                    setDomVal('.gaip-species', turf.species);
+                    if (tp && tp.selectSpecies) tp.selectSpecies(turf.species);
+                }
+
+                // Variety dropdown populates after species selection
+                setTimeout(function() {
+                    if (!skipTurfIdentity && turf.variety) {
+                        setDomVal('.gaip-variety', turf.variety);
+                    }
+
+                    // Overseed species/variety — skip on GSSH pages (venue data is authority)
+                    if (!skipTurfIdentity && turf.overseedSpecies) setDomVal('.gaip-cool-overseed', turf.overseedSpecies);
+                    setTimeout(function() {
+                        if (!skipTurfIdentity && turf.overseedVariety) setDomVal('.gaip-overseed-variety', turf.overseedVariety);
+                        
+                        // v10.9.9: Keep _isRestoring true until the FULL cascade is done.
+                        // This prevents auto-save from overwriting config with partial state.
+                        setTimeout(function() {
+                            _isRestoring = false;
+                            _isSiteSwitch = false;  // Clear here — after full cascade, not before
+                            var finalSpecies = skipTurfIdentity ? (tp.state && tp.state.species || '(from profile)') : turf.species;
+                            log('Restore cascade complete for', skipTurfIdentity ? tp.state.turfType : turf.turfType, finalSpecies);
+
+                            // Sync corrected species/turfType back into the last-loaded saved profile.
+                            // Without this, loadLastProfile() on the next page load reads stale species
+                            // (e.g. Perennial Ryegrass) and dispatches it before site-config restores.
+                            // ONLY run on page-load restore — on site-switch, lastProfileName reflects
+                            // the PREVIOUS site's profile and would corrupt it with the new site's species.
+                            try {
+                                if (!_isSiteSwitch) {
+                                var tp2 = global.GaipTurfProfile;
+                                var lastKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY + '_last' : 'gilba_turf_profiles_last';
+                                var profilesKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY : 'gilba_turf_profiles';
+                                var lastProfileName = _ls.getItem(lastKey);
+                                if (lastProfileName) {
+                                    var profiles = JSON.parse(_ls.getItem(profilesKey) || '{}');
+                                    if (profiles[lastProfileName]) {
+                                        var p = profiles[lastProfileName];
+                                        if (!skipTurfIdentity && turf.turfType)  p.turfType  = turf.turfType;
+                                        if (!skipTurfIdentity && turf.subCategory !== undefined) p.subCategory = turf.subCategory;
+                                        if (!skipTurfIdentity && turf.species)   p.species   = turf.species;
+                                        if (!skipTurfIdentity && turf.variety)   p.variety   = turf.variety;
+                                        _ls.setItem(profilesKey, JSON.stringify(profiles));
+                                        log('Synced saved profile "' + lastProfileName + '" — species: ' + p.species);
+                                    }
+                                }
+                                }
+                            } catch (e) { /* non-fatal */ }
+                        }, 500);
+                    }, 50);
+
+                }, 200);
+            }, 200);
+        }, 100);
+
+        // --- Non-cascading fields (can set immediately) ---
+        setDomVal('.gaip-construction', turf.construction);
+        setDomVal('.gaip-drainage', turf.drainage);
+        setDomVal('.gaip-hoc', turf.hoc);
+        setDomVal('.gaip-n-program', turf.nProgram);
+        setDomVal('.gaip-soil-methodology', turf.methodology);
+        setDomVal('.gaip-overseed-summer-intent', turf.summerIntent);
+        setDomVal('.gaip-overseed-status', turf.overseedStatus || '');
+        if (turf.c3Cover !== undefined) setDomVal('.gaip-c3-cover', turf.c3Cover);
+        setDomVal('.gaip-years-established', turf.yearsEstablished);
+        setDomVal('.gaip-thatch-depth', turf.thatchDepth);
+        setDomVal('.gaip-winter-min-temp', turf.winterMinTemp);
+        setDomVal('.gaip-poa-percent', turf.poaPercent);
+        setDomVal('.gaip-aa-soil-texture', turf.aaTexture || '');
+
+        // Traffic
+        if (turf.trafficEnabled !== undefined) setChecked('.gaip-enable-turf-traffic', turf.trafficEnabled);
+        setDomVal('.gaip-traffic-level', turf.trafficLevel || '');
+        setDomVal('.gaip-events-per-week', turf.eventsPerWeek || '');
+
+        // Companion surface species (golf greens only)
+        // b35fix179a: element may not exist yet — injected by daily-dashboard
+        // after gaip:orchestrator-complete, which fires after this restore runs.
+        // Write now if present; otherwise park the value in _pendingCompanionRestore
+        // and apply it on the next orchestrator-complete (one-shot).
+        if (turf.companionSpecies !== undefined) {
+            var compEl = document.getElementById('gaip-companion-species');
+            if (compEl) {
+                compEl.value = turf.companionSpecies || '';
+            } else {
+                _pendingCompanionRestore = turf.companionSpecies || '';
+                document.addEventListener('gaip:orchestrator-complete', function _applyPendingCompanion() {
+                    document.removeEventListener('gaip:orchestrator-complete', _applyPendingCompanion);
+                    var el = document.getElementById('gaip-companion-species');
+                    if (el && _pendingCompanionRestore !== null) {
+                        el.value = _pendingCompanionRestore;
+                        log('Companion restore (deferred): applied "' + _pendingCompanionRestore + '"');
+                        _pendingCompanionRestore = null;
+                    }
+                });
+                log('Companion restore deferred — element absent, waiting for orchestrator-complete');
+            }
+        }
+
+        // --- Location ---
+        // b35fix227: Always write location when restoring a site config.
+        // If the site has no saved location (lat/lon absent), CLEAR the DOM
+        // fields so the previous site's coordinates don't bleed into this site's
+        // climate fetch. Without this, switching from Federal Golf Club (Bowral)
+        // to Shirley Golf Club (Christchurch) left Bowral coords in the DOM,
+        // causing the climate engine to fetch weather for the wrong location.
+        if (location.lat) {
+            setDomVal('.gaip-lat', location.lat);
+        } else {
+            // No saved location — clear to prevent bleed from previous site
+            setDomVal('.gaip-lat', '');
+        }
+        if (location.lon) {
+            setDomVal('.gaip-lon', location.lon);
+        } else {
+            setDomVal('.gaip-lon', '');
+        }
+        if (location.name) {
+            var locSearch = document.getElementById('gaip-location-search');
+            if (locSearch) locSearch.value = location.name;
+        } else {
+            var locSearch = document.getElementById('gaip-location-search');
+            if (locSearch) locSearch.value = '';
+        }
+        
+        // Notify map picker to sync pin/view to restored coordinates
+        if (location.lat && location.lon) {
+            document.dispatchEvent(new CustomEvent('gaip:location-restored', {
+                detail: { lat: location.lat, lon: location.lon, name: location.name || '' }
+            }));
+            
+            // Also update WP user_meta so PHP-injected location matches on next page load
+            if (typeof jQuery !== 'undefined' && global.GAIP_HUB_CONFIG) {
+                jQuery.ajax({
+                    url: global.GAIP_HUB_CONFIG.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'gilba_save_location',
+                        lat: location.lat,
+                        lon: location.lon,
+                        name: location.name || '',
+                        nonce: global.GAIP_HUB_CONFIG.nonce
+                    }
+                });
+            }
+        }
+
+        // Fire state change so engines pick up the new config
+        if (tp && tp.dispatchStateChange) {
+            setTimeout(function() { tp.dispatchStateChange(); }, 350);
+        }
+
+        // --- PGR settings ---
+        // b35fix210: product/date/rate NOT restored from config — spray log cascade
+        // is the authoritative source and will populate them after analysis-complete.
+        // Only restore the GDD threshold override (user setting) and checkbox state.
+        var pgr = config.pgr || {};
+        var pgrChk = document.querySelector('.gaip-enable-pgr');
+        if (pgrChk && pgrChk.type === 'checkbox') {
+            pgrChk.checked = pgr.enabled !== undefined ? !!pgr.enabled : false;
+        }
+        // Restore GDD threshold override if user had set one
+        if (pgr.gddThreshold) {
+            setDomVal('.gaip-pgr-gdd', pgr.gddThreshold);
+        }
+        // Explicitly clear product/date/rate so stale values from localStorage
+        // don't persist into the new session. The cascade will populate them.
+        setDomVal('.gaip-pgr-product', '');
+        setDomVal('.gaip-pgr-date',    '');
+        setDomVal('.gaip-pgr-rate',    '');
+
+        log('Restored config — turf:', turf.turfType, turf.species, turf.variety || '(no variety)');
+    }
+
+    // =========================================================================
+    // SITE SWITCH HOOK (event-based)
+    // =========================================================================
+
+    /**
+     * Save current site config before switching away.
+     *
+     * IMPORTANT: Do NOT call snapshotConfig() here. The DOM still reflects the
+     * OUTGOING site's species/turfType during the transition — snapshotting now
+     * would capture the wrong species and overwrite the departing site's correct config.
+     * Instead, preserve the existing saved config for the departing site and only
+     * update non-identity fields (construction, drainage, hoc etc.) that the user
+     * may have changed while on that site.
+     */
+    function saveCurrentSiteConfig() {
+        if (!_previousSiteId) return;
+
+        var existing = _configs[_previousSiteId];
+        if (!existing) {
+            // No prior config — safe to snapshot everything (first visit)
+            var config = snapshotConfig();
+            _configs[_previousSiteId] = config;
+            saveToStorage();
+            pushConfigsToServer();
+            log('Saved config for', _previousSiteId, '— turf:', config.turf.turfType, config.turf.species);
+            return;
+        }
+
+        // Snapshot non-identity fields only (user may have changed HOC, N program etc.)
+        // Preserve turf identity (turfType, subCategory, species, variety) from the stored config
+        // because the DOM still shows the PREVIOUS site's species during the switch transition.
+        // b35fix169 Fix 1: ALWAYS preserve location from stored config — never read lat/lon from
+        // DOM during a site switch because those fields already hold the incoming site's coords
+        // by the time gaip:site-changed fires.  Location only updates via explicit map pin or
+        // location-search events.
+        var freshSnap = snapshotConfig();
+        var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'companionSpecies'];
+        for (var i = 0; i < identityFields.length; i++) {
+            var field = identityFields[i];
+            if (existing.turf[field]) {
+                freshSnap.turf[field] = existing.turf[field];
+            }
+        }
+        // Preserve stored location — DOM coords are unreliable at switch time
+        if (existing.location && (existing.location.lat || existing.location.lon)) {
+            freshSnap.location = existing.location;
+        }
+        // b35fix172: preserve companionSpecies — the #gaip-companion-species element
+        // survives site-switch but its value is unreliable during the gaip:site-changed
+        // transition (the incoming site's restore hasn't run yet).  Always use the stored
+        // value for the departing site so it round-trips correctly.
+        if (existing.turf.companionSpecies !== undefined) {
+            freshSnap.turf.companionSpecies = existing.turf.companionSpecies;
+        }
+        _configs[_previousSiteId] = freshSnap;
+        saveToStorage();
+        pushConfigsToServer();
+        log('Saved config for', _previousSiteId, '— turf:', freshSnap.turf.turfType, freshSnap.turf.species, '(identity preserved)');
+    }
+
+    /**
+     * Restore config for the newly active site.
+     */
+    function restoreNewSiteConfig(newSiteId) {
+        _isSiteSwitch = true;
+        var config = _configs[newSiteId];
+        if (config) {
+            restoreConfig(config);
+            log('Restored config for', newSiteId);
+        } else {
+            // No saved config for this site — clear transient application fields so
+            // they don't bleed in from the previously active site. Turf identity
+            // fields (species, turfType etc.) are intentionally left for the user
+            // to configure, but time-specific inputs must be blank.
+            setDomVal('.gaip-pgr-date',  '');
+            setDomVal('.gaip-pgr-rate',  '');
+            setDomVal('.gaip-pgr-product', '');
+            setDomVal('.gaip-dmi-date',  '');
+            try { document.querySelector('.gaip-enable-pgr') && (document.querySelector('.gaip-enable-pgr').checked = false); } catch(e) {}
+            log('No saved config for', newSiteId, '— cleared transient fields (set turf type now to save it)');
+        }
+        // Dispatch site-config-applied so tissue auto-run uses the event path
+        // rather than the 1s fallback timer. Without this, site-switch always
+        // produces the wrong GP on first run (42% vs correct value).
+        setTimeout(function() {
+            document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
+                detail: { siteId: newSiteId, source: 'site-switch' }
+            }));
+            log('Dispatched gaip:site-config-applied for site switch to', newSiteId);
+        }, 150);
+    }
+
+    // =========================================================================
+    // INIT
+    // =========================================================================
+
+    var _initRetries = 0;
+    var _isRestoring = false;
+    var _isSiteSwitch = false;  // True during site-switch restores — prevents profile name sync
+    var _bootCooldown = true;  // Prevent auto-save during page initialization
+
+    function init() {
+        loadFromStorage();
+        _cleanupLocationBleed(); // b35fix268
+
+        // b35fix137: one-time cleanup for pgr bleed introduced by b35fix133/135.
+        // If a site config has pgr.productType set but pgr.applicationDate is null,
+        // the pgr was bled from another site's DOM state during a stale snapshot.
+        // A legitimate pgr entry always has both productType AND applicationDate,
+        // or neither. Blank the productType so these sites no longer show phantom PGR.
+        // Runs once per device, keyed by a localStorage flag.
+        (function pgrBleedCleanup() {
+            // b35fix137d: final pass including shared-date detection
+            var cleanupKey = 'gilba_pgr_bleed_cleanup_b35fix137d';
+            if (_ls.getItem(cleanupKey)) return;
+            var dirty = false;
+            // Build applicationDate -> siteIds map
+            var _dateMap = {};
+            Object.keys(_configs).forEach(function(id) {
+                var d = _configs[id] && _configs[id].pgr && _configs[id].pgr.applicationDate;
+                if (d) { if (!_dateMap[d]) _dateMap[d] = []; _dateMap[d].push(id); }
+            });
+            Object.keys(_configs).forEach(function(siteId) {
+                var cfg = _configs[siteId];
+                if (!cfg || !cfg.pgr || !cfg.pgr.productType) return;
+                var isBleed = false;
+                var reason = '';
+                if (!cfg.pgr.applicationDate) { isBleed = true; reason = 'no applicationDate'; }
+                if (cfg.pgr._savedForSite && cfg.pgr._savedForSite !== siteId) {
+                    isBleed = true; reason = 'savedForSite=' + cfg.pgr._savedForSite;
+                }
+                var sharedWith = cfg.pgr.applicationDate && _dateMap[cfg.pgr.applicationDate]
+                    ? _dateMap[cfg.pgr.applicationDate].filter(function(x) { return x !== siteId; })
+                    : [];
+                if (sharedWith.length > 0 && (!cfg.pgr._savedForSite || cfg.pgr._savedForSite !== siteId)) {
+                    isBleed = true; reason = 'date shared with ' + sharedWith.join(',');
+                }
+                if (isBleed) {
+                    log('PGR bleed cleanup: clearing pgr for', siteId, '(' + reason + ')');
+                    cfg.pgr = { productType: '', applicationDate: null, rateLperHa: null, enabled: false };
+                    dirty = true;
+                }
+            });
+            if (dirty) saveToStorage();
+            else log('PGR bleed cleanup: no bleed found in', Object.keys(_configs).length, 'site configs');
+            _ls.setItem(cleanupKey, '1');
+        })();
+
+        // b35fix210: one-time migration — clear persisted PGR product/date/rate
+        // from all existing site config snapshots. These fields are now owned by
+        // the spray log cascade. Stale values (e.g. PBZ200 from a testing session)
+        // will no longer survive page reloads.
+        (function migrateRemovePGRFromConfig() {
+            var migrationKey = 'gilba_pgr_config_migration_b35fix210';
+            if (_ls.getItem(migrationKey)) return;
+            try {
+                Object.keys(_configs).forEach(function(siteId) {
+                    if (_configs[siteId] && _configs[siteId].pgr) {
+                        _configs[siteId].pgr.productType     = null;
+                        _configs[siteId].pgr.applicationDate = null;
+                        _configs[siteId].pgr.rateLperHa      = null;
+                    }
+                });
+                saveToStorage();
+                _ls.setItem(migrationKey, '1');
+                log('b35fix210 migration: cleared PGR product/date/rate from all site configs');
+            } catch(e) {
+                log('b35fix210 migration failed: ' + e.message);
+            }
+        })();
+
+        // Pull server configs on init — merges species/profile from other devices.
+        // Runs async; page-load restore happens independently via the setTimeout below.
+        // If server has newer species for a site, localStorage is updated for next restore.
+        pullConfigsFromServer(function(merged) {
+            if (merged) {
+                log('Server sync on init updated', Object.keys(_configs).length, 'site configs');
+            }
+        });
+
+        var SM = global.GAIP_SampleManager;
+        if (!SM || typeof SM.getActiveSiteId !== 'function') {
+            _initRetries = (_initRetries || 0) + 1;
+            if (_initRetries > 10) {
+                // SampleManager is an old version without getActiveSiteId.
+                // Polyfill a minimal fallback so SiteConfig can still function.
+                warn('SampleManager missing getActiveSiteId after 10s — applying polyfill');
+                if (SM && typeof SM.getActiveSiteId !== 'function') {
+                    SM.getActiveSiteId = function() { return 'default'; };
+                } else if (!SM) {
+                    global.GAIP_SampleManager = { getActiveSiteId: function() { return 'default'; } };
+                }
+                // Re-run init with polyfill in place
+                _initRetries = 0;
+                init();
+                return;
+            }
+            warn('SampleManager not ready (getActiveSiteId missing), retrying in 1s... (' + _initRetries + '/10)');
+            setTimeout(init, 1000);
+            return;
+        }
+
+        // Startup prune: remove any siteConfig entries whose siteId no longer exists
+        // in SampleManager. Prevents ProfileBridge regenerating orphan profiles on
+        // every load from stale gilba_hub_site_configs entries.
+        (function pruneStaleConfigs() {
+            var siteList = SM.getSiteList ? SM.getSiteList() : [];
+            var liveSiteIds = {};
+            for (var i = 0; i < siteList.length; i++) {
+                liveSiteIds[siteList[i].id] = true;
+            }
+            var pruned = 0;
+            for (var siteId in _configs) {
+                if (_configs.hasOwnProperty(siteId) && siteId !== 'default') {
+                    if (!liveSiteIds[siteId]) {
+                        delete _configs[siteId];
+                        pruned++;
+                    }
+                }
+            }
+            if (pruned > 0) {
+                saveToStorage();
+                log('Pruned', pruned, 'stale site config(s) with no matching site');
+            }
+        })();
+
+        // One-time migration: if 'default' site has a real label (was renamed rather
+        // than created fresh), promote it to a proper slugged ID so it doesn't
+        // collide with the fallback config stored under 'default'.
+        (function migrateDefaultSite() {
+            var siteList = SM.getSiteList ? SM.getSiteList() : [];
+            var defaultSite = siteList.find(function(s) { return s.id === 'default'; });
+            if (defaultSite && defaultSite.label && defaultSite.label !== 'Default Site') {
+                var alreadyMigrated = _ls.getItem('gaip_default_site_migrated');
+                if (!alreadyMigrated && typeof SM.migrateSiteId === 'function') {
+                    var newId = SM.migrateSiteId('default', defaultSite.label);
+                    if (newId) {
+                        // Migrate the saved config from 'default' key to the new ID
+                        if (_configs['default']) {
+                            _configs[newId] = _configs['default'];
+                            delete _configs['default'];
+                            saveToStorage();
+                        }
+                        _ls.setItem('gaip_default_site_migrated', newId);
+                        log('Migrated default site to', newId, '— force-saving samples then reloading');
+
+                        // Force synchronous sample save BEFORE reload so the new site ID
+                        // is persisted — scheduleSave debounce won't complete in time
+                        try {
+                            var SM2 = global.GAIP_SampleManager;
+                            if (SM2 && typeof SM2.getAllSamples === 'function') {
+                                var snap = SM2.getAllSamples();
+                                _ls.setItem('gilba_samples', JSON.stringify(snap));
+                                log('Force-saved samples snapshot before reload');
+                            }
+                        } catch(e) {
+                            warn('Force-save failed:', e.message);
+                        }
+
+                        setTimeout(function() { location.reload(); }, 200);
+                    }
+                }
+            }
+        })();
+
+        // Record the currently active site
+        _previousSiteId = SM.getActiveSiteId();
+
+        // On page load: restore saved config for the current site if one exists,
+        // then snapshot if it's a first visit. Dispatches 'gaip:site-config-applied'
+        // so the auto-run can wait for the correct species/turfType to be in the DOM
+        // before calling gaip_build_state(). Without this, incognito/cold-start loads
+        // ran the first analysis against the TurfProfile default (Perennial Ryegrass)
+        // instead of the saved species (e.g. Creeping Bentgrass).
+        //
+        // Timing rationale:
+        //   - hub-persistence restores species at ~100ms
+        //   - TurfProfile cascade (turfType → subCategory → species) takes ~350ms
+        //   - So 800ms is safe for returning users (species already correct, this is belt-and-braces)
+        //   - First-time / incognito users have no saved config → dispatch immediately
+        //
+        // b35fix253: restoreDelay is chosen at schedule time, but _configs may be empty
+        // then because pullConfigsFromServer() (async) hasn't completed yet. The 3000ms
+        // delay gives the server pull time to populate _configs. Re-check _configs at
+        // FIRE time (not schedule time) — if the server pull completed during the wait,
+        // restore rather than treating it as a first-visit snapshot.
+        var restoreDelay = _configs[SM.getActiveSiteId()] ? 800 : 3000;
+        setTimeout(function() {
+            var currentId = SM.getActiveSiteId();
+            _previousSiteId = currentId;
+            // b35fix253: re-read _configs[currentId] at fire time — server pull may have
+            // populated it during the 3000ms wait even if it was empty at schedule time.
+            var configAtFireTime = _configs[currentId];
+            if (configAtFireTime) {
+                log('Restoring saved config for', currentId, 'on page load');
+                restoreConfig(configAtFireTime);
+                // Dispatch after restoreConfig's internal setTimeout cascade completes.
+                // restoreConfig now manages _isRestoring internally (~1050ms total).
+                setTimeout(function() {
+                    _bootCooldown = false;
+                    // Cascade has completed — re-snapshot to capture any settings that
+                    // loaded after the initial restore (e.g. construction, HOC from hub-persistence).
+                    // The cascade has already written the correct species/turfType to the DOM,
+                    // so snapshotConfig() now reflects the true state for this site.
+                    var freshSnap = snapshotConfig();
+                    var existingConfig = _configs[currentId];
+                    // Always restore saved turf identity — don't let TurfProfile's
+                    // page-load cascade (which may still be finishing Federal GC or
+                    // another previous site) overwrite this site's saved species/variety.
+                    // e.g. Silk Path = Couch must not be overwritten by Federal = Bentgrass
+                    // finishing its cascade after site-config-persistence has already
+                    // correctly restored Couch to the DOM.
+                    if (existingConfig && existingConfig.turf) {
+                        var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'companionSpecies'];
+                        for (var fi = 0; fi < identityFields.length; fi++) {
+                            var field = identityFields[fi];
+                            if (existingConfig.turf[field]) {
+                                // Unconditional: saved identity always wins over DOM snapshot
+                                freshSnap.turf[field] = existingConfig.turf[field];
+                            }
+                        }
+                    }
+                    // b35fix136: preserve existing pgr if the fresh snapshot has no product.
+                    // The DOM PGR fields may not be populated yet at the 1600ms snapshot
+                    // moment (e.g. if restoreConfig hasn't finished or was interrupted),
+                    // which would blank out a correctly saved pgr for this site.
+                    // Only overwrite if the new snapshot actually has a product configured.
+                    if (existingConfig && existingConfig.pgr && existingConfig.pgr.productType) {
+                        if (!freshSnap.pgr || !freshSnap.pgr.productType) {
+                            freshSnap.pgr = existingConfig.pgr;
+                        }
+                    }
+                    _configs[currentId] = freshSnap;
+                    saveToStorage();
+                    log('Page-load config finalised for', currentId,
+                        '— species:', (freshSnap.turf || {}).species);
+            log('Page-load restore complete — dispatching gaip:site-config-applied');
+                    global.GAIP_SITE_CONFIG_PENDING = false;
+                    document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
+                        detail: { siteId: currentId, restored: true }
+                    }));
+                }, 1600); // cascade takes ~1050ms; 1600ms gives safe margin
+            } else {
+                // b35fix287: first-visit / no saved config path.
+                // Keep GAIP_SITE_CONFIG_PENDING true for a short delay so
+                // hub-orchestrator defers computeAll until TurfProfile has applied
+                // its default species to the DOM. Without this delay the
+                // gaip:site-changed triggered computeAll fires with no speciesKey → TIER 0.
+                setTimeout(function() {
+                    _bootCooldown = false;
+                    global.GAIP_SITE_CONFIG_PENDING = false;
+                    _configs[currentId] = snapshotConfig();
+                    saveToStorage();
+                    log('Captured initial config for', currentId, '(first visit)');
+                    document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
+                        detail: { siteId: currentId, restored: false }
+                    }));
+                }, 600); // 600ms — enough for TurfProfile default cascade
+            }
+        }, restoreDelay);
+
+        // Listen for site changes — fires AFTER the switch is complete
+        document.addEventListener('gaip:site-changed', function(e) {
+            var newSiteId = e.detail ? e.detail.siteId : null;
+            if (!newSiteId) return;
+
+            // Skip if it's the same site (e.g. restore-triggered duplicate events)
+            if (newSiteId === _previousSiteId) return;
+
+            log('Site switch detected:', _previousSiteId, '->', newSiteId);
+
+            // Save config for the site we're LEAVING
+            saveCurrentSiteConfig();
+
+            // Update tracker
+            _previousSiteId = newSiteId;
+
+            // Restore config for the site we're ARRIVING at (delay for sample loading)
+            setTimeout(function() {
+                restoreNewSiteConfig(newSiteId);
+            }, 300);
+        });
+
+        // Clean up config when a site is deleted
+        document.addEventListener('gaip:site-removed', function(e) {
+            var siteId = e.detail ? e.detail.siteId : null;
+            if (!siteId) return;
+            if (_configs[siteId]) {
+                delete _configs[siteId];
+                saveToStorage();
+                log('Deleted config for removed site:', siteId);
+            }
+        });
+
+        // Also save config periodically when user changes turf settings
+        // (so switching away always has the latest)
+        document.addEventListener('gaip:turf-profile-change', function() {
+            var SM2 = global.GAIP_SampleManager;
+            if (!SM2) return;
+            // In stadium/GSSH mode the active site is the selected venue, not the
+            // GAIP SampleManager site. Prefer venue ID when available.
+            // b35fix271: Delegate to GAIP_SiteContext — single source of truth.
+            var currentId = global.GAIP_SiteContext
+                ? global.GAIP_SiteContext.getSiteId()
+                : SM2.getActiveSiteId();
+            // Skip auto-save if we're restoring a config, in boot cooldown,
+            // or if TurfProfile is mid-way through a loadProfile cascade,
+            // or if page-load site-config restore is still pending (GAIP_SITE_CONFIG_PENDING).
+            // This prevents TurfProfile's tail-end Bentgrass cascade events from
+            // poisoning Silk Path (Couch) after _isRestoring goes false but before
+            // the PENDING flag is cleared at t=1600ms.
+            var tp = global.GaipTurfProfile;
+            var isProfileLoading = tp && tp._isLoadingProfile;
+            if (!_isRestoring && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
+                _configs[currentId] = snapshotConfig();
+                saveToStorage();
+                log('Auto-saved config on turf change for', currentId);
+            }
+        });
+
+        // Explicit save button: snapshot current config NOW
+        document.addEventListener('gaip:site-save-requested', function(e) {
+            var detail = e.detail || {};
+            var siteId = detail.siteId;
+            if (!siteId) return;
+            _configs[siteId] = snapshotConfig();
+            saveToStorage();
+            log('Explicit save for', siteId, ':', JSON.stringify(_configs[siteId].turf.species), _configs[siteId].location.name);
+            
+            // Also persist location to WP user meta so it survives localStorage clears
+            var loc = _configs[siteId].location;
+            if (loc.lat && loc.lon && typeof jQuery !== 'undefined' && global.GAIP_HUB_CONFIG) {
+                jQuery.ajax({
+                    url: global.GAIP_HUB_CONFIG.ajaxUrl,
+                    type: 'POST',
+                    data: {
+                        action: 'gilba_save_location',
+                        lat: loc.lat,
+                        lon: loc.lon,
+                        name: loc.name || '',
+                        nonce: global.GAIP_HUB_CONFIG.nonce
+                    }
+                });
+            }
+        });
+
+        // b35fix110: gaip:config-save-requested — fired by daily-dashboard.js when
+        // companion species changes. No siteId in detail — use active site.
+        document.addEventListener('gaip:config-save-requested', function() {
+            // Note: _bootCooldown deliberately NOT checked here.
+            // This event is fired by explicit user actions (e.g. companion species change)
+            // and must always save regardless of page-load timing.
+            if (_isRestoring || global.GAIP_SITE_CONFIG_PENDING) return;
+            var SM = global.GAIP_SampleManager;
+            if (!SM) return;
+            var currentId = SM.getActiveSiteId();
+            if (!currentId || currentId === 'default') return;
+            var snap = snapshotConfig();
+            // If #gaip-companion-species wasn't in DOM at snapshot time (undefined),
+            // preserve whatever was previously saved rather than blanking it.
+            var existing = _configs[currentId];
+            if (snap.turf && snap.turf.companionSpecies === undefined) {
+                if (existing && existing.turf && existing.turf.companionSpecies !== undefined) {
+                    snap.turf.companionSpecies = existing.turf.companionSpecies;
+                }
+            }
+            _configs[currentId] = snap;
+            saveToStorage();
+            log('Config saved on gaip:config-save-requested for', currentId);
+        });
+
+        // b35fix133: Auto-save on gaip:analysis-complete so PGR, species, and all
+        // DOM state are captured after every successful run.
+        // b35fix135: _bootCooldown guard removed — analysis-complete only fires after
+        // a full successful analysis so DOM is in clean state by definition.
+        // b35fix136: preserve existing pgr when fresh snapshot has no product — guards
+        // against the DOM PGR fields being momentarily empty at the time the event fires
+        // (e.g. during the TurfProfile cascade on a site switch).
+        document.addEventListener('gaip:analysis-complete', function() {
+            if (_isRestoring || global.GAIP_SITE_CONFIG_PENDING) return;
+            var SM = global.GAIP_SampleManager;
+            if (!SM) return;
+            var currentId = SM.getActiveSiteId();
+            if (!currentId || currentId === 'default') return;
+            var snap = snapshotConfig();
+            // b35fix233: preserve existing pgr from saved config when snapshot has no product.
+            // GAIP_LAST_PGR is the SSOT for PGR data (from spray log via cascade).
+            // Auto-save should never overwrite a valid saved PGR config with empty values.
+            var existing = _configs[currentId];
+            if (existing && existing.pgr && existing.pgr.productType) {
+                if (!snap.pgr || !snap.pgr.productType) {
+                    snap.pgr = existing.pgr;
+                }
+            }
+            // Also persist GAIP_LAST_PGR into site config so it survives page reload
+            // without needing a spray log fetch to restore it.
+            var _lastPgr = window.GAIP_LAST_PGR;
+            if (_lastPgr && _lastPgr.product_key) {
+                if (!snap.pgr) snap.pgr = {};
+                snap.pgr.productType     = snap.pgr.productType     || _lastPgr.product_key;
+                snap.pgr.applicationDate = snap.pgr.applicationDate || _lastPgr.application_date;
+                snap.pgr.rateLperHa      = snap.pgr.rateLperHa      || _lastPgr.rate;
+            }
+            // b35fix230: preserve existing companionSpecies if snapshot captured undefined
+            // (#gaip-companion-species not yet injected when this fires — 350ms race)
+            if (snap.turf && snap.turf.companionSpecies === undefined) {
+                if (existing && existing.turf && existing.turf.companionSpecies) {
+                    snap.turf.companionSpecies = existing.turf.companionSpecies;
+                }
+            }
+            _configs[currentId] = snap;
+            saveToStorage();
+            log('Config auto-saved on gaip:analysis-complete for', currentId);
+        });
+
+        log('v' + VERSION, 'ready — event-based,', Object.keys(_configs).length, 'saved configs');
+    }
+
+    // =========================================================================
+    // BOOT
+    // =========================================================================
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 500); });
+    } else {
+        setTimeout(init, 500);
+    }
+
+    // =========================================================================
+    // EXPORTS
+    // =========================================================================
+
+    global.GAIP_SiteConfig = {
+        version: VERSION,
+        snapshot: snapshotConfig,
+        restore: restoreConfig,
+        isRestoring: function() { return _isRestoring; },
+        getConfig: function(siteId) { return _configs[siteId] || null; },
+        getAllConfigs: function() { return JSON.parse(JSON.stringify(_configs)); },
+        removeConfig: function(siteId) {
+            if (!siteId || !_configs[siteId]) return false;
+            delete _configs[siteId];
+            saveToStorage();
+            log('Removed config for', siteId);
+            return true;
+        },
+        saveCurrentSite: function() {
+            var SM = global.GAIP_SampleManager;
+            if (!SM) return;
+            var siteId = SM.getActiveSiteId();
+            _configs[siteId] = snapshotConfig();
+            saveToStorage();
+            log('Manually saved config for', siteId);
+        },
+        // Direct companion species write — bypasses timing guards intentionally.
+        // Called by the Save button in daily-dashboard.js companion selector.
+        setCompanionSpecies: function(siteId, value) {
+            if (!siteId) return;
+            if (!_configs[siteId]) _configs[siteId] = { turf: {}, location: {} };
+            if (!_configs[siteId].turf) _configs[siteId].turf = {};
+            _configs[siteId].turf.companionSpecies = value;
+            saveToStorage();
+            pushConfigsToServer();
+            log('Companion species written directly:', '"' + value + '"', 'for site', siteId);
+        }
+    };
+
+
+})(window);

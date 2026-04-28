@@ -1,0 +1,309 @@
+/**
+ * Gilba Nutrition Calendar Styles
+ * 
+ * Basic styling for the nutrition calendar UI.
+ * Designed to integrate with Hub's existing design system.
+ * 
+ * @package Gilba_Hub
+ * @since 9.10.0
+ */
+
+/* ============================================================================
+   CONTAINER
+   ============================================================================ */
+
+.gilba-nutrition-module {
+    font-family: inherit;
+}
+
+.gilba-nutrition-module.gilba-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* ============================================================================
+   SUMMARY
+   ============================================================================ */
+
+.gilba-nutrition-summary {
+    margin-bottom: 1.5rem;
+}
+
+.gilba-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.gilba-summary-item {
+    background: var(--gaip-surface-muted);
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    border-left: 3px solid #28a745;
+}
+
+.gilba-summary-item .gilba-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--gaip-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.gilba-summary-item .gilba-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+/* ============================================================================
+   TABLES
+   ============================================================================ */
+
+.gilba-totals-table,
+.gilba-calendar-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.gilba-totals-table th,
+.gilba-totals-table td,
+.gilba-calendar-table th,
+.gilba-calendar-table td {
+    padding: 0.5rem 0.75rem;
+    text-align: right;
+    border: 1px solid var(--gaip-border);
+}
+
+.gilba-totals-table th,
+.gilba-calendar-table th {
+    background: var(--gaip-surface-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: var(--gaip-text-secondary);
+}
+
+.gilba-totals-table td:first-child,
+.gilba-calendar-table td:first-child,
+.gilba-calendar-table th:first-child {
+    text-align: left;
+}
+
+/* Column widths for monthly program table */
+.prebble-program-table th:nth-child(1),
+.prebble-program-table td:nth-child(1) {
+    width: 50px;
+    min-width: 50px;
+    white-space: nowrap;
+}
+
+.prebble-program-table th:nth-child(2),
+.prebble-program-table td:nth-child(2) {
+    width: 70px;
+    min-width: 70px;
+    white-space: nowrap;
+    text-align: left;
+}
+
+.prebble-program-table th:nth-child(3),
+.prebble-program-table td:nth-child(3) {
+    width: 140px;
+    min-width: 120px;
+    white-space: nowrap;
+}
+
+.gilba-calendar-table tbody tr:hover {
+    background: var(--gaip-surface-muted);
+}
+
+/* GP-based row styling */
+.gilba-calendar-table tr.gilba-gp-high {
+    background: rgba(40, 167, 69, 0.08);
+}
+
+.gilba-calendar-table tr.gilba-gp-medium {
+    background: rgba(255, 193, 7, 0.08);
+}
+
+.gilba-calendar-table tr.gilba-gp-low {
+    background: rgba(108, 117, 125, 0.05);
+    color: var(--gaip-text-secondary);
+}
+
+/* ============================================================================
+   EVENT FLAG
+   ============================================================================ */
+
+.gilba-event-flag {
+    color: #dc3545;
+    margin-left: 0.25rem;
+    cursor: help;
+}
+
+/* ============================================================================
+   ADJUSTMENT NOTE
+   ============================================================================ */
+
+.gilba-adjustment-note {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--gaip-warning-bg);
+    border: 1px solid #ffc107;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: var(--gaip-warning);
+}
+
+/* ============================================================================
+   RESULTS PANEL
+   ============================================================================ */
+
+[data-nutrition-results] {
+    display: none;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--gaip-border);
+}
+
+/* ============================================================================
+   FORM ELEMENTS (basic styling, Hub may override)
+   ============================================================================ */
+
+.gilba-nutrition-form .gilba-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.gilba-nutrition-form .gilba-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.gilba-nutrition-form label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+    color: var(--gaip-text-secondary);
+}
+
+.gilba-nutrition-form input,
+.gilba-nutrition-form select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gaip-border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.gilba-nutrition-form input:focus,
+.gilba-nutrition-form select:focus {
+    outline: none;
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.15);
+}
+
+/* ============================================================================
+   BUTTONS
+   ============================================================================ */
+
+.gilba-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.gilba-btn-primary {
+    background: #28a745;
+    color: var(--gaip-surface);
+}
+
+.gilba-btn-primary:hover:not(:disabled) {
+    background: #218838;
+}
+
+.gilba-btn-secondary {
+    background: var(--gaip-text-secondary);
+    color: var(--gaip-surface);
+}
+
+.gilba-btn-secondary:hover:not(:disabled) {
+    background: var(--gaip-border);
+}
+
+.gilba-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.gilba-btn-group {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+}
+
+/* ============================================================================
+   RESPONSIVE
+   ============================================================================ */
+
+@media (max-width: 768px) {
+    .gilba-calendar-table {
+        font-size: 0.8rem;
+    }
+    
+    .gilba-calendar-table th,
+    .gilba-calendar-table td {
+        padding: 0.4rem 0.5rem;
+    }
+    
+    .gilba-summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ============================================================================
+   RELEASE TYPE TAGS (Prebbles Integration)
+   ============================================================================ */
+
+.release-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    margin-left: 0.25rem;
+    vertical-align: middle;
+}
+
+.release-tag.slow {
+    background: var(--gaip-good-bg);
+    color: #155724;
+}
+
+.release-tag.quick {
+    background: var(--gaip-warning-bg);
+    color: var(--gaip-warning);
+}
+
+.prebble-product {
+    display: inline-block;
+    margin: 0.1rem 0;
+}
+
+.prebble-none {
+    color: var(--gaip-text-secondary);
+    font-style: italic;
+}

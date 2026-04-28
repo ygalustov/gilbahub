@@ -1,0 +1,566 @@
+/**
+ * =============================================================================
+ * GILBA HUB SITE SELECTOR UI v1.0.1
+ * =============================================================================
+ *
+ * Site management UI for consultants managing multiple courses/venues.
+ *
+ * DEPENDENCIES:
+ *   - sample-manager.js (GAIP_SampleManager site API)
+ *
+ * @author Gilba Solutions
+ * @version 1.0.1
+ * =============================================================================
+ */
+
+(function(global) {
+    'use strict';
+
+    var _injected = false; // guard — inject() also checks getElementById but this silences strict-mode ReferenceError
+
+    var CONFIG = {
+        version: '1.0.1',
+        debug: true,
+        anchorSelectors: [
+            '.gaip-sample-switcher-soil',
+            '.gaip-section[data-section="soil-chemistry"]',
+            '.gaip-mlsn-body',
+            '#gaip-hub-container'
+        ]
+    };
+
+    function log(message, data) {
+        if (!CONFIG.debug) return;
+        if (data !== undefined) {
+            console.log('[SiteSelector]', message, data);
+        } else {
+            console.log('[SiteSelector]', message);
+        }
+    }
+
+    function buildSiteBar() {
+        var SM = global.GAIP_SampleManager;
+        if (!SM || typeof SM.getSiteList !== 'function') {
+            log('SampleManager site API not available');
+            return null;
+        }
+
+        var sites = SM.getSiteList();
+        var activeId = SM.getActiveSiteId();
+
+        var bar = document.createElement('div');
+        bar.className = 'gaip-site-bar';
+        bar.id = 'gaip-site-bar';
+
+        var label = document.createElement('span');
+        label.className = 'gaip-site-bar-label';
+        label.textContent = '\uD83C\uDFCC\uFE0F Site:';
+        bar.appendChild(label);
+
+        var select = document.createElement('select');
+        select.className = 'gaip-site-select';
+        select.id = 'gaip-site-select';
+        for (var i = 0; i < sites.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = sites[i].id;
+            opt.textContent = sites[i].label;
+            if (sites[i].id === activeId) opt.selected = true;
+            select.appendChild(opt);
+        }
+        bar.appendChild(select);
+
+        var addBtn = document.createElement('button');
+        addBtn.className = 'gaip-site-btn gaip-site-btn-add';
+        addBtn.title = 'Add new site';
+        addBtn.textContent = '+';
+        addBtn.type = 'button';
+        bar.appendChild(addBtn);
+
+        var renameBtn = document.createElement('button');
+        renameBtn.className = 'gaip-site-btn gaip-site-btn-rename';
+        renameBtn.title = 'Rename current site';
+        renameBtn.textContent = '\u270E';
+        renameBtn.type = 'button';
+        bar.appendChild(renameBtn);
+
+        var delBtn = document.createElement('button');
+        delBtn.className = 'gaip-site-btn gaip-site-btn-delete';
+        delBtn.title = 'Remove current site';
+        delBtn.textContent = '\u2715';
+        delBtn.type = 'button';
+        if (activeId === 'default') delBtn.style.display = 'none';
+        bar.appendChild(delBtn);
+
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'gaip-site-btn gaip-site-btn-save';
+        saveBtn.title = 'Save current site configuration';
+        saveBtn.textContent = '\uD83D\uDCBE';
+        saveBtn.type = 'button';
+        saveBtn.style.cssText = 'font-size: 14px; cursor: pointer;';
+        bar.appendChild(saveBtn);
+
+        var badge = document.createElement('span');
+        badge.className = 'gaip-site-sample-count';
+        badge.id = 'gaip-site-sample-count';
+        badge.textContent = getSampleCountText();
+        bar.appendChild(badge);
+
+        select.addEventListener('change', function() {
+            var newSiteId = select.value;
+            log('User switching to site: ' + newSiteId);
+            _lastDispatchedSiteId = null;  // force dispatch on explicit user switch
+            SM.setActiveSite(newSiteId);
+            reloadActiveSample();
+            updateUI();
+        });
+
+        addBtn.addEventListener('click', function() {
+            var name = prompt('Enter site name (e.g. "Royal Melbourne GC"):');
+            if (!name || !name.trim()) return;
+            var id = SM.addSite(name.trim());
+            SM.setActiveSite(id);
+            clearAllForms();
+            updateUI();
+        });
+
+        renameBtn.addEventListener('click', function() {
+            var currentLabel = SM.getActiveSiteLabel();
+            var newName = prompt('Rename site:', currentLabel);
+            if (!newName || !newName.trim() || newName.trim() === currentLabel) return;
+            SM.renameSite(SM.getActiveSiteId(), newName.trim());
+            updateUI();
+        });
+
+        delBtn.addEventListener('click', function() {
+            var siteLabel = SM.getActiveSiteLabel();
+            var siteId = SM.getActiveSiteId();
+            if (siteId === 'default') return;
+            if (!confirm('Remove "' + siteLabel + '" and all its samples? This cannot be undone.')) return;
+            SM.removeSite(siteId);
+            reloadActiveSample();
+            updateUI();
+        });
+
+        saveBtn.addEventListener('click', function() {
+            var siteLabel = SM.getActiveSiteLabel();
+            document.dispatchEvent(new CustomEvent('gaip:site-save-requested', {
+                detail: { siteId: SM.getActiveSiteId(), label: siteLabel }
+            }));
+            // Visual feedback
+            var origText = saveBtn.textContent;
+            saveBtn.textContent = '✓';
+            saveBtn.style.color = '#28a745';
+            setTimeout(function() {
+                saveBtn.textContent = origText;
+                saveBtn.style.color = '';
+            }, 1500);
+        });
+
+        return bar;
+    }
+
+    var _updatingUI = false;
+    var _lastDispatchedSiteId = null;  // prevents bounce from restore-triggered updateUI calls
+    function updateUI() {
+        if (_updatingUI) return;
+        _updatingUI = true;
+
+        var SM = global.GAIP_SampleManager;
+        if (!SM) { _updatingUI = false; return; }
+
+        var select = document.getElementById('gaip-site-select');
+        if (!select) {
+            _updatingUI = false;
+            inject();
+            return;
+        }
+
+        var sites = SM.getSiteList();
+        var activeId = SM.getActiveSiteId();
+
+        select.innerHTML = '';
+        for (var i = 0; i < sites.length; i++) {
+            var opt = document.createElement('option');
+            opt.value = sites[i].id;
+            opt.textContent = sites[i].label;
+            if (sites[i].id === activeId) opt.selected = true;
+            select.appendChild(opt);
+        }
+
+        // Sync PHP-rendered top bar select (gaip-site-select-top)
+        var selectTop = document.getElementById('gaip-site-select-top');
+        if (selectTop) {
+            selectTop.innerHTML = '';
+            for (var j = 0; j < sites.length; j++) {
+                var optT = document.createElement('option');
+                optT.value = sites[j].id;
+                optT.textContent = sites[j].label;
+                if (sites[j].id === activeId) optT.selected = true;
+                selectTop.appendChild(optT);
+            }
+            var delBtnTop = document.getElementById('gaip-site-delete-top');
+            if (delBtnTop) delBtnTop.style.display = (activeId === 'default') ? 'none' : '';
+        }
+
+        var delBtn = document.querySelector('.gaip-site-btn-delete');
+        if (delBtn) {
+            delBtn.style.display = (activeId === 'default') ? 'none' : '';
+        }
+
+        var badge = document.getElementById('gaip-site-sample-count');
+        if (badge) badge.textContent = getSampleCountText();
+
+        // Update sample switcher dropdowns if available
+        var switchers = document.querySelectorAll('.gaip-sample-select');
+        // b35fix98: dispatch unconditionally — previously gated on switchers.length
+        // which prevented cleanup of stale globals on site switch when no dropdowns present
+        if (activeId !== _lastDispatchedSiteId) {
+            _lastDispatchedSiteId = activeId;
+            document.dispatchEvent(new CustomEvent('gaip:site-changed', {
+                detail: { siteId: activeId, label: SM.getActiveSiteLabel() }
+            }));
+        }
+
+        log('UI updated: ' + activeId + ' (' + SM.getActiveSiteLabel() + '), ' + getSampleCountText());
+        _updatingUI = false;
+    }
+
+    /**
+     * Reload the active site's samples into forms.
+     * For each data type: if the site has an active sample, load it.
+     * If not, clear that form so stale data from the previous site doesn't persist.
+     */
+    function reloadActiveSample() {
+        var SM = global.GAIP_SampleManager;
+        if (!SM) return;
+
+        var types = ['soil', 'water', 'tissue', 'loi'];
+        var clearFns = {
+            soil: clearSoilForm,
+            water: clearWaterForm,
+            tissue: clearTissueForm,
+            loi: clearLOIForm
+        };
+
+        for (var t = 0; t < types.length; t++) {
+            var dt = types[t];
+            var activeId = SM.getActiveSampleId(dt);
+
+            if (activeId) {
+                var sample = SM.getSample(dt, activeId);
+                if (sample) {
+                    SM.loadSample(dt, activeId);
+                    log('Loaded ' + dt + ' sample: ' + activeId);
+                    continue;
+                }
+            }
+
+            // No active sample for this type on the current site
+            // Check if there are ANY samples of this type; load the first one
+            var allSamples = SM.getSamples(dt);
+            if (allSamples && allSamples.length > 0) {
+                var firstId = allSamples[0].id || allSamples[0].sampleId;
+                if (firstId) {
+                    SM.loadSample(dt, firstId);
+                    log('Auto-loaded first ' + dt + ' sample: ' + firstId);
+                    continue;
+                }
+            }
+
+            // No samples at all for this type on this site - clear the form
+            if (clearFns[dt]) {
+                clearFns[dt]();
+                log('Cleared ' + dt + ' form (no samples on this site)');
+            }
+        }
+    }
+
+    /**
+     * Clear soil form fields.
+     */
+    function clearSoilForm() {
+        var soilFields = [
+            '.gaip-soil-k', '.gaip-soil-p', '.gaip-soil-ca', '.gaip-soil-mg',
+            '.gaip-soil-s', '.gaip-soil-fe', '.gaip-soil-mn', '.gaip-soil-cu',
+            '.gaip-soil-zn', '.gaip-soil-b', '.gaip-cec', '.gaip-soil-ph',
+            '.gaip-soil-ec', '.gaip-soil-na', '.gaip-soil-date', '.gaip-depth',
+            '.gaip-bd', '.gaip-soil-ph-cacl2'
+        ];
+        clearFields(soilFields);
+        // Also clear the MLSN progressive-disclosure grid inputs (data-mlsn attributes)
+        // These are read by collectGridValues() and are NOT covered by the named selectors above
+        var mlsnGrid = document.querySelector('.gaip-soil-grid');
+        if (mlsnGrid) {
+            var mlsnInputs = mlsnGrid.querySelectorAll('input[data-mlsn]');
+            for (var i = 0; i < mlsnInputs.length; i++) {
+                mlsnInputs[i].value = '';
+            }
+        }
+    }
+
+    /**
+     * Clear water form fields.
+     */
+    function clearWaterForm() {
+        var waterFields = [
+            '.gaip-water-ph', '.gaip-ecw',
+            '[data-ion="Ca"]', '[data-ion="Mg"]', '[data-ion="Na"]', '[data-ion="K"]',
+            '[data-ion="Cl"]', '[data-ion="SO4"]', '[data-ion="HCO3"]', '[data-ion="CO3"]',
+            '[data-ion="B"]', '[data-ion="Fe"]', '[data-ion="NO3"]', '[data-ion="PO4"]',
+            '[data-ion="Mn"]'
+        ];
+        clearFields(waterFields);
+    }
+
+    /**
+     * Clear tissue form fields.
+     */
+    function clearTissueForm() {
+        var container = document.querySelector('#gaipTissueModule') ||
+                       document.querySelector('.gaip-tissue-module') || document;
+        // Tissue uses data-val attributes on inputs
+        var tissueInputs = container.querySelectorAll('input[data-val]');
+        for (var i = 0; i < tissueInputs.length; i++) {
+            tissueInputs[i].value = '';
+            tissueInputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        // Also try tr[data-el] pattern
+        var trInputs = container.querySelectorAll('tr[data-el] input');
+        for (var j = 0; j < trInputs.length; j++) {
+            trInputs[j].value = '';
+            trInputs[j].dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    }
+
+    /**
+     * Clear LOI/OM form fields.
+     */
+    function clearLOIForm() {
+        var loiFields = [
+            '.gaip-loi-0-2', '.gaip-loi-2-4', '.gaip-loi-4-6', '.gaip-loi'
+        ];
+        clearFields(loiFields);
+    }
+
+    /**
+     * Helper: clear a list of fields by selector.
+     */
+    function clearFields(selectors) {
+        for (var i = 0; i < selectors.length; i++) {
+            var input = document.querySelector(selectors[i]);
+            if (input) {
+                input.value = '';
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    }
+
+    /**
+     * Clear all form fields (when creating new empty site or switching to empty site).
+     */
+    function clearAllForms() {
+        clearSoilForm();
+        clearWaterForm();
+        clearTissueForm();
+        clearLOIForm();
+        log('All forms cleared');
+    }
+
+    function getSampleCountText() {
+        var SM = global.GAIP_SampleManager;
+        if (!SM) return '';
+        var soilCount = SM.getSampleCount('soil') || 0;
+        var waterCount = SM.getSampleCount('water') || 0;
+        var tissueCount = SM.getSampleCount('tissue') || 0;
+        var total = soilCount + waterCount + tissueCount;
+        if (total === 0) return 'no samples';
+        var parts = [];
+        if (soilCount > 0) parts.push(soilCount + ' soil');
+        if (waterCount > 0) parts.push(waterCount + ' water');
+        if (tissueCount > 0) parts.push(tissueCount + ' tissue');
+        return parts.join(', ');
+    }
+
+    function inject() {
+        if (document.getElementById('gaip-site-bar')) return;
+        var bar = buildSiteBar();
+        if (!bar) return;
+        var anchor = null;
+        for (var i = 0; i < CONFIG.anchorSelectors.length; i++) {
+            anchor = document.querySelector(CONFIG.anchorSelectors[i]);
+            if (anchor) break;
+        }
+        if (!anchor) {
+            log('No anchor found for site bar injection');
+            return;
+        }
+        anchor.parentNode.insertBefore(bar, anchor);
+        _injected = true;
+        log('Site bar injected');
+    }
+
+    function init() {
+        log('Site Selector UI v' + CONFIG.version + ' initializing');
+        inject();
+        setTimeout(inject, 500);
+        setTimeout(inject, 1500);
+
+        // After persistence restores samples, reload the active site's sample
+        document.addEventListener('gaip:samples-restored', function() {
+            log('Samples restored, reloading active site sample');
+            updateUI();
+            // Delay to let form DOM settle after persistence restore
+            setTimeout(function() {
+                reloadActiveSample();
+            }, 400);
+        });
+
+        // site-config-applied fires on every page load (with or without saved samples).
+        // gaip:samples-restored only fires when restoredCount > 0 — on a clean install
+        // or after cache clear there are no samples so the dropdown stays stuck on
+        // "Loading sites...". This listener covers that gap.
+        document.addEventListener('gaip:site-config-applied', function() {
+            updateUI();
+        });
+
+        document.addEventListener('gaip:samples-imported', function() {
+            var badge = document.getElementById('gaip-site-sample-count');
+            if (badge) badge.textContent = getSampleCountText();
+        });
+
+        document.addEventListener('gaip:samples-cleared', function() {
+            var badge = document.getElementById('gaip-site-sample-count');
+            if (badge) badge.textContent = getSampleCountText();
+        });
+
+        document.addEventListener('gaip:sample-deleted', function() {
+            var badge = document.getElementById('gaip-site-sample-count');
+            if (badge) badge.textContent = getSampleCountText();
+        });
+
+        // Refresh dropdown when a site is added programmatically (e.g. from loadProfile)
+        document.addEventListener('gaip:site-added', function() {
+            log('Site added — refreshing dropdown');
+            updateUI();
+        });
+
+        // Refresh dropdown when site is switched externally (e.g. from SiteDashboard card click)
+        // Must reload the active sample so form fields reflect the new site's data
+        document.addEventListener('gaip:site-changed', function() {
+            // Skip intermediate site-changes during combined export
+            if (global.GAIP_COMBINED_EXPORT_ACTIVE) return;
+            updateUI();
+            setTimeout(function() {
+                reloadActiveSample();
+            }, 300);
+        });
+
+        // Wire PHP-rendered top bar controls (gaip-site-selector-top)
+        var _topBarWired = false;
+        function wireTopBar() {
+            if (_topBarWired) return;
+            var SM = global.GAIP_SampleManager;
+            if (!SM) return;
+            var selectTop = document.getElementById('gaip-site-select-top');
+            if (!selectTop) return;
+            _topBarWired = true;
+
+            selectTop.addEventListener('change', function() {
+                _lastDispatchedSiteId = null;
+                SM.setActiveSite(selectTop.value);
+                reloadActiveSample();
+                updateUI();
+            });
+
+            var addBtnTop = document.getElementById('gaip-site-add-top');
+            if (addBtnTop) {
+                addBtnTop.addEventListener('click', function() {
+                    var name = prompt('Enter site name (e.g. "Royal Melbourne GC"):');
+                    if (!name || !name.trim()) return;
+                    SM.addSite(name.trim());
+                    updateUI();
+                });
+            }
+
+            var renameBtnTop = document.getElementById('gaip-site-rename-top');
+            if (renameBtnTop) {
+                renameBtnTop.addEventListener('click', function() {
+                    var cur = SM.getActiveSiteLabel();
+                    var name = prompt('Rename site:', cur);
+                    if (!name || !name.trim() || name.trim() === cur) return;
+                    SM.renameSite(SM.getActiveSiteId(), name.trim());
+                    updateUI();
+                });
+            }
+
+            var delBtnTop = document.getElementById('gaip-site-delete-top');
+            if (delBtnTop) {
+                delBtnTop.addEventListener('click', function() {
+                    var id = SM.getActiveSiteId();
+                    if (id === 'default') return;
+                    if (!confirm('Remove site "' + SM.getActiveSiteLabel() + '"? All samples will be deleted.')) return;
+                    SM.removeSite(id);
+                    updateUI();
+                    reloadActiveSample();
+                });
+            }
+
+            var saveBtnTop = document.getElementById('gaip-site-save-top');
+            if (saveBtnTop) {
+                saveBtnTop.addEventListener('click', function() {
+                    if (global.GilbaSiteConfig && typeof global.GilbaSiteConfig.saveCurrentSite === 'function') {
+                        global.GilbaSiteConfig.saveCurrentSite();
+                    }
+                    var statusTop = document.getElementById('gaip-site-status-top');
+                    if (statusTop) {
+                        statusTop.textContent = '✓ Saved';
+                        setTimeout(function() { statusTop.textContent = ''; }, 2000);
+                    }
+                });
+            }
+
+            log('Top bar wired');
+        }
+        wireTopBar();
+        setTimeout(wireTopBar, 500);
+        setTimeout(wireTopBar, 1500);
+
+        // When a stadium venue is selected in the shade tab, show the venue name
+        // in the site bar so the user knows which venue context is active.
+        document.addEventListener('gssh:venueSelect', function(e) {
+            var venueName = e.detail && e.detail.venue_name;
+            if (!venueName) return;
+            // Update the injected bar label
+            var label = document.querySelector('.gaip-site-bar-label');
+            if (label) label.textContent = '\uD83C\uDFDF\uFE0F Venue: ' + venueName;
+            // Update PHP-rendered top bar label if present
+            var labelTop = document.getElementById('gaip-site-label-top');
+            if (labelTop) labelTop.textContent = '\uD83C\uDFDF\uFE0F Venue: ' + venueName;
+            log('Site bar updated for venue: ' + venueName);
+        });
+
+        // Reset label back to site name when venue is deselected or site changes
+        document.addEventListener('gaip:site-changed', function(e) {
+            var label = document.querySelector('.gaip-site-bar-label');
+            if (label) label.textContent = '\uD83C\uDFCC\uFE0F Site:';
+            var labelTop = document.getElementById('gaip-site-label-top');
+            if (labelTop) labelTop.textContent = '\uD83C\uDFCC\uFE0F Site:';
+        });
+
+        log('Site Selector UI v' + CONFIG.version + ' ready');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        setTimeout(init, 200);
+    }
+
+    global.GilbaSiteSelector = {
+        updateUI: updateUI,
+        inject: inject,
+        reloadActiveSample: reloadActiveSample,
+        version: CONFIG.version
+    };
+
+})(window);

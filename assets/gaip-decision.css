@@ -1,0 +1,447 @@
+/**
+ * GAIP Decision State Machine — Light-mode styles v1.1.0 (b35fix221)
+ *
+ * Matches hub card aesthetic: var(--gaip-surface) surfaces, var(--gaip-border) borders, hub green (#2d7a4f).
+ * Drop-in replacement for v1.0.0 dark tokens.
+ * Dark rebuild: Shadow DOM host + v21 token restore (post soft-launch).
+ *
+ * All selectors scoped to #gaip-decision-panel.
+ */
+
+#gaip-decision-panel {
+  --gdp-green:        #2d7a4f;
+  --gdp-green-light:  var(--gaip-accent-light);
+  --gdp-green-dark:   var(--gaip-accent-dark);
+  --gdp-red:          #dc2626;
+  --gdp-red-light:    var(--gaip-critical-bg);
+  --gdp-red-border:   var(--gaip-critical-border);
+  --gdp-amber:        #d97706;
+  --gdp-amber-light:  var(--gaip-warning-bg);
+  --gdp-amber-border: var(--gaip-warning-border);
+  --gdp-blue:         #1e40af;
+  --gdp-blue-light:   var(--gaip-info-bg);
+  --gdp-border:       var(--gaip-border);
+  --gdp-border-mid:   var(--gaip-border);
+  --gdp-surface:      var(--gaip-surface);
+  --gdp-surface-alt:  var(--gaip-surface-muted);
+  --gdp-surface-mid:  var(--gaip-surface-hover);
+  --gdp-text:         var(--gaip-text);
+  --gdp-text-2:       var(--gaip-text);
+  --gdp-text-3:       var(--gaip-text-secondary);
+  --gdp-text-4:       var(--gaip-text-muted);
+  --gdp-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --gdp-mono: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+  --gdp-radius: 8px;
+  --gdp-shadow: 0 1px 3px rgba(0,0,0,0.08);
+
+  font-family: var(--gdp-font);
+  font-size: 13px;
+  color: var(--gdp-text);
+  background: var(--gdp-surface);
+  border: 1px solid var(--gdp-border);
+  border-radius: var(--gdp-radius);
+  box-shadow: var(--gdp-shadow);
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-sizing: border-box;
+  width: 100%;
+}
+#gaip-decision-panel * { box-sizing: border-box; }
+
+/* collapsed */
+#gaip-decision-panel.gdp-collapsed .gdp-body { display: none !important; }
+#gaip-decision-panel.gdp-collapsed .gdp-ctx-bar { display: none !important; }
+#gaip-decision-panel.gdp-collapsed .gdp-header-chevron { transform: rotate(-90deg); }
+
+/* header */
+#gaip-decision-panel .gdp-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--gdp-surface-mid);
+  border-bottom: 1px solid var(--gdp-border);
+  cursor: pointer; user-select: none;
+}
+#gaip-decision-panel .gdp-header:hover { background: var(--gdp-surface-alt); }
+#gaip-decision-panel .gdp-header-lbl {
+  flex: 1; font-size: 13px; font-weight: 600; color: var(--gdp-text); letter-spacing: .01em;
+}
+#gaip-decision-panel .gdp-header-state { font-size: 11px; color: var(--gdp-text-3); font-family: var(--gdp-mono); }
+#gaip-decision-panel .gdp-header-chevron { font-size: 11px; color: var(--gdp-text-4); transition: transform .15s; }
+
+/* ctx bar */
+#gaip-decision-panel .gdp-ctx-bar {
+  height: 32px; display: flex; align-items: stretch;
+  background: var(--gdp-surface-alt);
+  border-bottom: 1px solid var(--gdp-border); flex-shrink: 0;
+}
+#gaip-decision-panel .gdp-ctx-bar.pressure { border-bottom-color: var(--gdp-amber); }
+#gaip-decision-panel .gdp-ctx-state {
+  display: flex; align-items: center; padding: 0 14px;
+  border-right: 1px solid var(--gdp-border); flex-shrink: 0;
+}
+#gaip-decision-panel .gdp-ctx-hl { font-size: 12px; font-weight: 600; color: var(--gdp-text-2); white-space: nowrap; }
+#gaip-decision-panel .gdp-ctx-hl.act  { color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-ctx-hl.warn { color: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-ctx-hl.ok   { color: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-ctx-counts { display: flex; align-items: stretch; }
+#gaip-decision-panel .gdp-ctc {
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 12px; border-right: 1px solid var(--gdp-border);
+  cursor: pointer; transition: background .1s; flex-shrink: 0;
+}
+#gaip-decision-panel .gdp-ctc:hover { background: var(--gdp-surface-mid); }
+#gaip-decision-panel .gdp-ctc.on    { background: var(--gdp-green-light); }
+#gaip-decision-panel .gdp-ctc-n { font-family: var(--gdp-mono); font-size: 15px; font-weight: 700; line-height: 1; color: var(--gdp-text-3); }
+#gaip-decision-panel .gdp-ctc-n.r { color: var(--gdp-red); }
+#gaip-decision-panel .gdp-ctc-n.a { color: var(--gdp-amber); }
+#gaip-decision-panel .gdp-ctc-n.d { color: var(--gdp-text-4); }
+#gaip-decision-panel .gdp-ctc-w { font-size: 10px; font-weight: 500; color: var(--gdp-text-3); white-space: nowrap; }
+#gaip-decision-panel .gdp-ctc-w.dim { color: var(--gdp-text-4); }
+
+/* body */
+#gaip-decision-panel .gdp-body { display: flex; flex-direction: column; }
+#gaip-decision-panel .gdp-body-inner { display: flex; flex-direction: row; min-height: 0; }
+
+/* left panel */
+#gaip-decision-panel .gdp-left {
+  flex: 1; border-right: 1px solid var(--gdp-border);
+  display: flex; flex-direction: column; overflow: hidden;
+  position: relative; min-width: 0;
+}
+#gaip-decision-panel .gdp-left::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 4px; transition: background .2s;
+}
+#gaip-decision-panel .gdp-left.act::before       { background: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-left.warn::before      { background: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-left.ok::before        { background: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-left.committed::before { background: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-left.deferred::before  { background: var(--gdp-text-4) !important; }
+
+#gaip-decision-panel .gdp-pb { padding: 14px 18px 0 22px; flex-shrink: 0; }
+#gaip-decision-panel .gdp-pb-mod {
+  font-family: var(--gdp-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--gdp-text-3); margin-bottom: 4px;
+}
+#gaip-decision-panel .gdp-pb-action { font-size: 18px; font-weight: 700; line-height: 1.2; color: var(--gdp-text); }
+#gaip-decision-panel .gdp-pb-action.conf-usable   { color: var(--gdp-text-2); }
+#gaip-decision-panel .gdp-pb-action.conf-estimate  { color: var(--gdp-text-3); }
+#gaip-decision-panel .gdp-pb-action.conf-committed { font-size: 14px; font-weight: 500; color: var(--gdp-green); }
+
+#gaip-decision-panel .gdp-pb-trigger {
+  font-family: var(--gdp-mono); font-size: 11px; color: var(--gdp-text-3);
+  padding: 5px 18px 0 22px; flex-shrink: 0;
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+}
+#gaip-decision-panel .gdp-pb-trigger .sig    { font-size: 15px; font-weight: 700; color: var(--gdp-text); }
+#gaip-decision-panel .gdp-pb-trigger .sep    { color: var(--gdp-text-4); }
+#gaip-decision-panel .gdp-pb-trigger .thr    { color: var(--gdp-text-3); }
+#gaip-decision-panel .gdp-pb-trigger .breach { color: var(--gdp-red) !important; font-weight: 700; }
+#gaip-decision-panel .gdp-pb-trigger .ok-val { color: var(--gdp-green) !important; font-weight: 700; }
+
+#gaip-decision-panel .gdp-pb-pressure {
+  font-size: 11px; font-style: italic; color: var(--gdp-amber);
+  padding: 3px 18px 0 22px; flex-shrink: 0;
+}
+#gaip-decision-panel .gdp-pb-pressure.hi { color: var(--gdp-red); }
+#gaip-decision-panel .gdp-pb-pressure.lo { color: var(--gdp-text-4); }
+
+#gaip-decision-panel .gdp-pb-visual { padding: 10px 18px 0 22px; flex-shrink: 0; }
+#gaip-decision-panel .gdp-pb-divider { height: 1px; background: var(--gdp-border); margin: 10px 18px 0 22px; flex-shrink: 0; }
+
+#gaip-decision-panel .gdp-sb { flex: 1; overflow-y: auto; padding: 10px 18px 12px 22px; }
+#gaip-decision-panel .gdp-sb::-webkit-scrollbar { width: 4px; }
+#gaip-decision-panel .gdp-sb::-webkit-scrollbar-thumb { background: var(--gdp-border-mid); border-radius: 2px; }
+
+/* cost block */
+#gaip-decision-panel .gdp-cost-block {
+  display: flex; margin-bottom: 10px;
+  border: 1px solid var(--gdp-border); border-radius: 6px; overflow: hidden;
+}
+#gaip-decision-panel .gdp-cp { display: flex; flex-direction: column; flex: 1; padding: 8px 12px; background: var(--gdp-surface-alt); }
+#gaip-decision-panel .gdp-cp:first-child { border-right: 1px solid var(--gdp-border); }
+#gaip-decision-panel .gdp-cp-lbl {
+  font-family: var(--gdp-mono); font-size: 9px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--gdp-text-3); margin-bottom: 3px;
+}
+#gaip-decision-panel .gdp-cp-val { font-size: 13px; font-weight: 600; color: var(--gdp-text); line-height: 1.2; }
+#gaip-decision-panel .gdp-cp-val.g { color: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-cp-val.r { color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-cp-val.a { color: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-cp-slope { font-size: 10px; font-style: italic; color: var(--gdp-amber); margin-top: 2px; }
+#gaip-decision-panel .gdp-cp-slope.hi { color: var(--gdp-red); }
+#gaip-decision-panel .gdp-cp-slope.lo { color: var(--gdp-text-4); }
+
+/* confidence block */
+#gaip-decision-panel .gdp-conf-block { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 8px; }
+#gaip-decision-panel .gdp-conf-badge {
+  flex-shrink: 0; padding: 2px 7px; border-radius: 4px;
+  font-family: var(--gdp-mono); font-size: 9px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; margin-top: 1px;
+}
+#gaip-decision-panel .gdp-conf-badge.high     { background: var(--gdp-green-light) !important;  color: var(--gdp-green-dark) !important; }
+#gaip-decision-panel .gdp-conf-badge.usable   { background: var(--gdp-amber-light) !important;  color: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-conf-badge.estimate { background: var(--gdp-red-light) !important;    color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-conf-impl { font-size: 11px; color: var(--gdp-text-3); font-style: italic; line-height: 1.5; }
+
+/* fork */
+#gaip-decision-panel .gdp-fork { flex-shrink: 0; border-top: 1px solid var(--gdp-border); }
+#gaip-decision-panel .gdp-fork.hidden { display: none; }
+#gaip-decision-panel .gdp-fork-pending { display: flex; flex-direction: column; }
+
+#gaip-decision-panel .gdp-fork-confirm {
+  display: none; padding: 10px 14px;
+  background: var(--gdp-amber-light); border-bottom: 1px solid var(--gdp-amber-border);
+}
+#gaip-decision-panel .gdp-fork-confirm.on { display: block; }
+#gaip-decision-panel .gdp-fork-confirm-txt { font-size: 12px; color: var(--gdp-amber); line-height: 1.5; margin-bottom: 8px; }
+#gaip-decision-panel .gdp-fork-confirm-btns { display: flex; gap: 6px; }
+#gaip-decision-panel .gdp-fork-confirm-ok {
+  padding: 5px 14px; background: var(--gdp-amber); color: var(--gaip-surface);
+  border: none; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#gaip-decision-panel .gdp-fork-confirm-ok:hover { background: #b45309; }
+#gaip-decision-panel .gdp-fork-confirm-cancel {
+  padding: 5px 10px; background: var(--gdp-surface); border: 1px solid var(--gdp-border-mid);
+  border-radius: 4px; font-size: 12px; color: var(--gdp-text-3); cursor: pointer;
+}
+#gaip-decision-panel .gdp-fork-confirm-cancel:hover { background: var(--gdp-surface-mid); }
+
+#gaip-decision-panel .gdp-fork-diverge {
+  display: none; padding: 6px 14px;
+  background: var(--gdp-blue-light); border-bottom: 1px solid var(--gaip-info-bg);
+  font-size: 11px; color: var(--gdp-blue);
+}
+#gaip-decision-panel .gdp-fork-diverge.on { display: block; }
+
+#gaip-decision-panel .gdp-fork-actions { display: grid; grid-template-columns: 1fr 1fr; }
+
+#gaip-decision-panel .gdp-fork-act {
+  padding: 11px 14px; font-size: 12px; font-weight: 600;
+  border: none; border-right: 1px solid var(--gdp-border);
+  cursor: pointer; text-align: left;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: background .1s;
+}
+#gaip-decision-panel .gdp-fork-act.high     { background: var(--gdp-green); color: var(--gaip-surface); }
+#gaip-decision-panel .gdp-fork-act.high:hover { background: var(--gdp-green-dark); }
+#gaip-decision-panel .gdp-fork-act.usable   { background: var(--gdp-amber-light); color: var(--gdp-amber); }
+#gaip-decision-panel .gdp-fork-act.usable:hover { background: var(--gdp-amber-border); color: #92400e; }
+#gaip-decision-panel .gdp-fork-act.estimate { background: var(--gdp-surface-mid); color: var(--gdp-text-2); outline: 1px solid var(--gdp-amber-border); }
+#gaip-decision-panel .gdp-fork-act.estimate:hover { background: var(--gdp-surface-alt); }
+
+#gaip-decision-panel .gdp-fork-defer {
+  padding: 11px 14px; font-size: 12px; color: var(--gdp-text-3);
+  background: var(--gdp-surface-alt); border: none; cursor: pointer;
+  text-align: left; display: flex; align-items: center; justify-content: space-between;
+  transition: background .1s;
+}
+#gaip-decision-panel .gdp-fork-defer:hover { background: var(--gdp-surface-mid); color: var(--gdp-text-2); }
+#gaip-decision-panel .gdp-fork-defer-sub { font-size: 10px; font-family: var(--gdp-mono); color: var(--gdp-text-4); margin-top: 2px; }
+
+#gaip-decision-panel .gdp-fork-defer-panel {
+  display: none; padding: 10px 14px;
+  border-top: 1px solid var(--gdp-border); background: var(--gdp-surface-alt);
+}
+#gaip-decision-panel .gdp-fork-defer-panel.on { display: block; }
+#gaip-decision-panel .gdp-fdp-lbl {
+  font-family: var(--gdp-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--gdp-text-3); margin-bottom: 6px;
+}
+#gaip-decision-panel .gdp-fdp-options { display: flex; gap: 4px; margin-bottom: 8px; }
+#gaip-decision-panel .gdp-fdp-opt {
+  padding: 4px 12px; border: 1px solid var(--gdp-border-mid); border-radius: 4px;
+  font-size: 11px; color: var(--gdp-text-3); background: var(--gdp-surface); cursor: pointer; transition: all .1s;
+}
+#gaip-decision-panel .gdp-fdp-opt:hover  { border-color: var(--gdp-green); color: var(--gdp-green); }
+#gaip-decision-panel .gdp-fdp-opt.on     { border-color: var(--gdp-green); color: var(--gdp-green); background: var(--gdp-green-light); }
+#gaip-decision-panel .gdp-fdp-penalty   { font-size: 11px; font-style: italic; color: var(--gdp-amber); margin-bottom: 8px; min-height: 16px; }
+#gaip-decision-panel .gdp-fdp-penalty.hi { color: var(--gdp-red); }
+#gaip-decision-panel .gdp-fdp-confirm {
+  padding: 5px 14px; border: 1px solid var(--gdp-border-mid); border-radius: 4px;
+  font-size: 11px; color: var(--gdp-text-2); background: var(--gdp-surface); cursor: pointer; transition: background .1s;
+}
+#gaip-decision-panel .gdp-fdp-confirm:hover { background: var(--gdp-surface-mid); }
+
+#gaip-decision-panel .gdp-fork-committed {
+  display: none; padding: 11px 14px;
+  background: var(--gdp-green-light); border-top: 1px solid var(--gaip-good-bg);
+}
+#gaip-decision-panel .gdp-fork-committed.on { display: flex; align-items: center; justify-content: space-between; }
+#gaip-decision-panel .gdp-fc-txt { font-size: 12px; font-weight: 600; color: var(--gdp-green-dark); }
+#gaip-decision-panel .gdp-fc-sub { font-size: 11px; color: var(--gdp-green); margin-top: 2px; font-style: italic; line-height: 1.4; }
+
+#gaip-decision-panel .gdp-fork-deferred {
+  display: none; padding: 11px 14px;
+  background: var(--gdp-surface-mid); border-top: 1px solid var(--gdp-border);
+}
+#gaip-decision-panel .gdp-fork-deferred.on { display: flex; align-items: center; justify-content: space-between; }
+#gaip-decision-panel .gdp-fd-txt { font-size: 12px; font-weight: 600; color: var(--gdp-text-2); }
+#gaip-decision-panel .gdp-fd-sub { font-size: 10px; color: var(--gdp-text-4); margin-top: 2px; font-family: var(--gdp-mono); }
+
+#gaip-decision-panel .gdp-fork-cleared {
+  display: none; padding: 8px 14px; background: var(--gdp-surface-alt);
+}
+#gaip-decision-panel .gdp-fork-cleared.on { display: flex; align-items: center; }
+#gaip-decision-panel .gdp-fclr-txt { font-size: 11px; font-style: italic; color: var(--gdp-text-4); }
+
+#gaip-decision-panel .gdp-fc-undo,
+#gaip-decision-panel .gdp-fd-undo {
+  font-size: 10px; font-family: var(--gdp-mono); color: var(--gdp-text-3);
+  border: 1px solid var(--gdp-border-mid); border-radius: 3px;
+  padding: 3px 9px; background: var(--gdp-surface); cursor: pointer; flex-shrink: 0;
+}
+#gaip-decision-panel .gdp-fc-undo:hover,
+#gaip-decision-panel .gdp-fd-undo:hover { background: var(--gdp-surface-mid); }
+
+/* right panel */
+#gaip-decision-panel .gdp-right {
+  width: 240px; flex-shrink: 0; display: flex; flex-direction: column;
+  overflow: hidden; background: var(--gdp-surface-alt);
+}
+#gaip-decision-panel .gdp-rail-hdr {
+  display: flex; align-items: center; padding: 8px 12px;
+  border-bottom: 1px solid var(--gdp-border); flex-shrink: 0;
+  background: var(--gdp-surface-mid);
+}
+#gaip-decision-panel .gdp-rail-lbl {
+  font-size: 11px; font-weight: 600; color: var(--gdp-text-2);
+  text-transform: uppercase; letter-spacing: .06em;
+}
+#gaip-decision-panel .gdp-qlist { flex: 1; overflow-y: auto; }
+#gaip-decision-panel .gdp-qlist::-webkit-scrollbar { width: 3px; }
+#gaip-decision-panel .gdp-qlist::-webkit-scrollbar-thumb { background: var(--gdp-border-mid); border-radius: 2px; }
+
+#gaip-decision-panel .gdp-qi {
+  padding: 9px 12px; border-bottom: 1px solid var(--gdp-border);
+  cursor: pointer; transition: background .1s;
+  border-left: 3px solid transparent; background: var(--gdp-surface);
+}
+#gaip-decision-panel .gdp-qi:hover { background: var(--gdp-surface-mid); }
+#gaip-decision-panel .gdp-qi.sel   { background: var(--gdp-green-light); border-left-color: var(--gdp-green); }
+#gaip-decision-panel .gdp-qi.committed { border-left-color: var(--gdp-green); opacity: .65; }
+#gaip-decision-panel .gdp-qi.committed .gdp-qi-act { text-decoration: line-through; color: var(--gdp-text-3); }
+#gaip-decision-panel .gdp-qi.deferred  { border-left-color: var(--gdp-text-4); opacity: .6; }
+#gaip-decision-panel .gdp-qi.deferred .gdp-qi-act  { color: var(--gdp-text-3); }
+
+#gaip-decision-panel .gdp-qi-row  { display: flex; align-items: flex-start; gap: 8px; }
+#gaip-decision-panel .gdp-qi-rk   { flex-shrink: 0; }
+#gaip-decision-panel .gdp-rn {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--gdp-surface-mid); font-family: var(--gdp-mono);
+  font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; color: var(--gdp-text-3);
+}
+#gaip-decision-panel .gdp-rn.r { background: var(--gdp-red-light) !important; color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-rn.a { background: var(--gdp-amber-light) !important; color: var(--gdp-amber) !important; }
+
+#gaip-decision-panel .gdp-qi-body  { flex: 1; min-width: 0; }
+#gaip-decision-panel .gdp-qi-act   { font-size: 11px; font-weight: 600; color: var(--gdp-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#gaip-decision-panel .gdp-qi-sup   { font-size: 10px; color: var(--gdp-text-3); font-family: var(--gdp-mono); margin-top: 1px; }
+#gaip-decision-panel .gdp-qi-right { flex-shrink: 0; }
+#gaip-decision-panel .gdp-qi-m     { font-family: var(--gdp-mono); font-size: 13px; font-weight: 700; color: var(--gdp-text-3); }
+#gaip-decision-panel .gdp-qi-m.r   { color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-qi-m.a   { color: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-qi-m.g   { color: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-qi-m.d   { color: var(--gdp-text-4) !important; }
+
+#gaip-decision-panel .gdp-qw {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 7px 12px; border-bottom: 1px solid var(--gdp-border);
+  cursor: pointer; font-size: 11px; color: var(--gdp-text-3);
+  background: var(--gdp-surface-alt); transition: background .1s;
+}
+#gaip-decision-panel .gdp-qw:hover { background: var(--gdp-surface-mid); }
+#gaip-decision-panel .gdp-qw.sel   { background: var(--gdp-green-light); }
+#gaip-decision-panel .gdp-qw-act   { flex: 1; }
+#gaip-decision-panel .gdp-qw-m     { font-family: var(--gdp-mono); font-size: 11px; color: var(--gdp-text-4); }
+
+#gaip-decision-panel .gdp-qdiv { display: flex; align-items: center; gap: 6px; padding: 5px 12px; flex-shrink: 0; }
+#gaip-decision-panel .gdp-qdiv-l { flex: 1; height: 1px; background: var(--gdp-border); }
+#gaip-decision-panel .gdp-qdiv-t {
+  font-size: 9px; font-family: var(--gdp-mono); color: var(--gdp-text-4);
+  text-transform: uppercase; letter-spacing: .08em; white-space: nowrap;
+}
+
+#gaip-decision-panel .gdp-sup-card { flex-shrink: 0; border-top: 1px solid var(--gdp-border); background: var(--gdp-surface); }
+#gaip-decision-panel .gdp-sup-hdr { padding: 5px 12px; border-bottom: 1px solid var(--gdp-border); background: var(--gdp-surface-mid); }
+#gaip-decision-panel .gdp-sup-hdr-lbl {
+  font-size: 10px; font-family: var(--gdp-mono);
+  text-transform: uppercase; letter-spacing: .08em; color: var(--gdp-text-3);
+}
+#gaip-decision-panel .gdp-sv { display: none; padding: 8px 12px; }
+#gaip-decision-panel .gdp-sv.on { display: block; }
+#gaip-decision-panel .gdp-sv-chain-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; flex-wrap: wrap; }
+#gaip-decision-panel .gdp-sv-now    { font-size: 10px; color: var(--gdp-text-3); font-family: var(--gdp-mono); }
+#gaip-decision-panel .gdp-sv-arr    { font-size: 10px; color: var(--gdp-text-4); }
+#gaip-decision-panel .gdp-sv-proj   { font-size: 10px; font-family: var(--gdp-mono); font-weight: 600; }
+#gaip-decision-panel .gdp-sv-conseq { font-size: 10px; color: var(--gdp-text-3); }
+
+/* visuals */
+#gaip-decision-panel .gdp-risk-arc { display: flex; align-items: flex-start; gap: 14px; }
+#gaip-decision-panel .gdp-risk-score-block { flex-shrink: 0; }
+#gaip-decision-panel .gdp-risk-score-lbl {
+  font-family: var(--gdp-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--gdp-text-3);
+}
+#gaip-decision-panel .gdp-risk-score-val {
+  font-family: var(--gdp-mono); font-size: 32px; font-weight: 700; line-height: 1; color: var(--gdp-text);
+}
+#gaip-decision-panel .gdp-risk-score-val.act  { color: var(--gdp-red) !important; }
+#gaip-decision-panel .gdp-risk-score-val.warn { color: var(--gdp-amber) !important; }
+#gaip-decision-panel .gdp-risk-score-val.ok   { color: var(--gdp-green) !important; }
+#gaip-decision-panel .gdp-risk-threshold { font-size: 10px; color: var(--gdp-text-3); margin-top: 2px; }
+#gaip-decision-panel .gdp-risk-spark { flex: 1; min-width: 0; }
+#gaip-decision-panel .gdp-spark-lbl {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--gdp-text-3); font-family: var(--gdp-mono); margin-bottom: 3px;
+}
+#gaip-decision-panel .gdp-spark-svg { width: 100%; height: 40px; }
+
+#gaip-decision-panel .gdp-pgr-bar-lbl {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--gdp-text-3); font-family: var(--gdp-mono); margin-bottom: 4px;
+}
+#gaip-decision-panel .gdp-pgr-bar-track {
+  height: 8px; background: var(--gdp-surface-mid);
+  border: 1px solid var(--gdp-border); border-radius: 4px; overflow: hidden; margin-bottom: 3px;
+}
+#gaip-decision-panel .gdp-pgr-bar-fill { height: 100%; border-radius: 4px; }
+#gaip-decision-panel .gdp-pgr-bar-ticks {
+  display: flex; justify-content: space-between;
+  font-size: 9px; color: var(--gdp-text-4); font-family: var(--gdp-mono); margin-bottom: 6px;
+}
+#gaip-decision-panel .gdp-pgr-stats { display: flex; gap: 14px; }
+#gaip-decision-panel .gdp-pgr-stat  { display: flex; flex-direction: column; }
+#gaip-decision-panel .gdp-pgr-stat-lbl {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--gdp-text-3); font-family: var(--gdp-mono);
+}
+#gaip-decision-panel .gdp-pgr-stat-val { font-size: 16px; font-family: var(--gdp-mono); font-weight: 700; color: var(--gdp-text); }
+
+#gaip-decision-panel .gdp-irr-stats  { display: flex; gap: 12px; margin-bottom: 6px; flex-wrap: wrap; }
+#gaip-decision-panel .gdp-irr-stat   { display: flex; flex-direction: column; }
+#gaip-decision-panel .gdp-irr-stat-lbl {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--gdp-text-3); font-family: var(--gdp-mono);
+}
+#gaip-decision-panel .gdp-irr-stat-val { font-size: 16px; font-family: var(--gdp-mono); font-weight: 700; color: var(--gdp-text); }
+#gaip-decision-panel .gdp-irr-stat-val.g { color: var(--gdp-green); }
+#gaip-decision-panel .gdp-irr-bar-track {
+  height: 8px; background: var(--gdp-surface-mid);
+  border: 1px solid var(--gdp-border); border-radius: 4px; overflow: hidden; margin-bottom: 3px;
+}
+#gaip-decision-panel .gdp-irr-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--gdp-green), var(--gdp-amber)); }
+#gaip-decision-panel .gdp-irr-bar-lbl { display: flex; justify-content: space-between; font-size: 9px; color: var(--gdp-text-4); font-family: var(--gdp-mono); }
+
+#gaip-decision-panel .gdp-pre-vis-lbl { display: flex; justify-content: space-between; font-size: 10px; color: var(--gdp-text-3); font-family: var(--gdp-mono); margin-bottom: 4px; }
+#gaip-decision-panel .gdp-pre-traj-svg { width: 100%; height: 50px; }
+#gaip-decision-panel .gdp-pre-stats    { display: flex; gap: 14px; margin-top: 4px; flex-wrap: wrap; }
+#gaip-decision-panel .gdp-pre-stat     { display: flex; flex-direction: column; }
+#gaip-decision-panel .gdp-pre-stat-lbl { font-size: 9px; text-transform: uppercase; letter-spacing: .06em; color: var(--gdp-text-3); font-family: var(--gdp-mono); }
+#gaip-decision-panel .gdp-pre-stat-val { font-size: 15px; font-family: var(--gdp-mono); font-weight: 700; color: var(--gdp-text); }
+#gaip-decision-panel .gdp-pre-stat-val.amber { color: var(--gdp-amber); }
+
+#gaip-decision-panel .gdp-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  padding: 28px 20px; color: var(--gdp-text-4); font-size: 12px; font-style: italic;
+}

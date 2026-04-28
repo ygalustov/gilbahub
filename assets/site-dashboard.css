@@ -1,0 +1,594 @@
+/* ============================================================
+   GILBA SITE DASHBOARD v2.0.0
+   
+   Unified site management dashboard — always visible at top
+   of hub. Uses existing design system tokens.
+   
+   v2.0.0 — Recent cards (max 6) + searchable combobox + zone
+             breakdown tooltip + overflow indicator
+   ============================================================ */
+
+/* ── Container ── */
+.gaip-site-dashboard {
+    margin-bottom: 16px;
+    background: var(--gaip-surface, var(--gaip-surface));
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius, 10px);
+    box-shadow: var(--gaip-shadow, 0 1px 4px rgba(0,0,0,0.04));
+    font-family: var(--gaip-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    font-size: var(--gaip-font-size, 14px);
+    overflow: visible;
+}
+
+/* ── Header bar ── */
+.gaip-sd-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--gaip-accent-light, var(--gaip-accent-light));
+    border-bottom: 1px solid var(--gaip-border-light, var(--gaip-surface-hover));
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.gaip-sd-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gaip-sd-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gaip-accent-dark, var(--gaip-accent-dark));
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.gaip-sd-site-count {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gaip-accent, #2d7a4f);
+    background: var(--gaip-surface, var(--gaip-surface));
+    border: 1px solid var(--gaip-good-border, var(--gaip-good-border));
+    border-radius: var(--gaip-radius-pill, 20px);
+    padding: 1px 8px;
+}
+
+.gaip-sd-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ── Shared button base ── */
+.gaip-sd-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, var(--gaip-surface));
+    color: var(--gaip-text, var(--gaip-text));
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.gaip-sd-btn:hover {
+    background: var(--gaip-surface-hover, var(--gaip-surface-hover));
+    border-color: var(--gaip-accent, #2d7a4f);
+}
+
+.gaip-sd-btn:active {
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.08);
+}
+
+.gaip-sd-btn-primary {
+    background: var(--gaip-accent, #2d7a4f);
+    color: var(--gaip-surface) !important;
+    border-color: var(--gaip-accent-dark, var(--gaip-accent-dark));
+}
+
+.gaip-sd-btn-primary:hover {
+    background: var(--gaip-accent-hover, var(--gaip-accent-hover));
+}
+
+.gaip-sd-btn-icon {
+    font-size: 13px;
+    line-height: 1;
+}
+
+/* ── Site cards grid ── */
+.gaip-sd-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+}
+
+/* ── Individual site card ── */
+.gaip-sd-card {
+    position: relative;
+    flex: 1 1 180px;
+    max-width: 280px;
+    min-width: 180px;
+    padding: 10px 12px;
+    background: var(--gaip-surface, var(--gaip-surface));
+    border: 2px solid var(--gaip-border-light, var(--gaip-surface-hover));
+    border-radius: var(--gaip-radius, 10px);
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s, background 0.15s;
+    user-select: none;
+}
+
+.gaip-sd-card:hover {
+    border-color: var(--gaip-accent, #2d7a4f);
+    box-shadow: var(--gaip-shadow-hover, 0 2px 8px rgba(0,0,0,0.08));
+}
+
+.gaip-sd-card.gaip-sd-active {
+    border-color: var(--gaip-accent, #2d7a4f);
+    background: var(--gaip-accent-light, var(--gaip-accent-light));
+    box-shadow: 0 0 0 1px var(--gaip-accent, #2d7a4f), var(--gaip-shadow-hover, 0 2px 8px rgba(0,0,0,0.08));
+}
+
+.gaip-sd-card.gaip-sd-active .gaip-sd-card-indicator {
+    display: block;
+}
+
+.gaip-sd-card-indicator {
+    display: none;
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gaip-accent, #2d7a4f);
+}
+
+.gaip-sd-card-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gaip-text, var(--gaip-text));
+    margin-bottom: 2px;
+    padding-right: 55px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gaip-sd-card-location {
+    font-size: 11px;
+    color: var(--gaip-text-secondary);
+    margin-bottom: 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gaip-sd-card-location-empty {
+    font-size: 11px;
+    color: var(--gaip-border);
+    margin-bottom: 5px;
+}
+
+.gaip-sd-card-species {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--gaip-accent, #2d7a4f);
+    margin-bottom: 4px;
+}
+
+.gaip-sd-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    font-size: 11px;
+    color: var(--gaip-text-secondary);
+}
+
+.gaip-sd-card-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.gaip-sd-card-samples-hoverable {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    border-bottom: 1px dotted var(--gaip-border);
+    padding-bottom: 1px;
+    cursor: default;
+}
+
+/* Card hover actions */
+.gaip-sd-card-actions {
+    display: none;
+    position: absolute;
+    top: 6px;
+    right: 22px;
+    gap: 2px;
+}
+
+.gaip-sd-card:hover .gaip-sd-card-actions {
+    display: flex;
+}
+
+.gaip-sd-card-action {
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--gaip-text-secondary);
+    transition: background 0.12s, color 0.12s;
+    padding: 0;
+}
+
+.gaip-sd-card-action:hover {
+    background: var(--gaip-surface-hover, var(--gaip-surface-hover));
+    color: var(--gaip-text, var(--gaip-text));
+}
+
+.gaip-sd-card-action.gaip-sd-action-delete:hover {
+    background: var(--gaip-critical-bg, var(--gaip-critical-bg));
+    color: var(--gaip-critical, var(--gaip-critical));
+}
+
+/* ── Inline rename ── */
+.gaip-sd-rename-input {
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    color: var(--gaip-text, var(--gaip-text));
+    border: 1px solid var(--gaip-accent, #2d7a4f);
+    border-radius: 4px;
+    padding: 1px 6px;
+    width: 100%;
+    max-width: 200px;
+    background: var(--gaip-surface, var(--gaip-surface));
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(45,122,79,0.15);
+}
+
+/* ── Inline add-site form ── */
+.gaip-sd-add-form {
+    display: none;
+    flex: 1 1 180px;
+    max-width: 280px;
+    min-width: 180px;
+    padding: 10px 12px;
+    border: 2px dashed var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius, 10px);
+    background: var(--gaip-surface-muted, var(--gaip-surface-muted));
+    align-items: center;
+    gap: 8px;
+}
+
+.gaip-sd-add-form.gaip-sd-visible {
+    display: flex;
+}
+
+.gaip-sd-add-input {
+    flex: 1;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 5px 8px;
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, var(--gaip-surface));
+    color: var(--gaip-text, var(--gaip-text));
+    outline: none;
+}
+
+.gaip-sd-add-input:focus {
+    border-color: var(--gaip-accent, #2d7a4f);
+    box-shadow: 0 0 0 2px rgba(45,122,79,0.15);
+}
+
+.gaip-sd-add-confirm {
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-accent, #2d7a4f);
+    color: var(--gaip-surface) !important;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.gaip-sd-add-confirm:hover {
+    background: var(--gaip-accent-hover, var(--gaip-accent-hover));
+}
+
+.gaip-sd-add-cancel {
+    padding: 5px 8px;
+    font-size: 12px;
+    font-family: inherit;
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, var(--gaip-surface));
+    color: var(--gaip-text-secondary);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.gaip-sd-add-cancel:hover {
+    background: var(--gaip-surface-hover, var(--gaip-surface-hover));
+}
+
+/* ── Overflow indicator ── */
+.gaip-sd-overflow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    min-width: 100px;
+    font-size: 12px;
+    color: var(--gaip-text-muted);
+    cursor: pointer;
+    border: 1px dashed var(--gaip-border-light, var(--gaip-surface-hover));
+    border-radius: var(--gaip-radius, 10px);
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.gaip-sd-overflow:hover {
+    border-color: var(--gaip-accent, #2d7a4f);
+    color: var(--gaip-accent, #2d7a4f);
+}
+
+/* ── Search combobox ── */
+.gaip-sd-search-wrap {
+    position: relative;
+}
+
+.gaip-sd-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, var(--gaip-surface));
+    color: var(--gaip-text, var(--gaip-text));
+    cursor: pointer;
+    transition: border-color 0.15s;
+    white-space: nowrap;
+}
+
+.gaip-sd-search-btn:hover,
+.gaip-sd-search-btn.gaip-sd-search-open {
+    border-color: var(--gaip-accent, #2d7a4f);
+}
+
+.gaip-sd-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 100;
+    width: 320px;
+    background: var(--gaip-surface, var(--gaip-surface));
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    overflow: hidden;
+}
+
+.gaip-sd-search-input-wrap {
+    padding: 8px 8px 4px;
+}
+
+.gaip-sd-search-input {
+    width: 100%;
+    box-sizing: border-box;
+    font-size: 13px;
+    font-family: inherit;
+    padding: 6px 8px;
+    border: 1px solid var(--gaip-border, var(--gaip-border));
+    border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, var(--gaip-surface));
+    color: var(--gaip-text, var(--gaip-text));
+    outline: none;
+}
+
+.gaip-sd-search-input:focus {
+    border-color: var(--gaip-accent, #2d7a4f);
+    box-shadow: 0 0 0 2px rgba(45,122,79,0.15);
+}
+
+.gaip-sd-search-list {
+    max-height: 280px;
+    overflow-y: auto;
+    padding: 0 4px 4px;
+}
+
+.gaip-sd-search-empty {
+    padding: 12px 8px;
+    font-size: 12px;
+    color: var(--gaip-text-muted);
+    text-align: center;
+}
+
+.gaip-sd-search-item {
+    padding: 7px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    transition: background 0.1s;
+}
+
+.gaip-sd-search-item:hover,
+.gaip-sd-search-item.gaip-sd-highlighted {
+    background: var(--gaip-accent-light, var(--gaip-accent-light));
+}
+
+.gaip-sd-search-item-name {
+    font-size: 13px;
+    color: var(--gaip-text, var(--gaip-text));
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gaip-sd-search-item-name.gaip-sd-item-active {
+    font-weight: 600;
+}
+
+.gaip-sd-search-item-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gaip-accent, #2d7a4f);
+    flex-shrink: 0;
+}
+
+.gaip-sd-search-item-detail {
+    font-size: 11px;
+    color: var(--gaip-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.gaip-sd-search-item-time {
+    font-size: 10px;
+    color: var(--gaip-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* ── Zone breakdown tooltip ── */
+.gaip-sd-tooltip {
+    position: fixed;
+    z-index: 200;
+    background: var(--gaip-accent-dark);
+    color: var(--gaip-accent-light);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.6;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+    max-width: 340px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.gaip-sd-tooltip-title {
+    font-weight: 600;
+    font-size: 11px;
+    color: var(--gaip-good-border);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.gaip-sd-tooltip-type {
+    margin-bottom: 6px;
+}
+
+.gaip-sd-tooltip-type:last-child {
+    margin-bottom: 0;
+}
+
+.gaip-sd-tooltip-type-label {
+    font-weight: 600;
+    color: var(--gaip-surface);
+    margin-bottom: 1px;
+}
+
+.gaip-sd-tooltip-zones {
+    color: var(--gaip-good-border);
+    padding-left: 4px;
+}
+
+/* ── Footer ── */
+.gaip-sd-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 16px;
+    border-top: 1px solid var(--gaip-border-light, var(--gaip-surface-hover));
+    background: var(--gaip-surface-muted, var(--gaip-surface-muted));
+    min-height: 28px;
+}
+
+.gaip-sd-save-status {
+    font-size: 11px;
+    color: var(--gaip-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gaip-sd-save-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gaip-good, #2d7a4f);
+    transition: background 0.3s;
+}
+
+.gaip-sd-save-dot.gaip-sd-saving {
+    background: var(--gaip-warning, var(--gaip-warning));
+    animation: gaip-sd-pulse 0.8s infinite alternate;
+}
+
+@keyframes gaip-sd-pulse {
+    from { opacity: 1; }
+    to { opacity: 0.4; }
+}
+
+.gaip-sd-footer-actions {
+    display: flex;
+    gap: 6px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+    .gaip-sd-cards {
+        flex-direction: column;
+    }
+    .gaip-sd-card,
+    .gaip-sd-add-form,
+    .gaip-sd-overflow {
+        max-width: none;
+    }
+    .gaip-sd-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .gaip-sd-header-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+    .gaip-sd-search-dropdown {
+        width: 280px;
+        right: 0;
+        left: auto;
+    }
+}

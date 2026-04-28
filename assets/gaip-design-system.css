@@ -1,0 +1,1189 @@
+/* ============================================================
+   GILBA HUB — Unified Design System v1.0
+   
+   PURPOSE: Replace 148 scattered hex colours and 12 CSS files 
+   with a single token-based system. Every existing class name 
+   is preserved. No JavaScript changes required.
+   
+   LOAD ORDER: This file loads AFTER all existing CSS files.
+   It overrides via specificity, not replacement.
+   ============================================================ */
+
+/* ============================================================
+   1. DESIGN TOKENS — Single source of truth for all values
+   ============================================================ */
+/* ============================================================
+   1. DESIGN TOKENS — Light palette (default)
+   ============================================================ */
+:root {
+  /* — Surface & Background — */
+  --gaip-bg:              #f4f7f5;
+  --gaip-surface:         #ffffff;
+  --gaip-surface-muted:   #eef2f0;
+  --gaip-surface-hover:   #e5ebe8;
+
+  /* — Borders — */
+  --gaip-border:          #ccd9d2;
+  --gaip-border-light:    #dde7e2;
+
+  /* — Text — */
+  --gaip-text:            #1a2b23;
+  --gaip-text-secondary:  #3d5c4a;
+  --gaip-text-muted:      #6b8878;
+
+  /* — Brand / Accent — */
+  --gaip-accent:          #2da85e;
+  --gaip-accent-hover:    #259950;
+  --gaip-accent-light:    #e6f5ec;
+  --gaip-accent-dark:     #1e7d45;
+
+  /* — Severity: Good — */
+  --gaip-good:            #16a34a;
+  --gaip-good-bg:         #f0fdf4;
+  --gaip-good-border:     #86efac;
+
+  /* — Severity: Warning — */
+  --gaip-warning:         #d97706;
+  --gaip-warning-bg:      #fffbeb;
+  --gaip-warning-border:  #fcd34d;
+
+  /* — Severity: Critical — */
+  --gaip-critical:        #dc2626;
+  --gaip-critical-bg:     #fef2f2;
+  --gaip-critical-border: #fca5a5;
+
+  /* — Severity: Info — */
+  --gaip-info:            #2563eb;
+  --gaip-info-bg:         #eff6ff;
+  --gaip-info-border:     #93c5fd;
+
+  /* — Sizing — */
+  --gaip-radius:          10px;
+  --gaip-radius-sm:       6px;
+  --gaip-radius-pill:     20px;
+  --gaip-shadow:          0 1px 4px rgba(0,0,0,0.08);
+  --gaip-shadow-hover:    0 2px 8px rgba(0,0,0,0.12);
+  --gaip-shadow-urgent:   0 2px 12px rgba(220,38,38,0.15);
+
+  /* — Typography — */
+  --gaip-font:            "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --gaip-font-mono:       "DM Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --gaip-font-display:    "Fraunces", Georgia, serif;
+  --gaip-font-size:       14px;
+  --gaip-line-height:     1.55;
+}
+
+/* ============================================================
+   1b. DARK PALETTE — activated by .gaip-dark on #gaip-hub
+   ============================================================ */
+#gaip-hub.gaip-dark {
+  /* v21 dark palette — b35fix247 Session 7 */
+
+  /* — Surface & Background — */
+  --gaip-bg:              #0d1510;
+  --gaip-surface:         #111a16;
+  --gaip-surface-muted:   #192320;
+  --gaip-surface-hover:   #202d28;
+
+  /* — Borders — */
+  --gaip-border:          #293c33;
+  --gaip-border-light:    #202d28;
+
+  /* — Text — */
+  --gaip-text:            #ecf2ed;
+  --gaip-text-secondary:  #adc0b4;
+  --gaip-text-muted:      #6b8878;
+
+  /* — Brand / Accent — */
+  --gaip-accent:          #3ecf75;
+  --gaip-accent-hover:    #34b864;
+  --gaip-accent-light:    #0a1a0d;
+  --gaip-accent-dark:     #2da85e;
+
+  /* — Severity: Good — */
+  --gaip-good:            #22c55e;
+  --gaip-good-bg:         #0a1a0d;
+  --gaip-good-border:     #1b643a;
+
+  /* — Severity: Warning — */
+  --gaip-warning:         #f59e0b;
+  --gaip-warning-bg:      #150d03;
+  --gaip-warning-border:  #5a2b04;
+
+  /* — Severity: Critical — */
+  --gaip-critical:        #ef4444;
+  --gaip-critical-bg:     #150b0b;
+  --gaip-critical-border: #5a1414;
+
+  /* — Severity: Info — */
+  --gaip-info:            #3b82f6;
+  --gaip-info-bg:         #0d1e2e;
+  --gaip-info-border:     #1a3a5c;
+
+  /* — Shadows (stronger for dark theme) — */
+  --gaip-shadow:          0 1px 4px rgba(0,0,0,0.3);
+  --gaip-shadow-hover:    0 2px 8px rgba(0,0,0,0.4);
+  --gaip-shadow-urgent:   0 2px 12px rgba(239,68,68,0.15);
+}
+
+
+/* ============================================================
+   2. BASE CONTAINER — #gaip-hub override
+   ============================================================ */
+#gaip-hub {
+  background: var(--gaip-bg) !important;
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius) !important;
+  font-family: var(--gaip-font) !important;
+  font-size: var(--gaip-font-size) !important;
+  line-height: var(--gaip-line-height) !important;
+  color: var(--gaip-text) !important;
+}
+
+/* Dark palette — text colour flows from var(--gaip-text) via #gaip-hub rule above.
+   No wildcard override needed — tokens handle all text colour. */
+
+
+/* ============================================================
+   3. CARD SYSTEM — Unified card appearance
+   ============================================================ */
+#gaip-hub .gaip-card {
+  background: var(--gaip-surface) !important;
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius) !important;
+  box-shadow: var(--gaip-shadow) !important;
+  overflow: hidden;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+#gaip-hub .gaip-card:hover {
+  box-shadow: var(--gaip-shadow-hover) !important;
+}
+
+#gaip-hub .gaip-card-header {
+  background: var(--gaip-surface-muted) !important;
+  border-bottom: 1px solid var(--gaip-border-light) !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+}
+
+#gaip-hub .gaip-card-header:hover {
+  background: var(--gaip-surface-hover) !important;
+}
+
+#gaip-hub .gaip-card-header h3 {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--gaip-text) !important;
+  letter-spacing: -0.2px;
+}
+
+#gaip-hub .gaip-card-toggle {
+  color: var(--gaip-text-muted) !important;
+  font-size: 16px !important;
+}
+
+#gaip-hub .gaip-card-body {
+  padding: 14px 16px !important;
+}
+
+
+/* — Turf Profile Card — special styling — */
+#gaip-hub .gaip-turf-profile-card {
+  border: 2px solid var(--gaip-accent) !important;
+}
+
+#gaip-hub .gaip-turf-profile-card .gaip-card-header {
+  background: linear-gradient(135deg, var(--gaip-accent) 0%, var(--gaip-accent-dark) 100%) !important;
+  border-bottom: none !important;
+}
+
+#gaip-hub .gaip-turf-profile-card .gaip-card-header h3 {
+  color: #fff !important;
+}
+
+
+/* ============================================================
+   3b. DIAGNOSTIC CARD GRIDS — Tissue & Water match Soil layout
+   ============================================================ */
+#gaip-hub .gaip-tissue-cards-grid,
+#gaip-hub .gaip-water-cards-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 12px !important;
+  margin-bottom: 20px !important;
+}
+
+@media (max-width: 600px) {
+  #gaip-hub .gaip-tissue-cards-grid,
+  #gaip-hub .gaip-water-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+/* ============================================================
+   4. URGENCY HIERARCHY — Critical cards stand out
+   ============================================================ */
+
+/* Applied via JS class or data attribute — these are NEW classes 
+   that can be added to .gaip-card elements */
+#gaip-hub .gaip-card[data-urgency="critical"],
+#gaip-hub .gaip-card.gaip-urgency-critical {
+  border-left: 3px solid var(--gaip-critical) !important;
+  box-shadow: var(--gaip-shadow-urgent) !important;
+}
+
+#gaip-hub .gaip-card[data-urgency="warning"],
+#gaip-hub .gaip-card.gaip-urgency-warning {
+  border-left: 3px solid var(--gaip-warning) !important;
+}
+
+#gaip-hub .gaip-card[data-urgency="good"],
+#gaip-hub .gaip-card.gaip-urgency-good {
+  border-left: 3px solid transparent !important;
+  opacity: 0.92;
+}
+
+#gaip-hub .gaip-card[data-urgency="good"]:hover {
+  opacity: 1;
+}
+
+
+/* ============================================================
+   5. STATUS BADGES — Unified severity indicators
+   ============================================================ */
+#gaip-hub .status-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 3px 10px !important;
+  border-radius: var(--gaip-radius-pill) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  text-transform: uppercase !important;
+  line-height: 18px !important;
+}
+
+/* Add a dot before badge text */
+#gaip-hub .status-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+#gaip-hub .status-badge.deficient,
+#gaip-hub .status-badge.critical {
+  background: var(--gaip-critical-bg) !important;
+  color: var(--gaip-critical) !important;
+  border: 1px solid var(--gaip-critical-border) !important;
+}
+#gaip-hub .status-badge.deficient::before,
+#gaip-hub .status-badge.critical::before {
+  background: var(--gaip-critical);
+}
+
+#gaip-hub .status-badge.borderline,
+#gaip-hub .status-badge.warning {
+  background: var(--gaip-warning-bg) !important;
+  color: var(--gaip-warning) !important;
+  border: 1px solid var(--gaip-warning-border) !important;
+}
+#gaip-hub .status-badge.borderline::before,
+#gaip-hub .status-badge.warning::before {
+  background: var(--gaip-warning);
+}
+
+#gaip-hub .status-badge.adequate,
+#gaip-hub .status-badge.good,
+#gaip-hub .status-badge.sufficient {
+  background: var(--gaip-good-bg) !important;
+  color: var(--gaip-good) !important;
+  border: 1px solid var(--gaip-good-border) !important;
+}
+#gaip-hub .status-badge.adequate::before,
+#gaip-hub .status-badge.good::before,
+#gaip-hub .status-badge.sufficient::before {
+  background: var(--gaip-good);
+}
+
+#gaip-hub .status-badge.high,
+#gaip-hub .status-badge.info {
+  background: var(--gaip-info-bg) !important;
+  color: var(--gaip-info) !important;
+  border: 1px solid var(--gaip-info-border) !important;
+}
+#gaip-hub .status-badge.high::before,
+#gaip-hub .status-badge.info::before {
+  background: var(--gaip-info);
+}
+
+#gaip-hub .status-badge.no-data {
+  background: var(--gaip-surface-muted) !important;
+  color: var(--gaip-text-muted) !important;
+  border: 1px solid var(--gaip-border) !important;
+}
+#gaip-hub .status-badge.no-data::before {
+  background: var(--gaip-text-muted);
+}
+
+
+/* ============================================================
+   6. PRIORITY BADGES — Wear & Recovery, Disease actions
+   ============================================================ */
+#gaip-hub .gaip-priority-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 3px 10px !important;
+  border-radius: var(--gaip-radius-pill) !important;
+  font-weight: 600 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+}
+
+#gaip-hub .gaip-priority-low {
+  background: var(--gaip-good-bg) !important;
+  color: var(--gaip-good) !important;
+  border: 1px solid var(--gaip-good-border);
+}
+
+#gaip-hub .gaip-priority-medium {
+  background: var(--gaip-warning-bg) !important;
+  color: var(--gaip-warning) !important;
+  border: 1px solid var(--gaip-warning-border);
+}
+
+#gaip-hub .gaip-priority-high {
+  background: var(--gaip-critical-bg) !important;
+  color: var(--gaip-critical) !important;
+  border: 1px solid var(--gaip-critical-border);
+}
+
+
+/* ============================================================
+   7. STRESS STATUS — Trajectory module indicators
+   ============================================================ */
+#gaip-hub .gaip-stress-status {
+  border-radius: var(--gaip-radius-pill) !important;
+  padding: 3px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+#gaip-hub .gaip-stress-recovering {
+  background: var(--gaip-good-bg) !important;
+  color: var(--gaip-good) !important;
+  border: 1px solid var(--gaip-good-border);
+}
+
+#gaip-hub .gaip-stress-stable {
+  background: var(--gaip-info-bg) !important;
+  color: var(--gaip-info) !important;
+  border: 1px solid var(--gaip-info-border);
+}
+
+#gaip-hub .gaip-stress-stressed {
+  background: var(--gaip-warning-bg) !important;
+  color: var(--gaip-warning) !important;
+  border: 1px solid var(--gaip-warning-border);
+}
+
+#gaip-hub .gaip-stress-critical {
+  background: var(--gaip-critical-bg) !important;
+  color: var(--gaip-critical) !important;
+  border: 1px solid var(--gaip-critical-border);
+}
+
+
+/* ============================================================
+   8. RECOMMENDATION BLOCKS — Decision/action cards
+   ============================================================ */
+#gaip-hub .gaip-recommendation {
+  border-radius: var(--gaip-radius-sm) !important;
+  font-size: 13px !important;
+  padding: 12px 14px !important;
+  margin: 8px 0 !important;
+}
+
+#gaip-hub .gaip-recommendation-critical {
+  background: var(--gaip-critical-bg) !important;
+  border-left: 3px solid var(--gaip-critical) !important;
+  border: 1px solid var(--gaip-critical-border);
+  border-left: 3px solid var(--gaip-critical) !important;
+}
+
+#gaip-hub .gaip-recommendation-warning {
+  background: var(--gaip-warning-bg) !important;
+  border: 1px solid var(--gaip-warning-border);
+  border-left: 3px solid var(--gaip-warning) !important;
+}
+
+#gaip-hub .gaip-recommendation-positive {
+  background: var(--gaip-good-bg) !important;
+  border: 1px solid var(--gaip-good-border);
+  border-left: 3px solid var(--gaip-good) !important;
+}
+
+#gaip-hub .gaip-recommendation .rec-title {
+  font-weight: 600 !important;
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-recommendation .rec-action {
+  color: var(--gaip-text-secondary) !important;
+  font-size: 12px !important;
+}
+
+
+/* ============================================================
+   9. CONTEXT INDICATORS — Left-border info blocks
+   ============================================================ */
+#gaip-hub .gaip-context-indicator {
+  background: var(--gaip-good-bg) !important;
+  border-left: 3px solid var(--gaip-good) !important;
+  color: var(--gaip-good) !important;
+  border-radius: 0 var(--gaip-radius-sm) var(--gaip-radius-sm) 0 !important;
+  padding: 10px 14px !important;
+  font-size: 12px !important;
+}
+
+#gaip-hub .gaip-context-indicator.blue {
+  background: var(--gaip-info-bg) !important;
+  border-left-color: var(--gaip-info) !important;
+  color: var(--gaip-info) !important;
+}
+
+#gaip-hub .gaip-context-indicator.amber {
+  background: var(--gaip-warning-bg) !important;
+  border-left-color: var(--gaip-warning) !important;
+  color: var(--gaip-warning) !important;
+}
+
+
+/* ============================================================
+   10. STALE WARNING — Data freshness alerts
+   ============================================================ */
+#gaip-hub .gaip-stale-warning {
+  background: var(--gaip-warning-bg) !important;
+  border: 1px solid var(--gaip-warning-border) !important;
+  border-left: 3px solid var(--gaip-warning) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  color: var(--gaip-warning) !important;
+}
+
+
+/* ============================================================
+   11. STATUS BLOCKS — Loading/Success/Error
+   ============================================================ */
+#gaip-hub .gaip-status {
+  border-radius: var(--gaip-radius-sm) !important;
+  font-size: 13px !important;
+}
+
+#gaip-hub .gaip-status.loading {
+  background: var(--gaip-info-bg) !important;
+  color: var(--gaip-info) !important;
+  border: 1px solid var(--gaip-info-border) !important;
+}
+
+#gaip-hub .gaip-status.success {
+  background: var(--gaip-good-bg) !important;
+  color: var(--gaip-good) !important;
+  border: 1px solid var(--gaip-good-border) !important;
+}
+
+#gaip-hub .gaip-status.error {
+  background: var(--gaip-critical-bg) !important;
+  color: var(--gaip-critical) !important;
+  border: 1px solid var(--gaip-critical-border) !important;
+}
+
+
+/* ============================================================
+   12. TABLES — MLSN, Load Breakdown, general data tables
+   ============================================================ */
+#gaip-hub .gaip-mlsn-table {
+  border-collapse: collapse !important;
+  font-size: 12px !important;
+}
+
+#gaip-hub .gaip-mlsn-table thead {
+  background: var(--gaip-surface-muted) !important;
+}
+
+#gaip-hub .gaip-mlsn-table th {
+  color: var(--gaip-text-secondary) !important;
+  border-bottom: 2px solid var(--gaip-border) !important;
+  font-weight: 600 !important;
+  padding: 10px 8px !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+#gaip-hub .gaip-mlsn-table td {
+  border-bottom: 1px solid var(--gaip-border-light) !important;
+  padding: 8px !important;
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-mlsn-table tbody tr:hover {
+  background: var(--gaip-surface-muted) !important;
+}
+
+#gaip-hub .gaip-mlsn-table tr.status-deficient {
+  background: var(--gaip-critical-bg) !important;
+}
+
+#gaip-hub .gaip-mlsn-table tr.status-borderline {
+  background: var(--gaip-warning-bg) !important;
+}
+
+#gaip-hub .gaip-mlsn-table tr.status-adequate {
+  background: var(--gaip-good-bg) !important;
+}
+
+#gaip-hub .gaip-load-breakdown {
+  font-size: 12px !important;
+}
+
+#gaip-hub .gaip-load-breakdown th {
+  background: var(--gaip-surface-muted) !important;
+  font-weight: 600 !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+#gaip-hub .gaip-load-breakdown th,
+#gaip-hub .gaip-load-breakdown td {
+  border-bottom: 1px solid var(--gaip-border-light) !important;
+}
+
+
+/* ============================================================
+   13. FORM INPUTS — Consistent input styling
+   ============================================================ */
+#gaip-hub .gaip-card input[type="text"],
+#gaip-hub .gaip-card input[type="number"],
+#gaip-hub .gaip-card input[type="date"],
+#gaip-hub .gaip-card select {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  font-size: 13px !important;
+  padding: 6px 8px !important;
+  color: var(--gaip-text) !important;
+  background: var(--gaip-surface) !important;
+  transition: border-color 0.2s ease;
+}
+
+#gaip-hub .gaip-card input:focus,
+#gaip-hub .gaip-card select:focus {
+  border-color: var(--gaip-accent) !important;
+  outline: 2px solid var(--gaip-accent-light) !important;
+  outline-offset: 0;
+}
+
+#gaip-hub .gaip-card label {
+  color: var(--gaip-text-secondary) !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+}
+
+
+/* ============================================================
+   14. BUTTONS — Primary, secondary, profile actions
+   ============================================================ */
+
+/* Sample switcher pills — high specificity to beat theme resets */
+#gaip-hub .gaip-sample-quick-btn {
+  color: var(--gaip-text) !important;
+}
+#gaip-hub .gaip-sample-quick-btn.active {
+  color: #ffffff !important;
+}
+
+/* Tissue table — high specificity to beat browser/theme defaults */
+#gaip-hub .gaip-tissue-module .gaip-table th,
+#gaip-hub .gaip-tissue-module .gaip-table td,
+#gaip-hub .gaip-tissue-module .gaip-inp {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-run-btn,
+#gaip-hub button.gaip-run-btn {
+  background: var(--gaip-accent) !important;
+  border: 1px solid var(--gaip-accent) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  padding: 10px 18px !important;
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+#gaip-hub .gaip-run-btn:hover {
+  background: var(--gaip-accent-hover) !important;
+  opacity: 1 !important;
+}
+
+#gaip-hub .gaip-profile-controls .gaip-save-btn {
+  background: var(--gaip-accent) !important;
+  border-color: var(--gaip-accent) !important;
+  color: #fff !important;
+  border-radius: var(--gaip-radius-sm) !important;
+}
+
+#gaip-hub .gaip-profile-controls .gaip-save-btn:hover {
+  background: var(--gaip-accent-hover) !important;
+}
+
+#gaip-hub .gaip-profile-controls .gaip-delete-btn {
+  color: var(--gaip-critical) !important;
+  border-color: var(--gaip-critical-border) !important;
+}
+
+#gaip-hub .gaip-profile-controls button {
+  border-radius: var(--gaip-radius-sm) !important;
+}
+
+
+/* ============================================================
+   15. TURF TYPE / SUBCATEGORY SELECTORS
+   ============================================================ */
+#gaip-hub .gaip-turf-type-option {
+  border: 2px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius) !important;
+  background: var(--gaip-surface) !important;
+  transition: all 0.2s ease !important;
+}
+
+#gaip-hub .gaip-turf-type-option:hover {
+  border-color: var(--gaip-accent) !important;
+  background: var(--gaip-accent-light) !important;
+}
+
+#gaip-hub .gaip-turf-type-option.selected {
+  border-color: var(--gaip-accent) !important;
+  background: var(--gaip-accent-light) !important;
+  box-shadow: 0 0 0 3px rgba(45, 122, 79, 0.15) !important;
+}
+
+#gaip-hub .gaip-turf-type-option h4 {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-subcategory-option {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius-pill) !important;
+  background: var(--gaip-surface) !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+#gaip-hub .gaip-subcategory-option:hover {
+  border-color: var(--gaip-accent) !important;
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-subcategory-option.selected {
+  background: var(--gaip-accent) !important;
+  color: #fff !important;
+  border-color: var(--gaip-accent) !important;
+}
+
+
+/* ============================================================
+   16. PROFILE TAGS & SUMMARY
+   ============================================================ */
+#gaip-hub .gaip-profile-tag {
+  background: var(--gaip-accent-light) !important;
+  border: 1px solid var(--gaip-good-border) !important;
+  color: var(--gaip-accent) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+#gaip-hub .gaip-profile-badge {
+  background: rgba(255,255,255,0.25) !important;
+  border-radius: var(--gaip-radius-pill) !important;
+}
+
+
+/* ============================================================
+   17. COLLAPSIBLE SECTIONS — Inner expandable panels
+   ============================================================ */
+#gaip-hub .gaip-collapsible {
+  border: 1px solid var(--gaip-border-light) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  background: var(--gaip-surface) !important;
+}
+
+#gaip-hub .gaip-collapsible-btn {
+  background: var(--gaip-surface-muted) !important;
+  color: var(--gaip-text) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+}
+
+#gaip-hub .gaip-collapsible-btn:hover {
+  background: var(--gaip-surface-hover) !important;
+}
+
+#gaip-hub .gaip-collapsible-btn::after {
+  color: var(--gaip-text-muted) !important;
+}
+
+#gaip-hub .gaip-collapsible-btn:focus {
+  outline: 2px solid var(--gaip-accent) !important;
+  outline-offset: -2px;
+}
+
+#gaip-hub .gaip-collapsible-content {
+  background: var(--gaip-surface) !important;
+}
+
+#gaip-hub .gaip-collapsible-content strong {
+  color: var(--gaip-text) !important;
+}
+
+
+/* ============================================================
+   18. RISK / CAPACITY BARS — Wear, PGR, Compaction
+   ============================================================ */
+#gaip-hub .gaip-risk-bar-container {
+  background: var(--gaip-surface-muted) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  height: 10px !important;
+  overflow: hidden;
+}
+
+#gaip-hub .gaip-risk-bar {
+  height: 10px !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  transition: width 400ms ease, background 400ms ease;
+}
+
+#gaip-hub .gaip-compaction-meter .meter-bar {
+  background: var(--gaip-surface-muted) !important;
+  border-radius: 4px !important;
+}
+
+#gaip-hub .gaip-compaction-meter .meter-fill {
+  border-radius: 4px !important;
+}
+
+#gaip-hub .gaip-compaction-meter .meter-label {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+
+/* ============================================================
+   19. OVERSEED ALERTS
+   ============================================================ */
+#gaip-hub .gaip-overseed-alert.vulnerable {
+  background: var(--gaip-warning-bg) !important;
+  border: 1px solid var(--gaip-warning-border) !important;
+  color: var(--gaip-warning) !important;
+}
+
+#gaip-hub .gaip-overseed-alert.protected {
+  background: var(--gaip-good-bg) !important;
+  border: 1px solid var(--gaip-good-border) !important;
+  color: var(--gaip-good) !important;
+}
+
+
+/* ============================================================
+   20. CHARTS — Shade, PGR, Disease forecast
+   ============================================================ */
+#gaip-hub .gaip-chart-container {
+  background: var(--gaip-surface) !important;
+  border-radius: var(--gaip-radius) !important;
+  border: 1px solid var(--gaip-border-light);
+}
+
+#gaip-hub .gaip-chart-title {
+  color: var(--gaip-text) !important;
+  font-weight: 600 !important;
+}
+
+#gaip-hub .gaip-chart-subtitle {
+  color: var(--gaip-text-muted) !important;
+  background: var(--gaip-surface-muted) !important;
+}
+
+#gaip-hub .gaip-chart-info {
+  color: var(--gaip-text-secondary) !important;
+}
+
+#gaip-hub .gaip-chart-tooltip {
+  background: rgba(26, 46, 31, 0.95) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+}
+
+/* Shade/PGR metrics */
+#gaip-hub .gaip-shade-metrics,
+#gaip-hub .gaip-pgr-metrics {
+  border-top: 1px solid var(--gaip-border-light) !important;
+}
+
+#gaip-hub .gaip-shade-metric .gaip-metric-value,
+#gaip-hub .gaip-pgr-metric .gaip-metric-value {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-shade-metric .gaip-metric-label,
+#gaip-hub .gaip-pgr-metric .gaip-metric-label {
+  color: var(--gaip-text-muted) !important;
+}
+
+
+/* ============================================================
+   21. NOTIFICATION TOAST
+   ============================================================ */
+#gaip-hub ~ .gaip-notification,
+.gaip-notification {
+  background: var(--gaip-accent-dark) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+}
+
+
+/* ============================================================
+   22. AERATION SCHEDULE — Wear & Recovery
+   ============================================================ */
+#gaip-hub .gaip-aeration-schedule {
+  background: var(--gaip-surface-muted) !important;
+  border: 1px solid var(--gaip-border-light) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+}
+
+#gaip-hub .gaip-aeration-schedule .schedule-header {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-aeration-item {
+  border-bottom: 1px dashed var(--gaip-border-light) !important;
+}
+
+#gaip-hub .gaip-aeration-item .aeration-type {
+  color: var(--gaip-text-secondary) !important;
+}
+
+#gaip-hub .gaip-aeration-item .aeration-timing {
+  color: var(--gaip-text-muted) !important;
+}
+
+
+/* ============================================================
+   23. SECTION DIVIDERS
+   ============================================================ */
+#gaip-hub .gaip-card-body .section-divider {
+  border-top: 1px solid var(--gaip-border-light) !important;
+}
+
+#gaip-hub .gaip-card-body .section-divider strong {
+  color: var(--gaip-accent) !important;
+}
+
+
+/* ============================================================
+   24. TOOLTIPS
+   ============================================================ */
+#gaip-hub .gaip-tooltip {
+  color: var(--gaip-text-muted) !important;
+  background: rgba(122, 148, 128, 0.15) !important;
+}
+
+#gaip-hub .gaip-tooltip:hover {
+  color: var(--gaip-accent) !important;
+  background: rgba(45, 122, 79, 0.15) !important;
+}
+
+
+/* ============================================================
+   25. MODULE TOGGLES
+   ============================================================ */
+#gaip-hub .gaip-module-toggle {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  color: var(--gaip-text-secondary) !important;
+  background: var(--gaip-surface) !important;
+}
+
+#gaip-hub .gaip-module-toggle:hover {
+  background: var(--gaip-surface-muted) !important;
+}
+
+
+/* ============================================================
+   26. NOTES & HELPER TEXT
+   ============================================================ */
+#gaip-hub .gaip-note {
+  color: var(--gaip-text-muted) !important;
+}
+
+
+/* ============================================================
+   27. RESULT BLOCKS
+   ============================================================ */
+#gaip-hub .gaip-result-block {
+  border: 1px solid var(--gaip-border-light) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  background: var(--gaip-surface) !important;
+}
+
+#gaip-hub .gaip-result-block h4 {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-result-body {
+  color: var(--gaip-text-secondary) !important;
+}
+
+
+/* ============================================================
+   28. FLOATING RUN BUTTON — Override the FAB styling
+   ============================================================ */
+#gaip-floating-run-btn,
+.gaip-floating-run {
+  background: var(--gaip-accent) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 4px 16px rgba(45, 122, 79, 0.3) !important;
+}
+
+#gaip-floating-run-btn:hover,
+.gaip-floating-run:hover {
+  background: var(--gaip-accent-hover) !important;
+}
+
+
+/* ============================================================
+   29. SHADE PANELS — Dark theme override to light
+   These are the inline-styled panels in hub-tissue-v3.js
+   We use class + descendant selectors with !important to beat inline styles
+   ============================================================ */
+#gaip-hub .gaip-shade-panel {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius-sm) !important;
+  background: var(--gaip-surface) !important;
+  overflow: hidden;
+  margin-bottom: 8px !important;
+}
+
+/* Override the dark panel headers created inline */
+#gaip-hub .gaip-shade-panel .gaip-panel-header {
+  background: var(--gaip-surface-muted) !important;
+  padding: 10px 14px !important;
+}
+
+#gaip-hub .gaip-shade-panel .gaip-panel-header span {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-shade-panel .gaip-chevron {
+  color: var(--gaip-text-muted) !important;
+}
+
+/* Inner panel content body (direct child div of shade-panel, not the header) */
+#gaip-hub .gaip-shade-panel > div:not(.gaip-panel-header) {
+  border-top: 1px solid var(--gaip-border-light) !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+/* Pill badges inside shade panels — override the dark rgba(15,23,42,0.8) backgrounds */
+#gaip-hub .gaip-shade-panel span[style*="border-radius: 999px"] {
+  background: var(--gaip-surface-muted) !important;
+  border: 1px solid var(--gaip-border) !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+/* Muted text lines inside shade panels */
+#gaip-hub .gaip-shade-panel div[style*="color: #000000"],
+#gaip-hub .gaip-shade-panel div[style*="color: #000000"] {
+  color: var(--gaip-text-muted) !important;
+}
+
+/* Reference/citation text inside shade panels */
+#gaip-hub .gaip-shade-panel div[style*="color: #000000"] {
+  color: var(--gaip-text-muted) !important;
+}
+
+/* Warning text inside shade panels — keep the warning colour */
+#gaip-hub .gaip-shade-panel div[style*="color: #fbbf24"] {
+  color: var(--gaip-warning) !important;
+}
+
+/* Progressive disclosure container border */
+#gaip-hub .gaip-shade-progressive {
+  border-top: 1px solid var(--gaip-border-light) !important;
+}
+
+
+/* ============================================================
+   30. INTERPRETATION SECTIONS — AI analysis panels
+   Override gilba-interpretation.css
+   ============================================================ */
+#gaip-hub .gaip-interpret-btn,
+.gaip-interpret-btn {
+  background: var(--gaip-accent) !important;
+  border: 1px solid var(--gaip-accent) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+}
+
+#gaip-hub .gaip-interpret-btn:hover,
+.gaip-interpret-btn:hover {
+  background: var(--gaip-accent-hover) !important;
+}
+
+#gaip-hub .gaip-interpretation-result,
+.gaip-interpretation-result {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius) !important;
+  background: var(--gaip-surface) !important;
+}
+
+
+/* ============================================================
+   31. SAMPLE MANAGER — Override sample-manager.css
+   ============================================================ */
+.gaip-sample-manager {
+  border: 1px solid var(--gaip-border) !important;
+  border-radius: var(--gaip-radius) !important;
+}
+
+.gaip-sample-manager .sample-header {
+  background: var(--gaip-surface-muted) !important;
+  border-bottom: 1px solid var(--gaip-border-light) !important;
+}
+
+
+/* ============================================================
+   32. DISEASE UI — Override disease-ui.css
+   Preserve existing class names
+   ============================================================ */
+#gaip-hub .disease-risk-high,
+#gaip-hub .gaip-disease-high {
+  background: var(--gaip-critical-bg) !important;
+  border-color: var(--gaip-critical-border) !important;
+  color: var(--gaip-critical) !important;
+}
+
+#gaip-hub .disease-risk-moderate,
+#gaip-hub .gaip-disease-moderate {
+  background: var(--gaip-warning-bg) !important;
+  border-color: var(--gaip-warning-border) !important;
+  color: var(--gaip-warning) !important;
+}
+
+#gaip-hub .disease-risk-low,
+#gaip-hub .gaip-disease-low {
+  background: var(--gaip-good-bg) !important;
+  border-color: var(--gaip-good-border) !important;
+  color: var(--gaip-good) !important;
+}
+
+
+/* ============================================================
+   33. RESPONSIVE — Preserve existing breakpoints
+   ============================================================ */
+@media (max-width: 480px) {
+  #gaip-hub .gaip-card-header {
+    padding: 10px 12px !important;
+  }
+  
+  #gaip-hub .gaip-card-body {
+    padding: 10px 12px !important;
+  }
+  
+  #gaip-hub .gaip-priority-badge,
+  #gaip-hub .gaip-stress-status,
+  #gaip-hub .status-badge {
+    font-size: 10px !important;
+    padding: 2px 8px !important;
+  }
+}
+
+
+/* ============================================================
+   34. PRINT OVERRIDES — Clean print output
+   ============================================================ */
+@media print {
+  #gaip-hub {
+    border: none !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+  
+  #gaip-hub .gaip-card {
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+    break-inside: avoid;
+  }
+  
+  #gaip-hub .gaip-run-btn,
+  #gaip-hub .gaip-module-toggle,
+  #gaip-hub .gaip-profile-controls,
+  #gaip-floating-run-btn {
+    display: none !important;
+  }
+}
+
+
+/* ============================================================
+   35. SHADE PANELS — Override dark theme for light page context
+   ============================================================ */
+#gaip-hub .gaip-shade-panel {
+  border-color: var(--gaip-border) !important;
+}
+
+#gaip-hub .gaip-shade-panel .gaip-panel-header {
+  background: var(--gaip-surface-muted) !important;
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-shade-panel .gaip-panel-header span {
+  color: var(--gaip-text) !important;
+}
+
+#gaip-hub .gaip-shade-panel .gaip-panel-header .gaip-chevron {
+  color: var(--gaip-text-muted) !important;
+}
+
+/* Expanded content area */
+#gaip-hub .gaip-shade-panel > div:last-child {
+  border-top-color: var(--gaip-border-light) !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+/* Pill badges inside shade panels (metric chips) */
+#gaip-hub .gaip-shade-progressive span[style*="border-radius: 999px"],
+#gaip-hub .gaip-shade-panel span[style*="border-radius: 999px"] {
+  background: var(--gaip-surface-muted) !important;
+  border: 1px solid var(--gaip-border) !important;
+  color: var(--gaip-text-secondary) !important;
+}
+
+/* Progressive disclosure container */
+#gaip-hub .gaip-shade-progressive {
+  border-top-color: var(--gaip-border-light) !important;
+}
+
+/* Deep text color overrides for all shade panel content */
+#gaip-hub .gaip-shade-panel div,
+#gaip-hub .gaip-shade-panel span:not([style*="border-radius: 999px"]) {
+  color: var(--gaip-text-secondary) !important;
+}
+
+/* Preserve colored badge text on status pills */
+#gaip-hub .gaip-shade-panel .gaip-panel-header > span:last-child {
+  color: inherit !important;
+}

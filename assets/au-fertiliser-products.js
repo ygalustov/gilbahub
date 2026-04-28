@@ -1,0 +1,5585 @@
+/**
+ * Australian Fertiliser Product Database & Recommendation Engine
+ * 
+ * Complete database of Australian turf fertilisers with verified label data.
+ * Includes SGN filtering, state availability, and surface-specific rates.
+ * 
+ * Data sourced from manufacturer labels and verified by Gilba Solutions.
+ * 
+ * @package Gilba_Hub
+ * @version 3.17.1
+ * @since 10.3.43
+ * @updated 2026-02-02
+ * 
+ * Products: 111 granular, 93 liquid, 7 soluble (211 total)
+ * 
+ * v3.17.1 - Autumn K hardening support:
+ *   - Enhanced autumn K bonus (up to +55 points for high-K products)
+ *   - K overshoot threshold relaxed in autumn: 5x greens, 6x sports (was 3x/4x)
+ *   - Greens K penalty reduced in autumn to allow hardening applications
+ *   - No-K products now penalized -25 in autumn (was -15)
+ *   - Reference: Christians et al. (2016) - K enhances winter hardiness
+ * 
+ * v3.17.0 - Major fixes to N delivery accuracy:
+ *   - Granular threshold simplified: GP >= 30% for ALL surfaces
+ *   - N overshoot check now applies to ALL surfaces (was greens-only for K)
+ *   - Viability check tightened to 2.0x max overshoot (was 2.5x)
+ *   - N scoring dramatically increased: -120 points for >3x overshoot
+ *   - Products rejected if they would deliver >2.5x target N
+ * 
+ * v3.16.0 - N overshoot and GP-based product selection fixes:
+ *   - Fixed: Sports turf now uses GP threshold (not always granular)
+ *   - Fixed: Much stricter N overshoot penalties in scoring
+ *   - Fixed: Viability check tightened from 4x to 2.5x N overshoot
+ *   - Products that would massively over-deliver now rejected earlier
+ * 
+ * v3.1.0 - Enhanced liquid/soluble differentiation:
+ *   - Quick-release liquids prioritised at low GP (immediate foliar uptake)
+ *   - Slow-release liquids preferred at high GP (root uptake works)
+ *   - Solubles for greens spoonfeeding programs (precise, frequent apps)
+ *   - Slow-release efficiency calculation based on GP and soil temp
+ * 
+ * v3.0.0 - Complete recommender rebuild matching NZ/Prebble approach:
+ *   - GP-aware delivery strategies (liquid-only at low GP, granular dominant at high GP)
+ *   - Greens vs sportsfield differentiation
+ *   - Soluble products for spoonfeeding and targeted applications
+ *   - Active nutrient tracking for slow-release carry-over
+ *   - K deficit supplementation
+ * 
+ * Distributors:
+ *   - Nuturf: Nuturf Black Label, FoliMAX, Andersons, Lebanon
+ *   - K&B Adams: ICL Sierraform/Greenmaster/Vitalnova, Wilbur Ellis
+ *   - GTS: Terralift, Sport Series
+ *   - Oasis Turf: Oasis range, Match Play
+ *   - Living Turf: Match Play range
+ *   - Various: Technical grades (MAP, SOP, Urea, etc.)
+ */
+
+(function() {
+    'use strict';
+
+    // ========================================================================
+    // CONFIGURATION
+    // ========================================================================
+
+    const CONFIG = {
+        version: '3.18.4',
+        
+        // SGN ranges for surface type filtering
+        // Products must fall within range OR have sgn: null (DG/soluble)
+        surfaceSGN: {
+            'greens': { min: 0, max: 100 },
+            'golf_greens': { min: 0, max: 100 },
+            'bowling_greens': { min: 0, max: 100 },
+            'cricket_wickets': { min: 0, max: 150 },
+            'tees': { min: 80, max: 250 },
+            'low_cut': { min: 80, max: 250 },
+            'fairways': { min: 150, max: 999 },
+            'sports': { min: 150, max: 999 },
+            'landscaping': { min: 200, max: 999 },
+            'lawns': { min: 200, max: 999 },
+        },
+        
+        // State/region options for availability filtering
+        availabilityOptions: [
+            { value: 'all', label: 'All Products' },
+            { value: 'national', label: 'National' },
+            { value: 'VIC', label: 'Victoria' },
+            { value: 'NSW', label: 'New South Wales' },
+            { value: 'QLD', label: 'Queensland' },
+            { value: 'SA', label: 'South Australia' },
+            { value: 'WA', label: 'Western Australia' },
+        ],
+        
+        // Distributor options for supplier filtering
+        // "All Products" selects best match across distributors
+        // Single distributor limits recommendations to that supplier's range
+        distributorOptions: [
+            { value: 'all', label: 'All Products (best match)' },
+            { value: 'Nuturf', label: 'Nuturf' },
+            { value: 'K&B Adams', label: 'K&B Adams' },
+            { value: 'Oasis Turf', label: 'Oasis Turf' },
+            { value: 'GTS', label: 'GTS' },
+            { value: 'Living Turf', label: 'Living Turf' },
+            { value: 'Turfcare', label: 'Turfcare' },
+        ],
+        
+        // Distributor territory coverage by state
+        // Used to filter dropdown based on user's location
+        distributorTerritories: {
+            'Nuturf': ['National'],
+            'K&B Adams': ['National'],
+            'Oasis Turf': ['VIC', 'TAS'],
+            'GTS': ['National'],
+            'Living Turf': ['National'],
+            'Turfcare': ['National'],
+        },
+        
+        // Australian state bounding boxes for auto-detection
+        stateBounds: {
+            'VIC': { latMin: -39.2, latMax: -33.9, lonMin: 140.9, lonMax: 150.0 },
+            'NSW': { latMin: -37.5, latMax: -28.2, lonMin: 140.9, lonMax: 153.6 },
+            'QLD': { latMin: -29.0, latMax: -10.7, lonMin: 138.0, lonMax: 153.6 },
+            'SA': { latMin: -38.1, latMax: -26.0, lonMin: 129.0, lonMax: 141.0 },
+            'WA': { latMin: -35.1, latMax: -13.7, lonMin: 112.9, lonMax: 129.0 },
+            'TAS': { latMin: -43.6, latMax: -39.6, lonMin: 143.8, lonMax: 148.5 },
+            'NT': { latMin: -26.0, latMax: -10.9, lonMin: 129.0, lonMax: 138.0 },
+            'ACT': { latMin: -35.9, latMax: -35.1, lonMin: 148.8, lonMax: 149.4 },
+        },
+    };
+
+    // ========================================================================
+    // BRAND DEFINITIONS
+    // ========================================================================
+
+    const BRANDS = {
+        'nuturf': { name: 'Nuturf', distributor: 'Nuturf' },
+        'andersons': { name: 'Andersons', distributor: 'Nuturf' },
+        'lebanon': { name: 'Lebanon', distributor: 'Nuturf' },
+        'icl': { name: 'ICL', distributor: 'K&B Adams' },
+        'gts': { name: 'GTS', distributor: 'GTS' },
+        'wilbur-ellis': { name: 'Wilbur Ellis', distributor: 'Oasis Turf' },
+        'ferti-technologies': { name: 'Ferti Technologies', distributor: 'Living Turf' },
+        'match-play': { name: 'Match Play', distributor: 'Living Turf' },
+        'oasis': { name: 'Oasis', distributor: 'Oasis Turf' },
+        'swancorp': { name: 'Swancorp', distributor: 'Various' },
+        'greenspec': { name: 'Greenspec', distributor: 'Various' },
+        'various': { name: 'Various', distributor: 'Various' },
+        'indigo': { name: 'Indigo', distributor: 'Indigo' },
+        'living-turf': { name: 'Living Turf', distributor: 'Living Turf' },
+        'k-and-b-adams': { name: 'K&B Adams', distributor: 'K&B Adams' },
+        'kandb-adams': { name: 'K&B Adams', distributor: 'K&B Adams' },
+        'skw': { name: 'SKW', distributor: 'Various' },
+        'calcium-products': { name: 'Calcium Products', distributor: 'Various' },
+        'agrotain': { name: 'Agrotain', distributor: 'Various' },
+        'tpg': { name: 'TPG', distributor: 'Turfcare' },
+        'fertpro': { name: 'Fertpro', distributor: 'Turfcare' },
+        'turfcare': { name: 'Turfcare', distributor: 'Turfcare' },
+    };
+
+    const LIQUID_BRANDS = {
+        'nuturf': { name: 'Nuturf FoliMAX', distributor: 'Nuturf' },
+        'icl': { name: 'ICL', distributor: 'K&B Adams' },
+        'gts': { name: 'GTS', distributor: 'GTS' },
+        'oasis': { name: 'Oasis', distributor: 'Oasis Turf' },
+        'indigo': { name: 'Indigo', distributor: 'Indigo' },
+        'living-turf': { name: 'Living Turf', distributor: 'Living Turf' },
+        'k-and-b-adams': { name: 'K&B Adams', distributor: 'K&B Adams' },
+        'turfcare': { name: 'Turfcare', distributor: 'Turfcare' },
+    };
+
+    // ========================================================================
+    // PRODUCT DATABASE
+    // ========================================================================
+
+    const AuFertiliserProducts = {
+        
+        version: '3.15.1',
+        brands: BRANDS,
+        liquidBrands: LIQUID_BRANDS,
+        
+        // --------------------------------------------------------------------
+        // GRANULAR PRODUCTS
+        // --------------------------------------------------------------------
+        granular: [
+            {
+                id: 'NUT-BLACKLABELST',
+                name: 'Black Label Starter',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 17.8, P: 9.6, K: 8.7, S: 8.3 },
+                sgn: 350,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 275, teesMax: 275, fairwaysMin: 275, fairwaysMax: 275 },
+                useCase: 'establishment',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELAL',
+                name: 'Black Label All Purpose',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 19.2, K: 19, Fe: 0.5 },
+                sgn: 350,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 265, teesMax: 265, fairwaysMin: 265, fairwaysMax: 265 },
+                useCase: 'maintenance',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELRA',
+                name: 'Black Label Rapid',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 19.9, K: 16 },
+                sgn: 350,
+                packSize: 20,
+                release: 'quick',
+                weeks: 4,
+                rates: { teesMin: 250, teesMax: 250, fairwaysMin: 250, fairwaysMax: 250 },
+                useCase: 'recovery',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELTU',
+                name: 'Black Label Turf King',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 22.4, P: 0.9, K: 10, Ca: 4, Mg: 2, Fe: 2.7, Mn: 0.5, S: 4.6 },
+                sgn: 250,
+                packSize: 20,
+                release: 'stabilised',
+                weeks: 8,
+                rates: { teesMin: 220, teesMax: 220, fairwaysMin: 220, fairwaysMax: 220 },
+                useCase: 'maintenance',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELUP',
+                name: 'Black Label Uplift',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 28.3, P: 1.2, K: 7.9, Ca: 0.03, S: 7.6 },
+                sgn: 350,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 7,
+                rates: { teesMin: 185, teesMax: 185, fairwaysMin: 185, fairwaysMax: 185 },
+                useCase: 'growth_boost',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELBI',
+                name: 'Black Label BioSmart',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Standard',
+                analysis: { N: 23.2, K: 4.2, Ca: 0.9, Mg: 0.1, Fe: 1.5, Mn: 0.7, S: 5.1 },
+                sgn: 350,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 210, teesMax: 210, fairwaysMin: 210, fairwaysMax: 210 },
+                useCase: 'soil_health',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR',
+                name: 'Black Label Pro All Seasons',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro',
+                analysis: { N: 24, P: 2, K: 9.1, Ca: 4.9, Fe: 1.9, S: 5.5 },
+                sgn: 215,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 210, teesMax: 210, fairwaysMin: 210, fairwaysMax: 210 },
+                useCase: 'maintenance',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR1',
+                name: 'Black Label Pro Balance',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro',
+                analysis: { N: 22, K: 18, Fe: 2 },
+                sgn: 215,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 7,
+                rates: { teesMin: 230, teesMax: 230, fairwaysMin: 230, fairwaysMax: 230 },
+                useCase: 'stress_hardening',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR2',
+                name: 'Black Label Pro Super',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro',
+                analysis: { N: 29.7, P: 1, K: 5, Fe: 0.18, S: 8.6 },
+                sgn: 215,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 165, teesMax: 165, fairwaysMin: 165, fairwaysMax: 165 },
+                useCase: 'sustained_growth',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR3',
+                name: 'Black Label Pro Hi-Performance',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro',
+                analysis: { N: 33.9, P: 1, K: 5.7, Ca: 2.6, Fe: 0.18, S: 3.4 },
+                sgn: 215,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 6,
+                rates: { teesMin: 150, teesMax: 150, fairwaysMin: 150, fairwaysMax: 150 },
+                useCase: 'recovery',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR4',
+                name: 'Black Label Pro Hi-K',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro',
+                analysis: { N: 14, K: 24, Fe: 1.5, Mn: 1.1, S: 12 },
+                sgn: 210,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 200, fairwaysMin: 200, fairwaysMax: 200 },
+                useCase: 'stress_hardening',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR5',
+                name: 'Black Label Pro+ Extend',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro+',
+                analysis: { N: 30.5, K: 7.2, Fe: 1.5, S: 6 },
+                sgn: 150,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 170, teesMax: 170, fairwaysMin: 170, fairwaysMax: 170 },
+                useCase: 'sustained_growth',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR6',
+                name: 'Black Label Pro+ Elite',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro+',
+                analysis: { N: 25.3, K: 13.2, Fe: 3, S: 3.6 },
+                sgn: 150,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 200, fairwaysMin: 200, fairwaysMax: 200 },
+                useCase: 'premium_fine_cut',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'NUT-BLACKLABELPR7',
+                name: 'Black Label Pro+ Strength',
+                brand: 'nuturf',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Black Label Pro+',
+                analysis: { N: 22, K: 19.4, Fe: 2, S: 3.1 },
+                sgn: 150,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 230, teesMax: 230, fairwaysMin: 230, fairwaysMax: 230 },
+                useCase: 'stress_hardening',
+                notes: 'DO NOT apply when temperature exceeds 28°C.',
+            },
+            {
+                id: 'AND-NUTRIDG18115',
+                name: 'Nutri DG 18-1-15',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Nutri DG',
+                analysis: { N: 18, P: 1, K: 15 },
+                sgn: 80,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGGREEN',
+                name: 'Nutri DG Greens Turfstarter',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Nutri DG',
+                analysis: { N: 12, P: 11, K: 7 },
+                sgn: 80,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 300 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGGREEN1',
+                name: 'Nutri DG Greens Extra K - XSR',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Nutri DG',
+                analysis: { N: 13, K: 22 },
+                sgn: 80,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 300 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGGREEN2',
+                name: 'Nutri DG Greens Zero N',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Nutri DG',
+                analysis: { K: 21, Mg: 4, Mn: 3 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 4,
+                rates: { greensMin: 150, greensMax: 300 },
+                useCase: 'potassium_only',
+                notes: '',
+            },
+            {
+                id: 'GRS-GREENSPEC7IR',
+                name: 'Green Spec 7 Iron',
+                brand: 'greenspec',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Green spec',
+                analysis: { N: 7, P: 3, K: 6, Ca: 7, Fe: 7, Mn: 1.5, S: 7 },
+                sgn: 100,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 200, greensMax: 400, teesMin: 340, teesMax: 500, fairwaysMin: 340, fairwaysMax: 500 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGGYPSU',
+                name: 'Nutri DG Gypsum',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Ca: 21, S: 17 },
+                sgn: 80,
+                packSize: 25,
+                release: 'quick',
+                weeks: 8,
+                rates: { greensMin: 250, greensMax: 500, teesMin: 250, teesMax: 500, fairwaysMin: 250, fairwaysMax: 500 },
+                useCase: 'soil_amendment',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGLIME',
+                name: 'Nutri DG Lime',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Ca: 30 },
+                sgn: 80,
+                packSize: 25,
+                release: 'quick',
+                weeks: 8,
+                rates: null,
+                useCase: 'ph_correction',
+                notes: '',
+            },
+            {
+                id: 'AND-NUTRIDGMAGTE',
+                name: 'Nutri DG Mag Tec',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { K: 10, Mg: 10 },
+                sgn: 80,
+                packSize: 25,
+                release: 'quick',
+                weeks: 8,
+                rates: null,
+                useCase: 'mg_correction',
+                notes: '',
+            },
+            {
+                id: 'AND-HUMICDG100GR',
+                name: 'Humic DG 100 Greens',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: {  },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 8,
+                rates: null,
+                useCase: 'soil_health',
+                notes: '',
+            },
+            {
+                id: 'SWA-GREENCALGYPS',
+                name: 'Green Cal Gypsum',
+                brand: 'swancorp',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Ca: 23, S: 18 },
+                sgn: 300,
+                packSize: 25,
+                release: 'quick',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 500, fairwaysMin: 100, fairwaysMax: 500 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'SWA-GREENCALGYPS1',
+                name: 'Green Cal Gypsum Greens',
+                brand: 'swancorp',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Ca: 23, S: 18 },
+                sgn: 100,
+                packSize: 25,
+                release: 'quick',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 500, teesMin: 100, teesMax: 500, fairwaysMin: 100, fairwaysMax: 500 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'AND-BLACKGYPSUMD',
+                name: 'Black Gypsum DG',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Ca: 12, S: 8.9 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 600, teesMin: 150, teesMax: 600, fairwaysMin: 150, fairwaysMax: 600 },
+                useCase: 'soil_amendment',
+                notes: '',
+            },
+            {
+                id: 'AND-ATEP12MGTE',
+                name: 'A-Tep 12% Mg + TE',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Amendments',
+                analysis: { Mg: 12, Fe: 1, Mn: 2, S: 8 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 8,
+                rates: null,
+                useCase: 'micronutrient_correction',
+                notes: '',
+            },
+            {
+                id: 'AND-OXAPRO1528',
+                name: 'OxaPro 15-2-8',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Fert+Herb',
+                analysis: { N: 15, P: 2, K: 8 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: null,
+                useCase: 'pre_emergent',
+                notes: '',
+            },
+            {
+                id: 'AND-OXAMAX18109',
+                name: 'OxaMAX 18-10-9',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Fert+Herb',
+                analysis: { N: 18, P: 10, K: 9 },
+                sgn: 200,
+                packSize: 20,
+                release: 'blended',
+                weeks: 6,
+                rates: null,
+                useCase: 'pre_emergent_establishment',
+                notes: '',
+            },
+            {
+                id: 'AND-PENDIPRO2205',
+                name: 'Pendi-Pro 22-0-5',
+                brand: 'andersons',
+                distributor: 'Nuturf',
+                availability: 'National',
+                line: 'Fert+Herb',
+                analysis: { N: 22, K: 5 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: null,
+                useCase: 'pre_emergent',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBI',
+                name: 'Country Club IV 17-0-17',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club IV',
+                analysis: { N: 17, K: 14.11, Fe: 1, Mn: 0.5 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBI1',
+                name: 'Country Club IV 24-3-12',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club IV',
+                analysis: { N: 24, P: 1.32, K: 9.96 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBI2',
+                name: 'Country Club IV 18-9-18',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club IV',
+                analysis: { N: 18, P: 3.96, K: 14.94, Mg: 0.5, Fe: 0.5, Mn: 0.5 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBI3',
+                name: 'Country Club IV 0-0-25',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club IV',
+                analysis: { K: 20.75, Mg: 2, Fe: 2 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'straight',
+                weeks: 6,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'potassium_only',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBM',
+                name: 'Country Club MD 18-3-18',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club MD',
+                analysis: { N: 18, P: 1.32, K: 14.94, Mg: 0.65, Fe: 1.5, Mn: 0.5 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBM1',
+                name: 'Country Club MD 20-0-10',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club MD',
+                analysis: { N: 20, K: 8.3, S: 12.6 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'sustained_growth',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUBM2',
+                name: 'Country Club MD 22-0-16',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club MD',
+                analysis: { N: 22, K: 13.28, Mg: 0.7, Fe: 1.6, Mn: 0.8, S: 6.2 },
+                sgn: 80,
+                packSize: 18.14,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 100, greensMax: 280, teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'premium_fine_cut',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUB1',
+                name: 'Country Club 19-0-19',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club',
+                analysis: { N: 19, K: 15.77, Fe: 3, S: 11.1 },
+                sgn: 150,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUB2',
+                name: 'Country Club 21-0-20',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club',
+                analysis: { N: 21, K: 16.6, Fe: 1.5, S: 5.8 },
+                sgn: 150,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'LEB-COUNTRYCLUB21',
+                name: 'Country Club 29-0-10',
+                brand: 'lebanon',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Country Club',
+                analysis: { N: 29, K: 8.3, S: 4.2 },
+                sgn: 150,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 280, fairwaysMin: 100, fairwaysMax: 280 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'LEB-MESA303000',
+                name: 'MESA 30 (30-0-0)',
+                brand: 'lebanon',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'MESA',
+                analysis: { N: 30, S: 12 },
+                sgn: 200,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: null,
+                useCase: 'high_n',
+                notes: '',
+            },
+            {
+                id: 'LEB-MESASPORTS19',
+                name: 'MESA Sports 19-0-16 + 3Fe',
+                brand: 'lebanon',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'MESA',
+                analysis: { N: 19, K: 16, Fe: 3, S: 11.1 },
+                sgn: 200,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 220, teesMax: 220, fairwaysMin: 220, fairwaysMax: 220 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'LEB-MESAXP200103',
+                name: 'MESA XP 20-0-10 + 3Fe',
+                brand: 'lebanon',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'MESA',
+                analysis: { N: 20, K: 10, Fe: 3, S: 4 },
+                sgn: 200,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 250, fairwaysMin: 200, fairwaysMax: 250 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'FT-MPSPRINGSTAR',
+                name: 'MP Spring Start',
+                brand: 'ferti-technologies',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 16, P: 1, K: 10, Ca: 2, Mg: 1, Mn: 0.5, S: 4 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 125, greensMax: 250, teesMin: 125, teesMax: 250, fairwaysMin: 125, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'FT-MPKCALPLUS',
+                name: 'MP K Cal Plus',
+                brand: 'ferti-technologies',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { K: 19.92, Ca: 7.8, Mg: 6, S: 14.5 },
+                sgn: 90,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 250, greensMax: 250, teesMin: 250, teesMax: 250, fairwaysMin: 250, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'FT-MPHIGHK',
+                name: 'MP High K',
+                brand: 'ferti-technologies',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 15, K: 25 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 90, greensMax: 175, teesMin: 90, teesMax: 175, fairwaysMin: 90, fairwaysMax: 175 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'FT-MPGREENSTART',
+                name: 'MP Green Starter',
+                brand: 'ferti-technologies',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 16, P: 9, K: 6, Ca: 1, Fe: 1.5, Mn: 0.5 },
+                sgn: 100,
+                packSize: 20,
+                release: 'quick',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 240, teesMin: 150, teesMax: 240, fairwaysMin: 150, fairwaysMax: 240 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'CAL-MICROGYPSUM',
+                name: 'Micro Gypsum',
+                brand: 'calcium-products',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { Ca: 21, S: 17 },
+                sgn: 100,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: null,
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'FT-MPHIGHPERFOR',
+                name: 'MP High Performance',
+                brand: 'ferti-technologies',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 31, P: 1, K: 8, Fe: 1.5, Mn: 0.5 },
+                sgn: 145,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 160, greensMax: 240, teesMin: 160, teesMax: 240, fairwaysMin: 160, fairwaysMax: 240 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'MP-SPECTRUMMINI',
+                name: 'Spectrum mini',
+                brand: 'match-play',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 19.5, P: 2, K: 5, Ca: 6, Mg: 0.1, Fe: 1.1 },
+                sgn: 150,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 150, teesMax: 300, fairwaysMin: 150, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'MP-MPORIGINMINI',
+                name: 'MP Origin Mini',
+                brand: 'match-play',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 27.8, P: 1.3, K: 8.4, Ca: 3.3, Mg: 0.1, Fe: 0.6, S: 0.3 },
+                sgn: 150,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 180, teesMax: 270, fairwaysMin: 180, fairwaysMax: 270 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'MP-MPCOUCHMASTE',
+                name: 'MP Couch master',
+                brand: 'match-play',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Match Play',
+                analysis: { N: 23, P: 1, K: 10, Mg: 1.5, Fe: 1.5, Mn: 0.25, S: 6.7 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 125, teesMax: 250, fairwaysMin: 125, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'AGR-UFLEXX',
+                name: 'Uflexx',
+                brand: 'agrotain',
+                distributor: 'Living Turf',
+                availability: 'National',
+                line: 'Agrotain',
+                analysis: { N: 46 },
+                sgn: 200,
+                packSize: 22.7,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILGROTURFST',
+                name: 'Wil-Gro Turf Starter 10-8-5',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'methylene urea',
+                analysis: { N: 10, P: 8, K: 5, Mg: 6.7, Fe: 0.8, Mn: 0.32, S: 3.27 },
+                sgn: 80,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 250, greensMax: 300, teesMin: 250, teesMax: 300, fairwaysMin: 250, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISC',
+                name: 'Wilbur Ellis Complete Green 17-1-12 & traces',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'methylene urea',
+                analysis: { N: 17, P: 1, K: 12, Ca: 3.19, Mg: 1.54, Fe: 1, Mn: 0.4, S: 6 },
+                sgn: 80,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 250, greensMax: 250, teesMin: 250, teesMax: 250, fairwaysMin: 250, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISL',
+                name: 'Wilbur Ellis Long Distance 25-0-10 & 5% Fe',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'PCU/methylene urea',
+                analysis: { N: 25, K: 10, Fe: 5, Mn: 0.5 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 10,
+                rates: { teesMin: 225, teesMax: 225, fairwaysMin: 225, fairwaysMax: 225 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISL1',
+                name: 'Wilbur Ellis Long Drive 28-0-10 & 4% Fe',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: '60% PCU/40% straight',
+                analysis: { N: 28, K: 10, Fe: 4 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISP',
+                name: 'Wilbur Ellis Pelletized Dolomite',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Straight',
+                analysis: { Ca: 23.5, Mg: 9.5 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 250, greensMax: 750, teesMin: 250, teesMax: 750, fairwaysMin: 250, fairwaysMax: 750 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISP1',
+                name: 'Wilbur Ellis Pelletized Lime',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Straight',
+                analysis: { Ca: 35 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 250, greensMax: 750, teesMin: 250, teesMax: 750, fairwaysMin: 250, fairwaysMax: 750 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISP2',
+                name: 'Wilbur Ellis Pelletized Gypsum',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Straight',
+                analysis: { Ca: 21, S: 17 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 250, greensMax: 750, teesMin: 250, teesMax: 750, fairwaysMin: 250, fairwaysMax: 750 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISG',
+                name: 'Wilbur Ellis GroMaxx 25-1-10',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Inhibited',
+                analysis: { N: 25, P: 1, K: 10, Mg: 1, Fe: 2, Mn: 1 },
+                sgn: 200,
+                packSize: 20,
+                release: 'stabilised',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISG1',
+                name: 'Wilbur Ellis GroMaxx 46',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Inhibited',
+                analysis: { N: 46 },
+                sgn: 200,
+                packSize: 20,
+                release: 'stabilised',
+                weeks: 8,
+                rates: { teesMin: 50, teesMax: 150, fairwaysMin: 50, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISP3',
+                name: 'Wilbur Ellis Pro Start 10-9-16',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'Straight',
+                analysis: { N: 10, P: 9, K: 16 },
+                sgn: 200,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 250, teesMax: 300, fairwaysMin: 250, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISS',
+                name: 'Wilbur Ellis Six Iron 20-0-16 6% Fe',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: '60% PCU/40% straight',
+                analysis: { N: 20, K: 16, Fe: 6 },
+                sgn: 200,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 250, teesMax: 250, fairwaysMin: 250, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLISS1',
+                name: 'Wilbur Ellis Slow K 0-0-41',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: 'PCU/methylene urea',
+                analysis: { K: 41 },
+                sgn: 80,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 300, teesMin: 150, teesMax: 300, fairwaysMin: 150, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'WE-WILBURELLIST',
+                name: 'Wilbur Ellis Tee Topper 16-0-15 & traces',
+                brand: 'wilbur-ellis',
+                distributor: 'Oasis Turf',
+                availability: 'VIC',
+                line: '50% Inhibited',
+                analysis: { N: 16, K: 15, Ca: 3, Mg: 1.5, Fe: 4, Mn: 2 },
+                sgn: 200,
+                packSize: 20,
+                release: 'stabilised',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 299, fairwaysMin: 150, fairwaysMax: 200 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT',
+                name: 'Sierraform GT Anti Stress 15-0-22',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 15, K: 21.6, Fe: 1 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT1',
+                name: 'Sierraform GT All Seasons 18-3-15',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 18, P: 2.6, K: 14.9, Mg: 1.2 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT2',
+                name: 'Sierraform GT Spring Start 16-0-13',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 16, K: 13, Mg: 2, Fe: 4 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'recovery',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT3',
+                name: 'Sierraform GT Momentum 22-2.2-9',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 22, P: 2.2, K: 9.1, Mg: 1.2 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT4',
+                name: 'Sierraform GT K-Step 6-0-22',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 6, K: 22.4, Mg: 2, Fe: 3 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT5',
+                name: 'Sierraform GT NK 19-0-16',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 19, K: 15.8, Mg: 2 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRAFORMGT6',
+                name: 'Sierraform GT Pre Seeder 18-10-4',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'methylene urea',
+                analysis: { N: 18, P: 9.6, K: 4.1 },
+                sgn: 90,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 250 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERP',
+                name: 'Greenmaster Pro-Lite Cold Start 11-2.2-4.1 + 8Fe',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Greenmaster Pro-Lite',
+                analysis: { N: 11, P: 2.2, K: 4.1, Fe: 8 },
+                sgn: 90,
+                packSize: 25,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 300, teesMax: 350, fairwaysMin: 300, fairwaysMax: 350 },
+                useCase: 'recovery',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERP1',
+                name: 'Greenmaster Pro-Lite Spring & Summer 14-2.2-8.3',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Greenmaster Pro-Lite',
+                analysis: { N: 14, P: 2.2, K: 8.3, Mg: 2 },
+                sgn: 90,
+                packSize: 25,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 300, teesMax: 350, fairwaysMin: 300, fairwaysMax: 350 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERP2',
+                name: 'Greenmaster Pro-Lite Invigorator Plus 4-0-11.6 + 8Fe',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Greenmaster Pro-Lite',
+                analysis: { N: 4, K: 11.6, Fe: 8 },
+                sgn: 90,
+                packSize: 25,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 300, teesMax: 350, fairwaysMin: 300, fairwaysMax: 350 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRABLENPL',
+                name: 'Sierrablen Plus Turf Starter 5-12.2-0 + Pearl',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sierrablen Plus',
+                analysis: { N: 5, P: 12.2 },
+                sgn: 150,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 16,
+                rates: { teesMin: 250, teesMax: 350, fairwaysMin: 250, fairwaysMax: 350 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRABLENPL1',
+                name: 'Sierrablen Plus Renovator 11-4.8-4.2 + Pearl',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sierrablen Plus',
+                analysis: { N: 11, P: 4.8, K: 4.2 },
+                sgn: 150,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 20,
+                rates: { teesMin: 250, teesMax: 350, fairwaysMin: 250, fairwaysMax: 350 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRABLENTU',
+                name: 'Sierrablen Turfstarter 16-10.9-10',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sierrablen',
+                analysis: { N: 16, P: 10.9, K: 10 },
+                sgn: 200,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 20,
+                rates: { teesMin: 250, teesMax: 350, fairwaysMin: 250, fairwaysMax: 350 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'ICL-STEPHIMAG',
+                name: 'STEP Hi Mag',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'ICL',
+                analysis: {  },
+                sgn: 150,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: null,
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-SIERRABLENMI',
+                name: 'Sierrablen Mini Hi K 0-0-32',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sierrablen',
+                analysis: { K: 32, Mg: 3 },
+                sgn: 150,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 16,
+                rates: { greensMin: 200, greensMax: 300, teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'potassium_only',
+                notes: '',
+            },
+            {
+                id: 'ICL-PROTURFN2005',
+                name: 'ProTurf N 20-0-5.8 + Ca/Mg',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'ProTurf',
+                analysis: { N: 20, K: 5.8, Ca: 2.1, Mg: 1.8 },
+                sgn: 200,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 200, teesMax: 350, fairwaysMin: 200, fairwaysMax: 350 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'ICL-PROTURFNPK15',
+                name: 'ProTurf NPK 15-2.2-12.4 + Ca/Mg',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'ProTurf',
+                analysis: { N: 15, P: 2.2, K: 12.4, Ca: 1.4, Mg: 1.2 },
+                sgn: 200,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 200, teesMax: 350, fairwaysMin: 200, fairwaysMax: 350 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-PROTURFHIK12',
+                name: 'ProTurf Hi K 12-2.2-16.6 + Ca/Mg',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'ProTurf',
+                analysis: { N: 12, P: 2.2, K: 16.6, Ca: 2, Mg: 2 },
+                sgn: 200,
+                packSize: 25,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 200, teesMax: 350, fairwaysMin: 200, fairwaysMax: 350 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'ICL-SPORTSMASTER',
+                name: 'Sportsmaster WSF High N 35-0-11',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sportsmaster WSF',
+                analysis: { N: 35, K: 11 },
+                sgn: 80,
+                packSize: 15,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 50, greensMax: 150, teesMin: 50, teesMax: 150, fairwaysMin: 50, fairwaysMax: 150 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'ICL-SPORTSMASTER1',
+                name: 'Sportsmaster WSF High K 15-0-35',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sportsmaster WSF',
+                analysis: { N: 15, K: 35 },
+                sgn: 80,
+                packSize: 15,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 50, greensMax: 150, teesMin: 50, teesMax: 150, fairwaysMin: 50, fairwaysMax: 150 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'ICL-SPORTSMASTER2',
+                name: 'Sportsmaster WSF Iron 19.5% Fe',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Sportsmaster WSF',
+                analysis: { Fe: 19.5 },
+                sgn: 80,
+                packSize: 15,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 50, greensMax: 150, teesMin: 50, teesMax: 150, fairwaysMin: 50, fairwaysMax: 150 },
+                useCase: 'micronutrient_correction',
+                notes: '',
+            },
+            {
+                id: 'ICL-CALKMAG00116',
+                name: 'Cal K Mag 0-0-11.6 + Ca/Mg',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Specialty',
+                analysis: { K: 11.6, Ca: 10, Mg: 5 },
+                sgn: 90,
+                packSize: 25,
+                release: 'quick',
+                weeks: 6,
+                rates: null,
+                useCase: 'micronutrient_correction',
+                notes: '',
+            },
+            {
+                id: 'ICL-STEPHIMAG701',
+                name: 'Step Hi Mag 7-0-14 + 5Mg',
+                brand: 'icl',
+                distributor: 'K&B Adams',
+                availability: 'National',
+                line: 'Specialty',
+                analysis: { N: 7, K: 14, Mg: 12, Fe: 8, Mn: 3 },
+                sgn: 90,
+                packSize: 25,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 70, greensMax: 110, teesMin: 70, teesMax: 110, fairwaysMin: 70, fairwaysMax: 110 },
+                useCase: 'mg_correction',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTTX1',
+                name: 'Terralift TX10 5-2-8 + Mycorrhiza',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 5, P: 2, K: 8, Ca: 4.2, Mg: 0.8, Fe: 0.5, S: 3.1 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 6,
+                rates: { greensMin: 150, greensMax: 300, teesMin: 150, teesMax: 300 },
+                useCase: 'soil_health',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTACT',
+                name: 'Terralift Activate N 18-1-4',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 18, P: 1, K: 4, Ca: 2.4, Mg: 2, S: 8.2 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 400, teesMin: 150, teesMax: 400, fairwaysMin: 150, fairwaysMax: 400 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTACT1',
+                name: 'Terralift Activate K 8-0-16',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 8, K: 16, Ca: 3.2, Mg: 1, Fe: 2, S: 5.7 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 400, teesMin: 150, teesMax: 400, fairwaysMin: 150, fairwaysMax: 400 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTTXT',
+                name: 'Terralift TX Trace',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 3, K: 5, Ca: 2, Mg: 2, Fe: 5.5, Mn: 5, S: 9 },
+                sgn: 100,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { greensMin: 200, greensMax: 200, teesMin: 200, teesMax: 200 },
+                useCase: 'micronutrient_correction',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTSOI',
+                name: 'Terralift Soilfix Mg',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 0.5, P: 0.3, K: 0.1, Ca: 6, Mg: 16, Mn: 0.3 },
+                sgn: 100,
+                packSize: 20,
+                release: 'quick',
+                weeks: 4,
+                rates: { greensMin: 200, greensMax: 200, teesMin: 200, teesMax: 200 },
+                useCase: 'mg_correction',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTSOI1',
+                name: 'Terralift Soilfix KCa',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift Greens',
+                analysis: { N: 0.5, P: 0.3, K: 10, Ca: 10, Mg: 3, S: 5 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 200, greensMax: 200, teesMin: 200, teesMax: 200 },
+                useCase: 'micronutrient_correction',
+                notes: '',
+            },
+            {
+                id: 'GTS-TERRALIFTTX11',
+                name: 'Terralift TX10 Outfield 5-2-8',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Terralift High Cut',
+                analysis: { N: 5, P: 2, K: 8, Ca: 4.2, Mg: 0.8, Fe: 0.5, S: 3.1 },
+                sgn: 250,
+                packSize: 20,
+                release: 'slow',
+                weeks: 11,
+                rates: { teesMin: 200, teesMax: 600, fairwaysMin: 200, fairwaysMax: 600 },
+                useCase: 'soil_health',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI',
+                name: 'GTS Sport Series Maintain 26-2-9',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 26.1, P: 2, K: 8.9, Fe: 3.4, S: 4.3 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 12,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'sustained_growth',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI1',
+                name: 'GTS Sport Series Enhance 34-1-6',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 34.3, P: 1.1, K: 5.3, Fe: 2.5, S: 2.2 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 200, fairwaysMin: 150, fairwaysMax: 200 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI2',
+                name: 'GTS Sport Series Starter 19-10-9',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 18.8, P: 10.9, K: 9, Mn: 1.8, S: 1 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI3',
+                name: 'GTS Sport Series High K 20-0-20',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 20, K: 19.7, Fe: 3.4, S: 1.5 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 10,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI4',
+                name: 'GTS Sport Series Sportflexx 19-1-16',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 19.2, P: 1, K: 16, Fe: 3.5, S: 9.4 },
+                sgn: 250,
+                packSize: 20,
+                release: 'stabilised',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-GTSSPORTSERI5',
+                name: 'GTS Sport Series Colour Plus 20-0-16',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Sport Series',
+                analysis: { N: 20.8, P: 1, K: 16, Fe: 5, S: 9.08 },
+                sgn: 250,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            // ========================================
+            // GTS N-Lift Range (High N, lower min rates)
+            // ========================================
+            {
+                id: 'GTS-NLIFT22',
+                name: 'N-Lift 22',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'N-Lift',
+                analysis: { N: 22.2, P: 2.2, K: 8.5 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-NLIFT24',
+                name: 'N-Lift 24',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'N-Lift',
+                analysis: { N: 24.3, P: 4.2, K: 8.6 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 150, teesMax: 250, fairwaysMin: 150, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-NLIFT33',
+                name: 'N-Lift 33',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'N-Lift',
+                analysis: { N: 33.1, K: 11 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 200, fairwaysMin: 100, fairwaysMax: 200 },
+                useCase: 'maintenance',
+                notes: 'Lower min rate - good for moderate N requirements',
+            },
+            {
+                id: 'GTS-NLIFT46',
+                name: 'N-Lift 46',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'N-Lift',
+                analysis: { N: 46 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 100, teesMax: 200, fairwaysMin: 100, fairwaysMax: 200 },
+                useCase: 'maintenance',
+                notes: 'High N, lower min rate - good for moderate N requirements',
+            },
+            // ========================================
+            // GTS Simplot Range
+            // ========================================
+            {
+                id: 'GTS-SIMPLOTBAS',
+                name: 'Simplot Best All Season',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Simplot',
+                analysis: { N: 19, K: 10 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 400, fairwaysMin: 200, fairwaysMax: 400 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SIMPLOTNFX',
+                name: 'Simplot Best N Flexx',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Simplot',
+                analysis: { N: 22, P: 0.76, K: 6.89 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 400, fairwaysMin: 200, fairwaysMax: 400 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-BESTTURFGOLD',
+                name: 'Best Turf Gold',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Simplot',
+                analysis: { N: 23, P: 1, K: 3 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 400, fairwaysMin: 200, fairwaysMax: 400 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SIMPLOTPRILLS',
+                name: 'Simplot Best Pro Prills',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Simplot',
+                analysis: { N: 12, P: 3, K: 13 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 400, fairwaysMin: 200, fairwaysMax: 400 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            // ========================================
+            // GTS Other Products
+            // ========================================
+            {
+                id: 'GTS-PLATINUMHN',
+                name: 'GTS Platinum High N',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'GTS',
+                analysis: { N: 21.14, P: 2.65, K: 5.74 },
+                sgn: 250,
+                packSize: 20,
+                release: 'controlled',
+                weeks: 8,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-NEXENUREA',
+                name: 'Nexen Urea',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'GTS',
+                analysis: { N: 46 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 4,
+                rates: { teesMin: 100, teesMax: 100, fairwaysMin: 100, fairwaysMax: 100 },
+                useCase: 'maintenance',
+                notes: 'Quick release urea',
+            },
+            {
+                id: 'GTS-NITREX',
+                name: 'Nitrex',
+                brand: 'gts',
+                distributor: 'GTS',
+                availability: 'National',
+                line: 'Simplot',
+                analysis: { N: 20, P: 0.87, K: 2 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 4,
+                rates: { teesMin: 120, teesMax: 240, fairwaysMin: 120, fairwaysMax: 240 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'SKW-ALZONNEON460',
+                name: 'Alzon Neo N 46-0-0',
+                brand: 'skw',
+                distributor: 'Gilba',
+                availability: 'NSW, QLD, VIC',
+                line: 'Alzon',
+                analysis: { N: 46 },
+                sgn: 250,
+                packSize: 25,
+                release: 'slow',
+                weeks: 12,
+                rates: { greensMin: 25, greensMax: 25, teesMin: 150, teesMax: 150, fairwaysMin: 150, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-AMMONIUMSULP',
+                name: 'Ammonium sulphate Tech',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { N: 21, S: 24 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 25, teesMin: 5, teesMax: 150, fairwaysMin: 5, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-MAPTECH',
+                name: 'MAP Tech',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { N: 12, P: 27 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 25, teesMin: 5, teesMax: 150, fairwaysMin: 5, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-SULPHATEOFPO',
+                name: 'Sulphate of potash Soluble',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { K: 41.5, S: 18 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 25, teesMin: 5, teesMax: 150, fairwaysMin: 5, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-IRONSULPHATE',
+                name: 'Iron sulphate Hepta Soluble',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { Fe: 19.5, S: 11 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 10, teesMin: 5, teesMax: 10, fairwaysMin: 5, fairwaysMax: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-MAGNESIUMSUL',
+                name: 'Magnesium sulphate Soluble',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { Mg: 9.8, S: 13 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 10, teesMin: 5, teesMax: 10, fairwaysMin: 5, fairwaysMax: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-KIESERITE',
+                name: 'Kieserite',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { Mg: 15.1, S: 16 },
+                sgn: 250,
+                packSize: 20,
+                release: 'slow',
+                weeks: 8,
+                rates: { greensMin: 150, greensMax: 300, teesMin: 150, teesMax: 300, fairwaysMin: 150, fairwaysMax: 300 },
+                useCase: 'After hollow tine aeration on greens',
+                notes: '',
+            },
+            {
+                id: 'VAR-LOBIURETUREA',
+                name: 'Lo biuret urea',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { N: 46 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 20, teesMin: 150, teesMax: 150, fairwaysMin: 150, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'VAR-MANGANESESUL',
+                name: 'Manganese sulphate',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                line: 'Various',
+                analysis: { Mn: 31, S: 19 },
+                sgn: 80,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 25, teesMin: 5, teesMax: 25, fairwaysMin: 5, fairwaysMax: 25 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            // ----------------------------------------------------------------
+            // TURFCARE - TPG Range (v10.3.77)
+            // ----------------------------------------------------------------
+            {
+                id: 'TC-CARBONUREA',
+                name: 'Carbon Coated Urea',
+                brand: 'fertpro',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'Fertpro',
+                analysis: { N: 46, S: 24 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 2,
+                rates: { greensMin: 5, greensMax: 25, teesMin: 5, teesMax: 150, fairwaysMin: 5, fairwaysMax: 150 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGCOMPLETEKP',
+                name: 'TPG Complete K Plus',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 10, P: 2, K: 17, Fe: 1, Mn: 0.2 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 6,
+                rates: { greensMin: 300, greensMax: 400 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGCOMPLETEPP',
+                name: 'TPG Complete P Plus',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 8, P: 9, K: 4, Fe: 1 },
+                sgn: 100,
+                packSize: 20,
+                release: 'slow',
+                weeks: 6,
+                rates: { greensMin: 300, greensMax: 400 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGENHANCE',
+                name: 'TPG Enhance',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 25, P: 2.1, K: 11.1, Ca: 2, Mg: 0.16, Fe: 0.05, S: 5 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 200, teesMax: 300, fairwaysMin: 200, fairwaysMax: 300 },
+                useCase: 'growth_boost',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGMAINTENANCE',
+                name: 'TPG Maintenance',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 13, P: 1, K: 13, Ca: 3.5, Mg: 4.8, Fe: 1.5, Mn: 0.21 },
+                sgn: 85,
+                packSize: 20,
+                release: 'slow',
+                weeks: 6,
+                rates: { greensMin: 200, greensMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGRATIO',
+                name: 'TPG Ratio',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 20.7, P: 0.07, K: 16, Ca: 2.5, Mg: 0.2, Fe: 0.07, Mn: 0.01, S: 7 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 250, teesMax: 250, fairwaysMin: 250, fairwaysMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGSPECIALK',
+                name: 'TPG Special K',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 13.1, K: 25.2, Fe: 5, S: 11.1 },
+                sgn: 250,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 300, teesMax: 400, fairwaysMin: 300, fairwaysMax: 400 },
+                useCase: 'stress_hardening',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGSPRINGSUMM',
+                name: 'TPG Spring Summer',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 17, P: 2, K: 14, Fe: 1 },
+                sgn: 85,
+                packSize: 20,
+                release: 'slow',
+                weeks: 6,
+                rates: { greensMin: 200, greensMax: 250 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGSTARTMEUP',
+                name: 'TPG Start Me Up',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 16, P: 9.9, K: 10.1, Ca: 3.2, Mg: 0.01, Fe: 0.26, S: 5.3 },
+                sgn: 200,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 200, teesMax: 350, fairwaysMin: 200, fairwaysMax: 350 },
+                useCase: 'establishment',
+                notes: '',
+            },
+            {
+                id: 'TC-TPGSTRENGTH',
+                name: 'TPG Strength',
+                brand: 'tpg',
+                distributor: 'Turfcare',
+                availability: 'National',
+                line: 'TPG',
+                analysis: { N: 20.1, P: 0.17, K: 8, Ca: 5.7, Mg: 0.46, Fe: 0.16, S: 0.02 },
+                sgn: 200,
+                packSize: 20,
+                release: 'quick',
+                weeks: 6,
+                rates: { teesMin: 250, teesMax: 350, fairwaysMin: 250, fairwaysMax: 350 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+        ],
+        
+        // --------------------------------------------------------------------
+        // LIQUID PRODUCTS
+        // --------------------------------------------------------------------
+        liquid: [
+            {
+                id: 'NUT-FOLIMAXNHANC',
+                name: 'FoliMAX N-Hancer-N',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 35 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'slow',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'High N foliar',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXTRACE',
+                name: 'FoliMAX Trace+',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { Mg: 0.06, Mn: 1.08, Zn: 5.7, B: 0.24 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 10, greensLHa: 5, teesLHa: 5, fairwaysLHa: 5 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXNFE',
+                name: 'FoliMAX NFE',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 15, Fe: 6, Mn: 2 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Colour boost',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXCALMA',
+                name: 'FoliMAX Cal Mag',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 11.2, Ca: 13, Mg: 3.4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXNRGNK',
+                name: 'FoliMAX NRG-NK',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 19.1, K: 12.7, Fe: 0.4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Balanced NK foliar',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXVIGOR',
+                name: 'FoliMAX Vigor-K',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { K: 30 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'K foliar',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXCALCI',
+                name: 'FoliMAX Calcium +',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { Ca: 15 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Ca foliar',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXIRON',
+                name: 'FoliMAX Iron +',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { Fe: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Fe foliar',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXMAGNE',
+                name: 'FoliMAX Magnesium +',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 6, Mg: 5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Mg correction',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXMANGA',
+                name: 'FoliMAX Manganese +',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 8, Mn: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Mn correction',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXLAUNC',
+                name: 'FoliMAX Launcher',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 8, P: 10, K: 4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Establishment',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXCHARG',
+                name: 'FoliMAX Charger',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 7.2, K: 7.2, Fe: 3.8, Mn: 2.2, S: 3.6, Zn: 0.22 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Recovery',
+                notes: '',
+            },
+            {
+                id: 'NUT-FOLIMAXTURBO',
+                name: 'FoliMAX Turbo',
+                brand: 'nuturf',
+                line: 'FoliMAX',
+                availability: 'National',
+                analysis: { N: 10, K: 20 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'slow',
+                rates: { maxLHa: 50, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'NK maintenance',
+                notes: '',
+            },
+            {
+                id: 'ICL-VITALNOVASTR',
+                name: 'Vitalnova Stressbuster',
+                brand: 'icl',
+                line: 'Vitalnova',
+                availability: 'National',
+                analysis: { N: 7, Fe: 2 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Stress relief',
+                notes: '',
+            },
+            {
+                id: 'ICL-VITALNOVABLA',
+                name: 'Vitalnova Blade',
+                brand: 'icl',
+                line: 'Vitalnova',
+                availability: 'National',
+                analysis: { N: 5, P: 2.8, K: 2.9 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Biostimulant',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL',
+                name: 'Greenmaster Liquid Spring & Summer',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { N: 12, P: 1.7, K: 5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 120, greensLHa: 80, teesLHa: 80, fairwaysLHa: 80 },
+                useCase: 'Balanced NPK',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL1',
+                name: 'Greenmaster Liquid NK',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { N: 10, K: 8.3 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 120, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'Balanced NK',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL2',
+                name: 'Greenmaster Liquid High N',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { N: 25, Mg: 3 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 120, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'Quick green-up',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL3',
+                name: 'Greenmaster Liquid High K',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { N: 3, P: 1.3, K: 8.3, Fe: 3 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 80, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'Pre-stress',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL4',
+                name: 'Greenmaster Liquid Effect Iron',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { Fe: 7.2 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Rapid colour',
+                notes: '',
+            },
+            {
+                id: 'ICL-GREENMASTERL5',
+                name: 'Greenmaster Liquid Step',
+                brand: 'icl',
+                line: 'Greenmaster Liquid',
+                availability: 'National',
+                analysis: { Fe: 2, Mn: 2 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 60, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'Micronutrient',
+                notes: '',
+            },
+            {
+                id: 'KBA-GREENTSYNERG',
+                name: 'Green-T Synergy 16-1-6',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 16, P: 1, K: 6 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'slow',
+                rates: { maxLHa: 45, greensLHa: 13, teesLHa: 13, fairwaysLHa: 13 },
+                useCase: 'Maintenance foliar',
+                notes: '',
+            },
+            {
+                id: 'KBA-GREENT2012',
+                name: 'Green-T 20-1-2',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 20, P: 1, K: 2, Fe: 2 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'slow',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Growth boost',
+                notes: '',
+            },
+            {
+                id: 'KBA-GREENT6IRON',
+                name: 'Green-T 6 Iron',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 12, Fe: 6, Mn: 0.5 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 13, greensLHa: 6, teesLHa: 6, fairwaysLHa: 6 },
+                useCase: 'Colour',
+                notes: '',
+            },
+            {
+                id: 'KBA-GREENT12IRON',
+                name: 'Green-T 12 Iron',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 12, Fe: 6, Mn: 2, S: 4 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 13, greensLHa: 6, teesLHa: 6, fairwaysLHa: 6 },
+                useCase: 'Strong colour',
+                notes: '',
+            },
+            {
+                id: 'KBA-FAIRWAYATHLE',
+                name: 'Fairway & Athletic 17-1-6',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 17, P: 1, K: 6 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'slow',
+                rates: { maxLHa: 75, teesLHa: 30, fairwaysLHa: 30 },
+                useCase: 'Fairway liquid',
+                notes: '',
+            },
+            {
+                id: 'KBA-GREENTIMPULS',
+                name: 'Green-T Impulse',
+                brand: 'kandb-adams',
+                line: 'Green-T',
+                availability: 'National',
+                analysis: { N: 4, K: 4 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Biostimulant',
+                notes: '',
+            },
+            {
+                id: 'KBA-3TIERMAINTAI',
+                name: '3 Tier Maintain 11.2-9.9-9.2',
+                brand: 'kandb-adams',
+                line: '3 Tier',
+                availability: 'National',
+                analysis: { N: 11.2, P: 9.9, K: 9.2 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Maintenance',
+                notes: '',
+            },
+            {
+                id: 'KBA-3TIERESTABLI',
+                name: '3 Tier Establish 7-9.9-14',
+                brand: 'kandb-adams',
+                line: '3 Tier',
+                availability: 'National',
+                analysis: { N: 7, P: 9.9, K: 14 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Establishment',
+                notes: '',
+            },
+            {
+                id: 'KBA-3TIERGROWTH2',
+                name: '3 Tier Growth 22.4-2.48-9.2',
+                brand: 'kandb-adams',
+                line: '3 Tier',
+                availability: 'National',
+                analysis: { N: 22.4, P: 2.48, K: 9.2 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'slow',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Growth',
+                notes: '',
+            },
+            {
+                id: 'KBA-3TIERCAL86',
+                name: '3 Tier Cal 86',
+                brand: 'kandb-adams',
+                line: '3 Tier',
+                availability: 'National',
+                analysis: { Ca: 8.6 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Ca foliar',
+                notes: '',
+            },
+            {
+                id: 'KBA-3TIERHUMAMNF',
+                name: '3 Tier Huma Mn & Fe',
+                brand: 'kandb-adams',
+                line: '3 Tier',
+                availability: 'National',
+                analysis: { Fe: 5, Mn: 5 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 25, teesLHa: 25, fairwaysLHa: 25 },
+                useCase: 'Mn/Fe humate',
+                notes: '',
+            },
+            {
+                id: 'KBA-NITRON14N11F',
+                name: 'Nitron 14N + 11Fe',
+                brand: 'kandb-adams',
+                line: 'Specialty',
+                availability: 'National',
+                analysis: { N: 14, Fe: 11 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 15, teesLHa: 15, fairwaysLHa: 15 },
+                useCase: 'Colour + growth',
+                notes: '',
+            },
+            {
+                id: 'KBA-INFILTRATEK',
+                name: 'Infiltrate K',
+                brand: 'kandb-adams',
+                line: 'Specialty',
+                availability: 'National',
+                analysis: { K: 24 },
+                form: 'liquid',
+                packSize: 9.46,
+                release: 'quick',
+                rates: { maxLHa: 26, greensLHa: 6, teesLHa: 6, fairwaysLHa: 6 },
+                useCase: 'K boost',
+                notes: '',
+            },
+            {
+                id: 'KBA-SUGARCAL',
+                name: 'Sugar Cal',
+                brand: 'kandb-adams',
+                line: 'Specialty',
+                availability: 'National',
+                analysis: { Ca: 10 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 45, greensLHa: 13, teesLHa: 13, fairwaysLHa: 13 },
+                useCase: 'Ca foliar',
+                notes: '',
+            },
+            {
+                id: 'KBA-RESURGENCE',
+                name: 'Resurgence',
+                brand: 'kandb-adams',
+                line: 'Specialty',
+                availability: 'National',
+                analysis: { N: 14, Fe: 13 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 15, teesLHa: 15, fairwaysLHa: 15 },
+                useCase: 'Soil health',
+                notes: '',
+            },
+            {
+                id: 'KBA-MAGTRACE',
+                name: 'Magtrace',
+                brand: 'kandb-adams',
+                line: 'Specialty',
+                availability: 'National',
+                analysis: { N: 5.6, Mg: 5, S: 5.1 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Mg correction',
+                notes: '',
+            },
+            {
+                id: 'KBA-LONGPADDOCKS',
+                name: 'Long Paddock Sportsturf 10-2-6',
+                brand: 'kandb-adams',
+                line: 'Long Paddock',
+                availability: 'National',
+                analysis: { N: 10, P: 2, K: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 15, greensLHa: 7, teesLHa: 7, fairwaysLHa: 7 },
+                useCase: 'Organic NPK',
+                notes: '',
+            },
+            {
+                id: 'KBA-LONGPADDOCKR',
+                name: 'Long Paddock Rapid Uptake',
+                brand: 'kandb-adams',
+                line: 'Long Paddock',
+                availability: 'National',
+                analysis: { N: 11, P: 2, K: 10 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 15, greensLHa: 7, teesLHa: 7, fairwaysLHa: 7 },
+                useCase: 'Quick organic',
+                notes: '',
+            },
+            {
+                id: 'IND-INTECMAJORK',
+                name: 'Intec Major K',
+                brand: 'indigo',
+                line: 'LiquiMaxx',
+                availability: 'National',
+                analysis: { K: 30 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 40, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Concentrated N',
+                notes: '',
+            },
+            {
+                id: 'IND-INTECCOLOURP',
+                name: 'Intec Colourphyll',
+                brand: 'indigo',
+                line: 'LiquiMaxx',
+                availability: 'National',
+                analysis: { N: 20, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Colour + growth',
+                notes: '',
+            },
+            {
+                id: 'IND-INTECCOLOURP1',
+                name: 'Intec Colourphyll K',
+                brand: 'indigo',
+                line: 'LiquiMaxx',
+                availability: 'National',
+                analysis: { N: 15, K: 10, Mg: 1, Fe: 4 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'NK + colour',
+                notes: '',
+            },
+            {
+                id: 'IND-INTECCOLOURP2',
+                name: 'Intec Colourphyll Total',
+                brand: 'indigo',
+                line: 'LiquiMaxx',
+                availability: 'National',
+                analysis: { N: 17, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Complete foliar',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSBA',
+                name: 'Grass Roots Balance',
+                brand: 'oasis',
+                line: 'Classic',
+                availability: 'VIC',
+                analysis: { N: 12, K: 12, Fe: 0.5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Balanced maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSCA',
+                name: 'Grass Roots Carbon Plus',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 3.88, K: 2.17, Ca: 9.11, B: 0.3 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 60, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSCA1',
+                name: 'Grass Roots Calcium',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 15, Ca: 18 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSCO',
+                name: 'Grass Roots Complete Trace',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 3, Mg: 1.5, Fe: 1.5, Mn: 1.5, Cu: 0.6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSGR',
+                name: 'Grass Roots Green Blast 22',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 22, Mg: 2, Fe: 4.05, Mn: 1.05 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 60, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Disease suppression',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSHI',
+                name: 'Grass Roots High K',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 10, K: 20, Fe: 0.5, Mn: 0.05 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSIR',
+                name: 'Grass Roots Iron',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { Fe: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSMA',
+                name: 'Grass Roots Magnesium',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { Mg: 5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSMA1',
+                name: 'Grass Roots Manganese',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { Mn: 5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSMA2',
+                name: 'Grass Roots Maxi Green 6',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 20, Fe: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSNI',
+                name: 'Grass Roots Nitro 8 Iron',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 12, Fe: 8 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSPL',
+                name: 'Grass Roots Platinum 5',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 5.13, Mg: 4.05, Fe: 4.14, Mn: 2.07 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSST',
+                name: 'Grass Roots Stand Up',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { K: 45 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 15, greensLHa: 5, teesLHa: 5, fairwaysLHa: 5 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSSU',
+                name: 'Grass Roots Super Greens',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 18, K: 9, Fe: 0.5, Mn: 0.2 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 30, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'OAS-GRASSROOTSTU',
+                name: 'Grass Roots Turf pro',
+                brand: 'oasis',
+                line: 'Specialty',
+                availability: 'VIC',
+                analysis: { N: 15, P: 1, K: 15, Fe: 0.5, Mn: 0.05 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'LT-MPBRILLIANCE',
+                name: 'MP BRILLIANCE',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 20, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Colour + N + Fe + Mg',
+                notes: 'Tees/greens 200–500 mL/100 m² (≈20–50 L/ha) in 6–10 L water/100 m²; fairways/sportsturf 20–50 L/ha in 400–1000 L water/ha.',
+            },
+            {
+                id: 'LT-MPENDURE',
+                name: 'MP ENDURE',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 40 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'High N, long feeding',
+                notes: 'Tees/greens 200–500 mL/100 m² (≈20–50 L/ha) in 6–10 L water/100 m²; fairways/sportsturf 20–50 L/ha in 400–1000 L water/ha.',
+            },
+            {
+                id: 'LT-MPENHANCE',
+                name: 'MP ENHANCE',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 12, Mg: 1, Fe: 10 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Intense green-up (Fe)',
+                notes: 'Brochure rate 20–50 L/ha (surface/response dependent).',
+            },
+            {
+                id: 'LT-MPSTRENGTH',
+                name: 'MP STRENGTH',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 12, K: 20, Fe: 0.5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'NK stress pre-conditioning',
+                notes: 'Tees/greens 200–500 mL/100 m² (≈20–50 L/ha) in 6–10 L water/100 m²; fairways/sportsturf 20–50 L/ha in 400–1000 L water/ha.',
+            },
+            {
+                id: 'LT-MPMANGANITE',
+                name: 'MP MANGANITE',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { Mn: 11 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Manganese nutrition',
+                notes: 'Brochure rate 10–20 L/ha.',
+            },
+            {
+                id: 'LT-MPENRICH',
+                name: 'MP ENRICH',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 1, Fe: 5, Mn: 4, Zn: 3 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Micros + colour',
+                notes: 'General rate 20–40 L/ha in 150–500 L/ha spray mix; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPNOURISH',
+                name: 'MP NOURISH',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 10, P: 1, K: 11 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'medium',
+                rates: { maxLHa: 60, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'Balanced N:K + biology',
+                notes: 'General rate 40–60 L/ha; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPREFRESH',
+                name: 'MP REFRESH',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 10, P: 1, Ca: 10, B: 1.5 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'medium',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Calcium + recovery',
+                notes: 'General rate 20–40 L/ha in 150–500 L/ha water; foliar or drench; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPROOTS',
+                name: 'MP ROOTS',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 5, P: 5, K: 3 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'medium',
+                rates: { maxLHa: 40, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Rooting/establishment',
+                notes: 'General rate 10–40 L/ha; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPSAFEK',
+                name: 'MP SAFE K',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 2, K: 21 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'medium',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Potassium citrate + stress',
+                notes: 'General rate 20–40 L/ha; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPSAFEN',
+                name: 'MP SAFE N',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { N: 28 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'medium',
+                rates: { maxLHa: 60, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Plant-safe N + biology',
+                notes: 'General rate 20–60 L/ha; packs 20/200/1000 L.',
+            },
+            {
+                id: 'LT-MPDEFENCE',
+                name: 'MP DEFENCE',
+                brand: 'living-turf',
+                line: 'MATCHPLAY',
+                availability: 'National',
+                analysis: { P: 19, K: 30 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 10, greensLHa: 5, teesLHa: 5, fairwaysLHa: 5 },
+                useCase: 'Phosphite + K stress/disease support',
+                notes: 'Brochure lists 5–10 L/ha; verify surface-specific directions on label/tech sheet.',
+            },
+            {
+                id: 'GTS-GREENXTRA',
+                name: 'Green Xtra',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { N: 20, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-GROCALMGB',
+                name: 'Grocal MGB',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { Ca: 17, Mg: 4, B: 0.1 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-MAXIMANG',
+                name: 'Maxi Mang',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { N: 4.6, Mn: 50 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 10, greensLHa: 5, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-NITROIRONADV',
+                name: 'Nitro Iron Advance Turf',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { N: 16, Fe: 7, Mn: 1 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SUPASTANDPHO',
+                name: 'Supa standphos',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { N: 6.2, P: 9.9, K: 3.1, S: 1 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SUPATURFIRON',
+                name: 'Supaturf Iron',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { Fe: 9 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-TRACEXTRA',
+                name: 'Trace Xtra',
+                brand: 'gts',
+                line: 'Agrichem',
+                availability: 'National',
+                analysis: { Mg: 2, Fe: 4, Mn: 1, Zn: 1 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-CHELATEDCALC',
+                name: 'Chelated Calcium EDTA',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { Ca: 5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-CHELATEDIRON',
+                name: 'Chelated Iron EDTA',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { Fe: 7 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-CHELATEDMAGN',
+                name: 'Chelated Magnesium',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { Mg: 5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-HISTARTTURF',
+                name: 'Hi Start Turf',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { N: 10, P: 13, K: 5, Zn: 1 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 15, teesLHa: 15, fairwaysLHa: 15 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-HIGHKLIQUID',
+                name: 'High K liquid',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { K: 30 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-IRONPLUS',
+                name: 'Iron Plus',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { N: 12, Mg: 1, Fe: 8 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SOCAL',
+                name: 'Socal',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { N: 11, Ca: 16 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SOCALLESSN',
+                name: 'Socal Less N',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { Ca: 16 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-SOCALMAG',
+                name: 'Socal Mag',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { N: 12, Ca: 12, Mg: 3 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-TRACES',
+                name: 'Traces',
+                brand: 'gts',
+                line: 'GMX',
+                availability: 'National',
+                analysis: { Mg: 2, Fe: 4, Mn: 1, Zn: 1, Cu: 1 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-LIQUIMAXX101',
+                name: 'Liquimaxx 10-1-10',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 10, P: 1, K: 10, Fe: 0.5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-LIQUIMAXX120',
+                name: 'Liquimaxx 12-0-20',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 12, K: 20, Fe: 0.5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-NMAXX4000',
+                name: 'N Maxx 40-0-0',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 40 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-GREENMAXX',
+                name: 'Greenmaxx',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 20, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-GREENMAXXCOM',
+                name: 'Greenmaxx Complete',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 17, Mg: 1, Fe: 6 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            {
+                id: 'GTS-GREENMAXXK',
+                name: 'Greenmaxx K',
+                brand: 'gts',
+                line: 'Liquimaxx',
+                availability: 'National',
+                analysis: { N: 15, K: 10, Mg: 1, Fe: 4 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'stabilised',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'maintenance',
+                notes: '',
+            },
+            // ----------------------------------------------------------------
+            // TURFCARE - TPL Liquid Range (v10.3.77)
+            // ----------------------------------------------------------------
+            {
+                id: 'TC-TPLCOMBO',
+                name: 'TPL Combo',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 11.2, Ca: 13, Mg: 3.4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Calcium + Magnesium',
+                notes: 'Contains B 0.1%',
+            },
+            {
+                id: 'TC-TPLENTIRE',
+                name: 'TPL Entire',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 18, K: 12, Fe: 0.04 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'slow',
+                rates: { maxLHa: 20, greensLHa: 6, teesLHa: 6, fairwaysLHa: 6 },
+                useCase: 'Balanced NK slow release',
+                notes: '',
+            },
+            {
+                id: 'TC-TPLESSENCE',
+                name: 'TPL Essence',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 14.2, P: 3, K: 5.3, Fe: 0.9, Mn: 0.02 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 50, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Complete foliar',
+                notes: 'Contains Zn 0.05%',
+            },
+            {
+                id: 'TC-TPLHIK',
+                name: 'TPL Hi K',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 10, K: 20, Fe: 0.4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'slow',
+                rates: { maxLHa: 100, greensLHa: 40, teesLHa: 40, fairwaysLHa: 40 },
+                useCase: 'K stress hardening',
+                notes: '',
+            },
+            {
+                id: 'TC-TPLSTANDOUT',
+                name: 'TPL Standout',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 15, Fe: 6, Mn: 2 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Colour boost',
+                notes: '',
+            },
+            {
+                id: 'TC-TPLSTANDOUTLON',
+                name: 'TPL Standout Lo N',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { N: 5, Mg: 0.3, Fe: 6, Mn: 4 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 40, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Low N colour boost',
+                notes: '',
+            },
+            {
+                id: 'TC-TPLSTRENGTH',
+                name: 'TPL Strength',
+                brand: 'turfcare',
+                line: 'TPL',
+                availability: 'National',
+                analysis: { P: 22, K: 32 },
+                form: 'liquid',
+                packSize: 20,
+                release: 'quick',
+                rates: { maxLHa: 10, greensLHa: 5, teesLHa: 5, fairwaysLHa: 5 },
+                useCase: 'Phosphite + K stress',
+                notes: '',
+            },
+            // ----------------------------------------------------------------
+            // TURFCARE - Floratine Range (v10.3.77)
+            // ----------------------------------------------------------------
+            {
+                id: 'TC-LARGO',
+                name: 'Largo',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { N: 12, Fe: 6, Mn: 1.5, S: 4.2 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 10, greensLHa: 5, teesLHa: 5, fairwaysLHa: 5 },
+                useCase: 'Colour + micros',
+                notes: 'Contains Zn 1%',
+            },
+            {
+                id: 'TC-PHLEXMAG',
+                name: 'Phlex Mag',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { Mg: 4 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 5, greensLHa: 2.5, teesLHa: 2.5, fairwaysLHa: 2.5 },
+                useCase: 'Magnesium correction',
+                notes: '',
+            },
+            {
+                id: 'TC-PHLEXMAN',
+                name: 'Phlex Man',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { Mn: 5 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 5, greensLHa: 2.5, teesLHa: 2.5, fairwaysLHa: 2.5 },
+                useCase: 'Manganese correction',
+                notes: '',
+            },
+            {
+                id: 'TC-XFACTOR0022',
+                name: 'X Factor 0-0-22',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { K: 22, S: 4.2 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'K foliar',
+                notes: '',
+            },
+            {
+                id: 'TC-XFACTOR1836',
+                name: 'X Factor 18-3-6',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { N: 18, P: 1.32, K: 4.98, S: 4 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'Balanced NPK foliar',
+                notes: '',
+            },
+            {
+                id: 'TC-XFACTOR2800',
+                name: 'X Factor 28-0-0',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { N: 28 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'High N foliar',
+                notes: '',
+            },
+            {
+                id: 'TC-XFACTOR4416',
+                name: 'X Factor 4-4-16',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { N: 4, P: 4, K: 16, S: 4 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 30, greensLHa: 10, teesLHa: 10, fairwaysLHa: 10 },
+                useCase: 'High K foliar',
+                notes: '',
+            },
+            {
+                id: 'TC-QUADK',
+                name: 'Quad K',
+                brand: 'turfcare',
+                line: 'Floratine',
+                availability: 'National',
+                analysis: { K: 37.35 },
+                form: 'liquid',
+                packSize: 10,
+                release: 'quick',
+                rates: { maxLHa: 20, greensLHa: 20, teesLHa: 20, fairwaysLHa: 20 },
+                useCase: 'Ultra high K foliar',
+                notes: '',
+            },
+        ],
+        
+        // ========================================================================
+        // SOLUBLE PRODUCTS - Technical grades for spoonfeeding and targeted applications
+        // Available from agricultural merchants, Elders, Landmark, etc.
+        // ========================================================================
+        soluble: [
+            // ============================================================
+            // SOLUBLE MAP - PHOSPHORUS DELIVERY
+            // ============================================================
+            {
+                id: 'SOL-MAP',
+                name: 'MAP Tech (soluble)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 12, P: 22, K: 0 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 20,
+                greensMaxRateKgHa: 15,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Soluble MAP dissolved in spray tank (400-600L water/ha). Efficient P delivery.',
+                useCase: 'P maintenance on fine turf. P deficiency correction. Foliar P application.',
+            },
+            // ============================================================
+            // SOLUBLE SOP - POTASSIUM WITHOUT NITROGEN
+            // ============================================================
+            {
+                id: 'SOL-SOP',
+                name: 'Soluble SOP (Potassium Sulfate)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 0, P: 0, K: 41.5, S: 18 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 150,
+                greensMaxRateKgHa: 25,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Chloride-free K. Dissolve fully. Low scorch risk.',
+                useCase: 'K boost without N. Stress hardening. Cl-sensitive turf.',
+            },
+            // ============================================================
+            // SOLUBLE AMMONIUM SULPHATE - ACIDIFYING N SOURCE
+            // ============================================================
+            {
+                id: 'SOL-AS',
+                name: 'Ammonium Sulphate Tech (soluble)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 21, P: 0, K: 0, S: 24 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 150,
+                greensMaxRateKgHa: 25,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Quick release N with S. Acidifying effect. Good for high pH soils.',
+                useCase: 'Spoonfeeding greens. Fairway colour. pH management.',
+            },
+            // ============================================================
+            // SOLUBLE UREA - FAST N
+            // ============================================================
+            {
+                id: 'SOL-UREA',
+                name: 'Urea Tech (soluble)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 46, P: 0, K: 0 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 50,
+                greensMaxRateKgHa: 15,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Very high N. Apply in cool conditions. Risk of volatilisation in heat.',
+                useCase: 'Quick N response. Fairway colour. Tank mix applications.',
+            },
+            // ============================================================
+            // SOLUBLE IRON SULPHATE - COLOUR WITHOUT N
+            // ============================================================
+            {
+                id: 'SOL-FESO4',
+                name: 'Iron Sulphate Hepta (soluble)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 0, P: 0, K: 0, Fe: 19.5, S: 11 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 10,
+                greensMaxRateKgHa: 10,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Pure Fe source. Can stain concrete/paths. Slight acidifying. Dissolve fully.',
+                useCase: 'Colour without growth. Moss suppression. Fe deficiency.',
+            },
+            // ============================================================
+            // SOLUBLE MAGNESIUM SULPHATE - EPSOM SALTS
+            // ============================================================
+            {
+                id: 'SOL-MGSO4',
+                name: 'Magnesium Sulphate (Epsom Salts)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 0, P: 0, K: 0, Mg: 9.8, S: 13 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 50,
+                greensMaxRateKgHa: 25,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Epsom salts. Highly soluble. Foliar Mg correction.',
+                useCase: 'Mg deficiency correction. Chlorophyll production. Tank mix.',
+            },
+            // ============================================================
+            // SOLUBLE MKP - PHOSPHORUS + POTASSIUM
+            // ============================================================
+            {
+                id: 'SOL-MKP',
+                name: 'MKP (Mono Potassium Phosphate)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 0, P: 22.5, K: 28 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 25,
+                greensMaxRateKgHa: 15,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'PK without N. Neutral pH. Excellent solubility.',
+                useCase: 'P+K without growth. Pre-stress. Establishment boost.',
+            },
+        ],
+    };
+    // ========================================================================
+    // RECOMMENDATION ENGINE v3.0.0
+    // Rebuilt to match NZ/Prebble approach with GP-aware delivery strategies
+    // ========================================================================
+
+    const AuFertiliserRecommender = {
+        
+        version: '3.15.1',
+        
+        // ====================================================================
+        // SEASON RELEASE PREFERENCES
+        // ====================================================================
+        seasonRelease: {
+            'peak_growth': ['slow', 'controlled', 'standard'],
+            'spring': ['slow', 'controlled', 'standard'],
+            'autumn': ['slow', 'controlled', 'standard'],
+            'summer_stress': ['slow', 'controlled'],
+            'winter': ['standard', 'slow'], // Quick release works better in cold
+        },
+        
+        /**
+         * Detect Australian state from coordinates
+         */
+        detectState: function(lat, lon) {
+            for (const [state, bounds] of Object.entries(CONFIG.stateBounds)) {
+                if (lat >= bounds.latMin && lat <= bounds.latMax &&
+                    lon >= bounds.lonMin && lon <= bounds.lonMax) {
+                    return state;
+                }
+            }
+            return null;
+        },
+        
+        /**
+         * Get season phase based on GP and calendar
+         */
+        getSeasonPhase: function(gp, season, month) {
+            if (gp >= 0.7) return 'peak_growth';
+            if (gp < 0.15) return 'winter';
+            
+            // Southern hemisphere summer stress (Dec-Feb)
+            if ([12, 1, 2].includes(month) && gp < 0.5) {
+                return 'summer_stress';
+            }
+            
+            // Map season string
+            const seasonLower = (season || '').toLowerCase();
+            if (seasonLower.includes('spring')) return 'spring';
+            if (seasonLower.includes('autumn') || seasonLower.includes('fall')) return 'autumn';
+            if (seasonLower.includes('summer')) return gp < 0.5 ? 'summer_stress' : 'peak_growth';
+            if (seasonLower.includes('winter')) return 'winter';
+            
+            return 'peak_growth';
+        },
+        
+        /**
+         * Filter products by availability
+         */
+        filterByAvailability: function(products, availability) {
+            if (!availability || availability === 'all') {
+                return products;
+            }
+            
+            return products.filter(p => {
+                if (p.availability === 'National') return true;
+                if (availability === 'national') return p.availability === 'National';
+                return p.availability && p.availability.includes(availability);
+            });
+        },
+        
+        /**
+         * Filter products by distributor
+         */
+        filterByDistributor: function(products, distributor) {
+            if (!distributor || distributor === 'all') {
+                return products;
+            }
+            
+            return products.filter(p => {
+                // Direct distributor match
+                if (p.distributor === distributor) return true;
+                
+                // "Various" distributor products are generic and available from any distributor
+                // (e.g., Ammonium Sulphate Tech, technical grade fertilisers)
+                if (p.distributor === 'Various') return true;
+                
+                // Brand-based lookup for products without distributor field
+                if (p.brand && !p.distributor) {
+                    const brandKey = p.brand.toLowerCase().replace(/\s+/g, '-');
+                    const brandInfo = BRANDS[brandKey] || LIQUID_BRANDS[brandKey];
+                    if (brandInfo && brandInfo.distributor === distributor) return true;
+                    if (brandKey === 'kandb-adams' && distributor === 'K&B Adams') return true;
+                }
+                
+                return false;
+            });
+        },
+        
+        /**
+         * Get distributor options for UI
+         * @param {string} state - Optional state code (VIC, NSW, etc.) to filter by territory
+         * @returns {Array} Distributor options available for the state
+         */
+        getDistributorOptions: function(state) {
+            if (!state) {
+                return CONFIG.distributorOptions;
+            }
+            
+            // Filter distributors by territory coverage
+            const territories = CONFIG.distributorTerritories;
+            return CONFIG.distributorOptions.filter(opt => {
+                if (opt.value === 'all') return true; // Always show "All Products"
+                
+                const coverage = territories[opt.value];
+                if (!coverage) return true; // Unknown distributor - show by default
+                
+                // National distributors service all states
+                if (coverage.includes('National')) return true;
+                
+                // Check if distributor services this state
+                return coverage.includes(state);
+            });
+        },
+        
+        /**
+         * Get distributor territory coverage
+         * @param {string} distributor - Distributor name
+         * @returns {Array} States/territories covered
+         */
+        getDistributorTerritory: function(distributor) {
+            return CONFIG.distributorTerritories[distributor] || ['National'];
+        },
+        
+        /**
+         * Filter products by surface type (SGN check)
+         */
+        filterBySurface: function(products, surfaceType) {
+            const sgnRange = CONFIG.surfaceSGN[surfaceType] || { min: 0, max: 999 };
+            
+            return products.filter(p => {
+                // Liquids and solubles always suitable (no SGN constraint)
+                if (p.form === 'liquid' || p.form === 'soluble') return true;
+                
+                // Null SGN means DG/soluble - works everywhere
+                if (p.sgn === null) return true;
+                
+                // Check SGN range
+                const sgn = p.sgn || 200;
+                return sgn >= sgnRange.min && sgn <= sgnRange.max;
+            });
+        },
+        
+        /**
+         * Filter products by release type for season
+         */
+        filterByRelease: function(products, seasonPhase) {
+            const preferredRelease = this.seasonRelease[seasonPhase] || ['slow', 'standard'];
+            
+            // Sort by preference, don't exclude
+            return products.sort((a, b) => {
+                const aRelease = a.release || 'standard';
+                const bRelease = b.release || 'standard';
+                const aIndex = preferredRelease.indexOf(aRelease);
+                const bIndex = preferredRelease.indexOf(bRelease);
+                
+                const aScore = aIndex === -1 ? 99 : aIndex;
+                const bScore = bIndex === -1 ? 99 : bIndex;
+                
+                return aScore - bScore;
+            });
+        },
+        
+        /**
+         * Get rate for surface type
+         */
+        getRateForSurface: function(product, surfaceType) {
+            if (!product.rates) return null;
+            
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            const isTees = ['tees', 'low_cut', 'cricket_wickets'].includes(surfaceType);
+            
+            if (product.form === 'liquid' || product.form === 'soluble') {
+                if (isGreens && product.rates.greensLHa) return { value: product.rates.greensLHa, unit: 'L/ha' };
+                if (isTees && product.rates.teesLHa) return { value: product.rates.teesLHa, unit: 'L/ha' };
+                if (product.rates.fairwaysLHa) return { value: product.rates.fairwaysLHa, unit: 'L/ha' };
+                if (product.rates.maxLHa) return { value: product.rates.maxLHa, unit: 'L/ha' };
+            } else {
+                if (isGreens && product.rates.greensMax) return { value: product.rates.greensMax, unit: 'kg/ha' };
+                if (isTees && product.rates.teesMax) return { value: product.rates.teesMax, unit: 'kg/ha' };
+                if (product.rates.fairwaysMax) return { value: product.rates.fairwaysMax, unit: 'kg/ha' };
+            }
+            return null;
+        },
+        
+        /**
+         * Calculate application rate to deliver target nutrient
+         */
+        calcRate: function(product, targetAmount, nutrient) {
+            const pct = (product.analysis[nutrient] || 0) / 100;
+            if (pct === 0) return null;
+            return Math.round(targetAmount / pct);
+        },
+        
+        /**
+         * Get products for surface with optional filters
+         * NOTE: Solubles are always included regardless of distributor filter
+         * (they're generic technical grades available from any ag merchant)
+         */
+        getProductsForSurface: function(surfaceType, stateFilter, distributorFilter) {
+            let granular = this.filterBySurface(AuFertiliserProducts.granular, surfaceType);
+            let liquid = AuFertiliserProducts.liquid || [];
+            let soluble = AuFertiliserProducts.soluble || [];
+            
+            if (stateFilter && stateFilter !== 'all') {
+                granular = this.filterByAvailability(granular, stateFilter);
+                liquid = this.filterByAvailability(liquid, stateFilter);
+                // Solubles are national - no state filtering needed
+            }
+            
+            if (distributorFilter && distributorFilter !== 'all') {
+                granular = this.filterByDistributor(granular, distributorFilter);
+                liquid = this.filterByDistributor(liquid, distributorFilter);
+                // IMPORTANT: Solubles are NOT filtered by distributor
+                // They're generic technical grades (MAP, SOP, AS, Urea) available from any ag merchant
+            }
+            
+            // Combine liquids and solubles for the 'all' array
+            const liquidAndSoluble = [...liquid, ...soluble];
+            
+            return { 
+                granular, 
+                liquid: liquid,
+                soluble: soluble,
+                all: liquidAndSoluble 
+            };
+        },
+        
+        /**
+         * Get label rates for a product and surface type
+         * Returns { min, max } in kg/ha, or null if product not suitable for surface
+         */
+        getProductRatesForSurface: function(product, surfaceType) {
+            if (!product.rates) {
+                // No rates specified - use sensible defaults
+                return { min: 100, max: 300 };
+            }
+            
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            const isTees = ['tees', 'low_cut', 'cricket_wickets'].includes(surfaceType);
+            const isFairways = ['fairways', 'sports', 'sportsturf', 'athletic'].includes(surfaceType);
+            
+            if (isGreens) {
+                if (product.rates.greensMin !== undefined && product.rates.greensMax !== undefined) {
+                    return { min: product.rates.greensMin, max: product.rates.greensMax };
+                }
+                // No greens rates = not suitable for greens
+                return null;
+            }
+            
+            if (isTees) {
+                if (product.rates.teesMin !== undefined && product.rates.teesMax !== undefined) {
+                    return { min: product.rates.teesMin, max: product.rates.teesMax };
+                }
+                // Fall through to fairways rates
+            }
+            
+            // Fairways/sports - use fairways rates or defaults
+            if (product.rates.fairwaysMin !== undefined && product.rates.fairwaysMax !== undefined) {
+                return { min: product.rates.fairwaysMin, max: product.rates.fairwaysMax };
+            }
+            
+            // Fallback defaults for sportsturf
+            return { min: 100, max: 350 };
+        },
+        
+        /**
+         * Select best nitrogen source for requirements
+         * Uses actual label rates from products
+         * Excludes pre-emergent herbicide products
+         * 
+         * @param {Array} products - Granular products to choose from
+         * @param {Object} monthData - { N, K, gp, ... }
+         * @param {Object} context - { isGreens, surfaceType, ... }
+         * @returns {Object|null} Product recommendation with rate and delivery
+         */
+        selectNitrogenSource: function(products, monthData, context) {
+            const nRequired = monthData.N || 0;
+            const kRequired = monthData.K || 0;
+            const surfaceType = context.surfaceType || 'sports';
+            const isGreens = context.isGreens || ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            
+            if (nRequired <= 0) return null;
+            
+            // PRE-FILTER: Only products that:
+            // 1. Have at least 10% N
+            // 2. Are NOT pre-emergent herbicides (useCase !== 'pre_emergent*')
+            // 3. Have label rates for this surface type
+            // 4. Can deliver required N within their label rate range
+            const viableProducts = [];
+            
+            products.forEach(product => {
+                const nPct = (product.analysis?.N || 0) / 100;
+                if (nPct < 0.10) return; // Need at least 10% N
+                
+                // EXCLUDE pre-emergent herbicide products
+                const useCase = (product.useCase || '').toLowerCase();
+                if (useCase.includes('pre_emergent') || useCase.includes('herbicide')) {
+                    return; // Skip herbicide products
+                }
+                
+                const labelRates = this.getProductRatesForSurface(product, surfaceType);
+                if (!labelRates) return; // Product not suitable for this surface
+                
+                const rateNeeded = nRequired / nPct;
+                const minRateNDelivery = labelRates.min * nPct;
+                const maxRateNDelivery = labelRates.max * nPct;
+                
+                // For slow-release products, account for multi-month coverage
+                // v3.18.2: Use product.weeks if defined, otherwise default based on release AND form
+                // Liquids have much shorter duration than granular equivalents
+                // Granular: controlled=12wk, slow/stabilised=8wk, quick=4wk
+                // Liquid: controlled/slow/stabilised=4wk, quick=2wk
+                const isLiquid = product.form === 'liquid';
+                let defaultWeeks;
+                if (isLiquid) {
+                    defaultWeeks = (product.release === 'quick') ? 2 : 4;
+                } else {
+                    defaultWeeks = product.release === 'controlled' ? 12 
+                        : (product.release === 'slow' || product.release === 'stabilised') ? 8 
+                        : 4;
+                }
+                const releaseWeeks = product.weeks || defaultWeeks;
+                const monthsCovered = Math.max(1, Math.ceil(releaseWeeks / 4));
+                const effectiveMonthlyN = minRateNDelivery / monthsCovered;
+                
+                // v3.17.0: Stricter viability check
+                // Product is viable if:
+                // - Rate needed is within label range, OR
+                // - Effective monthly N delivery is within 2.0x of requirement (was 2.5x), OR
+                // - Max rate delivers at least 50% of what we need
+                // 
+                // Key change: 2.0x max overshoot prevents products like 46% urea at min 100kg
+                // from being selected when only 5kg N is needed
+                const maxOvershoot = 2.0;
+                const canDeliver = (
+                    (rateNeeded >= labelRates.min && rateNeeded <= labelRates.max) ||
+                    (rateNeeded < labelRates.min && effectiveMonthlyN <= nRequired * maxOvershoot) ||
+                    (rateNeeded > labelRates.max && maxRateNDelivery >= nRequired * 0.5)
+                );
+                
+                if (canDeliver) {
+                    viableProducts.push({
+                        product,
+                        labelRates,
+                        rateNeeded,
+                        nPct,
+                        monthsCovered,
+                        effectiveMonthlyN
+                    });
+                }
+            });
+            
+            
+            if (viableProducts.length === 0) {
+                return null;
+            }
+            
+            // Calculate required N:K ratio
+            const requiredRatio = kRequired > 0 ? nRequired / kRequired : Infinity;
+            
+            // Context for advanced scoring
+            const season = context.season || '';
+            const monthNum = context.monthNum || 0;
+            const soilPSufficient = context.soilPSufficient !== false; // Default true (MLSN approach - don't add P unless deficient)
+            const isAutumn = ['Autumn', 'autumn'].includes(season) || 
+                            (context.hemisphere === 'south' && [3, 4, 5].includes(monthNum)) ||
+                            (context.hemisphere !== 'south' && [9, 10, 11].includes(monthNum));
+            
+            // Score viable products
+            let bestMatch = null;
+            let bestScore = -Infinity;
+            
+            viableProducts.forEach(({ product, labelRates, rateNeeded, nPct, monthsCovered, effectiveMonthlyN }) => {
+                const kPct = (product.analysis?.K || 0) / 100;
+                const pPct = (product.analysis?.P || 0) / 100;
+                
+                // Calculate what will actually be delivered at the rate we'd use
+                const actualRate = Math.max(rateNeeded, labelRates.min);
+                const nAtRate = actualRate * nPct;
+                const kAtRate = actualRate * kPct;
+                
+                // For slow-release, calculate effective monthly delivery
+                const effectiveMonthlyK = kAtRate / monthsCovered;
+                const effectiveMonthlyNActual = nAtRate / monthsCovered;
+                
+                // SCORE 1: K Delivery Accuracy (0-100 points) - REVISED
+                // Use EFFECTIVE MONTHLY K delivery for slow-release products
+                // This allows high-delivery products that spread over multiple months
+                let kScore = 50; // Default neutral
+                if (kRequired > 0 && kPct > 0) {
+                    const kDeliveryRatio = effectiveMonthlyK / kRequired;
+                    if (kDeliveryRatio >= 0.7 && kDeliveryRatio <= 1.3) {
+                        kScore = 100; // Perfect K delivery
+                    } else if (kDeliveryRatio >= 0.5 && kDeliveryRatio <= 1.5) {
+                        kScore = 70; // Good K delivery
+                    } else if (kDeliveryRatio < 0.5) {
+                        kScore = 40; // Under-delivering K - not ideal but acceptable
+                    } else if (kDeliveryRatio <= 2.0) {
+                        kScore = 30; // Moderate K overshoot
+                    } else if (kDeliveryRatio <= 3.0) {
+                        kScore = 10; // Heavy K overshoot
+                    } else {
+                        kScore = -20; // Severe K overshoot - penalize
+                    }
+                } else if (kRequired <= 0 && kPct > 0) {
+                    // No K needed but product contains K - penalize based on effective monthly K
+                    if (effectiveMonthlyK > 10) kScore = -30;      // Heavy K when none needed
+                    else if (effectiveMonthlyK > 5) kScore = -15;  // Moderate K when none needed
+                    else if (effectiveMonthlyK > 2) kScore = 0;    // Some K when none needed
+                    else kScore = 30;                              // Minimal K
+                } else if (kRequired > 0 && kPct === 0) {
+                    // K needed but product has none - PENALIZE more heavily
+                    // Can't deliver K at all, so need to rely on other products
+                    kScore = -10; // Changed from +25 to -10
+                } else {
+                    // No K needed, product has no K - good
+                    kScore = 80;
+                }
+                
+                // SCORE 2: Release Type (0-60 points)
+                // Bonus for slow-release on greens (consistent feeding)
+                let releaseScore = 25;
+                const release = product.release || 'standard';
+                if (release === 'controlled' || release === 'slow') {
+                    releaseScore = isGreens ? 60 : 50; // Extra bonus for greens
+                } else if (release === 'stabilised') {
+                    releaseScore = 40;
+                }
+                
+                // SCORE 3: N Delivery Accuracy - THE MOST IMPORTANT SCORE
+                // v3.17.0: Dramatically increased penalties for overshoot
+                // A product delivering 3x what's needed is NOT acceptable even if it's slow-release
+                let nScore = 0;
+                const nDeliveryRatio = effectiveMonthlyNActual / nRequired;
+                if (nDeliveryRatio >= 0.85 && nDeliveryRatio <= 1.15) {
+                    nScore = 50; // Excellent N delivery (within 15%) - BEST CHOICE
+                } else if (nDeliveryRatio >= 0.7 && nDeliveryRatio <= 1.3) {
+                    nScore = 35; // Good N delivery (within 30%)
+                } else if (nDeliveryRatio >= 0.5 && nDeliveryRatio <= 1.5) {
+                    nScore = 20; // Acceptable N delivery
+                } else if (nDeliveryRatio > 1.5 && nDeliveryRatio <= 2.0) {
+                    nScore = -20; // Moderate overshoot - penalize
+                } else if (nDeliveryRatio > 2.0 && nDeliveryRatio <= 2.5) {
+                    nScore = -50; // Heavy overshoot - strong penalty
+                } else if (nDeliveryRatio > 2.5 && nDeliveryRatio <= 3.0) {
+                    nScore = -80; // Severe overshoot - very strong penalty
+                } else if (nDeliveryRatio > 3.0) {
+                    nScore = -120; // Extreme overshoot - should never be selected
+                } else if (nDeliveryRatio < 0.5) {
+                    nScore = -10; // Under-delivering - moderate penalty
+                }
+                
+                // SCORE 4: P-conscious penalty (0 to -50 points)
+                // When soil P is sufficient, penalize products containing P
+                // Extra penalty on greens where P management is critical
+                let pPenalty = 0;
+                if (soilPSufficient && pPct > 0) {
+                    const pAtRate = actualRate * pPct;
+                    if (isGreens) {
+                        // Greens: stricter P control - even small amounts add up with frequent apps
+                        if (pAtRate > 2) pPenalty = -50;       // Heavy P on greens - very strong penalty
+                        else if (pAtRate > 1) pPenalty = -35;  // Moderate P on greens
+                        else if (pAtRate > 0.3) pPenalty = -20; // Light P on greens
+                    } else {
+                        // Sports/fairways: standard P control
+                        if (pAtRate > 3) pPenalty = -40;      // Heavy P (>3 kg/ha) - strong penalty
+                        else if (pAtRate > 1.5) pPenalty = -25; // Moderate P - moderate penalty
+                        else if (pAtRate > 0.5) pPenalty = -10; // Light P - light penalty
+                    }
+                }
+                
+                // SCORE 5: Autumn K boost for winter hardening
+                // In autumn, prefer products with K for winter hardiness
+                // This is CRITICAL - K builds cell wall strength, improves cold tolerance
+                // Reference: Christians et al. (2016) - K enhances winter hardiness
+                // 
+                // v3.17.0: Enhanced to encourage K even when soil K is sufficient
+                // Autumn K applications are about PLANT hardening, not just soil replacement
+                let autumnKBonus = 0;
+                if (isAutumn) {
+                    if (kPct > 0) {
+                        const kContent = product.analysis?.K || 0;
+                        // In autumn, high-K products get strong bonus regardless of soil K status
+                        if (kContent >= 15) autumnKBonus = 40;      // High K (15%+) - ideal for hardening
+                        else if (kContent >= 10) autumnKBonus = 30; // Good K (10-15%)
+                        else if (kContent >= 5) autumnKBonus = 20;  // Moderate K (5-10%)
+                        else autumnKBonus = 10;                     // Some K better than none
+                        
+                        // Extra bonus if K delivery ratio is good (not excessive)
+                        if (kRequired > 0) {
+                            const kDeliveryRatio = effectiveMonthlyK / kRequired;
+                            if (kDeliveryRatio >= 0.8 && kDeliveryRatio <= 2.0) {
+                                autumnKBonus += 15; // Sweet spot for K delivery
+                            }
+                        }
+                    } else {
+                        // No K in product during autumn - significant penalty
+                        // Missing the hardening window is agronomically costly
+                        autumnKBonus = -25;
+                    }
+                }
+                
+                // SCORE 6: Greens-specific penalties
+                // v3.17.0: Reduced K penalties in autumn to allow hardening applications
+                let greensPenalty = 0;
+                if (isGreens) {
+                    // Greens: penalty for K overshoot - BUT reduced in autumn
+                    if (kRequired > 0) {
+                        const kDeliveryRatio = kAtRate / kRequired;
+                        if (isAutumn) {
+                            // Autumn: be lenient with K for hardening
+                            if (kDeliveryRatio > 4.0) greensPenalty -= 20;      // Only penalize severe overshoot
+                            else if (kDeliveryRatio > 3.0) greensPenalty -= 10; // Moderate penalty
+                            // No penalty for 1.5-3x in autumn - this is desirable for hardening
+                        } else {
+                            // Non-autumn: standard K penalties
+                            if (kDeliveryRatio > 3.0) greensPenalty -= 40;      // Severe K overshoot
+                            else if (kDeliveryRatio > 2.0) greensPenalty -= 25; // Heavy K overshoot
+                            else if (kDeliveryRatio > 1.5) greensPenalty -= 10; // Moderate K overshoot
+                        }
+                    }
+                    // Greens: heavy penalty for N overshoot (always - no autumn exemption for N)
+                    const nDeliveryRatio = nAtRate / nRequired;
+                    if (nDeliveryRatio > 2.0) greensPenalty -= 30;      // >2x N overshoot
+                    else if (nDeliveryRatio > 1.5) greensPenalty -= 15; // 1.5-2x N overshoot
+                }
+                
+                // SCORE 7: Mulder's antagonism modifier (b35fix266)
+                // Penalise products that would exacerbate detected antagonisms.
+                // K→Mg active: penalise high-K granulars (competitive suppression at root level)
+                // P→Fe active: penalise high-P products (Fe precipitation in rhizosphere)
+                // K→Ca active: additional K penalty (Ca translocation impaired)
+                // Severity 'high' doubles the penalty.
+                let muldersModifier = 0;
+                const _mFlags = context.muldersFlags || {};
+                const _kPct = product.analysis?.K || 0;
+                const _pPct2 = product.analysis?.P || 0;
+                const _severityMult = function(flags, sym) {
+                    if (!flags[sym] || !flags[sym].length) return 0;
+                    return flags[sym].some(function(f) { return f.severity === 'high'; }) ? 2 : 1;
+                };
+                // K→Mg: penalise products where K% > 12
+                if (_mFlags['Mg'] && _mFlags['Mg'].some(function(f) { return f.suppressor === 'K'; })) {
+                    if (_kPct > 20) muldersModifier -= 40 * _severityMult(_mFlags, 'Mg');
+                    else if (_kPct > 12) muldersModifier -= 25 * _severityMult(_mFlags, 'Mg');
+                    else if (_kPct > 6) muldersModifier -= 10 * _severityMult(_mFlags, 'Mg');
+                }
+                // P→Fe: penalise high-P products
+                if (_mFlags['Fe'] && _mFlags['Fe'].some(function(f) { return f.suppressor === 'P'; })) {
+                    if (_pPct2 > 5) muldersModifier -= 35 * _severityMult(_mFlags, 'Fe');
+                    else if (_pPct2 > 2) muldersModifier -= 20 * _severityMult(_mFlags, 'Fe');
+                }
+                // K→Ca: additional K penalty (less severe than K→Mg)
+                if (_mFlags['Ca'] && _mFlags['Ca'].some(function(f) { return f.suppressor === 'K'; })) {
+                    if (_kPct > 15) muldersModifier -= 20 * _severityMult(_mFlags, 'Ca');
+                    else if (_kPct > 8) muldersModifier -= 10 * _severityMult(_mFlags, 'Ca');
+                }
+                // P→Zn: penalise high-P where Zn is suppressed
+                if (_mFlags['Zn'] && _mFlags['Zn'].some(function(f) { return f.suppressor === 'P'; })) {
+                    if (_pPct2 > 3) muldersModifier -= 20 * _severityMult(_mFlags, 'Zn');
+                }
+
+                const totalScore = kScore * 0.35 + releaseScore * 0.20 + nScore * 0.25 + 
+                                   pPenalty + autumnKBonus + greensPenalty + muldersModifier;
+                
+                if (totalScore > bestScore) {
+                    bestScore = totalScore;
+                    bestMatch = { product, labelRates, rateNeeded, nPct };
+                }
+            });
+            
+            if (!bestMatch) return null;
+            
+            const { product, labelRates, nPct } = bestMatch;
+            
+            // ================================================================
+            // CALCULATE RATE WITHIN LABEL LIMITS
+            // ================================================================
+            let rateKgHa = Math.round(nRequired / nPct);
+            let notes = '';
+            let actualNDelivered = nRequired;
+            
+            if (rateKgHa < labelRates.min) {
+                // Below min - use min rate (will over-deliver)
+                rateKgHa = labelRates.min;
+                actualNDelivered = rateKgHa * nPct;
+                notes = `Label min rate: ${rateKgHa} kg/ha (delivers ${actualNDelivered.toFixed(1)} kg N)`;
+            } else if (rateKgHa > labelRates.max) {
+                // Above max - cap at max (shortfall)
+                rateKgHa = labelRates.max;
+                actualNDelivered = rateKgHa * nPct;
+                const shortfall = nRequired - actualNDelivered;
+                notes = `Label max rate: ${rateKgHa} kg/ha (delivers ${actualNDelivered.toFixed(1)} of ${nRequired.toFixed(1)} kg N)`;
+                if (shortfall > 2) {
+                    notes += ` - ${shortfall.toFixed(1)} kg shortfall`;
+                }
+            }
+            
+            const kDelivered = rateKgHa * ((product.analysis?.K || 0) / 100);
+            const pDelivered = rateKgHa * ((product.analysis?.P || 0) / 100);
+            // v3.18.2: Liquids have shorter duration - controlled/slow/stabilised=4wk, quick=2wk
+            const isLiquid = product.form === 'liquid';
+            let defaultWeeks;
+            if (isLiquid) {
+                defaultWeeks = (product.release === 'quick') ? 2 : 4;
+            } else {
+                defaultWeeks = product.release === 'controlled' ? 12 
+                    : (product.release === 'slow' || product.release === 'stabilised') ? 8 
+                    : 4;
+            }
+            const releaseWeeks = product.weeks || defaultWeeks;
+            
+            
+            return {
+                id: product.id,
+                name: product.name,
+                brand: BRANDS[product.brand]?.name || product.brand,
+                npk: `${product.analysis.N || 0}-${product.analysis.P || 0}-${product.analysis.K || 0}`,
+                analysis: product.analysis,
+                release: product.release || 'standard',
+                releaseWeeks: releaseWeeks,
+                rateKgHa: rateKgHa,
+                rateGM2: (rateKgHa / 10).toFixed(1),
+                labelRates: labelRates,
+                nDelivered: Math.round(actualNDelivered * 10) / 10,
+                kDelivered: Math.round(kDelivered * 10) / 10,
+                pDelivered: Math.round(pDelivered * 10) / 10,
+                notes: notes,
+            };
+        },
+        
+        /**
+         * Select best foliar/liquid nitrogen source
+         * Differentiates between:
+         *   - Quick-release liquids: Ideal at low GP, immediate foliar uptake
+         *   - Slow-release/stabilised liquids: Better at moderate+ GP when root uptake works
+         *   - Solubles: Spoonfeeding, precise rates, tank mixing - flexible across GP
+         * 
+         * @param {Array} liquidProducts - Array of liquid and soluble products
+         * @param {Object} monthData - Month requirements including GP
+         * @param {Object} context - Surface type, greens flag, etc.
+         */
+        selectFoliarNitrogen: function(liquidProducts, monthData, context) {
+            const gp = monthData.gp || 0.5;
+            const nRequired = monthData.N || 0;
+            const kRequired = monthData.K || 0;
+            const isGreens = context.isGreens || false;
+            
+            if (nRequired <= 0) return null;
+            
+            // MINIMUM N CONTENT: 10% for primary N source, otherwise it's a secondary nutrient product
+            // This prevents selecting Ca, Fe, Mg products as N sources
+            const MIN_N_PCT = 10;
+            
+            // Separate products by type - require meaningful N content
+            const quickLiquids = liquidProducts.filter(p => 
+                p.form === 'liquid' && 
+                (p.release === 'quick' || p.release === 'standard' || !p.release) &&
+                (p.analysis?.N || 0) >= MIN_N_PCT
+            );
+            
+            const slowLiquids = liquidProducts.filter(p => 
+                p.form === 'liquid' && 
+                (p.release === 'slow' || p.release === 'stabilised' || p.release === 'controlled') &&
+                (p.analysis?.N || 0) >= MIN_N_PCT
+            );
+            
+            const solubles = liquidProducts.filter(p => 
+                p.form === 'soluble' && 
+                (p.analysis?.N || 0) >= MIN_N_PCT
+            );
+            
+            
+            // ================================================================
+            // GP-BASED PRODUCT SELECTION STRATEGY
+            // ================================================================
+            let candidates = [];
+            
+            if (gp < 0.3) {
+                // ============================================================
+                // LOW GP (< 30%): QUICK-RELEASE LIQUIDS OR SOLUBLES
+                // Soil uptake limited - need immediate foliar delivery
+                // Slow-release liquids won't work effectively
+                // ============================================================
+                
+                // Priority 1: Quick-release liquids (immediate N)
+                candidates = [...quickLiquids];
+                
+                // Priority 2: Solubles (can be applied foliar, immediate)
+                candidates = [...candidates, ...solubles];
+                
+                // Slow-release liquids only as last resort at low GP
+                // (they won't release properly but better than nothing)
+                if (candidates.length === 0) {
+                    candidates = [...slowLiquids];
+                }
+                
+            } else if (gp < 0.5) {
+                // ============================================================
+                // MODERATE GP (30-50%): ALL TYPES VIABLE
+                // Root uptake starting to work, foliar still useful
+                // ============================================================
+                
+                // Slight preference for quick liquids, but all types work
+                candidates = [...quickLiquids, ...solubles, ...slowLiquids];
+                
+            } else {
+                // ============================================================
+                // HIGH GP (≥ 50%): SLOW-RELEASE LIQUIDS PREFERRED
+                // Full root uptake - can use stabilised/slow products
+                // ============================================================
+                
+                // Priority 1: Slow-release liquids (extended feeding)
+                candidates = [...slowLiquids];
+                
+                // Priority 2: Quick liquids and solubles still work
+                candidates = [...candidates, ...quickLiquids, ...solubles];
+            }
+            
+            // ================================================================
+            // GREENS SPOONFEEDING: PREFER SOLUBLES
+            // Greens benefit from precise, frequent applications
+            // ================================================================
+            if (isGreens && solubles.length > 0) {
+                // Move solubles to front for greens (spoonfeeding program)
+                candidates = [...solubles, ...candidates.filter(p => p.form !== 'soluble')];
+            }
+            
+            if (candidates.length === 0) {
+                console.warn(`[AuFertiliserRecommender] No suitable liquid/soluble N products found`);
+                return null;
+            }
+            
+            // ================================================================
+            // SCORE CANDIDATES
+            // ================================================================
+            
+            let bestProduct = null;
+            let bestScore = -Infinity;
+            
+            candidates.forEach((product, idx) => {
+                const nPct = product.analysis.N;
+                const kPct = product.analysis.K || 0;
+                const isQuick = product.release === 'quick' || product.release === 'standard' || !product.release;
+                const isSoluble = product.form === 'soluble';
+                const isSlow = product.release === 'slow' || product.release === 'stabilised' || product.release === 'controlled';
+                
+                // Estimate what rate we'd use and K delivered
+                const maxRate = product.maxRateLHa || product.rates?.maxLHa || product.greensMaxRateKgHa || 30;
+                const rateForN = nRequired / (nPct / 100);
+                const estimatedRate = Math.min(rateForN, maxRate * 2); // Assume up to 2 applications
+                const kAtRate = estimatedRate * (kPct / 100);
+                
+                // SCORE 1: K Delivery Accuracy (0-100 points) - REVISED
+                // Score based on how well K delivery matches K requirement
+                let kScore = 50; // Default neutral
+                if (kRequired > 0 && kPct > 0) {
+                    const kDeliveryRatio = kAtRate / kRequired;
+                    if (kDeliveryRatio >= 0.7 && kDeliveryRatio <= 1.3) {
+                        kScore = 100; // Perfect K delivery
+                    } else if (kDeliveryRatio >= 0.5 && kDeliveryRatio <= 1.5) {
+                        kScore = 70; // Good K delivery
+                    } else if (kDeliveryRatio < 0.5) {
+                        kScore = 40; // Under-delivering K
+                    } else if (kDeliveryRatio <= 2.0) {
+                        kScore = 25; // Moderate K overshoot
+                    } else if (kDeliveryRatio <= 3.0) {
+                        kScore = 0; // Heavy K overshoot
+                    } else {
+                        kScore = -25; // Severe K overshoot
+                    }
+                } else if (kRequired <= 0 && kPct > 0) {
+                    // No K needed but product contains K - penalize
+                    if (kAtRate > 10) kScore = -20;
+                    else if (kAtRate > 5) kScore = 0;
+                    else kScore = 30;
+                } else if (kRequired > 0 && kPct === 0) {
+                    // K needed but product has none
+                    kScore = 25;
+                } else {
+                    // No K needed, product has no K
+                    kScore = 80;
+                }
+                
+                // SCORE 2: GP-appropriate release type (0-50 points)
+                let releaseScore = 25;
+                if (gp < 0.3) {
+                    // Low GP: quick liquids and solubles score high
+                    if (isQuick) releaseScore = 50;
+                    else if (isSoluble) releaseScore = 45;
+                    else if (isSlow) releaseScore = 10; // Penalty - won't work well
+                } else if (gp >= 0.5) {
+                    // High GP: slow-release preferred
+                    if (isSlow) releaseScore = 50;
+                    else if (isSoluble) releaseScore = 40;
+                    else if (isQuick) releaseScore = 35;
+                } else {
+                    // Moderate GP: slight preference for quick
+                    if (isQuick) releaseScore = 45;
+                    else if (isSoluble) releaseScore = 40;
+                    else if (isSlow) releaseScore = 40;
+                }
+                
+                // SCORE 3: Greens spoonfeeding bonus (0-30 points)
+                let greensScore = 0;
+                if (isGreens) {
+                    if (isSoluble) greensScore = 30; // Solubles ideal for spoonfeeding
+                    else if (isQuick && nPct >= 15) greensScore = 15; // High-N quick liquids also good
+                }
+                
+                // SCORE 4: Pure high-N bonus at low GP (0-30 points)
+                let pureNScore = 0;
+                if (gp < 0.3 && nPct >= 20 && kPct === 0) {
+                    pureNScore = 30; // Pure high-N for winter foliar
+                } else if (gp < 0.3 && nPct >= 15 && kPct === 0) {
+                    pureNScore = 20;
+                }
+                
+                // SCORE 5: Rate reasonableness (0-20 points)
+                let rateScore = 10;
+                // maxRate already defined above
+                if (rateForN <= maxRate) {
+                    rateScore = 20;
+                } else if (rateForN <= maxRate * 1.5) {
+                    rateScore = 10;
+                } else {
+                    rateScore = 0;
+                }
+                
+                // SCORE 6: Position bonus (prefer earlier in sorted candidates)
+                const positionScore = Math.max(0, 10 - idx);
+                
+                // SCORE 7: P-conscious penalty (0 to -40 points)
+                // When soil P is sufficient, penalize products containing P
+                // Extra penalty on greens
+                const pPct = (product.analysis?.P || 0) / 100;
+                let pPenalty = 0;
+                const soilPSufficient = context.soilPSufficient !== false;
+                if (soilPSufficient && pPct > 0) {
+                    const estimatedRate = Math.min(rateForN, maxRate * 2); // Assume up to 2 applications
+                    const pAtRate = estimatedRate * pPct;
+                    if (isGreens) {
+                        // Greens: stricter P control
+                        if (pAtRate > 1.5) pPenalty = -40;      // Heavy P on greens
+                        else if (pAtRate > 0.8) pPenalty = -25; // Moderate P on greens
+                        else if (pAtRate > 0.2) pPenalty = -12; // Light P on greens
+                    } else {
+                        // Sports/fairways: standard P control
+                        if (pAtRate > 2) pPenalty = -30;       // Heavy P - strong penalty
+                        else if (pAtRate > 1) pPenalty = -20;  // Moderate P
+                        else if (pAtRate > 0.3) pPenalty = -10; // Light P
+                    }
+                }
+                
+                // SCORE 8: Autumn K boost (0-20 points)
+                // In autumn, prefer liquids with K for winter hardiness
+                // BUT only if K delivery is reasonable
+                const season = context.season || '';
+                const monthNum = context.monthNum || 0;
+                const isAutumn = ['Autumn', 'autumn'].includes(season) || 
+                                (context.hemisphere === 'south' && [3, 4, 5].includes(monthNum)) ||
+                                (context.hemisphere !== 'south' && [9, 10, 11].includes(monthNum));
+                let autumnKBonus = 0;
+                if (isAutumn && kPct > 0 && kRequired > 0) {
+                    const kDeliveryRatio = kAtRate / kRequired;
+                    if (kDeliveryRatio <= 2.0) { // Only boost if not causing major overshoot
+                        if (kPct >= 15) autumnKBonus = 20;       // High K (15%+)
+                        else if (kPct >= 10) autumnKBonus = 15;  // Good K (10-15%)
+                        else if (kPct >= 5) autumnKBonus = 8;    // Moderate K (5-10%)
+                    }
+                }
+                
+                // SCORE 9: Greens K overshoot penalty
+                let greensKPenalty = 0;
+                if (isGreens && kRequired > 0 && kPct > 0) {
+                    const kDeliveryRatio = kAtRate / kRequired;
+                    if (kDeliveryRatio > 3.0) greensKPenalty = -30;
+                    else if (kDeliveryRatio > 2.0) greensKPenalty = -15;
+                }
+                
+                // SCORE: Mulder's antagonism modifier (b35fix266)
+                let _mModifier = 0;
+                const _mf = context.muldersFlags || {};
+                const _kP = product.analysis?.K || 0;
+                const _pP = product.analysis?.P || 0;
+                const _sev = function(flags, sym) {
+                    if (!flags[sym] || !flags[sym].length) return 0;
+                    return flags[sym].some(function(f) { return f.severity === 'high'; }) ? 2 : 1;
+                };
+                if (_mf['Mg'] && _mf['Mg'].some(function(f) { return f.suppressor === 'K'; })) {
+                    if (_kP > 20) _mModifier -= 40 * _sev(_mf, 'Mg');
+                    else if (_kP > 12) _mModifier -= 25 * _sev(_mf, 'Mg');
+                    else if (_kP > 6) _mModifier -= 10 * _sev(_mf, 'Mg');
+                }
+                if (_mf['Fe'] && _mf['Fe'].some(function(f) { return f.suppressor === 'P'; })) {
+                    if (_pP > 5) _mModifier -= 35 * _sev(_mf, 'Fe');
+                    else if (_pP > 2) _mModifier -= 20 * _sev(_mf, 'Fe');
+                }
+                if (_mf['Ca'] && _mf['Ca'].some(function(f) { return f.suppressor === 'K'; })) {
+                    if (_kP > 15) _mModifier -= 20 * _sev(_mf, 'Ca');
+                    else if (_kP > 8) _mModifier -= 10 * _sev(_mf, 'Ca');
+                }
+
+                // TOTAL SCORE
+                const totalScore = (kScore * 0.25) + 
+                                   (releaseScore * 0.18) + 
+                                   (greensScore * 0.12) + 
+                                   (pureNScore * 0.12) + 
+                                   (rateScore * 0.10) + 
+                                   (positionScore * 0.03) +
+                                   pPenalty +
+                                   autumnKBonus +
+                                   greensKPenalty +
+                                   _mModifier;
+                
+                if (totalScore > bestScore) {
+                    bestScore = totalScore;
+                    bestProduct = product;
+                }
+            });
+            
+            if (!bestProduct) {
+                return null;
+            }
+            
+            // ================================================================
+            // CALCULATE RATE TO DELIVER REQUIRED N - RESPECT LABEL RATES
+            // ================================================================
+            const nPctFinal = bestProduct.analysis.N / 100;
+            let rate = Math.round(nRequired / nPctFinal);
+            
+            // Get max rate for this product/surface - USE ACTUAL LABEL RATES
+            let maxRate;
+            if (bestProduct.form === 'soluble') {
+                maxRate = isGreens ? (bestProduct.greensMaxRateKgHa || 25) : (bestProduct.maxRateKgHa || 50);
+            } else {
+                // Liquid - use product-specific label rates
+                // Prefer maxLHa (label maximum) over surface-specific rates for N delivery
+                if (bestProduct.rates) {
+                    if (isGreens) {
+                        maxRate = bestProduct.rates.greensLHa || bestProduct.rates.maxLHa || 30;
+                    } else {
+                        // For sports/fairways, use maxLHa (label max) to allow proper N delivery
+                        maxRate = bestProduct.rates.maxLHa || bestProduct.rates.fairwaysLHa || 50;
+                    }
+                } else {
+                    maxRate = bestProduct.maxRateLHa || 50;
+                }
+            }
+            
+            let notes = '';
+            let actualNDelivered = nRequired;
+            let applicationsNeeded = 1;
+            
+            if (rate > maxRate) {
+                // Calculate how many applications at max rate would be needed
+                applicationsNeeded = Math.ceil(rate / maxRate);
+                
+                if (applicationsNeeded <= 4) {
+                    // Reasonable number of applications - use max rate per application
+                    rate = maxRate;
+                    actualNDelivered = rate * applicationsNeeded * nPctFinal;
+                    notes = `${applicationsNeeded}x applications @ ${maxRate} ${bestProduct.form === 'soluble' ? 'kg' : 'L'}/ha = ${actualNDelivered.toFixed(1)} kg N`;
+                } else {
+                    // Too many applications needed - cap at 4 and note shortfall
+                    applicationsNeeded = 4;
+                    rate = maxRate;
+                    actualNDelivered = rate * applicationsNeeded * nPctFinal;
+                    const shortfall = nRequired - actualNDelivered;
+                    notes = `4x applications @ ${maxRate} ${bestProduct.form === 'soluble' ? 'kg' : 'L'}/ha (max practical) = ${actualNDelivered.toFixed(1)} kg N, shortfall ${shortfall.toFixed(1)} kg`;
+                }
+            }
+            
+            const kDelivered = rate * applicationsNeeded * ((bestProduct.analysis.K || 0) / 100);
+            const rateUnit = bestProduct.form === 'soluble' ? 'kg/ha' : 'L/ha';
+            
+            
+            return {
+                id: bestProduct.id,
+                name: bestProduct.name,
+                brand: BRANDS[bestProduct.brand]?.name || LIQUID_BRANDS[bestProduct.brand]?.name || bestProduct.brand,
+                npk: `${bestProduct.analysis.N || 0}-${bestProduct.analysis.P || 0}-${bestProduct.analysis.K || 0}`,
+                analysis: bestProduct.analysis,
+                form: bestProduct.form,
+                release: bestProduct.release || 'quick',
+                rateLHa: rate,
+                rateUnit: rateUnit,
+                rateMLM2: (rate / 10).toFixed(1),
+                applications: applicationsNeeded,
+                nDelivered: Math.round(actualNDelivered * 10) / 10,
+                kDelivered: Math.round(kDelivered * 10) / 10,
+                notes: notes,
+            };
+        },
+        
+        /**
+         * Select potassium source for K deficit
+         */
+        selectPotassiumSource: function(granular, liquidAndSoluble, kDeficit, season, surfaceType) {
+            if (kDeficit <= 0) return null;
+            
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            
+            // For greens: prefer soluble SOP (spoonfeeding)
+            // For sportsfield: granular high-K or liquid
+            
+            if (isGreens) {
+                // Look for soluble SOP first
+                const solubleSOP = liquidAndSoluble.find(p => 
+                    p.form === 'soluble' && (p.analysis?.K || 0) >= 30
+                );
+                if (solubleSOP) return { product: solubleSOP, form: 'soluble' };
+                
+                // Then high-K liquid
+                const highKLiquid = liquidAndSoluble.find(p => 
+                    p.form === 'liquid' && (p.analysis?.K || 0) >= 15
+                );
+                if (highKLiquid) return { product: highKLiquid, form: 'liquid' };
+            }
+            
+            // For sportsfield or fallback: high-K granular
+            const highKGranular = granular.filter(p => (p.analysis?.K || 0) >= 15)
+                .sort((a, b) => (b.analysis?.K || 0) - (a.analysis?.K || 0));
+            
+            if (highKGranular.length > 0) {
+                return { product: highKGranular[0], form: 'granular' };
+            }
+            
+            // Fallback to any K source
+            const anyK = liquidAndSoluble.find(p => (p.analysis?.K || 0) > 0);
+            if (anyK) return { product: anyK, form: anyK.form };
+            
+            return null;
+        },
+        
+        /**
+         * Select soluble product for greens spoonfeeding program
+         * Solubles allow precise, frequent applications via spray tank
+         * 
+         * @param {Array} solubles - Soluble products array
+         * @param {string} nutrient - Primary nutrient needed ('N', 'K', 'P', 'Fe', 'Mg')
+         * @param {number} amount - Amount needed in kg/ha
+         */
+        selectGreensSpoonfeed: function(solubles, nutrient, amount) {
+            if (!solubles || solubles.length === 0 || amount <= 0) return null;
+            
+            // Filter to products with the target nutrient
+            const candidates = solubles.filter(p => (p.analysis?.[nutrient] || 0) > 0);
+            if (candidates.length === 0) return null;
+            
+            // Sort by nutrient content (highest first)
+            candidates.sort((a, b) => (b.analysis?.[nutrient] || 0) - (a.analysis?.[nutrient] || 0));
+            
+            const product = candidates[0];
+            const nutrientPct = product.analysis[nutrient] / 100;
+            const maxRate = product.greensMaxRateKgHa || product.maxRateKgHa || 25;
+            
+            // Calculate rate to deliver the amount (capped at max)
+            let rateKgHa = Math.min(Math.round(amount / nutrientPct), maxRate);
+            
+            
+            return {
+                product: product,
+                rateKgHa: rateKgHa,
+                delivers: {
+                    N: Math.round(rateKgHa * (product.analysis.N || 0) / 100 * 10) / 10,
+                    P: Math.round(rateKgHa * (product.analysis.P || 0) / 100 * 10) / 10,
+                    K: Math.round(rateKgHa * (product.analysis.K || 0) / 100 * 10) / 10,
+                },
+            };
+        },
+        
+        /**
+         * Determine if slow-release granular is appropriate for current conditions
+         * Returns efficiency factor (0-1) based on GP and soil temp
+         */
+        getSlowReleaseEfficiency: function(gp, soilTemp) {
+            // Slow-release products need biological activity or warmth to release
+            // At low GP / cold temps, they don't work effectively
+            
+            let efficiency = 1.0;
+            
+            // GP-based efficiency
+            if (gp < 0.15) {
+                efficiency *= 0.3; // Very low GP - slow release won't work
+            } else if (gp < 0.3) {
+                efficiency *= 0.6; // Low GP - reduced efficiency
+            } else if (gp < 0.5) {
+                efficiency *= 0.85; // Moderate GP - slight reduction
+            }
+            // High GP (≥ 0.5) - full efficiency
+            
+            // Soil temp adjustment (if provided)
+            if (soilTemp !== undefined) {
+                if (soilTemp < 8) {
+                    efficiency *= 0.4; // Very cold - microbial activity minimal
+                } else if (soilTemp < 12) {
+                    efficiency *= 0.7; // Cold - reduced activity
+                } else if (soilTemp < 15) {
+                    efficiency *= 0.85; // Cool - slight reduction
+                }
+                // 15°C+ - full efficiency
+            }
+            
+            return efficiency;
+        },
+        
+        /**
+         * Calculate liquid/soluble application to deliver target N
+         * Returns application details including rate, N delivered, and any shortfall
+         * 
+         * @param {Object} product - Liquid/soluble product
+         * @param {number} targetN - Target N to deliver (kg/ha)
+         * @param {string} surfaceType - Surface type for rate limits
+         * @returns {Object} { rateLHa, nDelivered, kDelivered, shortfall, notes }
+         */
+        calculateLiquidApplication: function(product, targetN, surfaceType) {
+            const nPct = (product.analysis?.N || 0) / 100;
+            if (nPct === 0 || targetN <= 0) {
+                return { rateLHa: 0, nDelivered: 0, kDelivered: 0, shortfall: targetN, notes: 'No N in product' };
+            }
+            
+            // Get max rate for this surface
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            const isSports = surfaceType === 'sports' || surfaceType === 'sportsturf';
+            
+            let maxRate;
+            if (product.rates) {
+                if (isGreens && product.rates.greensLHa) {
+                    maxRate = product.rates.greensLHa;
+                } else if (product.rates.maxLHa) {
+                    maxRate = product.rates.maxLHa;
+                } else {
+                    maxRate = 40; // Default max for liquids
+                }
+            } else if (product.maxRateLHa) {
+                maxRate = product.maxRateLHa;
+            } else if (product.greensMaxRateKgHa && isGreens) {
+                // Solubles use kg/ha rates
+                maxRate = product.greensMaxRateKgHa;
+            } else if (product.maxRateKgHa) {
+                maxRate = product.maxRateKgHa;
+            } else {
+                maxRate = product.form === 'soluble' ? 25 : 40; // Defaults
+            }
+            
+            // Calculate rate needed to deliver target N
+            const requiredRate = targetN / nPct;
+            
+            // Apply rate within label limits
+            let actualRate;
+            let shortfall = 0;
+            let notes = '';
+            
+            if (requiredRate <= maxRate) {
+                // Can deliver full requirement
+                actualRate = Math.round(requiredRate);
+                notes = '';
+            } else {
+                // Can't deliver full requirement - apply max and note shortfall
+                actualRate = maxRate;
+                const nAtMaxRate = actualRate * nPct;
+                shortfall = targetN - nAtMaxRate;
+                notes = `Max rate ${maxRate} ${product.form === 'soluble' ? 'kg' : 'L'}/ha - ${shortfall.toFixed(1)} kg N shortfall`;
+            }
+            
+            const nDelivered = actualRate * nPct;
+            const kDelivered = actualRate * ((product.analysis?.K || 0) / 100);
+            
+            return {
+                rateLHa: actualRate,
+                rateUnit: product.form === 'soluble' ? 'kg/ha' : 'L/ha',
+                nDelivered: Math.round(nDelivered * 10) / 10,
+                kDelivered: Math.round(kDelivered * 10) / 10,
+                shortfall: Math.round(shortfall * 10) / 10,
+                notes: notes,
+            };
+        },
+        
+        /**
+         * Calculate granular application to deliver target N
+         * Returns application details including rate, nutrients delivered
+         * 
+         * @param {Object} product - Granular product
+         * @param {number} targetN - Target N to deliver (kg/ha)
+         * @param {string} surfaceType - Surface type for rate limits
+         * @returns {Object} { rateKgHa, nDelivered, pDelivered, kDelivered, weeks, notes }
+         */
+        calculateGranularApplication: function(product, targetN, surfaceType) {
+            const nPct = (product.analysis?.N || 0) / 100;
+            if (nPct === 0 || targetN <= 0) {
+                return null;
+            }
+            
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            
+            // Get max rate - greens have lower limits
+            let maxRate;
+            if (product.rates) {
+                if (isGreens && product.rates.greensMax) {
+                    maxRate = product.rates.greensMax;
+                } else if (product.rates.fairwaysMax) {
+                    maxRate = product.rates.fairwaysMax;
+                } else {
+                    maxRate = isGreens ? 200 : 350;
+                }
+            } else {
+                maxRate = isGreens ? 200 : 350;
+            }
+            
+            // Minimum rate for even spreading
+            const minRate = isGreens ? 100 : 150;
+            
+            // Calculate rate needed
+            const requiredRate = targetN / nPct;
+            
+            let actualRate;
+            let notes = '';
+            
+            if (requiredRate < minRate) {
+                // Below minimum - N requirement too low for granular
+                // Return null to signal liquid should be used instead
+                return null;
+            } else if (requiredRate <= maxRate) {
+                actualRate = Math.round(requiredRate);
+            } else {
+                // Above max - cap at max
+                actualRate = maxRate;
+                const nAtMax = actualRate * nPct;
+                notes = `Capped at ${maxRate} kg/ha - delivers ${nAtMax.toFixed(1)} of ${targetN.toFixed(1)} kg N required`;
+            }
+            
+            const nDelivered = actualRate * nPct;
+            const pDelivered = actualRate * ((product.analysis?.P || 0) / 100);
+            const kDelivered = actualRate * ((product.analysis?.K || 0) / 100);
+            // v3.18.2: Liquids have shorter duration - controlled/slow/stabilised=4wk, quick=2wk
+            const isLiquid = product.form === 'liquid';
+            let defaultWeeks;
+            if (isLiquid) {
+                defaultWeeks = (product.release === 'quick') ? 2 : 4;
+            } else {
+                defaultWeeks = product.release === 'controlled' ? 12 
+                    : (product.release === 'slow' || product.release === 'stabilised') ? 8 
+                    : 4;
+            }
+            const weeks = product.weeks || defaultWeeks;
+            
+            return {
+                rateKgHa: actualRate,
+                rateGM2: (actualRate / 10).toFixed(1),
+                nDelivered: Math.round(nDelivered * 10) / 10,
+                pDelivered: Math.round(pDelivered * 10) / 10,
+                kDelivered: Math.round(kDelivered * 10) / 10,
+                weeks: weeks,
+                notes: notes,
+            };
+        },
+        
+        /**
+         * Generate annual program from nutrition calendar data
+         * GP-aware delivery strategies matching Prebble approach
+         */
+        generateAnnualProgram: function(monthlyData, options) {
+            const surfaceType = options.surfaceType || 'sports';
+            const stateFilter = options.stateFilter || 'all';
+            const distributorFilter = options.distributorFilter || 'all';
+            const methodology = options.methodology || 'mlsn';
+            const hemisphere = options.hemisphere || 'south';
+            const muldersFlags = options.muldersFlags || {}; // b35fix266: Mulder antagonism flags
+
+            const { granular, liquid, soluble, all } = this.getProductsForSurface(surfaceType, stateFilter, distributorFilter);
+            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
+            
+            // Log filter results
+            
+            // Calculate annual targets
+            const annualTargets = { N: 0, P: 0, K: 0 };
+            monthlyData.forEach(m => {
+                annualTargets.N += m.N || 0;
+                annualTargets.P += m.P || 0;
+                annualTargets.K += m.K || 0;
+            });
+            
+            // Determine if soil P is sufficient (MLSN approach)
+            // If annual P requirement is low (<15 kg/ha), soil P is likely sufficient
+            // In this case, we should avoid adding unnecessary P
+            const soilPSufficient = annualTargets.P < 15;
+            if (soilPSufficient) {
+            }
+            
+            
+            const program = [];
+            const delivered = { N: 0, P: 0, K: 0 };
+            const activeNutrients = []; // Track slow-release carry-over
+            
+            monthlyData.forEach((month, idx) => {
+                const gp = month.gp || 0;
+                
+                // Calculate active nutrients from previous slow-release
+                let activeN = 0, activeK = 0;
+                activeNutrients.forEach(a => {
+                    if (a.endsIdx > idx) {
+                        activeN += a.monthlyN || 0;
+                        activeK += a.monthlyK || 0;
+                    }
+                });
+                
+                const netN = Math.max(0, (month.N || 0) - activeN);
+                const netK = Math.max(0, (month.K || 0) - activeK);
+                
+                const monthResult = {
+                    month_name: month.month_name,
+                    season: month.season,
+                    gp: gp,
+                    requirements: { N: month.N || 0, P: month.P || 0, K: month.K || 0 },
+                    netRequirements: { N: netN, K: netK },
+                    activeFromPrevious: { N: Math.round(activeN * 10) / 10, K: Math.round(activeK * 10) / 10 },
+                    granular: [],
+                    liquid: [],
+                    notes: [],
+                };
+                
+                
+                // ================================================================
+                // STRATEGY: Granular first (main N delivery), liquid as supplement
+                // v3.17.3: Skip granular if slow-release is already providing good coverage
+                // ================================================================
+                
+                // Skip if minimal requirements
+                if (netN < 2 && netK < 2) {
+                    if (activeN > 0) {
+                        monthResult.notes.push('Covered by previous slow-release application');
+                    } else {
+                        monthResult.notes.push('Minimal requirements - no application needed');
+                    }
+                    program.push(monthResult);
+                    return;
+                }
+                
+                // ================================================================
+                // GRANULAR APPLICATION (main N delivery)
+                // ================================================================
+                // v3.17.0: Complete rewrite of granular/liquid decision
+                // v3.17.3: Skip granular when slow-release is providing significant coverage
+                // 
+                // Agronomic rationale:
+                // - At low GP (<30%), root activity is minimal - foliar uptake more efficient
+                // - Granular at low GP leads to N sitting in soil, leaching risk, wasted product
+                // - Greens: use granular only at GP >= 30% (spoonfeeding culture)
+                // - Sports: use granular at GP >= 30%, liquids below that
+                // - Below GP 15%: liquids only for both (minimal growth, preserve turf)
+                // - If slow-release is already providing >50% of monthly need, use liquid top-up instead
+                
+                const useGranular = (gp >= 0.30);  // Simple: 30%+ GP = granular viable
+                
+                // v3.17.3: Check if slow-release is already providing substantial coverage
+                // If activeN is providing >50% of target, skip granular and use liquid top-up
+                const slowReleaseCoverage = activeN / (month.N || 1);
+                const skipGranularDueToSlowRelease = slowReleaseCoverage > 0.5;
+                
+                if (skipGranularDueToSlowRelease) {
+                    monthResult.notes.push(`Slow-release covering ${(slowReleaseCoverage * 100).toFixed(0)}% - liquid top-up only`);
+                }
+                
+                
+                // Use granular if net N >= 3 (lowered from 5 to catch more months)
+                // v3.17.3: Also skip if slow-release is providing substantial coverage
+                if (useGranular && !skipGranularDueToSlowRelease && netN >= 3 && granular.length > 0) {
+                    // selectNitrogenSource now returns product WITH calculated rate
+                    // Pass additional context for P-conscious and autumn K scoring
+                    const granularRec = this.selectNitrogenSource(granular, { N: netN, K: netK }, { 
+                        isGreens, 
+                        surfaceType,
+                        season: month.season,
+                        monthNum: month.month_num || idx + 1,
+                        hemisphere: hemisphere,
+                        soilPSufficient: soilPSufficient,
+                        muldersFlags: muldersFlags,
+                    });
+                    
+                    
+                    // v3.17.0: OVERSHOOT CHECK FOR ALL SURFACES
+                    // Reject granular if it would deliver excessive N or K
+                    // BUT: Be more lenient with K in autumn (hardening applications)
+                    let useThisGranular = !!granularRec;
+                    
+                    // Determine if this is autumn (for K hardening allowance)
+                    const monthNum = month.month_num || idx + 1;
+                    const isAutumnMonth = (hemisphere === 'south' && [3, 4, 5].includes(monthNum)) ||
+                                          (hemisphere !== 'south' && [9, 10, 11].includes(monthNum));
+                    
+                    if (granularRec) {
+                        const monthsCovered = Math.max(1, Math.ceil(granularRec.releaseWeeks / 4));
+                        const effectiveMonthlyN = granularRec.nDelivered / monthsCovered;
+                        const effectiveMonthlyK = granularRec.kDelivered / monthsCovered;
+                        
+                        // N OVERSHOOT CHECK - applies to ALL surfaces, ALL seasons
+                        // N overshoot is never desirable (disease risk, leaching, burn)
+                        const nOvershoot = effectiveMonthlyN / netN;
+                        if (nOvershoot > 2.5) {
+                            useThisGranular = false;
+                            monthResult.notes.push(`Granular skipped - would over-deliver N by ${Math.round((nOvershoot - 1) * 100)}%`);
+                        }
+                        
+                        // K OVERSHOOT CHECK - stricter for greens, MORE LENIENT in autumn
+                        // Autumn K applications for hardening are agronomically beneficial
+                        if (useThisGranular && netK > 0) {
+                            const kOvershoot = effectiveMonthlyK / netK;
+                            // In autumn: allow up to 5x K for hardening (greens) or 6x (sports)
+                            // Other seasons: standard 3x (greens) or 4x (sports)
+                            const kThreshold = isAutumnMonth 
+                                ? (isGreens ? 5.0 : 6.0)   // Autumn: generous for hardening
+                                : (isGreens ? 3.0 : 4.0);  // Other: standard limits
+                            
+                            if (kOvershoot > kThreshold) {
+                                useThisGranular = false;
+                                monthResult.notes.push(`Granular skipped - would over-deliver K by ${Math.round((kOvershoot - 1) * 100)}%`);
+                            }
+                        }
+                    }
+                    
+                    if (useThisGranular && granularRec) {
+                        delivered.N += granularRec.nDelivered;
+                        delivered.P += granularRec.pDelivered;
+                        delivered.K += granularRec.kDelivered;
+                        
+                        // Track slow-release for future months
+                        if (granularRec.releaseWeeks > 4) {
+                            const monthsCovered = Math.ceil(granularRec.releaseWeeks / 4);
+                            activeNutrients.push({
+                                endsIdx: idx + monthsCovered,
+                                monthlyN: granularRec.nDelivered / monthsCovered,
+                                monthlyK: granularRec.kDelivered / monthsCovered,
+                            });
+                        }
+                        
+                        monthResult.granular.push({
+                            id: granularRec.id,
+                            name: granularRec.name,
+                            brand: granularRec.brand,
+                            npk: granularRec.npk,
+                            rateKgHa: granularRec.rateKgHa,
+                            rateGM2: granularRec.rateGM2,
+                            release: granularRec.release,
+                            weeks: granularRec.releaseWeeks,
+                            delivers: {
+                                N: granularRec.nDelivered,
+                                P: granularRec.pDelivered,
+                                K: granularRec.kDelivered,
+                            },
+                            notes: granularRec.notes,
+                        });
+                        
+                    }
+                }
+                
+                // ================================================================
+                // LIQUID APPLICATION
+                // ================================================================
+                // Use liquid when:
+                // - Low GP (< 30%) - foliar bypasses soil
+                // - Greens at any GP - spoonfeeding program
+                // - Granular couldn't deliver full requirement
+                
+                const granularNDelivered = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.N || 0), 0);
+                const remainingN = netN - granularNDelivered;
+                
+                const useLiquid = (gp < 0.3) || isGreens || (remainingN > 3);
+                
+                // b35fix281: lower threshold for greens — small monthly remainders accumulate to annual shortfall
+                const liquidThreshold = isGreens ? 0.5 : 2;
+                if (useLiquid && remainingN > liquidThreshold && all.length > 0) {
+                    // selectFoliarNitrogen now returns product WITH calculated rate
+                    const liquidRec = this.selectFoliarNitrogen(all, { ...month, N: remainingN, K: netK, gp }, { 
+                        gp, 
+                        isGreens, 
+                        surfaceType,
+                        season: month.season,
+                        monthNum: month.month_num || idx + 1,
+                        hemisphere: hemisphere,
+                        soilPSufficient: soilPSufficient,
+                        muldersFlags: muldersFlags,
+                    });
+                    
+                    if (liquidRec && liquidRec.nDelivered > 0) {
+                        delivered.N += liquidRec.nDelivered;
+                        delivered.K += liquidRec.kDelivered;
+                        
+                        // Format rate display with applications count if > 1
+                        const apps = liquidRec.applications || 1;
+                        const rateDisplay = apps > 1 
+                            ? `${apps}x ${liquidRec.rateLHa} ${liquidRec.rateUnit}`
+                            : `${liquidRec.rateLHa} ${liquidRec.rateUnit}`;
+                        
+                        monthResult.liquid.push({
+                            id: liquidRec.id,
+                            name: liquidRec.name,
+                            brand: liquidRec.brand,
+                            npk: liquidRec.npk,
+                            form: liquidRec.form,
+                            rate: rateDisplay,
+                            rateLHa: liquidRec.rateLHa,
+                            rateMLM2: liquidRec.rateMLM2,
+                            applications: apps,
+                            delivers: {
+                                N: liquidRec.nDelivered,
+                                P: 0,
+                                K: liquidRec.kDelivered,
+                            },
+                            notes: liquidRec.notes || (gp < 0.3 ? 'Foliar application - soil uptake limited' : ''),
+                        });
+                        
+                        
+                        // Note if there's still a shortfall after max practical applications
+                        const totalNDelivered = granularNDelivered + liquidRec.nDelivered;
+                        if (netN - totalNDelivered > 3) {
+                            monthResult.notes.push(`N shortfall: ${(netN - totalNDelivered).toFixed(1)} kg/ha - product range limitation`);
+                        }
+                    }
+                }
+                
+                // ================================================================
+                // K SUPPLEMENTATION (if K running behind)
+                // ================================================================
+                const kDeliveredThisMonth = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.K || 0), 0) +
+                                           monthResult.liquid.reduce((sum, l) => sum + (l.delivers?.K || 0), 0);
+                const kShortfall = netK - kDeliveredThisMonth;
+                
+                if (kShortfall > 5 && all.length > 0) {
+                    const kSource = this.selectPotassiumSource(granular, all, kShortfall, month.season, surfaceType);
+                    
+                    if (kSource && kSource.product) {
+                        const { product, form } = kSource;
+                        const kPct = (product.analysis?.K || 0) / 100;
+                        
+                        if (form === 'soluble' || form === 'liquid') {
+                            const calc = this.calculateLiquidApplication(product, kShortfall * (100 / (product.analysis?.K || 40)), surfaceType);
+                            
+                            if (calc.kDelivered > 0) {
+                                delivered.K += calc.kDelivered;
+                                delivered.N += calc.nDelivered;
+                                
+                                monthResult.liquid.push({
+                                    id: product.id,
+                                    name: product.name,
+                                    brand: BRANDS[product.brand]?.name || LIQUID_BRANDS[product.brand]?.name || product.brand,
+                                    npk: `${product.analysis.N || 0}-${product.analysis.P || 0}-${product.analysis.K || 0}`,
+                                    form: form,
+                                    rateLHa: calc.rateLHa,
+                                    rateMLM2: (calc.rateLHa / 10).toFixed(1),
+                                    delivers: {
+                                        N: calc.nDelivered,
+                                        P: 0,
+                                        K: calc.kDelivered,
+                                    },
+                                    notes: 'K supplement',
+                                });
+                            }
+                        }
+                    }
+                }
+                
+                // Add GP note
+                if (gp < 0.15) {
+                    monthResult.notes.push(`Very low GP (${(gp * 100).toFixed(0)}%) - minimal application recommended`);
+                } else if (gp < 0.3) {
+                    monthResult.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - foliar preferred`);
+                }
+                
+                program.push(monthResult);
+            });
+            
+            
+            return {
+                meta: {
+                    surfaceType: surfaceType,
+                    stateFilter: stateFilter,
+                    distributorFilter: distributorFilter,
+                    methodology: methodology,
+                    generated: new Date().toISOString(),
+                },
+                monthly: program,
+                targets: annualTargets,
+                delivered: delivered,
+                balance: {
+                    N: Math.round((delivered.N - annualTargets.N) * 10) / 10,
+                    P: Math.round((delivered.P - annualTargets.P) * 10) / 10,
+                    K: Math.round((delivered.K - annualTargets.K) * 10) / 10,
+                },
+            };
+        },
+    };
+
+    // ========================================================================
+    // EXPORT
+    // ========================================================================
+
+    window.AuFertiliserProducts = AuFertiliserProducts;
+    window.AuFertiliserRecommender = AuFertiliserRecommender;
+    
+    window.GAIP_AU_FERTILISER = {
+        products: AuFertiliserProducts,
+        recommender: AuFertiliserRecommender,
+        config: CONFIG,
+        version: AuFertiliserProducts.version,
+    };
+
+})();

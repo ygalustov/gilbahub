@@ -1,0 +1,506 @@
+/**
+ * Gilba Interpretation Styles
+ * 
+ * Styles for AI interpretation UI components.
+ * 
+ * @package Gilba_Hub
+ * @version 1.0.0
+ * @since 10.4.0
+ */
+
+/* =========================================================================
+   INTERPRETATION WRAPPER
+   ========================================================================= */
+
+.gilba-interpretation-wrapper {
+    margin: 16px 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--gaip-border);
+}
+
+/* =========================================================================
+   INTERPRET BUTTON
+   ========================================================================= */
+
+.gilba-interpret-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border: 1px solid #86efac;
+    border-radius: 6px;
+    color: #166534;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gilba-interpret-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%);
+    border-color: var(--gaip-good-border);
+    box-shadow: 0 2px 4px rgba(34, 197, 94, 0.15);
+}
+
+.gilba-interpret-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.gilba-interpret-icon {
+    font-size: 16px;
+}
+
+/* Loading spinner */
+.gilba-interpret-spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid #86efac;
+    border-top-color: #166534;
+    border-radius: 50%;
+    animation: gilba-spin 0.8s linear infinite;
+}
+
+@keyframes gilba-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* =========================================================================
+   INTERPRETATION OUTPUT
+   ========================================================================= */
+
+.gilba-interpretation-output {
+    margin-top: 16px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, var(--gaip-surface-muted) 0%, var(--gaip-surface-hover) 100%);
+    border-left: 4px solid #22c55e;
+    border-radius: 0 8px 8px 0;
+    position: relative;
+}
+
+/* Narrative text */
+.gilba-narrative {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--gaip-text);
+}
+
+.gilba-narrative p {
+    margin: 0 0 12px;
+}
+
+.gilba-narrative p:last-child {
+    margin-bottom: 0;
+}
+
+.gilba-narrative strong {
+    color: #166534;
+    font-weight: 600;
+}
+
+/* List numbers */
+.gilba-list-num {
+    font-weight: 600;
+    color: #166534;
+}
+
+/* =========================================================================
+   CITATIONS
+   ========================================================================= */
+
+.gilba-citation {
+    color: #2563eb;
+    font-size: 0.85em;
+    text-decoration: none;
+    background: var(--gaip-info-bg);
+    padding: 1px 4px;
+    border-radius: 3px;
+    transition: background 0.15s ease;
+}
+
+a.gilba-citation:hover {
+    background: var(--gaip-info-bg);
+    text-decoration: underline;
+}
+
+/* =========================================================================
+   CACHED BADGE
+   ========================================================================= */
+
+.gilba-cached-badge {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 10px;
+    color: var(--gaip-text);
+    background: var(--gaip-surface-hover);
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* =========================================================================
+   ERROR STATE
+   ========================================================================= */
+
+.gilba-interpretation-error {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--gaip-critical-bg);
+    border: 1px solid var(--gaip-critical-border);
+    border-radius: 6px;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+.gilba-error-icon {
+    font-size: 16px;
+}
+
+/* =========================================================================
+   STALE INDICATOR
+   ========================================================================= */
+
+.gilba-interpretation-stale {
+    padding: 10px 14px;
+    background: var(--gaip-warning-bg);
+    border: 1px solid var(--gaip-warning-border);
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 13px;
+}
+
+/* =========================================================================
+   WORD EXPORT SECTION
+   ========================================================================= */
+
+/* These classes are for styling interpretation in the UI before export */
+.gilba-interpretation-export-preview {
+    margin-top: 20px;
+    padding: 16px;
+    background: var(--gaip-surface);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+}
+
+.gilba-interpretation-export-preview h4 {
+    margin: 0 0 12px;
+    color: var(--gaip-text);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* =========================================================================
+   RESPONSIVE ADJUSTMENTS
+   ========================================================================= */
+
+@media (max-width: 640px) {
+    .gilba-interpretation-wrapper {
+        margin: 12px 0;
+        padding-top: 12px;
+    }
+    
+    .gilba-interpret-btn {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .gilba-interpretation-output {
+        padding: 12px 14px;
+    }
+    
+    .gilba-narrative {
+        font-size: 13px;
+    }
+}
+
+/* =========================================================================
+   DARK MODE SUPPORT (if hub uses dark mode)
+   ========================================================================= */
+
+@media (prefers-color-scheme: dark) {
+    .gilba-hub-dark .gilba-interpretation-output {
+        background: linear-gradient(135deg, var(--gaip-text) 0%, var(--gaip-text) 100%);
+        border-left-color: #22c55e;
+    }
+    
+    .gilba-hub-dark .gilba-narrative {
+        color: var(--gaip-surface-hover);
+    }
+    
+    .gilba-hub-dark .gilba-narrative strong {
+        color: #86efac;
+    }
+    
+    .gilba-hub-dark .gilba-citation {
+        background: #1e3a5f;
+        color: #93c5fd;
+    }
+    
+    .gilba-hub-dark .gilba-interpret-btn {
+        background: linear-gradient(135deg, #064e3b 0%, #065f46 100%);
+        border-color: #059669;
+        color: var(--gaip-good-bg);
+    }
+}
+
+/* =========================================================================
+   WATER QUALITY INTERPRETATION (blue theme)
+   ========================================================================= */
+
+.gilba-water-interpretation-wrapper {
+    margin: 16px 0;
+    padding-top: 16px;
+    border-top: 1px solid var(--gaip-info-bg);
+}
+
+.gilba-water-interpret-btn {
+    background: linear-gradient(135deg, var(--gaip-info-bg) 0%, var(--gaip-info-bg) 100%);
+    border: 1px solid #93c5fd;
+    color: #1e40af;
+}
+
+.gilba-water-interpret-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, var(--gaip-info-bg) 0%, var(--gaip-info-bg) 100%);
+    border-color: #60a5fa;
+    box-shadow: 0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+.gilba-water-interpretation {
+    border-left-color: #3b82f6;
+}
+
+.gilba-water-interpretation .gilba-narrative strong {
+    color: #1e40af;
+}
+
+.gilba-water-interpretation .gilba-interpretation-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--gaip-info-bg);
+}
+
+.gilba-water-interpretation .gilba-interpretation-title {
+    font-weight: 600;
+    color: #1e40af;
+    font-size: 14px;
+}
+
+/* Loading state */
+.gilba-interpret-btn.gilba-loading {
+    opacity: 0.8;
+}
+
+/* Shared interpretation content styles */
+.gilba-interpretation-content {
+    position: relative;
+}
+
+.gilba-soil-interpretation {
+    border-left-color: var(--gaip-text-muted);
+}
+
+.gilba-soil-interpretation .gilba-narrative strong {
+    color: var(--gaip-text-secondary);
+}
+
+.gilba-soil-interpretation .gilba-interpretation-header-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--gaip-surface-muted);
+}
+
+.gilba-soil-interpretation .gilba-interpretation-title {
+    font-weight: 600;
+    color: var(--gaip-text-secondary);
+    font-size: 14px;
+}
+
+/* =========================================================================
+   CROSS-MODULE SYNTHESIS INTERPRETATION (purple theme)
+   ========================================================================= */
+
+.gilba-synthesis-wrapper {
+    margin: 20px 0;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--gaip-info-bg) 0%, var(--gaip-info-bg) 100%);
+    border: 1px solid #d8b4fe;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(147, 51, 234, 0.08);
+}
+
+.gilba-synthesis-header {
+    display: flex;
+    justify-content: center;
+}
+
+/* Floating duplicate pill that appears when original scrolls away */
+.gilba-synthesis-floater {
+    border-radius: 50px !important;
+    font-size: 13px !important;
+    padding: 10px 18px !important;
+}
+
+.gilba-synthesis-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 24px;
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    border: none;
+    border-radius: 8px;
+    color: var(--gaip-surface);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
+}
+
+.gilba-synthesis-btn:hover:not(:disabled) {
+    background: linear-gradient(135deg, #6d28d9 0%, #5b21b6 100%);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+    transform: translateY(-1px);
+}
+
+.gilba-synthesis-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.gilba-synthesis-icon {
+    font-size: 18px;
+}
+
+.gilba-synthesis-text {
+    flex: 1;
+}
+
+.gilba-synthesis-modules {
+    font-size: 11px;
+    font-weight: 400;
+    padding: 3px 8px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+/* Synthesis output */
+.gilba-synthesis-output {
+    margin-top: 16px;
+    padding: 20px;
+    background: var(--gaip-surface);
+    border-radius: 8px;
+    border: 1px solid var(--gaip-info-bg);
+    position: relative;
+}
+
+.gilba-synthesis-narrative {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--gaip-text);
+}
+
+.gilba-synthesis-narrative p {
+    margin: 0 0 14px;
+}
+
+.gilba-synthesis-narrative p:last-child {
+    margin-bottom: 0;
+}
+
+.gilba-synthesis-narrative strong {
+    color: #6d28d9;
+    font-weight: 600;
+}
+
+.gilba-synthesis-h3 {
+    margin: 20px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gaip-info-bg);
+    color: #5b21b6;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.gilba-synthesis-h3:first-child {
+    margin-top: 0;
+}
+
+.gilba-synthesis-h4 {
+    margin: 16px 0 8px;
+    color: #7c3aed;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.gilba-synthesis-list {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.gilba-synthesis-list li {
+    margin: 6px 0;
+    padding-left: 4px;
+}
+
+.gilba-synthesis-list li::marker {
+    color: #a78bfa;
+}
+
+/* Cached indicator */
+.gilba-synthesis-cached {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    color: #c4b5fd;
+    font-size: 10px;
+}
+
+/* Error state */
+.gilba-synthesis-error {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 18px;
+    background: var(--gaip-critical-bg);
+    border: 1px solid var(--gaip-critical-border);
+    border-radius: 6px;
+    color: #991b1b;
+    font-size: 13px;
+}
+
+.gilba-synthesis-error-icon {
+    font-size: 18px;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .gilba-synthesis-wrapper {
+        padding: 12px;
+    }
+    
+    .gilba-synthesis-btn {
+        width: 100%;
+        justify-content: center;
+        padding: 12px 16px;
+    }
+    
+    .gilba-synthesis-modules {
+        display: none;
+    }
+    
+    .gilba-synthesis-output {
+        padding: 14px;
+    }
+}

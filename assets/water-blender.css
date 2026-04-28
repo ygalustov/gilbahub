@@ -1,0 +1,398 @@
+/**
+ * ============================================================================
+ * GILBA WATER BLENDER STYLES v1.0.0
+ * ============================================================================
+ */
+
+/* ============================================
+   BLENDER TOGGLE SECTION
+   ============================================ */
+
+.gaip-blender-toggle-section {
+    margin: 16px 0;
+    padding: 12px;
+    background: var(--gaip-info-bg);
+    border: 1px solid #bae6fd;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.gaip-blender-toggle-section:hover {
+    background: var(--gaip-info-bg);
+}
+
+.gaip-blender-toggle-section label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    color: #0369a1;
+}
+
+.gaip-blender-toggle-section input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #2563eb;
+}
+
+/* ============================================
+   BLENDER PANEL
+   ============================================ */
+
+.gaip-blender-panel {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--gaip-surface-muted);
+    border: 1px solid var(--gaip-border);
+    border-radius: 8px;
+}
+
+/* ============================================
+   SOURCE COUNT ROW
+   ============================================ */
+
+.gaip-source-count-row {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.gaip-source-count-row label {
+    font-weight: 500;
+    color: var(--gaip-text);
+}
+
+.gaip-source-count {
+    padding: 6px 12px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    background: var(--gaip-surface);
+    font-size: 14px;
+}
+
+/* ============================================
+   BLEND RATIOS SECTION
+   ============================================ */
+
+.gaip-blend-ratios {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--gaip-surface-muted);
+    border-radius: 8px;
+    border: 1px solid var(--gaip-border);
+}
+
+.gaip-blend-ratios h5 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gaip-text);
+}
+
+.gaip-ratio-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.gaip-ratio-row span:first-child {
+    min-width: 100px;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.gaip-ratio-slider {
+    flex: 1;
+    height: 8px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--gaip-border);
+    border-radius: 4px;
+    outline: none;
+}
+
+.gaip-ratio-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    background: #2563eb;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: transform 0.1s ease;
+}
+
+.gaip-ratio-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+.gaip-ratio-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    background: #2563eb;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Source-specific slider colors */
+.gaip-ratio-row[data-source="0"] .gaip-ratio-slider::-webkit-slider-thumb {
+    background: #2563eb;
+}
+
+.gaip-ratio-row[data-source="1"] .gaip-ratio-slider::-webkit-slider-thumb {
+    background: #059669;
+}
+
+.gaip-ratio-row[data-source="2"] .gaip-ratio-slider::-webkit-slider-thumb {
+    background: #d97706;
+}
+
+.gaip-ratio-value {
+    min-width: 45px;
+    text-align: right;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--gaip-text);
+}
+
+.gaip-ratio-total {
+    margin: 8px 0 0 0;
+    font-size: 12px;
+    color: var(--gaip-text);
+}
+
+.gaip-ratio-warning {
+    color: #dc2626;
+    font-weight: 500;
+}
+
+/* ============================================
+   SOURCE TABS
+   ============================================ */
+
+.gaip-source-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+}
+
+.gaip-source-tab {
+    padding: 8px 16px;
+    border: 1px solid var(--gaip-border);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    background: var(--gaip-surface-hover);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 13px;
+}
+
+.gaip-source-tab:hover {
+    background: var(--gaip-border);
+}
+
+.gaip-source-tab.gaip-tab-active {
+    background: var(--gaip-surface);
+    border-bottom-color: var(--gaip-surface);
+    position: relative;
+    z-index: 1;
+}
+
+/* Source-specific tab colors */
+.gaip-source-tab[data-source="0"] {
+    color: #2563eb;
+}
+
+.gaip-source-tab[data-source="1"] {
+    color: #059669;
+}
+
+.gaip-source-tab[data-source="2"] {
+    color: #d97706;
+}
+
+/* ============================================
+   SOURCE PANELS
+   ============================================ */
+
+.gaip-source-panels {
+    border: 1px solid var(--gaip-border);
+    border-radius: 0 8px 8px 8px;
+    padding: 16px;
+    background: var(--gaip-surface);
+    margin-top: -1px;
+}
+
+.gaip-source-panel {
+    display: none;
+}
+
+.gaip-source-panel input[type="text"],
+.gaip-source-panel input[type="number"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    font-size: 14px;
+    transition: border-color 0.2s ease;
+}
+
+.gaip-source-panel input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.gaip-source-panel label {
+    display: block;
+    font-size: 12px;
+    color: var(--gaip-text);
+    margin-bottom: 4px;
+}
+
+/* Ion grid within source panel */
+.gaip-source-panel .gaip-grid-mini {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.gaip-source-panel .gaip-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.gaip-source-panel .gaip-row span {
+    min-width: 35px;
+    font-size: 12px;
+    color: var(--gaip-text);
+    font-weight: 500;
+}
+
+.gaip-source-panel .gaip-row input {
+    padding: 6px;
+    font-size: 12px;
+}
+
+/* Copy button */
+.gaip-copy-from-main {
+    padding: 6px 12px;
+    background: var(--gaip-surface-hover);
+    border: 1px solid var(--gaip-border);
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.gaip-copy-from-main:hover {
+    background: var(--gaip-border);
+}
+
+/* ============================================
+   CALCULATE BUTTON
+   ============================================ */
+
+.gaip-calculate-blend {
+    padding: 10px 24px;
+    background: #2563eb;
+    color: var(--gaip-surface);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+}
+
+.gaip-calculate-blend:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(37, 99, 235, 0.4);
+}
+
+.gaip-calculate-blend:active {
+    transform: translateY(0);
+}
+
+/* ============================================
+   BLENDER RESULTS
+   ============================================ */
+
+.gaip-water-blender-results {
+    margin-top: 16px;
+}
+
+/* Blended water header badge */
+.gaip-blend-header {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: var(--gaip-info-bg);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.gaip-blend-header span:first-child {
+    font-size: 18px;
+}
+
+.gaip-blend-header span:last-child {
+    font-weight: 600;
+    color: #1e40af;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+    .gaip-source-panel .gaip-grid-mini {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .gaip-ratio-row span:first-child {
+        min-width: 80px;
+        font-size: 12px;
+    }
+    
+    .gaip-source-tabs {
+        flex-wrap: wrap;
+    }
+    
+    .gaip-source-tab {
+        padding: 6px 12px;
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .gaip-source-panel .gaip-grid-mini {
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .gaip-blend-ratios {
+        padding: 12px;
+    }
+    
+    .gaip-ratio-row {
+        flex-wrap: wrap;
+    }
+    
+    .gaip-ratio-slider {
+        order: 3;
+        width: 100%;
+        margin-top: 8px;
+    }
+}

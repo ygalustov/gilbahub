@@ -1,0 +1,4 @@
+Sample ID,Date,pH,EC,CEC,Organic Matter,LOI_0_2,LOI_2_4,LOI_4_6,K,P,Ca,Mg,S,Fe,Mn,Cu,Zn,Na,B,Notes
+Green 1,2025-01-15,6.2,0.45,8.5,2.8,3.2,2.6,2.1,85,32,620,95,12,45,22,1.2,3.5,28,0.4,Front green - stratified OM shows surface accumulation
+Green 2,2025-01-15,6.4,0.52,9.2,3.1,4.1,3.5,2.8,92,28,680,102,15,52,18,0.9,4.2,35,0.5,Back green - elevated OM throughout
+Fairway 1,2025-01-15,6.8,0.38,7.8,2.2,,,, 78,25,580,88,10,38,25,1.5,2.8,42,0.3,1st fairway - no stratified OM (leave blank)

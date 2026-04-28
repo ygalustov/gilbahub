@@ -1,0 +1,10641 @@
+/**
+ * Gilba Hub Word Export Module
+ * Exports analysis results to .docx format
+ * 
+ * Version 2.3.0 - Nutrient Trend Analysis Section
+ *   - NEW: Nutrient Trend Analysis section after N Program Validation
+ *   - Collects trend data from GilbaNutrientTrend.getTrendExportData()
+ *   - Per-zone summary table: latest/previous values, direction, threshold margin, crossing risk
+ *   - Rows sorted by severity (declining + imminent risk first)
+ *   - Sparkline PNGs generated via renderTrendChart() → svgStringToBase64Png() pipeline
+ *   - Sparklines show MLSN/SLAN threshold dashed line for visual reference
+ *   - Requires ≥2 soil samples per zone to generate trend data
+ *   - Added TOC entry for Nutrient Trend Analysis
+ *
+ * Version 2.2.0 - AI-Assisted Interpretation
+ *   - NEW: Includes Claude-generated soil interpretation in Word export
+ *   - Reads from window.GAIP_SOIL_INTERPRETATION (cached when user clicks "Interpret")
+ *   - Adds AI narrative section after standard soil interpretation
+ *   - Includes citation references and disclaimer
+ *   - Supports MLSN, SLAN, and Ammonium Acetate methodologies
+ *
+ * Version 2.1.9 - Fix Nutrition Program Export
+ *   - Fixed month names (month_name vs month field)
+ *   - Fixed product names in Annual Summary (nested product object)
+ *   - Fixed totalKg/totalKgHa/totalLHa field access
+ *   - Fixed nutrients/totalDelivered field access
+ *
+ * Version 2.1.8 - Species-Specific pH Tolerance
+ *   - Uses SPECIES_PH_TOLERANCE data from hub-tissue-v3.js when available
+ *   - pH recommendations now reference species optimal AND tolerance ranges
+ *   - Shows acid-tolerant / alkaline-tolerant flags for each species
+ *   - More nuanced recommendations based on species-specific thresholds
+ *
+ * Version 2.1.7 - Ammonium Acetate Extractant Compatibility
+ *   - Skip MLSN/SLAN dual interpretation table for Ammonium Acetate methodology
+ *   - MLSN guidelines are calibrated for Mehlich-3 extractant, not NH₄OAc
+ *   - Shows explanatory note for NZ users using Hill Labs results
+ *   - Prevents misleading comparison between incompatible extractant methods
+ *
+ * Version 2.1.6 - Enhanced Bentgrass Cultivar Debug Logging
+ *   - Added detailed logging for varietyData structure detection
+ *   - Added logging for regional traits resolution process
+ *   - Added logging for disease traits detection  
+ *   - Added logging for final profile content summary
+ *   - Helps diagnose why NTEP bentgrass traits may not appear
+ *
+ * Version 2.1.5 - Nutrition Program & Cultivar Profile Improvements
+ *   - NEW: Nutrition Program section with monthly product recommendations
+ *   - Collects product data from GAIP_NUTRITION_PROGRAM global
+ *   - Annual Product Summary table with N/K delivered
+ *   - Monthly Schedule showing products, rates, and coverage
+ *   - Fixed cultivar profile for NTEP varieties (Oakley, etc.) that use regionalTraits
+ *   - Both collectData() and generateCultivarProfile() now resolve regionalTraits
+ *   - Added debug logging for cultivar profile generation
+ *
+ * Version 2.1.4 - Page Break Optimization
+ *   - Added page break before Annual Nutrient Requirements (keeps heading at top of page)
+ *   - Added page break before Water Quality (keeps heading at top of page)
+ *   - Removed unnecessary page break before Shade & Light (was causing blank page)
+ *   - Added page break before Leaching Requirement (keeps table together)
+ *   - Removed page break before Cultivar Performance (flows after Performance Impact Analysis)
+ *   - Added page break before Report Metadata (keeps on separate page)
+ *
+ * Version 2.1.3 - Primary Threat Prefers Validated Diseases
+ *   - Primary Threat now shows highest validated disease, not beta
+ *   - If beta disease is higher risk, adds explanatory note
+ *   - Overall risk score based on validated diseases when available
+ *
+ * Version 2.1.2 - Beta Disease Model Documentation
+ *   - Chart note explains dashed lines indicate beta models
+ *   - Disease Details clarifies beta = peer-reviewed but limited field calibration
+ *   - Encourages outcome reporting to improve model confidence
+ *
+ * Version 2.1.1 - Larger Disease Forecast Chart
+ *   - Increased disease chart dimensions (620x480) for better 8-day forecast readability
+ *   - Disease bars and legend now render larger in Word document
+ *
+ * Version 2.1.0 - Expanded Moisture Management Section
+ *   - NEW: Water Balance Parameters subsection (TAW, RAW, MAD, soil type, root depth)
+ *   - NEW: Evapotranspiration Analysis (ET0, Kc, ETc, variety modifier)
+ *   - NEW: 7-Day Irrigation Schedule table (daily ET, rain, depletion, status)
+ *   - NEW: Runtime Calculations when irrigation is recommended
+ *   - NEW: Leaching Requirement section when water quality requires it
+ *   - NEW: Full overseed species explanation for irrigation decisions
+ *   - NEW: Irrigation actions now appear in Executive Summary Priority Actions
+ *   - NEW: Zone trend indicators (↓ drying, → stable, ↑ wetting) in sensor section
+ *   - NEW: Zone-specific recommendations for moisture management
+ *   - Enhanced: Cumulative water balance chart integration
+ *   - Enhanced: Cross-references to water quality impacts on irrigation
+ *
+ * Version 2.0.30 - Added Phytotoxicity section
+ *   - Collects GAIP_PHYTOTOXICITY_RESULT from cascade orchestrator
+ *   - New section: Phytotoxicity Risk (after Water Quality, before Soil × Water Interactions)
+ *   - Shows overall risk level, individual ion assessments (Na, Cl, B, HCO3)
+ *   - Displays thresholds, exposure pathway, potential damage, recommendations
+ *   - Priority actions summary with severity-colored bullets
+ *   - Sources: Ayers & Westcot 1985 FAO 29, Carrow & Duncan 1998, Harivandi 1999
+ *
+ * Version 2.0.30 - Amendment engine wired into collectData + buildSections
+ *   - data.amendment object populated from GilbaSoilTissueIntegration.recommendSoilAmendments()
+ *   - New section: Soil Amendment Recommendations (between Soil and Water Quality)
+ *   - Ca and Mg product blocks: pathway, primary product, rate, urgency, modifying factors, rationale
+ *   - Ca-Mg interaction warnings rendered
+ *
+ * Version 2.0.29 - Fixed patch interception for collectData/buildSections
+ *   - Changed internal calls to use GAIP_WordExport.collectData() instead of local function
+ *   - Changed internal calls to use GAIP_WordExport.buildSections() instead of local function
+ *   - This allows scenario-patch and export-metadata-patch to properly intercept calls
+ *   - BUG FIX: Scenario comparison section now actually renders in Word document
+ *
+ * Version 2.0.28 - Exposed buildSections for patch integration
+ *   - Added buildSections to GAIP_WordExport export
+ *   - Enables scenario-patch to inject scenario comparison section
+ *
+ * Version 2.0.27 - Export metadata integration
+ *   - Added data quality badge after executive summary
+ *   - Added full metadata section before glossary (citations, assumptions, disclaimer)
+ *   - Integrates with GilbaExportMetadata for audit-ready outputs
+ *
+ * Version 2.0.26 - Fixed toFixed errors on undefined values
+ *   - Added safeToFixed() helper function to prevent "Cannot read properties of undefined" errors
+ *   - Salinity section now handles missing/undefined values gracefully
+ *   - All numeric formatting now uses safe fallbacks
+ *
+ * Version 2.0.25 - Fixed nutritionSummary minification bug
+ *   - Added Annual Nutrient Requirements section (P, K, S with status)
+ *   - Added Monthly N Distribution (GP-Weighted) table
+ *   - Uses proper function names (createKeyValueRow, createTable) instead of minified names
+ *   - Fixed "I is not a function" error caused by variable shadowing in minified code
+ *
+ * Version 2.0.11 - Evidence-based disease risk drivers
+ *   - Replaced N:Fe ratio (not evidence-based) with K:N ratio
+ *   - K:N ratio <0.5 increases disease risk (Carrow, PACE Turf, Turgeon)
+ *   - Fixed tissue N display: now shows % not ppm
+ *   - Added knStatus from tissueNutrients.modifiers.KN_ratio
+ *
+ * Version 2.0.10 - Disease inputs structure fix
+ *   - Fixed nitrogen extraction: nitrogen is object with {status, value, ratio}
+ *   - Fixed dew data path: uses dewData.leafWetness.totalWetHours
+ *   - Added disease hasData flag (was missing, broke TOC and section display)
+ *   - Enhanced N display: shows tissue value (ppm) and N ratio when available
+ *
+ * Version 2.0.8 - Complete engine wiring transparency (Tier 1 #7)
+ *   - NEW: Salinity Impact section showing ECw, threshold, growth penalty, recovery extension
+ *   - NEW: Disease Risk Drivers showing N status, DLI deficit, wet hours driving risk
+ *   - Enhanced Traffic section with full recovery modifiers (salinity, shade, temperature, growth)
+ *   - Fallback to wear-recovery engine data when orchestrator not available
+ *   - Captures compound shade×traffic effects
+ *   - Includes engine recommendations in export
+ *
+ * Version 2.0.7 - Environmental stress factors affecting recovery
+ *   - Added stress impact table (shade, salinity, temperature) to Traffic & Wear section
+ *   - Shows base vs adjusted recovery probability and days
+ *   - Includes warning messages from orchestrator
+ *
+ * Version 2.0.6 - Golf turf type labels, hide traffic for golf
+ *   - Fixed "Sports Field" showing for golf greens - now shows "Golf - Greens"
+ *   - Combines turfType + subCategory for proper golf labels
+ *   - Hides Traffic & Wear Analysis section for golf turf types
+ *   - Added rawTurfType for internal type checking
+ * 
+ * Version 2.0.5 - Overseed transition clarity + PGR enhancements
+ *   - Overseed section title changes to "Overseed Transition Status" during summer
+ *   - Removed confusing "Do NOT reseed" message - now focuses on C4 recovery
+ *   - Hides irrelevant fields (wear tolerance, germination) during transition
+ *   - PGR surface type and threshold validation rows added
+ * 
+ * Version 2.0.4 - PGR surface category and threshold validation
+ *   - Added Surface Type row showing mowing height category (e.g., "Athletic/Sports (20-40mm) @ 25mm HOC")
+ *   - Added Threshold validation status (research-validated vs extrapolated)
+ *   - Shows source citation for threshold values
+ * 
+ * Version 2.0.3 - Enhanced explanations and beta model labels
+ *   - Expanded Water Balance section with methodology explanation
+ *   - Expanded Soil Moisture Zones with VWC/TDR methodology
+ *   - Expanded Traffic & Wear Analysis with comprehensive guidance
+ *   - Added (BETA) labels for Bipolaris/Curvularia/Drechslera disease models
+ *   - Fixed floating point precision for Boron (0.24 not 0.24000000000000002)
+ *   - Fixed Bicarbonate label to include subscript (HCO₃)
+ * 
+ * Version 2.0.2 - SAR/RSC calculation from ion data
+ *   - Added SAR calculation when waterResults doesn't provide it
+ *   - Added RSC (Residual Sodium Carbonate) calculation
+ *   - SAR and SARadj now appear in Water Quality section
+ * 
+ * Version 2.0.1 - DOM fallback data collection
+ *   - Added DOM fallback for soil data when GAIP_STATE not populated
+ *   - Added DOM fallback for water data when GAIP_STATE not populated  
+ *   - Fixed hasData flag consistency for soil/tissue/water sections
+ *   - Improved contents list conditionals
+ * 
+ * Version 2.0.0 - Enhanced soil, water, and tissue reporting
+ *   - Dual MLSN/SLAN interpretation table for soil nutrients
+ *   - SARadj (Adjusted SAR) display and explanation for high-bicarbonate waters
+ *   - pH and CEC context section with species-specific interpretation
+ *   - Comprehensive glossary of terms appendix
+ *   - Enhanced explanatory text throughout
+ * 
+ * Version 1.9.3 - Added Cultivar Performance Profile section
+ *   - Comprehensive cultivar trait breakdown
+ *   - BSPB ratings table for UK varieties
+ *   - Performance modifier cards (wear, recovery, shade, salinity, etc.)
+ *   - Disease resistance profile table
+ *   - Blend composition display
+ *   - Regional database support (BSPB, NTEP, Scanturf, GEVES)
+ */
+
+(function(global) {
+    'use strict';
+    
+    // Wait for docx library
+    if (typeof docx === 'undefined') {
+        console.error('Word Export: docx library not loaded');
+        return;
+    }
+    
+    var Document = docx.Document;
+    var Packer = docx.Packer;
+    var Paragraph = docx.Paragraph;
+    var TextRun = docx.TextRun;
+    var Table = docx.Table;
+    var TableRow = docx.TableRow;
+    var TableCell = docx.TableCell;
+    var Header = docx.Header;
+    var Footer = docx.Footer;
+    var AlignmentType = docx.AlignmentType;
+    var PageNumber = docx.PageNumber;
+    var PageBreak = docx.PageBreak;
+    var BorderStyle = docx.BorderStyle;
+    var WidthType = docx.WidthType;
+    var HeadingLevel = docx.HeadingLevel;
+    var ShadingType = docx.ShadingType;
+    var VerticalAlign = docx.VerticalAlign;
+    var ImageRun = docx.ImageRun;
+    var TableOfContents = docx.TableOfContents;
+    
+    // Chart size constraints for consistent sizing
+    // Increased for better readability of water/irrigation/disease charts
+    var MAX_CHART_WIDTH = 560;
+    var MAX_CHART_HEIGHT = 380;
+    
+    // Safe toFixed helper - prevents "Cannot read properties of undefined (reading 'toFixed')"
+    function safeToFixed(value, decimals, fallback) {
+        if (value === undefined || value === null || isNaN(value)) {
+            return fallback !== undefined ? fallback : '—';
+        }
+        return Number(value).toFixed(decimals);
+    }
+    
+    // Capture SVG element as base64 PNG
+    function captureSvgElement(svg) {
+        return new Promise(function(resolve) {
+            if (!svg || svg.tagName.toLowerCase() !== 'svg') {
+                resolve(null);
+                return;
+            }
+            
+            try {
+                // Clone the SVG
+                var clone = svg.cloneNode(true);
+                
+                // Get dimensions from various sources
+                var bbox = svg.getBoundingClientRect();
+                var width = bbox.width || parseFloat(svg.getAttribute('width')) || 
+                            parseFloat(svg.style.width) || 500;
+                var height = bbox.height || parseFloat(svg.getAttribute('height')) || 
+                             parseFloat(svg.style.height) || 250;
+                
+                // If the SVG has a viewBox, prefer its natural aspect ratio
+                // and render at a minimum width of 580px for Word export quality
+                var viewBox = svg.getAttribute('viewBox');
+                if (viewBox) {
+                    var vbParts = viewBox.split(/[\s,]+/);
+                    if (vbParts.length === 4) {
+                        var vbW = parseFloat(vbParts[2]);
+                        var vbH = parseFloat(vbParts[3]);
+                        if (vbW > 0 && vbH > 0) {
+                            // Use viewBox dimensions if they're larger than rendered size
+                            if (vbW > width) {
+                                width = vbW;
+                                height = vbH;
+                            }
+                        }
+                    }
+                }
+                
+                // Ensure minimum export width (580px) for charts that render small on screen
+                var MIN_EXPORT_WIDTH = 580;
+                if (width < MIN_EXPORT_WIDTH) {
+                    var upscale = MIN_EXPORT_WIDTH / width;
+                    width = MIN_EXPORT_WIDTH;
+                    height = Math.round(height * upscale);
+                }
+                
+                // Ensure SVG has explicit dimensions for rendering
+                clone.setAttribute('width', width);
+                clone.setAttribute('height', height);
+                
+                // Add xmlns if missing (required for standalone SVG)
+                if (!clone.getAttribute('xmlns')) {
+                    clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                }
+                
+                // Inline computed styles for reliable rendering
+                inlineSvgStyles(svg, clone);
+                
+                // Serialize
+                var svgData = new XMLSerializer().serializeToString(clone);
+                svgData = resolveForPrint(svgData); // b35fix275: resolve dark theme CSS vars
+                
+                // Create canvas
+                var canvas = document.createElement('canvas');
+                var scale = 2; // Retina quality
+                canvas.width = width * scale;
+                canvas.height = height * scale;
+                var ctx = canvas.getContext('2d');
+                ctx.scale(scale, scale);
+                ctx.fillStyle = '#ffffff'; // b35fix275: always white for print
+                ctx.fillRect(0, 0, width, height);
+                
+                // Create image from SVG
+                var img = new Image();
+                var svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                var url = URL.createObjectURL(svgBlob);
+                
+                img.onload = function() {
+                    ctx.drawImage(img, 0, 0, width, height);
+                    URL.revokeObjectURL(url);
+                    
+                    var dataUrl = canvas.toDataURL('image/png');
+                    var base64 = dataUrl.split(',')[1];
+                    resolve({
+                        base64: base64,
+                        width: width,
+                        height: height
+                    });
+                };
+                
+                img.onerror = function(err) {
+                    console.warn('[WordExport] SVG image load failed');
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+                
+                img.src = url;
+            } catch (err) {
+                console.warn('[WordExport] SVG capture error:', err);
+                resolve(null);
+            }
+        });
+    }
+    
+    // Inline computed styles into cloned SVG for reliable rendering
+    function inlineSvgStyles(original, clone) {
+        try {
+            // Key SVG style properties to inline
+            var styleProps = [
+                'fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'opacity',
+                'font-family', 'font-size', 'font-weight', 'text-anchor',
+                'dominant-baseline', 'fill-opacity', 'stroke-opacity'
+            ];
+            
+            // Get all elements in both trees
+            var origElements = original.querySelectorAll('*');
+            var cloneElements = clone.querySelectorAll('*');
+            
+            for (var i = 0; i < origElements.length && i < cloneElements.length; i++) {
+                var origEl = origElements[i];
+                var cloneEl = cloneElements[i];
+                var computed = window.getComputedStyle(origEl);
+                
+                styleProps.forEach(function(prop) {
+                    var value = computed.getPropertyValue(prop);
+                    if (value && value !== 'none' && value !== '') {
+                        cloneEl.style[prop] = value;
+                    }
+                });
+            }
+            
+            // Also handle the root SVG element
+            var rootComputed = window.getComputedStyle(original);
+            styleProps.forEach(function(prop) {
+                var value = rootComputed.getPropertyValue(prop);
+                if (value && value !== 'none' && value !== '') {
+                    clone.style[prop] = value;
+                }
+            });
+        } catch (err) {
+            // Style inlining is best-effort, continue without it
+        }
+    }
+    
+    // Status color helper
+    function getStatusColor(status) {
+        var s = (status || '').toLowerCase();
+        if (s === 'high' || s === 'severe' || s === 'critical' || s === 'danger') return 'DC2626';
+        if (s === 'moderate' || s === 'elevated' || s === 'warning') return 'F59E0B';
+        if (s === 'low' || s === 'optimal' || s === 'adequate' || s === 'good') return '16A34A';
+        return '374151';
+    }
+    
+    // Threshold color helper for soil values
+    function getThresholdColor(value, threshold) {
+        if (!threshold || value === undefined || value === null) return '374151';
+        // For SLAN (has max)
+        if (threshold.max !== undefined) {
+            if (value < threshold.min) return 'DC2626';  // Below range = red
+            if (value > threshold.max) return 'F59E0B';  // Above range = amber
+            return '16A34A';  // Within range = green
+        }
+        // For MLSN (just min)
+        return value >= threshold.min ? '16A34A' : 'DC2626';
+    }
+    
+    // Tissue range color helper
+    function getTissueRangeColor(value, range) {
+        if (!range || value === undefined || value === null) return '374151';
+        if (value < range.lo) return 'DC2626';  // Below = red
+        if (value > range.hi) return 'F59E0B';  // Above = amber
+        return '16A34A';  // Within = green
+    }
+    
+    // Water threshold color helper
+    function getWaterThresholdColor(value, threshold) {
+        if (!threshold || value === undefined || value === null) return '374151';
+        if (value <= threshold.safe) return '16A34A';  // Safe = green
+        if (value <= threshold.marginal) return 'F59E0B';  // Marginal = amber
+        return 'DC2626';  // Hazard = red
+    }
+    
+    // ========================================
+    // SVG CHART GENERATION FOR WORD EXPORT
+    // ========================================
+    
+    /**
+     * Generate soil nutrients bar chart SVG
+     * Shows current values vs MLSN/SLAN/Ammonium Acetate thresholds
+     * Cleaner design with clear status indicators
+     */
+    function generateSoilChartSvg(soilData) {
+        if (!soilData || !soilData.thresholds) return null;
+        
+        var width = 520;
+        var height = 280;
+        var margin = { top: 35, right: 90, bottom: 50, left: 55 };
+        var chartWidth = width - margin.left - margin.right;
+        var chartHeight = height - margin.top - margin.bottom;
+        
+        var nutrients = ['P', 'K', 'Ca', 'Mg', 'S'];
+        var barHeight = 28;
+        var barGap = 10;
+        var isSLAN = soilData.methodology === 'SLAN';
+        var isAA = soilData.methodology === 'AMMONIUM_ACETATE' || soilData.methodology === 'AMMONIUM ACETATE';
+        var isRangeBased = isSLAN || isAA;
+        var methodName = isAA ? 'Ammonium Acetate' : (isSLAN ? 'SLAN' : 'MLSN');
+        
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" height="' + height + '">';
+        svg += '<rect width="' + width + '" height="' + height + '" fill="var(--gaip-surface)"/>';
+        
+        // Title
+        svg += '<text x="' + (width/2) + '" y="20" text-anchor="middle" font-family="Arial" font-size="13" font-weight="bold" fill="var(--gaip-text)">Soil Nutrient Status (' + methodName + ' Guidelines)</text>';
+        // Subtitle - different explanation for range-based vs threshold
+        var subtitle = isRangeBased ? 
+            'Bar shows your level • Green zone = target range (min-max)' :
+            'Bar shows your level • Dashed line = minimum threshold';
+        svg += '<text x="' + (width/2) + '" y="33" text-anchor="middle" font-family="Arial" font-size="9" fill="var(--gaip-text-secondary)">' + subtitle + '</text>';
+        
+        nutrients.forEach(function(nutrient, i) {
+            var y = margin.top + 10 + i * (barHeight + barGap);
+            var value = soilData[nutrient] || 0;
+            var threshold = soilData.thresholds[nutrient];
+            if (!threshold) return;
+            
+            // Nutrient full names
+            var fullNames = { P: 'Phosphorus', K: 'Potassium', Ca: 'Calcium', Mg: 'Magnesium', S: 'Sulphur' };
+            
+            // Calculate scale - normalize to show threshold at ~40% of width
+            var threshMin = threshold.min || threshold;
+            var maxVal = isRangeBased ? 
+                Math.max(threshold.max * 1.5, value * 1.2, threshMin * 2.5) : 
+                Math.max(threshMin * 2.5, value * 1.2);
+            
+            var scale = chartWidth / maxVal;
+            var barWidth = Math.min(value * scale, chartWidth);
+            var threshX = margin.left + threshMin * scale;
+            
+            // Determine status
+            var color, statusText, statusIcon;
+            if (isRangeBased) {
+                if (value < threshold.min) {
+                    color = '#DC2626'; statusText = 'LOW'; statusIcon = '⚠';
+                } else if (threshold.max && value > threshold.max) {
+                    color = '#F59E0B'; statusText = 'HIGH'; statusIcon = '△';
+                } else {
+                    color = '#16A34A'; statusText = 'OK'; statusIcon = '✓';
+                }
+            } else {
+                if (value >= threshMin) {
+                    color = '#16A34A'; statusText = 'OK'; statusIcon = '✓';
+                } else {
+                    color = '#DC2626'; statusText = 'LOW'; statusIcon = '⚠';
+                }
+            }
+            
+            // Background track
+            svg += '<rect x="' + margin.left + '" y="' + y + '" width="' + chartWidth + '" height="' + barHeight + '" fill="var(--gaip-surface-hover)" rx="4"/>';
+            
+            // For range-based (SLAN/AA): show target zone between min and max
+            if (isRangeBased && threshold.max) {
+                var minX = margin.left + threshold.min * scale;
+                var maxX = margin.left + Math.min(threshold.max * scale, chartWidth);
+                svg += '<rect x="' + minX + '" y="' + y + '" width="' + (maxX - minX) + '" height="' + barHeight + '" fill="var(--gaip-good-bg)" rx="4"/>';
+            }
+            
+            // Value bar
+            svg += '<rect x="' + margin.left + '" y="' + y + '" width="' + barWidth + '" height="' + barHeight + '" fill="' + color + '" rx="4" opacity="0.85"/>';
+            
+            // Threshold marker lines
+            if (isRangeBased && threshold.max) {
+                // Range-based: show both min and max lines
+                var minLineX = margin.left + threshold.min * scale;
+                var maxLineX = margin.left + Math.min(threshold.max * scale, chartWidth);
+                svg += '<line x1="' + minLineX + '" y1="' + (y - 3) + '" x2="' + minLineX + '" y2="' + (y + barHeight + 3) + '" stroke="#166534" stroke-width="2" stroke-dasharray="4,2"/>';
+                svg += '<line x1="' + maxLineX + '" y1="' + (y - 3) + '" x2="' + maxLineX + '" y2="' + (y + barHeight + 3) + '" stroke="#166534" stroke-width="2" stroke-dasharray="4,2"/>';
+            } else {
+                // MLSN: single minimum line
+                svg += '<line x1="' + threshX + '" y1="' + (y - 3) + '" x2="' + threshX + '" y2="' + (y + barHeight + 3) + '" stroke="#1e3a5f" stroke-width="2.5" stroke-dasharray="4,2"/>';
+            }
+            
+            // Nutrient label (left)
+            svg += '<text x="' + (margin.left - 8) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="end" font-family="Arial" font-size="12" font-weight="bold" fill="var(--gaip-text)">' + nutrient + '</text>';
+            
+            // Value and status (right side)
+            svg += '<text x="' + (margin.left + chartWidth + 8) + '" y="' + (y + barHeight/2 - 2) + '" text-anchor="start" font-family="Arial" font-size="11" font-weight="bold" fill="var(--gaip-text)">' + value + '</text>';
+            svg += '<text x="' + (margin.left + chartWidth + 8) + '" y="' + (y + barHeight/2 + 12) + '" text-anchor="start" font-family="Arial" font-size="10" font-weight="bold" fill="' + color + '">' + statusIcon + ' ' + statusText + '</text>';
+        });
+        
+        // Legend - different for range-based vs MLSN
+        var legendY = height - 25;
+        
+        if (isRangeBased) {
+            // Range-based legend: target range, within range, below, above
+            svg += '<rect x="' + margin.left + '" y="' + (legendY - 7) + '" width="20" height="14" fill="var(--gaip-good-bg)" stroke="#166534" stroke-width="1" rx="2"/>';
+            svg += '<text x="' + (margin.left + 25) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Target range</text>';
+            
+            svg += '<rect x="' + (margin.left + 110) + '" y="' + (legendY - 7) + '" width="14" height="14" fill="#16A34A" rx="2"/>';
+            svg += '<text x="' + (margin.left + 128) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Within range</text>';
+            
+            svg += '<rect x="' + (margin.left + 210) + '" y="' + (legendY - 7) + '" width="14" height="14" fill="#DC2626" rx="2"/>';
+            svg += '<text x="' + (margin.left + 228) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Below min</text>';
+            
+            svg += '<rect x="' + (margin.left + 300) + '" y="' + (legendY - 7) + '" width="14" height="14" fill="#F59E0B" rx="2"/>';
+            svg += '<text x="' + (margin.left + 318) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Above max</text>';
+        } else {
+            // MLSN legend: minimum threshold, adequate, below
+            svg += '<line x1="' + margin.left + '" y1="' + legendY + '" x2="' + (margin.left + 20) + '" y2="' + legendY + '" stroke="#1e3a5f" stroke-width="2.5" stroke-dasharray="4,2"/>';
+            svg += '<text x="' + (margin.left + 25) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">MLSN minimum</text>';
+            
+            svg += '<rect x="' + (margin.left + 130) + '" y="' + (legendY - 7) + '" width="14" height="14" fill="#16A34A" rx="2"/>';
+            svg += '<text x="' + (margin.left + 148) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Adequate</text>';
+            
+            svg += '<rect x="' + (margin.left + 220) + '" y="' + (legendY - 7) + '" width="14" height="14" fill="#DC2626" rx="2"/>';
+            svg += '<text x="' + (margin.left + 238) + '" y="' + (legendY + 4) + '" font-family="Arial" font-size="10" fill="var(--gaip-text)">Below minimum</text>';
+        }
+        
+        svg += '</svg>';
+        return svg;
+    }
+    
+    /**
+     * Generate trace element bar chart SVG (Fe, Mn, Zn, Cu, B)
+     * MLSN minimums: Fe=1, Mn=1, Zn=1, Cu=0.2, B=0.1 ppm
+     * Returns null if none of the five trace values are present
+     */
+    /**
+     * Sufficiency ranges for trace elements by extractant type.
+     * Sources: Turner & Hummel (1992), Carrow et al. (2001) Turfgrass Soil Fertility,
+     * Bryson et al. (2014) Plant Analysis Handbook III, Westerman (1990) Soil Testing.
+     */
+    var TRACE_RANGES = {
+        Fe: {
+            mehlich3: { deficient: 50,  low: 100, adequate: 250, excess: 500  },
+            dtpa:     { deficient: 2.5, low: 4.5, adequate: 20,  excess: 50   },
+            aa:       null
+        },
+        Mn: {
+            mehlich3: { deficient: 5,   low: 15,  adequate: 100, excess: 200, toxicityPH: 5.5, toxicityPPM: 150 },
+            dtpa:     { deficient: 0.5, low: 1,   adequate: 5,   excess: 15,  toxicityPH: 5.5, toxicityPPM: 10  },
+            aa:       null
+        },
+        Zn: {
+            mehlich3: { deficient: 1,   low: 2,   adequate: 20,  excess: 50   },
+            dtpa:     { deficient: 0.5, low: 1,   adequate: 5,   excess: 20   },
+            aa:       { deficient: 0.5, low: 1,   adequate: 5,   excess: 20   }
+        },
+        Cu: {
+            mehlich3: { deficient: 0.2, low: 0.5, adequate: 5,   excess: 10   },
+            dtpa:     { deficient: 0.1, low: 0.2, adequate: 2,   excess: 5    },
+            aa:       { deficient: 0.1, low: 0.2, adequate: 2,   excess: 5    }
+        },
+        B: {
+            mehlich3: { deficient: 0.1, low: 0.3, adequate: 1,   excess: 2    },
+            hotwater: { deficient: 0.1, low: 0.3, adequate: 1,   excess: 2    },
+            dtpa:     { deficient: 0.1, low: 0.3, adequate: 1,   excess: 2    },
+            aa:       { deficient: 0.1, low: 0.3, adequate: 1,   excess: 2    }
+        }
+    };
+
+    function _traceExtractant(soilData) {
+        var ext = (soilData.extractant || '').toLowerCase();
+        if (ext.indexOf('dtpa') >= 0)     return 'dtpa';
+        if (ext.indexOf('hot') >= 0)      return 'hotwater';
+        if (ext.indexOf('ammonium') >= 0 || ext.indexOf('\baa\b') >= 0) return 'aa';
+        if (ext.indexOf('mehlich') >= 0)  return 'mehlich3';
+        var meth = (soilData.methodology || '').toUpperCase();
+        if (meth.indexOf('AMMONIUM') >= 0) return 'aa';
+        return 'mehlich3';
+    }
+
+    function _classifyTrace(key, value, extractant, pH) {
+        var ranges = TRACE_RANGES[key];
+        if (!ranges) return null;
+        var r = ranges[extractant] || ranges['mehlich3'];
+        if (!r) return { status: 'No data', color: '9CA3AF', badge: '\u2014', note: null };
+
+        var status, color, badge, note = null;
+        if (value < r.deficient) {
+            status = 'Deficient'; color = 'DC2626'; badge = '\u2717 DEF';
+        } else if (value < r.low) {
+            status = 'Low';       color = 'F59E0B'; badge = '\u26A0 LOW';
+        } else if (value <= r.adequate) {
+            status = 'Adequate';  color = '16A34A'; badge = '\u2713 OK';
+        } else if (value <= (r.excess || 99999)) {
+            status = 'High';      color = 'F59E0B'; badge = '\u25B3 HIGH';
+        } else {
+            status = 'Excess';    color = 'DC2626'; badge = '\u2717 EXCESS';
+        }
+        if (pH && pH > 7.0 && (key === 'Fe' || key === 'Mn' || key === 'Zn' || key === 'Cu')) {
+            if (status === 'Adequate' || status === 'High' || status === 'Excess') {
+                note = 'pH ' + pH + ': plant uptake restricted despite adequate soil levels';
+            }
+        }
+        if (pH && pH < 5.5 && key === 'Mn' && r.toxicityPH) {
+            if (value > (r.toxicityPPM || 150)) {
+                status = 'Toxicity risk'; color = 'DC2626'; badge = '\u2717 TOXIC';
+                note = 'pH ' + pH + ' + ' + value + ' ppm Mn: phytotoxicity risk. Lime required.';
+            } else if (value > r.adequate * 0.6) {
+                note = 'pH ' + pH + ': Mn solubility elevated \u2014 monitor as pH falls.';
+            }
+        }
+        return { status: status, color: color, badge: badge, note: note };
+    }
+
+    function generateTraceChartSvg(soilData) {
+        var traceKeys = ['Fe', 'Mn', 'Zn', 'Cu', 'B'];
+        var traceNames = { Fe: 'Iron', Mn: 'Manganese', Zn: 'Zinc', Cu: 'Copper', B: 'Boron' };
+        var pH = parseFloat(soilData.pH) || null;
+        var extractant = _traceExtractant(soilData);
+        var extractantLabel = extractant === 'dtpa' ? 'DTPA' :
+                              extractant === 'hotwater' ? 'Hot Water' :
+                              extractant === 'aa' ? 'Ammonium Acetate' : 'Mehlich-3';
+
+        var present = traceKeys.filter(function(k) {
+            var r = TRACE_RANGES[k];
+            if (!r || !(r[extractant] || r['mehlich3'])) return false;
+            return soilData[k] !== undefined && soilData[k] !== null && soilData[k] !== '';
+        });
+        if (present.length === 0) return null;
+
+        var width = 540;
+        var barHeight = 28;
+        var barGap = 10;
+        var margin = { top: 55, right: 120, bottom: 35, left: 80 };
+        var chartWidth = width - margin.left - margin.right;
+        var height = margin.top + present.length * (barHeight + barGap) + margin.bottom;
+
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" height="' + height + '">';
+        svg += '<rect width="' + width + '" height="' + height + '" fill="var(--gaip-surface)"/>';
+        svg += '<text x="' + (width/2) + '" y="16" text-anchor="middle" font-family="Arial" font-size="13" font-weight="bold" fill="var(--gaip-text)">Trace Element Status</text>';
+        svg += '<text x="' + (width/2) + '" y="29" text-anchor="middle" font-family="Arial" font-size="9" fill="var(--gaip-text-secondary)">Extractant: ' + extractantLabel + (pH ? ' • Soil pH ' + pH : '') + '</text>';
+        svg += '<text x="' + (width/2) + '" y="41" text-anchor="middle" font-family="Arial" font-size="9" fill="var(--gaip-text-secondary)">Sufficiency ranges: Turner &amp; Hummel (1992), Carrow et al. (2001)</text>';
+
+        present.forEach(function(key, i) {
+            var value = parseFloat(soilData[key]);
+            var r = TRACE_RANGES[key][extractant] || TRACE_RANGES[key]['mehlich3'];
+            var c = _classifyTrace(key, value, extractant, pH);
+            var y = margin.top + i * (barHeight + barGap);
+            var scaleMax = Math.max(r.excess || r.adequate * 2, value * 1.15, r.adequate * 1.5);
+            var scale = chartWidth / scaleMax;
+
+            // Zone backgrounds
+            var defW = Math.min(r.deficient * scale, chartWidth);
+            var lowEnd = Math.min(r.low * scale, chartWidth);
+            var adqEnd = Math.min(r.adequate * scale, chartWidth);
+            svg += '<rect x="' + margin.left + '" y="' + y + '" width="' + defW + '" height="' + barHeight + '" fill="var(--gaip-critical-bg)" rx="3"/>';
+            if (lowEnd > defW) svg += '<rect x="' + (margin.left + defW) + '" y="' + y + '" width="' + (lowEnd - defW) + '" height="' + barHeight + '" fill="var(--gaip-warning-bg)"/>';
+            if (adqEnd > lowEnd) svg += '<rect x="' + (margin.left + lowEnd) + '" y="' + y + '" width="' + (adqEnd - lowEnd) + '" height="' + barHeight + '" fill="var(--gaip-good-bg)"/>';
+            if (chartWidth > adqEnd) svg += '<rect x="' + (margin.left + adqEnd) + '" y="' + y + '" width="' + (chartWidth - adqEnd) + '" height="' + barHeight + '" fill="var(--gaip-warning-bg)" rx="3"/>';
+
+            // Value bar
+            var barW = Math.min(value * scale, chartWidth);
+            svg += '<rect x="' + margin.left + '" y="' + (y+6) + '" width="' + barW + '" height="' + (barHeight-12) + '" fill="#' + c.color + '" rx="2" opacity="0.9"/>';
+            svg += '<line x1="' + (margin.left + barW) + '" y1="' + y + '" x2="' + (margin.left + barW) + '" y2="' + (y+barHeight) + '" stroke="#' + c.color + '" stroke-width="2.5"/>';
+
+            // Labels
+            svg += '<text x="' + (margin.left - 5) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="end" font-family="Arial" font-size="11" font-weight="bold" fill="var(--gaip-text)">' + traceNames[key] + '</text>';
+            var valDisplay = value % 1 === 0 ? value : parseFloat(value.toFixed(1));
+            var valX = margin.left + barW + 4;
+            svg += '<text x="' + valX + '" y="' + (y + barHeight/2 - 1) + '" font-family="Arial" font-size="9" fill="var(--gaip-text)">' + valDisplay + ' ppm</text>';
+            if (c.note) {
+                svg += '<text x="' + valX + '" y="' + (y + barHeight/2 + 9) + '" font-family="Arial" font-size="7.5" fill="var(--gaip-text-secondary)" font-style="italic">⚠ pH effect</text>';
+            }
+            svg += '<text x="' + (margin.left + chartWidth + 6) + '" y="' + (y + barHeight/2 + 4) + '" font-family="Arial" font-size="10" font-weight="bold" fill="#' + c.color + '">' + c.badge + '</text>';
+        });
+
+        // Legend
+        var ly = height - 18;
+        var lx = margin.left;
+        svg += '<rect x="' + lx + '" y="' + ly + '" width="10" height="10" fill="var(--gaip-critical-bg)"/><text x="' + (lx+12) + '" y="' + (ly+8) + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Deficient</text>';
+        lx += 58;
+        svg += '<rect x="' + lx + '" y="' + ly + '" width="10" height="10" fill="var(--gaip-warning-bg)"/><text x="' + (lx+12) + '" y="' + (ly+8) + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Low / Excess</text>';
+        lx += 72;
+        svg += '<rect x="' + lx + '" y="' + ly + '" width="10" height="10" fill="var(--gaip-good-bg)"/><text x="' + (lx+12) + '" y="' + (ly+8) + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Adequate</text>';
+
+        svg += '</svg>';
+        return svg;
+    }
+
+    function generateTraceNarrative(soilData) {
+        var traceKeys = ['Fe', 'Mn', 'Zn', 'Cu', 'B'];
+        var present = traceKeys.filter(function(k) {
+            return soilData[k] !== undefined && soilData[k] !== null && soilData[k] !== '';
+        });
+        if (present.length === 0) return [];
+
+        var pH = parseFloat(soilData.pH) || null;
+        var extractant = _traceExtractant(soilData);
+        var paragraphs = [];
+        var issues = [];
+
+        present.forEach(function(key) {
+            var value = parseFloat(soilData[key]);
+            var c = _classifyTrace(key, value, extractant, pH);
+            if (!c) return;
+            if (c.status === 'Deficient') issues.push(key + ' deficient (' + value + ' ppm)');
+            else if (c.status === 'Low') issues.push(key + ' low (' + value + ' ppm)');
+            else if (c.status === 'Toxicity risk') issues.push('Mn toxicity risk (' + value + ' ppm at pH ' + pH + ')');
+            else if (c.status === 'Excess') issues.push(key + ' excess (' + value + ' ppm)');
+        });
+
+        if (pH && pH > 7.0) {
+            paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({
+                text: 'Soil pH ' + pH + ' reduces plant availability of iron, manganese, zinc, and copper regardless of soil ppm. ' +
+                      'Foliar applications are more effective than soil applications at this pH. Use chelated iron (Fe-EDDHA or Fe-EDTA) — sulphate forms precipitate rapidly above pH 6.5.',
+                size: 18, color: '374151' })]}));
+        } else if (pH && pH < 5.5) {
+            var lowMsg = 'Soil pH ' + pH + ' increases manganese and aluminium solubility. ';
+            if (soilData.Mn && parseFloat(soilData.Mn) > 100) {
+                lowMsg += 'Manganese at ' + soilData.Mn + ' ppm with pH ' + pH + ' presents phytotoxicity risk — lime to pH 5.8–6.0 is the priority intervention. ';
+            }
+            lowMsg += 'Aluminium toxicity (Al³⁺) is not routinely measured but becomes phytotoxic below pH 5.0, disrupting root elongation and P uptake. Tissue testing recommended.';
+            paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: lowMsg, size: 18, color: '374151' })]}));
+        }
+
+        if (soilData.Fe && soilData.Mn) {
+            var fe = parseFloat(soilData.Fe), mn = parseFloat(soilData.Mn);
+            var ratio = fe / mn;
+            if (ratio > 50) {
+                paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
+                    text: 'Fe:Mn ratio ' + ratio.toFixed(0) + ':1 — elevated iron relative to manganese may suppress Mn uptake through competitive inhibition.',
+                    size: 18, color: '374151' })]}));
+            } else if (ratio < 1.5) {
+                paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
+                    text: 'Fe:Mn ratio ' + ratio.toFixed(1) + ':1 — high manganese relative to iron may suppress Fe uptake.',
+                    size: 18, color: '374151' })]}));
+            }
+        }
+
+        if (issues.length > 0) {
+            paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
+                text: 'Issues identified: ' + issues.join('; ') + '.', size: 18, color: '374151' })]}));
+        }
+
+        var extractantLabel = extractant === 'dtpa' ? 'DTPA' : extractant === 'hotwater' ? 'hot water' :
+                              extractant === 'aa' ? 'ammonium acetate' : 'Mehlich-3';
+        paragraphs.push(new Paragraph({ spacing: { before: 80, after: 120 }, children: [new TextRun({
+            text: 'Sufficiency ranges based on ' + extractantLabel + ' extraction (Turner & Hummel 1992; Carrow et al. 2001). ' +
+                  'Soil ppm alone does not determine plant availability — pH, organic matter, and redox conditions all modify uptake.',
+            size: 16, italics: true, color: '6B7280' })]}));
+
+        return paragraphs;
+    }
+
+    /**
+     * Generate tissue analysis bar chart SVG
+     * Shows current values within sufficiency ranges
+     */
+    function generateTissueChartSvg(tissueData) {
+        if (!tissueData || !tissueData.ranges) return null;
+        
+        var width = 500;
+        var height = 280;
+        var margin = { top: 20, right: 70, bottom: 30, left: 40 };
+        var chartWidth = width - margin.left - margin.right;
+        var chartHeight = height - margin.top - margin.bottom;
+        
+        // Macros and traces separately
+        var macros = ['N', 'P', 'K', 'Ca', 'Mg', 'S'];
+        var traces = ['Fe', 'Mn', 'Zn', 'Cu', 'B'];
+        var allNutrients = macros.concat(traces);
+        
+        var barHeight = Math.floor(chartHeight / allNutrients.length) - 4;
+        
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" height="' + height + '">';
+        svg += '<rect width="' + width + '" height="' + height + '" fill="var(--gaip-surface)"/>';
+        
+        // Title
+        svg += '<text x="' + (width/2) + '" y="15" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="var(--gaip-text)">Tissue Analysis - Sufficiency Ranges</text>';
+        
+        allNutrients.forEach(function(nutrient, i) {
+            var y = margin.top + i * (barHeight + 4);
+            var value = tissueData[nutrient];
+            var range = tissueData.ranges[nutrient];
+            if (value === undefined || value === null || !range) return;
+            
+            // For display, normalize to range position (0-100%)
+            var rangeSpan = range.hi - range.lo;
+            var extendedLo = range.lo - rangeSpan * 0.3;
+            var extendedHi = range.hi + rangeSpan * 0.5;
+            var totalSpan = extendedHi - extendedLo;
+            
+            // Calculate positions
+            var loPos = (range.lo - extendedLo) / totalSpan * chartWidth;
+            var hiPos = (range.hi - extendedLo) / totalSpan * chartWidth;
+            var valuePos = Math.max(0, Math.min(chartWidth, (value - extendedLo) / totalSpan * chartWidth));
+            
+            // Determine status
+            var status, color;
+            if (value < range.lo) { status = 'Low'; color = '#DC2626'; }
+            else if (value > range.hi) { status = 'High'; color = '#F59E0B'; }
+            else { status = 'OK'; color = '#16A34A'; }
+            
+            // Background (deficient zone - red tint)
+            svg += '<rect x="' + margin.left + '" y="' + y + '" width="' + loPos + '" height="' + barHeight + '" fill="var(--gaip-critical-bg)" rx="2"/>';
+            
+            // Optimal zone (green)
+            svg += '<rect x="' + (margin.left + loPos) + '" y="' + y + '" width="' + (hiPos - loPos) + '" height="' + barHeight + '" fill="var(--gaip-good-bg)" rx="0"/>';
+            
+            // High zone (yellow tint)
+            svg += '<rect x="' + (margin.left + hiPos) + '" y="' + y + '" width="' + (chartWidth - hiPos) + '" height="' + barHeight + '" fill="var(--gaip-warning-bg)" rx="2"/>';
+            
+            // Value marker (vertical line with dot)
+            svg += '<line x1="' + (margin.left + valuePos) + '" y1="' + y + '" x2="' + (margin.left + valuePos) + '" y2="' + (y + barHeight) + '" stroke="' + color + '" stroke-width="3"/>';
+            svg += '<circle cx="' + (margin.left + valuePos) + '" cy="' + (y + barHeight/2) + '" r="4" fill="' + color + '"/>';
+            
+            // Label
+            svg += '<text x="' + (margin.left - 5) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="end" font-family="Arial" font-size="10" fill="var(--gaip-text)">' + nutrient + '</text>';
+            
+            // Value and status
+            var valueText = range.unit === '%' ? value.toFixed(2) + '%' : Math.round(value) + ' ppm';
+            svg += '<text x="' + (margin.left + chartWidth + 5) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="start" font-family="Arial" font-size="9" fill="' + color + '">' + valueText + '</text>';
+        });
+        
+        // Legend
+        var legendY = height - 8;
+        svg += '<rect x="' + margin.left + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-critical-bg)"/>';
+        svg += '<text x="' + (margin.left + 15) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Low</text>';
+        svg += '<rect x="' + (margin.left + 45) + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-good-bg)"/>';
+        svg += '<text x="' + (margin.left + 60) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Adequate</text>';
+        svg += '<rect x="' + (margin.left + 110) + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-warning-bg)"/>';
+        svg += '<text x="' + (margin.left + 125) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">High</text>';
+        
+        svg += '</svg>';
+        return svg;
+    }
+    
+    /**
+     * Generate water quality bar chart SVG
+     * Shows parameters against safe/marginal/hazard zones
+     */
+    function generateWaterChartSvg(waterData) {
+        if (!waterData || !waterData.thresholds) return null;
+        
+        var width = 500;
+        var height = 200;
+        var margin = { top: 20, right: 70, bottom: 30, left: 50 };
+        var chartWidth = width - margin.left - margin.right;
+        var chartHeight = height - margin.top - margin.bottom;
+        
+        var params = [];
+        if (waterData.EC !== undefined) params.push({ key: 'EC', value: waterData.EC });
+        if (waterData.SAR !== undefined) params.push({ key: 'SAR', value: waterData.SAR });
+        if (waterData.Na !== undefined) params.push({ key: 'Na', value: waterData.Na });
+        if (waterData.Cl !== undefined) params.push({ key: 'Cl', value: waterData.Cl });
+        if (waterData.HCO3 !== undefined) params.push({ key: 'HCO3', value: waterData.HCO3 });
+        
+        if (params.length === 0) return null;
+        
+        var barHeight = Math.floor(chartHeight / params.length) - 8;
+        
+        var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + width + ' ' + height + '" width="' + width + '" height="' + height + '">';
+        svg += '<rect width="' + width + '" height="' + height + '" fill="var(--gaip-surface)"/>';
+        
+        // Title
+        svg += '<text x="' + (width/2) + '" y="15" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold" fill="var(--gaip-text)">Water Quality Assessment</text>';
+        
+        params.forEach(function(param, i) {
+            var y = margin.top + i * (barHeight + 8);
+            var value = param.value;
+            var thresh = waterData.thresholds[param.key];
+            if (!thresh) return;
+            
+            // Calculate scale - max is threshold max * 1.5 or value * 1.2
+            var maxVal = Math.max(thresh.max * 1.3, value * 1.2);
+            var scale = chartWidth / maxVal;
+            
+            // Zone widths
+            var safeWidth = thresh.safe * scale;
+            var marginalWidth = (thresh.marginal - thresh.safe) * scale;
+            var hazardWidth = chartWidth - safeWidth - marginalWidth;
+            
+            // Zones
+            svg += '<rect x="' + margin.left + '" y="' + y + '" width="' + safeWidth + '" height="' + barHeight + '" fill="var(--gaip-good-bg)" rx="3"/>';
+            svg += '<rect x="' + (margin.left + safeWidth) + '" y="' + y + '" width="' + marginalWidth + '" height="' + barHeight + '" fill="var(--gaip-warning-bg)" rx="0"/>';
+            svg += '<rect x="' + (margin.left + safeWidth + marginalWidth) + '" y="' + y + '" width="' + hazardWidth + '" height="' + barHeight + '" fill="var(--gaip-critical-bg)" rx="3"/>';
+            
+            // Value marker
+            var valuePos = Math.min(value * scale, chartWidth);
+            var color = value <= thresh.safe ? '#16A34A' : value <= thresh.marginal ? '#F59E0B' : '#DC2626';
+            svg += '<line x1="' + (margin.left + valuePos) + '" y1="' + y + '" x2="' + (margin.left + valuePos) + '" y2="' + (y + barHeight) + '" stroke="' + color + '" stroke-width="3"/>';
+            svg += '<circle cx="' + (margin.left + valuePos) + '" cy="' + (y + barHeight/2) + '" r="4" fill="' + color + '"/>';
+            
+            // Label
+            svg += '<text x="' + (margin.left - 5) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="end" font-family="Arial" font-size="11" fill="var(--gaip-text)">' + param.key + '</text>';
+            
+            // Value
+            var unit = thresh.unit || '';
+            var valueText = (typeof value === 'number' ? value.toFixed(1) : value) + ' ' + unit;
+            svg += '<text x="' + (margin.left + chartWidth + 5) + '" y="' + (y + barHeight/2 + 4) + '" text-anchor="start" font-family="Arial" font-size="9" fill="' + color + '">' + valueText + '</text>';
+        });
+        
+        // Legend
+        var legendY = height - 8;
+        svg += '<rect x="' + margin.left + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-good-bg)"/>';
+        svg += '<text x="' + (margin.left + 15) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Safe</text>';
+        svg += '<rect x="' + (margin.left + 50) + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-warning-bg)"/>';
+        svg += '<text x="' + (margin.left + 65) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Marginal</text>';
+        svg += '<rect x="' + (margin.left + 115) + '" y="' + (legendY - 8) + '" width="12" height="8" fill="var(--gaip-critical-bg)"/>';
+        svg += '<text x="' + (margin.left + 130) + '" y="' + legendY + '" font-family="Arial" font-size="8" fill="var(--gaip-text-secondary)">Hazard</text>';
+        
+        svg += '</svg>';
+        return svg;
+    }
+    
+    /**
+     * Convert SVG string to base64 PNG for Word embedding
+     */
+    /**
+     * resolveForPrint — b35fix275
+     * Replace all CSS variable tokens in an SVG string with hardcoded print-safe
+     * hex values. Called before every SVG→PNG conversion so Word export charts
+     * render on white paper regardless of the active UI theme (dark/light).
+     *
+     * Colour mapping: dark theme tokens → print-safe equivalents.
+     * Background tokens → white (#ffffff).
+     * Text tokens → near-black (#111827).
+     * Status colours kept vivid so they remain readable in print.
+     */
+    var PRINT_COLOUR_MAP = {
+        // Backgrounds — all white for print
+        'var(--gaip-surface)':              '#ffffff',
+        'var(--gaip-surface-hover)':        '#f3f4f6',
+        'var(--gaip-bg)':                   '#ffffff',
+        'var(--gaip-card-bg)':              '#ffffff',
+        // Text — dark for contrast on white
+        'var(--gaip-text)':                 '#111827',
+        'var(--gaip-text-secondary)':       '#374151',
+        'var(--gaip-text-muted)':           '#6b7280',
+        // Borders
+        'var(--gaip-border)':               '#d1d5db',
+        // Status backgrounds — light tints readable on white
+        'var(--gaip-good-bg)':              '#dcfce7',
+        'var(--gaip-warning-bg)':           '#fef9c3',
+        'var(--gaip-critical-bg)':          '#fee2e2',
+        'var(--gaip-info-bg)':              '#dbeafe',
+        // Status text colours
+        'var(--gaip-good-text)':            '#166534',
+        'var(--gaip-warning-text)':         '#854d0e',
+        'var(--gaip-critical-text)':        '#991b1b',
+        // Accent
+        'var(--gaip-accent)':               '#1e3a5f',
+        'var(--gaip-accent-hover)':         '#1e40af',
+    };
+
+    function resolveForPrint(svgString) {
+        var result = svgString;
+        // 1. Replace all CSS variable tokens with print-safe hex
+        Object.keys(PRINT_COLOUR_MAP).forEach(function(token) {
+            result = result.split(token).join(PRINT_COLOUR_MAP[token]);
+        });
+        // 2. Inject explicit white background rect after the opening <svg ...> tag.
+        //    SVGs with no background fill render transparent — when drawn via img.onload
+        //    onto a canvas, the browser may apply its dark-mode background to the SVG
+        //    viewport, producing a black image. The white rect forces a known background.
+        result = result.replace(
+            /(<svg[^>]*>)/,
+            '$1<rect width="100%" height="100%" fill="#ffffff"/>'
+        );
+        return result;
+    }
+
+    function svgStringToBase64Png(svgString, width, height) {
+        return new Promise(function(resolve) {
+            try {
+                var canvas = document.createElement('canvas');
+                var scale = 2;
+                canvas.width = width * scale;
+                canvas.height = height * scale;
+                var ctx = canvas.getContext('2d');
+                ctx.scale(scale, scale);
+                ctx.fillStyle = 'var(--gaip-surface)';
+                ctx.fillRect(0, 0, width, height);
+                
+                var img = new Image();
+                svgString = resolveForPrint(svgString); // b35fix275: resolve CSS vars to print-safe hex
+                var svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                var url = URL.createObjectURL(svgBlob);
+                
+                var timeout = setTimeout(function() {
+                    console.warn('[WordExport] SVG→PNG timed out w=' + width + ' h=' + height);
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                }, 5000);
+
+                img.onload = function() {
+                    clearTimeout(timeout);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    URL.revokeObjectURL(url);
+                    var dataUrl = canvas.toDataURL('image/png');
+                    var base64 = dataUrl.split(',')[1];
+                    resolve({ base64: base64, width: width, height: height });
+                };
+
+                img.onerror = function(e) {
+                    clearTimeout(timeout);
+                    console.warn('[WordExport] SVG img.onerror w=' + width + ' h=' + height + ' svgLen=' + svgString.length);
+                    URL.revokeObjectURL(url);
+                    resolve(null);
+                };
+
+                img.src = url;
+            } catch (err) {
+                console.warn('[WordExport] SVG to PNG conversion failed:', err);
+                resolve(null);
+            }
+        });
+    }
+    
+    // ========================================
+    // NARRATIVE GENERATION FUNCTIONS
+    // ========================================
+    
+    /**
+     * Generate soil interpretation narrative and recommendations
+     */
+    function generateSoilNarrative(soilData) {
+        if (!soilData || !soilData.thresholds) return null;
+        
+        var methodology = soilData.methodology || 'MLSN';
+        var isSLAN = methodology === 'SLAN';
+        var isAA = methodology === 'AMMONIUM_ACETATE' || methodology === 'AMMONIUM ACETATE';
+        var isRangeBased = isSLAN || isAA;  // Both use min-max ranges
+        var narrative = [];
+        var recommendations = [];
+        var deficiencies = [];
+        var adequate = [];
+        
+        // Methodology display name
+        var methodDisplayName = isAA ? 'Ammonium Acetate (Hill Labs)' : methodology;
+        
+        // Analyze each nutrient
+        var nutrients = [
+            { key: 'P', name: 'Phosphorus', unit: isAA ? 'mg/L' : 'ppm' },
+            { key: 'K', name: 'Potassium', unit: 'ppm' },
+            { key: 'Ca', name: 'Calcium', unit: 'ppm' },
+            { key: 'Mg', name: 'Magnesium', unit: 'ppm' },
+            { key: 'S', name: 'Sulphur', unit: 'ppm' }
+        ];
+        
+        nutrients.forEach(function(n) {
+            var value = soilData[n.key];
+            var thresh = soilData.thresholds[n.key];
+            if (!value || !thresh) return;
+            
+            var status;
+            if (isRangeBased) {
+                if (value < thresh.min) status = 'deficient';
+                else if (thresh.max && value > thresh.max) status = 'high';
+                else status = 'adequate';
+            } else {
+                status = value >= thresh.min ? 'adequate' : 'deficient';
+            }
+            
+            if (status === 'deficient') {
+                deficiencies.push(n.name);
+                var deficit = thresh.min - value;
+                var rec = generateFertiliserRecommendation(n.key, deficit, soilData, soilData.surfaceType || '');
+                if (rec) recommendations.push(rec);
+            } else if (status === 'adequate') {
+                adequate.push(n.name);
+            }
+        });
+        
+        // Build narrative
+        if (deficiencies.length === 0) {
+            narrative.push('All measured nutrients are at or above ' + methodDisplayName + ' guideline levels. The soil fertility status is adequate for healthy turfgrass growth.');
+        } else {
+            narrative.push(deficiencies.join(', ') + (deficiencies.length === 1 ? ' is' : ' are') + ' below ' + methodDisplayName + ' guidelines and require attention.');
+            if (adequate.length > 0) {
+                narrative.push(adequate.join(', ') + ' levels are adequate.');
+            }
+        }
+        
+        // Add methodology context for Ammonium Acetate
+        if (isAA) {
+            narrative.push('');
+            narrative.push('Interpretation uses Hill Labs NZ extraction methods: Olsen phosphorus (sodium bicarbonate) and ammonium acetate (pH 8.1) for cations. Sufficiency ranges are calibrated for New Zealand soil conditions.');
+            if (soilData.aaSoilTexture === 'sands') {
+                narrative.push('Sand-based rootzone thresholds applied for potassium and magnesium interpretation.');
+            }
+        }
+        
+        // pH interpretation - species-specific optimal ranges
+        // C4 (Couch/Bermuda/Kikuyu/Zoysia): 6.5-7.0
+        // C3 (Bentgrass/Ryegrass/Fescue/Bluegrass): 6.0-6.5
+        if (soilData.pH) {
+            var pH = soilData.pH;
+            var isC3 = soilData.isC3Species || false;
+            var speciesName = soilData.speciesName || (isC3 ? 'cool-season grass' : 'warm-season grass');
+            
+            // Set optimal range based on species
+            var optLo, optHi;
+            if (isC3) {
+                optLo = 6.0;
+                optHi = 6.5;
+            } else {
+                optLo = 6.5;
+                optHi = 7.0;
+            }
+            
+            var rangeStr = optLo + '-' + optHi;
+            
+            // dolomiticCorrection: true when Mg deficit + low pH -> dolomite already recommended
+            // In that case dolomite handles pH correction — suppress standalone lime recommendation
+            var lowpH = pH < 6.0;
+            var caDeficit = soilData.Ca && soilData.thresholds && soilData.thresholds.Ca ? soilData.Ca < soilData.thresholds.Ca.min : false;
+            var mgDeficit = soilData.Mg && soilData.thresholds && soilData.thresholds.Mg ? soilData.Mg < soilData.thresholds.Mg.min : false;
+            var dolomiticCorrection = lowpH && mgDeficit && (caDeficit || pH < 5.5);
+
+            // hasSpeciesPhBlock: if species tolerance data is present, the species-specific pH
+            // block (further in the report) will also fire — suppress duplicate dolomite sentence here
+            var hasSpeciesPhBlock = !!(soilData.speciesPhTolerance || soilData.speciesKey || soilData.speciesName);
+
+            if (pH < 5.5) {
+                if (dolomiticCorrection) {
+                    // Only add dolomite narrative here if the species-specific pH block won't also add it
+                    if (!hasSpeciesPhBlock) {
+                        narrative.push('Soil pH is very acidic (' + pH + '). Dolomite application (see Recommendations) will correct pH while addressing Mg and Ca deficits simultaneously. Retest in 6 months to assess response.');
+                    } else {
+                        narrative.push('Soil pH is very acidic (' + pH + '). This severely limits phosphorus availability and may allow aluminium and manganese toxicity.');
+                    }
+                } else {
+                    narrative.push('Soil pH is very acidic (' + pH + '). This limits nutrient availability, particularly phosphorus.');
+                    recommendations.push('Apply agricultural lime at 1-2 t/ha to raise pH toward ' + rangeStr + '.');
+                }
+            } else if (pH < optLo - 0.5) {
+                // More than 0.5 below optimal low
+                narrative.push('Soil pH is moderately acidic (' + pH + '). Below optimal for ' + speciesName + ' (' + rangeStr + '). Nutrient availability may be reduced.');
+                if (!dolomiticCorrection) {
+                    recommendations.push('Consider lime application to raise pH toward ' + optLo + '.');
+                }
+            } else if (pH < optLo) {
+                // Slightly below optimal
+                narrative.push('Soil pH (' + pH + ') is slightly below optimal range (' + rangeStr + ') for ' + speciesName + '.');
+                if (!isC3 && !dolomiticCorrection) {
+                    recommendations.push('Light lime application may be beneficial to raise pH toward ' + optLo + '.');
+                }
+            } else if (pH > 8.0) {
+                narrative.push('Soil pH is alkaline (' + pH + '). Iron and manganese availability may be reduced. Consider acidifying fertilisers.');
+                recommendations.push('Use ammonium-based nitrogen sources to help lower pH. Consider foliar iron applications if chlorosis appears.');
+            } else if (pH > optHi + 0.5) {
+                // More than 0.5 above optimal high
+                narrative.push('Soil pH is moderately alkaline (' + pH + '). Above optimal range (' + rangeStr + ') for ' + speciesName + '. Monitor micronutrient availability.');
+                recommendations.push('Use ammonium-based nitrogen sources. Monitor for iron chlorosis.');
+            } else if (pH > optHi) {
+                // Slightly above optimal
+                narrative.push('Soil pH (' + pH + ') is slightly above optimal range (' + rangeStr + ') for ' + speciesName + ' but generally acceptable.');
+            } else {
+                narrative.push('Soil pH (' + pH + ') is within the optimal range (' + rangeStr + ') for ' + speciesName + '.');
+            }
+        }
+        
+        return {
+            narrative: narrative,
+            recommendations: recommendations,
+            deficiencies: deficiencies
+        };
+    }
+    
+    /**
+     * Generate fertiliser recommendation for a specific nutrient deficiency.
+     * pH-aware: selects dolomite when Mg deficit co-occurs with low pH and Ca deficit,
+     * avoiding Epsom salts + separate lime when a single product addresses both.
+     * Rates expressed as elemental kg/ha (AU/NZ/UK convention).
+     */
+    function generateFertiliserRecommendation(nutrient, deficit, soilData, surfaceType) {
+        var depth = 10; // cm sampling depth
+        var bd = 1.4;   // bulk density g/cm³
+        
+        // kg elemental nutrient/ha needed
+        var kgPerHa = deficit * depth * bd * 0.1;
+        
+        var pH = soilData && soilData.pH ? parseFloat(soilData.pH) : 7.0;
+        var caDeficit = soilData && (soilData.Ca < (soilData.mlsnCa || soilData.sufficiencyCa || 99999));
+        var mgDeficit = soilData && (soilData.Mg < (soilData.mlsnMg || soilData.sufficiencyMg || 99999));
+        var lowpH = pH < 6.0;
+
+        // Fine turf surfaces (greens, tees, bowling, croquet) require split applications
+        // to avoid smothering. Cap single-application granular product rates.
+        var isFineTurf = surfaceType && /green|tee|bowl|croquet/i.test(surfaceType);
+        var FINE_TURF_CAP = 400; // kg product/ha per application for granular liming/mineral products
+
+        // Helper: format a product rate string with split-application note if needed
+        function formatRate(kgNutrient, kgProduct, unit, productName) {
+            var base = kgNutrient.toFixed(0) + ' kg ' + unit + '/ha (' + kgProduct.toFixed(0) + ' kg product/ha)';
+            if (isFineTurf && kgProduct > FINE_TURF_CAP) {
+                var apps = Math.ceil(kgProduct / FINE_TURF_CAP);
+                base += ' — apply in ' + apps + ' split dressings of ' + Math.round(kgProduct / apps) + ' kg product/ha; water in after each application';
+            }
+            return base;
+        }
+
+        var products = {
+            P: { name: 'MAP (Mono-ammonium phosphate)', analysis: '10% P', rate: kgPerHa.toFixed(0) },
+            K: { name: 'Potassium sulphate', analysis: '0-0-42 (17% K)', rate: formatRate(kgPerHa, kgPerHa / 0.415, 'K', 'Potassium sulphate') },
+            Ca: { name: 'Gypsum', analysis: '23% Ca', rate: formatRate(kgPerHa, kgPerHa / 0.23, 'Ca', 'Gypsum') },
+            Mg: null, // resolved below
+            S: { name: 'Elemental sulphur', analysis: '90% S', rate: formatRate(kgPerHa, kgPerHa / 0.90, 'S', 'Elemental sulphur') }
+        };
+
+        // Mg product: pH-aware selection
+        // Dolomite (12% Mg, 22% Ca) preferred when: low pH AND (Ca also deficient OR pH < 5.5).
+        // Rate is driven by whichever deficit (Mg or Ca) requires more product.
+        // When dolomite is selected, suppress the Ca (gypsum) recommendation — dolomite covers it.
+        if (nutrient === 'Mg') {
+            if (lowpH && (caDeficit || pH < 5.5)) {
+                // Rate: Mg-driven = kgPerHa/0.12; Ca-driven = caDeficit kg Ca / 0.22
+                // Use the higher to ensure both deficits are addressed by the same product
+                var dolRateMg = kgPerHa / 0.12;
+                var caDef = soilData && soilData.thresholds && soilData.thresholds.Ca
+                    ? Math.max(0, soilData.thresholds.Ca.min - (soilData.Ca || 0))
+                    : 0;
+                var caDef_kg = caDef * depth * bd * 0.1;
+                var dolRateCa = caDef_kg > 0 ? caDef_kg / 0.22 : 0;
+                var dolProduct = Math.max(dolRateMg, dolRateCa);
+                var dolMgKg = dolProduct * 0.12;
+                var rateStr = formatRate(dolMgKg, dolProduct, 'Mg', 'Dolomite');
+                // Annotate what drove the rate
+                var driver = dolRateCa > dolRateMg ? ' (rate driven by Ca deficit; also corrects Mg and raises pH)' : ' (rate driven by Mg deficit; also supplies Ca and raises pH)';
+                products.Mg = {
+                    name: 'Dolomite (CaMg(CO₃)₂)',
+                    analysis: '12% Mg, 22% Ca',
+                    rate: rateStr + driver,
+                    coversCa: true  // flag to suppress separate Ca gypsum recommendation
+                };
+            } else if (pH >= 7.0) {
+                // High pH — dolomite will worsen alkalinity; use kieserite
+                products.Mg = {
+                    name: 'Kieserite (MgSO₄·H₂O)',
+                    analysis: '16% Mg',
+                    rate: formatRate(kgPerHa, kgPerHa / 0.16, 'Mg', 'Kieserite')
+                };
+            } else {
+                // Near-neutral pH, Ca adequate — Epsom salts appropriate
+                products.Mg = {
+                    name: 'Magnesium sulphate (Epsom salts)',
+                    analysis: '10% Mg',
+                    rate: formatRate(kgPerHa, kgPerHa / 0.10, 'Mg', 'Epsom salts')
+                };
+            }
+        }
+
+        // If Ca is requested but dolomite is already covering Ca (via Mg recommendation),
+        // suppress the gypsum bullet — dolomite already addresses the deficit
+        if (nutrient === 'Ca' && lowpH && mgDeficit && (caDeficit || pH < 5.5)) {
+            // Dolomite will be recommended for Mg and covers Ca — skip gypsum
+            return null;
+        }
+
+        var p = products[nutrient];
+        if (!p) return null;
+
+        return 'Apply ' + p.name + ' (' + p.analysis + ') at approximately ' + p.rate + ' to address ' + nutrient + ' deficiency.';
+    }
+    
+    /**
+     * Generate tissue interpretation narrative and recommendations
+     */
+    function generateTissueNarrative(tissueData) {
+        if (!tissueData || !tissueData.ranges) return null;
+        
+        var narrative = [];
+        var recommendations = [];
+        var low = [];
+        var high = [];
+        var adequate = [];
+        
+        var nutrients = [
+            { key: 'N', name: 'Nitrogen', unit: '%', type: 'macro' },
+            { key: 'P', name: 'Phosphorus', unit: '%', type: 'macro' },
+            { key: 'K', name: 'Potassium', unit: '%', type: 'macro' },
+            { key: 'Ca', name: 'Calcium', unit: '%', type: 'macro' },
+            { key: 'Mg', name: 'Magnesium', unit: '%', type: 'macro' },
+            { key: 'S', name: 'Sulphur', unit: '%', type: 'macro' },
+            { key: 'Fe', name: 'Iron', unit: 'ppm', type: 'micro' },
+            { key: 'Mn', name: 'Manganese', unit: 'ppm', type: 'micro' },
+            { key: 'Zn', name: 'Zinc', unit: 'ppm', type: 'micro' },
+            { key: 'Cu', name: 'Copper', unit: 'ppm', type: 'micro' },
+            { key: 'B', name: 'Boron', unit: 'ppm', type: 'micro' }
+        ];
+        
+        nutrients.forEach(function(n) {
+            var value = tissueData[n.key];
+            var range = tissueData.ranges[n.key];
+            if (value === undefined || !range) return;
+            
+            if (value < range.lo) {
+                low.push({ nutrient: n.name, value: value, target: range.lo, type: n.type });
+            } else if (value > range.hi) {
+                high.push({ nutrient: n.name, value: value, target: range.hi, type: n.type });
+            } else {
+                adequate.push(n.name);
+            }
+        });
+        
+        // Build narrative
+        if (low.length === 0 && high.length === 0) {
+            narrative.push('All tissue nutrient levels are within sufficiency ranges. Plant nutrition is balanced and adequate for healthy growth.');
+        } else {
+            if (low.length > 0) {
+                var lowNames = low.map(function(l) { return l.nutrient; });
+                narrative.push(lowNames.join(', ') + (low.length === 1 ? ' is' : ' are') + ' below sufficiency levels, indicating potential deficiency.');
+                
+                // Generate recommendations for low nutrients
+                low.forEach(function(l) {
+                    if (l.type === 'macro') {
+                        if (l.nutrient === 'Nitrogen') {
+                            recommendations.push('Increase nitrogen applications. Consider split applications of quick-release N for rapid response, followed by slow-release sources.');
+                        } else if (l.nutrient === 'Potassium') {
+                            recommendations.push('Apply potassium sulphate or potassium nitrate as foliar or granular. K is critical for stress tolerance and disease resistance.');
+                        } else if (l.nutrient === 'Phosphorus') {
+                            recommendations.push('Apply phosphorus-containing fertiliser. Consider foliar MAP or MKP for rapid uptake. Check soil P availability.');
+                        } else if (l.nutrient === 'Magnesium') {
+                            recommendations.push('Apply magnesium sulphate (Epsom salt) as foliar spray at 2-5 kg/ha or granular application.');
+                        } else if (l.nutrient === 'Calcium') {
+                            recommendations.push('Apply calcium nitrate or gypsum. Check soil Ca:Mg ratio.');
+                        } else if (l.nutrient === 'Sulphur') {
+                            recommendations.push('Apply sulphur-containing fertiliser such as ammonium sulphate or potassium sulphate.');
+                        }
+                    } else {
+                        // Micronutrients - typically foliar
+                        recommendations.push('Apply foliar ' + l.nutrient.toLowerCase() + ' at label rates. Micronutrient deficiencies respond quickly to foliar applications.');
+                    }
+                });
+            }
+            
+            if (high.length > 0) {
+                var highNames = high.map(function(h) { return h.nutrient; });
+                narrative.push(highNames.join(', ') + (high.length === 1 ? ' is' : ' are') + ' above optimal levels. This may indicate luxury consumption or potential antagonism with other nutrients.');
+            }
+        }
+        
+        // Check for antagonisms
+        if (tissueData.K && tissueData.Mg && tissueData.ranges.K && tissueData.ranges.Mg) {
+            var kVal = tissueData.K;
+            var mgVal = tissueData.Mg;
+            if (kVal > tissueData.ranges.K.hi && mgVal < tissueData.ranges.Mg.lo) {
+                narrative.push('High potassium with low magnesium suggests K-Mg antagonism. Reduce K applications and supplement Mg.');
+            }
+        }
+        
+        return {
+            narrative: narrative,
+            recommendations: recommendations,
+            limiting: low.map(function(l) { return l.nutrient; })
+        };
+    }
+    
+    /**
+     * Generate water quality interpretation narrative and recommendations
+     * @param {Object} waterData - Water quality data
+     * @param {Object} turfData - Optional turf data for species-specific impacts
+     */
+    function generateWaterNarrative(waterData, turfData) {
+        if (!waterData) return null;
+        
+        var narrative = [];
+        var recommendations = [];
+        var concerns = [];
+        
+        // Get species context for recommendations
+        var speciesName = 'turf';
+        var isOverseedFocused = false;
+        if (turfData) {
+            isOverseedFocused = turfData.overseedDominant || false;
+            speciesName = turfData.effectiveSpecies || turfData.species || 'turf';
+        }
+        
+        // EC assessment
+        if (waterData.EC !== undefined) {
+            var ec = waterData.EC;
+            if (ec < 0.5) {
+                narrative.push('Electrical conductivity (EC) is very low at ' + ec.toFixed(2) + ' dS/m, indicating low salinity irrigation water with minimal salt loading risk.');
+            } else if (ec < 0.75) {
+                narrative.push('EC (' + ec.toFixed(2) + ' dS/m) is within the safe range for all turfgrass species.');
+            } else if (ec < 1.5) {
+                var marginalNote = isOverseedFocused ? 
+                    speciesName + ' may show stress during hot periods as C3 grasses are generally more salt-sensitive than C4.' :
+                    'Salt-sensitive species may show stress during hot periods.';
+                narrative.push('EC (' + ec.toFixed(2) + ' dS/m) is in the marginal range. ' + marginalNote);
+                concerns.push('Marginal salinity');
+                recommendations.push('Increase leaching fraction to 15-20% above ET requirements to prevent salt accumulation.');
+            } else if (ec < 3.0) {
+                var elevatedNote = isOverseedFocused ?
+                    speciesName + ', as a C3 grass, has lower salt tolerance than the underlying warm-season base. Growth reduction and tip burn are likely.' :
+                    'Only salt-tolerant grasses should be irrigated with this water.';
+                narrative.push('EC (' + ec.toFixed(2) + ' dS/m) is elevated. ' + elevatedNote);
+                concerns.push('Elevated salinity');
+                recommendations.push('Apply gypsum at 1-2 t/ha annually. Maintain leaching fraction of 20-25%. Monitor soil EC regularly.');
+            } else {
+                narrative.push('EC (' + ec.toFixed(2) + ' dS/m) exceeds safe limits for most turfgrass. Serious management required.');
+                concerns.push('High salinity hazard');
+                recommendations.push('CRITICAL: Consider alternative water source or blending. If unavoidable, apply heavy gypsum (2-3 t/ha) and aggressive leaching program.');
+            }
+        }
+        
+        // SAR assessment
+        if (waterData.SAR !== undefined) {
+            var sar = waterData.SAR;
+            if (sar < 3) {
+                narrative.push('SAR (' + sar.toFixed(1) + ') is excellent - no sodium hazard to soil structure.');
+            } else if (sar < 6) {
+                narrative.push('SAR (' + sar.toFixed(1) + ') is moderate. Monitor soil infiltration rates.');
+                concerns.push('Moderate sodium');
+            } else if (sar < 12) {
+                narrative.push('SAR (' + sar.toFixed(1) + ') is elevated. Soil structure degradation is likely over time.');
+                concerns.push('Sodium hazard');
+                recommendations.push('Apply gypsum to maintain soil calcium levels and prevent dispersion. Rate: 1-2 t/ha annually.');
+            } else {
+                narrative.push('SAR (' + sar.toFixed(1) + ') is very high. Severe soil structure problems will occur without management.');
+                concerns.push('Severe sodium hazard');
+                recommendations.push('URGENT: Apply gypsum at 2-3 t/ha in split applications. Consider acidification if HCO3 is also high. Test soil ESP regularly.');
+            }
+        }
+        
+        // Chloride assessment - C3 grasses more sensitive to overhead chloride
+        if (waterData.Cl !== undefined && waterData.Cl > 100) {
+            var cl = waterData.Cl;
+            if (cl < 200) {
+                var clNote = isOverseedFocused ?
+                    speciesName + ' is more susceptible to foliar chloride damage than warm-season grasses. Irrigate during cooler periods.' :
+                    'Foliar damage possible during hot, dry periods with overhead irrigation.';
+                narrative.push('Chloride (' + cl + ' ppm) is marginal. ' + clNote);
+            } else {
+                narrative.push('Chloride (' + cl + ' ppm) exceeds safe levels. Leaf scorch likely with overhead irrigation in summer.');
+                concerns.push('Chloride toxicity risk');
+                recommendations.push('Irrigate during cooler periods or use subsurface irrigation where possible. Increase leaching to flush chloride from rootzone.');
+            }
+        }
+        
+        // Bicarbonate assessment
+        if (waterData.HCO3 !== undefined && waterData.HCO3 > 90) {
+            var hco3 = waterData.HCO3;
+            if (hco3 < 180) {
+                narrative.push('Bicarbonate (' + hco3 + ' ppm) is marginal. Some lime precipitation may occur on leaves and emitters.');
+            } else {
+                narrative.push('Bicarbonate (' + hco3 + ' ppm) is high. White residue on leaves and clogged emitters likely.');
+                concerns.push('High bicarbonate');
+                recommendations.push('Consider acidification with sulphuric or phosphoric acid to pH 6.5-7.0. This will also improve calcium availability and reduce scaling.');
+            }
+        }
+        
+        // RSC assessment
+        if (waterData.RSC !== undefined) {
+            var rsc = waterData.RSC;
+            if (rsc > 1.25) {
+                narrative.push('Residual Sodium Carbonate (RSC ' + rsc.toFixed(1) + ' meq/L) is concerning. This water will strip calcium from soil over time.');
+                concerns.push('Positive RSC');
+                recommendations.push('Apply gypsum to offset calcium removal. Consider acidification to neutralize excess carbonates.');
+            } else if (rsc < 0) {
+                narrative.push('RSC is negative (' + rsc.toFixed(1) + ' meq/L), indicating adequate calcium and magnesium relative to carbonates. This is beneficial for soil structure.');
+            }
+        }
+        
+        // Overall summary
+        if (concerns.length === 0) {
+            narrative.unshift('Water quality is suitable for turfgrass irrigation with no significant concerns.');
+        } else {
+            narrative.unshift('Water quality analysis has identified ' + concerns.length + ' concern' + (concerns.length > 1 ? 's' : '') + ' requiring management attention.');
+        }
+        
+        return {
+            narrative: narrative,
+            recommendations: recommendations,
+            concerns: concerns
+        };
+    }
+    
+    /**
+     * Generate Performance Impact Analysis - discusses relationships between
+     * soil, water, tissue, climate, cultivar selection, and other factors affecting turf
+     */
+    function generatePerformanceImpactAnalysis(data) {
+        if (!data) return null;
+        
+        var narrative = [];
+        var relationships = [];
+        var recommendations = [];
+        var hasImpacts = false;
+        
+        // Use effective species/variety for overseed dominant situations
+        var varietyName = (data.varietyTraits && data.varietyTraits.displayName) || 
+                          (data.turf && data.turf.effectiveVariety && data.turf.effectiveVariety !== 'generic' ? data.turf.effectiveVariety : null) ||
+                          (data.turf && data.turf.variety !== 'generic' ? data.turf.variety : null);
+        var speciesName = data.turf ? (data.turf.effectiveSpecies || data.turf.speciesDisplay || data.turf.species || 'turf') : 'turf';
+        var isOverseedFocused = data.turf && data.turf.overseedDominant;
+        
+        // Helper to check if soil has data
+        var hasSoilData = data.soil && (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg);
+        var hasTissueData = data.tissue && (data.tissue.N || data.tissue.K || data.tissue.P);
+        var hasWaterData = data.water && (data.water.EC !== undefined || data.water.SAR !== undefined);
+        var hasClimateData = data.climate && (data.climate.growthPotential !== undefined || data.climate.temperature !== undefined);
+        
+        // Add overseed context to narrative if applicable
+        if (isOverseedFocused) {
+            narrative.push('With ' + Math.round(data.turf.c3Fraction * 100) + '% ' + speciesName + ' cover established, management focus is on the overseeded grass. All agronomic recommendations in this section are specific to ' + speciesName + ' requirements.');
+        }
+        
+        // ========== SOIL × WATER INTERACTIONS ==========
+        if (hasSoilData && hasWaterData) {
+            // High bicarbonate water affecting soil calcium availability
+            if (data.water.HCO3 && data.water.HCO3 > 180 && data.soil.Ca) {
+                var caStatus = data.soil.thresholds && data.soil.thresholds.Ca ? 
+                    (data.soil.Ca < data.soil.thresholds.Ca.min ? 'low' : 'adequate') : 'unknown';
+                
+                if (caStatus === 'low' || data.soil.Ca < 400) {
+                    relationships.push({
+                        type: 'interaction',
+                        text: 'The high bicarbonate content of the irrigation water (' + data.water.HCO3 + ' ppm) will precipitate calcium carbonate when applied, reducing plant-available calcium in the rootzone. Given that soil calcium (' + data.soil.Ca + ' ppm) is already limited, this interaction compounds the risk of calcium deficiency.'
+                    });
+                    recommendations.push('Consider acidifying irrigation water to pH 6.5-7.0 to improve calcium availability. Apply gypsum (calcium sulphate) as a supplemental calcium source that won\'t raise pH.');
+                    hasImpacts = true;
+                } else {
+                    relationships.push({
+                        type: 'monitoring',
+                        text: 'The elevated bicarbonate level in irrigation water (' + data.water.HCO3 + ' ppm) may reduce calcium availability over time through precipitation reactions. Current soil calcium (' + data.soil.Ca + ' ppm) provides an adequate buffer, but levels should be monitored for decline.'
+                    });
+                    hasImpacts = true;
+                }
+            }
+            
+            // High SAR water affecting soil structure and nutrient availability
+            if (data.water.SAR && data.water.SAR > 6) {
+                relationships.push({
+                    type: 'concern',
+                    text: 'The elevated sodium adsorption ratio (SAR ' + data.water.SAR.toFixed(1) + ') of the irrigation water promotes sodium accumulation in the soil profile. Over time, sodium displaces calcium and magnesium from soil exchange sites, degrading soil structure and reducing both infiltration rates and root penetration capacity.'
+                });
+                
+                if (data.soil.Ca && data.soil.Mg) {
+                    var caMgRatio = data.soil.Ca / data.soil.Mg;
+                    if (caMgRatio < 3) {
+                        relationships.push({
+                            type: 'compound',
+                            text: 'This situation is exacerbated by the current Ca:Mg ratio (' + caMgRatio.toFixed(1) + ':1), which is already below optimal. Continued irrigation with high-SAR water will further displace calcium, worsening soil physical properties and potentially inducing magnesium-induced calcium deficiency in the turf.'
+                        });
+                    }
+                }
+                recommendations.push('Apply gypsum at 1-2 t/ha annually to maintain calcium dominance on exchange sites. Monitor soil ESP (exchangeable sodium percentage) and infiltration rates.');
+                hasImpacts = true;
+            }
+            
+            // Saline water affecting nutrient uptake
+            if (data.water.EC && data.water.EC > 1.5) {
+                relationships.push({
+                    type: 'interaction',
+                    text: 'The elevated salinity of the irrigation water (EC ' + data.water.EC.toFixed(2) + ' dS/m) reduces nutrient uptake efficiency across all elements. Plants must expend metabolic energy on osmotic adjustment rather than growth, and the high sodium and chloride concentrations compete directly with potassium and nitrate uptake at root membrane transport sites.'
+                });
+                
+                if (data.soil.K && data.soil.thresholds && data.soil.thresholds.K) {
+                    if (data.soil.K < data.soil.thresholds.K.min * 1.5) {
+                        recommendations.push('Maintain soil potassium at 150% of normal MLSN target to compensate for sodium competition at uptake sites. Apply potassium sulphate rather than potassium chloride to avoid adding additional chloride load.');
+                    }
+                }
+                hasImpacts = true;
+            }
+        }
+        
+        // ========== TISSUE × SOIL RELATIONSHIPS ==========
+        if (hasTissueData && hasSoilData) {
+            // Tissue deficiency despite adequate soil levels - suggests uptake problem
+            if (data.tissue.K && data.soil.K && data.tissue.ranges && data.tissue.ranges.K) {
+                var tissueKLow = data.tissue.K < data.tissue.ranges.K.lo;
+                var soilKAdequate = data.soil.thresholds && data.soil.thresholds.K && 
+                                    data.soil.K >= data.soil.thresholds.K.min;
+                
+                if (tissueKLow && soilKAdequate) {
+                    relationships.push({
+                        type: 'diagnostic',
+                        text: 'Tissue potassium (' + data.tissue.K + '%) is below the sufficiency range despite adequate soil K reserves (' + data.soil.K + ' ppm). This discrepancy suggests an uptake restriction rather than a supply problem. Potential causes include root damage, soil compaction, waterlogging, or cation antagonism from excess sodium, calcium, or magnesium competing at root uptake sites.'
+                    });
+                    recommendations.push('Investigate root health and soil physical conditions. Foliar potassium applications can bypass root uptake limitations for immediate response while underlying issues are addressed.');
+                    hasImpacts = true;
+                }
+            }
+            
+            // Similar check for other nutrients
+            if (data.tissue.Mg && data.soil.Mg && data.tissue.ranges && data.tissue.ranges.Mg) {
+                var tissueMgLow = data.tissue.Mg < data.tissue.ranges.Mg.lo;
+                var soilMgAdequate = data.soil.thresholds && data.soil.thresholds.Mg && 
+                                     data.soil.Mg >= data.soil.thresholds.Mg.min;
+                
+                if (tissueMgLow && soilMgAdequate) {
+                    // Check for K-induced Mg deficiency
+                    if (data.tissue.K && data.tissue.ranges.K && data.tissue.K > data.tissue.ranges.K.hi) {
+                        relationships.push({
+                            type: 'interaction',
+                            text: 'The combination of low tissue magnesium (' + data.tissue.Mg + '%) and elevated tissue potassium (' + data.tissue.K + '%) indicates potassium-magnesium antagonism. Excessive potassium uptake is suppressing magnesium absorption at the root level, despite adequate magnesium being present in the soil. This is a common issue following heavy potassium fertilisation.'
+                        });
+                        recommendations.push('Reduce potassium applications and apply foliar magnesium sulphate (2-5 kg/ha) until tissue Mg recovers. Avoid high-K fertilisers until cation balance is restored.');
+                        hasImpacts = true;
+                    }
+                }
+            }
+            
+            // Phosphorus availability vs pH
+            if (data.soil.pH && data.soil.P) {
+                var pH = data.soil.pH;
+                var P = data.soil.P;
+                
+                if ((pH < 5.5 || pH > 7.5) && P < 30) {
+                    var pIssue = pH < 5.5 ? 
+                        'The low soil pH (' + pH + ') causes phosphorus to bind with aluminium and iron oxides' : 
+                        'The elevated soil pH (' + pH + ') causes phosphorus to precipitate with calcium';
+                    relationships.push({
+                        type: 'interaction',
+                        text: pIssue + ', reducing the proportion that remains plant-available. The soil test P value (' + P + ' ppm) likely overestimates actual phosphorus availability under these pH conditions.'
+                    });
+                    
+                    if (data.tissue && data.tissue.P && data.tissue.ranges && data.tissue.ranges.P) {
+                        if (data.tissue.P < data.tissue.ranges.P.lo) {
+                            recommendations.push('Tissue P confirms limited availability despite soil reserves. Apply phosphorus as foliar MAP or MKP for rapid uptake, and address soil pH to improve long-term phosphorus availability.');
+                        }
+                    }
+                    hasImpacts = true;
+                }
+            }
+        }
+        
+        // ========== CLIMATE × RECOVERY RELATIONSHIPS ==========
+        if (hasClimateData) {
+            var gp = data.climate.growthPotential;
+            var temp = data.climate.temperature;
+            
+            // Low growth potential impacts
+            if (gp !== undefined && gp !== null) {
+                if (gp < 20) {
+                    relationships.push({
+                        type: 'concern',
+                        text: 'Current growth potential (' + Math.round(gp) + '%) severely restricts the turf\'s ability to recover from damage. Any injury from traffic, disease, or other stressors will persist until temperatures return to the species\' optimal growth range. Management should focus on protection rather than recovery during this period.'
+                    });
+                    
+                    // Compound with traffic
+                    if (data.traffic && data.traffic.hasData) {
+                        recommendations.push('Reduce traffic load during low growth periods. Recovery from wear damage will be 3-5 times slower than during optimal growth conditions.');
+                    }
+                    
+                    // Compound with disease
+                    if (data.disease && data.disease.hasData && 
+                        (data.disease.overallRisk === 'high' || data.disease.overallRisk === 'severe')) {
+                        relationships.push({
+                            type: 'compound',
+                            text: 'The coincidence of disease pressure with low recovery capacity creates a critical situation. The turf cannot outgrow pathogen damage at current growth rates, making proactive fungicide applications essential. Curative treatments will be less effective as damaged tissue cannot be replaced quickly.'
+                        });
+                    }
+                    hasImpacts = true;
+                    
+                } else if (gp < 50) {
+                    relationships.push({
+                        type: 'monitoring',
+                        text: 'Moderate growth potential (' + Math.round(gp) + '%) allows gradual recovery but with extended healing times compared to peak growing conditions. This should be factored into scheduling of renovations, aeration, or intensive traffic periods.'
+                    });
+                    hasImpacts = true;
+                }
+                
+                // High growth potential considerations
+                if (gp > 80) {
+                    relationships.push({
+                        type: 'positive',
+                        text: 'Current growth potential (' + Math.round(gp) + '%) provides excellent recovery capacity. This is the optimal window for renovation work, aggressive aeration, or recovering from previous damage. The turf can rapidly replace damaged tissue under these conditions.'
+                    });
+                    
+                    // But check for nutrient limitations
+                    if (hasTissueData && data.tissue.N && data.tissue.ranges && data.tissue.ranges.N) {
+                        if (data.tissue.N < data.tissue.ranges.N.lo) {
+                            relationships.push({
+                                type: 'interaction',
+                                text: 'Despite favourable growth conditions, tissue nitrogen (' + data.tissue.N + '%) is below sufficiency, meaning the plant cannot capitalise on the high growth potential. Growth is currently nitrogen-limited rather than temperature-limited.'
+                            });
+                            recommendations.push('Apply nitrogen to support current growth demand. Spoon-feeding with light, frequent applications is most efficient during rapid growth periods.');
+                        }
+                    }
+                    hasImpacts = true;
+                }
+            }
+            
+            // Temperature stress impacts on water/nutrient relations
+            if (temp !== undefined) {
+                if (temp > 30) {
+                    relationships.push({
+                        type: 'concern',
+                        text: 'Current heat stress conditions (' + temp.toFixed(1) + '°C) increase transpiration demand and can cause temporary root dysfunction. This reduces nutrient and water uptake efficiency even when soil supplies are adequate, as root membrane transport processes become less effective at elevated temperatures.'
+                    });
+                    
+                    if (hasWaterData && data.water.EC && data.water.EC > 1.0) {
+                        relationships.push({
+                            type: 'compound',
+                            text: 'The combination of high temperatures and elevated irrigation water salinity creates compounding stress. Increased transpiration concentrates salts in the root zone more rapidly, while heat-stressed roots are less able to exclude sodium and chloride ions, allowing greater toxic accumulation in leaf tissue.'
+                        });
+                        recommendations.push('Increase irrigation frequency with smaller volumes to prevent salt accumulation in the rootzone. Syringe during peak heat periods to reduce canopy temperature and transpiration demand.');
+                    }
+                    hasImpacts = true;
+                }
+            }
+        }
+        
+        // ========== SHADE × NUTRITION × CLIMATE ==========
+        if (data.shade && data.shade.currentDLI && data.shade.targetDLI) {
+            var dliDeficit = data.shade.deficit || 
+                ((data.shade.targetDLI - data.shade.currentDLI) / data.shade.targetDLI * 100);
+            
+            if (dliDeficit > 15) {
+                relationships.push({
+                    type: 'concern',
+                    text: 'The current light limitation (' + Math.round(dliDeficit) + '% below target DLI) reduces photosynthetic capacity and carbohydrate production. This has cascading effects on the plant\'s ability to respond to all other stressors, as disease resistance, traffic tolerance, heat tolerance, and drought tolerance all depend on adequate carbohydrate reserves.'
+                });
+                
+                // Shade + nitrogen interaction
+                if (hasTissueData && data.tissue.N && data.tissue.ranges && data.tissue.ranges.N) {
+                    if (data.tissue.N > data.tissue.ranges.N.hi * 0.9) {
+                        relationships.push({
+                            type: 'interaction',
+                            text: 'The combination of shade stress and high tissue nitrogen (' + data.tissue.N + '%) promotes weak, etiolated growth with thin cell walls and elongated internodes. This tissue is structurally weaker and more susceptible to both disease infection and physical damage from traffic.'
+                        });
+                        recommendations.push('Reduce nitrogen application rates by 25-40% in shaded areas. Maintain potassium at or above normal levels to maximise cell wall strength and stress tolerance of shade-adapted tissue.');
+                    }
+                }
+                
+                // Shade + climate
+                if (hasClimateData && data.climate.growthPotential && data.climate.growthPotential < 40) {
+                    relationships.push({
+                        type: 'compound',
+                        text: 'Shade stress occurring during periods of low growth potential is particularly damaging. The plant cannot produce sufficient carbohydrates to maintain existing tissue, let alone recover from damage, leading to progressive thinning, root decline, and eventual loss of stand density.'
+                    });
+                }
+                hasImpacts = true;
+            }
+        }
+        
+        // ========== CULTIVAR TRAIT IMPACTS ==========
+        if (data.varietyTraits && data.varietyTraits.hasData && varietyName) {
+            narrative.push(varietyName + ' has been selected for this site. Variety-specific traits modify the baseline species response to the conditions described above.');
+            
+            // Shade tolerance analysis
+            if (data.varietyTraits.shade && data.varietyTraits.shade.modifier) {
+                var shadeMod = data.varietyTraits.shade.modifier;
+                if (shadeMod < 0.95) {
+                    var shadeAdvantage = Math.round((1 - shadeMod) * 100);
+                    relationships.push({
+                        type: 'positive',
+                        text: varietyName + ' demonstrates enhanced shade tolerance (can tolerate ' + shadeAdvantage + '% lower DLI than species baseline).',
+                        source: data.varietyTraits.shade.source
+                    });
+                    hasImpacts = true;
+                } else if (shadeMod > 1.05) {
+                    var shadeDisadvantage = Math.round((shadeMod - 1) * 100);
+                    relationships.push({
+                        type: 'negative',
+                        text: varietyName + ' has reduced shade tolerance (requires ' + shadeDisadvantage + '% higher DLI than species baseline).',
+                        source: data.varietyTraits.shade.source
+                    });
+                    hasImpacts = true;
+                }
+            }
+            
+            // Salinity tolerance analysis
+            if (data.varietyTraits.salinity && data.varietyTraits.salinity.multiplier) {
+                var saltMod = data.varietyTraits.salinity.multiplier;
+                if (saltMod < 0.95) {
+                    var saltAdvantage = Math.round((1 - saltMod) * 100);
+                    relationships.push({
+                        type: 'positive',
+                        text: varietyName + ' exhibits improved salinity tolerance (' + saltAdvantage + '% less growth reduction from salt stress).',
+                        source: data.varietyTraits.salinity.source
+                    });
+                    hasImpacts = true;
+                }
+            }
+            
+            // Wear tolerance
+            if (data.varietyTraits.wear && data.varietyTraits.wear.multiplier) {
+                var wearMod = data.varietyTraits.wear.multiplier;
+                if (wearMod < 0.90) {
+                    var wearAdvantage = Math.round((1 - wearMod) * 100);
+                    relationships.push({
+                        type: 'positive',
+                        text: varietyName + ' has superior traffic tolerance (' + wearAdvantage + '% less wear damage under equivalent use).',
+                        source: data.varietyTraits.wear.source
+                    });
+                    hasImpacts = true;
+                }
+            }
+        }
+        
+        // ========== COMPOUND STRESS SUMMARY ==========
+        var stressors = [];
+        if (data.water && data.water.EC > 1.5) stressors.push('salinity stress');
+        if (data.shade && data.shade.deficit > 20) stressors.push('light limitation');
+        if (data.traffic && data.traffic.status && data.traffic.status.toLowerCase().indexOf('high') > -1) stressors.push('traffic pressure');
+        if (data.trajectory && data.trajectory.currentScore > 50) stressors.push('environmental stress');
+        if (data.disease && data.disease.overallRisk && 
+            (data.disease.overallRisk.toLowerCase() === 'high' || data.disease.overallRisk.toLowerCase() === 'severe')) {
+            stressors.push('disease pressure');
+        }
+        if (data.climate && data.climate.growthPotential !== undefined && data.climate.growthPotential < 30) {
+            stressors.push('limited growth capacity');
+        }
+        if (hasTissueData) {
+            var deficiencies = [];
+            if (data.tissue.N && data.tissue.ranges && data.tissue.ranges.N && data.tissue.N < data.tissue.ranges.N.lo) deficiencies.push('N');
+            if (data.tissue.K && data.tissue.ranges && data.tissue.ranges.K && data.tissue.K < data.tissue.ranges.K.lo) deficiencies.push('K');
+            if (deficiencies.length > 0) stressors.push('nutrient deficiency (' + deficiencies.join(', ') + ')');
+        }
+        
+        if (stressors.length >= 3) {
+            relationships.push({
+                type: 'compound',
+                text: 'The analysis has identified ' + stressors.length + ' significant concurrent limitations: ' + stressors.join(', ') + '. Under compound stress conditions, the effects are typically multiplicative rather than additive, as each stressor reduces the plant\'s capacity to cope with the others. Management should focus on addressing the most controllable factor first while avoiding any additional disturbance that could further compromise plant health.'
+            });
+            recommendations.push('Prioritise addressing the most controllable stressor first. Defer renovation work and aggressive cultural practices until at least one major limitation has been resolved.');
+            hasImpacts = true;
+        } else if (stressors.length === 2) {
+            relationships.push({
+                type: 'monitoring',
+                text: 'Two concurrent stress factors are present: ' + stressors.join(' and ') + '. While manageable individually, the combination requires coordinated attention to prevent escalation. Monitor closely for signs of declining turf health and address both factors before the situation compounds further.'
+            });
+            hasImpacts = true;
+        }
+        
+        // ========== BUILD FINAL OUTPUT ==========
+        if (!hasImpacts) {
+            return null; // No significant interactions to report
+        }
+        
+        return {
+            narrative: narrative,
+            relationships: relationships,
+            recommendations: recommendations
+        };
+    }
+    
+    /**
+     * Generate Priority Action Summary
+     * Collects all urgent/important actions across modules and sorts by timeframe
+     * Species-aware: uses effective species tolerances for overseed scenarios
+     */
+    function generatePriorityActions(data) {
+        var immediate = [];   // 0-7 days
+        var shortTerm = [];   // 7-30 days
+        var mediumTerm = [];  // 30-90 days
+        
+        // Determine effective species for tolerance thresholds
+        var isC3Effective = data.turf && (data.turf.overseedDominant || data.soil && data.soil.isC3Species);
+        var effectiveSpecies = isC3Effective ? 
+            (data.turf.coolOverseed || data.turf.effectiveSpecies || 'cool-season overseed') :
+            (data.turf.warmBase || data.turf.species || 'warm-season grass');
+        
+        // Species-specific thresholds
+        var ecCritical = isC3Effective ? 2.0 : 4.0;      // C3 more sensitive
+        var ecWarning = isC3Effective ? 1.5 : 2.5;
+        var clThreshold = isC3Effective ? 250 : 500;     // C3 more sensitive to Cl
+        var sarCritical = isC3Effective ? 6 : 9;
+        var sarWarning = isC3Effective ? 4 : 6;
+        
+        // Water quality critical issues - SPECIES AWARE
+        if (data.water) {
+            if (data.water.EC > ecCritical) {
+                immediate.push('CRITICAL: Water EC (' + data.water.EC + ' dS/m) exceeds ' + effectiveSpecies + ' tolerance (' + ecCritical + ' dS/m). Source blending or alternative supply required immediately.');
+            } else if (data.water.EC > ecWarning) {
+                shortTerm.push('Water EC (' + data.water.EC + ' dS/m) approaching ' + effectiveSpecies + ' stress threshold. Apply gypsum (2-3 t/ha) and implement leaching program.');
+            }
+            
+            if (data.water.SAR > sarCritical) {
+                immediate.push('CRITICAL: SAR (' + (typeof data.water.SAR === 'number' ? data.water.SAR.toFixed(1) : data.water.SAR) + ') indicates severe sodium hazard for ' + effectiveSpecies + '. Apply gypsum immediately.');
+            } else if (data.water.SAR > sarWarning) {
+                shortTerm.push('SAR elevated (' + (typeof data.water.SAR === 'number' ? data.water.SAR.toFixed(1) : data.water.SAR) + ') - apply gypsum at 1-2 t/ha to protect ' + effectiveSpecies + '.');
+            }
+            
+            if (data.water.Cl > clThreshold) {
+                var clSeverity = data.water.Cl > clThreshold * 1.5 ? immediate : shortTerm;
+                clSeverity.push('Chloride (' + data.water.Cl + ' ppm) exceeds ' + effectiveSpecies + ' tolerance (' + clThreshold + ' ppm). Irrigate during cooler periods, increase leaching fraction.');
+            }
+        }
+        
+        // Soil deficiencies
+        if (data.soil && data.soil.thresholds) {
+            if (data.soil.K && data.soil.thresholds.K && data.soil.K < data.soil.thresholds.K.min * 0.5) {
+                immediate.push('Severe K deficiency - apply potassium sulphate immediately (20-40 kg K/ha elemental, equiv. 48-96 kg product/ha).');
+            }
+        }
+        
+        // Tissue deficiencies - uses ranges which should already be species-appropriate
+        if (data.tissue && data.tissue.ranges) {
+            var rangeSource = data.tissue.rangeSpecies || effectiveSpecies;
+            if (data.tissue.K && data.tissue.ranges.K && data.tissue.K < data.tissue.ranges.K.lo * 0.8) {
+                immediate.push('Tissue K critically low (' + data.tissue.K + '%) for ' + rangeSource + ' - apply foliar potassium immediately.');
+            }
+            if (data.tissue.N && data.tissue.ranges.N && data.tissue.N < data.tissue.ranges.N.lo) {
+                shortTerm.push('Tissue N below ' + rangeSource + ' sufficiency (' + data.tissue.N + '%) - increase N program or apply foliar N.');
+            }
+            if (data.tissue.P && data.tissue.ranges.P && data.tissue.P < data.tissue.ranges.P.lo) {
+                shortTerm.push('Tissue P below ' + rangeSource + ' sufficiency (' + data.tissue.P + '%) - apply phosphorus fertiliser or foliar MAP/MKP.');
+            }
+        }
+        
+        // Disease risk
+        if (data.disease) {
+            if (data.disease.overallRisk === 'HIGH' || data.disease.overallRisk === 'SEVERE') {
+                immediate.push('High disease risk for ' + effectiveSpecies + ' - implement preventive fungicide application within 48 hours.');
+            } else if (data.disease.overallRisk === 'MODERATE') {
+                shortTerm.push('Moderate disease risk - schedule fungicide application, increase monitoring frequency.');
+            }
+        }
+        
+        // PGR reapplication
+        if (data.pgr && data.pgr.daysUntilReapply !== undefined) {
+            if (data.pgr.daysUntilReapply <= 7) {
+                immediate.push('PGR reapplication due within ' + data.pgr.daysUntilReapply + ' days.');
+            } else if (data.pgr.daysUntilReapply <= 14) {
+                shortTerm.push('Schedule PGR reapplication - due in ' + data.pgr.daysUntilReapply + ' days.');
+            }
+        }
+        
+        // Shade/light issues
+        if (data.shade && data.shade.deficit > 30) {
+            mediumTerm.push('Significant light deficit (' + data.shade.deficit + '%) for ' + effectiveSpecies + ' - evaluate LED supplementation or shade reduction.');
+        }
+        
+        // Traffic management
+        if (data.traffic && data.traffic.status) {
+            var status = data.traffic.status.toLowerCase();
+            if (status.indexOf('critical') > -1 || status.indexOf('high_risk') > -1) {
+                shortTerm.push('Traffic load exceeds ' + effectiveSpecies + ' recovery capacity - reduce training frequency or add rest days.');
+            }
+        }
+        
+        // N program issues
+        if (data.nProgram && data.nProgram.verdict) {
+            if (data.nProgram.verdict.level === 'excessive') {
+                shortTerm.push('N application exceeds uptake capacity - reduce rates by ' + Math.round(data.nProgram.difference || 0) + ' kg/ha.');
+            }
+        }
+        
+        // v2.1.0: Irrigation actions
+        if (data.irrigation && data.irrigation.hasData) {
+            var irrigStatus = (data.irrigation.status || '').toLowerCase();
+            var depletionPct = data.irrigation.depletionPct;
+            
+            if (irrigStatus === 'critical' || depletionPct >= 70) {
+                var refillMsg = 'CRITICAL: Soil moisture depleted to ' + (depletionPct || 'critical') + '% of available water';
+                if (data.irrigation.refillDepth) {
+                    refillMsg += ' - apply ' + data.irrigation.refillDepth + 'mm irrigation immediately.';
+                } else {
+                    refillMsg += ' - irrigate immediately to prevent turf stress.';
+                }
+                immediate.push(refillMsg);
+            } else if (irrigStatus === 'stressed' || (depletionPct && depletionPct >= 50)) {
+                var stressMsg = 'Soil moisture approaching stress threshold (' + (depletionPct || 'elevated') + '% depletion)';
+                if (data.irrigation.refillDepth) {
+                    stressMsg += ' - schedule ' + data.irrigation.refillDepth + 'mm irrigation within 24-48 hours.';
+                } else {
+                    stressMsg += ' - irrigation recommended within 24-48 hours.';
+                }
+                shortTerm.push(stressMsg);
+            }
+            
+            // Leaching requirement from water quality
+            if (data.irrigation.leachingRequirement && data.irrigation.leachingRequirement.fraction > 10) {
+                shortTerm.push('Leaching required: Apply ' + data.irrigation.leachingRequirement.fraction + '% additional water per irrigation event to flush salts. ' + data.irrigation.leachingRequirement.reason);
+            }
+        }
+        
+        // Sensor-based irrigation (TDR zones)
+        if (data.sensor && data.sensor.hasData && data.sensor.zones) {
+            var criticalZones = data.sensor.zones.filter(function(z) {
+                return z.irrigation && (z.irrigation.status === 'critical' || z.irrigation.mmRequired > 10);
+            });
+            if (criticalZones.length > 0) {
+                var zoneNames = criticalZones.map(function(z) { return z.name; }).join(', ');
+                var totalMm = criticalZones.reduce(function(sum, z) { return sum + (z.irrigation.mmRequired || 0); }, 0);
+                immediate.push('Sensor data indicates critical moisture deficit in ' + criticalZones.length + ' zone(s): ' + zoneNames + '. Total irrigation required: ' + totalMm.toFixed(1) + 'mm.');
+            }
+        }
+        
+        var hasActions = immediate.length > 0 || shortTerm.length > 0 || mediumTerm.length > 0;
+        
+        return {
+            hasActions: hasActions,
+            immediate: immediate,
+            shortTerm: shortTerm,
+            mediumTerm: mediumTerm,
+            effectiveSpecies: effectiveSpecies,
+            isC3: isC3Effective
+        };
+    }
+    
+    /**
+     * Generate Cation Balance Analysis
+     * Calculates Ca:Mg, K:Mg ratios and base saturation
+     */
+    function generateCationBalance(data) {
+        if (!data.soil || !data.soil.Ca || !data.soil.Mg || !data.soil.CEC) {
+            return null;
+        }
+        
+        var Ca = data.soil.Ca;
+        var Mg = data.soil.Mg;
+        var K = data.soil.K || 0;
+        var Na = data.soil.Na || 0;
+        var CEC = data.soil.CEC;
+        
+        // Convert ppm to meq/100g for base saturation
+        // Ca: divide by 200, Mg: divide by 121.5, K: divide by 391, Na: divide by 230
+        var Ca_meq = Ca / 200;
+        var Mg_meq = Mg / 121.5;
+        var K_meq = K / 391;
+        var Na_meq = Na / 230;
+        
+        // Base saturation percentages
+        var Ca_sat = (Ca_meq / CEC) * 100;
+        var Mg_sat = (Mg_meq / CEC) * 100;
+        var K_sat = (K_meq / CEC) * 100;
+        var Na_sat = (Na_meq / CEC) * 100;
+        var totalBaseSat = Ca_sat + Mg_sat + K_sat + Na_sat;
+        
+        // Ratios
+        var CaMg = Ca / Mg;
+        var KMg = (K / 39.1) / (Mg / 12.15);  // Convert to meq ratio
+        
+        // Status assessments
+        var issues = [];
+        var recommendations = [];
+        
+        // Ca:Mg ratio assessment (target 3:1 to 10:1 depending on philosophy)
+        var CaMgStatus = 'Optimal';
+        if (CaMg < 3) {
+            CaMgStatus = 'Low';
+            issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is below optimal. Magnesium may be antagonising calcium uptake.');
+            recommendations.push('Apply gypsum or calcium nitrate to improve Ca:Mg balance.');
+        } else if (CaMg > 10) {
+            CaMgStatus = 'High';
+            issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is elevated. Calcium may be limiting magnesium availability.');
+            recommendations.push('Apply magnesium source — dolomite at 1-2 t/ha if pH < 6.0 (raises pH and supplies Mg + Ca), or kieserite at 200-400 kg/ha Mg if pH adequate.');
+        }
+        
+        // K:Mg ratio assessment (target 0.2-0.5 meq:meq)
+        var KMgStatus = 'Optimal';
+        if (KMg > 0.7) {
+            KMgStatus = 'High K';
+            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') indicates potential K-induced Mg deficiency.');
+            recommendations.push('Reduce potassium applications and supplement with foliar magnesium.');
+        } else if (KMg < 0.15) {
+            KMgStatus = 'Low K';
+            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') suggests potassium may be limiting relative to magnesium.');
+        }
+        
+        // Base saturation assessment
+        if (Ca_sat < 50) {
+            issues.push('Calcium base saturation (' + Ca_sat.toFixed(0) + '%) is low. Target is 60-70%.');
+            recommendations.push('Apply lime or gypsum to increase calcium saturation.');
+        }
+        if (Na_sat > 5) {
+            issues.push('Sodium saturation (' + Na_sat.toFixed(1) + '%) exceeds 5% threshold - sodicity risk.');
+            recommendations.push('Apply gypsum and implement leaching program to reduce sodium.');
+        }
+        
+        return {
+            hasData: true,
+            ratios: {
+                CaMg: CaMg,
+                CaMgStatus: CaMgStatus,
+                KMg: KMg,
+                KMgStatus: KMgStatus
+            },
+            baseSaturation: {
+                Ca: Ca_sat,
+                Mg: Mg_sat,
+                K: K_sat,
+                Na: Na_sat,
+                total: totalBaseSat
+            },
+            issues: issues,
+            recommendations: recommendations
+        };
+    }
+    
+    /**
+     * Generate Soil × Water Interaction Analysis
+     * Projects long-term impacts of irrigation water on soil chemistry
+     * Species-aware: uses effective species tolerances for overseed scenarios
+     */
+    function generateSoilWaterInteractions(data) {
+        if (!data.water || !data.soil) {
+            return null;
+        }
+        
+        // Require actual water test results — not just an empty water object
+        if (!(data.water.EC > 0) && !(data.water.SAR > 0)) {
+            return null;
+        }
+        
+        var interactions = [];
+        var projections = [];
+        var recommendations = [];
+        
+        // Determine effective species for tolerance thresholds
+        var isC3Effective = data.turf && (data.turf.overseedDominant || data.soil.isC3Species);
+        var effectiveSpecies = isC3Effective ? 
+            (data.turf.coolOverseed || data.turf.effectiveSpecies || 'cool-season overseed') :
+            (data.turf.warmBase || data.turf.species || 'warm-season grass');
+        var c3Cover = data.turf && data.turf.c3Fraction ? Math.round(data.turf.c3Fraction * 100) : null;
+        
+        // Species-specific tolerance thresholds
+        // C3 grasses (PRG, bentgrass, fescue) are significantly more salt-sensitive
+        var tolerances = isC3Effective ? {
+            ecThreshold: 3.0,        // dS/m - 50% yield reduction threshold
+            ecOptimal: 1.5,          // dS/m - no yield reduction
+            clFoliar: 250,           // ppm - foliar damage threshold
+            clRoot: 350,             // ppm - root zone concern
+            sarCritical: 6,
+            sarWarning: 4,
+            speciesLabel: effectiveSpecies
+        } : {
+            ecThreshold: 6.9,        // dS/m - bermuda 50% threshold
+            ecOptimal: 3.0,          // dS/m - bermuda no reduction
+            clFoliar: 500,           // ppm - C4 more tolerant
+            clRoot: 700,
+            sarCritical: 9,
+            sarWarning: 6,
+            speciesLabel: effectiveSpecies
+        };
+        
+        var EC = data.water.EC || 0;
+        var SAR = data.water.SAR || 0;
+        var Na_water = data.water.Na || 0;
+        var HCO3 = data.water.HCO3 || 0;
+        var Cl = data.water.Cl || 0;
+        
+        var Ca_soil = data.soil.Ca || 0;
+        var Mg_soil = data.soil.Mg || 0;
+        var CEC = data.soil.CEC || 10;
+        
+        // Add species context note if overseed
+        if (c3Cover && c3Cover >= 50) {
+            interactions.push({
+                type: 'info',
+                title: 'Species Context',
+                text: 'With ' + c3Cover + '% ' + effectiveSpecies + ' cover, all salinity thresholds are based on cool-season grass tolerances, which are significantly more stringent than warm-season grasses. This analysis reflects the limiting factor for turf performance.'
+            });
+        }
+        
+        // SAR impact on soil structure - species aware
+        if (SAR > tolerances.sarWarning && EC < 1.5) {
+            interactions.push({
+                type: 'critical',
+                title: 'Sodicity Risk (High SAR, Low EC)',
+                text: 'The combination of elevated SAR (' + (typeof SAR === 'number' ? SAR.toFixed(1) : SAR) + ') with relatively low EC (' + EC.toFixed(1) + ' dS/m) creates conditions favourable for soil dispersion. For ' + tolerances.speciesLabel + ', SAR should remain below ' + tolerances.sarWarning + ' to avoid sodium stress.'
+            });
+            projections.push('Without intervention, expect reduced infiltration rates within 6-12 months and ' + tolerances.speciesLabel + ' decline.');
+            recommendations.push('Apply gypsum at 2-4 t/ha annually. Monitor infiltration rates monthly.');
+        } else if (SAR > tolerances.sarCritical) {
+            interactions.push({
+                type: 'critical',
+                title: 'Critical Sodium Hazard',
+                text: 'SAR of ' + (typeof SAR === 'number' ? SAR.toFixed(1) : SAR) + ' exceeds the critical threshold (' + tolerances.sarCritical + ') for ' + tolerances.speciesLabel + '. Sodium toxicity and soil structure degradation are likely.'
+            });
+            projections.push('Sodium saturation will increase by approximately ' + (Na_water * 1.0 / 230 / CEC * 100).toFixed(1) + '% per 1000mm irrigation.');
+            recommendations.push('URGENT: Apply gypsum at 3-4 t/ha immediately. Consider alternative water source or blending.');
+        } else if (SAR > tolerances.sarWarning) {
+            interactions.push({
+                type: 'warning',
+                title: 'Sodium Accumulation',
+                text: 'With SAR of ' + (typeof SAR === 'number' ? SAR.toFixed(1) : SAR) + ' (threshold for ' + tolerances.speciesLabel + ': ' + tolerances.sarWarning + '), continuous irrigation will progressively increase exchangeable sodium. Each 100mm of irrigation adds approximately ' + (Na_water * 0.1 / 230 / CEC * 100).toFixed(2) + '% to sodium saturation.'
+            });
+            projections.push('Sodium saturation will increase by approximately ' + (Na_water * 1.0 / 230 / CEC * 100).toFixed(1) + '% per 1000mm irrigation.');
+            recommendations.push('Apply gypsum at 1-2 t/ha per 500mm irrigation to offset sodium loading.');
+        }
+        
+        // Bicarbonate impacts
+        if (HCO3 > 120) {
+            var CaCO3_precipitated = HCO3 * 0.8;  // Approximate Ca removed as CaCO3
+            interactions.push({
+                type: 'warning',
+                title: 'Calcium Carbonate Precipitation',
+                text: 'Bicarbonate content (' + HCO3 + ' ppm) will precipitate calcium from both the irrigation water and soil solution. This reduces plant-available calcium and can lead to localised high pH zones around roots.'
+            });
+            projections.push('Each 100mm irrigation removes approximately ' + (CaCO3_precipitated * 0.1).toFixed(0) + ' ppm Ca equivalent through precipitation.');
+            
+            if (Ca_soil < 500) {
+                projections.push('Given current soil Ca (' + Ca_soil + ' ppm), deficiency symptoms may appear within 12-18 months without supplementation.');
+            }
+            recommendations.push('Apply gypsum annually (1-2 t/ha) to replace precipitated calcium. Consider acidification to pH 6.5-7.0.');
+        }
+        
+        // Chloride accumulation - SPECIES AWARE
+        if (Cl > tolerances.clFoliar) {
+            var severity = Cl > tolerances.clRoot ? 'critical' : 'warning';
+            var equilibriumCl = Math.round(Cl / 0.15);
+            interactions.push({
+                type: severity,
+                title: 'Chloride Toxicity Risk',
+                text: 'Chloride (' + Cl + ' ppm) exceeds the foliar damage threshold for ' + tolerances.speciesLabel + ' (' + tolerances.clFoliar + ' ppm). With a 15% leaching fraction, equilibrium soil solution Cl will reach approximately ' + equilibriumCl + ' ppm.'
+            });
+            
+            if (Cl > tolerances.clRoot) {
+                projections.push('CRITICAL: Cl levels will cause direct root damage to ' + tolerances.speciesLabel + '. Expect thinning and reduced vigour.');
+            } else {
+                projections.push('Foliar Cl uptake during irrigation will cause leaf tip burn, especially in hot/dry conditions.');
+            }
+            
+            var requiredLF = Math.min(0.35, Cl / (tolerances.clFoliar * 5));
+            recommendations.push('Maintain minimum ' + Math.round(requiredLF * 100) + '% leaching fraction. Irrigate during cooler periods to reduce foliar uptake.');
+        }
+        
+        // EC and nutrient uptake - SPECIES AWARE
+        if (EC > tolerances.ecOptimal) {
+            // Calculate yield reduction based on species-specific thresholds
+            // Linear model: 0% at ecOptimal, ~50% at ecThreshold
+            var slope = 50 / (tolerances.ecThreshold - tolerances.ecOptimal);
+            var yieldReduction = Math.min(90, Math.max(0, (EC - tolerances.ecOptimal) * slope));
+            
+            var severity = EC > tolerances.ecThreshold ? 'critical' : 'warning';
+            interactions.push({
+                type: severity,
+                title: 'Osmotic Stress Impact (' + tolerances.speciesLabel + ')',
+                text: 'Water EC of ' + EC.toFixed(1) + ' dS/m ' + (EC > tolerances.ecThreshold ? 'exceeds' : 'approaches') + ' the ' + tolerances.speciesLabel + ' stress threshold (' + tolerances.ecThreshold + ' dS/m). Estimated growth reduction: ' + yieldReduction.toFixed(0) + '%. The plant must expend energy on osmotic adjustment rather than growth.'
+            });
+            
+            if (EC > tolerances.ecThreshold) {
+                projections.push('At current EC, expect ' + yieldReduction.toFixed(0) + '% reduction in ' + tolerances.speciesLabel + ' growth and vigour.');
+                recommendations.push('PRIORITY: Reduce water EC through blending or alternative source. Current levels will cause progressive ' + tolerances.speciesLabel + ' decline.');
+            }
+            recommendations.push('Increase fertiliser rates by ' + Math.round(yieldReduction * 0.5) + '% to compensate for reduced uptake efficiency.');
+        }
+        
+        // Leaching requirement calculation - SPECIES AWARE
+        if (EC > 0.5) {
+            var LR = EC / (5 * tolerances.ecThreshold - EC);
+            LR = Math.max(0.05, Math.min(0.4, LR));
+            
+            interactions.push({
+                type: 'info',
+                title: 'Leaching Requirement (' + tolerances.speciesLabel + ')',
+                text: 'To maintain rootzone salinity below the ' + tolerances.speciesLabel + ' threshold (' + tolerances.ecThreshold + ' dS/m), a leaching fraction of ' + Math.round(LR * 100) + '% is required. This is calculated using the species-specific salinity tolerance.'
+            });
+            recommendations.push('Apply ' + Math.round(LR * 100) + '% additional water beyond ET requirements for salt leaching.');
+        }
+        
+        var hasInteractions = interactions.length > 0;
+        
+        return {
+            hasData: hasInteractions,
+            interactions: interactions,
+            projections: projections,
+            recommendations: recommendations,
+            effectiveSpecies: effectiveSpecies,
+            tolerances: tolerances
+        };
+    }
+    
+    // Create key-value table row
+    function createKeyValueRow(key, value, valueColor) {
+        var border = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+        var borders = { top: border, bottom: border, left: border, right: border };
+        return new TableRow({
+            cantSplit: true,  // Prevent row from breaking across pages
+            children: [
+                new TableCell({
+                    borders: borders,
+                    width: { size: 3500, type: WidthType.DXA },
+                    shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ children: [new TextRun({ text: key, bold: true, size: 22 })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 5860, type: WidthType.DXA },
+                    children: [new Paragraph({ children: [new TextRun({ text: String(value || '--'), size: 22, color: valueColor || '374151' })] })]
+                })
+            ]
+        });
+    }
+    
+    // Create table from rows
+    function createTable(rows) {
+        return new Table({ 
+            columnWidths: [3500, 5860], 
+            rows: rows
+        });
+    }
+    
+    // Create section heading that stays with following content
+    function createSectionHeading(text, level) {
+        return new Paragraph({ 
+            heading: level || HeadingLevel.HEADING_1,
+            keepNext: true,  // Keep heading with next paragraph/table
+            children: [new TextRun(text)] 
+        });
+    }
+    
+    // Create narrative paragraph (for interpretation text)
+    function createNarrativeParagraph(text) {
+        return new Paragraph({
+            spacing: { after: 120 },
+            children: [new TextRun({ text: text, size: 22, color: '4B5563' })]
+        });
+    }
+    
+    // Create interpretation section with heading
+    function createInterpretationSection(title, narrativeData) {
+        var elements = [];
+        
+        if (!narrativeData) return elements;
+        
+        // Subheading
+        elements.push(new Paragraph({
+            spacing: { before: 200, after: 100 },
+            children: [new TextRun({ text: title, bold: true, size: 22, color: '1F2937' })]
+        }));
+        
+        // Narrative paragraphs
+        if (narrativeData.narrative && narrativeData.narrative.length > 0) {
+            narrativeData.narrative.forEach(function(text) {
+                elements.push(createNarrativeParagraph(text));
+            });
+        }
+        
+        // Recommendations with bullet styling
+        if (narrativeData.recommendations && narrativeData.recommendations.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 80 },
+                children: [new TextRun({ text: 'Recommendations:', bold: true, size: 22, color: '1F2937' })]
+            }));
+            
+            narrativeData.recommendations.forEach(function(rec) {
+                elements.push(new Paragraph({
+                    spacing: { after: 80 },
+                    indent: { left: 360 },
+                    children: [
+                        new TextRun({ text: '• ', size: 22, color: '16A34A' }),
+                        new TextRun({ text: rec, size: 22, color: '374151' })
+                    ]
+                }));
+            });
+        }
+        
+        return elements;
+    }
+    
+    /**
+     * Generate Glossary of Terms
+     * Comprehensive glossary for export appendix
+     */
+    function generateGlossary() {
+        var elements = [];
+        
+        var terms = [
+            { term: 'Bicarbonate (HCO₃)', definition: 'A naturally occurring ion in water that affects calcium availability. High bicarbonate causes calcium to precipitate as lime in the soil, reducing its ability to counteract sodium. Measured in mg/L or meq/L.' },
+            { term: 'Cation Exchange Capacity (CEC)', definition: 'A measure of the soil\'s ability to hold and release positively charged nutrients (cations) such as calcium, magnesium, potassium, and sodium. Expressed in meq/100g or cmol/kg. Higher CEC soils retain nutrients better but may also hold sodium more tightly.' },
+            { term: 'Ammonium Acetate Extraction', definition: 'A soil testing method using neutral ammonium acetate (NH₄OAc at pH 7 or pH 8.1) to extract exchangeable cations (K, Ca, Mg, Na). Combined with Olsen phosphorus extraction, this is the standard method used by Hill Laboratories in New Zealand. The pH 8.1 variant is particularly suited to soils with higher pH. Sufficiency ranges differ from Mehlich III extractions used for MLSN/SLAN.' },
+            { term: 'Deficient', definition: 'Nutrient level below the threshold required for healthy plant function. Deficiency typically produces visible symptoms and reduced turf performance.' },
+            { term: 'Electrical Conductivity (EC)', definition: 'A measure of total dissolved salts in water or soil solution. Higher EC indicates higher salinity. Measured in dS/m (deciSiemens per metre) or mS/cm. Turf irrigation water should generally be below 1.5 dS/m.' },
+            { term: 'Exchangeable Sodium Percentage (ESP)', definition: 'The proportion of the soil\'s cation exchange sites occupied by sodium, expressed as a percentage. ESP above 6% indicates sodic conditions that may impair soil structure and drainage.' },
+            { term: 'Foliar Application', definition: 'Fertiliser applied as a liquid spray directly to leaf surfaces, where nutrients are absorbed through the cuticle and stomata. Useful for rapid correction of deficiencies or when soil chemistry limits root uptake.' },
+            { term: 'Granular Application', definition: 'Fertiliser applied as dry particles to the soil surface, where nutrients dissolve and move into the root zone. Provides slower, longer-lasting nutrition than foliar methods.' },
+            { term: 'Gypsum', definition: 'Calcium sulphate (CaSO₄), applied to sodic soils to displace sodium and improve structure. Also supplies calcium and sulphur as nutrients.' },
+            { term: 'Leaching', definition: 'The movement of water through the soil profile, carrying dissolved substances downward. Deliberate leaching irrigation is used to flush accumulated salts below the root zone.' },
+            { term: 'Macronutrient', definition: 'Nutrients required by plants in relatively large quantities: nitrogen (N), phosphorus (P), potassium (K), calcium (Ca), magnesium (Mg), and sulphur (S).' },
+            { term: 'meq/L', definition: 'Milliequivalents per litre, a unit expressing ion concentration that accounts for electrical charge. Used in water quality analysis and SAR calculations.' },
+            { term: 'MLSN (Minimum Level for Sustainable Nutrition)', definition: 'A soil nutrient interpretation method developed specifically for turfgrass by the Asian Turfgrass Center. MLSN establishes minimum threshold values based on analysis of soil samples from high-performing turf worldwide. Nutrient levels above the minimum are considered sustainable; no upper "excess" limits are defined for most nutrients. MLSN typically results in lower fertiliser inputs compared to traditional methods.' },
+            { term: 'Muriate of Potash', definition: 'Potassium chloride (KCl), a potassium fertiliser. The chloride content makes it less suitable where salt accumulation is a concern.' },
+            { term: 'Olsen Phosphorus', definition: 'A soil phosphorus extraction method using sodium bicarbonate (NaHCO₃) at pH 8.5. Developed for calcareous soils but widely used in New Zealand and Australia. Results are typically reported in mg/L. Olsen P extracts less phosphorus than Mehlich III, so sufficiency ranges are lower. A typical adequate range for turf is 12-28 mg/L.' },
+            { term: 'Potassium Sulphate', definition: 'K₂SO₄, a potassium fertiliser without chloride, preferred where salt accumulation is a concern or for chloride-sensitive turf.' },
+            { term: 'ppm (Parts Per Million)', definition: 'A unit of concentration equivalent to mg/kg for solids or mg/L for liquids. Used to express nutrient concentrations in soil and water tests.' },
+            { term: 'SAR (Sodium Adsorption Ratio)', definition: 'A calculated value that predicts the risk of sodium accumulating in soil and degrading structure. SAR compares sodium concentration to calcium and magnesium concentrations in irrigation water. Values below 6 are generally safe; values above 9 pose significant risk.' },
+            { term: 'SARadj (Adjusted SAR)', definition: 'A modified SAR calculation that accounts for the effect of bicarbonates on calcium availability. When bicarbonate levels are high, calcium precipitates as lime in the soil, leaving less calcium to counteract sodium. SARadj provides a more accurate assessment of sodium hazard in high-bicarbonate waters.' },
+            { term: 'SLAN (Sufficiency Level of Available Nutrients)', definition: 'A traditional soil nutrient interpretation method derived from agricultural crop research. SLAN defines an optimal sufficiency range for each nutrient. Values below the range are deficient; values above may indicate excessive accumulation. SLAN typically recommends higher nutrient levels than MLSN.' },
+            { term: 'Sodicity', definition: 'A soil condition caused by excessive sodium accumulation. Sodic soils have poor structure, reduced infiltration, and impaired drainage. Identified by ESP above 6% or SAR above 6 in soil solution.' },
+            { term: 'Soil Structure', definition: 'The arrangement of soil particles into aggregates. Good structure creates pore spaces for air and water movement. Sodium disrupts structure by dispersing clay particles, causing compaction and sealing.' },
+            { term: 'Sufficiency Range', definition: 'The range of nutrient concentrations considered adequate for healthy plant growth under the SLAN interpretation method. Values below the range require amendment; values above may indicate luxury consumption or potential toxicity.' },
+            { term: 'Tissue Testing', definition: 'Laboratory analysis of plant material (typically leaf clippings) to determine nutrient concentrations within the plant. Tissue testing reveals what the plant has actually taken up, complementing soil testing which shows what is available.' },
+            { term: 'Trace Element', definition: 'Nutrients required by plants in small quantities but essential for healthy function: iron (Fe), manganese (Mn), zinc (Zn), copper (Cu), boron (B), molybdenum (Mo), and chlorine (Cl).' }
+        ];
+        
+        // Page break before glossary
+        elements.push(new Paragraph({ children: [new PageBreak()] }));
+        
+        elements.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, 
+            keepNext: true,
+            children: [new TextRun('Glossary of Terms')] 
+        }));
+        
+        elements.push(new Paragraph({
+            spacing: { before: 100, after: 200 },
+            children: [new TextRun({ 
+                text: 'Reference definitions for technical terms used in this report.',
+                size: 20, italics: true, color: '6B7280'
+            })]
+        }));
+        
+        terms.forEach(function(item) {
+            elements.push(new Paragraph({
+                spacing: { before: 120, after: 40 },
+                children: [new TextRun({ text: item.term, bold: true, size: 22, color: '1F2937' })]
+            }));
+            elements.push(new Paragraph({
+                spacing: { after: 80 },
+                indent: { left: 200 },
+                children: [new TextRun({ text: item.definition, size: 20, color: '4B5563' })]
+            }));
+        });
+        
+        return elements;
+    }
+    
+    /**
+     * Generate dual MLSN/SLAN comparison table for soil nutrients
+     * Shows both interpretations side by side
+     */
+    function generateDualSoilTable(soilData) {
+        if (!soilData) return null;
+        
+        var border = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+        var borders = { top: border, bottom: border, left: border, right: border };
+        
+        // MLSN guidelines (minimum thresholds)
+        var mlsnThresholds = {
+            P: { min: 21 },
+            K: { min: 37 },
+            Ca: { min: 331 },
+            Mg: { min: 47 },
+            S: { min: 7 }
+        };
+        
+        // SLAN ranges (min-max sufficiency)
+        var slanRanges = {
+            P: { min: 25, max: 50 },
+            K: { min: 75, max: 150 },
+            Ca: { min: 500, max: 1000 },
+            Mg: { min: 60, max: 120 },
+            S: { min: 15, max: 30 }
+        };
+        
+        var nutrients = [
+            { key: 'P', name: 'Phosphorus (P)' },
+            { key: 'K', name: 'Potassium (K)' },
+            { key: 'Ca', name: 'Calcium (Ca)' },
+            { key: 'Mg', name: 'Magnesium (Mg)' },
+            { key: 'S', name: 'Sulphur (S)' }
+        ];
+        
+        // Header row
+        var headerRow = new TableRow({
+            tableHeader: true,
+            children: [
+                new TableCell({
+                    borders: borders,
+                    width: { size: 2000, type: WidthType.DXA },
+                    shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ children: [new TextRun({ text: 'Nutrient', bold: true, size: 20 })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 1400, type: WidthType.DXA },
+                    shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Measured', bold: true, size: 20 })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 1400, type: WidthType.DXA },
+                    shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Min', bold: true, size: 20, color: '1E40AF' })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 1400, type: WidthType.DXA },
+                    shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Status', bold: true, size: 20, color: '1E40AF' })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 1600, type: WidthType.DXA },
+                    shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Range', bold: true, size: 20, color: '92400E' })] })]
+                }),
+                new TableCell({
+                    borders: borders,
+                    width: { size: 1400, type: WidthType.DXA },
+                    shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Status', bold: true, size: 20, color: '92400E' })] })]
+                })
+            ]
+        });
+        
+        var rows = [headerRow];
+        
+        nutrients.forEach(function(n) {
+            var value = soilData[n.key];
+            if (value === undefined || value === null) return;
+            
+            var mlsn = mlsnThresholds[n.key];
+            var slan = slanRanges[n.key];
+            
+            // MLSN status
+            var mlsnStatus, mlsnColor;
+            if (value >= mlsn.min) {
+                mlsnStatus = 'Sufficient';
+                mlsnColor = '16A34A';
+            } else if (value >= mlsn.min * 0.8) {
+                mlsnStatus = 'Marginal';
+                mlsnColor = 'F59E0B';
+            } else {
+                mlsnStatus = 'Deficient';
+                mlsnColor = 'DC2626';
+            }
+            
+            // SLAN status
+            var slanStatus, slanColor;
+            if (value < slan.min) {
+                slanStatus = 'Deficient';
+                slanColor = 'DC2626';
+            } else if (value > slan.max) {
+                slanStatus = 'High';
+                slanColor = 'F59E0B';
+            } else {
+                slanStatus = 'Sufficient';
+                slanColor = '16A34A';
+            }
+            
+            rows.push(new TableRow({
+                children: [
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 2000, type: WidthType.DXA },
+                        children: [new Paragraph({ children: [new TextRun({ text: n.name, size: 20 })] })]
+                    }),
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 1400, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: value + ' ppm', size: 20, bold: true })] })]
+                    }),
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 1400, type: WidthType.DXA },
+                        shading: { fill: 'F8FAFC', type: ShadingType.CLEAR },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '>' + mlsn.min, size: 20, color: '64748B' })] })]
+                    }),
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 1400, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: mlsnStatus, size: 20, bold: true, color: mlsnColor })] })]
+                    }),
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 1600, type: WidthType.DXA },
+                        shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slan.min + '-' + slan.max, size: 20, color: '78716C' })] })]
+                    }),
+                    new TableCell({
+                        borders: borders,
+                        width: { size: 1400, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slanStatus, size: 20, bold: true, color: slanColor })] })]
+                    })
+                ]
+            }));
+        });
+        
+        return new Table({
+            columnWidths: [2000, 1400, 1400, 1400, 1600, 1400],
+            rows: rows
+        });
+    }
+    
+    /**
+     * Generate pH and CEC context section
+     * Explains what pH and CEC values mean for nutrient availability
+     */
+    function generatepHCECContext(soilData, turfData) {
+        if (!soilData) return null;
+        
+        var elements = [];
+        var narrative = [];
+        var recommendations = [];
+        
+        // v2.1.8: Use species-specific pH tolerance from SPECIES_PH_TOLERANCE if available
+        var speciesName = turfData ? (turfData.effectiveSpecies || turfData.grassSpecies || turfData.species || turfData.warmBase || 'turf') : 'turf';
+        var optLo, optHi, tolLo, tolHi, acidTolerant, alkalineTolerant;
+        
+        // Try to use the global species tolerance data
+        if (typeof SPECIES_PH_TOLERANCE !== 'undefined' && typeof normaliseSpeciesForPH === 'function') {
+            var speciesKey = normaliseSpeciesForPH(speciesName);
+            var tolerance = SPECIES_PH_TOLERANCE[speciesKey] || SPECIES_PH_TOLERANCE['default'];
+            optLo = tolerance.optimal[0];
+            optHi = tolerance.optimal[1];
+            tolLo = tolerance.tolerance[0];
+            tolHi = tolerance.tolerance[1];
+            acidTolerant = tolerance.acidTolerant;
+            alkalineTolerant = tolerance.alkalineTolerant;
+            speciesName = speciesKey; // Use normalised name
+        } else {
+            // Fallback to simple C3/C4 logic
+            var isC3 = turfData && (turfData.effectiveIsC4 === false || !turfData.isC4);
+            optLo = isC3 ? 6.0 : 6.5;
+            optHi = isC3 ? 6.5 : 7.0;
+            tolLo = isC3 ? 5.5 : 5.5;
+            tolHi = isC3 ? 7.5 : 8.0;
+            acidTolerant = false;
+            alkalineTolerant = !isC3;
+        }
+        
+        var optRangeStr = optLo + '–' + optHi;
+        var tolRangeStr = tolLo + '–' + tolHi;
+        
+        // pH interpretation
+        if (soilData.pH !== undefined) {
+            var pH = soilData.pH;
+            
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 50 },
+                children: [new TextRun({ text: 'Soil pH: ' + pH, bold: true, size: 22 })]
+            }));
+            
+            // Add species tolerance context
+            elements.push(new Paragraph({
+                spacing: { after: 80 },
+                indent: { left: 200 },
+                children: [
+                    new TextRun({ text: speciesName + ' pH requirements: ', bold: true, size: 20, color: '374151' }),
+                    new TextRun({ text: 'Optimal ' + optRangeStr + ' | Tolerance ' + tolRangeStr, size: 20, color: '6B7280' }),
+                    acidTolerant ? new TextRun({ text: ' | Acid-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' }),
+                    alkalineTolerant ? new TextRun({ text: ' | Alkaline-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' })
+                ]
+            }));
+            
+            if (pH < tolLo) {
+                // Below tolerance range
+                var dolomiticCorrection2 = soilData && soilData.pH < 6.0 &&
+                    soilData.Mg && soilData.thresholds && soilData.thresholds.Mg &&
+                    soilData.Mg < soilData.thresholds.Mg.min &&
+                    ((soilData.Ca && soilData.thresholds.Ca && soilData.Ca < soilData.thresholds.Ca.min) || soilData.pH < 5.5);
+                if (dolomiticCorrection2) {
+                    // Merge toxic-metals warning with dolomite correction into one sentence — avoids duplication
+                    narrative.push('Soil pH (' + pH + ') is below the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). At this level, aluminium and manganese can become toxic to roots and phosphorus availability is severely restricted. Dolomite application (see Soil Nutrition recommendations) will correct pH while addressing Mg and Ca deficits simultaneously — retest in 6 months.');
+                } else {
+                    narrative.push('Soil pH (' + pH + ') is below the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). At this level, aluminium and manganese can become toxic to roots, while phosphorus availability is severely restricted. This species will experience significant stress.');
+                    recommendations.push('URGENT: Apply agricultural lime to raise pH toward ' + optLo + '. Retest in 6 months to assess response.');
+                }
+            } else if (pH < optLo) {
+                // Below optimal but within tolerance
+                narrative.push('Soil pH (' + pH + ') is below the optimal range (' + optRangeStr + ') for ' + speciesName + ', but within tolerance (' + tolRangeStr + '). Phosphorus and molybdenum availability may be reduced.');
+                if (acidTolerant) {
+                    narrative.push(speciesName + ' has good acid tolerance — monitoring is sufficient unless deficiency symptoms appear.');
+                } else {
+                    recommendations.push('Consider lime application to raise pH toward ' + optLo + ' for optimal nutrient availability.');
+                }
+            } else if (pH > tolHi) {
+                // Above tolerance range
+                narrative.push('Soil pH (' + pH + ') exceeds the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). Iron, manganese, zinc, and copper availability is severely restricted. Chlorosis and poor growth are likely.');
+                if (alkalineTolerant) {
+                    narrative.push('Although ' + speciesName + ' has some alkaline tolerance, this pH still exceeds safe limits.');
+                }
+                recommendations.push('URGENT: Apply elemental sulphur or ammonium sulphate to acidify the rootzone. Elemental sulphur should only be applied after hollow-tine aeration, worked into the holes, and timed heading into autumn — do NOT apply over the turf surface or heading into summer. Use Fe-EDDHA chelate for iron applications. Evaluate irrigation water for alkalinity contribution.');
+            } else if (pH > optHi) {
+                // Above optimal but within tolerance
+                narrative.push('Soil pH (' + pH + ') is above the optimal range (' + optRangeStr + ') for ' + speciesName + ', but within tolerance (' + tolRangeStr + '). Monitor for iron chlorosis.');
+                if (alkalineTolerant) {
+                    narrative.push(speciesName + ' tolerates alkaline conditions — focus on micronutrient management rather than aggressive acidification.');
+                    recommendations.push('Use chelated iron (Fe-EDDHA) if chlorosis appears. Prefer ammonium-based nitrogen sources.');
+                } else {
+                    recommendations.push('Consider acidification to bring pH into the optimal range. Use ammonium sulphate for nitrogen applications.');
+                }
+            } else {
+                // Within optimal range
+                narrative.push('Soil pH (' + pH + ') is within the optimal range (' + optRangeStr + ') for ' + speciesName + '. Nutrient availability is maximised at this pH level.');
+            }
+        }
+        
+        // CEC interpretation
+        if (soilData.CEC !== undefined) {
+            var CEC = soilData.CEC;
+            
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 50 },
+                children: [new TextRun({ text: 'Cation Exchange Capacity: ' + CEC + ' meq/100g', bold: true, size: 22 })]
+            }));
+            
+            if (CEC < 5) {
+                narrative.push('CEC is low (' + CEC + ' meq/100g), indicating a sandy soil with limited nutrient-holding capacity. Nutrients applied will leach more readily, requiring smaller, more frequent applications. The benefit is that any sodium accumulation will also leach more easily.');
+                recommendations.push('Apply fertilisers in split applications (little and often). Consider slow-release nitrogen sources.');
+            } else if (CEC < 12) {
+                narrative.push('CEC is moderate (' + CEC + ' meq/100g), typical of sandy loam rootzones common in sports turf and golf greens. This provides reasonable nutrient retention while maintaining good drainage.');
+            } else if (CEC < 25) {
+                narrative.push('CEC is moderately high (' + CEC + ' meq/100g), indicating good nutrient-holding capacity. The soil can buffer against rapid pH changes and retain applied nutrients effectively.');
+            } else {
+                narrative.push('CEC is high (' + CEC + ' meq/100g), typical of clay-rich or high organic matter soils. While nutrient retention is excellent, drainage may be impaired and sodium, if present, will be more difficult to leach.');
+                if (soilData.Na && soilData.Na > 50) {
+                    recommendations.push('High CEC combined with elevated sodium requires aggressive gypsum applications and patience - sodium displacement will be slower than in sandier soils.');
+                }
+            }
+        }
+        
+        // Add narrative paragraphs
+        narrative.forEach(function(text) {
+            elements.push(new Paragraph({
+                spacing: { after: 100 },
+                indent: { left: 200 },
+                children: [new TextRun({ text: text, size: 20, color: '4B5563' })]
+            }));
+        });
+        
+        // Add recommendations
+        if (recommendations.length > 0) {
+            recommendations.forEach(function(rec) {
+                elements.push(new Paragraph({
+                    spacing: { after: 80 },
+                    indent: { left: 200 },
+                    children: [
+                        new TextRun({ text: '→ ', size: 20, color: '16A34A' }),
+                        new TextRun({ text: rec, size: 20, color: '374151' })
+                    ]
+                }));
+            });
+        }
+        
+        return elements.length > 0 ? elements : null;
+    }
+    
+    /**
+     * Generate SAR vs SARadj explanation section
+     * Explains the difference and why SARadj matters for high-bicarbonate waters
+     */
+    function generateSARadjExplanation(waterData) {
+        if (!waterData || waterData.SAR === undefined) return null;
+        
+        var elements = [];
+        var SAR = waterData.SAR;
+        var SARadj = waterData.SARadj;
+        var HCO3 = waterData.HCO3;
+        
+        // Only show detailed explanation if SARadj differs significantly from SAR
+        var hasSARadj = SARadj !== undefined && SARadj !== null;
+        var hasSignificantDifference = hasSARadj && Math.abs(SARadj - SAR) > 0.5;
+        
+        if (hasSignificantDifference && HCO3 && HCO3 > 120) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 100 },
+                shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
+                border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'F59E0B' } },
+                children: [new TextRun({ text: 'SAR vs SARadj — Important Distinction', bold: true, size: 22, color: '92400E' })]
+            }));
+            
+            var explanationText = 'Standard SAR (' + SAR.toFixed(1) + ') assumes all measured calcium remains available to counteract sodium. However, your water contains elevated bicarbonate (' + HCO3 + ' mg/L), which causes calcium to precipitate as lime when the water enters the soil. ';
+            explanationText += 'SARadj (' + SARadj.toFixed(1) + ') accounts for this precipitation effect and represents the effective sodium hazard after calcium loss. ';
+            
+            var percentIncrease = ((SARadj / SAR - 1) * 100).toFixed(0);
+            explanationText += 'In your case, SARadj is ' + percentIncrease + '% higher than standard SAR.';
+            
+            elements.push(new Paragraph({
+                spacing: { after: 100 },
+                indent: { left: 200 },
+                children: [new TextRun({ text: explanationText, size: 20, color: '4B5563' })]
+            }));
+            
+            elements.push(new Paragraph({
+                spacing: { after: 100 },
+                indent: { left: 200 },
+                children: [
+                    new TextRun({ text: 'Management recommendation: ', bold: true, size: 20, color: '374151' }),
+                    new TextRun({ text: 'Base your sodium management decisions on SARadj rather than standard SAR. Consider acidification to reduce bicarbonate levels and preserve calcium availability.', size: 20, color: '374151' })
+                ]
+            }));
+        }
+        
+        return elements.length > 0 ? elements : null;
+    }
+    
+    /**
+     * Render Spray Log Section
+     * Recent applications from the spray diary for the active site
+     */
+    function renderSprayLogSection(data) {
+        var elements = [];
+        
+        if (!data.sprayLog || !data.sprayLog.hasData) {
+            return elements;
+        }
+        
+        var entries = data.sprayLog.entries || [];
+        if (entries.length === 0) return elements;
+        
+        // Section heading
+        elements.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, 
+            keepNext: true, 
+            children: [new TextRun('Spray Application Log')] 
+        }));
+        
+        elements.push(new Paragraph({
+            spacing: { after: 200 },
+            children: [new TextRun({ 
+                text: 'Record of chemical and fertiliser applications for this site. ' + entries.length + ' entries.', 
+                size: 22, 
+                color: '4B5563' 
+            })]
+        }));
+        
+        // Table header
+        var headerRow = new TableRow({
+            tableHeader: true,
+            children: [
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Date', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Active Ingredient', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rate', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Zone', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Category', bold: true, size: 20 })] })] })
+            ]
+        });
+        
+        var rows = [headerRow];
+        
+        // Sort entries by date descending
+        var sorted = entries.slice().sort(function(a, b) {
+            return (b.application_date || '').localeCompare(a.application_date || '');
+        });
+        
+        sorted.forEach(function(e) {
+            var dateStr = e.application_date || '';
+            if (dateStr.length >= 10) {
+                // Format YYYY-MM-DD to DD/MM/YYYY
+                var parts = dateStr.substring(0, 10).split('-');
+                if (parts.length === 3) dateStr = parts[2] + '/' + parts[1] + '/' + parts[0];
+            }
+            var rateStr = (e.rate || '') + (e.rate_unit ? ' ' + e.rate_unit : '');
+            
+            rows.push(new TableRow({
+                children: [
+                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: dateStr, size: 19 })] })] }),
+                    new TableCell({ width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.product_name || '', size: 19 })] })] }),
+                    new TableCell({ width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.active_ingredient || '', size: 19 })] })] }),
+                    new TableCell({ width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rateStr, size: 19 })] })] }),
+                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.zone || '', size: 19 })] })] }),
+                    new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.category || '', size: 19 })] })] })
+                ]
+            }));
+        });
+        
+        elements.push(new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: rows
+        }));
+        
+        elements.push(new Paragraph({ children: [] }));
+        
+        return elements;
+    }
+
+    /**
+     * Render Nutrition Program Section
+     * Monthly product recommendations from Prebble or AU Fertiliser recommender
+     * v10.3.38
+     */
+    function renderNutritionProgramSection(data) {
+        var elements = [];
+        
+        if (!data.nutritionProgram || !data.nutritionProgram.hasData) {
+            return elements;
+        }
+        
+        var program = data.nutritionProgram;
+        var monthly = program.monthly || [];
+        var summary = program.annualSummary || {};
+        
+        if (monthly.length === 0) {
+            return elements;
+        }
+        
+        // Section heading
+        elements.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, 
+            keepNext: true, 
+            children: [new TextRun('Nutrition Program')] 
+        }));
+        
+        // Intro text
+        elements.push(new Paragraph({
+            spacing: { after: 200 },
+            children: [new TextRun({ 
+                text: 'Monthly fertiliser recommendations based on growth potential, soil conditions, and nutrient requirements. Products are selected to match release characteristics with seasonal uptake patterns.', 
+                size: 22, 
+                color: '4B5563' 
+            })]
+        }));
+        
+        // b35fix287: Mulder's Nutrient Interactions section
+        var muldersFlags = program.muldersFlags || {};
+        var allMuldersFlags = [];
+        Object.keys(muldersFlags).forEach(function(sym) {
+            var arr = Array.isArray(muldersFlags[sym]) ? muldersFlags[sym] : [muldersFlags[sym]];
+            arr.forEach(function(f) { if (f) allMuldersFlags.push(f); });
+        });
+        if (allMuldersFlags.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 200, after: 100 },
+                children: [new TextRun({ text: 'Mulder\'s Nutrient Interactions', bold: true, size: 24, color: 'B45309' })]
+            }));
+            elements.push(new Paragraph({
+                spacing: { after: 80 },
+                children: [new TextRun({
+                    text: 'The following antagonistic interactions were detected in the soil sample. Product selection has been adjusted to avoid aggravating these antagonisms.',
+                    size: 20, color: '78350F', italics: true
+                })]
+            }));
+            allMuldersFlags.forEach(function(f) {
+                var pair = (f.suppressor || '') + ' → ' + (f.suppressed || '');
+                var ratioText = f.ratio ? ' (' + f.ratio + ' = ' + (f.value || '') + ', threshold: ' + f.threshold + ')' : '';
+                elements.push(new Paragraph({
+                    spacing: { before: 60, after: 40 },
+                    children: [new TextRun({ text: pair + ratioText, bold: true, size: 22, color: 'D97706' })]
+                }));
+                if (f.message) {
+                    elements.push(new Paragraph({
+                        spacing: { after: 40 },
+                        indent: { left: 400 },
+                        children: [new TextRun({ text: f.message, size: 20, color: '374151' })]
+                    }));
+                }
+                if (f.citation) {
+                    elements.push(new Paragraph({
+                        spacing: { after: 80 },
+                        indent: { left: 400 },
+                        children: [new TextRun({ text: 'Ref: ' + f.citation, size: 18, color: '9CA3AF', italics: true })]
+                    }));
+                }
+            });
+        }
+
+        // Annual Product Summary table
+        if (summary.products && Object.keys(summary.products).length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 200, after: 100 },
+                children: [new TextRun({ text: 'Annual Product Summary', bold: true, size: 24, color: '1F2937' })]
+            }));
+            
+            var summaryRows = [
+                new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'K', bold: true, size: 20 })] })] })
+                    ]
+                })
+            ];
+            
+            Object.values(summary.products).forEach(function(p) {
+                var nutrients = p.nutrients || p.totalDelivered || {};
+                var productName = p.name || (p.product && p.product.name) || 'Unknown';
+                var totalKg = p.totalKg || p.totalKgHa || p.totalLHa || 0;
+                summaryRows.push(new TableRow({
+                    children: [
+                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productName, size: 20 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(p.applications || 0), size: 20 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(totalKg || 0).toString(), size: 20 })] })] }),
+                        new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(nutrients.N || 0).toString(), size: 20 })] })] }),
+                        new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(nutrients.K || 0).toString(), size: 20 })] })] })
+                    ]
+                }));
+            });
+            
+            elements.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: summaryRows
+            }));
+            
+            elements.push(new Paragraph({ children: [] }));
+        }
+        
+        // Monthly Program table
+        elements.push(new Paragraph({
+            spacing: { before: 200, after: 100 },
+            children: [new TextRun({ text: 'Monthly Schedule', bold: true, size: 24, color: '1F2937' })]
+        }));
+        
+        var monthlyRows = [
+            new TableRow({
+                tableHeader: true,
+                children: [
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Month', bold: true, size: 20 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GP%', bold: true, size: 20 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product Recommendations', bold: true, size: 20 })] })] })
+                ]
+            })
+        ];
+        
+        monthly.forEach(function(m) {
+            var gpPct = Math.round((m.gp || 0) * 100);
+            var productText = '';
+            
+            // Build product text
+            var products = [];
+            if (m.granular && m.granular.length > 0) {
+                m.granular.forEach(function(g) {
+                    var rate = g.rateKgHa ? g.rateKgHa + ' kg/ha' : '';
+                    var splits = g.splitCount > 1 ? ' ×' + g.splitCount : '';
+                    products.push(g.name + (rate ? ' @ ' + rate : '') + splits);
+                });
+            }
+            if (m.liquid && m.liquid.length > 0) {
+                m.liquid.forEach(function(l) {
+                    var rate = l.rateLHa ? l.rateLHa + ' L/ha' : '';
+                    products.push(l.name + (rate ? ' @ ' + rate : ''));
+                });
+            }
+            
+            // Check if covered by previous application
+            if (m.coveredBy) {
+                productText = 'Covered by ' + m.coveredBy.product + ' (' + m.coveredBy.month + ')';
+            } else if (products.length > 0) {
+                productText = products.join(', ');
+            } else {
+                productText = '-';
+            }
+            
+            // GP color
+            var gpColor = gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'CA8A04' : '6B7280';
+            
+            monthlyRows.push(new TableRow({
+                children: [
+                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 20 })] })] }),
+                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 20, color: gpColor })] })] }),
+                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 20, color: m.coveredBy ? '6B7280' : '374151', italics: !!m.coveredBy })] })] })
+                ]
+            }));
+        });
+        
+        elements.push(new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: monthlyRows
+        }));
+        
+        elements.push(new Paragraph({ children: [] }));
+        
+        return elements;
+    }
+    
+    /**
+     * Generate Cultivar Performance Profile
+     * Comprehensive breakdown of selected variety's characteristics based on trial data
+     * Includes BSPB ratings for UK, NTEP data for Australia/US, Scanturf for Nordic
+     */
+    function generateCultivarProfile(data) {
+        var elements = [];
+        
+        // Get variety info
+        var varietyName = null;
+        var varietyData = null;
+        var isBlend = false;
+        var region = 'ntep';
+        
+        // Determine effective variety (considering overseed)
+        var turf = data.turf || {};
+        if (turf.overseedDominant && turf.effectiveVariety && turf.effectiveVariety !== 'generic') {
+            varietyName = turf.effectiveVariety;
+        } else if (turf.variety && turf.variety !== 'generic') {
+            varietyName = turf.variety;
+        }
+
+        if (!varietyName) {
+            return null; // No variety selected
+        }
+        
+        // Detect region and get variety data
+        if (typeof window.GAIP_VarietyTraits !== 'undefined') {
+            region = window.GAIP_VarietyTraits.getCurrentRegion();
+            varietyData = window.GAIP_VarietyTraits.getVarietyTraits(turf.effectiveSpecies || turf.species, varietyName, region);
+        }
+        
+        // Check for UK blend
+        if (typeof window.gaip_isUKBlend === 'function' && window.gaip_isUKBlend(varietyName)) {
+            isBlend = true;
+            if (typeof window.gaip_getUKBlendData === 'function') {
+                varietyData = window.gaip_getUKBlendData(varietyName);
+            }
+        }
+        
+        // If still no data, try direct lookups
+        if (!varietyData && typeof window.gaip_getUKVarietyData === 'function' && region === 'bspb') {
+            varietyData = window.gaip_getUKVarietyData('perennialRyegrass', varietyName);
+        }
+        if (!varietyData && typeof window.GAIP_VARIETY_TRAITS !== 'undefined') {
+            var speciesKey = (turf.effectiveSpecies || turf.species || '').toLowerCase().replace(/\s+/g, '');
+            if (window.GAIP_VARIETY_TRAITS[speciesKey]) {
+                varietyData = window.GAIP_VARIETY_TRAITS[speciesKey][varietyName];
+            }
+        }
+        
+        // v10.3.38: Use varietyTraits from data if already collected
+        if (!varietyData && data.varietyTraits && data.varietyTraits.hasData) {
+            varietyData = {
+                displayName: data.varietyTraits.displayName || varietyName,
+                qualityRating: data.varietyTraits.qualityRating,
+                qualitySource: data.varietyTraits.qualitySource,
+                traits: {
+                    shade: data.varietyTraits.shade,
+                    salinity: data.varietyTraits.salinity,
+                    wear: data.varietyTraits.wear,
+                    waterUse: data.varietyTraits.waterUse,
+                    cold: data.varietyTraits.cold,
+                    disease: data.varietyTraits.disease
+                }
+            };
+        }
+        
+        if (!varietyData) {
+            return null; // No trait data available
+        }
+
+        // v10.5.49: Resolve regionalTraits structure - MERGE across all regions
+        // NTEP varieties store disease in subtropical_ntep, density in temperate_ntep, etc.
+        // Must merge traits from all matching regions, not stop at first hit
+        var resolvedQualityRating = varietyData.qualityRating;
+        var resolvedQualitySource = varietyData.qualitySource;
+        var resolvedTraits = varietyData.traits ? JSON.parse(JSON.stringify(varietyData.traits)) : null;
+        
+        if (varietyData.regionalTraits) {
+            // Expanded region order: AU-specific first, then NTEP mapped to AU climates
+            // Includes bare keys (subtropical, temperate, cold) used by bermuda/couch varieties
+            var regionOrder = ['au_temperate', 'au_subtropical', 'temperate_au', 'subtropical_au',
+                               'subtropical', 'temperate', 'temperate_ntep', 'subtropical_ntep',
+                               'cold_ntep', 'cold', 'ntep_us',
+                               'au_tropical', 'au_mediterranean',
+                               'nzsti_nz', 'nzsti_auckland', 'bspb_uk'];
+            
+            for (var ri = 0; ri < regionOrder.length; ri++) {
+                var regionKey = regionOrder[ri];
+                var regionData = varietyData.regionalTraits[regionKey];
+                if (regionData) {
+                    // Take first quality rating found (highest priority region)
+                    if (!resolvedQualityRating && regionData.qualityRating) {
+                        resolvedQualityRating = regionData.qualityRating;
+                        resolvedQualitySource = regionData.qualitySource || ('NTEP ' + regionKey);
+                    }
+                    // MERGE traits: add any trait keys not already present
+                    if (regionData.traits) {
+                        if (!resolvedTraits) {
+                            resolvedTraits = JSON.parse(JSON.stringify(regionData.traits));
+                        } else {
+                            var regionTraitKeys = Object.keys(regionData.traits);
+                            for (var tk = 0; tk < regionTraitKeys.length; tk++) {
+                                var traitKey = regionTraitKeys[tk];
+                                if (!resolvedTraits[traitKey]) {
+                                    // Add missing trait category (e.g. disease, winterColor)
+                                    resolvedTraits[traitKey] = JSON.parse(JSON.stringify(regionData.traits[traitKey]));
+                                } else if (traitKey === 'disease' && typeof regionData.traits.disease === 'object') {
+                                    // Merge individual disease entries
+                                    var regionDiseases = Object.keys(regionData.traits.disease);
+                                    for (var dk = 0; dk < regionDiseases.length; dk++) {
+                                        var diseaseName = regionDiseases[dk];
+                                        if (!resolvedTraits.disease[diseaseName]) {
+                                            resolvedTraits.disease[diseaseName] = JSON.parse(JSON.stringify(regionData.traits.disease[diseaseName]));
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Build profile content
+        var profile = {
+            name: varietyData.displayName || varietyName,
+            type: isBlend ? 'Blend' : (varietyData.type || 'Cultivar'),
+            source: varietyData.source || varietyData.dataSource || 'Trial data',
+            region: region,
+            hasData: true
+        };
+        
+        // Trial ratings section (BSPB format)
+        var ratings = [];
+        if (varietyData.bspbRatings) {
+            var bspb = varietyData.bspbRatings;
+            if (bspb.mean) ratings.push({ label: 'Overall Mean', value: bspb.mean.toFixed(1), scale: '1-9' });
+            if (bspb.liveGroundCover) ratings.push({ label: 'Live Ground Cover', value: bspb.liveGroundCover.toFixed(1), scale: '1-9' });
+            if (bspb.visualMerit) ratings.push({ label: 'Visual Merit', value: bspb.visualMerit.toFixed(1), scale: '1-9' });
+            if (bspb.recovery) ratings.push({ label: 'Recovery', value: bspb.recovery.toFixed(1), scale: '1-9' });
+            if (bspb.shootDensity) ratings.push({ label: 'Shoot Density', value: bspb.shootDensity.toFixed(1), scale: '1-9' });
+            if (bspb.finenessOfLeaf) ratings.push({ label: 'Fineness of Leaf', value: bspb.finenessOfLeaf.toFixed(1), scale: '1-9' });
+            if (bspb.redThreadResistance) ratings.push({ label: 'Red Thread Resistance', value: bspb.redThreadResistance.toFixed(1), scale: '1-9', note: bspb.redThreadResistance < 5 ? 'Below average' : bspb.redThreadResistance > 6 ? 'Good' : 'Moderate' });
+            if (bspb.winterGreenness) ratings.push({ label: 'Winter Greenness', value: bspb.winterGreenness.toFixed(1), scale: '1-9' });
+            if (bspb.summerGreenness) ratings.push({ label: 'Summer Greenness', value: bspb.summerGreenness.toFixed(1), scale: '1-9' });
+            profile.ratings = ratings;
+            profile.ratingSource = 'BSPB Turfgrass Seed 2025 (STRI trials, Bingley)';
+        }
+        
+        // NTEP quality rating (use resolved value)
+        if (resolvedQualityRating) {
+            ratings.push({ label: 'NTEP Quality Rating', value: resolvedQualityRating.toFixed(1), scale: '1-9' });
+            profile.ratingSource = resolvedQualitySource || 'NTEP trials';
+        }
+        
+        // Ensure ratings are always assigned to profile
+        if (ratings.length > 0) {
+            profile.ratings = ratings;
+        }
+        
+        // Trait multipliers (use resolved traits)
+        var traits = resolvedTraits || {};
+        var traitCards = [];
+        
+        // Wear tolerance
+        if (traits.wear) {
+            var wearMult = traits.wear.multiplier || 1.0;
+            var wearPct = Math.round((1 - wearMult) * 100);
+            var wearModText = wearPct === 0 ? 'Baseline for species' :
+                wearPct > 0 ? '+' + wearPct + '% traffic tolerance' : wearPct + '% traffic tolerance';
+            traitCards.push({
+                category: 'Wear Tolerance',
+                rating: wearMult < 0.85 ? 'Excellent' : wearMult < 0.95 ? 'Good' : wearMult < 1.05 ? 'Average' : 'Below Average',
+                modifier: wearModText,
+                color: wearMult < 0.90 ? '16A34A' : wearMult < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.wear.confidence || 'medium',
+                source: traits.wear.source || '',
+                notes: traits.wear.notes || ''
+            });
+        }
+        
+        // Recovery
+        if (traits.recovery) {
+            var recMult = traits.recovery.multiplier || 1.0;
+            var recPct = Math.round((1 - recMult) * 100);
+            traitCards.push({
+                category: 'Recovery Rate',
+                rating: recMult < 0.85 ? 'Excellent' : recMult < 0.95 ? 'Good' : recMult < 1.05 ? 'Average' : 'Below Average',
+                modifier: recPct > 0 ? '+' + recPct + '% faster recovery' : recPct + '% recovery rate',
+                color: recMult < 0.90 ? '16A34A' : recMult < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.recovery.confidence || 'medium',
+                source: traits.recovery.source || ''
+            });
+        }
+        
+        // Shade tolerance
+        if (traits.shade && traits.shade.thresholdModifier) {
+            var shadeMult = traits.shade.thresholdModifier;
+            var shadePct = Math.round((1 - shadeMult) * 100);
+            var shadeModText = shadePct === 0 ? 'Baseline for species' :
+                shadePct > 0 ? 'Tolerates ' + shadePct + '% lower DLI' : 'Requires ' + Math.abs(shadePct) + '% more light';
+            traitCards.push({
+                category: 'Shade Tolerance',
+                rating: shadeMult < 0.85 ? 'Excellent' : shadeMult < 0.95 ? 'Good' : shadeMult < 1.05 ? 'Average' : 'Below Average',
+                modifier: shadeModText,
+                color: shadeMult < 0.90 ? '16A34A' : shadeMult < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.shade.confidence || 'medium',
+                source: traits.shade.source || '',
+                notes: traits.shade.notes || ''
+            });
+        }
+        
+        // Salinity tolerance
+        if (traits.salinity && traits.salinity.multiplier) {
+            var saltMult = traits.salinity.multiplier;
+            var saltPct = Math.round((1 - saltMult) * 100);
+            traitCards.push({
+                category: 'Salinity Tolerance',
+                rating: saltMult < 0.85 ? 'Excellent' : saltMult < 0.95 ? 'Good' : saltMult < 1.05 ? 'Average' : 'Below Average',
+                modifier: saltPct > 0 ? '+' + saltPct + '% salt tolerance' : saltPct + '% salt tolerance',
+                color: saltMult < 0.90 ? '16A34A' : saltMult < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.salinity.confidence || 'medium',
+                source: traits.salinity.source || ''
+            });
+        }
+        
+        // Water use
+        if (traits.waterUse && traits.waterUse.multiplier) {
+            var waterMult = traits.waterUse.multiplier;
+            var waterPct = Math.round((1 - waterMult) * 100);
+            traitCards.push({
+                category: 'Water Use Efficiency',
+                rating: waterMult < 0.85 ? 'Excellent' : waterMult < 0.95 ? 'Good' : waterMult < 1.05 ? 'Average' : 'High Water Use',
+                modifier: waterPct > 0 ? waterPct + '% less water required' : Math.abs(waterPct) + '% more water required',
+                color: waterMult < 0.90 ? '16A34A' : waterMult < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.waterUse.confidence || 'medium',
+                source: traits.waterUse.source || '',
+                notes: traits.waterUse.notes || ''
+            });
+        }
+        
+        // Cold tolerance
+        if (traits.cold) {
+            var coldRisk = traits.cold.winterkillRisk || 1.0;
+            var coldPct = Math.round((1 - coldRisk) * 100);
+            var coldModText = coldPct === 0 ? 'Baseline for species' :
+                coldPct > 0 ? coldPct + '% lower winterkill risk' : Math.abs(coldPct) + '% higher winterkill risk';
+            traitCards.push({
+                category: 'Cold Tolerance',
+                rating: coldRisk < 0.75 ? 'Excellent' : coldRisk < 0.90 ? 'Good' : coldRisk < 1.10 ? 'Average' : 'Below Average',
+                modifier: coldModText,
+                color: coldRisk < 0.80 ? '16A34A' : coldRisk < 1.05 ? 'CA8A04' : 'DC2626',
+                confidence: traits.cold.confidence || 'medium',
+                source: traits.cold.source || '',
+                notes: traits.cold.notes || ''
+            });
+        }
+        
+        // Spring greenup
+        if (traits.springGreenup && (traits.springGreenup.daysEarlier || traits.springGreenup.daysLater)) {
+            var days = traits.springGreenup.daysEarlier || -(traits.springGreenup.daysLater || 0);
+            traitCards.push({
+                category: 'Spring Greenup',
+                rating: days > 10 ? 'Excellent' : days > 5 ? 'Good' : days > 0 ? 'Slightly Early' : days > -5 ? 'Average' : 'Slow',
+                modifier: days > 0 ? days + ' days earlier than standard' : days < 0 ? Math.abs(days) + ' days later than standard' : 'Standard timing',
+                color: days > 7 ? '16A34A' : days > 0 ? 'CA8A04' : days >= -3 ? '6B7280' : 'DC2626',
+                confidence: traits.springGreenup.confidence || 'medium',
+                source: traits.springGreenup.source || ''
+            });
+        }
+        
+        profile.traitCards = traitCards;
+        
+        // Disease resistance
+        var diseaseTraits = traits.disease || {};
+        var diseaseCards = [];
+
+        var diseaseLabels = {
+            dollarSpot: 'Dollar Spot',
+            brownPatch: 'Brown Patch',
+            pythium: 'Pythium',
+            pythiumRootRot: 'Pythium Root Rot',
+            pythiumBlight: 'Pythium Blight',
+            anthracnose: 'Anthracnose',
+            grayLeafSpot: 'Gray Leaf Spot',
+            springDeadSpot: 'Spring Dead Spot',
+            redThread: 'Red Thread',
+            fusarium: 'Fusarium (Microdochium)',
+            takeAll: 'Take-All Patch',
+            takeAllPatch: 'Take-All Patch'
+        };
+        
+        Object.keys(diseaseTraits).forEach(function(disease) {
+            var d = diseaseTraits[disease];
+            if (d && d.riskMultiplier !== undefined) {
+                var mult = d.riskMultiplier;
+                var pct = Math.round((1 - mult) * 100);
+                diseaseCards.push({
+                    disease: diseaseLabels[disease] || disease,
+                    multiplier: mult,
+                    rating: mult < 0.80 ? 'Resistant' : mult < 0.95 ? 'Moderate Resistance' : mult < 1.10 ? 'Average' : mult < 1.30 ? 'Susceptible' : 'Highly Susceptible',
+                    modifier: pct > 0 ? pct + '% lower risk' : Math.abs(pct) + '% higher risk',
+                    color: mult < 0.85 ? '16A34A' : mult < 1.05 ? 'CA8A04' : 'DC2626',
+                    confidence: d.confidence || 'medium',
+                    source: d.source || ''
+                });
+            }
+        });
+        
+        profile.diseaseCards = diseaseCards;
+
+        // Blend composition (if applicable)
+        if (isBlend && varietyData.composition) {
+            profile.composition = varietyData.composition;
+            profile.supplier = varietyData.supplier;
+            profile.application = varietyData.application;
+        }
+        
+        return profile;
+    }
+    
+    /**
+     * Render cultivar profile section for Word document
+     */
+    function renderCultivarProfileSection(profile) {
+        var elements = [];
+        
+        if (!profile || !profile.hasData) {
+            return elements;
+        }
+        
+        // Section heading
+        elements.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, 
+            keepNext: true, 
+            children: [new TextRun('Cultivar Performance Profile')] 
+        }));
+        
+        // Variety name and type
+        var typeLabel = profile.type === 'Blend' ? 'Seed Blend' : 
+                        profile.type === 'tetraploid' ? 'Tetraploid Cultivar' :
+                        profile.type === 'diploid' ? 'Diploid Cultivar' : 'Cultivar';
+        
+        elements.push(new Paragraph({
+            spacing: { after: 100 },
+            children: [
+                new TextRun({ text: profile.name, bold: true, size: 28, color: '1F2937' }),
+                new TextRun({ text: '  (' + typeLabel + ')', size: 22, color: '6B7280' })
+            ]
+        }));
+        
+        // Data source
+        if (profile.ratingSource) {
+            elements.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: 'Data source: ' + profile.ratingSource, size: 20, color: '6B7280', italics: true })]
+            }));
+        }
+        
+        // Blend composition (if applicable)
+        if (profile.composition && profile.composition.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 100 },
+                children: [new TextRun({ text: 'Blend Composition', bold: true, size: 22, color: '1F2937' })]
+            }));
+            
+            if (profile.supplier) {
+                elements.push(new Paragraph({
+                    spacing: { after: 80 },
+                    children: [new TextRun({ text: 'Supplier: ' + profile.supplier, size: 20, color: '4B5563' })]
+                }));
+            }
+            
+            if (profile.application) {
+                elements.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ text: 'Application: ' + profile.application, size: 20, color: '4B5563' })]
+                }));
+            }
+            
+            var compText = profile.composition.map(function(c) {
+                return c.cultivar + ' (' + c.percent + '%)';
+            }).join(', ');
+            
+            elements.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: compText, size: 22, color: '374151' })]
+            }));
+        }
+        
+        // Trial ratings table (BSPB format)
+        if (profile.ratings && profile.ratings.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 100 },
+                children: [new TextRun({ text: 'Trial Performance Ratings', bold: true, size: 22, color: '1F2937' })]
+            }));
+            
+            var ratingRows = [
+                new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Characteristic', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rating', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Scale', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Assessment', bold: true, size: 20 })] })] })
+                    ]
+                })
+            ];
+            
+            profile.ratings.forEach(function(r) {
+                var val = parseFloat(r.value);
+                var assessment = r.note || (val >= 7.5 ? 'Excellent' : val >= 6.5 ? 'Good' : val >= 5.5 ? 'Moderate' : val >= 4.5 ? 'Below Average' : 'Poor');
+                var color = val >= 7.0 ? '16A34A' : val >= 5.5 ? 'CA8A04' : 'DC2626';
+                
+                ratingRows.push(new TableRow({
+                    children: [
+                        new TableCell({ width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 20 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.value, size: 20, bold: true, color: color })] })] }),
+                        new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.scale || '1-9', size: 18, color: '6B7280' })] })] }),
+                        new TableCell({ width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: assessment, size: 20, color: color })] })] })
+                    ]
+                }));
+            });
+            
+            elements.push(new Table({ columnWidths: [3500, 1500, 1000, 3360], rows: ratingRows }));
+            elements.push(new Paragraph({ spacing: { after: 200 }, children: [] }));
+        }
+        
+        // Performance trait cards
+        if (profile.traitCards && profile.traitCards.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 100 },
+                children: [new TextRun({ text: 'Performance Modifiers', bold: true, size: 22, color: '1F2937' })]
+            }));
+            
+            elements.push(new Paragraph({
+                spacing: { after: 120 },
+                children: [new TextRun({ text: 'These modifiers adjust baseline species calculations in the Hub analysis:', size: 20, color: '6B7280' })]
+            }));
+            
+            profile.traitCards.forEach(function(card) {
+                elements.push(new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                        new TextRun({ text: card.category + ': ', bold: true, size: 20, color: '1F2937' }),
+                        new TextRun({ text: card.rating, size: 20, color: card.color, bold: true }),
+                        new TextRun({ text: ' — ' + card.modifier, size: 20, color: '4B5563' })
+                    ]
+                }));
+                
+                if (card.source) {
+                    elements.push(new Paragraph({
+                        spacing: { after: 100 },
+                        indent: { left: 360 },
+                        children: [new TextRun({ text: card.source, size: 18, color: '9CA3AF', italics: true })]
+                    }));
+                }
+            });
+            
+            elements.push(new Paragraph({ spacing: { after: 150 }, children: [] }));
+        }
+        
+        // Disease resistance profile
+        if (profile.diseaseCards && profile.diseaseCards.length > 0) {
+            elements.push(new Paragraph({
+                spacing: { before: 150, after: 100 },
+                children: [new TextRun({ text: 'Disease Resistance Profile', bold: true, size: 22, color: '1F2937' })]
+            }));
+            
+            var diseaseRows = [
+                new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Resistance', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk Modifier', bold: true, size: 20 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Confidence', bold: true, size: 20 })] })] })
+                    ]
+                })
+            ];
+            
+            profile.diseaseCards.forEach(function(d) {
+                diseaseRows.push(new TableRow({
+                    children: [
+                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.disease, size: 20 })] })] }),
+                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.rating, size: 20, color: d.color, bold: true })] })] }),
+                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.modifier, size: 20, color: d.color })] })] }),
+                        new TableCell({ width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: d.confidence, size: 18, color: '6B7280' })] })] })
+                    ]
+                }));
+            });
+            
+            elements.push(new Table({ columnWidths: [3000, 2500, 2500, 1360], rows: diseaseRows }));
+        }
+        
+        return elements;
+    }
+    
+    // Collect data from DOM and window state
+    function collectData() {
+        var data = {
+            site: {},
+            turf: {},
+            climate: {},
+            soil: {},
+            tissue: {},
+            water: {},
+            salinity: {},   // v2.0.8: Salinity penalty data
+            shade: {},
+            pgr: {},
+            dmi: {},
+            irrigation: {},
+            disease: {},
+            dew: {},
+            traffic: {},
+            trajectory: {},
+            sensor: {},
+            overseedClimate: {}
+        };
+        
+        // Defensive re-check to ensure all sub-objects exist
+        // (in case any code path accidentally sets them to undefined)
+        var ensureObject = function(obj, key) {
+            if (!obj[key] || typeof obj[key] !== 'object') {
+                obj[key] = {};
+            }
+        };
+        
+        // Site info - try multiple sources in priority order
+        var locationSearch = document.getElementById('gaip-location-search');
+        var locationStatus = document.getElementById('gaip-location-status');
+        var latInput = document.querySelector('.gaip-lat');
+        var lonInput = document.querySelector('.gaip-lon');
+
+        // Priority 1: SampleManager active site label (most reliable — site-scoped)
+        var smSiteLabel = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSiteLabel === 'function')
+            ? GAIP_SampleManager.getActiveSiteLabel() : null;
+        if (smSiteLabel && smSiteLabel !== 'default' && smSiteLabel !== 'Default Site') {
+            data.site.name = smSiteLabel;
+        }
+
+        // Priority 2: saved config location name for this site (restored by site-config-persistence)
+        var activeSiteId = window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId
+            ? window.GAIP_SampleManager.getActiveSiteId() : null;
+        var savedConfig = activeSiteId && window.GAIP_SiteConfig && window.GAIP_SiteConfig.getConfig
+            ? window.GAIP_SiteConfig.getConfig(activeSiteId) : null;
+        var savedLocationName = savedConfig && savedConfig.location && savedConfig.location.name
+            ? savedConfig.location.name : null;
+
+        // Priority 3: gaip-location-search input (restored by site-config-persistence on site switch)
+        var searchVal = locationSearch && locationSearch.value ? locationSearch.value.trim() : null;
+
+        // Priority 4: gaip-location-status (may be stale from previous site — use last)
+        var statusVal = locationStatus && locationStatus.textContent
+            ? locationStatus.textContent.replace(/^✓\s*/, '').trim() : null;
+
+        // Build location string: saved config name > search input > status > coords
+        data.site.location = savedLocationName || searchVal || statusVal
+            || (latInput && lonInput && latInput.value && lonInput.value
+                ? latInput.value + ', ' + lonInput.value : 'Not specified');
+
+        // Site name: SM label > saved location name > location string
+        if (!data.site.name) {
+            data.site.name = savedLocationName || searchVal || data.site.location;
+        }
+        data.site.date = new Date().toLocaleDateString();
+        
+        // Turf info - try state first, then DOM
+        if (window.GAIP_STATE && window.GAIP_STATE.turf) {
+            var turf = window.GAIP_STATE.turf;
+            data.turf.type = turf.turfType || '';
+            data.turf.rawTurfType = turf.turfType || '';  // Keep raw value for internal checks
+            data.turf.subCategory = turf.subCategory || '';  // golf: greens/fairways/tees
+            data.turf.species = turf.grassSpecies || '';
+            data.turf.variety = turf.variety || 'generic';
+            data.turf.overseedVariety = turf.overseedVariety || '';
+            data.turf.construction = turf.construction || '';
+            data.turf.warmBase = turf.warmBase || '';
+            data.turf.coolOverseed = turf.coolOverseed || '';
+            data.turf.percentC3 = turf.percentC3Cover || turf.percentC3 || 0;
+            data.turf.hoc = turf.hoc || turf.heightOfCut || null;  // Height of cut
+            
+            // Also check for overseed species from species object or direct property
+            if (turf.species && typeof turf.species === 'object') {
+                // species might be an object with overseed info
+                if (turf.species.overseedSpecies) {
+                    data.turf.coolOverseed = turf.species.overseedSpecies;
+                }
+                if (turf.species.overseedVariety) {
+                    data.turf.overseedVariety = turf.species.overseedVariety;
+                }
+            }
+            
+            // Try to get overseed variety from the DOM dropdown if not in state
+            if (!data.turf.overseedVariety || data.turf.overseedVariety === 'generic') {
+                var overseedDropdown = document.querySelector('.gaip-overseed-variety, [name="overseed_variety"], #overseedVariety');
+                if (overseedDropdown && overseedDropdown.value && overseedDropdown.value !== 'generic') {
+                    data.turf.overseedVariety = overseedDropdown.value;
+                    // Try to get display name
+                    if (overseedDropdown.selectedOptions && overseedDropdown.selectedOptions[0]) {
+                        data.turf.overseedVarietyDisplay = overseedDropdown.selectedOptions[0].text;
+                    }
+                }
+            }
+            
+            // Access c3/c4 fractions - check multiple possible locations
+            // 1. Direct on turf object
+            // 2. In turf.species object (set by hub-tissue-v3.js)
+            // 3. From percentC3Cover calculation
+            if (typeof turf.c3Fraction === 'number') {
+                data.turf.c3Fraction = turf.c3Fraction;
+                data.turf.c4Fraction = turf.c4Fraction || 0;
+            } else if (turf.species && typeof turf.species === 'object' && typeof turf.species.c3Fraction === 'number') {
+                data.turf.c3Fraction = turf.species.c3Fraction;
+                data.turf.c4Fraction = turf.species.c4Fraction || 0;
+            } else if (turf.percentC3Cover > 0) {
+                // Derive from percentC3Cover
+                data.turf.c3Fraction = turf.percentC3Cover / 100;
+                data.turf.c4Fraction = 1 - data.turf.c3Fraction;
+            } else {
+                data.turf.c3Fraction = 0;
+                data.turf.c4Fraction = 0;
+            }
+            
+            // Sanity check: a pure C4 species with no overseed UI active should never
+            // have c3Fraction = 1.0 — that indicates stale persisted state.
+            // Check actual form value as ground truth.
+            var c3FormInput = document.querySelector('.gaip-c3-cover');
+            var c3FormValue = c3FormInput ? (parseFloat(c3FormInput.value) || 0) / 100 : null;
+            if (c3FormValue !== null && Math.abs(c3FormValue - data.turf.c3Fraction) > 0.1) {
+                // Form and state disagree by more than 10% — trust the form
+                console.warn('[WordExport] c3Fraction state/form mismatch — state:', data.turf.c3Fraction, 'form:', c3FormValue, '— using form value');
+                data.turf.c3Fraction = c3FormValue;
+                data.turf.c4Fraction = 1 - c3FormValue;
+            }
+        }
+        
+        // Fallback to DOM if state missing turf type
+        if (!data.turf.type) {
+            // Try active turf type button first
+            var activeTurfBtn = document.querySelector('.gaip-turf-type-option.active');
+            if (activeTurfBtn && activeTurfBtn.dataset.type) {
+                data.turf.type = activeTurfBtn.dataset.type;
+            }
+            // Fallback to select element
+            if (!data.turf.type) {
+                var turfTypeEl = document.querySelector('.gaip-turf-type');
+                if (turfTypeEl) {
+                    var selectedOption = turfTypeEl.options ? turfTypeEl.options[turfTypeEl.selectedIndex] : null;
+                    data.turf.type = selectedOption ? selectedOption.text : (turfTypeEl.value || '');
+                }
+            }
+        }
+        
+        // Fallback to DOM if state missing species
+        if (!data.turf.species) {
+            var speciesEl = document.querySelector('.gaip-species');
+            if (speciesEl) {
+                var selectedOption = speciesEl.options ? speciesEl.options[speciesEl.selectedIndex] : null;
+                data.turf.species = selectedOption ? selectedOption.text : (speciesEl.value || '');
+            }
+        }
+        
+        // Format turf type nicely - combine type with subCategory for golf
+        if (data.turf.type) {
+            var typeMap = {
+                'sports': 'Sports Field',
+                'golf': 'Golf Course',
+                'golf_green': 'Golf - Greens',
+                'golf_greens': 'Golf - Greens',
+                'golf_fairway': 'Golf - Fairways',
+                'golf_fairways': 'Golf - Fairways', 
+                'golf_tee': 'Golf - Tees',
+                'golf_tees': 'Golf - Tees',
+                'golf_rough': 'Golf - Rough',
+                'lawns': 'Lawns',
+                'lawn': 'Lawn',
+                'residential': 'Residential Lawn',
+                'commercial': 'Commercial'
+            };
+            
+            // If turfType is 'golf' and we have a subCategory, combine them
+            if (data.turf.type === 'golf' && data.turf.subCategory) {
+                var subCatLabel = {
+                    'greens': 'Golf - Greens',
+                    'green': 'Golf - Greens',
+                    'fairways': 'Golf - Fairways',
+                    'fairway': 'Golf - Fairways',
+                    'tees': 'Golf - Tees',
+                    'tee': 'Golf - Tees',
+                    'rough': 'Golf - Rough'
+                };
+                data.turf.type = subCatLabel[data.turf.subCategory] || ('Golf - ' + data.turf.subCategory.charAt(0).toUpperCase() + data.turf.subCategory.slice(1));
+            } else {
+                data.turf.type = typeMap[data.turf.type] || data.turf.type;
+            }
+        }
+        
+        // Determine if C4 (warm-season) grass
+        var speciesLower = (data.turf.species || '').toLowerCase();
+        var isC4 = speciesLower.indexOf('couch') > -1 || 
+                   speciesLower.indexOf('bermuda') > -1 ||
+                   speciesLower.indexOf('kikuyu') > -1 ||
+                   speciesLower.indexOf('zoysia') > -1 ||
+                   speciesLower.indexOf('buffalo') > -1 ||
+                   speciesLower.indexOf('paspalum') > -1 ||
+                   speciesLower.indexOf('seashore') > -1;
+        
+        // Check for active overseed - multiple detection methods:
+        // 1. Explicit warmBase/coolOverseed fields differ (both must be non-empty)
+        // 2. C4 base species with significant C3 fraction (implies overseed)
+        var hasExplicitOverseed = data.turf.warmBase && data.turf.warmBase.length > 0 && 
+                                  data.turf.coolOverseed && data.turf.coolOverseed.length > 0 &&
+                                  data.turf.warmBase !== data.turf.coolOverseed;
+        // Only infer overseed if C4 base, C3 fraction is significant, AND the overseed
+        // UI toggle is actually enabled — prevents stale state from triggering ryegrass fallbacks
+        var overseedToggle = document.querySelector('.gaip-enable-overseed, [data-overseed-active]');
+        var overseedUIActive = overseedToggle ? (overseedToggle.checked || overseedToggle.getAttribute('data-overseed-active') === 'true') : false;
+        // Also check GAIP_STATE directly for overseed flag
+        var overseedStateActive = !!(window.GAIP_STATE && window.GAIP_STATE.turf && 
+            (window.GAIP_STATE.turf.overseedActive || window.GAIP_STATE.turf.hasOverseed));
+        var hasInferredOverseed = isC4 && data.turf.c3Fraction >= 0.2 && (overseedUIActive || overseedStateActive);
+        var hasOverseed = hasExplicitOverseed || hasInferredOverseed;
+        
+        // If we detected overseed via fraction but don't have explicit species names, infer them
+        if (hasOverseed && (!data.turf.warmBase || data.turf.warmBase.length === 0)) {
+            // Get the base species - use grassSpecies from state or infer from species string
+            data.turf.warmBase = data.turf.species || 'Couch';
+            // Include base variety if available
+            if (data.turf.variety && data.turf.variety !== 'generic') {
+                data.turf.warmBaseWithVariety = data.turf.warmBase + ' (' + data.turf.variety + ')';
+            } else {
+                data.turf.warmBaseWithVariety = data.turf.warmBase;
+            }
+        }
+        
+        if (hasOverseed && (!data.turf.coolOverseed || data.turf.coolOverseed.length === 0)) {
+            // Only infer coolOverseed name when there genuinely is an overseed
+            // For pure C4 with no overseed, hasInferredOverseed should be false
+            data.turf.coolOverseed = hasExplicitOverseed ? 'Perennial Ryegrass' : '';
+        }
+        
+        // Try to get overseed variety from climate module result (it shows the selected overseed)
+        if (hasOverseed && (!data.turf.overseedVariety || data.turf.overseedVariety === 'generic')) {
+            // Check climate module result for variety info
+            var climateResult = window.GAIP_CLIMATE_V2_RESULT;
+            if (climateResult && climateResult.overseedVariety) {
+                data.turf.overseedVariety = climateResult.overseedVariety;
+            }
+            // Also try the variety dropdown directly
+            var varietyDropdown = document.querySelector('.gaip-variety-select, #gaip-variety');
+            if (varietyDropdown && varietyDropdown.value && varietyDropdown.value !== 'generic') {
+                // This might be the overseed variety when in overseed mode
+                if (isC4 && data.turf.c3Fraction >= 0.5) {
+                    data.turf.overseedVariety = varietyDropdown.value;
+                    if (varietyDropdown.selectedOptions && varietyDropdown.selectedOptions[0]) {
+                        data.turf.overseedVarietyDisplay = varietyDropdown.selectedOptions[0].text;
+                    }
+                }
+            }
+        }
+        
+        // CRITICAL: When C3 overseed is dominant (>50%), treat the entire surface as C3
+        // This affects ALL agronomic decisions - soil pH targets, tissue ranges, 
+        // water quality impacts, shade thresholds, disease risks, etc.
+        var overseedDominant = hasOverseed && data.turf.c3Fraction >= 0.5;
+        var useC3Targets = hasOverseed && data.turf.c3Fraction > 0.2;
+
+        data.turf.isC4 = isC4;
+        data.turf.hasOverseed = hasOverseed;
+        data.turf.useC3Targets = useC3Targets;
+        data.turf.overseedDominant = overseedDominant;
+        
+        // Set the EFFECTIVE species for agronomic decisions
+        // When overseed is dominant, all recommendations should be for the overseed species
+        if (overseedDominant) {
+            data.turf.effectiveSpecies = data.turf.coolOverseed || 'Perennial Ryegrass';
+            data.turf.effectiveVariety = data.turf.overseedVariety || 'generic';
+            data.turf.effectiveIsC4 = false; // C3 overseed is dominant
+            data.turf.effectiveSpeciesNote = 'Management focus: ' + data.turf.effectiveSpecies + 
+                ' (' + Math.round(data.turf.c3Fraction * 100) + '% cover)';
+        } else if (hasOverseed && useC3Targets) {
+            // Mixed sward - C3 needs protection but not fully dominant
+            data.turf.effectiveSpecies = data.turf.coolOverseed || 'Perennial Ryegrass';
+            data.turf.effectiveVariety = data.turf.overseedVariety || 'generic';
+            data.turf.effectiveIsC4 = false;
+            data.turf.effectiveSpeciesNote = 'Mixed sward - C3 overseed requires priority management';
+        } else {
+            data.turf.effectiveSpecies = data.turf.species || data.turf.warmBase || 'Not specified';
+            data.turf.effectiveVariety = data.turf.variety || 'generic';
+            data.turf.effectiveIsC4 = isC4;
+            data.turf.effectiveSpeciesNote = null;
+        }
+        
+        // Build species display string for site info
+        if (overseedDominant) {
+            // When overseed dominant, lead with the overseed species
+            var overseedDisplay = data.turf.coolOverseed;
+            if (data.turf.overseedVariety && data.turf.overseedVariety !== 'generic') {
+                overseedDisplay += ' (' + data.turf.overseedVariety + ')';
+            }
+            data.turf.speciesDisplay = overseedDisplay + ' - ' + Math.round(data.turf.c3Fraction * 100) + '% cover';
+            // Use warmBaseWithVariety if available, otherwise just warmBase
+            var baseDisplay = data.turf.warmBaseWithVariety || data.turf.warmBase || data.turf.species || 'C4 base';
+            data.turf.speciesDisplay += ' (base: ' + baseDisplay + ')';
+        } else if (hasOverseed) {
+            var overseedDisplay = data.turf.coolOverseed;
+            if (data.turf.overseedVariety && data.turf.overseedVariety !== 'generic') {
+                overseedDisplay += ' - ' + data.turf.overseedVariety;
+            }
+            var baseDisplay = data.turf.warmBaseWithVariety || data.turf.warmBase || data.turf.species;
+            data.turf.speciesDisplay = baseDisplay + ' (overseeded: ' + overseedDisplay + ')';
+            if (data.turf.percentC3 !== undefined && data.turf.percentC3 > 0) {
+                data.turf.speciesDisplay += ' - ' + data.turf.percentC3 + '% C3';
+            }
+        } else {
+            data.turf.speciesDisplay = data.turf.species || 'Not specified';
+        }
+        
+        // Climate from window.climateMetrics or state.climateMetrics
+        var cm = window.climateMetrics || (window.GAIP_STATE ? window.GAIP_STATE.climateMetrics : null);
+        if (cm) {
+            data.climate.temperature = cm.temperature ? cm.temperature.mean : null;
+            
+            // Use species-appropriate growth potential
+            if (cm.growth) {
+                // For overseed situations, always capture both C3 and C4 GP
+                if (hasOverseed) {
+                    // Mixed sward / overseed - show both values
+                    data.climate.c3Growth = cm.growth.c3;
+                    data.climate.c4Growth = cm.growth.c4;
+                    data.climate.growthPotential = cm.growth.weighted;
+                    data.climate.showBothGP = true;
+                } else if (isC4) {
+                    // Pure C4
+                    data.climate.growthPotential = cm.growth.c4 || cm.growth.weighted;
+                    data.climate.gpLabel = 'C4';
+                } else {
+                    // Pure C3
+                    data.climate.growthPotential = cm.growth.c3 || cm.growth.weighted;
+                    data.climate.gpLabel = 'C3';
+                }
+                data.climate.status = cm.growth.status || null;
+            }
+            
+            if (cm.stress) {
+                data.climate.heatStress = cm.stress.heatDays ? cm.stress.heatDays + ' days >30°C' : 'None';
+                data.climate.coldStress = cm.stress.coldDays ? cm.stress.coldDays + ' days <10°C' : 'None';
+            }
+            
+        }
+        
+        // Shade from results - use species-appropriate DLI targets
+        var shadeData = (window.GAIP_STATE && window.GAIP_STATE.shadeMetrics) || 
+                        window.shadeMetrics;
+        if (shadeData) {
+            // Current DLI
+            data.shade.currentDLI = shadeData.DLI_adj || shadeData.DLI_total || shadeData.dliShaded || shadeData.currentDLI;
+            
+            // For overseed, use C3 targets (the overseed needs protecting)
+            // For pure stands, use species-appropriate targets
+            if (useC3Targets) {
+                // Overseed active - use C3 targets since ryegrass needs more light protection
+                data.shade.targetDLI = shadeData.c3Opt || 18;
+                data.shade.minDLI = shadeData.c3Min || 12;
+                data.shade.status = shadeData.c3Status || shadeData.status;
+                data.shade.dliMode = 'overseed';
+                // Also capture C4 targets for reference
+                data.shade.c4TargetDLI = shadeData.c4Opt || 30;
+                data.shade.c4MinDLI = shadeData.c4Min || 24;
+            } else if (data.turf.isC4) {
+                data.shade.targetDLI = shadeData.c4Opt || shadeData.targetDLI;
+                data.shade.minDLI = shadeData.c4Min;
+                data.shade.status = shadeData.c4Status || shadeData.status;
+                data.shade.dliMode = 'c4';
+            } else {
+                data.shade.targetDLI = shadeData.c3Opt || shadeData.targetDLI;
+                data.shade.minDLI = shadeData.c3Min;
+                data.shade.status = shadeData.c3Status || shadeData.status;
+                data.shade.dliMode = 'c3';
+            }
+            
+            data.shade.transmission = shadeData.shadeFactor ? Math.round(shadeData.shadeFactor * 100) : 
+                                      (shadeData.transmissionFactor ? Math.round(shadeData.transmissionFactor * 100) : 
+                                      (shadeData.transmission || null));
+            
+            // Calculate deficit if we have current and target
+            if (data.shade.currentDLI && data.shade.targetDLI) {
+                var deficit = ((data.shade.targetDLI - data.shade.currentDLI) / data.shade.targetDLI * 100);
+                data.shade.deficit = deficit > 0 ? Math.round(deficit) : 0;
+            }
+            
+        }
+        
+        // Soil data (MLSN/SLAN results)
+        if (window.GAIP_STATE) {
+            ensureObject(data, 'soil');  // Ensure soil object exists
+            var soilInput = window.GAIP_STATE.soil;
+            var mlsnResults = window.GAIP_STATE.mlsnResults;
+            
+            // Capture sample identification metadata
+            // Priority: SampleManager active sample > manual DOM input > empty
+            var activeSoilSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
+                ? GAIP_SampleManager.getActiveSample('soil') : null;
+            var soilLabelEl = document.querySelector('.gaip-soil-sample-label');
+            var soilLabRefEl = document.querySelector('.gaip-soil-lab-ref');
+            var soilDateEl = document.querySelector('.gaip-soil-date');
+            // Prefer DOM label input (shows human zone name), fall back to sample.label
+            // humanize: strip generated ID hash suffix (Soil_1_3cbn -> Soil 1)
+            var _rawSoilLabel = (soilLabelEl && soilLabelEl.value && soilLabelEl.value.trim())
+                ? soilLabelEl.value.trim()
+                : (activeSoilSample && activeSoilSample.label) ? activeSoilSample.label : '';
+            // Detect generated ID pattern: Word_N_XXXX (4-char alphanumeric suffix)
+            var _soilLabelCleaned = _rawSoilLabel.replace(/^([A-Za-z]+)_(\d+)_[A-Za-z0-9]{4}$/, function(m, type, num) {
+                return type.charAt(0).toUpperCase() + type.slice(1).toLowerCase() + ' ' + num;
+            });
+            data.soil.sampleLabel = _soilLabelCleaned || _rawSoilLabel;
+            data.soil.labRef = (soilLabRefEl && soilLabRefEl.value) ? soilLabRefEl.value.trim() : '';
+            data.soil.testDate = (activeSoilSample && activeSoilSample.date) ? activeSoilSample.date :
+                (soilDateEl && soilDateEl.value) ? soilDateEl.value : '';
+
+
+            // Capture methodology (MLSN or SLAN)
+            if (soilInput && soilInput.methodology) {
+                data.soil.methodology = soilInput.methodology.toUpperCase();
+            } else {
+                // Try to detect from DOM
+                var methodEl = document.querySelector('.gaip-soil-methodology, [name="soil_methodology"]');
+                if (methodEl) {
+                    data.soil.methodology = (methodEl.value || 'MLSN').toUpperCase();
+                } else {
+                    data.soil.methodology = 'MLSN';  // Default
+                }
+            }
+            
+            // Capture extraction method
+            var extractantEl = document.querySelector('.gaip-soil-extractant');
+            if (extractantEl && extractantEl.value) {
+                data.soil.extractant = extractantEl.value;
+                data.soil.extractantLabel = extractantEl.options[extractantEl.selectedIndex]?.text || extractantEl.value;
+            } else if (window.gaip_getExtractantMethod) {
+                data.soil.extractant = window.gaip_getExtractantMethod();
+            }
+            
+            // Capture extractant warning if applicable
+            if (window.gaip_getExtractantWarning) {
+                data.soil.extractantWarning = window.gaip_getExtractantWarning();
+            }
+            
+            if (soilInput && soilInput.ppm) {
+                data.soil.P = soilInput.ppm.P;
+                data.soil.K = soilInput.ppm.K;
+                data.soil.Ca = soilInput.ppm.Ca;
+                data.soil.Mg = soilInput.ppm.Mg;
+                data.soil.S = soilInput.ppm.S;
+                data.soil.pH = soilInput.pH_water;
+                data.soil.OM = soilInput.OM;
+                data.soil.CEC = soilInput.CEC;
+                data.soil.Na = soilInput.ppm.Na;  // For soil×water interactions
+                // Set hasData flag if we have any nutrient values
+                if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
+                    data.soil.hasData = true;
+                }
+            }
+
+            // Always read trace elements (Fe/Mn/Zn/Cu/B) directly from DOM inputs —
+            // GAIP_STATE.soil.ppm does not carry traces so they are never in canonical state.
+            // This runs regardless of hasData so it works for all samples in combined export.
+            var traceSelectors = { Fe: '[data-mlsn="Fe"]', Mn: '[data-mlsn="Mn"]', Zn: '[data-mlsn="Zn"]', Cu: '[data-mlsn="Cu"]', B: '[data-mlsn="B"]' };
+            Object.keys(traceSelectors).forEach(function(t) {
+                var el = document.querySelector(traceSelectors[t]);
+                if (el && el.value && !isNaN(parseFloat(el.value))) {
+                    data.soil[t] = parseFloat(el.value);
+                }
+            });
+            
+            // DOM fallback - read from input fields if GAIP_STATE didn't have ppm data
+            if (!data.soil.hasData) {
+                
+                // Try various input field naming conventions
+                var soilFieldMappings = [
+                    // Format: [data property, [possible input selectors]]
+                    // Primary: data-mlsn attributes (used by actual UI inputs)
+                    ['P', ['[data-mlsn="P"]', '#gaip_soil_P', '#soil_P', '[name="soil_P"]', '.gaip-soil-P', '#P_ppm', '[data-nutrient="P"]']],
+                    ['K', ['[data-mlsn="K"]', '#gaip_soil_K', '#soil_K', '[name="soil_K"]', '.gaip-soil-K', '#K_ppm', '[data-nutrient="K"]']],
+                    ['Ca', ['[data-mlsn="Ca"]', '#gaip_soil_Ca', '#soil_Ca', '[name="soil_Ca"]', '.gaip-soil-Ca', '#Ca_ppm', '[data-nutrient="Ca"]']],
+                    ['Mg', ['[data-mlsn="Mg"]', '#gaip_soil_Mg', '#soil_Mg', '[name="soil_Mg"]', '.gaip-soil-Mg', '#Mg_ppm', '[data-nutrient="Mg"]']],
+                    ['S', ['[data-mlsn="S"]', '#gaip_soil_S', '#soil_S', '[name="soil_S"]', '.gaip-soil-S', '#S_ppm', '[data-nutrient="S"]']],
+                    ['Fe', ['[data-mlsn="Fe"]', '#gaip_soil_Fe', '#soil_Fe', '[name="soil_Fe"]', '.gaip-soil-Fe', '#Fe_ppm', '[data-nutrient="Fe"]']],
+                    ['Mn', ['[data-mlsn="Mn"]', '#gaip_soil_Mn', '#soil_Mn', '[name="soil_Mn"]', '.gaip-soil-Mn', '#Mn_ppm', '[data-nutrient="Mn"]']],
+                    ['Cu', ['[data-mlsn="Cu"]', '#gaip_soil_Cu', '#soil_Cu', '[name="soil_Cu"]', '.gaip-soil-Cu', '#Cu_ppm', '[data-nutrient="Cu"]']],
+                    ['Zn', ['[data-mlsn="Zn"]', '#gaip_soil_Zn', '#soil_Zn', '[name="soil_Zn"]', '.gaip-soil-Zn', '#Zn_ppm', '[data-nutrient="Zn"]']],
+                    ['pH', ['.gaip-soil-ph', '#gaip_soil_pH', '#soil_pH', '[name="soil_pH"]', '.gaip-soil-pH', '#pH_water']],
+                    ['OM', ['#gaip_soil_OM', '#soil_OM', '[name="soil_OM"]', '.gaip-soil-OM', '#organic_matter']],
+                    ['CEC', ['#gaip_soil_CEC', '#soil_CEC', '[name="soil_CEC"]', '.gaip-soil-CEC']],
+                    ['Na', ['[data-mlsn="Na"]', '#gaip_soil_Na', '#soil_Na', '[name="soil_Na"]', '.gaip-soil-Na', '#Na_ppm', '[data-nutrient="Na"]']]
+                ];
+                
+                soilFieldMappings.forEach(function(mapping) {
+                    var prop = mapping[0];
+                    var selectors = mapping[1];
+                    for (var i = 0; i < selectors.length; i++) {
+                        var el = document.querySelector(selectors[i]);
+                        if (el && el.value && !isNaN(parseFloat(el.value))) {
+                            data.soil[prop] = parseFloat(el.value);
+                            break;
+                        }
+                    }
+                });
+                
+                // Check if we got any data from DOM
+                if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
+                    data.soil.hasData = true;
+                }
+            }
+            
+            // Add MLSN/SLAN/Ammonium Acetate thresholds for charting
+            if (data.soil.methodology === 'SLAN') {
+                // SLAN ranges (typical sandy loam)
+                data.soil.thresholds = {
+                    P: { min: 12, max: 28, label: '12-28' },
+                    K: { min: 40, max: 80, label: '40-80' },
+                    Ca: { min: 300, max: 600, label: '300-600' },
+                    Mg: { min: 36, max: 72, label: '36-72' },
+                    S: { min: 6, max: 12, label: '6-12' }
+                };
+            } else if (data.soil.methodology === 'AMMONIUM_ACETATE' || data.soil.methodology === 'AMMONIUM ACETATE') {
+                // Ammonium Acetate / Hill Labs NZ ranges
+                // Check soil texture for K and Mg ranges
+                var aaSoilTexture = 'others';
+                var aaTextureEl = document.querySelector('.gaip-aa-soil-texture');
+                if (aaTextureEl && aaTextureEl.value) {
+                    aaSoilTexture = aaTextureEl.value;
+                } else if (soilInput && soilInput.aaSoilTexture) {
+                    aaSoilTexture = soilInput.aaSoilTexture;
+                }
+                
+                data.soil.extractant = 'Olsen P + NH₄OAc (pH 8.1)';
+                data.soil.extractantLabel = 'Hill Labs NZ Method';
+                data.soil.aaSoilTexture = aaSoilTexture;
+                
+                if (aaSoilTexture === 'sands') {
+                    data.soil.thresholds = {
+                        P: { min: 12, max: 28, label: '12-28', unit: 'mg/L' },
+                        K: { min: 75, max: 175, label: '75-175' },
+                        Ca: { min: 500, max: 750, label: '500-750' },
+                        Mg: { min: 100, max: 200, label: '100-200' },
+                        S: { min: 30, max: 60, label: '30-60' }
+                    };
+                } else {
+                    data.soil.thresholds = {
+                        P: { min: 12, max: 28, label: '12-28', unit: 'mg/L' },
+                        K: { min: 100, max: 235, label: '100-235' },
+                        Ca: { min: 500, max: 750, label: '500-750' },
+                        Mg: { min: 140, max: 250, label: '140-250' },
+                        S: { min: 30, max: 60, label: '30-60' }
+                    };
+                }
+            } else {
+                // MLSN minimums
+                var pThreshold = 21;
+                if (soilInput && soilInput.pH_water) {
+                    var pH = soilInput.pH_water;
+                    if (pH < 5.5) pThreshold = 35;
+                    else if (pH < 6.0) pThreshold = 28;
+                    else if (pH > 8.0) pThreshold = 40;
+                    else if (pH > 7.5) pThreshold = 32;
+                }
+                data.soil.thresholds = {
+                    P: { min: pThreshold, label: pThreshold + '' },
+                    K: { min: 37, label: '37' },
+                    Ca: { min: 331, label: '331' },
+                    Mg: { min: 47, label: '47' },
+                    S: { min: 7, label: '7' }
+                };
+            }
+            
+            // Extract status from results if available
+            if (mlsnResults && typeof mlsnResults === 'string') {
+                // Check for deficiency indicators
+                data.soil.hasResults = true;
+                data.soil.summary = mlsnResults.indexOf('Deficient') > -1 ? 'Deficiencies detected' :
+                                   mlsnResults.indexOf('Low') > -1 ? 'Some nutrients low' : 'Adequate';
+            }
+            
+            // Add species info for pH interpretation
+            // When overseed is dominant (>50%), treat as C3 surface
+            // For mixed stands with significant C3 (>20%), use C3 targets
+            // Pure C4 stands: use C4 targets
+            if (data.turf.overseedDominant) {
+                // Overseed dominant - full focus on C3 overseed species
+                data.soil.isC3Species = true;
+                data.soil.speciesName = data.turf.coolOverseed || data.turf.effectiveSpecies || 'cool-season overseed';
+            } else if (useC3Targets) {
+                // Significant C3 cover but not dominant
+                data.soil.isC3Species = true;
+                data.soil.speciesName = data.turf.coolOverseed || data.turf.effectiveSpecies || 'cool-season overseed';
+            } else if (isC4) {
+                data.soil.isC3Species = false;
+                data.soil.speciesName = data.turf.warmBase || data.turf.grassSpecies || 'Couch';
+            } else {
+                // Pure C3 (bent, ryegrass, fescue, bluegrass)
+                data.soil.isC3Species = true;
+                data.soil.speciesName = data.turf.grassSpecies || 'cool-season grass';
+            }
+            
+        }
+        
+        // Tissue data
+        if (window.GAIP_STATE) {
+            ensureObject(data, 'tissue');  // Ensure tissue object exists
+            var tissueState = window.GAIP_STATE.tissue;
+            var tissueResults = window.GAIP_STATE.tissueResults;
+            
+            // Capture tissue sample identification metadata
+            // Priority: SampleManager active sample > manual DOM input > empty
+            var activeTissueSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
+                ? GAIP_SampleManager.getActiveSample('tissue') : null;
+            var tissueLabelEl = document.querySelector('.gaip-tissue-sample-label');
+            var tissueDateEl = document.querySelector('.gaip-tissue-date');
+            data.tissue.sampleLabel = (activeTissueSample && activeTissueSample.label) ? activeTissueSample.label :
+                (tissueLabelEl && tissueLabelEl.value) ? tissueLabelEl.value.trim() : '';
+            data.tissue.testDate = (activeTissueSample && activeTissueSample.date) ? activeTissueSample.date :
+                (tissueDateEl && tissueDateEl.value) ? tissueDateEl.value : '';
+
+            // Tissue values are nested: state.tissue.tissue contains the actual values
+            var tissueInput = tissueState && tissueState.tissue ? tissueState.tissue : tissueState;
+            
+            if (tissueInput) {
+                data.tissue.N = tissueInput.N;
+                data.tissue.P = tissueInput.P;
+                data.tissue.K = tissueInput.K;
+                data.tissue.Ca = tissueInput.Ca;
+                data.tissue.Mg = tissueInput.Mg;
+                data.tissue.S = tissueInput.S;
+                data.tissue.Fe = tissueInput.Fe;
+                data.tissue.Mn = tissueInput.Mn;
+                data.tissue.Zn = tissueInput.Zn;
+                data.tissue.Cu = tissueInput.Cu;
+                data.tissue.B = tissueInput.B;
+                
+                // Set hasData flag
+                if (data.tissue.N || data.tissue.K || data.tissue.P) {
+                    data.tissue.hasData = true;
+                }
+            }
+            
+            // Fallback: read tissue values directly from DOM inputs if not in state
+            if (!data.tissue.N && !data.tissue.K) {
+                var tissueModule = document.querySelector('#gaipTissueModule, .gaip-tissue-module');
+                if (tissueModule) {
+                    var tissueInputs = tissueModule.querySelectorAll('input[data-val]');
+                    tissueInputs.forEach(function(input) {
+                        var nutrient = input.dataset.val;
+                        var value = parseFloat(input.value);
+                        if (nutrient && !isNaN(value) && value > 0) {
+                            data.tissue[nutrient] = value;
+                        }
+                    });
+                }
+            }
+            
+            // Also check __GAIP_TISSUE_LAST__ for computed results
+            if (window.__GAIP_TISSUE_LAST__ && window.__GAIP_TISSUE_LAST__.values) {
+                var lastValues = window.__GAIP_TISSUE_LAST__.values;
+                ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Zn', 'Cu', 'B'].forEach(function(n) {
+                    if (!data.tissue[n] && lastValues[n] !== undefined) {
+                        data.tissue[n] = lastValues[n];
+                    }
+                });
+            }
+            
+            // Set hasData flag if we have tissue data from any source
+            if (data.tissue.N || data.tissue.K || data.tissue.P) {
+                data.tissue.hasData = true;
+            }
+            
+            // Add sufficiency ranges based on EFFECTIVE species
+            // When overseed is dominant, use C3 ranges since that's what we're managing
+            var speciesLower = (data.turf.effectiveSpecies || data.turf.species || '').toLowerCase();
+            var isC4Species = !data.turf.overseedDominant && (
+                             speciesLower.indexOf('couch') > -1 || speciesLower.indexOf('bermuda') > -1 ||
+                             speciesLower.indexOf('kikuyu') > -1 || speciesLower.indexOf('zoysia') > -1);
+            
+            // Store which ranges we're using for clarity
+            data.tissue.rangeSpecies = data.turf.overseedDominant ? 
+                (data.turf.coolOverseed || 'Perennial Ryegrass') : 
+                (data.turf.species || 'turf');
+            
+            // Sufficiency ranges (lo-hi)
+            if (isC4Species) {
+                // Couch/Bermudagrass ranges
+                data.tissue.ranges = {
+                    N:  { lo: 3.00, hi: 4.30, unit: '%' },
+                    P:  { lo: 0.20, hi: 0.40, unit: '%' },
+                    K:  { lo: 1.60, hi: 2.25, unit: '%' },
+                    Ca: { lo: 0.25, hi: 0.50, unit: '%' },
+                    Mg: { lo: 0.15, hi: 0.30, unit: '%' },
+                    S:  { lo: 0.15, hi: 0.65, unit: '%' },
+                    Fe: { lo: 50,  hi: 500, unit: 'ppm' },
+                    Mn: { lo: 20,  hi: 300, unit: 'ppm' },
+                    Zn: { lo: 15,  hi: 200, unit: 'ppm' },
+                    Cu: { lo: 5,   hi: 20,  unit: 'ppm' },
+                    B:  { lo: 5,   hi: 60,  unit: 'ppm' }
+                };
+            } else {
+                // C3 (Ryegrass/Bentgrass) ranges - used for overseed dominant too
+                data.tissue.ranges = {
+                    N:  { lo: 3.34, hi: 5.10, unit: '%' },
+                    P:  { lo: 0.33, hi: 0.55, unit: '%' },
+                    K:  { lo: 2.00, hi: 3.42, unit: '%' },
+                    Ca: { lo: 0.25, hi: 0.51, unit: '%' },
+                    Mg: { lo: 0.16, hi: 0.32, unit: '%' },
+                    S:  { lo: 0.27, hi: 0.56, unit: '%' },
+                    Fe: { lo: 97,  hi: 934, unit: 'ppm' },
+                    Mn: { lo: 30,  hi: 73,  unit: 'ppm' },
+                    Zn: { lo: 14,  hi: 64,  unit: 'ppm' },
+                    Cu: { lo: 6,   hi: 38,  unit: 'ppm' },
+                    B:  { lo: 9,   hi: 17,  unit: 'ppm' }
+                };
+            }
+            
+            if (tissueResults) {
+                if (!data.tissue) data.tissue = {};  // Defensive init
+                data.tissue.hasResults = true;
+                data.tissue.status = tissueResults.status || {};
+                data.tissue.limitingNutrients = tissueResults.limitingNutrients || [];
+            }
+        }
+        
+        // Water data
+        if (window.GAIP_STATE) {
+            ensureObject(data, 'water');  // Ensure water object exists
+
+            // b35fix139: read water from hub store directly (GAIP_STATE is a defineProperty getter
+            // in gilba-hub-v2.js — writing .water on the returned object has no effect)
+            // Priority: GilbaHub store → blender live state → GAIP_STATE legacy field
+            var waterInput = null;
+            try {
+                // Try hub store first (authoritative)
+                if (window.GilbaHub && window.GilbaHub.get) {
+                    waterInput = window.GilbaHub.get('inputs.water');
+                }
+                // If store has no water data, try blender
+                if ((!waterInput || !waterInput.ecw) && window.GAIP_WaterBlenderUI &&
+                    window.GAIP_WaterBlenderUI.getState) {
+                    var _bs2 = window.GAIP_WaterBlenderUI.getState();
+                    if (_bs2 && _bs2.blendResult && typeof GAIP_WaterBlender !== 'undefined') {
+                        waterInput = GAIP_WaterBlender.toHubWaterState(_bs2.blendResult);
+                        // Write into hub store so downstream reads also get it
+                        if (waterInput && window.GilbaHub && window.GilbaHub.set) {
+                            window.GilbaHub.set('inputs.water', waterInput);
+                        }
+                    }
+                }
+                // Last resort: pre-captured value stored on export object
+                if ((!waterInput || !waterInput.ecw) && window._GAIP_EXPORT_BLEND_WATER) {
+                    waterInput = window._GAIP_EXPORT_BLEND_WATER;
+                }
+            } catch(_we) {}
+            // Final fallback: legacy GAIP_STATE path
+            if (!waterInput) waterInput = window.GAIP_STATE ? window.GAIP_STATE.water : null;
+            var waterResults = window.GAIP_STATE ? window.GAIP_STATE.waterResults : null;
+            
+            // Capture water sample identification metadata
+            // Priority: SampleManager active sample > manual DOM input > empty
+            var activeWaterSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function') 
+                ? GAIP_SampleManager.getActiveSample('water') : null;
+            var waterSourceEl = document.querySelector('.gaip-water-source-label');
+            var waterLabRefEl = document.querySelector('.gaip-water-lab-ref');
+            var waterDateEl = document.querySelector('.gaip-water-date');
+            data.water.sourceLabel = (activeWaterSample && activeWaterSample.label) ? activeWaterSample.label :
+                (waterSourceEl && waterSourceEl.value) ? waterSourceEl.value.trim() : '';
+            data.water.labRef = (waterLabRefEl && waterLabRefEl.value) ? waterLabRefEl.value.trim() : '';
+            data.water.testDate = (activeWaterSample && activeWaterSample.date) ? activeWaterSample.date :
+                (waterDateEl && waterDateEl.value) ? waterDateEl.value : '';
+
+            if (waterInput) {
+                data.water.EC = waterInput.ecw;
+                data.water.pH = waterInput.pH;
+                // Check if this is blended water
+                data.water.isBlended = waterInput.isBlended || false;
+                data.water.sourceCount = waterInput.sourceCount || 1;
+                // Ion values are in the ions sub-object
+                var ions = waterInput.ions || {};
+                data.water.Na = ions.Na;
+                data.water.Ca = ions.Ca;
+                data.water.Mg = ions.Mg;
+                data.water.Cl = ions.Cl;
+                data.water.HCO3 = ions.HCO3;
+                data.water.B = ions.B;
+                data.water.K = ions.K;
+                data.water.SO4 = ions.SO4;
+                // Blend-specific fields for word export (b35fix139)
+                data.water.ccpi = waterInput.ccpi !== undefined ? waterInput.ccpi : null;
+                data.water.ccpiClassification = waterInput.ccpiClassification || null;
+                data.water.optimiserResult = waterInput.optimiserResult || null;
+                data.water.salinityClass = waterInput.salinityClass || null;
+                data.water.sodicityClass = waterInput.sodicityClass || null;
+                data.water.infiltrationClass = waterInput.infiltrationClass || null;
+                data.water.bicarbonateClass = waterInput.bicarbonateClass || null;
+                
+                // Set hasData flag
+                if (data.water.EC || data.water.Na || data.water.Ca) {
+                    data.water.hasData = true;
+                }
+            }
+            
+            // DOM fallback for water if GAIP_STATE didn't have it
+            if (!data.water.hasData) {
+                
+                var waterFieldMappings = [
+                    ['EC', ['#gaip_water_EC', '#water_EC', '[name="water_EC"]', '.gaip-water-EC', '#ECw']],
+                    ['pH', ['#gaip_water_pH', '#water_pH', '[name="water_pH"]', '.gaip-water-pH']],
+                    ['Na', ['#gaip_water_Na', '#water_Na', '[name="water_Na"]', '.gaip-water-Na']],
+                    ['Ca', ['#gaip_water_Ca', '#water_Ca', '[name="water_Ca"]', '.gaip-water-Ca']],
+                    ['Mg', ['#gaip_water_Mg', '#water_Mg', '[name="water_Mg"]', '.gaip-water-Mg']],
+                    ['Cl', ['#gaip_water_Cl', '#water_Cl', '[name="water_Cl"]', '.gaip-water-Cl']],
+                    ['HCO3', ['#gaip_water_HCO3', '#water_HCO3', '[name="water_HCO3"]', '.gaip-water-HCO3', '#water_bicarb']],
+                    ['B', ['#gaip_water_B', '#water_B', '[name="water_B"]', '.gaip-water-B']],
+                    ['SO4', ['#gaip_water_SO4', '#water_SO4', '[name="water_SO4"]', '.gaip-water-SO4']]
+                ];
+                
+                waterFieldMappings.forEach(function(mapping) {
+                    var prop = mapping[0];
+                    var selectors = mapping[1];
+                    for (var i = 0; i < selectors.length; i++) {
+                        var el = document.querySelector(selectors[i]);
+                        if (el && el.value && !isNaN(parseFloat(el.value))) {
+                            data.water[prop] = parseFloat(el.value);
+                            break;
+                        }
+                    }
+                });
+                
+                if (data.water.EC || data.water.Na || data.water.Ca) {
+                    data.water.hasData = true;
+                }
+            }
+            
+            // Water quality thresholds for charting
+            data.water.thresholds = {
+                EC: { safe: 0.75, marginal: 1.5, max: 3.0, unit: 'dS/m' },
+                SAR: { safe: 3, marginal: 6, max: 12 },
+                Na: { safe: 70, marginal: 150, max: 200, unit: 'ppm' },
+                Cl: { safe: 100, marginal: 200, max: 350, unit: 'ppm' },
+                HCO3: { safe: 90, marginal: 180, max: 300, unit: 'ppm' },
+                B: { safe: 0.5, marginal: 1.0, max: 2.0, unit: 'ppm' },
+                pH: { min: 6.0, optLo: 6.5, optHi: 7.5, max: 8.5 }
+            };
+            
+            if (waterResults) {
+                if (!data.water) data.water = {};  // Defensive init
+                data.water.hasResults = true;
+                data.water.SAR = waterResults.SAR;
+                data.water.SARadj = waterResults.SARadj;  // Adjusted SAR for bicarbonate effect
+                data.water.RSC = waterResults.RSC;
+                data.water.classification = waterResults.classification || waterResults.category;
+                data.water.sodiumHazard = waterResults.sodiumHazard;
+                data.water.salinityHazard = waterResults.salinityHazard;
+                // If engine ran and produced results, water data is present — ensure hasData reflects this
+                // (GAIP_STATE.water input may be absent during combined export even when engine has results)
+                if (!data.water.hasData && (waterResults.SAR || waterResults.EC)) {
+                    data.water.hasData = true;
+                }
+            }
+            
+            // Calculate SAR if not provided but we have the necessary ion data
+            if (!data.water.SAR && data.water.Na && data.water.Ca && data.water.Mg) {
+                var Na_meq = data.water.Na / 23;
+                var Ca_meq = data.water.Ca / 20;
+                var Mg_meq = data.water.Mg / 12.15;
+                
+                if (Ca_meq + Mg_meq > 0) {
+                    data.water.SAR = Na_meq / Math.sqrt((Ca_meq + Mg_meq) / 2);
+                }
+            }
+            
+            // Calculate SARadj if not provided but we have the necessary data
+            if (data.water.SAR && !data.water.SARadj && data.water.HCO3 && data.water.Ca && data.water.Mg) {
+                // Convert to meq/L for calculation
+                var Na_meq = (data.water.Na || 0) / 23;
+                var Ca_meq = (data.water.Ca || 0) / 20;
+                var Mg_meq = (data.water.Mg || 0) / 12.15;
+                var HCO3_meq = (data.water.HCO3 || 0) / 61;
+                var CO3_meq = (data.water.CO3 || 0) / 30;
+                
+                // Suarez (1981) adjustment - Ca precipitation due to bicarbonates
+                var totalCarbonates = HCO3_meq + CO3_meq;
+                var CaMg_effective = Ca_meq + Mg_meq;
+                
+                if (totalCarbonates > CaMg_effective * 0.5) {
+                    // Significant bicarbonate - calculate adjusted SAR
+                    var Ca_precipitated = Math.min(Ca_meq, totalCarbonates * 0.7);
+                    var CaMg_remaining = Math.max(0.1, CaMg_effective - Ca_precipitated);
+                    data.water.SARadj = Na_meq / Math.sqrt(CaMg_remaining / 2);
+                } else {
+                    data.water.SARadj = data.water.SAR;
+                }
+            }
+            
+            // Calculate RSC if not provided
+            if (!data.water.RSC && data.water.HCO3 && data.water.Ca && data.water.Mg) {
+                var HCO3_meq = data.water.HCO3 / 61;
+                var CO3_meq = (data.water.CO3 || 0) / 30;
+                var Ca_meq = data.water.Ca / 20;
+                var Mg_meq = data.water.Mg / 12.15;
+                data.water.RSC = (HCO3_meq + CO3_meq) - (Ca_meq + Mg_meq);
+            }
+            
+            // Final fallback: GAIP_STATE.waterResults is not aliased in the v2 legacy shim,
+            // so it is always undefined. Use the properly-aliased engine globals instead —
+            // GAIP_PHYTOTOXICITY_RESULT and GAIP_SALINITY_RESULT are both populated whenever
+            // the water engine ran, making them a reliable proxy for water data presence.
+            if (!data.water.hasData) {
+                if (window.GAIP_PHYTOTOXICITY_RESULT || window.GAIP_SALINITY_RESULT) {
+                    data.water.hasData = true;
+                }
+            }
+            
+        }
+        
+        // =====================================================================
+        // SALINITY PENALTY DATA (v2.0.8)
+        // Captures salinity → growth potential → recovery chain
+        // =====================================================================
+        if (window.GAIP_SALINITY_RESULT) {
+            var sp = window.GAIP_SALINITY_RESULT;
+            data.salinity.hasData = true;
+            data.salinity.ecwInput = sp.ecwInput;
+            data.salinity.species = sp.species;
+            data.salinity.threshold = sp.thresholdECw || sp.threshold;  // engine returns thresholdECw
+            data.salinity.slope = sp.slope;
+            data.salinity.toleranceClass = sp.toleranceClass;
+            data.salinity.relativeYieldPct = sp.relativeYieldPct;
+            data.salinity.growthPenaltyPct = sp.growthPenaltyPct;
+            data.salinity.status = sp.status;
+            data.salinity.safetyMargin = sp.safetyMargin;
+            
+            // Recovery impact calculation
+            if (sp.growthPenaltyPct > 0) {
+                var yieldMod = sp.relativeYieldPct / 100;
+                data.salinity.recoveryExtension = Math.round((1 / yieldMod - 1) * 100);
+            }
+            
+        }
+        // Fallback: check orchestrator computed values
+        else if (window.GaipOrchestrator && window.GaipOrchestrator.getComputed) {
+            var orchSalinity = window.GaipOrchestrator.getComputed('salinity');
+            if (orchSalinity && orchSalinity.growthPenaltyPct > 0) {
+                data.salinity.hasData = true;
+                data.salinity.ecwInput = orchSalinity.ecwInput;
+                data.salinity.threshold = orchSalinity.thresholdECw || orchSalinity.threshold;  // engine returns thresholdECw
+                data.salinity.growthPenaltyPct = orchSalinity.growthPenaltyPct;
+                data.salinity.relativeYieldPct = orchSalinity.relativeYieldPct;
+                data.salinity.status = orchSalinity.status;
+                data.salinity.recoveryExtension = Math.round((100 / orchSalinity.relativeYieldPct - 1) * 100);
+            }
+        }
+        
+        // Disease from window
+        if (window.GAIP_DISEASE_RESULT) {
+            var dr = window.GAIP_DISEASE_RESULT;
+            data.disease.hasData = true;  // v2.0.10: Set hasData flag
+            data.disease.overallRisk = dr.overallRisk;
+            data.disease.overallScore = dr.overallScore;
+            data.disease.diseases = dr.diseases || [];
+            
+            // Find primary threat - prefer validated diseases over beta
+            if (dr.diseases && dr.diseases.length > 0) {
+                var sorted = dr.diseases.slice().sort(function(a, b) {
+                    return (b.adjustedRisk || 0) - (a.adjustedRisk || 0);
+                });
+                
+                // Check if disease is beta (by validationStatus or name matching)
+                function isBetaDisease(d) {
+                    if (d.validationStatus === 'beta') return true;
+                    var name = (d.displayName || d.name || '').toLowerCase();
+                    return name.indexOf('bipolaris') !== -1 || 
+                           name.indexOf('curvularia') !== -1 || 
+                           name.indexOf('drechslera') !== -1 ||
+                           name.indexOf('waitea') !== -1 ||
+                           name.indexOf('helminthosporium') !== -1;
+                }
+                
+                // Find highest validated disease
+                var validatedDiseases = sorted.filter(function(d) { return !isBetaDisease(d); });
+                var betaDiseases = sorted.filter(function(d) { return isBetaDisease(d); });
+                
+                if (validatedDiseases.length > 0) {
+                    // Primary threat is highest validated disease
+                    data.disease.primaryThreat = validatedDiseases[0].displayName || validatedDiseases[0].name;
+                    data.disease.primaryThreatRisk = validatedDiseases[0].adjustedRisk || 0;
+                    
+                    // Note if a beta disease is actually higher risk
+                    if (betaDiseases.length > 0 && (betaDiseases[0].adjustedRisk || 0) > (validatedDiseases[0].adjustedRisk || 0)) {
+                        data.disease.betaThreatNote = (betaDiseases[0].displayName || betaDiseases[0].name) + 
+                            ' (BETA) shows higher risk (' + Math.round(betaDiseases[0].adjustedRisk) + 
+                            '%) but requires field validation';
+                    }
+                } else if (betaDiseases.length > 0) {
+                    // Only beta diseases present - use with caveat
+                    data.disease.primaryThreat = (betaDiseases[0].displayName || betaDiseases[0].name) + ' (BETA)';
+                    data.disease.primaryThreatRisk = betaDiseases[0].adjustedRisk || 0;
+                    data.disease.betaThreatNote = 'Primary threat is a beta model - verify with visual scouting';
+                }
+                
+                // Overall risk score should be based on validated diseases if available
+                if (validatedDiseases.length > 0) {
+                    data.disease.overallScore = validatedDiseases[0].adjustedRisk || data.disease.overallScore;
+                }
+            }
+            
+            // v2.0.11: Capture disease engine inputs for transparency
+            // Shows WHY disease risk is elevated/reduced
+            if (dr.inputs) {
+                // Nitrogen is stored as object with status/value/ratio
+                var nData = dr.inputs.nitrogen || {};
+                var nStatus = typeof nData === 'string' ? nData : (nData.status || null);
+                var nValue = typeof nData === 'object' ? nData.value : null;  // Tissue N in %
+                
+                // K:N ratio from tissueNutrients (evidence-based disease predictor)
+                var knRatio = null;
+                var knStatus = null;
+                if (dr.inputs.tissueNutrients && dr.inputs.tissueNutrients.modifiers && 
+                    dr.inputs.tissueNutrients.modifiers.KN_ratio) {
+                    var knData = dr.inputs.tissueNutrients.modifiers.KN_ratio;
+                    knRatio = knData.value;
+                    knStatus = knData.status;  // 'poor', 'low', 'optimal', 'high'
+                }
+                
+                data.disease.inputs = {
+                    hasInputs: true,
+                    nitrogen: nStatus,              // 'high', 'moderate', 'low', etc.
+                    tissueN: nValue,                // Tissue N in % (e.g., 3.4)
+                    knRatio: knRatio,               // K:N ratio (e.g., 0.54) - evidence-based
+                    knStatus: knStatus,             // 'poor', 'low', 'optimal', 'high'
+                    shade: null,
+                    dew: null
+                };
+                
+                // Shade inputs - structure: { dliDeficit: { percentage, value }, stressIndex, status, ... }
+                if (dr.inputs.shade) {
+                    data.disease.inputs.shade = {
+                        dliDeficitPct: dr.inputs.shade.dliDeficit?.percentage || dr.inputs.shade.deficitPct,
+                        stressIndex: dr.inputs.shade.stressIndex,
+                        status: dr.inputs.shade.status || dr.inputs.shade.stressClass
+                    };
+                }
+                
+                // Dew/leaf wetness inputs - stored as "dewData" not "dew"
+                var dewInfo = dr.inputs.dewData || dr.inputs.dew;
+                if (dewInfo) {
+                    data.disease.inputs.dew = {
+                        totalWetHours: dewInfo.leafWetness?.totalWetHours || dewInfo.totalWetHours || dewInfo.wetHours,
+                        dewRisk: dewInfo.dewRisk || dewInfo.risk
+                    };
+                }
+                
+                // Soil temperature inputs
+                if (dr.inputs.soilTemp) {
+                    data.disease.inputs.soilTemp = dr.inputs.soilTemp;
+                } else if (dr.inputs.climate?.soilTemp) {
+                    data.disease.inputs.soilTemp = dr.inputs.climate.soilTemp;
+                }
+                
+            }
+        }
+
+        // Companion surface disease (golf greens only — fairway/tee parallel assessment)
+        if (window.GAIP_COMPANION_DISEASE_RESULT && window.GAIP_COMPANION_DISEASE_RESULT._companionSurface) {
+            var cr = window.GAIP_COMPANION_DISEASE_RESULT;
+            data.companionDisease = {
+                hasData: true,
+                speciesKey:   cr._companionSpecies || '',
+                speciesLabel: cr._companionDisplayName || cr._companionSpecies || 'Fairway/Tee',
+                overallRisk:  cr.overallRisk || 'low',
+                overallScore: cr.overallScore || 0,
+                diseases:     (cr.diseases || []).filter(function(d) {
+                    return (d.adjustedRisk || d.riskScore || 0) > 0 ||
+                           (d.treatmentWindow && d.treatmentWindow.inWindow);
+                }),
+                note: 'Greens soil/tissue data not applied. Weather inputs identical to greens assessment.'
+            };
+        }
+
+        // Pre-emergent timing from window (hub-orchestrator Step 8b)
+        if (window.GAIP_PRE_EMERGENT_RESULT) {
+            var per = window.GAIP_PRE_EMERGENT_RESULT;
+            var perSum = per.summary || {};
+            // Only include if the engine actually ran (has results array)
+            if (per.success && Array.isArray(per.results) && per.results.length > 0) {
+                // Collect active alerts (non-GREEN, non-error)
+                var peActiveAlerts = per.results.filter(function(r) {
+                    return !r.error && r.alertStatus && r.alertStatus !== 'GREEN';
+                });
+                data.preEmergent = {
+                    hasData: true,
+                    aggregateStatus:     per.aggregateStatus || 'GREEN',
+                    isTropicalRegion:    !!per.isTropicalRegion,
+                    soilTemp5cm:         perSum.soilTemp5cm != null ? perSum.soilTemp5cm : null,
+                    soilTempSource:      perSum.soilTempSource || null,
+                    rollingAvg10d:       perSum.rollingAvg10d != null ? perSum.rollingAvg10d : null,
+                    trendDirection:      perSum.trendDirection || null,
+                    activeAlertCount:    perSum.activeAlerts || peActiveAlerts.length,
+                    totalSpecies:        perSum.totalSpecies || per.results.length,
+                    activeAlerts:        peActiveAlerts.map(function(r) {
+                        return {
+                            speciesKey:          r.speciesKey,
+                            commonName:          r.commonName || r.speciesKey,
+                            scientificName:      r.scientificName || '',
+                            alertStatus:         r.alertStatus,
+                            daysToThreshold:     r.daysToThreshold != null ? r.daysToThreshold : null,
+                            germinationThreshold: r.germinationThreshold,
+                            applyAt:             r.applyAt,
+                            confidenceRating:    r.confidenceRating || 'M',
+                            confidenceScore:     r.confidenceScore || 0,
+                            recommendedAction:   r.recommendedAction || ''
+                        };
+                    })
+                };
+            }
+        }
+
+        // PGR from window - check both possible names
+        var pgrResult = window.GAIP_PGR_RESULT || window.GAIP_PGR_STATUS;
+        if (pgrResult && pgrResult.product) {
+            // Handle both old and new structure
+            var productName = pgrResult.product.name || pgrResult.product;
+            data.pgr.product = productName;
+            data.pgr.applicationDate = pgrResult.application ? pgrResult.application.date : null;
+            
+            // GDD data
+            if (pgrResult.gdd) {
+                data.pgr.gddAccumulated = pgrResult.gdd.accumulated;
+                data.pgr.gddThreshold = pgrResult.gdd.threshold;
+                data.pgr.gddProgress = pgrResult.gdd.progressPct || pgrResult.gdd.progress;
+            }
+            
+            // Surface category from mowingHeight or thresholdConfig (v2.4.0+)
+            if (pgrResult.mowingHeight) {
+                data.pgr.surfaceCategory = pgrResult.mowingHeight.categoryLabel || pgrResult.mowingHeight.category;
+                data.pgr.mowingHeightMM = pgrResult.mowingHeight.inputMM;
+            }
+            
+            // Threshold validation status (v2.3.0+)
+            if (pgrResult.thresholdConfig) {
+                data.pgr.thresholdValidated = pgrResult.thresholdConfig.validated;
+                data.pgr.thresholdSource = pgrResult.thresholdConfig.source;
+                // Use surfaceKey as fallback for surfaceCategory
+                if (!data.pgr.surfaceCategory) {
+                    data.pgr.surfaceCategory = pgrResult.thresholdConfig.surfaceKey;
+                }
+            }
+            
+            // Effect/suppression data
+            if (pgrResult.effect) {
+                data.pgr.suppression = pgrResult.effect.suppressionPct || pgrResult.effect.suppression;
+                data.pgr.status = pgrResult.effect.reapplicationStatus;
+            }
+            
+            // Projection data
+            if (pgrResult.projection) {
+                data.pgr.reapplyDate = pgrResult.projection.reapplyDate || pgrResult.projection.date;
+                data.pgr.daysUntilReapply = pgrResult.projection.daysUntil;
+            }
+            
+            // Shade warning
+            if (pgrResult.shade && pgrResult.shade.warning) {
+                data.pgr.shadeWarning = pgrResult.shade.warning.status !== 'ok' ? pgrResult.shade.warning.action : null;
+            }
+            
+        }
+        
+        // DMI Fungicide Tracking from window (v2.0 - evidence-based)
+        var dmiResult = window.GAIP_DMI_RESULT;
+        if (!dmiResult && typeof window.gaip_dmi_calculate === 'function' && window.GAIP_CURRENT_STATE) {
+            // Try to calculate if not cached
+            dmiResult = window.gaip_dmi_calculate(window.GAIP_CURRENT_STATE);
+        }
+        if (dmiResult && !dmiResult.error && dmiResult.product && dmiResult.hasActiveApplication) {
+            data.dmi.product = dmiResult.product.name;
+            data.dmi.activeIngredient = dmiResult.product.activeIngredient;
+            data.dmi.diseases = dmiResult.product.diseases;
+            data.dmi.riskCategory = dmiResult.product.riskCategory;
+            
+            // Risk assessment (not suppression % - that's not supported by research)
+            if (dmiResult.risk) {
+                data.dmi.overallRisk = dmiResult.risk.overall;
+                data.dmi.speciesSensitivity = dmiResult.risk.species;
+                data.dmi.productWarning = dmiResult.risk.warning;
+            }
+            
+            if (dmiResult.gdd) {
+                data.dmi.gddAccumulated = dmiResult.gdd.accumulated;
+                data.dmi.gddTypicalDuration = dmiResult.gdd.typicalDuration;
+                data.dmi.gddProgress = dmiResult.gdd.progress;
+                data.dmi.baseTemp = dmiResult.gdd.baseTemp;
+                data.dmi.estimated = dmiResult.gdd.estimated;
+            }
+            
+            if (dmiResult.status) {
+                data.dmi.isActive = dmiResult.status.isActive;
+                data.dmi.daysRemaining = dmiResult.status.daysRemaining;
+                data.dmi.effectEndsDate = dmiResult.status.effectEndsDate;
+            }
+            
+        }
+        
+        // Combined PGR + DMI risk assessment from window
+        var combinedRisk = window.GAIP_COMBINED_SUPPRESSION;
+        if (combinedRisk && combinedRisk.hasCombinedRisk) {
+            data.dmi.combinedRisk = true;
+            data.dmi.combinedWarningLevel = combinedRisk.warningLevel;
+            data.dmi.combinedMessage = combinedRisk.message;
+            data.dmi.combinedRecommendation = combinedRisk.recommendation;
+            data.dmi.pgrSuppression = combinedRisk.pgrSuppression;
+        }
+        
+        // Trajectory from window
+        if (window.GAIP_TRAJECTORY_RESULT) {
+            var tr = window.GAIP_TRAJECTORY_RESULT;
+            var summary = tr.summary || {};
+            data.trajectory.currentScore = summary.current ? summary.current.score : null;
+            data.trajectory.peakScore = summary.peak ? summary.peak.score : null;
+            data.trajectory.trend = summary.trend;
+            data.trajectory.criticalPoints = summary.criticalPoints || 0;
+        }
+        
+        // N Program Validation from window or state
+        ensureObject(data, 'nProgram');
+        var nResult = window.GAIP_N_VALIDATION_RESULT;
+        if (!nResult && window.GAIP_STATE && window.GAIP_STATE.fertility && window.GAIP_STATE.fertility.monthlyN) {
+            // Try to calculate it if we have the data
+            if (typeof window.gaip_validateNProgram === 'function') {
+                var effectiveSpecies = data.turf.effectiveSpecies || data.turf.species || 'Couch';
+                var gp = data.climate.growthPotential || 50;
+                nResult = window.gaip_validateNProgram(window.GAIP_STATE.fertility.monthlyN, effectiveSpecies, gp);
+            }
+        }
+        
+        if (nResult) {
+            data.nProgram.hasData = true;
+            data.nProgram.appliedN = nResult.appliedNKgHa;
+            data.nProgram.uptakeCapacity = nResult.uptakeCapacity;
+            data.nProgram.effectiveCapacity = nResult.effectiveCapacity;
+            data.nProgram.difference = nResult.difference;
+            data.nProgram.utilizationPct = nResult.utilizationPct;
+            data.nProgram.verdict = nResult.verdict;
+            data.nProgram.recommendations = nResult.recommendations;
+        }
+        
+        // Irrigation from window
+        if (window.GAIP_IRRIGATION_RESULT) {
+            var ir = window.GAIP_IRRIGATION_RESULT;
+            data.irrigation.etDeficit = ir.waterBalance ? ir.waterBalance.currentDepletion : null;
+            data.irrigation.strategy = ir.summary ? ir.summary.strategy : null;
+            data.irrigation.status = ir.summary ? ir.summary.status : null;
+            data.irrigation.nextIrrigation = ir.summary ? ir.summary.nextIrrigation : null;
+            data.irrigation.weeklyTotal = ir.summary ? ir.summary.weeklyTotal : null;
+            
+            // Water balance details
+            if (ir.waterBalance) {
+                data.irrigation.taw = ir.waterBalance.taw;
+                data.irrigation.raw = ir.waterBalance.raw;
+                data.irrigation.depletionPct = ir.waterBalance.currentDepletion && ir.waterBalance.taw ? 
+                    Math.round((ir.waterBalance.currentDepletion / ir.waterBalance.taw) * 100) : null;
+                
+                // v2.1.0: Extended water balance data
+                data.irrigation.mad = ir.waterBalance.mad;
+                data.irrigation.soilType = ir.waterBalance.soilType;
+                data.irrigation.soilProps = ir.waterBalance.soilProps;
+                data.irrigation.rootDepth = ir.waterBalance.rootDepth;
+                data.irrigation.currentDepletion = ir.waterBalance.currentDepletion;
+                data.irrigation.depletionSource = ir.waterBalance.depletionSource;
+                data.irrigation.needsIrrigation = ir.waterBalance.needsIrrigation;
+                data.irrigation.refillDepth = ir.waterBalance.refillDepth;
+                data.irrigation.omEffect = ir.waterBalance.omEffect;
+            }
+            
+            // v2.1.0: Daily schedule for 7-day forecast table
+            if (ir.schedule && ir.schedule.length > 0) {
+                data.irrigation.schedule = ir.schedule.slice(0, 7); // 7 days only
+                data.irrigation.hasSchedule = true;
+            }
+            
+            // v2.1.0: Species/overseed information
+            if (ir.species) {
+                data.irrigation.species = ir.species;
+            }
+            if (ir.overseed) {
+                data.irrigation.overseed = ir.overseed;
+                // Sanitise: engine may carry stale isOverseed from a prior site session.
+                // Trust hasOverseed (derived from per-sample turf state) as the authority.
+                if (!hasOverseed && data.irrigation.overseed) {
+                    data.irrigation.overseed = Object.assign({}, data.irrigation.overseed, { isOverseed: false });
+                }
+            }
+            
+            // v2.1.0: Leaching requirement
+            if (ir.leachingRequirement) {
+                data.irrigation.leachingRequirement = ir.leachingRequirement;
+            }
+            
+            // v2.1.0: System configuration for runtime calculations
+            if (ir.system) {
+                data.irrigation.system = ir.system;
+            }
+            
+            // v2.1.0: Summary statistics
+            if (ir.summary) {
+                data.irrigation.summary = ir.summary;
+            }
+            
+            // v2.1.0: Flag for expanded section
+            data.irrigation.hasData = true;
+            
+        }
+        
+        // Sensor data (TDR zones for golf)
+        if (window.GAIP_Sensor) {
+        }
+        
+        if (window.GAIP_Sensor && GAIP_Sensor.hasData()) {
+            var selectedZone = GAIP_Sensor.getSelectedZone();
+            data.sensor.hasData = true;
+            data.sensor.selectedZone = selectedZone.name || null;
+            data.sensor.selectedZoneData = selectedZone.data || null;
+            
+            // Get zone summaries with irrigation calculations (if available)
+            var zoneSummaries = GAIP_Sensor.getZoneSummaries();
+            if (zoneSummaries && zoneSummaries.length > 0) {
+                data.sensor.zones = zoneSummaries;
+                data.sensor.totalReadings = 0;
+                zoneSummaries.forEach(function(z) {
+                    data.sensor.totalReadings += z.count || 0;
+                });
+                
+                // Check if this is golf (has labelled zones)
+                var labelledZones = zoneSummaries.filter(function(z) { return z.name !== 'Unlabelled'; });
+                data.sensor.isGolf = labelledZones.length > 0;
+            } else {
+                // Fall back to calculating from readings
+                var readings = GAIP_Sensor.getReadings();
+                if (readings && readings.length > 0) {
+                    var zones = {};
+                    readings.forEach(function(r) {
+                        var zone = r.zoneName || 'Unlabelled';
+                        if (!zones[zone]) {
+                            zones[zone] = { vwcSum: 0, ecSum: 0, tempSum: 0, vwcCount: 0, ecCount: 0, tempCount: 0, readings: [] };
+                        }
+                        zones[zone].readings.push(r);
+                        if (r.vwc !== null) { zones[zone].vwcSum += r.vwc; zones[zone].vwcCount++; }
+                        if (r.ec !== null) { zones[zone].ecSum += r.ec; zones[zone].ecCount++; }
+                        if (r.temp !== null) { zones[zone].tempSum += r.temp; zones[zone].tempCount++; }
+                    });
+                    
+                    var fallbackSummaries = [];
+                    for (var zoneName in zones) {
+                        var z = zones[zoneName];
+                        var vwcs = z.readings.filter(function(r) { return r.vwc !== null; }).map(function(r) { return r.vwc; });
+                        fallbackSummaries.push({
+                            name: zoneName,
+                            count: z.readings.length,
+                            avg: z.vwcCount > 0 ? z.vwcSum / z.vwcCount : null,
+                            min: vwcs.length > 0 ? Math.min.apply(null, vwcs) : null,
+                            max: vwcs.length > 0 ? Math.max.apply(null, vwcs) : null
+                        });
+                    }
+                    
+                    fallbackSummaries.sort(function(a, b) {
+                        if (a.name === 'Unlabelled') return 1;
+                        if (b.name === 'Unlabelled') return -1;
+                        return a.name.localeCompare(b.name);
+                    });
+                    
+                    data.sensor.zones = fallbackSummaries;
+                    data.sensor.totalReadings = readings.length;
+                    
+                    var labelledZones = fallbackSummaries.filter(function(z) { return z.name !== 'Unlabelled'; });
+                    data.sensor.isGolf = labelledZones.length > 0;
+                }
+            }
+            
+        }
+        
+        // Dew data (sports turf only)
+        if (window.GAIP_DEW_RESULT && window.GAIP_DEW_RESULT.applicable) {
+            var dew = window.GAIP_DEW_RESULT;
+            data.dew = { applicable: true };
+            
+            if (dew.summary && dew.summary.weekAhead) {
+                data.dew.daysWithDew = dew.summary.weekAhead.daysWithDew || 0;
+                data.dew.totalDewHours = dew.summary.weekAhead.totalDewHours || 0;
+            }
+            if (dew.leafWetness) {
+                data.dew.leafWetnessHours = dew.leafWetness.totalWetHours;
+                data.dew.consecutiveWetHours = dew.leafWetness.consecutiveWetHours;
+            }
+            if (dew.forecast && dew.forecast.dailyForecasts && dew.forecast.dailyForecasts[0]) {
+                data.dew.tonightPeak = dew.forecast.dailyForecasts[0].maxProbability;
+                data.dew.tonightIntensity = dew.forecast.dailyForecasts[0].peakIntensity;
+            }
+        }
+        
+        // Phytotoxicity data (v2.0.30) - direct plant damage from irrigation water ions
+        if (window.GAIP_PHYTOTOXICITY_RESULT && window.GAIP_PHYTOTOXICITY_RESULT.assessments) {
+            var phyto = window.GAIP_PHYTOTOXICITY_RESULT;
+            data.phytotoxicity = {
+                hasData: true,
+                species: phyto.species,
+                sensitivityClass: phyto.sensitivityClass,
+                irrigationMethod: phyto.irrigationMethod,
+                varietyModifier: phyto.varietyModifier,
+                overallRisk: phyto.overallRisk,
+                assessments: phyto.assessments || [],
+                priorityActions: phyto.priorityActions || []
+            };
+        }
+        
+        // Overseed Climate data (for C4 with overseed)
+        if (window.GAIP_OVERSEED_CLIMATE_RESULT && !window.GAIP_OVERSEED_CLIMATE_RESULT.error) {
+            var osc = window.GAIP_OVERSEED_CLIMATE_RESULT;
+            data.overseedClimate = {
+                hasData: true,
+                stage: osc.stage || 'unknown',
+                adjustedMultiplier: osc.adjustedMultiplier,
+                baseMultiplier: osc.baseMultiplier,
+                temperatureCoefficient: osc.temperatureCoefficient,
+                temperatureStress: osc.temperatureStress,
+                temperatureNote: osc.temperatureNote,
+                airTemp: osc.airTemp,
+                soilTemp: osc.soilTemp,
+                soilTempSource: osc.soilTempSource,
+                germination: osc.germination || {},
+                overseedWindow: osc.overseedWindow || {},
+                recommendations: osc.recommendation || [],
+                weatherStatus: osc.weatherStatus || {}
+            };
+        }
+        
+        // Traffic/Wear data - only for sports turf, not golf
+        var rawTurfType = (data.turf.rawTurfType || '').toLowerCase();
+        var isGolfType = rawTurfType === 'golf' || rawTurfType.indexOf('golf_') === 0;
+        if (!isGolfType && window.GAIP_STATE && window.GAIP_STATE.wearMetrics) {
+            var wm = window.GAIP_STATE.wearMetrics;
+            // Extract recovery days from recoveryCapacity object
+            var recoveryDays = wm.recoveryCapacity;
+            var recoveryCapacity = null;
+            if (typeof recoveryDays === 'object' && recoveryDays !== null) {
+                recoveryCapacity = recoveryDays;  // Keep full object
+                recoveryDays = recoveryDays.days || recoveryDays.value || null;
+            }
+            data.traffic = {
+                hasData: true,
+                sport: wm.sport,
+                matchesPerWeek: wm.matchesPerWeek,
+                sessionsPerWeek: wm.sessionsPerWeek,
+                weeklyLoad: wm.weeklyLoad,
+                wearIndex: wm.wearIndex,
+                recoveryDays: recoveryDays,
+                recoveryWindow: wm.recoveryWindow,
+                status: wm.status,
+                wearZone: wm.wearZone,
+                canSustain: wm.canSustain
+            };
+            
+            // v2.0.8: Capture full recovery modifiers for transparency
+            // Shows what factors are extending recovery time
+            if (recoveryCapacity && recoveryCapacity.modifiers) {
+                var mods = recoveryCapacity.modifiers;
+                data.traffic.recoveryModifiers = {
+                    baseDays: recoveryCapacity.baseDays,
+                    adjustedDays: recoveryCapacity.days,
+                    growth: mods.growth,
+                    shade: mods.shade,
+                    moisture: mods.moisture,
+                    rootDepth: mods.rootDepth,
+                    soilHealth: mods.soilHealth,
+                    nitrogen: mods.nitrogen,
+                    salinity: mods.salinity,
+                    temperatureStress: mods.temperatureStress
+                };
+            }
+            
+            // Capture compaction risk details
+            if (wm.compactionRisk) {
+                data.traffic.compaction = {
+                    riskPercent: wm.compactionRisk.riskPercent,
+                    usageRatio: wm.compactionRisk.usageRatio,
+                    maxHours: wm.compactionRisk.maxHours,
+                    construction: wm.compactionRisk.construction,
+                    moistureLevel: wm.compactionRisk.moisture?.level
+                };
+            }
+            
+            // Capture shade-traffic compound effect
+            if (wm.shadeTrafficCompound && wm.shadeTrafficCompound.isCompounding) {
+                data.traffic.compoundEffect = {
+                    isCompounding: true,
+                    factor: wm.shadeTrafficCompound.compoundFactor,
+                    shadeContribution: wm.shadeTrafficCompound.shadeContribution,
+                    trafficContribution: wm.shadeTrafficCompound.trafficContribution,
+                    synergy: wm.shadeTrafficCompound.synergy
+                };
+            }
+            
+            // Capture engine recommendations
+            if (wm.recommendations && wm.recommendations.length > 0) {
+                data.traffic.recommendations = wm.recommendations;
+            }
+            
+        } else if (isGolfType) {
+        }
+        
+        // Variety traits data - collect for Performance Impact Analysis
+        ensureObject(data, 'varietyTraits');
+        // CRITICAL: Use effective species/variety for variety traits lookup
+        // When overseed is dominant, we want traits for the overseed cultivar, not the base
+        var species = data.turf.effectiveSpecies || data.turf.species || '';
+        var variety = data.turf.effectiveVariety || data.turf.variety || 'generic';
+        
+        // Normalize species name for trait lookup
+        var speciesKey = species.toLowerCase()
+            .replace(/couch/gi, 'bermuda')
+            .replace(/\s+/g, '')
+            .replace(/perennialryegrass/gi, 'perennialRyegrass')
+            .replace(/kentuckybluegrass/gi, 'kentuckyBluegrass')
+            .replace(/creepingbentgrass/gi, 'creepingBentgrass')
+            .replace(/tallfescue/gi, 'tallFescue')
+            .replace(/finefescue/gi, 'fineFescue')
+            .replace(/chewingsfescue/gi, 'fineFescue')
+            .replace(/seashorepaspalum/gi, 'seashorePaspalum');
+        
+        // Store what species we're looking up traits for
+        data.varietyTraits.lookupSpecies = species;
+        data.varietyTraits.lookupVariety = variety;
+        data.varietyTraits.isOverseedFocus = data.turf.overseedDominant || false;
+        
+        // Try to get variety traits from global functions
+        if (typeof window.gaip_getVarietyTraits === 'function' && variety !== 'generic') {
+            var vt = window.gaip_getVarietyTraits(speciesKey, variety);
+            if (vt) {
+                data.varietyTraits.hasData = true;
+                data.varietyTraits.variety = variety;
+                data.varietyTraits.displayName = vt.displayName || variety;
+                
+                // v10.3.39: Handle regionalTraits structure (NTEP format)
+                // Oakley and other NTEP varieties store data in regionalTraits.{region}
+                var resolvedTraits = null;
+                var resolvedQualityRating = vt.qualityRating;
+                var resolvedQualitySource = vt.qualitySource;
+                
+                if (vt.regionalTraits) {
+                    // Priority order for Australian users: temperate regions first
+                    var regionOrder = ['temperate_ntep', 'temperate_au', 'cold_ntep', 'subtropical', 'subtropical_au'];
+                    for (var ri = 0; ri < regionOrder.length; ri++) {
+                        var regionKey = regionOrder[ri];
+                        var regionData = vt.regionalTraits[regionKey];
+                        if (regionData) {
+                            if (!resolvedQualityRating && regionData.qualityRating) {
+                                resolvedQualityRating = regionData.qualityRating;
+                                resolvedQualitySource = regionData.qualitySource || ('NTEP ' + regionKey);
+                            }
+                            if (!resolvedTraits && regionData.traits) {
+                                resolvedTraits = regionData.traits;
+                            }
+                            // Found data, can stop looking
+                            if (resolvedQualityRating && resolvedTraits) break;
+                        }
+                    }
+                }
+                
+                // Use resolved values or fall back to top-level
+                data.varietyTraits.qualityRating = resolvedQualityRating;
+                data.varietyTraits.qualitySource = resolvedQualitySource;
+                
+                // Use resolved traits or top-level traits
+                var traits = resolvedTraits || vt.traits;
+                
+                if (traits) {
+                    // Shade tolerance
+                    if (traits.shade) {
+                        data.varietyTraits.shade = {
+                            modifier: traits.shade.thresholdModifier,
+                            confidence: traits.shade.confidence,
+                            source: traits.shade.source,
+                            notes: traits.shade.notes
+                        };
+                    }
+                    
+                    // Salinity tolerance
+                    if (traits.salinity) {
+                        data.varietyTraits.salinity = {
+                            multiplier: traits.salinity.multiplier,
+                            confidence: traits.salinity.confidence,
+                            source: traits.salinity.source,
+                            notes: traits.salinity.notes
+                        };
+                    }
+                    
+                    // Wear tolerance
+                    if (traits.wear) {
+                        data.varietyTraits.wear = {
+                            multiplier: traits.wear.multiplier,
+                            confidence: traits.wear.confidence,
+                            source: traits.wear.source,
+                            notes: traits.wear.notes
+                        };
+                    }
+                    
+                    // Water use
+                    if (traits.waterUse) {
+                        data.varietyTraits.waterUse = {
+                            multiplier: traits.waterUse.multiplier,
+                            confidence: traits.waterUse.confidence,
+                            source: traits.waterUse.source,
+                            notes: traits.waterUse.notes
+                        };
+                    }
+                    
+                    // Cold tolerance
+                    if (traits.cold) {
+                        data.varietyTraits.cold = {
+                            dormancyModifier: traits.cold.dormancyThresholdModifier,
+                            winterkillRisk: traits.cold.winterkillRisk,
+                            confidence: traits.cold.confidence,
+                            source: traits.cold.source,
+                            notes: traits.cold.notes
+                        };
+                    }
+                    
+                    // Disease susceptibility
+                    if (traits.disease) {
+                        data.varietyTraits.disease = traits.disease;
+                    }
+                }
+                
+            }
+        }
+        
+        // Also check selectedVarietyTraits global
+        if (!data.varietyTraits.hasData && window.selectedVarietyTraits) {
+            var svt = window.selectedVarietyTraits;
+            data.varietyTraits.hasData = true;
+            data.varietyTraits.variety = variety;
+            if (svt.shade) data.varietyTraits.shade = svt.shade;
+            if (svt.salinity) data.varietyTraits.salinity = svt.salinity;
+            if (svt.wear) data.varietyTraits.wear = svt.wear;
+        }
+        
+        // Nutrition Summary (Annual P/K/S requirements + Monthly N Distribution)
+        ensureObject(data, 'nutritionSummary');
+        if (window.GAIP_NUTRITION_SOIL_CACHE) {
+            var nutCache = window.GAIP_NUTRITION_SOIL_CACHE;
+            data.nutritionSummary.hasData = true;
+            data.nutritionSummary.annualP = nutCache.annualP;
+            data.nutritionSummary.annualK = nutCache.annualK;
+            data.nutritionSummary.annualS = nutCache.annualS;
+            data.nutritionSummary.pStatus = nutCache.pStatus;
+            data.nutritionSummary.kStatus = nutCache.kStatus;
+            data.nutritionSummary.sStatus = nutCache.sStatus;
+            data.nutritionSummary.monthlyN = nutCache.monthlyN || null;
+            data.nutritionSummary.totalN = nutCache.totalN || null;
+            data.nutritionSummary.activeMonths = nutCache.activeMonths || 12;
+        }
+
+        // RECALCULATE monthlyN at export time using live lat — prevents stale cache
+        // from combined export (samples switch programmatically, nutrition panel may not re-render)
+        (function() {
+            try {
+                // Read lat from DOM (same priority as nutrition-calendar.js fix)
+                var latEl = document.querySelector('.gaip-lat');
+                var lat = latEl ? parseFloat(latEl.value) : null;
+                if (lat == null || isNaN(lat)) {
+                    var s = window.GAIP_STATE || {};
+                    lat = s.inputs?.site?.latitude || s.site?.latitude || s.location?.lat || null;
+                }
+                if (lat == null || isNaN(lat)) return; // can't recalculate
+
+                var absLat = Math.abs(lat);
+                var monthlyTemps;
+                if (absLat < 23.5) {
+                    monthlyTemps = lat >= 0
+                        ? { 1:17,2:19,3:23,4:27,5:30,6:31,7:31,8:30,9:29,10:27,11:23,12:19 }  // N tropical
+                        : { 1:30,2:30,3:29,4:28,5:26,6:24,7:23,8:25,9:28,10:30,11:31,12:31 }; // S tropical
+                } else if (absLat < 35) {
+                    monthlyTemps = lat >= 0
+                        ? { 1:10,2:12,3:17,4:22,5:27,6:30,7:31,8:30,9:26,10:21,11:15,12:11 }  // N subtropical
+                        : { 1:26,2:26,3:24,4:21,5:17,6:14,7:13,8:15,9:18,10:21,11:24,12:26 }; // S subtropical
+                } else {
+                    monthlyTemps = lat < 0
+                        ? { 1:25,2:25,3:22,4:18,5:14,6:11,7:10,8:12,9:15,10:18,11:21,12:24 }  // S temperate
+                        : { 1: 5,2: 7,3:11,4:15,5:20,6:24,7:26,8:25,9:21,10:15,11: 9,12: 5 }; // N temperate
+                }
+
+                // Determine if C4 species — check both internal key and display name
+                var speciesKey = window.GAIP_STATE?.inputs?.turf?.speciesKey || window.GAIP_STATE?.turf?.speciesKey || '';
+                var speciesDisplay = window.GAIP_STATE?.inputs?.turf?.species || window.GAIP_STATE?.turf?.species || window.GAIP_STATE?.turf?.grassSpecies || '';
+                var speciesStr = (speciesKey + ' ' + speciesDisplay).toLowerCase();
+                var isC4 = /couch|bermuda|kikuyu|zoysia|paspalum|buffalo|st\.aug|seashore|c4/.test(speciesStr);
+
+                // Calculate GP per month using same Wendt formula as nutrition-calendar.js
+                var totalGP = 0, gpByMonth = {};
+                for (var m = 1; m <= 12; m++) {
+                    var t = monthlyTemps[m];
+                    var gp;
+                    if (isC4) {
+                        // C4 GP: optimum 31°C (Wendt et al.)
+                        var num = Math.exp(-0.5 * Math.pow((t - 31) / 7, 2));
+                        gp = Math.max(0, Math.min(1, num));
+                    } else {
+                        // C3 GP: optimum 20°C
+                        var num = Math.exp(-0.5 * Math.pow((t - 20) / 7, 2));
+                        gp = Math.max(0, Math.min(1, num));
+                    }
+                    gpByMonth[m] = gp;
+                    if (gp >= 0.1) totalGP += gp;
+                }
+
+                // Distribute totalN proportionally
+                var totalN = data.nutritionSummary.totalN || (window.GAIP_NUTRITION_SOIL_CACHE && window.GAIP_NUTRITION_SOIL_CACHE.totalN) || 150;
+                var monthlyNRecalc = [], activeCount = 0;
+                for (var m = 1; m <= 12; m++) {
+                    var gp = gpByMonth[m];
+                    var n = totalGP > 0 && gp >= 0.1 ? (gp / totalGP) * totalN : 0;
+                    if (n > 0) activeCount++;
+                    monthlyNRecalc.push({ n: Math.round(n * 10) / 10, gp: gp, c3Frac: isC4 ? 0 : 1 });
+                }
+
+                // Only override if recalc gives a meaningfully different result (sanity check)
+                data.nutritionSummary.monthlyN = monthlyNRecalc;
+                data.nutritionSummary.activeMonths = activeCount;
+                console.log('[WordExport] monthlyN recalculated at export time — lat=' + lat.toFixed(2) +
+                    ' isC4=' + isC4 + ' tropical=' + (absLat < 23.5));
+            } catch(e) {
+                console.warn('[WordExport] monthlyN recalc failed, using cache:', e.message);
+            }
+        })();
+        
+        // v10.3.38: Collect nutrition program (product recommendations)
+        // Only include if generated for the current site (prevents stale cross-site data)
+        ensureObject(data, 'nutritionProgram');
+        if (window.GAIP_NUTRITION_PROGRAM) {
+            var prog = window.GAIP_NUTRITION_PROGRAM;
+            var currentSiteId = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId) 
+                ? window.GAIP_SampleManager.getActiveSiteId() : null;
+            var progSiteId = prog._generatedForSite || null;
+            
+            // Accept if: no site tagging yet (legacy), or site matches
+            if (!progSiteId || !currentSiteId || progSiteId === currentSiteId) {
+                data.nutritionProgram.hasData = true;
+                data.nutritionProgram.monthly = prog.monthly || [];
+                data.nutritionProgram.annualSummary = prog.annualSummary || {};
+                data.nutritionProgram.strategy = prog.strategy || {};
+                // b35fix287: include Mulder's flags for Word export section
+                data.nutritionProgram.muldersFlags = prog.muldersFlags || {};
+            } else {
+                console.warn('[WordExport] Skipping stale nutrition program — generated for', progSiteId, 'but current site is', currentSiteId);
+            }
+        }
+        
+        // Collect spray log entries for current site
+        ensureObject(data, 'sprayLog');
+        try {
+            var slUI = window.GAIP_SprayLogUI;
+            if (slUI && typeof slUI.getEntries === 'function') {
+                var slEntries = slUI.getEntries();
+                if (slEntries && slEntries.length > 0) {
+                    data.sprayLog.entries = slEntries;
+                    data.sprayLog.hasData = true;
+                }
+            }
+        } catch (slErr) {
+            console.warn('[WordExport] Could not collect spray log:', slErr);
+        }
+        
+        // v2.0.28: Collect export metadata (confidence/data quality) from GilbaExportMetadata
+        try {
+            if (typeof GilbaExportMetadata !== 'undefined' && typeof GilbaExportMetadata.harvestEngineConfidence === 'function') {
+                var confidence = GilbaExportMetadata.harvestEngineConfidence();
+                if (confidence && confidence.count > 0) {
+                    data._exportMetadata = {
+                        confidence: confidence,
+                        hasData: true,
+                        average: Math.round(confidence.average),
+                        lowest: confidence.lowest,
+                        lowestEngine: confidence.lowestEngine,
+                        count: confidence.count,
+                        engines: confidence.engines || {},
+                        level: confidence.average >= 80 ? 'HIGH' : confidence.average >= 60 ? 'MODERATE' : 'LOW',
+                        generatedAt: new Date().toISOString()
+                    };
+                } else {
+                }
+            } else {
+            }
+        } catch (metaErr) {
+            console.warn('[WordExport] Could not collect export metadata:', metaErr);
+        }
+        
+        // Nutrient Trend data from GilbaNutrientTrend (soil, tissue, water)
+        ensureObject(data, 'nutrientTrend');
+        try {
+            if (window.GilbaNutrientTrend && typeof window.GilbaNutrientTrend.getTrendExportData === 'function') {
+                var trendTypes = ['soil', 'tissue', 'water'];
+                var totalZones = 0;
+                data.nutrientTrend.types = {};
+                
+                for (var tt = 0; tt < trendTypes.length; tt++) {
+                    var tType = trendTypes[tt];
+                    var trendExport = window.GilbaNutrientTrend.getTrendExportData(tType);
+                    if (trendExport && Object.keys(trendExport).length > 0) {
+                        data.nutrientTrend.types[tType] = trendExport;
+                        totalZones += Object.keys(trendExport).length;
+                    }
+                }
+                
+                data.nutrientTrend.hasData = totalZones > 0;
+                if (!data.nutrientTrend.hasData) {
+                }
+            } else {
+                data.nutrientTrend.hasData = false;
+            }
+        } catch (trendErr) {
+            console.warn('[WordExport] Could not collect nutrient trend data:', trendErr);
+            data.nutrientTrend.hasData = false;
+        }
+        
+        // Amendment engine — runs if soil-tissue integration is loaded and we have soil data
+        ensureObject(data, 'amendment');
+        try {
+            var amendFn = window.GilbaSoilTissueIntegration && 
+                          window.GilbaSoilTissueIntegration.recommendSoilAmendments;
+            if (amendFn && data.soil && data.soil.hasData) {
+                // Build soilState from collected data
+                var soilState = {
+                    pH_cacl2:    data.soil.pH_cacl2 || (data.soil.pH ? data.soil.pH - 0.5 : null),
+                    pH_water:    data.soil.pH || null,
+                    Ca:          data.soil.Ca  || null,
+                    Mg:          data.soil.Mg  || null,
+                    K:           data.soil.K   || null,
+                    Na:          data.soil.Na  || null,
+                    CEC:         data.soil.CEC || null,
+                    LOI:         data.soil.OM  || null,
+                    construction: (window.GAIP_STATE && window.GAIP_STATE.turf && 
+                                   window.GAIP_STATE.turf.construction) || null
+                };
+                // Build mlsnResults from state
+                var mlsnRes = (window.GAIP_STATE && window.GAIP_STATE.mlsnResults) || {};
+                // Build waterQuality from collected water data
+                var wq = {
+                    EC:  data.water && data.water.EC  || null,
+                    SAR: data.water && data.water.SAR || null,
+                    Na:  data.water && data.water.Na  || null,
+                    SO4: data.water && data.water.SO4 || null
+                };
+                // Weather context
+                var wx = {
+                    annualRainfall: (window.climateMetrics && window.climateMetrics.rainfall) || null,
+                    soilTemp:       (window.climateMetrics && window.climateMetrics.temperature && 
+                                     window.climateMetrics.temperature.mean) || null
+                };
+                var amendResult = amendFn(soilState, mlsnRes, wq, wx, {});
+                if (amendResult) {
+                    data.amendment.hasData    = true;
+                    data.amendment.Ca         = amendResult.Ca   || null;
+                    data.amendment.Mg         = amendResult.Mg   || null;
+                    data.amendment.interactions = amendResult.interactions || [];
+                    data.amendment.summary    = amendResult.summary || [];
+                }
+            }
+        } catch (amendErr) {
+            console.warn('[WordExport] Amendment engine error:', amendErr);
+            data.amendment.hasData = false;
+        }
+        
+        return data;
+    }
+    
+    // Generate executive summary based on collected data
+    function generateExecutiveSummary(data) {
+        var flags = [];
+        var status = 'good';
+        
+        // Check disease risk
+        if (data.disease && data.disease.overallRisk) {
+            var risk = data.disease.overallRisk.toLowerCase();
+            if (risk === 'high' || risk === 'severe' || risk === 'critical') {
+                flags.push('HIGH disease risk (' + (data.disease.primaryThreat || 'multiple pathogens') + ')');
+                status = 'critical';
+            } else if (risk === 'moderate' || risk === 'elevated') {
+                flags.push('Elevated disease pressure');
+                if (status !== 'critical') status = 'warning';
+            }
+        }
+        
+        // Check stress trajectory
+        if (data.trajectory && data.trajectory.currentScore !== null) {
+            if (data.trajectory.currentScore >= 70) {
+                flags.push('HIGH stress score (' + data.trajectory.currentScore + ')');
+                status = 'critical';
+            } else if (data.trajectory.currentScore >= 50) {
+                flags.push('Elevated stress (' + data.trajectory.currentScore + ')');
+                if (status !== 'critical') status = 'warning';
+            }
+            if (data.trajectory.criticalPoints > 0) {
+                flags.push(data.trajectory.criticalPoints + ' critical point(s) in 14-day forecast');
+            }
+        }
+        
+        // Check shade/DLI deficit
+        if (data.shade && data.shade.deficit && data.shade.deficit > 20) {
+            flags.push('Light deficit: ' + data.shade.deficit + '% below target DLI');
+            if (status !== 'critical') status = 'warning';
+        }
+        
+        // Check irrigation status
+        if (data.irrigation && data.irrigation.status) {
+            var irrStatus = data.irrigation.status.toLowerCase();
+            if (irrStatus.indexOf('stress') > -1 || irrStatus.indexOf('critical') > -1) {
+                flags.push('Irrigation: ' + data.irrigation.status);
+                if (status !== 'critical') status = 'warning';
+            }
+        }
+        
+        // Check water quality
+        if (data.water && data.water.sodiumHazard && data.water.sodiumHazard.toLowerCase() !== 'low') {
+            flags.push('Water sodium hazard: ' + data.water.sodiumHazard);
+            if (status !== 'critical') status = 'warning';
+        }
+        
+        // Check dew (sports only) — use intensity string first, peak probability as fallback
+        if (data.dew && data.dew.applicable) {
+            var execDewIntensity = (data.dew.tonightIntensity || '').toLowerCase();
+            if (execDewIntensity === 'severe' || execDewIntensity === 'extreme') {
+                flags.push('Severe dew conditions forecast — extended leaf wetness all 7 days (' + data.dew.totalDewHours + ' hrs total)');
+                if (status !== 'critical') status = 'warning';
+            } else if (execDewIntensity === 'high') {
+                flags.push('High dew likelihood this week (' + (data.dew.daysWithDew || '?') + ' days)');
+                if (status !== 'critical') status = 'warning';
+            } else if (data.dew.tonightPeak >= 75) {
+                flags.push('Heavy dew expected tonight (' + data.dew.tonightPeak + '%)');
+            }
+        }
+        
+        // Check traffic/wear
+        if (data.traffic && data.traffic.status) {
+            var wearStatus = data.traffic.status.toLowerCase();
+            if (wearStatus.indexOf('high') > -1 || wearStatus.indexOf('excessive') > -1) {
+                flags.push('High wear load');
+                if (status !== 'critical') status = 'warning';
+            }
+        }
+        
+        // Build summary text
+        var summaryText;
+        if (flags.length === 0) {
+            summaryText = 'All parameters within acceptable ranges. No immediate action required.';
+        } else if (status === 'critical') {
+            summaryText = 'ATTENTION REQUIRED: ' + flags.join('. ') + '.';
+        } else {
+            summaryText = 'Items to monitor: ' + flags.join('. ') + '.';
+        }
+        
+        return { text: summaryText, status: status, flags: flags };
+    }
+    
+    // Build document sections
+    function buildSections(data, charts) {
+        charts = charts || {};
+        var sections = [];
+        
+        // Get branding info
+        var logo = typeof GAIP_getReportLogo === 'function' ? GAIP_getReportLogo() : null;
+        var orgName = typeof GAIP_getOrgName === 'function' ? GAIP_getOrgName() : '';
+        console.log('[WordExport] Logo check: ' + (logo ? 'found (w=' + logo.width + ' h=' + logo.height + ' type=' + logo.type + ')' : 'not found'));
+        
+        // Logo (if uploaded)
+        if (logo && logo.base64) {
+            try {
+                // Extract base64 data (remove data URL prefix)
+                var base64Data = logo.base64.split(',')[1] || logo.base64;
+                
+                // Scale logo to reasonable size (max 180px wide, 80px tall)
+                var maxW = 180, maxH = 80;
+                var scale = Math.min(maxW / logo.width, maxH / logo.height, 1);
+                var w = Math.round(logo.width * scale);
+                var h = Math.round(logo.height * scale);
+                
+                sections.push(new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 120 },
+                    children: [new ImageRun({
+                        type: logo.type.includes('png') ? 'png' : 'jpg',
+                        data: Uint8Array.from(atob(base64Data), function(c) { return c.charCodeAt(0); }),
+                        transformation: { width: w, height: h },
+                        altText: {
+                            title: 'Organisation Logo',
+                            description: 'Custom logo for report header',
+                            name: 'logo_header'
+                        }
+                    })]
+                }));
+            } catch (e) {
+                console.warn('[WordExport] Error adding logo:', e);
+            }
+        }
+        
+        // Organisation name (if provided)
+        if (orgName) {
+            sections.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 60 },
+                children: [new TextRun({ text: orgName, bold: true, size: 26, color: '374151' })]
+            }));
+        }
+        
+        // Title
+        sections.push(new Paragraph({ 
+            heading: HeadingLevel.TITLE, 
+            children: [new TextRun('Gilba Agronomic Intelligence Hub')] 
+        }));
+        sections.push(new Paragraph({ 
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 200 },
+            children: [new TextRun({ text: 'Comprehensive Analysis Report', size: 28, color: '6B7280' })] 
+        }));
+        
+        // Executive Summary — suppressed in combined export (site-level, shown once separately)
+        var summary = generateExecutiveSummary(data);
+        if (!window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            var summaryColor = summary.status === 'critical' ? 'DC2626' : 
+                              summary.status === 'warning' ? 'F59E0B' : '16A34A';
+            var summaryBg = summary.status === 'critical' ? 'FEF2F2' : 
+                            summary.status === 'warning' ? 'FFFBEB' : 'F0FDF4';
+            
+            sections.push(new Paragraph({
+                spacing: { before: 200, after: 100 },
+                shading: { fill: summaryBg, type: ShadingType.CLEAR },
+                border: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: summaryColor },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: summaryColor },
+                    left: { style: BorderStyle.SINGLE, size: 24, color: summaryColor },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: summaryColor }
+                },
+                children: [
+                    new TextRun({ text: 'EXECUTIVE SUMMARY: ', bold: true, size: 24, color: summaryColor }),
+                    new TextRun({ text: summary.text, size: 22, color: '374151' })
+                ]
+            }));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // Data quality badge (compact metadata indicator)
+            if (data._exportMetadata && typeof GilbaExportMetadata !== 'undefined') {
+                var badgeElements = GilbaExportMetadata.createMetadataBadge(data._exportMetadata);
+                if (badgeElements && badgeElements.length > 0) {
+                    badgeElements.forEach(function(el) { sections.push(el); });
+                }
+            }
+        }
+        
+        // Generate priority actions early
+        var priorityActions = generatePriorityActions(data);
+        
+        // Priority Actions Section (if there are any)
+        if (priorityActions.hasActions) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true,
+                children: [new TextRun('Priority Actions')] 
+            }));
+            
+            // Add species context note if overseed
+            if (priorityActions.isC3 && data.turf && data.turf.c3Fraction >= 0.5) {
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Thresholds based on ' + priorityActions.effectiveSpecies + ' tolerances (' + Math.round(data.turf.c3Fraction * 100) + '% cover)',
+                        size: 20, italics: true, color: '6B7280'
+                    })]
+                }));
+            }
+            
+            // Immediate Actions (0-7 days) - RED
+            if (priorityActions.immediate.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 100, after: 50 },
+                    shading: { fill: 'FEF2F2', type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'DC2626' } },
+                    children: [new TextRun({ text: '⚠️ IMMEDIATE (0-7 days)', bold: true, size: 22, color: 'DC2626' })]
+                }));
+                priorityActions.immediate.forEach(function(action) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 400 },
+                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                    }));
+                });
+            }
+            
+            // Short-term Actions (7-30 days) - AMBER
+            if (priorityActions.shortTerm.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 100, after: 50 },
+                    shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'F59E0B' } },
+                    children: [new TextRun({ text: '⏰ SHORT-TERM (7-30 days)', bold: true, size: 22, color: 'F59E0B' })]
+                }));
+                priorityActions.shortTerm.forEach(function(action) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 400 },
+                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                    }));
+                });
+            }
+            
+            // Medium-term Actions (30-90 days) - BLUE
+            if (priorityActions.mediumTerm.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 100, after: 50 },
+                    shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 24, color: '3B82F6' } },
+                    children: [new TextRun({ text: '📋 MEDIUM-TERM (30-90 days)', bold: true, size: 22, color: '3B82F6' })]
+                }));
+                priorityActions.mediumTerm.forEach(function(action) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 400 },
+                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                    }));
+                });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Static Contents List (avoids ToC update issues with page breaks)
+        // Contents — suppressed in combined export (each green is a section, no per-green TOC needed)
+        // Helper: build section context from explicit label or site+turf fallback
+        // Declared here (outside Contents block) so it's available throughout buildSections.
+        function getSectionContext(explicitLabel) {
+            if (explicitLabel) return explicitLabel;
+            var parts = [];
+            if (data.site && data.site.name && data.site.name !== 'Not specified') {
+                parts.push(data.site.name);
+            }
+            var tt = (data.turf.type || '').replace(/^Golf\s*-\s*/i, '').replace(/^Sports\s*-\s*/i, '').trim();
+            if (tt) parts.push(tt);
+            return parts.length > 0 ? parts.join(', ') : '';
+        }
+
+        if (!window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_2, keepNext: true,
+                children: [new TextRun('Contents')] 
+            }));
+        
+            // Build static contents based on what sections exist
+            var contentItems = [];
+        
+        // Check if priority actions exist for contents
+        if (priorityActions.hasActions) {
+            contentItems.push('• Priority Actions');
+        }
+        
+        if (window.GAIP_SYNTHESIS_INTERPRETATION && window.GAIP_SYNTHESIS_INTERPRETATION.narrative && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            contentItems.push('• Cross-Module Pattern Analysis');
+        }
+        
+        contentItems.push('• Site Information');
+        if (data.soil && (data.soil.hasData || data.soil.hasResults || data.soil.P || data.soil.K || data.soil.Ca)) {
+            var soilTocCtx = getSectionContext(data.soil.sampleLabel);
+            var soilTocLabel = '• Soil Nutrition (' + (data.soil.methodology || 'MLSN') + ')';
+            if (soilTocCtx) soilTocLabel += ' — ' + soilTocCtx;
+            contentItems.push(soilTocLabel);
+            if (data.climate && (data.climate.temperature || data.climate.growthPotential)) {
+                contentItems.push('• Climate & Growth Conditions');
+            }
+            
+            // Check for cation balance data
+            var cationBalance = generateCationBalance(data);
+            if (cationBalance && cationBalance.hasData) {
+                contentItems.push('• Cation Balance Analysis');
+            }
+            
+            // Check for nutrition summary data
+            if (data.nutritionSummary && data.nutritionSummary.hasData && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+                contentItems.push('• Annual Nutrient Requirements');
+            }
+            // Amendment recommendations
+            if (data.amendment && data.amendment.hasData) {
+                contentItems.push('• Soil Amendment Recommendations');
+            }
+        }
+        if (data.tissue && (data.tissue.N || data.tissue.K) && (data.tissue.N > 0 || data.tissue.K > 0)) {
+            var tissueTocCtx = getSectionContext(data.tissue.sampleLabel);
+            var tissueTocLabel = '• Tissue Analysis';
+            if (tissueTocCtx) tissueTocLabel += ' — ' + tissueTocCtx;
+            contentItems.push(tissueTocLabel);
+        }
+        if (data.nProgram && data.nProgram.hasData) {
+            contentItems.push('• N Program Validation');
+        }
+        if (data.nutrientTrend && data.nutrientTrend.hasData) {
+            contentItems.push('• Nutrient Trend Analysis');
+        }
+        if (data.water && (data.water.EC > 0 || data.water.SAR > 0)) {
+            var waterTocCtx = getSectionContext(data.water.sourceLabel);
+            var waterTocLabel = '• Water Quality';
+            if (waterTocCtx) waterTocLabel += ' — ' + waterTocCtx;
+            contentItems.push(waterTocLabel);
+            
+            // Check for soil×water interactions
+            var soilWaterInteractions = generateSoilWaterInteractions(data);
+            if (soilWaterInteractions && soilWaterInteractions.hasData) {
+                contentItems.push('• Soil × Water Interactions');
+            }
+            
+            // v2.0.8: Salinity Impact section
+            if (data.salinity && data.salinity.hasData && data.salinity.growthPenaltyPct > 0 && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+                contentItems.push('• Salinity Stress Impact');
+            }
+        }
+        if (data.shade && data.shade.currentDLI) {
+            contentItems.push('• Light & Shade Analysis');
+        }
+        if (data.pgr && data.pgr.product && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            contentItems.push('• PGR Program Status');
+        }
+        if (data.dmi && data.dmi.product) {
+            contentItems.push('• DMI Fungicide Growth Effect');
+        }
+        if (data.irrigation && (data.irrigation.status || data.irrigation.strategy)) {
+            contentItems.push('• Moisture Management');
+        }
+        if (data.disease && data.disease.hasData) {
+            contentItems.push('• Disease Risk Assessment');
+        }
+        if (data.trajectory && data.trajectory.currentScore) {
+            contentItems.push('• Stress Trajectory');
+        }
+        if (data.dew && data.dew.hasData) {
+            contentItems.push('• Dew Prediction');
+        }
+        if (data.traffic && data.traffic.hasData) {
+            contentItems.push('• Traffic & Wear Analysis');
+        }
+        if (data.overseedClimate && data.overseedClimate.hasData) {
+            var oscStage = (data.overseedClimate.stage || '').toLowerCase();
+            var isOscTransition = (oscStage === 'transitioning' || oscStage === 'fading' || oscStage === 'dying');
+            contentItems.push(isOscTransition ? '• Overseed Transition Status' : '• Overseed Climate Assessment');
+        }
+        // Check if Performance Impact Analysis will be generated - 
+        // covers soil/water/tissue/climate interactions and variety traits
+        var hasSoilData = data.soil && (data.soil.P || data.soil.K || data.soil.Ca);
+        var hasTissueData = data.tissue && (data.tissue.N || data.tissue.K);
+        var hasWaterData = data.water && (data.water.EC !== undefined || data.water.SAR !== undefined);
+        var hasClimateData = data.climate && data.climate.growthPotential !== undefined;
+        var hasShadeData = data.shade && data.shade.deficit > 10;
+        var hasVarietyData = data.varietyTraits && data.varietyTraits.hasData;
+        
+        var willHaveImpacts = hasVarietyData ||
+                              (hasWaterData && hasSoilData) ||
+                              (hasTissueData && hasSoilData) ||
+                              (hasClimateData && (hasTissueData || data.traffic)) ||
+                              hasShadeData ||
+                              (data.water && data.water.EC > 0.75);
+        if (willHaveImpacts) {
+            contentItems.push('• Performance Impact Analysis');
+        }
+        
+        // v10.3.38: Add Nutrition Program if generated
+        if (data.nutritionProgram && data.nutritionProgram.hasData) {
+            contentItems.push('• Nutrition Program');
+        }
+        
+        // Add Spray Application Log if entries exist
+        if (data.sprayLog && data.sprayLog.hasData) {
+            contentItems.push('• Spray Application Log');
+        }
+        
+        // Add cultivar profile if variety selected
+        var hasVarietyData = (data.turf && data.turf.variety && data.turf.variety !== 'generic') ||
+                             (data.turf && data.turf.effectiveVariety && data.turf.effectiveVariety !== 'generic');
+        if (hasVarietyData) {
+            contentItems.push('• Cultivar Performance Profile');
+        }
+        
+        contentItems.push('• References & Methodology');
+        if (data._exportMetadata) {
+            contentItems.push('• Report Metadata & Data Quality');
+        }
+        contentItems.push('• Glossary of Terms');
+        
+        sections.push(new Paragraph({
+            spacing: { before: 100, after: 200 },
+            children: [new TextRun({ text: contentItems.join('\n'), size: 22 })]
+        }));
+        sections.push(new Paragraph({ children: [] }));
+        } // end !GAIP_COMBINED_EXPORT_ACTIVE (Contents block)
+        
+        // ========================================
+        // CROSS-MODULE SYNTHESIS INTERPRETATION v1.0.0
+        // Moved to front of report — synthesis before detail.
+        // AI-generated pattern analysis across soil, water, and tissue.
+        // Suppressed in combined export (injected once at document level).
+        // ========================================
+        var synthesisInterpretation = window.GAIP_SYNTHESIS_INTERPRETATION;
+        if (synthesisInterpretation && synthesisInterpretation.narrative && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            sections.push(new Paragraph({
+                pageBreakBefore: true,
+                heading: HeadingLevel.HEADING_1,
+                keepNext: true,
+                children: [new TextRun('Cross-Module Pattern Analysis')]
+            }));
+            
+            sections.push(new Paragraph({
+                spacing: { before: 50, after: 150 },
+                children: [new TextRun({
+                    text: 'AI-assisted analysis identifying interactions and anomalies across soil, water, and tissue data.',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+            
+            // Process narrative - handle bold markers and headers
+            var synthNarrative = synthesisInterpretation.narrative;
+            
+            // Remove markdown headers (we'll handle structure manually)
+            synthNarrative = synthNarrative.replace(/^##+ /gm, '');
+            
+            // Convert bold markers
+            synthNarrative = synthNarrative.replace(/\*\*(.+?)\*\*/g, '<<BOLD>>$1<</BOLD>>');
+            
+            // Split into paragraphs
+            var synthParagraphs = synthNarrative.split(/\n\n+/);
+            synthParagraphs.forEach(function(para) {
+                if (!para.trim()) return;
+                
+                // Check if this is a header line (Key Findings, Pattern Analysis, etc)
+                var isHeader = /^(Key Findings|Pattern Analysis|Recommended Actions|Monitoring Priority)/i.test(para.trim());
+                
+                if (isHeader) {
+                    var headerText = para.trim().split('\n')[0].replace(/<<BOLD>>|<<\/BOLD>>/g, '');
+                    sections.push(new Paragraph({
+                        spacing: { before: 200, after: 80 },
+                        children: [new TextRun({
+                            text: headerText,
+                            bold: true,
+                            size: 22,
+                            color: '6D28D9'
+                        })]
+                    }));
+                    para = para.split('\n').slice(1).join('\n');
+                    if (!para.trim()) return;
+                }
+                
+                // Handle bullet points
+                if (para.trim().startsWith('-') || para.trim().startsWith('•')) {
+                    var bulletLines = para.split('\n').filter(function(l) { return l.trim(); });
+                    bulletLines.forEach(function(line) {
+                        line = line.replace(/^[-•]\s*/, '');
+                        var bulletChildren = [];
+                        var bParts = line.split(/<<BOLD>>|<<\/BOLD>>/);
+                        var isBoldB = false;
+                        bParts.forEach(function(part) {
+                            if (part) {
+                                bulletChildren.push(new TextRun({
+                                    text: part, bold: isBoldB, size: 20,
+                                    color: isBoldB ? '6D28D9' : '374151'
+                                }));
+                            }
+                            isBoldB = !isBoldB;
+                        });
+                        sections.push(new Paragraph({
+                            spacing: { before: 40, after: 40 },
+                            indent: { left: 300 },
+                            bullet: { level: 0 },
+                            children: bulletChildren
+                        }));
+                    });
+                    return;
+                }
+                
+                // Regular paragraph with bold handling
+                var synChildren = [];
+                var sParts = para.split(/<<BOLD>>|<<\/BOLD>>/);
+                var isBoldS = false;
+                sParts.forEach(function(part) {
+                    if (part) {
+                        synChildren.push(new TextRun({
+                            text: part, bold: isBoldS, size: 20,
+                            color: isBoldS ? '6D28D9' : '374151'
+                        }));
+                    }
+                    isBoldS = !isBoldS;
+                });
+                sections.push(new Paragraph({ spacing: { after: 100 }, children: synChildren }));
+            });
+            
+            if (synthesisInterpretation.cached) {
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 100 },
+                    children: [new TextRun({ text: '(Cached analysis)', size: 14, italics: true, color: '9CA3AF' })]
+                }));
+            }
+            sections.push(new Paragraph({ children: [] }));
+        }
+
+        // Site info section
+        sections.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, keepNext: true, pageBreakBefore: true,
+            children: [new TextRun('Site Information')] 
+        }));
+        
+        var siteRows = [];
+        siteRows.push(createKeyValueRow('Site', data.site.name));
+        siteRows.push(createKeyValueRow('Location', data.site.location));
+        siteRows.push(createKeyValueRow('Analysis Date', data.site.date));
+        siteRows.push(createKeyValueRow('Turf Type', data.turf.type || 'Not specified'));
+        siteRows.push(createKeyValueRow('Species', data.turf.speciesDisplay || data.turf.species || 'Not specified'));
+        
+        // Show variety - use effective variety for overseed dominant
+        var displayVariety = data.turf.overseedDominant ? data.turf.effectiveVariety : data.turf.variety;
+        if (displayVariety && displayVariety !== 'generic') {
+            siteRows.push(createKeyValueRow('Variety', displayVariety));
+        }
+        
+        // Add management focus note for overseed situations
+        if (data.turf.effectiveSpeciesNote) {
+            siteRows.push(createKeyValueRow('Management Focus', data.turf.effectiveSpeciesNote));
+        }
+        
+        sections.push(createTable(siteRows));
+        sections.push(new Paragraph({ children: [] }));
+        
+        // Soil Nutrition section - use correct methodology label
+        if (data.soil && (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg)) {
+            var soilMethodLabel = data.soil.methodology || 'MLSN';
+            
+            // Build heading with sample context (explicit label or auto from site+turf)
+            var soilHeading = 'Soil Nutrition (' + soilMethodLabel + ')';
+            var soilContext = getSectionContext(data.soil.sampleLabel);
+            if (soilContext) {
+                soilHeading += ' — ' + soilContext;
+            }
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(soilHeading)] 
+            }));
+            
+            // Show sample metadata line (date, lab ref, species)
+            var soilMetaParts = [];
+            if (data.soil.testDate) {
+                var soilDate = new Date(data.soil.testDate);
+                soilMetaParts.push('Sampled: ' + soilDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
+            }
+            if (data.soil.labRef) {
+                soilMetaParts.push('Lab ref: ' + data.soil.labRef);
+            }
+            var speciesName = data.turf.speciesDisplay || data.turf.species || '';
+            if (speciesName) soilMetaParts.push(speciesName);
+            if (soilMetaParts.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                        new TextRun({ text: soilMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                    ]
+                }));
+            }
+            
+            // Show extraction method if specified
+            if (data.soil.extractantLabel) {
+                sections.push(new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                        new TextRun({ text: 'Extraction Method: ', bold: true, size: 22, color: '6B7280' }),
+                        new TextRun({ text: data.soil.extractantLabel, size: 22, color: '374151' })
+                    ]
+                }));
+            }
+            
+            // Show methodology warning if applicable
+            if (data.soil.extractantWarning) {
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
+                    children: [
+                        new TextRun({ text: '', size: 22 }),
+                        new TextRun({ text: data.soil.extractantWarning, size: 18, color: 'B45309', italics: true })
+                    ]
+                }));
+            } else if (!data.soil.extractant || data.soil.extractant === '') {
+                // Warn if extraction method not specified
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
+                    children: [
+                        new TextRun({ text: '', size: 22 }),
+                        new TextRun({ text: 'Extraction method not specified. MLSN guidelines require Mehlich 3 data. Please verify your lab methodology.', size: 18, color: 'B45309', italics: true })
+                    ]
+                }));
+            }
+            
+            var soilRows = [];
+            if (data.soil.pH) soilRows.push(createKeyValueRow('pH', data.soil.pH));
+            if (data.soil.P) soilRows.push(createKeyValueRow('Phosphorus (P)', data.soil.P + ' ppm', getThresholdColor(data.soil.P, data.soil.thresholds?.P)));
+            if (data.soil.K) soilRows.push(createKeyValueRow('Potassium (K)', data.soil.K + ' ppm', getThresholdColor(data.soil.K, data.soil.thresholds?.K)));
+            if (data.soil.Ca) soilRows.push(createKeyValueRow('Calcium (Ca)', data.soil.Ca + ' ppm', getThresholdColor(data.soil.Ca, data.soil.thresholds?.Ca)));
+            if (data.soil.Mg) soilRows.push(createKeyValueRow('Magnesium (Mg)', data.soil.Mg + ' ppm', getThresholdColor(data.soil.Mg, data.soil.thresholds?.Mg)));
+            if (data.soil.S) soilRows.push(createKeyValueRow('Sulphur (S)', data.soil.S + ' ppm', getThresholdColor(data.soil.S, data.soil.thresholds?.S)));
+            // Trace elements — MLSN minimums: Fe=1, Mn=1, Zn=1, Cu=0.2, B=0.1 ppm
+            var traceMLSN = { Fe: 1, Mn: 1, Zn: 1, Cu: 0.2, B: 0.1 };
+            var traceLabels = { Fe: 'Iron (Fe)', Mn: 'Manganese (Mn)', Zn: 'Zinc (Zn)', Cu: 'Copper (Cu)', B: 'Boron (B)' };
+            ['Fe', 'Mn', 'Zn', 'Cu', 'B'].forEach(function(t) {
+                if (data.soil[t] !== undefined && data.soil[t] !== null && data.soil[t] !== '') {
+                    var col = data.soil[t] >= traceMLSN[t] ? '16A34A' : 'DC2626';
+                    soilRows.push(createKeyValueRow(traceLabels[t], data.soil[t] + ' ppm', col));
+                }
+            });
+            if (data.soil.OM) soilRows.push(createKeyValueRow('Organic Matter', data.soil.OM + '%'));
+            if (data.soil.CEC) soilRows.push(createKeyValueRow('CEC', data.soil.CEC + ' meq/100g'));
+            if (data.soil.summary) soilRows.push(createKeyValueRow('Status', data.soil.summary, getStatusColor(data.soil.summary)));
+            
+            sections.push(createTable(soilRows));
+            
+            // Add dual MLSN/SLAN comparison table
+            // Skip for Ammonium Acetate methodology - MLSN uses Mehlich-3 extractant,
+            // which is incompatible with Ammonium Acetate (NH₄OAc) extraction
+            var isAmmoniumAcetate = data.soil.methodology && 
+                (data.soil.methodology === 'AMMONIUM_ACETATE' || 
+                 data.soil.methodology === 'AMMONIUM ACETATE' ||
+                 data.soil.methodology.indexOf('AMMONIUM') >= 0);
+            
+            if (!isAmmoniumAcetate) {
+                var dualTable = generateDualSoilTable(data.soil);
+                if (dualTable) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 200, after: 100 },
+                        children: [new TextRun({ text: 'Dual Interpretation: MLSN vs SLAN', bold: true, size: 22 })]
+                    }));
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [new TextRun({ 
+                            text: 'This table shows how your soil nutrient levels are interpreted under both MLSN (Minimum Level for Sustainable Nutrition) and SLAN (Sufficiency Level of Available Nutrients) guidelines.',
+                            size: 18, italics: true, color: '6B7280'
+                        })]
+                    }));
+                    sections.push(dualTable);
+                }
+            } else {
+                // Ammonium Acetate extraction — show methodology comparison table
+                // so the reader understands why MLSN/SLAN values differ and cannot be
+                // directly applied to AA-extracted data
+                var aaBorder = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+                var aaBorders = { top: aaBorder, bottom: aaBorder, left: aaBorder, right: aaBorder };
+
+                sections.push(new Paragraph({
+                    spacing: { before: 300, after: 100 },
+                    children: [new TextRun({ text: 'Interpretation Framework Comparison', bold: true, size: 22 })]
+                }));
+                sections.push(new Paragraph({
+                    spacing: { after: 150 },
+                    children: [new TextRun({
+                        text: 'This sample was extracted using the Ammonium Acetate (NH\u2084OAc pH 8.1) + Olsen P method (Hill Laboratories NZ). ' +
+                              'MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. ' +
+                              'The table below shows the three frameworks side by side so you can see how they differ in philosophy and threshold basis.',
+                        size: 18, italics: true, color: '4B5563'
+                    })]
+                }));
+
+                // Build comparison table: Framework | Extractant | Basis | AU/NZ/UK status | Typical threshold basis
+                var aaCompRows = [];
+                var aaHdrRow = new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ borders: aaBorders, width: { size: 1800, type: WidthType.DXA },
+                            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Framework', bold: true, size: 18 })] })] }),
+                        new TableCell({ borders: aaBorders, width: { size: 2000, type: WidthType.DXA },
+                            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Extractant', bold: true, size: 18 })] })] }),
+                        new TableCell({ borders: aaBorders, width: { size: 2400, type: WidthType.DXA },
+                            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Philosophy', bold: true, size: 18 })] })] }),
+                        new TableCell({ borders: aaBorders, width: { size: 1400, type: WidthType.DXA },
+                            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'AU/NZ/UK use', bold: true, size: 18 })] })] }),
+                        new TableCell({ borders: aaBorders, width: { size: 1600, type: WidthType.DXA },
+                            shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Compatible with this sample?', bold: true, size: 18 })] })] })
+                    ]
+                });
+                aaCompRows.push(aaHdrRow);
+
+                var aaFrameworks = [
+                    {
+                        name: 'Ammonium Acetate (Hill Labs NZ)',
+                        extractant: 'NH\u2084OAc pH 8.1 (cations) + Olsen P (NaHCO\u2083)',
+                        philosophy: 'Exchangeable cation pool. Sufficiency ranges calibrated for NZ soils. Industry standard in NZ and widely used in Australia.',
+                        regional: 'Standard in NZ; common in AU',
+                        compatible: '\u2705 Yes — this report',
+                        fill: 'F0FDF4', textColor: '166534'
+                    },
+                    {
+                        name: 'MLSN (PACE Turf, 2014)',
+                        extractant: 'Mehlich-3',
+                        philosophy: 'Minimum threshold below which deficiency becomes likely. Conservative — avoids over-fertilisation. Used globally in precision turf management.',
+                        regional: 'AU/NZ: values not directly applicable to AA data',
+                        compatible: '\u274C No — extractant mismatch',
+                        fill: 'FEF2F2', textColor: 'DC2626'
+                    },
+                    {
+                        name: 'SLAN (Kreuser, 2015)',
+                        extractant: 'Mehlich-3',
+                        philosophy: 'Sufficiency range — target band above minimum. Higher thresholds than MLSN. Based on agronomic optimum rather than minimum viable level.',
+                        regional: 'AU/NZ: values not directly applicable to AA data',
+                        compatible: '\u274C No — extractant mismatch',
+                        fill: 'FFFBEB', textColor: '92400E'
+                    }
+                ];
+
+                aaFrameworks.forEach(function(fw) {
+                    aaCompRows.push(new TableRow({
+                        children: [
+                            new TableCell({ borders: aaBorders, width: { size: 1800, type: WidthType.DXA },
+                                shading: { fill: fw.fill, type: ShadingType.CLEAR },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.name, bold: true, size: 18, color: fw.textColor })] })] }),
+                            new TableCell({ borders: aaBorders, width: { size: 2000, type: WidthType.DXA },
+                                shading: { fill: fw.fill, type: ShadingType.CLEAR },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.extractant, size: 18 })] })] }),
+                            new TableCell({ borders: aaBorders, width: { size: 2400, type: WidthType.DXA },
+                                shading: { fill: fw.fill, type: ShadingType.CLEAR },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.philosophy, size: 18 })] })] }),
+                            new TableCell({ borders: aaBorders, width: { size: 1400, type: WidthType.DXA },
+                                shading: { fill: fw.fill, type: ShadingType.CLEAR },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.regional, size: 18 })] })] }),
+                            new TableCell({ borders: aaBorders, width: { size: 1600, type: WidthType.DXA },
+                                shading: { fill: fw.fill, type: ShadingType.CLEAR },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.compatible, size: 18, bold: true })] })] })
+                        ]
+                    }));
+                });
+
+                sections.push(new Table({
+                    width: { size: 9200, type: WidthType.DXA },
+                    rows: aaCompRows
+                }));
+
+                sections.push(new Paragraph({
+                    spacing: { before: 120, after: 80 },
+                    children: [new TextRun({
+                        text: 'Note: If Mehlich-3 results are available for this site, contact your agronomist to run the full MLSN/SLAN dual comparison. ' +
+                              'Approximate conversion factors exist (e.g. Mehlich-3 K \u2248 1.1\u00D7 AA K) but introduce error and are not recommended for formal recommendations.',
+                        size: 16, italics: true, color: '6B7280'
+                    })]
+                }));
+            }
+            
+            // Add soil chart if generated
+            if (charts.soil) {
+                sections.push(new Paragraph({ children: [] }));
+                sections.push(createImageParagraph(charts.soil, 'soil'));
+            }
+
+            // Add trace element chart if generated
+            if (charts.trace) {
+                sections.push(new Paragraph({ children: [] }));
+                sections.push(createImageParagraph(charts.trace, 'trace'));
+                // Trace element narrative (pH context, antagonism, issues, extractant caveat)
+                var traceNarrative = generateTraceNarrative(data.soil);
+                traceNarrative.forEach(function(p) { sections.push(p); });
+            }
+            
+            // Add pH and CEC context section
+            var phCecContext = generatepHCECContext(data.soil, data.turf);
+            if (phCecContext && phCecContext.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [new TextRun({ text: 'pH and CEC Context', bold: true, size: 22 })]
+                }));
+                phCecContext.forEach(function(el) { sections.push(el); });
+            }
+            
+            // Add soil interpretation and recommendations
+            // Inject surface context so generateFertiliserRecommendation can apply rate caps
+            if (data.soil && data.turf) {
+                data.soil.surfaceType = (data.turf.subCategory || data.turf.type || '').toLowerCase();
+            }
+            var soilNarrative = generateSoilNarrative(data.soil);
+            if (soilNarrative) {
+                var soilInterpretation = createInterpretationSection('Interpretation', soilNarrative);
+                soilInterpretation.forEach(function(el) { sections.push(el); });
+            }
+            
+            // ========================================
+            // AI INTERPRETATION v1.0.0
+            // Adds Claude-generated narrative if user clicked "Interpret results"
+            // ========================================
+            var aiInterpretation = window.GAIP_SOIL_INTERPRETATION;
+            if (aiInterpretation && aiInterpretation.narrative) {
+                sections.push(new Paragraph({
+                    spacing: { before: 300, after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Soil Interpretation', 
+                        bold: true, 
+                        size: 22,
+                        color: '166534'
+                    })]
+                }));
+                
+                // Process narrative - handle bold markers and split into paragraphs
+                var aiNarrative = aiInterpretation.narrative;
+                aiNarrative = aiNarrative.replace(/\*\*(.+?)\*\*/g, '<<BOLD>>$1<</BOLD>>');
+                
+                var aiParagraphs = aiNarrative.split(/\n\n+/);
+                aiParagraphs.forEach(function(para) {
+                    if (!para.trim()) return;
+                    
+                    // Process bold markers within paragraph
+                    var children = [];
+                    var parts = para.split(/<<BOLD>>|<<\/BOLD>>/);
+                    var isBold = false;
+                    
+                    parts.forEach(function(part) {
+                        if (part) {
+                            children.push(new TextRun({
+                                text: part,
+                                bold: isBold,
+                                size: 20,
+                                color: isBold ? '166534' : '1F2937'
+                            }));
+                        }
+                        isBold = !isBold;
+                    });
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 120 },
+                        children: children
+                    }));
+                });
+                
+                // Add citations if present
+                if (aiInterpretation.citations && Object.keys(aiInterpretation.citations).length > 0) {
+                    var citationText = 'Sources: ' + Object.keys(aiInterpretation.citations).map(function(key) {
+                        var cite = aiInterpretation.citations[key];
+                        return cite.authors ? cite.authors + ' (' + cite.year + ')' : key;
+                    }).join(', ');
+                    
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 100 },
+                        children: [new TextRun({
+                            text: citationText,
+                            size: 16,
+                            italics: true,
+                            color: '6B7280'
+                        })]
+                    }));
+                }
+                
+                // Disclaimer
+                sections.push(new Paragraph({
+                    spacing: { before: 100, after: 150 },
+                    children: [new TextRun({
+                        text: 'Note: This interpretation is AI-generated based on your soil analysis data. Always verify recommendations with local agronomic expertise and site-specific conditions.',
+                        size: 16,
+                        italics: true,
+                        color: '92400E'
+                    })]
+                }));
+                
+            }
+            // ========================================
+
+            // ========================================
+            // MULDER'S NUTRIENT INTERACTIONS
+            // Runs GilbaMulders.analyse() on the same soil data used for
+            // MLSN/SLAN/AA sufficiency — methodology-aware unit conversion.
+            // Only renders if interactions are detected.
+            // ========================================
+            if (window.GilbaMulders && data.soil) {
+                try {
+                    // Build a minimal nutrients array from the soil data object
+                    var _mNutrients = [];
+                    var _mNutrientKeys = ['K','Ca','Mg','P','Fe','Mn','Zn','Cu','B','S','N'];
+                    _mNutrientKeys.forEach(function(sym) {
+                        var val = data.soil[sym] || (data.soil.nutrients && data.soil.nutrients[sym]);
+                        if (val != null && parseFloat(val) > 0) {
+                            _mNutrients.push({ nutrient: sym, actual: parseFloat(val) });
+                        }
+                    });
+
+                    var _mContext = {
+                        methodology: (data.soil.methodology || 'mlsn'),
+                        soilPH: data.soil.pH_water || data.soil.pH_cacl2 || data.soil.pH || null,
+                        turfType: (data.turf && data.turf.warmBase) ? 'warm-season' : 'cool-season',
+                        nProgram: (data.turf && data.turf.nProgramKgHaYr) || 0,
+                        // b35fix267: extractant for P-ratio incompatibility check
+                        extractant: data.soil.extractant || data.soil.methodology || null,
+                    };
+
+                    var _mResult = window.GilbaMulders.analyse(_mNutrients, _mContext);
+                    var _mFlags = _mResult.flags;
+                    var _mEntries = [];
+                    Object.keys(_mFlags).forEach(function(sym) {
+                        _mFlags[sym].forEach(function(f) { _mEntries.push(f); });
+                    });
+
+                    if (_mEntries.length > 0) {
+                        // Section heading
+                        sections.push(new Paragraph({
+                            spacing: { before: 300, after: 120 },
+                            children: [new TextRun({
+                                text: 'Mulder\'s Nutrient Interactions',
+                                bold: true, size: 24, color: 'B45309'
+                            })]
+                        }));
+                        sections.push(new Paragraph({
+                            spacing: { after: 100 },
+                            children: [new TextRun({
+                                text: 'The following antagonistic interactions were detected. These affect nutrient '
+                                    + 'availability independently of absolute soil levels — a nutrient above its '
+                                    + 'sufficiency threshold may still be functionally deficient if a competing '
+                                    + 'element is elevated.',
+                                size: 18, color: '6B7280'
+                            })]
+                        }));
+
+                        // b35fix267: Cross-panel extractant consistency note
+                        // Ratio checks assume all nutrients were extracted with the same method.
+                        // Mixed-extractant panels (e.g. switching labs mid-season) invalidate ratios.
+                        var _extractantNote = 'Ratio checks assume all nutrients were extracted using the same method (' +
+                            (data.soil.extractant || data.soil.methodology || 'extractant not specified') +
+                            '). Results from mixed-extractant panels will produce unreliable ratios.';
+                        // Add pH-incompatibility warning if applicable
+                        var _hasExtractantCaveat = _mEntries.some(function(f) { return f.extractantCaveat; });
+                        if (_hasExtractantCaveat) {
+                            _extractantNote += ' Note: one or more P-based interactions have been downgraded to advisory ' +
+                                'because the extractant used (' + (data.soil.extractant || 'Mehlich-3/Bray') +
+                                ') over-extracts phosphorus at pH ≥ 7.5. Olsen-P is the recommended extractant ' +
+                                'above this pH. Source: Havlin et al. (2014) Soil Fertility and Fertilizers, 8th ed.';
+                        }
+                        sections.push(new Paragraph({
+                            spacing: { after: 160 },
+                            shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
+                            children: [new TextRun({ text: _extractantNote, size: 16, italics: true, color: '6B7280' })]
+                        }));
+
+                        // One paragraph block per interaction
+                        _mEntries.forEach(function(f) {
+                            var severityColor = f.severity === 'high' ? 'DC2626' :
+                                               f.severity === 'advisory' ? '2563EB' : 'D97706';
+                            var icon = f.severity === 'high' ? '⚠ ' :
+                                       f.severity === 'advisory' ? 'ℹ ' : '⚡ ';
+                            var ratioStr = f.value != null
+                                ? ' (' + f.ratio + ' = ' + f.value + ', threshold: ' + f.threshold + ')'
+                                : '';
+
+                            sections.push(new Paragraph({
+                                spacing: { before: 160, after: 60 },
+                                children: [new TextRun({
+                                    text: icon + f.suppressor + ' → ' + f.suppressed + ratioStr,
+                                    bold: true, size: 20, color: severityColor
+                                })]
+                            }));
+                            sections.push(new Paragraph({
+                                spacing: { after: 60 },
+                                children: [new TextRun({ text: f.message, size: 20, color: '1F2937' })]
+                            }));
+                            sections.push(new Paragraph({
+                                spacing: { after: 60 },
+                                children: [new TextRun({ text: f.detail, size: 18, color: '374151' })]
+                            }));
+                            sections.push(new Paragraph({
+                                spacing: { after: 120 },
+                                children: [new TextRun({
+                                    text: '📖 ' + f.citation,
+                                    size: 16, italics: true, color: '9CA3AF'
+                                })]
+                            }));
+                        });
+                    }
+                } catch(e) {
+                    // Mulder's section is non-critical — swallow errors silently
+                }
+            }
+            // ========================================
+            
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Cation Balance Analysis section
+        var cationBalanceData = generateCationBalance(data);
+        if (cationBalanceData && cationBalanceData.hasData) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Cation Balance Analysis')] 
+            }));
+            
+            // Ratios table
+            var cationRows = [];
+            if (cationBalanceData.ratios.CaMg) {
+                var caMgColor = cationBalanceData.ratios.CaMgStatus === 'Optimal' ? '16A34A' : 
+                               cationBalanceData.ratios.CaMgStatus === 'Low' ? 'DC2626' : 'F59E0B';
+                cationRows.push(createKeyValueRow('Ca:Mg Ratio', 
+                    cationBalanceData.ratios.CaMg.toFixed(1) + ':1 (' + cationBalanceData.ratios.CaMgStatus + ')', caMgColor));
+            }
+            if (cationBalanceData.ratios.KMg) {
+                var kMgColor = cationBalanceData.ratios.KMgStatus === 'Optimal' ? '16A34A' : 
+                              cationBalanceData.ratios.KMgStatus === 'High K' ? 'F59E0B' : '3B82F6';
+                cationRows.push(createKeyValueRow('K:Mg Ratio (meq)', 
+                    cationBalanceData.ratios.KMg.toFixed(2) + ' (' + cationBalanceData.ratios.KMgStatus + ')', kMgColor));
+            }
+            
+            // Base saturation
+            sections.push(new Paragraph({
+                spacing: { before: 100, after: 50 },
+                children: [new TextRun({ text: 'Cation Ratios', bold: true, size: 22 })]
+            }));
+            sections.push(createTable(cationRows));
+            
+            // Base saturation percentages
+            if (cationBalanceData.baseSaturation) {
+                var bs = cationBalanceData.baseSaturation;
+                sections.push(new Paragraph({
+                    spacing: { before: 150, after: 50 },
+                    children: [new TextRun({ text: 'Base Saturation', bold: true, size: 22 })]
+                }));
+                
+                var bsRows = [];
+                var caColor = bs.Ca < 50 ? 'F59E0B' : bs.Ca > 75 ? '3B82F6' : '16A34A';
+                bsRows.push(createKeyValueRow('Calcium (Ca)', bs.Ca.toFixed(1) + '%', caColor));
+                bsRows.push(createKeyValueRow('Magnesium (Mg)', bs.Mg.toFixed(1) + '%'));
+                bsRows.push(createKeyValueRow('Potassium (K)', bs.K.toFixed(1) + '%'));
+                if (bs.Na > 1) {
+                    var naColor = bs.Na > 5 ? 'DC2626' : bs.Na > 3 ? 'F59E0B' : '16A34A';
+                    bsRows.push(createKeyValueRow('Sodium (Na)', bs.Na.toFixed(1) + '%', naColor));
+                }
+                bsRows.push(createKeyValueRow('Total Base Saturation', bs.total.toFixed(1) + '%'));
+                sections.push(createTable(bsRows));
+            }
+            
+            // Issues and recommendations
+            if (cationBalanceData.issues.length > 0 || cationBalanceData.recommendations.length > 0) {
+                var cationNarrative = {
+                    narrative: cationBalanceData.issues,
+                    recommendations: cationBalanceData.recommendations
+                };
+                var cationInterpretation = createInterpretationSection('Interpretation', cationNarrative);
+                cationInterpretation.forEach(function(el) { sections.push(el); });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Climate & Growth Conditions section (after soil — groups site/soil/climate together)
+        if (data.climate && (data.climate.temperature || data.climate.growthPotential)) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Climate & Growth Conditions')] 
+            }));
+            
+            var climateRows = [];
+            if (data.climate.temperature) climateRows.push(createKeyValueRow('Temperature', data.climate.temperature.toFixed(1) + '°C'));
+            
+            // Show growth potential - for overseed show both C3 and C4
+            if (data.climate.showBothGP && data.climate.c3Growth !== undefined && data.climate.c4Growth !== undefined) {
+                climateRows.push(createKeyValueRow('Growth Potential (C3 Overseed)', Math.round(data.climate.c3Growth) + '%'));
+                climateRows.push(createKeyValueRow('Growth Potential (C4 Base)', Math.round(data.climate.c4Growth) + '%'));
+            } else if (data.climate.growthPotential !== null && data.climate.growthPotential !== undefined) {
+                var gpLabel = 'Growth Potential';
+                if (data.climate.gpLabel) {
+                    gpLabel = 'Growth Potential (' + data.climate.gpLabel + ')';
+                } else if (data.turf.isC4) {
+                    gpLabel = 'Growth Potential (C4)';
+                } else {
+                    gpLabel = 'Growth Potential (C3)';
+                }
+                climateRows.push(createKeyValueRow(gpLabel, Math.round(data.climate.growthPotential) + '%'));
+            }
+            
+            if (data.climate.heatStress) climateRows.push(createKeyValueRow('Heat Stress', data.climate.heatStress));
+            if (data.climate.coldStress) climateRows.push(createKeyValueRow('Cold Stress', data.climate.coldStress));
+            if (data.climate.status) climateRows.push(createKeyValueRow('Status', data.climate.status, getStatusColor(data.climate.status)));
+            
+            sections.push(createTable(climateRows));
+            
+            if (charts.climate) {
+                sections.push(createImageParagraph(charts.climate, 'climate'));
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+
+        // Annual Nutrient Requirements section (from MLSN calculations)
+        // Suppressed in combined export — consolidated ANR table in buildCombinedDocument covers all greens
+        if (data.nutritionSummary && data.nutritionSummary.hasData && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            // Page break to ensure heading starts at top of new page
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Annual Nutrient Requirements')] 
+            }));
+            sections.push(new Paragraph({
+                spacing: { before: 50, after: 100 },
+                children: [new TextRun({ 
+                    text: (data.soil && (data.soil.methodology === 'AMMONIUM_ACETATE' || data.soil.methodology === 'AMMONIUM ACETATE'))
+                        ? 'Based on removal + deficit correction (Ammonium Acetate extraction — MLSN/SLAN not applicable)'
+                        : 'Based on ' + (data.soil && data.soil.methodology === 'SLAN' ? 'SLAN' : 'MLSN') + ' methodology with removal + deficit correction', 
+                    size: 20, italics: true, color: '6B7280' 
+                })]
+            }));
+            
+            // Create nutrient requirement rows
+            var nutRows = [];
+            if (data.nutritionSummary.annualP) {
+                var pColor = data.nutritionSummary.pStatus === 'Low' ? 'DC2626' : '16A34A';
+                nutRows.push(createKeyValueRow('Phosphorus (P)', data.nutritionSummary.annualP.toFixed(1) + ' kg/ha/yr', pColor));
+            }
+            if (data.nutritionSummary.annualK) {
+                var kColor = data.nutritionSummary.kStatus === 'Low' ? 'DC2626' : '16A34A';
+                nutRows.push(createKeyValueRow('Potassium (K)', data.nutritionSummary.annualK.toFixed(1) + ' kg/ha/yr', kColor));
+            }
+            if (data.nutritionSummary.annualS) {
+                var sColor = data.nutritionSummary.sStatus === 'Low' ? 'DC2626' : '16A34A';
+                nutRows.push(createKeyValueRow('Sulphur (S)', data.nutritionSummary.annualS.toFixed(1) + ' kg/ha/yr', sColor));
+            }
+            
+            if (nutRows.length > 0) {
+                sections.push(createTable(nutRows));
+            }
+            
+            // Monthly N Distribution (GP-Weighted) table
+            if (data.nutritionSummary.monthlyN && data.nutritionSummary.monthlyN.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 200 },
+                    children: [new TextRun({ text: 'Monthly N Distribution (GP-Weighted)', bold: true, size: 24 })]
+                }));
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Total: ' + (data.nutritionSummary.totalN || 0).toFixed(0) + ' kg N/ha/yr | ' + data.nutritionSummary.activeMonths + ' active growing months', 
+                        size: 20, color: '6B7280' 
+                    })]
+                }));
+                
+                // Build monthly N table
+                var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                var monthlyData = data.nutritionSummary.monthlyN;
+                
+                // Header row
+                var headerCells = monthNames.map(function(month) {
+                    return new TableCell({
+                        children: [new Paragraph({ 
+                            alignment: AlignmentType.CENTER, 
+                            children: [new TextRun({ text: month, bold: true, size: 18 })] 
+                        })],
+                        shading: { fill: 'F3F4F6' },
+                        width: { size: 750, type: WidthType.DXA }
+                    });
+                });
+                
+                // Data row with N values and GP%
+                var dataCells = monthlyData.map(function(monthData) {
+                    var n = monthData.n || 0;
+                    var gp = monthData.gp || 0;
+                    var nColor = n > 15 ? '16A34A' : n > 10 ? '65A30D' : n > 5 ? 'F59E0B' : '9CA3AF';
+                    
+                    return new TableCell({
+                        children: [new Paragraph({ 
+                            alignment: AlignmentType.CENTER, 
+                            children: [
+                                new TextRun({ text: n.toFixed(0), bold: true, size: 20, color: nColor }),
+                                new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 14, color: '6B7280' })
+                            ] 
+                        })],
+                        width: { size: 750, type: WidthType.DXA }
+                    });
+                });
+                
+                sections.push(new Table({
+                    rows: [
+                        new TableRow({ children: headerCells }),
+                        new TableRow({ children: dataCells })
+                    ],
+                    width: { size: 100, type: WidthType.PERCENTAGE }
+                }));
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Tissue Analysis section
+        if (data.tissue && (data.tissue.N > 0 || data.tissue.K > 0)) {
+            // Build tissue header - indicate which species ranges are being used
+            var tissueTitle = 'Tissue Analysis';
+            if (data.turf.overseedDominant && data.tissue.rangeSpecies) {
+                tissueTitle = 'Tissue Analysis (' + data.tissue.rangeSpecies + ' sufficiency ranges)';
+            }
+            var tissueContext = getSectionContext(data.tissue.sampleLabel);
+            if (tissueContext) {
+                tissueTitle += ' — ' + tissueContext;
+            }
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(tissueTitle)] 
+            }));
+            
+            // Show tissue sample metadata line (date, species)
+            var tissueMetaParts = [];
+            if (data.tissue.testDate) {
+                var tissueDate = new Date(data.tissue.testDate);
+                tissueMetaParts.push('Sampled: ' + tissueDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
+            }
+            var tissueSpecies = data.turf.speciesDisplay || data.turf.species || '';
+            if (tissueSpecies) tissueMetaParts.push(tissueSpecies);
+            if (tissueMetaParts.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                        new TextRun({ text: tissueMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                    ]
+                }));
+            }
+            
+            var ranges = data.tissue.ranges || {};
+            var tissueRows = [];
+            
+            // Macronutrients
+            if (data.tissue.N) tissueRows.push(createKeyValueRow('Nitrogen (N)', data.tissue.N + '%', getTissueRangeColor(data.tissue.N, ranges.N)));
+            if (data.tissue.P) tissueRows.push(createKeyValueRow('Phosphorus (P)', data.tissue.P + '%', getTissueRangeColor(data.tissue.P, ranges.P)));
+            if (data.tissue.K) tissueRows.push(createKeyValueRow('Potassium (K)', data.tissue.K + '%', getTissueRangeColor(data.tissue.K, ranges.K)));
+            if (data.tissue.Ca) tissueRows.push(createKeyValueRow('Calcium (Ca)', data.tissue.Ca + '%', getTissueRangeColor(data.tissue.Ca, ranges.Ca)));
+            if (data.tissue.Mg) tissueRows.push(createKeyValueRow('Magnesium (Mg)', data.tissue.Mg + '%', getTissueRangeColor(data.tissue.Mg, ranges.Mg)));
+            if (data.tissue.S) tissueRows.push(createKeyValueRow('Sulphur (S)', data.tissue.S + '%', getTissueRangeColor(data.tissue.S, ranges.S)));
+            
+            // Micronutrients (trace elements)
+            if (data.tissue.Fe) tissueRows.push(createKeyValueRow('Iron (Fe)', data.tissue.Fe + ' ppm', getTissueRangeColor(data.tissue.Fe, ranges.Fe)));
+            if (data.tissue.Mn) tissueRows.push(createKeyValueRow('Manganese (Mn)', data.tissue.Mn + ' ppm', getTissueRangeColor(data.tissue.Mn, ranges.Mn)));
+            if (data.tissue.Zn) tissueRows.push(createKeyValueRow('Zinc (Zn)', data.tissue.Zn + ' ppm', getTissueRangeColor(data.tissue.Zn, ranges.Zn)));
+            if (data.tissue.Cu) tissueRows.push(createKeyValueRow('Copper (Cu)', data.tissue.Cu + ' ppm', getTissueRangeColor(data.tissue.Cu, ranges.Cu)));
+            if (data.tissue.B) tissueRows.push(createKeyValueRow('Boron (B)', data.tissue.B + ' ppm', getTissueRangeColor(data.tissue.B, ranges.B)));
+            
+            // Show limiting nutrients if available
+            if (data.tissue.limitingNutrients && data.tissue.limitingNutrients.length > 0) {
+                var limiting = data.tissue.limitingNutrients.map(function(n) { return n.nutrient || n; }).join(', ');
+                tissueRows.push(createKeyValueRow('Limiting Nutrients', limiting, 'F59E0B'));
+            }
+            
+            sections.push(createTable(tissueRows));
+            
+            // Add tissue chart if generated
+            if (charts.tissue) {
+                sections.push(new Paragraph({ children: [] }));
+                sections.push(createImageParagraph(charts.tissue, 'tissue'));
+            }
+            
+            // Add tissue interpretation and recommendations
+            var tissueNarrative = generateTissueNarrative(data.tissue);
+            if (tissueNarrative) {
+                var tissueInterpretation = createInterpretationSection('Interpretation', tissueNarrative);
+                tissueInterpretation.forEach(function(el) { sections.push(el); });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // N Program Validation section
+        if (data.nProgram && data.nProgram.hasData) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('N Program Validation')] 
+            }));
+            
+            var nRows = [];
+            if (data.nProgram.appliedN !== undefined) {
+                nRows.push(createKeyValueRow('Applied N', data.nProgram.appliedN + ' kg/ha/month'));
+            }
+            if (data.nProgram.effectiveCapacity !== undefined) {
+                nRows.push(createKeyValueRow('Uptake Capacity', data.nProgram.effectiveCapacity.toFixed(1) + ' kg/ha/month'));
+            }
+            if (data.nProgram.utilizationPct !== undefined) {
+                var utilColor = data.nProgram.utilizationPct > 100 ? 'DC2626' : 
+                               data.nProgram.utilizationPct > 80 ? '16A34A' : 'F59E0B';
+                nRows.push(createKeyValueRow('Utilisation', Math.round(data.nProgram.utilizationPct) + '% of capacity', utilColor));
+            }
+            if (data.nProgram.verdict) {
+                var verdictColor = data.nProgram.verdict.level === 'optimal' ? '16A34A' :
+                                   data.nProgram.verdict.level === 'suboptimal' ? 'F59E0B' : 'DC2626';
+                nRows.push(createKeyValueRow('Status', data.nProgram.verdict.label || data.nProgram.verdict.level, verdictColor));
+            }
+            if (data.nProgram.difference !== undefined && data.nProgram.difference > 0) {
+                nRows.push(createKeyValueRow('Wasted N', data.nProgram.difference.toFixed(1) + ' kg/ha', 'DC2626'));
+            }
+            
+            sections.push(createTable(nRows));
+            
+            // Add recommendations
+            if (data.nProgram.recommendations && data.nProgram.recommendations.length > 0) {
+                var nNarrative = {
+                    narrative: [data.nProgram.verdict ? data.nProgram.verdict.message : 'N program assessment complete.'],
+                    recommendations: data.nProgram.recommendations
+                };
+                var nInterpretation = createInterpretationSection('Interpretation', nNarrative);
+                nInterpretation.forEach(function(el) { sections.push(el); });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // =====================================================================
+        // NUTRIENT TREND ANALYSIS
+        // =====================================================================
+        if (data.nutrientTrend && data.nutrientTrend.hasData && data.nutrientTrend.types) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Nutrient Trend Analysis')] 
+            }));
+            
+            // Water parameters where INCREASING is bad (upper-limit parameters)
+            var waterUpperLimit = { SAR: true, SARadj: true, EC: true, Na: true, Cl: true, HCO3: true, B: true, Fe: true, pH: true };
+            
+            var typeLabels = {
+                soil: { heading: 'Soil Nutrient Trends', unit: 'ppm', thresholdLabel: 'MLSN/SLAN', marginGood: 'above min', marginBad: 'BELOW min' },
+                tissue: { heading: 'Tissue Analysis Trends', unit: '% DW / mg/kg', thresholdLabel: 'Sufficiency', marginGood: 'above min', marginBad: 'BELOW min' },
+                water: { heading: 'Water Quality Trends', unit: 'various', thresholdLabel: 'Guideline', marginGood: 'below limit', marginBad: 'OVER limit' }
+            };
+            var typeOrder = ['soil', 'tissue', 'water'];
+            
+            for (var toi = 0; toi < typeOrder.length; toi++) {
+                var dataType = typeOrder[toi];
+                var typeData = data.nutrientTrend.types[dataType];
+                if (!typeData || Object.keys(typeData).length === 0) continue;
+                
+                var tLabel = typeLabels[dataType] || typeLabels.soil;
+                var isWaterType = (dataType === 'water');
+                
+                // Data type heading
+                sections.push(new Paragraph({
+                    heading: HeadingLevel.HEADING_2, keepNext: true,
+                    spacing: { before: 240, after: 100 },
+                    children: [new TextRun(tLabel.heading)]
+                }));
+            
+                var trendZoneKeys = Object.keys(typeData);
+            
+                for (var tz = 0; tz < trendZoneKeys.length; tz++) {
+                    var zoneKey = trendZoneKeys[tz];
+                    var zoneData = typeData[zoneKey];
+                
+                    if (!zoneData || !zoneData.nutrients || Object.keys(zoneData.nutrients).length === 0) continue;
+                
+                    // Zone subheading
+                    var zoneLabel = zoneData.zone || zoneKey;
+                    sections.push(new Paragraph({
+                        spacing: { before: 160, after: 60 },
+                        children: [new TextRun({ text: zoneLabel, bold: true, size: 22, color: '1F2937' })]
+                    }));
+                
+                    // Zone metadata line
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [
+                            new TextRun({ text: zoneData.sampleCount + ' samples', bold: true, size: 20, color: '374151' }),
+                            new TextRun({ text: '  |  ', size: 20, color: '9CA3AF' }),
+                            new TextRun({ text: zoneData.dateRange, size: 20, color: '6B7280' })
+                        ]
+                    }));
+                
+                    // Summary table
+                    var trendBorder = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+                    var trendBorders = { top: trendBorder, bottom: trendBorder, left: trendBorder, right: trendBorder };
+                    var trendCellMargins = { top: 60, bottom: 60, left: 100, right: 100 };
+                
+                    var headerCells = [
+                        { text: 'Parameter', width: 1200 },
+                        { text: 'Latest', width: 1100 },
+                        { text: 'Previous', width: 1100 },
+                        { text: 'Change', width: 1200 },
+                        { text: 'Direction', width: 1260 },
+                        { text: tLabel.thresholdLabel + ' Margin', width: 1700 },
+                        { text: 'Risk', width: 1800 }
+                    ];
+                
+                    var trendHeaderRow = new TableRow({
+                        tableHeader: true,
+                        cantSplit: true,
+                        children: headerCells.map(function(cell) {
+                            return new TableCell({
+                                borders: trendBorders,
+                                width: { size: cell.width, type: WidthType.DXA },
+                                shading: { fill: '1F2937', type: ShadingType.CLEAR },
+                                margins: trendCellMargins,
+                                verticalAlign: VerticalAlign.CENTER,
+                                children: [new Paragraph({ 
+                                    alignment: AlignmentType.CENTER,
+                                    children: [new TextRun({ text: cell.text, bold: true, size: 18, color: 'FFFFFF' })] 
+                                })]
+                            });
+                        })
+                    });
+                
+                    var trendTableRows = [trendHeaderRow];
+                    var nutrientKeys = Object.keys(zoneData.nutrients);
+                
+                    // Sort: problematic trends first
+                    // For water: increasing toward upper limit is bad
+                    // For soil/tissue: decreasing toward lower limit is bad
+                    var riskOrder = { above: 0, below: 0, warning: 1, watch: 2, ok: 3 };
+                    nutrientKeys.sort(function(a, b) {
+                        var na = zoneData.nutrients[a];
+                        var nb = zoneData.nutrients[b];
+                        // Is this nutrient moving in the bad direction?
+                        var badA = isWaterType ? (waterUpperLimit[a] && na.direction === 'increasing') : (na.direction === 'decreasing');
+                        var badB = isWaterType ? (waterUpperLimit[b] && nb.direction === 'increasing') : (nb.direction === 'decreasing');
+                        if (badA !== badB) return badA ? -1 : 1;
+                        var rA = na.crossingRisk ? (riskOrder[na.crossingRisk.status] !== undefined ? riskOrder[na.crossingRisk.status] : 3) : 3;
+                        var rB = nb.crossingRisk ? (riskOrder[nb.crossingRisk.status] !== undefined ? riskOrder[nb.crossingRisk.status] : 3) : 3;
+                        return rA - rB;
+                    });
+                
+                    for (var ni = 0; ni < nutrientKeys.length; ni++) {
+                        var nKey = nutrientKeys[ni];
+                        var nData = zoneData.nutrients[nKey];
+                    
+                        // Determine if this parameter's increase is bad (water upper-limit params)
+                        var increaseIsBad = isWaterType && waterUpperLimit[nKey];
+                        
+                        // Direction arrow and colour - context-aware
+                        var dirArrow, dirColor;
+                        if (nData.direction === 'increasing') {
+                            dirArrow = '\u2191 Increasing';
+                            dirColor = increaseIsBad ? 'DC2626' : '2563EB';
+                        } else if (nData.direction === 'decreasing') {
+                            dirArrow = '\u2193 Decreasing';
+                            dirColor = increaseIsBad ? '16A34A' : 'DC2626';
+                        } else {
+                            dirArrow = '\u2192 Stable'; dirColor = '6B7280';
+                        }
+                    
+                        // Change text
+                        var changeText = '';
+                        if (nData.change !== undefined && nData.change !== null) {
+                            changeText = (nData.change > 0 ? '+' : '') + safeToFixed(nData.change, 1);
+                            if (nData.percentChange !== undefined && nData.percentChange !== null) {
+                                changeText += ' (' + (nData.percentChange > 0 ? '+' : '') + safeToFixed(nData.percentChange, 1) + '%)';
+                            }
+                        }
+                    
+                        // Margin text
+                        var marginText = '\u2014';
+                        var marginColor = '374151';
+                        if (nData.mlsnMargin !== undefined && nData.mlsnMargin !== null) {
+                            if (nData.mlsnMargin > 0) {
+                                marginText = '+' + safeToFixed(nData.mlsnMargin, 1) + ' ' + tLabel.marginGood;
+                                marginColor = '16A34A';
+                            } else if (nData.mlsnMargin < 0) {
+                                marginText = safeToFixed(Math.abs(nData.mlsnMargin), 1) + ' ' + tLabel.marginBad;
+                                marginColor = 'DC2626';
+                            } else {
+                                marginText = 'At threshold';
+                                marginColor = 'F59E0B';
+                            }
+                        }
+                    
+                        // Crossing risk - use correct field names: .status and .monthsUntilCrossing
+                        var riskText = 'None';
+                        var riskColor = '16A34A';
+                        var riskFill = 'F0FFF4';
+                        if (nData.crossingRisk) {
+                            var crStatus = nData.crossingRisk.status;
+                            if (crStatus === 'below' || crStatus === 'above') {
+                                riskText = '\u26A0 ' + (crStatus === 'above' ? 'Over limit' : 'Below threshold');
+                                riskColor = 'DC2626'; riskFill = 'FEF2F2';
+                            } else if (crStatus === 'warning') {
+                                riskText = 'Warning';
+                                if (nData.crossingRisk.monthsUntilCrossing !== undefined) riskText += ' (~' + nData.crossingRisk.monthsUntilCrossing + ' mo)';
+                                riskColor = 'F59E0B'; riskFill = 'FFFBEB';
+                            } else if (crStatus === 'watch') {
+                                riskText = 'Watch';
+                                if (nData.crossingRisk.monthsUntilCrossing !== undefined) riskText += ' (~' + nData.crossingRisk.monthsUntilCrossing + ' mo)';
+                                riskColor = '6B7280'; riskFill = 'F9FAFB';
+                            }
+                        }
+                    
+                        // Row shading
+                        var isBadTrend = increaseIsBad ? (nData.direction === 'increasing') : (nData.direction === 'decreasing');
+                        var rowFill = ni % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+                        if (isBadTrend && nData.crossingRisk && 
+                            (nData.crossingRisk.status === 'below' || nData.crossingRisk.status === 'above' || nData.crossingRisk.status === 'warning')) {
+                            rowFill = 'FEF2F2';
+                        }
+                    
+                        var cellData = [
+                            { text: nKey, color: '1F2937', bold: true, width: 1200 },
+                            { text: safeToFixed(nData.latest, 1, '\u2014'), color: '374151', width: 1100 },
+                            { text: safeToFixed(nData.previous, 1, '\u2014'), color: '6B7280', width: 1100 },
+                            { text: changeText || '\u2014', color: nData.change < 0 ? (increaseIsBad ? '16A34A' : 'DC2626') : nData.change > 0 ? (increaseIsBad ? 'DC2626' : '2563EB') : '374151', width: 1200 },
+                            { text: dirArrow, color: dirColor, width: 1260 },
+                            { text: marginText, color: marginColor, width: 1700 },
+                            { text: riskText, color: riskColor, width: 1800, fill: riskFill }
+                        ];
+                    
+                        trendTableRows.push(new TableRow({
+                            cantSplit: true,
+                            children: cellData.map(function(cell) {
+                                return new TableCell({
+                                    borders: trendBorders,
+                                    width: { size: cell.width, type: WidthType.DXA },
+                                    shading: { fill: cell.fill || rowFill, type: ShadingType.CLEAR },
+                                    margins: trendCellMargins,
+                                    verticalAlign: VerticalAlign.CENTER,
+                                    children: [new Paragraph({ 
+                                        alignment: AlignmentType.CENTER,
+                                        children: [new TextRun({ 
+                                            text: cell.text, 
+                                            size: 18, 
+                                            color: cell.color || '374151',
+                                            bold: cell.bold || false
+                                        })] 
+                                    })]
+                                });
+                            })
+                        }));
+                    }
+                
+                    sections.push(new Table({
+                        width: { size: 9360, type: WidthType.DXA },
+                        columnWidths: [1200, 1100, 1100, 1200, 1260, 1700, 1800],
+                        rows: trendTableRows
+                    }));
+                
+                    // Sparkline charts
+                    var zoneCharts = charts.nutrientTrends ? charts.nutrientTrends[zoneKey] : null;
+                    if (zoneCharts && Object.keys(zoneCharts).length > 0) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 200, after: 80 },
+                            children: [new TextRun({ text: 'Trends', bold: true, size: 22, color: '1F2937' })]
+                        }));
+                    
+                        sections.push(new Paragraph({
+                            spacing: { after: 100 },
+                            children: [new TextRun({ 
+                                text: 'Dashed line indicates the ' + tLabel.thresholdLabel + ' threshold guideline.',
+                                size: 18, color: '9CA3AF', italics: true 
+                            })]
+                        }));
+                    
+                        // Two sparklines per row to halve page count
+                        var sparkNutrients = Object.keys(zoneCharts);
+                        var sparkBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+                        var sparkBorders = { top: sparkBorder, bottom: sparkBorder, left: sparkBorder, right: sparkBorder };
+                        var colW = 4680; // half page width in DXA
+                        for (var si = 0; si < sparkNutrients.length; si += 2) {
+                            var sparkCells = [];
+                            for (var sj = si; sj < Math.min(si + 2, sparkNutrients.length); sj++) {
+                                var sparkNutrient = sparkNutrients[sj];
+                                var sparkChart = zoneCharts[sparkNutrient];
+                                imageIdCounter++;
+                                var sparkCellChildren = [
+                                    new Paragraph({
+                                        alignment: AlignmentType.CENTER,
+                                        spacing: { before: 60, after: 20 },
+                                        children: [new TextRun({ text: sparkNutrient, bold: true, size: 18, color: '374151' })]
+                                    })
+                                ];
+                                if (sparkChart && sparkChart.base64) {
+                                    sparkCellChildren.push(new Paragraph({
+                                        alignment: AlignmentType.CENTER,
+                                        spacing: { after: 40 },
+                                        children: [new ImageRun({
+                                            type: 'png',
+                                            data: Uint8Array.from(atob(sparkChart.base64), function(c) { return c.charCodeAt(0); }),
+                                            transformation: { width: 300, height: 82 },
+                                            altText: {
+                                                title: sparkNutrient + ' Trend',
+                                                description: sparkNutrient + ' ' + dataType + ' trend over time',
+                                                name: 'trend_sparkline_' + dataType + '_' + sparkNutrient + '_' + imageIdCounter
+                                            }
+                                        })]
+                                    }));
+                                }
+                                sparkCells.push(new TableCell({
+                                    borders: sparkBorders,
+                                    width: { size: colW, type: WidthType.DXA },
+                                    children: sparkCellChildren
+                                }));
+                            }
+                            // Pad to 2 cells if odd number of nutrients
+                            if (sparkCells.length < 2) {
+                                sparkCells.push(new TableCell({
+                                    borders: sparkBorders,
+                                    width: { size: colW, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [] })]
+                                }));
+                            }
+                            sections.push(new Table({
+                                width: { size: 9360, type: WidthType.DXA },
+                                columnWidths: [colW, colW],
+                                rows: [new TableRow({ children: sparkCells })]
+                            }));
+                        }
+                    }
+                
+                    sections.push(new Paragraph({ children: [] }));
+                }
+            }
+        }
+        
+        // Soil Amendment Recommendations section
+        if (data.amendment && data.amendment.hasData) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                spacing: { before: 240, after: 120 },
+                children: [new TextRun({ text: 'Soil Amendment Recommendations', bold: true })]
+            }));
+
+            var amendIntro = 'Amendment product selection is based on soil pH, CEC, organic matter content, ' +
+                'construction type, and water quality. Products are chosen to address deficits without ' +
+                'compounding existing imbalances (e.g. avoiding carbonates at high pH, avoiding sulphates ' +
+                'where irrigation water SO₄ is already elevated).';
+            sections.push(new Paragraph({
+                spacing: { after: 160 },
+                children: [new TextRun({ text: amendIntro, size: 20, color: '374151' })]
+            }));
+
+            // Helper to build a product detail block
+            function buildProductBlock(label, decision, accentColor) {
+                if (!decision) return;
+                accentColor = accentColor || '1D4ED8';
+                var bgColor = 'F8FAFF';
+
+                // Heading row
+                sections.push(new Paragraph({
+                    spacing: { before: 200, after: 60 },
+                    children: [new TextRun({ text: label, bold: true, size: 22, color: accentColor })]
+                }));
+
+                // Pathway tag + primary product
+                var primary = decision.primaryProduct || {};
+                var pathwayLabel = {
+                    HIGH_PH_INDUCED:       'High pH / Calcareous pathway',
+                    LOW_CEC_SAND:          'Low CEC sand rootzone pathway',
+                    LOW_PH_AL_MG_ANTAGONISM: 'Low pH / Al-Mg antagonism pathway',
+                    HIGH_OM:               'High organic matter pathway',
+                    GENERAL:               'General pathway',
+                    HIGH_PH:               'High pH pathway',
+                    SODIC:                 'Sodic soil pathway',
+                    LOW_PH_CORRECTION:     'Low pH correction pathway',
+                    ADEQUATE_PH:           'Adequate pH pathway'
+                }[decision.pathway] || decision.pathway || '';
+
+                sections.push(new Paragraph({
+                    spacing: { before: 60, after: 40 },
+                    shading: { fill: bgColor, type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 18, color: accentColor } },
+                    indent: { left: 180 },
+                    children: [
+                        new TextRun({ text: 'Pathway:  ', bold: true, size: 20 }),
+                        new TextRun({ text: pathwayLabel, size: 20, color: '374151' })
+                    ]
+                }));
+
+                if (primary.name) {
+                    var primaryText = primary.name;
+                    if (primary.analysis) primaryText += '  (' + primary.analysis + ')';
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 180 },
+                        children: [
+                            new TextRun({ text: 'Primary product:  ', bold: true, size: 20 }),
+                            new TextRun({ text: primaryText, size: 20 })
+                        ]
+                    }));
+                    if (primary.rate) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 20, after: 40 },
+                            indent: { left: 180 },
+                            children: [
+                                new TextRun({ text: 'Indicative rate:  ', bold: true, size: 20 }),
+                                new TextRun({ text: primary.rate, size: 20 })
+                            ]
+                        }));
+                    }
+                    if (primary.notes) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 20, after: 60 },
+                            indent: { left: 180 },
+                            children: [new TextRun({ text: primary.notes, size: 19, color: '6B7280', italics: true })]
+                        }));
+                    }
+                }
+
+                // Alternative product
+                var alt = decision.alternativeProduct || {};
+                if (alt && alt.name) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 180 },
+                        children: [
+                            new TextRun({ text: 'Alternative:  ', bold: true, size: 20 }),
+                            new TextRun({ text: alt.name + (alt.analysis ? '  (' + alt.analysis + ')' : ''), size: 20, color: '6B7280' })
+                        ]
+                    }));
+                }
+
+                // Urgency
+                if (decision.urgency) {
+                    var urgencyColor = decision.urgency === 'IMMEDIATE' ? 'DC2626' :
+                                       decision.urgency === 'SHORT-TERM' ? 'D97706' : '16A34A';
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 180 },
+                        children: [
+                            new TextRun({ text: 'Urgency:  ', bold: true, size: 20 }),
+                            new TextRun({ text: decision.urgency, bold: true, size: 20, color: urgencyColor })
+                        ]
+                    }));
+                }
+
+                // Lime required flag
+                if (decision.limeRequired) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 180 },
+                        children: [new TextRun({
+                            text: '⚠️  Lime application required — pH correction is the primary intervention for this pathway.',
+                            bold: true, size: 20, color: 'D97706'
+                        })]
+                    }));
+                }
+
+                // Foliar bridge
+                if (decision.foliarBridge) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        indent: { left: 180 },
+                        children: [new TextRun({
+                            text: 'Foliar bridge recommended while soil amendment takes effect.',
+                            size: 20, italics: true, color: '374151'
+                        })]
+                    }));
+                }
+
+                // Modifying factors
+                if (decision.modifyingFactors && decision.modifyingFactors.length > 0) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 40 },
+                        indent: { left: 180 },
+                        children: [new TextRun({ text: 'Modifying factors:', bold: true, size: 20 })]
+                    }));
+                    decision.modifyingFactors.forEach(function(factor) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 20, after: 20 },
+                            indent: { left: 360 },
+                            bullet: { level: 0 },
+                            children: [new TextRun({ text: factor, size: 19, color: '374151' })]
+                        }));
+                    });
+                }
+
+                // Rationale
+                if (decision.rationale) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 120 },
+                        shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
+                        indent: { left: 180 },
+                        children: [new TextRun({ text: decision.rationale, size: 19, italics: true, color: '4B5563' })]
+                    }));
+                }
+            }
+
+            // Ca amendment block
+            if (data.amendment.Ca && data.amendment.Ca.primaryProduct) {
+                buildProductBlock('Calcium (Ca) Amendment', data.amendment.Ca, '065F46');
+            }
+
+            // Mg amendment block
+            if (data.amendment.Mg && data.amendment.Mg.primaryProduct) {
+                buildProductBlock('Magnesium (Mg) Amendment', data.amendment.Mg, '1E3A8A');
+            }
+
+            // Cross-product interaction warnings
+            if (data.amendment.interactions && data.amendment.interactions.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 200, after: 80 },
+                    children: [new TextRun({ text: 'Ca–Mg Interaction Notes', bold: true, size: 22, color: '92400E' })]
+                }));
+                data.amendment.interactions.forEach(function(note) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
+                        border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'F59E0B' } },
+                        indent: { left: 180 },
+                        children: [new TextRun({ text: note, size: 20, color: '374151' })]
+                    }));
+                });
+            }
+
+            // Disclaimer
+            sections.push(new Paragraph({
+                spacing: { before: 200, after: 60 },
+                children: [new TextRun({
+                    text: 'Note: Indicative rates require adjustment for actual soil deficit, bulk density, and rootzone depth. ' +
+                          'Split applications are recommended for all soluble products (kieserite, Epsom salts) at rates exceeding 20 kg Mg/ha. ' +
+                          'Confirm product availability and pricing with your supplier before ordering.',
+                    size: 18, italics: true, color: '9CA3AF'
+                })]
+            }));
+
+            sections.push(new Paragraph({ children: [] }));
+        }
+
+        // Water Quality section
+        if (data.water && (data.water.EC > 0 || data.water.SAR > 0 || data.water.hasData)) {
+            // Page break to ensure heading starts at top of new page
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            var waterTitle = 'Water Quality';
+            if (data.water.isBlended) {
+                waterTitle = 'Water Quality (Blended - ' + data.water.sourceCount + ' sources)';
+            }
+            var waterContext = getSectionContext(data.water.sourceLabel);
+            if (waterContext) {
+                waterTitle += ' — ' + waterContext;
+            }
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(waterTitle)] 
+            }));
+            
+            // Show water sample metadata line (date, lab ref, species)
+            var waterMetaParts = [];
+            if (data.water.testDate) {
+                var waterDate = new Date(data.water.testDate);
+                waterMetaParts.push('Sampled: ' + waterDate.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' }));
+            }
+            if (data.water.labRef) {
+                waterMetaParts.push('Lab ref: ' + data.water.labRef);
+            }
+            var waterSpecies = data.turf.speciesDisplay || data.turf.species || '';
+            if (waterSpecies) waterMetaParts.push(waterSpecies);
+            if (waterMetaParts.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { after: 60 },
+                    children: [
+                        new TextRun({ text: waterMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                    ]
+                }));
+            }
+            
+            var waterThresh = data.water.thresholds || {};
+            var waterRows = [];
+            if (data.water.isBlended) {
+                waterRows.push(createKeyValueRow('Source Type', 'Blended (' + data.water.sourceCount + ' sources)', '2563eb'));
+            }
+            if (data.water.EC) waterRows.push(createKeyValueRow('EC', data.water.EC + ' dS/m', getWaterThresholdColor(data.water.EC, waterThresh.EC)));
+            if (data.water.pH) waterRows.push(createKeyValueRow('pH', data.water.pH));
+            if (data.water.SAR) waterRows.push(createKeyValueRow('SAR', typeof data.water.SAR === 'number' ? data.water.SAR.toFixed(1) : data.water.SAR, getWaterThresholdColor(data.water.SAR, waterThresh.SAR)));
+            // Add SARadj if significantly different from SAR
+            if (data.water.SARadj && data.water.SAR && Math.abs(data.water.SARadj - data.water.SAR) > 0.3) {
+                var saradjColor = data.water.SARadj > 9 ? 'DC2626' : data.water.SARadj > 6 ? 'F59E0B' : '16A34A';
+                waterRows.push(createKeyValueRow('SARadj (Adjusted)', typeof data.water.SARadj === 'number' ? data.water.SARadj.toFixed(1) : data.water.SARadj, saradjColor));
+            }
+            if (data.water.RSC) waterRows.push(createKeyValueRow('RSC', typeof data.water.RSC === 'number' ? data.water.RSC.toFixed(1) + ' meq/L' : data.water.RSC));
+            if (data.water.Na) waterRows.push(createKeyValueRow('Sodium (Na)', (typeof data.water.Na === 'number' ? data.water.Na.toFixed(0) : data.water.Na) + ' ppm', getWaterThresholdColor(data.water.Na, waterThresh.Na)));
+            if (data.water.Cl) waterRows.push(createKeyValueRow('Chloride (Cl)', (typeof data.water.Cl === 'number' ? data.water.Cl.toFixed(0) : data.water.Cl) + ' ppm', getWaterThresholdColor(data.water.Cl, waterThresh.Cl)));
+            if (data.water.HCO3) waterRows.push(createKeyValueRow('Bicarbonate (HCO₃)', (typeof data.water.HCO3 === 'number' ? data.water.HCO3.toFixed(0) : data.water.HCO3) + ' ppm', getWaterThresholdColor(data.water.HCO3, waterThresh.HCO3)));
+            if (data.water.B) waterRows.push(createKeyValueRow('Boron (B)', (typeof data.water.B === 'number' ? data.water.B.toFixed(2) : data.water.B) + ' ppm', getWaterThresholdColor(data.water.B, waterThresh.B)));
+            if (data.water.classification) waterRows.push(createKeyValueRow('Classification', data.water.classification));
+            if (data.water.sodiumHazard) waterRows.push(createKeyValueRow('Sodium Hazard', data.water.sodiumHazard, getStatusColor(data.water.sodiumHazard)));
+            if (data.water.salinityHazard) waterRows.push(createKeyValueRow('Salinity Hazard', data.water.salinityHazard, getStatusColor(data.water.salinityHazard)));
+            
+            sections.push(createTable(waterRows));
+
+            // ── BLENDED WATER DETAIL BLOCK (b35fix139) ──────────────────────────
+            if (data.water.isBlended) {
+
+                // CCPI row
+                if (data.water.ccpi !== null && data.water.ccpi !== undefined) {
+                    var ccpiVal = typeof data.water.ccpi === 'number' ? data.water.ccpi.toFixed(2) : data.water.ccpi;
+                    var ccpiLabel = data.water.ccpiClassification ? data.water.ccpiClassification.label : '';
+                    var ccpiDesc  = data.water.ccpiClassification ? data.water.ccpiClassification.desc  : '';
+                    var ccpiColor = data.water.ccpiClassification ? (
+                        data.water.ccpiClassification.class === 'status-deficient' ? 'DC2626' :
+                        data.water.ccpiClassification.class === 'status-caution'   ? 'D97706' : '16A34A'
+                    ) : '374151';
+                    sections.push(new Paragraph({
+                        spacing: { before: 200, after: 80 },
+                        children: [new TextRun({ text: 'Carbonate Scaling (CCPI)', bold: true, size: 22, color: '1e3a5f' })]
+                    }));
+                    var ccpiRows = [];
+                    ccpiRows.push(createKeyValueRow('CCPI', ccpiVal, ccpiColor));
+                    if (ccpiLabel) ccpiRows.push(createKeyValueRow('Assessment', ccpiLabel, ccpiColor));
+                    sections.push(createTable(ccpiRows));
+                    if (ccpiDesc) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 80, after: 80 },
+                            children: [new TextRun({ text: ccpiDesc, size: 19, color: '374151', italics: true })]
+                        }));
+                    }
+                }
+
+                // Blend classifications summary
+                var blendClassRows = [];
+                if (data.water.salinityClass)    blendClassRows.push(createKeyValueRow('Salinity',    data.water.salinityClass.code    + ' — ' + data.water.salinityClass.desc,    getStatusColor(data.water.salinityClass.code)));
+                if (data.water.sodicityClass)    blendClassRows.push(createKeyValueRow('Sodicity',    data.water.sodicityClass.code    + ' — ' + data.water.sodicityClass.desc,    getStatusColor(data.water.sodicityClass.code)));
+                if (data.water.infiltrationClass) blendClassRows.push(createKeyValueRow('Infiltration', data.water.infiltrationClass.code + ' — ' + data.water.infiltrationClass.desc, getStatusColor(data.water.infiltrationClass.code)));
+                if (data.water.bicarbonateClass) blendClassRows.push(createKeyValueRow('Bicarbonate', data.water.bicarbonateClass.code  + ' — ' + data.water.bicarbonateClass.desc, getStatusColor(data.water.bicarbonateClass.code)));
+                if (blendClassRows.length > 0) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 200, after: 80 },
+                        children: [new TextRun({ text: 'Blended Water Risk Classifications', bold: true, size: 22, color: '1e3a5f' })]
+                    }));
+                    sections.push(createTable(blendClassRows));
+                }
+
+                // Optimiser result
+                var opt = data.water.optimiserResult;
+                if (opt && opt.found) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 200, after: 80 },
+                        children: [new TextRun({ text: 'Recommended Blend Ratio', bold: true, size: 22, color: '1e3a5f' })]
+                    }));
+                    var optRows = [];
+                    for (var oi = 0; oi < opt.fractionsPercent.length; oi++) {
+                        var srcLabel = (opt.result && opt.result._sources && opt.result._sources[oi] && opt.result._sources[oi].label)
+                            ? opt.result._sources[oi].label : ('Source ' + (oi + 1));
+                        optRows.push(createKeyValueRow(srcLabel, opt.fractionsPercent[oi], oi === opt.primaryIndex ? '16A34A' : '374151'));
+                    }
+                    var ob = opt.result.blendedMgL;
+                    var od = opt.result.derived;
+                    if (ob && od) {
+                        optRows.push(createKeyValueRow('Blended EC',  (ob.EC_dSm || 0).toFixed(2) + ' dS/m'));
+                        optRows.push(createKeyValueRow('Blended SAR', (od.SAR    || 0).toFixed(1)));
+                        optRows.push(createKeyValueRow('Blended RSC', (od.RSC    || 0).toFixed(2) + ' meq/L'));
+                        optRows.push(createKeyValueRow('Blended LSI', (od.LSI    || 0).toFixed(2)));
+                    }
+                    sections.push(createTable(optRows));
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 80 },
+                        children: [new TextRun({ text: 'Maximises proportion of ' + opt.primaryLabel + ' (lowest EC×SAR) within safe thresholds (Ayers & Westcot 1985).', size: 19, color: '374151', italics: true })]
+                    }));
+                } else if (opt && !opt.found) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 160, after: 80 },
+                        children: [new TextRun({ text: 'Blend Optimisation: ' + opt.message, size: 19, color: 'D97706', italics: true })]
+                    }));
+                }
+            }
+            // ── END BLENDED WATER DETAIL ─────────────────────────────────────────
+
+            // Add water chart if generated
+            if (charts.water) {
+                sections.push(new Paragraph({ children: [] }));
+                sections.push(createImageParagraph(charts.water, 'water'));
+            }
+            
+            // Multi-source water comparison charts
+            if (charts.multiSource && charts.multiSource.water && Object.keys(charts.multiSource.water).length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 280, after: 80 },
+                    children: [new TextRun({ text: 'Source Comparison', bold: true, size: 24, color: '1e3a5f' })]
+                }));
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({
+                        text: 'Each chart shows all water sources plotted against the same axis. Dashed amber line indicates threshold guideline where applicable.',
+                        size: 18, color: '6B7280', italics: true
+                    })]
+                }));
+                var msoWaterNuts = Object.keys(charts.multiSource.water);
+                for (var mwn = 0; mwn < msoWaterNuts.length; mwn++) {
+                    var mwNut = msoWaterNuts[mwn];
+                    var mwChart = charts.multiSource.water[mwNut];
+                    if (!mwChart || !mwChart.base64) continue;
+                    var msoDisplayNames = { SAR:'SAR', SARadj:'SAR adj', EC:'EC', pH:'pH', Na:'Na', Cl:'Cl', HCO3:'HCO₃', B:'B', Fe:'Fe', Ca:'Ca', Mg:'Mg', K:'K', SO4:'SO₄' };
+                    sections.push(new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { before: 80, after: 40 },
+                        children: [new TextRun({ text: msoDisplayNames[mwNut] || mwNut, bold: true, size: 20, color: '374151' })]
+                    }));
+                    imageIdCounter++;
+                    sections.push(new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        spacing: { after: 80 },
+                        children: [new ImageRun({
+                            type: 'png',
+                            data: Uint8Array.from(atob(mwChart.base64), function(c) { return c.charCodeAt(0); }),
+                            transformation: { width: 440, height: 194 },
+                            altText: { title: mwNut + ' Source Comparison', description: 'Water source comparison chart for ' + mwNut, name: 'mso_water_' + mwNut + '_' + imageIdCounter }
+                        })]
+                    }));
+                }
+            }
+
+            // Add SARadj explanation if applicable
+            var saradjExplanation = generateSARadjExplanation(data.water);
+            if (saradjExplanation) {
+                saradjExplanation.forEach(function(el) { sections.push(el); });
+            }
+            
+            // Add water interpretation and recommendations
+            var waterNarrative = generateWaterNarrative(data.water, data.turf);
+            if (waterNarrative) {
+                var waterInterpretation = createInterpretationSection('Interpretation', waterNarrative);
+                waterInterpretation.forEach(function(el) { sections.push(el); });
+            }
+            
+            // ========================================
+            // AI WATER INTERPRETATION v1.0.0
+            // Adds Claude-generated narrative if user clicked "Interpret Water Quality"
+            // ========================================
+            var aiWaterInterpretation = window.GAIP_WATER_INTERPRETATION;
+            if (aiWaterInterpretation && aiWaterInterpretation.narrative) {
+                sections.push(new Paragraph({
+                    spacing: { before: 300, after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Water Quality Interpretation', 
+                        bold: true, 
+                        size: 22,
+                        color: '1E40AF'  // Blue for water
+                    })]
+                }));
+                
+                // Process narrative - handle bold markers and split into paragraphs
+                var aiWaterNarrative = aiWaterInterpretation.narrative;
+                aiWaterNarrative = aiWaterNarrative.replace(/\*\*(.+?)\*\*/g, '<<BOLD>>$1<</BOLD>>');
+                
+                var aiWaterParagraphs = aiWaterNarrative.split(/\n\n+/);
+                aiWaterParagraphs.forEach(function(para) {
+                    if (!para.trim()) return;
+                    
+                    // Process bold markers within paragraph
+                    var children = [];
+                    var parts = para.split(/<<BOLD>>|<<\/BOLD>>/);
+                    var isBold = false;
+                    
+                    parts.forEach(function(part) {
+                        if (part) {
+                            children.push(new TextRun({
+                                text: part,
+                                bold: isBold,
+                                size: 20,
+                                color: isBold ? '1E40AF' : '1F2937'  // Blue for bold
+                            }));
+                        }
+                        isBold = !isBold;
+                    });
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 120 },
+                        children: children
+                    }));
+                });
+                
+                // Add citations if present
+                if (aiWaterInterpretation.citations && Object.keys(aiWaterInterpretation.citations).length > 0) {
+                    var waterCitationText = 'Sources: ' + Object.keys(aiWaterInterpretation.citations).map(function(key) {
+                        var cite = aiWaterInterpretation.citations[key];
+                        return cite.authors ? cite.authors + ' (' + cite.year + ')' : key;
+                    }).join(', ');
+                    
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 100 },
+                        children: [new TextRun({
+                            text: waterCitationText,
+                            size: 16,
+                            italics: true,
+                            color: '6B7280'
+                        })]
+                    }));
+                }
+                
+                // Add cached indicator
+                if (aiWaterInterpretation.cached) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 100 },
+                        children: [new TextRun({
+                            text: '(Cached interpretation)',
+                            size: 14,
+                            italics: true,
+                            color: '9CA3AF'
+                        })]
+                    }));
+                }
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // =====================================================================
+        // PHYTOTOXICITY SECTION (v2.0.30)
+        // Direct plant damage from irrigation water ions (separate from soil chemistry)
+        // Sources: Ayers & Westcot 1985 FAO 29, Carrow & Duncan 1998, Harivandi 1999
+        // =====================================================================
+        if (data.phytotoxicity && data.phytotoxicity.assessments && data.phytotoxicity.assessments.length > 0) {
+            var phytoRisk = data.phytotoxicity.overallRisk || 'unknown';
+            var riskColor = phytoRisk === 'high' ? 'DC2626' : phytoRisk === 'moderate' ? 'F59E0B' : '16A34A';
+            var riskBg = phytoRisk === 'high' ? 'FEF2F2' : phytoRisk === 'moderate' ? 'FFFBEB' : 'F0FDF4';
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Phytotoxicity Risk')] 
+            }));
+            
+            // Intro paragraph explaining what this section covers
+            sections.push(new Paragraph({
+                spacing: { before: 50, after: 100 },
+                children: [new TextRun({ 
+                    text: 'Direct plant damage from irrigation water ions applied via ' + (data.phytotoxicity.irrigationMethod || 'sprinkler') + ' irrigation. This assessment is separate from soil chemistry impacts (SAR, structure degradation).',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+            
+            // Overall risk banner
+            sections.push(new Paragraph({
+                spacing: { before: 100, after: 100 },
+                shading: { fill: riskBg, type: ShadingType.CLEAR },
+                border: {
+                    top: { style: BorderStyle.SINGLE, size: 1, color: riskColor },
+                    bottom: { style: BorderStyle.SINGLE, size: 1, color: riskColor },
+                    left: { style: BorderStyle.SINGLE, size: 24, color: riskColor },
+                    right: { style: BorderStyle.SINGLE, size: 1, color: riskColor }
+                },
+                children: [
+                    new TextRun({ text: 'Overall Phytotoxicity Risk: ', bold: true, size: 22, color: '374151' }),
+                    new TextRun({ text: phytoRisk.toUpperCase(), bold: true, size: 22, color: riskColor }),
+                    new TextRun({ text: ' for ' + (data.phytotoxicity.species || 'turfgrass'), size: 22, color: '374151' }),
+                    new TextRun({ text: ' (' + (data.phytotoxicity.sensitivityClass || 'unknown') + ' sensitivity)', size: 20, italics: true, color: '6B7280' })
+                ]
+            }));
+            
+            // Individual ion assessments
+            data.phytotoxicity.assessments.forEach(function(assessment) {
+                var statusColor = assessment.status === 'high' ? 'DC2626' : 
+                                 assessment.status === 'moderate' ? 'F59E0B' : '16A34A';
+                var statusBg = assessment.status === 'high' ? 'FEF2F2' : 
+                              assessment.status === 'moderate' ? 'FFFBEB' : 'F0FDF4';
+                
+                // Assessment header with parameter and value
+                sections.push(new Paragraph({
+                    spacing: { before: 120, after: 50 },
+                    shading: { fill: statusBg, type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 16, color: statusColor } },
+                    children: [
+                        new TextRun({ text: assessment.parameter + ': ', bold: true, size: 22, color: '374151' }),
+                        new TextRun({ text: assessment.value + ' ' + (assessment.unit || 'mg/L'), bold: true, size: 22, color: statusColor }),
+                        new TextRun({ text: ' — ' + (assessment.status || 'unknown').toUpperCase() + ' RISK', size: 20, color: statusColor })
+                    ]
+                }));
+                
+                // Pathway info
+                if (assessment.pathway) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 30, after: 30 },
+                        indent: { left: 200 },
+                        children: [
+                            new TextRun({ text: 'Exposure pathway: ', size: 20, color: '6B7280' }),
+                            new TextRun({ text: assessment.pathway, size: 20, color: '374151' })
+                        ]
+                    }));
+                }
+                
+                // Thresholds
+                if (assessment.thresholds) {
+                    var threshText = [];
+                    if (assessment.thresholds.foliar) threshText.push('Foliar: ' + assessment.thresholds.foliar + ' mg/L');
+                    if (assessment.thresholds.root) threshText.push('Root: ' + assessment.thresholds.root + ' mg/L');
+                    if (threshText.length > 0) {
+                        sections.push(new Paragraph({
+                            spacing: { before: 30, after: 30 },
+                            indent: { left: 200 },
+                            children: [
+                                new TextRun({ text: 'Thresholds: ', size: 20, color: '6B7280' }),
+                                new TextRun({ text: threshText.join(' | '), size: 20, color: '374151' })
+                            ]
+                        }));
+                    }
+                }
+                
+                // Risks
+                if (assessment.risks && assessment.risks.length > 0) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 30, after: 30 },
+                        indent: { left: 200 },
+                        children: [
+                            new TextRun({ text: 'Potential damage: ', size: 20, color: '6B7280' }),
+                            new TextRun({ text: assessment.risks.join(', '), size: 20, color: '374151' })
+                        ]
+                    }));
+                }
+                
+                // Recommendation
+                if (assessment.recommendation) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 30, after: 50 },
+                        indent: { left: 200 },
+                        children: [
+                            new TextRun({ text: '→ ', size: 20, color: statusColor }),
+                            new TextRun({ text: assessment.recommendation, size: 20, bold: true, color: '374151' })
+                        ]
+                    }));
+                }
+            });
+            
+            // Priority actions summary
+            if (data.phytotoxicity.priorityActions && data.phytotoxicity.priorityActions.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 150, after: 50 },
+                    children: [new TextRun({ text: 'Priority Actions', bold: true, size: 22 })]
+                }));
+                
+                data.phytotoxicity.priorityActions.forEach(function(action) {
+                    var actionColor = action.priority === 'high' ? 'DC2626' : 
+                                     action.priority === 'medium' ? 'F59E0B' : '16A34A';
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 200 },
+                        children: [
+                            new TextRun({ text: '• ', size: 20, color: actionColor }),
+                            new TextRun({ text: action.action || action.text || action, size: 20, color: '374151' })
+                        ]
+                    }));
+                });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Soil × Water Interactions section
+        var soilWaterData = generateSoilWaterInteractions(data);
+        if (soilWaterData && soilWaterData.hasData) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Soil × Water Interactions')] 
+            }));
+            
+            sections.push(new Paragraph({
+                spacing: { before: 50, after: 100 },
+                children: [new TextRun({ 
+                    text: 'Long-term impacts of irrigation water chemistry on soil conditions and turf performance.',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+            
+            // Interaction cards
+            soilWaterData.interactions.forEach(function(interaction) {
+                var bgColor = interaction.type === 'critical' ? 'FEF2F2' : 
+                             interaction.type === 'warning' ? 'FFFBEB' : 'F0F9FF';
+                var borderColor = interaction.type === 'critical' ? 'DC2626' : 
+                                 interaction.type === 'warning' ? 'F59E0B' : '3B82F6';
+                
+                sections.push(new Paragraph({
+                    spacing: { before: 100, after: 50 },
+                    shading: { fill: bgColor, type: ShadingType.CLEAR },
+                    border: { left: { style: BorderStyle.SINGLE, size: 24, color: borderColor } },
+                    children: [new TextRun({ text: interaction.title, bold: true, size: 22, color: borderColor })]
+                }));
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 100 },
+                    indent: { left: 200 },
+                    children: [new TextRun({ text: interaction.text, size: 20 })]
+                }));
+            });
+            
+            // Projections
+            if (soilWaterData.projections.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 150, after: 50 },
+                    children: [new TextRun({ text: 'Projected Impacts', bold: true, size: 22 })]
+                }));
+                soilWaterData.projections.forEach(function(projection) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 200 },
+                        children: [new TextRun({ text: '• ' + projection, size: 20 })]
+                    }));
+                });
+            }
+            
+            // Recommendations
+            if (soilWaterData.recommendations.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 150, after: 50 },
+                    children: [new TextRun({ text: 'Management Recommendations', bold: true, size: 22 })]
+                }));
+                soilWaterData.recommendations.forEach(function(rec) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 50, after: 50 },
+                        indent: { left: 200 },
+                        children: [new TextRun({ text: '• ' + rec, size: 20 })]
+                    }));
+                });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // SALINITY IMPACT SECTION (v2.0.8)
+        // Shows salinity penalty and its effects on growth/recovery
+        // Suppressed in combined export — water source is site-level, same for all greens.
+        // =====================================================================
+        if (data.salinity && data.salinity.hasData && data.salinity.growthPenaltyPct > 0 && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Salinity Stress Impact')] 
+            }));
+            
+            // Explanation paragraph
+            var salinityExplanation = 'Irrigation water electrical conductivity (ECw ' + 
+                safeToFixed(data.salinity.ecwInput, 1, '?') + ' dS/m) exceeds the ' + 
+                (data.salinity.toleranceClass || 'species') + ' tolerance threshold (' + 
+                safeToFixed(data.salinity.threshold, 1, '?') + ' dS/m). ';
+            salinityExplanation += 'Using the Maas-Hoffman salinity response model, this results in a ' + 
+                safeToFixed(data.salinity.growthPenaltyPct, 1, '0') + '% reduction in growth potential. ';
+            salinityExplanation += 'Salt-stressed turf diverts metabolic energy from growth to osmotic adjustment, ';
+            salinityExplanation += 'reducing both wear tolerance and recovery capacity.';
+            
+            sections.push(new Paragraph({
+                spacing: { after: 150 },
+                children: [new TextRun({ text: salinityExplanation, size: 22 })]
+            }));
+            
+            // Salinity data table
+            var salinityRows = [];
+            salinityRows.push(createKeyValueRow('Water ECw', safeToFixed(data.salinity.ecwInput, 2, '0.00') + ' dS/m'));
+            salinityRows.push(createKeyValueRow('Species Threshold', safeToFixed(data.salinity.threshold, 1, '?') + ' dS/m'));
+            salinityRows.push(createKeyValueRow('Tolerance Class', (data.salinity.toleranceClass || 'moderate').charAt(0).toUpperCase() + (data.salinity.toleranceClass || 'moderate').slice(1)));
+            salinityRows.push(createKeyValueRow('Growth Reduction', safeToFixed(data.salinity.growthPenaltyPct, 1, '0') + '%', 'DC2626'));
+            salinityRows.push(createKeyValueRow('Relative Yield', safeToFixed(data.salinity.relativeYieldPct, 1, '100') + '%'));
+            
+            if (data.salinity.recoveryExtension) {
+                salinityRows.push(createKeyValueRow('Recovery Time Extension', '+' + data.salinity.recoveryExtension + '%', 'B45309'));
+            }
+            
+            var statusColor = data.salinity.status === 'optimal' ? '16A34A' : 
+                             data.salinity.status === 'threshold' ? 'CA8A04' : 
+                             data.salinity.status === 'stressed' ? 'F59E0B' : 'DC2626';
+            salinityRows.push(createKeyValueRow('Status', (data.salinity.status || 'stressed').charAt(0).toUpperCase() + (data.salinity.status || 'stressed').slice(1), statusColor));
+            
+            sections.push(createTable(salinityRows));
+            
+            // Management recommendations
+            sections.push(new Paragraph({
+                spacing: { before: 150, after: 50 },
+                children: [new TextRun({ text: 'Management Recommendations', bold: true, size: 22 })]
+            }));
+            
+            var salinityRecs = [];
+            if (data.salinity.growthPenaltyPct > 20) {
+                salinityRecs.push('Critical: Consider alternative water source or implement leaching program');
+                salinityRecs.push('Apply extra irrigation (leaching fraction) to flush accumulated salts from rootzone');
+            }
+            if (data.salinity.growthPenaltyPct > 10) {
+                salinityRecs.push('Monitor soil EC regularly - rootzone accumulation may exceed irrigation water EC');
+                salinityRecs.push('Avoid allowing soil to dry excessively, which concentrates salts');
+            }
+            salinityRecs.push('Schedule traffic during periods of active growth to offset slower recovery');
+            if (data.salinity.safetyMargin !== undefined && data.salinity.safetyMargin < 0) {
+                salinityRecs.push('Consider more salt-tolerant varieties for future renovation');
+            }
+            
+            salinityRecs.forEach(function(rec) {
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 50 },
+                    indent: { left: 200 },
+                    children: [new TextRun({ text: '• ' + rec, size: 20 })]
+                }));
+            });
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Shade section - no page break needed, flows naturally from salinity
+        if (data.shade && data.shade.currentDLI) {
+            // Build appropriate header based on effective species
+            var dliLabel = 'Shade & Light (DLI)';
+            if (data.turf.overseedDominant || data.shade.dliMode === 'overseed') {
+                // Overseed dominant - label as C3 with species name
+                var overseedName = data.turf.coolOverseed || 'Perennial Ryegrass';
+                dliLabel = 'Shade & Light (DLI - ' + overseedName + ')';
+            } else if (data.turf.useC3Targets) {
+                dliLabel = 'Shade & Light (DLI - C3 Overseed)';
+            } else if (data.turf.effectiveIsC4 || data.shade.dliMode === 'c4' || data.turf.isC4) {
+                dliLabel = 'Shade & Light (DLI - C4)';
+            } else {
+                dliLabel = 'Shade & Light (DLI - C3)';
+            }
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(dliLabel)] 
+            }));
+            
+            var shadeRows = [];
+            shadeRows.push(createKeyValueRow('Current DLI', (typeof data.shade.currentDLI === 'number' ? data.shade.currentDLI.toFixed(1) : data.shade.currentDLI) + ' mol/m²/d'));
+            
+            // For overseed dominant, show C3 targets as primary
+            if (data.turf.overseedDominant || data.shade.dliMode === 'overseed') {
+                var targetLabel = 'Target DLI (' + (data.turf.coolOverseed || 'C3') + ')';
+                var minLabel = 'Minimum DLI (' + (data.turf.coolOverseed || 'C3') + ')';
+                if (data.shade.targetDLI) shadeRows.push(createKeyValueRow(targetLabel, (typeof data.shade.targetDLI === 'number' ? data.shade.targetDLI.toFixed(1) : data.shade.targetDLI) + ' mol/m²/d'));
+                if (data.shade.minDLI) shadeRows.push(createKeyValueRow(minLabel, (typeof data.shade.minDLI === 'number' ? data.shade.minDLI.toFixed(1) : data.shade.minDLI) + ' mol/m²/d'));
+            } else {
+                if (data.shade.targetDLI) shadeRows.push(createKeyValueRow('Target DLI (Optimal)', (typeof data.shade.targetDLI === 'number' ? data.shade.targetDLI.toFixed(1) : data.shade.targetDLI) + ' mol/m²/d'));
+                if (data.shade.minDLI) shadeRows.push(createKeyValueRow('Minimum DLI', (typeof data.shade.minDLI === 'number' ? data.shade.minDLI.toFixed(1) : data.shade.minDLI) + ' mol/m²/d'));
+            }
+            
+            if (data.shade.deficit !== undefined && data.shade.deficit > 0) shadeRows.push(createKeyValueRow('Deficit', data.shade.deficit + '%', 'F59E0B'));
+            if (data.shade.status) shadeRows.push(createKeyValueRow('Status', data.shade.status, getStatusColor(data.shade.status)));
+            if (data.shade.transmission) shadeRows.push(createKeyValueRow('Light Transmission', data.shade.transmission + '%'));
+            
+            sections.push(createTable(shadeRows));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // Shade chart
+            if (charts.shade) {
+                sections.push(createImageParagraph(charts.shade, 'shade'));
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // PGR section — suppressed in combined export (site-level, same for all greens)
+        if (data.pgr && data.pgr.product && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
+            // When overseed is dominant, PGR is managing the overseed species
+            var pgrSpeciesLabel = 'PGR Program Status';
+            var pgrTargetSpecies = '';
+            
+            if (data.turf.overseedDominant) {
+                // Overseed dominant - PGR is regulating the overseed
+                pgrTargetSpecies = data.turf.coolOverseed || 'Perennial Ryegrass';
+                pgrSpeciesLabel = 'PGR Program Status (' + pgrTargetSpecies + ')';
+            } else if (data.turf.hasOverseed) {
+                if (data.turf.useC3Targets) {
+                    pgrTargetSpecies = data.turf.coolOverseed || 'Perennial Ryegrass';
+                    pgrSpeciesLabel = 'PGR Program Status (' + pgrTargetSpecies + ')';
+                } else {
+                    pgrTargetSpecies = data.turf.warmBase || 'Couch';
+                    pgrSpeciesLabel = 'PGR Program Status (' + pgrTargetSpecies + ')';
+                }
+            } else if (data.turf.grassSpecies) {
+                pgrTargetSpecies = data.turf.grassSpecies;
+                pgrSpeciesLabel = 'PGR Program Status (' + pgrTargetSpecies + ')';
+            }
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(pgrSpeciesLabel)] 
+            }));
+            
+            var pgrRows = [];
+            pgrRows.push(createKeyValueRow('Product', data.pgr.product));
+            
+            if (data.pgr.applicationDate) pgrRows.push(createKeyValueRow('Applied', data.pgr.applicationDate));
+            
+            // GDD progress with surface category for clarity
+            if (data.pgr.gddAccumulated !== null && data.pgr.gddAccumulated !== undefined) {
+                var gddText = data.pgr.gddAccumulated + ' / ' + (data.pgr.gddThreshold || 200) + ' GDD';
+                if (data.pgr.gddProgress) {
+                    gddText += ' (' + Math.round(data.pgr.gddProgress) + '%)';
+                }
+                pgrRows.push(createKeyValueRow('GDD Progress', gddText));
+                
+                // Show surface category if available (v2.4.0+)
+                if (data.pgr.surfaceCategory) {
+                    var surfaceText = data.pgr.surfaceCategory;
+                    if (data.pgr.mowingHeightMM) {
+                        surfaceText += ' @ ' + data.pgr.mowingHeightMM + 'mm HOC';
+                    }
+                    pgrRows.push(createKeyValueRow('Surface Type', surfaceText));
+                }
+                
+                // Show validation warning if extrapolated (v2.3.0+)
+                if (data.pgr.thresholdValidated === false && data.pgr.thresholdSource) {
+                    pgrRows.push(createKeyValueRow('⚠️ Threshold', 'Extrapolated: ' + data.pgr.thresholdSource, '#F59E0B'));
+                } else if (data.pgr.thresholdValidated === true && data.pgr.thresholdSource) {
+                    pgrRows.push(createKeyValueRow('✓ Threshold', 'Research-validated: ' + data.pgr.thresholdSource, '#16A34A'));
+                }
+            }
+            
+            if (data.pgr.suppression) pgrRows.push(createKeyValueRow('Current Suppression', Math.round(data.pgr.suppression) + '%'));
+            
+            // Status with appropriate color
+            if (data.pgr.status) {
+                var statusColor = data.pgr.status === 'due' ? '#DC2626' : 
+                                  data.pgr.status === 'approaching' ? '#F59E0B' : '#16A34A';
+                var statusText = data.pgr.status.charAt(0).toUpperCase() + data.pgr.status.slice(1);
+                pgrRows.push(createKeyValueRow('Reapplication Status', statusText, statusColor));
+            }
+            
+            if (data.pgr.reapplyDate) pgrRows.push(createKeyValueRow('Reapply By', data.pgr.reapplyDate));
+            if (data.pgr.daysUntilReapply) pgrRows.push(createKeyValueRow('Days Until Reapply', data.pgr.daysUntilReapply));
+            
+            // Shade warning if present
+            if (data.pgr.shadeWarning) {
+                pgrRows.push(createKeyValueRow('⚠️ Shade Warning', data.pgr.shadeWarning, '#DC2626'));
+            }
+            
+            sections.push(createTable(pgrRows));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // PGR chart
+            if (charts.pgr) {
+                sections.push(createImageParagraph(charts.pgr, 'pgr'));
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // DMI Fungicide Tracking section (v2.0 - evidence-based)
+        if (data.dmi && data.dmi.product && data.dmi.isActive) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_2, keepNext: true, 
+                children: [new TextRun('Active DMI Fungicide')] 
+            }));
+            
+            // Evidence-based intro
+            sections.push(new Paragraph({ 
+                children: [new TextRun({ 
+                    text: 'DMI (demethylation inhibitor) fungicides are tracked for potential interactions with PGR programs. Research shows DMIs alone have minimal effect on clipping yield, but when combined with PGRs can cause elevated suppression and phytotoxicity.', 
+                    size: 20 
+                })]
+            }));
+            sections.push(new Paragraph({ children: [] }));
+            
+            var dmiRows = [];
+            dmiRows.push(createKeyValueRow('Product', data.dmi.product));
+            if (data.dmi.activeIngredient) dmiRows.push(createKeyValueRow('Active Ingredient', data.dmi.activeIngredient));
+            
+            // Risk category
+            if (data.dmi.riskCategory) {
+                var riskColor = data.dmi.riskCategory === 'high' ? '#DC2626' : 
+                               data.dmi.riskCategory === 'moderate' ? '#F59E0B' : '#16A34A';
+                dmiRows.push(createKeyValueRow('PGR Interaction Risk', data.dmi.riskCategory.toUpperCase(), riskColor));
+            }
+            
+            // Species sensitivity
+            if (data.dmi.speciesSensitivity) {
+                var sensColor = data.dmi.speciesSensitivity === 'high' ? '#DC2626' : 
+                               data.dmi.speciesSensitivity === 'moderate' ? '#F59E0B' : '#16A34A';
+                dmiRows.push(createKeyValueRow('Species Sensitivity', data.dmi.speciesSensitivity.toUpperCase(), sensColor));
+            }
+            
+            // GDD progress
+            if (data.dmi.gddAccumulated !== null && data.dmi.gddAccumulated !== undefined) {
+                var baseLabel = data.dmi.baseTemp > 0 ? ' (base ' + data.dmi.baseTemp + '°C)' : ' (base 0°C)';
+                var dmiGddText = data.dmi.gddAccumulated + ' / ' + data.dmi.gddTypicalDuration + ' GDD' + baseLabel;
+                if (data.dmi.gddProgress) {
+                    dmiGddText += ' (' + data.dmi.gddProgress + '%)';
+                }
+                if (data.dmi.estimated) {
+                    dmiGddText += ' [estimated]';
+                }
+                dmiRows.push(createKeyValueRow('GDD Progress', dmiGddText));
+            }
+            
+            if (data.dmi.effectEndsDate && data.dmi.daysRemaining) {
+                dmiRows.push(createKeyValueRow('Estimated Duration', '~' + data.dmi.daysRemaining + ' days remaining (until ' + data.dmi.effectEndsDate + ')'));
+            }
+            
+            // Product-specific warning
+            if (data.dmi.productWarning) {
+                dmiRows.push(createKeyValueRow('Product Note', data.dmi.productWarning));
+            }
+            
+            // Combined risk warning (evidence-based)
+            if (data.dmi.combinedRisk && data.pgr && data.pgr.product) {
+                var combColor = data.dmi.combinedWarningLevel === 'danger' ? '#DC2626' : 
+                               data.dmi.combinedWarningLevel === 'warning' ? '#F59E0B' : '#EAB308';
+                dmiRows.push(createKeyValueRow('⚠️ PGR + DMI Risk', data.dmi.combinedWarningLevel.toUpperCase(), combColor));
+                
+                if (data.dmi.combinedMessage) {
+                    dmiRows.push(createKeyValueRow('Assessment', data.dmi.combinedMessage));
+                }
+                if (data.dmi.combinedRecommendation) {
+                    dmiRows.push(createKeyValueRow('Recommendation', data.dmi.combinedRecommendation));
+                }
+            }
+            
+            sections.push(createTable(dmiRows));
+            
+            // Research note
+            sections.push(new Paragraph({ 
+                children: [new TextRun({ 
+                    text: 'Note: This assessment is based on peer-reviewed research (Mitkowski & Chaves 2013, Penn State 2025, GreenKeeper/Kreuser). DMI standalone growth effects are minimal on most turfgrass species.', 
+                    size: 18,
+                    italics: true,
+                    color: '666666'
+                })]
+            }));
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Page break before Irrigation section
+        var hasIrrigation = data.irrigation && (data.irrigation.hasData || data.irrigation.status || charts.irrigation);
+        if (hasIrrigation) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+        
+        // =====================================================================
+        // v2.1.0: EXPANDED MOISTURE MANAGEMENT SECTION
+        // =====================================================================
+        if (data.irrigation && (data.irrigation.hasData || data.irrigation.status || charts.irrigation)) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Moisture Management')] 
+            }));
+            
+            // ----------------------------------------------------------------
+            // 1. Executive Summary / Current Status
+            // ----------------------------------------------------------------
+            var statusColor = getStatusColor(data.irrigation.status || 'adequate');
+            var statusText = (data.irrigation.status || 'Unknown').toUpperCase();
+            var statusBadge = statusText;
+            if (data.irrigation.depletionPct !== null && data.irrigation.depletionPct !== undefined) {
+                statusBadge += ' (' + data.irrigation.depletionPct + '% depleted)';
+            }
+            
+            var summaryIntro = 'Current irrigation status: ';
+            if (data.irrigation.status) {
+                var st = data.irrigation.status.toLowerCase();
+                if (st === 'critical') {
+                    summaryIntro += 'soil moisture is critically low. Immediate irrigation required to prevent turf stress and maintain playing surface quality.';
+                } else if (st === 'stressed') {
+                    summaryIntro += 'soil moisture is approaching the stress threshold. Irrigation should be scheduled within 24-48 hours.';
+                } else if (st === 'adequate') {
+                    summaryIntro += 'soil moisture is within the readily available water zone. No immediate irrigation required.';
+                } else if (st === 'optimal') {
+                    summaryIntro += 'soil moisture is at optimal levels. Monitor conditions and maintain current schedule.';
+                } else {
+                    summaryIntro += 'see details below for water balance assessment.';
+                }
+            }
+            
+            sections.push(new Paragraph({
+                spacing: { after: 150 },
+                children: [
+                    new TextRun({ text: summaryIntro, size: 22 })
+                ]
+            }));
+            
+            // Quick status table
+            var statusRows = [];
+            statusRows.push(createKeyValueRow('Current Status', statusBadge, statusColor));
+            if (data.irrigation.strategy) {
+                statusRows.push(createKeyValueRow('Irrigation Strategy', data.irrigation.strategy));
+            }
+            if (data.irrigation.needsIrrigation && data.irrigation.refillDepth) {
+                statusRows.push(createKeyValueRow('Irrigation Required', data.irrigation.refillDepth + ' mm', '#DC2626'));
+            }
+            if (data.irrigation.nextIrrigation) {
+                statusRows.push(createKeyValueRow('Next Scheduled', data.irrigation.nextIrrigation));
+            }
+            sections.push(createTable(statusRows));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // ----------------------------------------------------------------
+            // 2. Water Balance Parameters (NEW)
+            // ----------------------------------------------------------------
+            if (data.irrigation.taw || data.irrigation.soilType) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Water Balance Parameters')] 
+                }));
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ 
+                        text: 'The soil water balance model calculates plant-available water based on soil properties and rooting depth. Total Available Water (TAW) represents the maximum water storage capacity, while Readily Available Water (RAW) is the portion easily extracted by roots before stress occurs.', 
+                        size: 22 
+                    })]
+                }));
+                
+                var wbRows = [];
+                if (data.irrigation.soilType) {
+                    var soilLabel = data.irrigation.soilType.charAt(0).toUpperCase() + data.irrigation.soilType.slice(1);
+                    wbRows.push(createKeyValueRow('Soil Type', soilLabel));
+                }
+                if (data.irrigation.soilProps) {
+                    var fc = data.irrigation.soilProps.fieldCapacity;
+                    var wp = data.irrigation.soilProps.wiltingPoint;
+                    if (fc !== undefined) {
+                        wbRows.push(createKeyValueRow('Field Capacity', (fc * 100).toFixed(0) + '% VWC'));
+                    }
+                    if (wp !== undefined) {
+                        wbRows.push(createKeyValueRow('Wilting Point', (wp * 100).toFixed(0) + '% VWC'));
+                    }
+                }
+                if (data.irrigation.rootDepth) {
+                    wbRows.push(createKeyValueRow('Effective Root Depth', data.irrigation.rootDepth + ' mm'));
+                }
+                if (data.irrigation.taw !== undefined && data.irrigation.taw !== null) {
+                    wbRows.push(createKeyValueRow('Total Available Water (TAW)', data.irrigation.taw + ' mm'));
+                }
+                if (data.irrigation.raw !== undefined && data.irrigation.raw !== null) {
+                    wbRows.push(createKeyValueRow('Readily Available Water (RAW)', data.irrigation.raw + ' mm'));
+                }
+                if (data.irrigation.mad !== undefined && data.irrigation.mad !== null) {
+                    wbRows.push(createKeyValueRow('Management Allowable Depletion', (data.irrigation.mad * 100).toFixed(0) + '%'));
+                }
+                if (data.irrigation.currentDepletion !== undefined) {
+                    var depColor = data.irrigation.depletionPct >= 70 ? '#DC2626' : 
+                                   data.irrigation.depletionPct >= 50 ? '#F59E0B' : '#166534';
+                    wbRows.push(createKeyValueRow('Current Depletion', data.irrigation.currentDepletion + ' mm (' + (data.irrigation.depletionPct || 0) + '%)', depColor));
+                }
+                if (data.irrigation.depletionSource) {
+                    var sourceLabel = data.irrigation.depletionSource === 'sensor' ? 'Sensor data (TDR)' :
+                                     data.irrigation.depletionSource === 'days' ? 'Estimated from days since event' : 
+                                     data.irrigation.depletionSource;
+                    wbRows.push(createKeyValueRow('Data Source', sourceLabel));
+                }
+                
+                if (wbRows.length > 0) {
+                    sections.push(createTable(wbRows));
+                    sections.push(new Paragraph({ children: [] }));
+                }
+                
+                // Organic matter effect note
+                if (data.irrigation.omEffect && data.irrigation.omEffect.note) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 150 },
+                        children: [new TextRun({ 
+                            text: 'Note: ' + data.irrigation.omEffect.note, 
+                            size: 20, 
+                            italics: true,
+                            color: '666666'
+                        })]
+                    }));
+                }
+            }
+            
+            // ----------------------------------------------------------------
+            // 3. Species & Crop Coefficient (NEW - Overseed explanation)
+            // ----------------------------------------------------------------
+            if (data.irrigation.species || data.irrigation.overseed) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Evapotranspiration & Species Selection')] 
+                }));
+                
+                var speciesIntro = 'Crop evapotranspiration (ETc) is calculated by applying a species-specific crop coefficient (Kc) to reference evapotranspiration (ET₀). ';
+                if (data.irrigation.overseed && data.irrigation.overseed.isOverseed) {
+                    speciesIntro += 'This site has an overseeded stand, requiring selection between the base warm-season and overseed cool-season ETc values.';
+                }
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ text: speciesIntro, size: 22 })]
+                }));
+                
+                var etRows = [];
+                if (data.irrigation.species) {
+                    var sp = data.irrigation.species;
+                    if (sp.base) {
+                        etRows.push(createKeyValueRow('Base Species', sp.base + (sp.baseVariety ? ' (' + sp.baseVariety + ')' : '')));
+                    }
+                    if (sp.effective) {
+                        var effLabel = sp.effective + (sp.effectiveVariety ? ' (' + sp.effectiveVariety + ')' : '');
+                        etRows.push(createKeyValueRow('Effective Species for ETc', effLabel, sp.usingOverseed ? '#0369A1' : '#166534'));
+                    }
+                    if (sp.usingOverseed !== undefined) {
+                        etRows.push(createKeyValueRow('Using Overseed ETc', sp.usingOverseed ? 'Yes - C3 coefficients applied' : 'No - Base species coefficients'));
+                    }
+                    if (sp.summerIntent) {
+                        var intentLabel = sp.summerIntent === 'maintain' ? 'Maintain overseed through summer' : 
+                                         sp.summerIntent === 'transition' ? 'Transition back to base species' : sp.summerIntent;
+                        etRows.push(createKeyValueRow('Summer Intent', intentLabel));
+                    }
+                }
+                
+                if (data.irrigation.overseed) {
+                    var os = data.irrigation.overseed;
+                    if (os.c3Fraction !== undefined) {
+                        etRows.push(createKeyValueRow('C3 Cover Fraction', Math.round(os.c3Fraction * 100) + '%'));
+                    }
+                    if (os.reason) {
+                        etRows.push(createKeyValueRow('Selection Rationale', os.reason));
+                    }
+                }
+                
+                if (etRows.length > 0) {
+                    sections.push(createTable(etRows));
+                    sections.push(new Paragraph({ children: [] }));
+                }
+            }
+            
+            // ----------------------------------------------------------------
+            // 4. 7-Day Irrigation Schedule Table (NEW)
+            // ----------------------------------------------------------------
+            if (data.irrigation.hasSchedule && data.irrigation.schedule && data.irrigation.schedule.length > 0) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('7-Day Forecast')] 
+                }));
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Daily water balance projection showing evapotranspiration losses, precipitation gains, and recommended irrigation events.', 
+                        size: 22 
+                    })]
+                }));
+                
+                // Create schedule table header
+                var scheduleHeaderRow = new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1200, type: WidthType.DXA },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Day', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1000, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ET₀', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1000, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ETc', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1000, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rain', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1200, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Depletion', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1200, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Status', bold: true, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                            width: { size: 1600, type: WidthType.DXA },
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Irrigation', bold: true, size: 20 })] })]
+                        })
+                    ]
+                });
+                
+                var scheduleRows = [scheduleHeaderRow];
+                
+                data.irrigation.schedule.forEach(function(day) {
+                    var dayLabel = day.dayName || new Date(day.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
+                    var et0Val = day.et0 !== undefined ? day.et0.toFixed(1) : '-';
+                    var etcVal = day.etc !== undefined ? day.etc.toFixed(1) : '-';
+                    var rainVal = day.precipitation !== undefined ? day.precipitation.toFixed(1) : '-';
+                    var depVal = day.cumulativeDepletion !== undefined ? day.cumulativeDepletion.toFixed(1) + 'mm' : '-';
+                    if (day.depletionPct !== undefined) {
+                        depVal += ' (' + day.depletionPct + '%)';
+                    }
+                    var statusVal = day.status ? day.status.charAt(0).toUpperCase() + day.status.slice(1) : '-';
+                    var irrigVal = '-';
+                    var irrigColor = '374151';
+                    if (day.irrigation && day.irrigation.recommended) {
+                        irrigVal = day.irrigation.totalDepth + 'mm';
+                        if (day.irrigation.runtime) {
+                            var mins = day.irrigation.runtime.totalRuntime || 0;
+                            var hrs = Math.floor(mins / 60);
+                            var remMins = mins % 60;
+                            irrigVal += ' (' + (hrs > 0 ? hrs + 'h' : '') + remMins + 'm)';
+                        }
+                        irrigColor = day.status === 'critical' ? 'DC2626' : 'D97706';
+                    }
+                    
+                    var rowShading = day.irrigation && day.irrigation.recommended ? { fill: 'FEF3C7', type: ShadingType.CLEAR } : null;
+                    var statusColor = day.status === 'critical' ? 'DC2626' : 
+                                     day.status === 'stressed' ? 'D97706' : 
+                                     day.status === 'adequate' ? '059669' : '166534';
+                    
+                    scheduleRows.push(new TableRow({
+                        children: [
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ children: [new TextRun({ text: dayLabel, size: 20 })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: et0Val, size: 20 })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: etcVal, size: 20 })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rainVal, size: 20 })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: depVal, size: 20 })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusVal, size: 20, color: statusColor })] })] }),
+                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: irrigVal, size: 20, bold: irrigVal !== '-', color: irrigColor })] })] })
+                        ]
+                    }));
+                });
+                
+                sections.push(new Table({
+                    width: { size: 100, type: WidthType.PERCENTAGE },
+                    rows: scheduleRows
+                }));
+                sections.push(new Paragraph({ children: [] }));
+                
+                // Summary statistics
+                if (data.irrigation.summary) {
+                    var sum = data.irrigation.summary;
+                    var summaryText = '7-day totals: ET ' + (sum.totalET || 0).toFixed(1) + 'mm, Rainfall ' + (sum.totalPrecipitation || 0).toFixed(1) + 'mm, ';
+                    summaryText += 'Net deficit ' + (sum.netDeficit || 0).toFixed(1) + 'mm. ';
+                    if (sum.irrigationEvents > 0) {
+                        summaryText += 'Irrigation events: ' + sum.irrigationEvents + ' totalling ' + (sum.totalIrrigation || 0).toFixed(1) + 'mm.';
+                    } else {
+                        summaryText += 'No irrigation events scheduled.';
+                    }
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 150 },
+                        children: [new TextRun({ text: summaryText, size: 20, italics: true })]
+                    }));
+                }
+            }
+            
+            // ----------------------------------------------------------------
+            // 5. Runtime Calculations (when irrigation is recommended)
+            // ----------------------------------------------------------------
+            if (data.irrigation.needsIrrigation && data.irrigation.refillDepth && data.irrigation.system) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Runtime Calculation')] 
+                }));
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Runtime is calculated based on system application rate, distribution uniformity, and application efficiency. Cycle-soak irrigation may be required when application rate exceeds soil infiltration capacity.', 
+                        size: 22 
+                    })]
+                }));
+                
+                var sys = data.irrigation.system;
+                var runtimeRows = [];
+                runtimeRows.push(createKeyValueRow('Required Net Depth', data.irrigation.refillDepth + ' mm'));
+                if (sys.precipRate) {
+                    runtimeRows.push(createKeyValueRow('Application Rate', sys.precipRate + ' mm/hr'));
+                }
+                if (sys.uniformity) {
+                    runtimeRows.push(createKeyValueRow('Distribution Uniformity', (sys.uniformity * 100).toFixed(0) + '%'));
+                }
+                if (sys.efficiency) {
+                    runtimeRows.push(createKeyValueRow('Application Efficiency', (sys.efficiency * 100).toFixed(0) + '%'));
+                }
+                
+                // Calculate gross depth and runtime if we have enough data
+                if (sys.precipRate && sys.uniformity && sys.efficiency) {
+                    var grossDepth = data.irrigation.refillDepth / (sys.uniformity * sys.efficiency);
+                    var runtimeMins = (grossDepth / sys.precipRate) * 60;
+                    var hrs = Math.floor(runtimeMins / 60);
+                    var mins = Math.round(runtimeMins % 60);
+                    var runtimeStr = hrs > 0 ? hrs + 'hr ' + mins + 'min' : mins + ' min';
+                    
+                    runtimeRows.push(createKeyValueRow('Gross Depth Required', grossDepth.toFixed(1) + ' mm'));
+                    runtimeRows.push(createKeyValueRow('Estimated Runtime', runtimeStr, '#0369A1'));
+                }
+                
+                sections.push(createTable(runtimeRows));
+                sections.push(new Paragraph({ children: [] }));
+            }
+            
+            // ----------------------------------------------------------------
+            // 6. Leaching Requirement (when water quality is a factor)
+            // ----------------------------------------------------------------
+            if (data.irrigation.leachingRequirement && data.irrigation.leachingRequirement.fraction > 0) {
+                // Page break to keep leaching table together on one page
+                sections.push(new Paragraph({ children: [new PageBreak()] }));
+                
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Leaching Requirement')] 
+                }));
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 100 },
+                    children: [new TextRun({ 
+                        text: 'Elevated irrigation water salinity requires additional water application to leach accumulated salts below the rootzone. The leaching fraction indicates the percentage of extra water needed beyond crop water use.', 
+                        size: 22 
+                    })]
+                }));
+                
+                var lr = data.irrigation.leachingRequirement;
+                var leachRows = [];
+                leachRows.push(createKeyValueRow('Leaching Fraction', lr.fraction + '%', lr.fraction > 20 ? '#DC2626' : '#D97706'));
+                if (lr.reason) {
+                    leachRows.push(createKeyValueRow('Reason', lr.reason));
+                }
+                
+                // Calculate practical application
+                var extraPer100 = (lr.fraction / 100) * 100;
+                leachRows.push(createKeyValueRow('Additional Water', extraPer100.toFixed(0) + ' mm per 100mm crop water use'));
+                
+                sections.push(createTable(leachRows));
+                sections.push(new Paragraph({ children: [] }));
+                
+                // Cross-reference to water quality
+                sections.push(new Paragraph({
+                    spacing: { after: 150 },
+                    children: [new TextRun({ 
+                        text: 'See Water Quality Analysis section for detailed assessment of irrigation water chemistry and management recommendations.', 
+                        size: 20, 
+                        italics: true,
+                        color: '666666'
+                    })]
+                }));
+            }
+            
+            // ----------------------------------------------------------------
+            // 7. Chart (existing functionality)
+            // ----------------------------------------------------------------
+            if (charts.irrigation) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Water Balance Chart')] 
+                }));
+                sections.push(createImageParagraph(charts.irrigation, 'irrigation'));
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // =====================================================================
+        // v2.1.0: ENHANCED SENSOR ZONE SECTION
+        // =====================================================================
+        if (data.sensor && data.sensor.hasData && data.sensor.zones && data.sensor.zones.length > 0) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Soil Moisture Zones')] 
+            }));
+            
+            // Count zones by status
+            var zonesNeedingWater = 0;
+            var totalIrrigation = 0;
+            var wetZones = 0;
+            var dryZones = 0;
+            var criticalZones = [];
+            var stressedZones = [];
+            
+            data.sensor.zones.forEach(function(z) {
+                if (z.irrigation) {
+                    if (z.irrigation.mmRequired > 0) {
+                        zonesNeedingWater++;
+                        totalIrrigation += z.irrigation.mmRequired;
+                    }
+                    if (z.irrigation.status === 'wet') wetZones++;
+                    if (z.irrigation.status === 'critical') {
+                        dryZones++;
+                        criticalZones.push(z);
+                    }
+                    if (z.irrigation.status === 'stressed') {
+                        stressedZones.push(z);
+                    }
+                }
+            });
+            
+            // Methodology paragraph with optimal ranges
+            sections.push(new Paragraph({
+                spacing: { after: 150 },
+                children: [new TextRun({ 
+                    text: 'Volumetric Water Content (VWC) is measured using Time Domain Reflectometry (TDR) sensors, which determine soil moisture by measuring the dielectric constant of the soil. VWC represents the percentage of soil volume occupied by water. For sand-based rootzones, optimal VWC typically ranges from 18-28%, with field capacity around 30-35% and permanent wilting point near 8-12%. Trend indicators show 7-day moisture movement: ↑ wetting, → stable, ↓ drying, ↓↓ rapid drying.', 
+                    size: 22 
+                })]
+            }));
+            
+            // Summary paragraph
+            var introText = 'Soil moisture data collected from ' + data.sensor.totalReadings + ' TDR sensor readings across ' + data.sensor.zones.length + ' zone' + (data.sensor.zones.length > 1 ? 's' : '') + '. ';
+            if (zonesNeedingWater > 0) {
+                introText += zonesNeedingWater + ' zone' + (zonesNeedingWater > 1 ? 's require' : ' requires') + ' irrigation (total ' + totalIrrigation.toFixed(1) + ' mm). ';
+            } else if (wetZones > 0) {
+                introText += 'All zones are currently at adequate moisture levels' + (wetZones === data.sensor.zones.length ? ' (trending wet)' : '') + '. ';
+            } else {
+                introText += 'All zones are currently at adequate moisture levels. ';
+            }
+            if (data.sensor.selectedZone) {
+                introText += 'Primary analysis zone: ' + data.sensor.selectedZone + '.';
+            }
+            
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: introText, size: 22 })]
+            }));
+            
+            // v2.1.0: Enhanced zone summary table with trends and ranges
+            var zoneTableRows = [];
+            
+            // Header row - added Range and Trend columns
+            zoneTableRows.push(new TableRow({
+                tableHeader: true,
+                children: [
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 2000, type: WidthType.DXA },
+                        children: [new Paragraph({ children: [new TextRun({ text: 'Zone', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 900, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 1100, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Avg VWC', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 1200, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Range', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 800, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Trend', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 1000, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Status', bold: true, size: 20 })] })]
+                    }),
+                    new TableCell({ 
+                        shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
+                        width: { size: 1300, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Irrigation', bold: true, size: 20 })] })]
+                    })
+                ]
+            }));
+            
+            // Data rows
+            data.sensor.zones.forEach(function(zone) {
+                var avgVwc = zone.avg !== undefined ? zone.avg : zone.avgVwc;
+                
+                // Range display (min-max)
+                var rangeText = '-';
+                if (zone.min !== undefined && zone.max !== undefined && zone.min !== null && zone.max !== null) {
+                    rangeText = zone.min.toFixed(0) + '-' + zone.max.toFixed(0) + '%';
+                }
+                
+                // v2.1.0: Trend indicator based on 7-day movement
+                var trendText = '→';  // Default stable
+                var trendColor = '666666';
+                if (zone.trend !== undefined) {
+                    if (zone.trend < -3) {
+                        trendText = '↓↓';  // Rapid drying
+                        trendColor = 'DC2626';
+                    } else if (zone.trend < -1) {
+                        trendText = '↓';   // Drying
+                        trendColor = 'D97706';
+                    } else if (zone.trend > 3) {
+                        trendText = '↑↑';  // Rapid wetting
+                        trendColor = '0369A1';
+                    } else if (zone.trend > 1) {
+                        trendText = '↑';   // Wetting
+                        trendColor = '059669';
+                    }
+                } else if (zone.irrigation) {
+                    // Infer trend from status if not explicitly provided
+                    if (zone.irrigation.status === 'critical') {
+                        trendText = '↓↓';
+                        trendColor = 'DC2626';
+                    } else if (zone.irrigation.status === 'stressed') {
+                        trendText = '↓';
+                        trendColor = 'D97706';
+                    } else if (zone.irrigation.status === 'wet') {
+                        trendText = '↑';
+                        trendColor = '0369A1';
+                    }
+                }
+                
+                // Status display
+                var statusText = '-';
+                var statusColor = '374151';
+                if (zone.irrigation && zone.irrigation.status) {
+                    statusText = zone.irrigation.status.charAt(0).toUpperCase() + zone.irrigation.status.slice(1);
+                    statusColor = zone.irrigation.status === 'critical' ? 'DC2626' :
+                                 zone.irrigation.status === 'stressed' ? 'D97706' :
+                                 zone.irrigation.status === 'wet' ? '0369A1' : '166534';
+                }
+                
+                // Irrigation display
+                var irrigText = '-';
+                var irrigColor = '374151';
+                if (zone.irrigation) {
+                    if (zone.irrigation.mmRequired > 0) {
+                        irrigText = zone.irrigation.mmRequired + ' mm';
+                        irrigColor = zone.irrigation.status === 'critical' ? 'DC2626' : 'D97706';
+                    } else {
+                        irrigText = 'None';
+                        irrigColor = '166534';
+                    }
+                }
+                
+                var isSelected = zone.name === data.sensor.selectedZone;
+                var rowShading = isSelected ? { fill: 'ecfdf5', type: ShadingType.CLEAR } : 
+                                zone.irrigation && zone.irrigation.status === 'critical' ? { fill: 'FEE2E2', type: ShadingType.CLEAR } : null;
+                
+                zoneTableRows.push(new TableRow({
+                    children: [
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ children: [new TextRun({ text: zone.name, bold: isSelected, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(zone.count), size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgVwc !== null && avgVwc !== undefined ? avgVwc.toFixed(1) + '%' : '-', size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rangeText, size: 20 })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: trendText, size: 20, color: trendColor })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusText, size: 20, color: statusColor })] })]
+                        }),
+                        new TableCell({ 
+                            shading: rowShading,
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: irrigText, size: 20, bold: irrigText !== '-' && irrigText !== 'None', color: irrigColor })] })]
+                        })
+                    ]
+                }));
+            });
+            
+            sections.push(new Table({
+                width: { size: 100, type: WidthType.PERCENTAGE },
+                rows: zoneTableRows
+            }));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // v2.1.0: Zone-Specific Recommendations
+            if (criticalZones.length > 0 || stressedZones.length > 0) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Zone-Specific Recommendations')] 
+                }));
+                
+                // Critical zones first
+                criticalZones.forEach(function(zone) {
+                    var avgVwc = zone.avg !== undefined ? zone.avg : zone.avgVwc;
+                    var recText = zone.name + ': VWC ' + (avgVwc ? avgVwc.toFixed(1) : '?') + '% is critically low. ';
+                    recText += 'Apply ' + (zone.irrigation.mmRequired || '?') + 'mm irrigation immediately to prevent turf stress. ';
+                    if (zone.max && zone.min && (zone.max - zone.min) > 10) {
+                        recText += 'High spatial variability (' + zone.min.toFixed(0) + '-' + zone.max.toFixed(0) + '%) suggests possible localized dry spots - inspect for hydrophobic conditions or irrigation coverage issues.';
+                    }
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [
+                            new TextRun({ text: '⚠ ', size: 22, color: 'DC2626' }),
+                            new TextRun({ text: recText, size: 22 })
+                        ]
+                    }));
+                });
+                
+                // Stressed zones
+                stressedZones.forEach(function(zone) {
+                    var avgVwc = zone.avg !== undefined ? zone.avg : zone.avgVwc;
+                    var recText = zone.name + ': VWC ' + (avgVwc ? avgVwc.toFixed(1) : '?') + '% is approaching stress threshold. ';
+                    recText += 'Schedule irrigation within 24-48 hours';
+                    if (zone.irrigation.mmRequired) {
+                        recText += ' (' + zone.irrigation.mmRequired + 'mm recommended)';
+                    }
+                    recText += '.';
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [
+                            new TextRun({ text: '⚡ ', size: 22, color: 'D97706' }),
+                            new TextRun({ text: recText, size: 22 })
+                        ]
+                    }));
+                });
+                
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // Page break before Disease section
+        var hasDisease = data.disease && data.disease.overallRisk;
+        if (hasDisease) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+        
+        // Disease section
+        if (data.disease && data.disease.overallRisk) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Disease Risk Assessment')] 
+            }));
+            
+            // Introductory text
+            var diseaseIntro = 'Disease risk assessment based on current weather conditions, turf species, and historical disease pressure patterns. ';
+            if (data.disease.overallRisk.toLowerCase() === 'high' || data.disease.overallRisk.toLowerCase() === 'critical') {
+                diseaseIntro += 'Elevated risk levels detected - preventive fungicide applications may be warranted.';
+            } else if (data.disease.overallRisk.toLowerCase() === 'moderate') {
+                diseaseIntro += 'Monitor conditions closely and consider preventive measures if conditions persist.';
+            } else {
+                diseaseIntro += 'Current conditions present low disease pressure.';
+            }
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: diseaseIntro, size: 22 })]
+            }));
+            
+            var diseaseRows = [];
+            diseaseRows.push(createKeyValueRow('Overall Risk', data.disease.overallRisk.toUpperCase(), getStatusColor(data.disease.overallRisk)));
+            if (data.disease.primaryThreat) diseaseRows.push(createKeyValueRow('Primary Threat', data.disease.primaryThreat));
+            if (data.disease.overallScore) diseaseRows.push(createKeyValueRow('Risk Score', data.disease.overallScore + '%'));
+            
+            sections.push(createTable(diseaseRows));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // v2.1.3: Add note if beta disease shows higher risk than validated primary
+            if (data.disease.betaThreatNote) {
+                sections.push(new Paragraph({
+                    spacing: { before: 50, after: 150 },
+                    children: [
+                        new TextRun({ text: '⚠ Note: ', size: 20, bold: true, color: '92400E' }),
+                        new TextRun({ text: data.disease.betaThreatNote, size: 20, italics: true, color: '78716C' })
+                    ]
+                }));
+            }
+            
+            // v2.0.8: Disease Risk Drivers - show inputs affecting disease risk
+            if (data.disease.inputs && data.disease.inputs.hasInputs) {
+                var inp = data.disease.inputs;
+                var hasDrivers = inp.nitrogen || (inp.shade && inp.shade.dliDeficitPct > 20) || 
+                                (inp.dew && inp.dew.totalWetHours > 20);
+                
+                if (hasDrivers) {
+                    sections.push(new Paragraph({ 
+                        heading: HeadingLevel.HEADING_2, keepNext: true, 
+                        children: [new TextRun('Risk Drivers')] 
+                    }));
+                    
+                    var driverText = 'The following environmental factors are influencing disease pressure:';
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [new TextRun({ text: driverText, size: 22 })]
+                    }));
+                    
+                    var driverRows = [];
+                    
+                    // Nitrogen status
+                    if (inp.nitrogen) {
+                        var nStatus = inp.nitrogen.charAt(0).toUpperCase() + inp.nitrogen.slice(1);
+                        var nColor = inp.nitrogen === 'high' || inp.nitrogen === 'excessive' ? 'DC2626' : 
+                                    inp.nitrogen === 'low' || inp.nitrogen === 'deficient' ? 'CA8A04' : '16A34A';
+                        var nNote = '';
+                        if (inp.nitrogen === 'high' || inp.nitrogen === 'excessive') {
+                            nNote = ' (increases susceptibility to foliar diseases)';
+                        } else if (inp.nitrogen === 'low' || inp.nitrogen === 'deficient') {
+                            nNote = ' (increases susceptibility to root diseases)';
+                        }
+                        // Include tissue N value if available (in %, not ppm)
+                        var nDisplay = nStatus;
+                        if (inp.tissueN) {
+                            nDisplay += ' (' + inp.tissueN.toFixed(2) + '%)';
+                        }
+                        driverRows.push(createKeyValueRow('Nitrogen Status', nDisplay + nNote, nColor));
+                    }
+                    
+                    // K:N ratio - evidence-based disease predictor
+                    // Research: K:N <0.5 significantly increases Brown Patch, Pythium risk
+                    // Source: Carrow, PACE Turf, Turgeon
+                    if (inp.knRatio !== null && inp.knRatio !== undefined) {
+                        var knColor = inp.knRatio < 0.4 ? 'DC2626' : 
+                                     inp.knRatio < 0.5 ? 'F59E0B' : '16A34A';
+                        var knNote = '';
+                        if (inp.knRatio < 0.4) {
+                            knNote = ' (significantly increases disease susceptibility)';
+                        } else if (inp.knRatio < 0.5) {
+                            knNote = ' (marginal - monitor tissue quality)';
+                        } else if (inp.knRatio >= 0.5 && inp.knRatio <= 0.8) {
+                            knNote = ' (optimal range)';
+                        }
+                        driverRows.push(createKeyValueRow('K:N Ratio', inp.knRatio.toFixed(2) + knNote, knColor));
+                    }
+                    
+                    // Shade/DLI deficit
+                    if (inp.shade && inp.shade.dliDeficitPct > 0) {
+                        var shadeColor = inp.shade.dliDeficitPct > 30 ? 'DC2626' : 
+                                        inp.shade.dliDeficitPct > 15 ? 'F59E0B' : '16A34A';
+                        var shadeNote = inp.shade.dliDeficitPct > 30 ? ' (significantly elevates Dollar Spot risk)' : '';
+                        driverRows.push(createKeyValueRow('DLI Deficit', inp.shade.dliDeficitPct.toFixed(0) + '%' + shadeNote, shadeColor));
+                    }
+                    
+                    // Dew/leaf wetness
+                    if (inp.dew && inp.dew.totalWetHours) {
+                        var dewColor = inp.dew.totalWetHours > 40 ? 'DC2626' : 
+                                      inp.dew.totalWetHours > 25 ? 'F59E0B' : '16A34A';
+                        var dewNote = inp.dew.totalWetHours > 40 ? ' (extended wetness promotes infection)' : '';
+                        driverRows.push(createKeyValueRow('Weekly Wet Hours', inp.dew.totalWetHours + ' hours' + dewNote, dewColor));
+                    }
+                    
+                    // Soil temperature
+                    if (inp.soilTemp) {
+                        driverRows.push(createKeyValueRow('Soil Temperature', inp.soilTemp + '°C'));
+                    }
+                    
+                    if (driverRows.length > 0) {
+                        sections.push(createTable(driverRows));
+                        sections.push(new Paragraph({ children: [] }));
+                    }
+                }
+            }
+            
+            // Disease chart
+            if (charts.disease) {
+                sections.push(createImageParagraph(charts.disease, 'disease'));
+                
+                // Check if any diseases in the forecast are beta models
+                var forecastHasBeta = false;
+                if (data.disease.diseases) {
+                    forecastHasBeta = data.disease.diseases.some(function(d) {
+                        // Check validationStatus property first (preferred)
+                        if (d.validationStatus === 'beta') return true;
+                        // Fallback to name matching for backward compatibility
+                        var name = (d.displayName || d.name || '').toLowerCase();
+                        return name.indexOf('bipolaris') !== -1 || 
+                               name.indexOf('curvularia') !== -1 || 
+                               name.indexOf('drechslera') !== -1 ||
+                               name.indexOf('waitea') !== -1 ||
+                               name.indexOf('helminthosporium') !== -1;
+                    });
+                }
+                
+                // Chart legend note - explain dashed lines for beta models
+                if (forecastHasBeta) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 80, after: 150 },
+                        children: [new TextRun({ 
+                            text: 'Chart note: Dashed lines (marked with *) indicate beta disease models. These are based on published research thresholds but have limited field validation. Use alongside visual scouting.', 
+                            size: 18, 
+                            italics: true,
+                            color: '6B7280'
+                        })]
+                    }));
+                } else {
+                    sections.push(new Paragraph({ children: [] }));
+                }
+            }
+            
+            // Disease list
+            if (data.disease.diseases && data.disease.diseases.length > 0) {
+                sections.push(new Paragraph({ 
+                    heading: HeadingLevel.HEADING_2, keepNext: true, 
+                    children: [new TextRun('Disease Details')] 
+                }));
+                
+                // Beta models disclaimer
+                var hasBetaModels = data.disease.diseases.some(function(d) {
+                    // Check validationStatus property first (preferred)
+                    if (d.validationStatus === 'beta') return true;
+                    // Fallback to name matching for backward compatibility
+                    var name = (d.displayName || d.name || '').toLowerCase();
+                    return name.indexOf('bipolaris') !== -1 || name.indexOf('curvularia') !== -1 || name.indexOf('drechslera') !== -1 || name.indexOf('waitea') !== -1 || name.indexOf('helminthosporium') !== -1;
+                });
+                if (hasBetaModels) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 150 },
+                        children: [new TextRun({ 
+                            text: 'BETA models: These disease predictions are derived from peer-reviewed environmental thresholds but lack extensive field calibration. Confidence will improve as we collect outcome data from turf managers. Please report disease observations to help refine these models.', 
+                            size: 20, 
+                            italics: true 
+                        })]
+                    }));
+                }
+                
+                var diseaseListRows = [];
+                data.disease.diseases.forEach(function(disease) {
+                    var name = disease.displayName || disease.name || 'Unknown';
+                    var nameLower = name.toLowerCase();
+                    
+                    // Mark beta models
+                    var isBetaModel = disease.validationStatus === 'beta';
+                    // Fallback to name matching for backward compatibility
+                    if (!isBetaModel) {
+                        isBetaModel = nameLower.indexOf('bipolaris') !== -1 || 
+                                      nameLower.indexOf('curvularia') !== -1 || 
+                                      nameLower.indexOf('drechslera') !== -1 ||
+                                      nameLower.indexOf('waitea') !== -1 ||
+                                      nameLower.indexOf('helminthosporium') !== -1;
+                    }
+                    if (isBetaModel) {
+                        name = name + ' (BETA)';
+                    }
+                    
+                    var risk = disease.riskLevel || 'low';
+                    var score = disease.adjustedRisk ? ' (' + disease.adjustedRisk + '%)' : '';
+                    diseaseListRows.push(createKeyValueRow(name, risk.toUpperCase() + score, getStatusColor(risk)));
+                });
+                
+                sections.push(createTable(diseaseListRows));
+                sections.push(new Paragraph({ children: [] }));
+            }
+            
+            // v2.1.0: Regional Fungicide Treatment Options
+            // Only show for moderate+ risk diseases, uses GAIP_FungicideFilter for jurisdiction-safe actives
+            if (data.disease.diseases && data.disease.diseases.length > 0 && 
+                typeof window !== 'undefined' && window.GAIP_FungicideFilter) {
+                
+                var highRiskDiseases = data.disease.diseases.filter(function(d) {
+                    var risk = (d.riskLevel || '').toLowerCase();
+                    return risk === 'high' || risk === 'critical' || risk === 'moderate' || 
+                           (d.adjustedRisk && d.adjustedRisk >= 40);
+                });
+                
+                if (highRiskDiseases.length > 0) {
+                    // Get location for region detection
+                    var lat = data.location?.lat || data.climate?.lat;
+                    var lon = data.location?.lon || data.climate?.lon;
+                    
+                    sections.push(new Paragraph({ 
+                        heading: HeadingLevel.HEADING_2, keepNext: true, 
+                        children: [new TextRun('Treatment Options')] 
+                    }));
+                    
+                    // Get region info for disclaimer
+                    var regionInfo = window.GAIP_FungicideFilter.getCurrentRegion({ lat: lat, lon: lon });
+                    var regionMapping = window.GAIP_FungicideFilter.REGION_TO_FUNGICIDE_DB[regionInfo] || {};
+                    var registrationBody = regionMapping.registrationBody || 'local authority';
+                    
+                    sections.push(new Paragraph({
+                        spacing: { after: 150 },
+                        children: [new TextRun({ 
+                            text: 'The following active ingredients are registered for turf use in your region (' + registrationBody + '). Always verify current registration status and follow label directions. Rotate between different FRAC groups to manage resistance.', 
+                            size: 20, 
+                            italics: true 
+                        })]
+                    }));
+                    
+                    highRiskDiseases.forEach(function(disease) {
+                        var diseaseName = disease.displayName || disease.name || 'Unknown';
+                        var normalizedName = diseaseName.toLowerCase()
+                            .replace(/[\s-]+/g, '_')
+                            .replace(/[^a-z0-9_]/g, '');
+                        
+                        var fungicideResult = window.GAIP_FungicideFilter.getApprovedFungicides(normalizedName, {
+                            lat: lat,
+                            lon: lon,
+                            turfRegisteredOnly: true
+                        });
+                        
+                        if (fungicideResult.actives && fungicideResult.actives.length > 0) {
+                            sections.push(new Paragraph({
+                                spacing: { before: 150, after: 100 },
+                                children: [new TextRun({ text: diseaseName, bold: true, size: 22 })]
+                            }));
+                            
+                            var treatmentRows = [];
+                            
+                            // Primary options
+                            var primary = fungicideResult.actives.filter(function(a) { return a.type === 'primary'; });
+                            if (primary.length > 0) {
+                                var primaryList = primary.slice(0, 3).map(function(a) {
+                                    return (a.activeIngredient || a.active) + ' (FRAC ' + a.fracGroup + ')';
+                                }).join(', ');
+                                treatmentRows.push(createKeyValueRow('Primary Options', primaryList));
+                            }
+                            
+                            // Rotation partners
+                            var rotation = fungicideResult.actives.filter(function(a) { return a.type === 'rotation'; });
+                            if (rotation.length > 0) {
+                                var rotationList = rotation.slice(0, 2).map(function(a) {
+                                    return (a.activeIngredient || a.active) + ' (FRAC ' + a.fracGroup + ')';
+                                }).join(', ');
+                                treatmentRows.push(createKeyValueRow('Rotation Partners', rotationList));
+                            }
+                            
+                            if (treatmentRows.length > 0) {
+                                sections.push(createTable(treatmentRows));
+                            }
+                            
+                            // Application notes if available
+                            if (fungicideResult.notes) {
+                                sections.push(new Paragraph({
+                                    spacing: { after: 100 },
+                                    children: [new TextRun({ text: fungicideResult.notes, size: 20, italics: true })]
+                                }));
+                            }
+                        }
+                    });
+                    
+                    sections.push(new Paragraph({ children: [] }));
+                }
+            }
+        }
+        
+        // Page break before Trajectory section
+        var hasTrajectory = data.trajectory && data.trajectory.currentScore !== null;
+        if (hasTrajectory) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+        }
+        
+        // Trajectory section
+        if (data.trajectory && data.trajectory.currentScore !== null) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('14-Day Stress Trajectory')] 
+            }));
+            
+            // Introductory text
+            var trajIntro = 'Forecast stress trajectory based on predicted weather conditions over the next 14 days. ';
+            if (data.trajectory.criticalPoints > 0) {
+                trajIntro += data.trajectory.criticalPoints + ' day' + (data.trajectory.criticalPoints > 1 ? 's' : '') + ' of elevated stress predicted - plan management interventions accordingly.';
+            } else if (data.trajectory.trend && data.trajectory.trend.toLowerCase().indexOf('increas') !== -1) {
+                trajIntro += 'Stress levels trending upward - monitor conditions closely.';
+            } else {
+                trajIntro += 'Conditions are favourable for turf health over the forecast period.';
+            }
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: trajIntro, size: 22 })]
+            }));
+            
+            var trajRows = [];
+            trajRows.push(createKeyValueRow('Current Score', data.trajectory.currentScore));
+            if (data.trajectory.peakScore) trajRows.push(createKeyValueRow('Peak Score', data.trajectory.peakScore));
+            if (data.trajectory.trend) trajRows.push(createKeyValueRow('Trend', data.trajectory.trend));
+            trajRows.push(createKeyValueRow('Critical Points', data.trajectory.criticalPoints || 0));
+            
+            sections.push(createTable(trajRows));
+            sections.push(new Paragraph({ children: [] }));
+            
+            // Trajectory chart
+            if (charts.trajectory) {
+                sections.push(createImageParagraph(charts.trajectory, 'trajectory'));
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // Dew section (sports turf only)
+        if (data.dew && data.dew.applicable) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Dew Forecast & Match Conditions')] 
+            }));
+            
+            // Introductory text — driven by intensity string first, peak probability as fallback
+            // tonightIntensity reflects 7-day aggregate severity; tonightPeak is tonight-only probability.
+            // Using intensity prevents the mismatch where a severe 7-day outlook is described as "dry".
+            var dewIntro = 'Dew probability forecast for sports turf management and match preparation. ';
+            var dewIntensityLower = (data.dew.tonightIntensity || '').toLowerCase();
+            if (dewIntensityLower === 'severe' || dewIntensityLower === 'extreme') {
+                dewIntro += 'Severe dew conditions forecast — extended leaf wetness expected every night. High fungal disease risk. Apply preventive fungicide and schedule morning dew removal.';
+            } else if (dewIntensityLower === 'high') {
+                dewIntro += 'High dew likelihood — heavy surface moisture most nights. Plan for morning grooming and monitor disease conditions closely.';
+            } else if (dewIntensityLower === 'moderate') {
+                dewIntro += 'Moderate dew likely — some surface moisture expected on most nights.';
+            } else if (dewIntensityLower === 'low' || dewIntensityLower === 'minimal') {
+                dewIntro += 'Low dew probability — dry surface conditions expected overnight.';
+            } else {
+                // No intensity string — fall back to tonightPeak probability
+                if (data.dew.tonightPeak && data.dew.tonightPeak >= 75) {
+                    dewIntro += 'Heavy dew expected tonight — surface conditions will be affected. Plan for ball handling and traction adjustments.';
+                } else if (data.dew.tonightPeak && data.dew.tonightPeak >= 50) {
+                    dewIntro += 'Moderate dew likely — some surface moisture expected tonight.';
+                } else if (data.dew.tonightPeak !== undefined) {
+                    dewIntro += 'Low dew probability — dry conditions expected tonight.';
+                } else {
+                    dewIntro += 'Dew conditions vary — monitor overnight surface moisture.';
+                }
+            }
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: dewIntro, size: 22 })]
+            }));
+            
+            var dewRows = [];
+            if (data.dew.tonightPeak !== undefined) {
+                // Colour driven by intensity string if available — prevents green label on severe conditions
+                var intensityStr = (data.dew.tonightIntensity || '').toLowerCase();
+                var dewColor;
+                if (intensityStr === 'severe' || intensityStr === 'extreme') {
+                    dewColor = 'DC2626';
+                } else if (intensityStr === 'high') {
+                    dewColor = 'F59E0B';
+                } else if (intensityStr === 'moderate') {
+                    dewColor = 'F59E0B';
+                } else {
+                    // Fall back to probability threshold
+                    dewColor = data.dew.tonightPeak >= 75 ? 'DC2626' : data.dew.tonightPeak >= 50 ? 'F59E0B' : '16A34A';
+                }
+                dewRows.push(createKeyValueRow("Tonight's Peak Probability", data.dew.tonightPeak + '%', dewColor));
+            }
+            if (data.dew.tonightIntensity) {
+                var intensityDisplay = data.dew.tonightIntensity.charAt(0).toUpperCase() + data.dew.tonightIntensity.slice(1);
+                var intensityColor = (['severe','extreme'].includes(data.dew.tonightIntensity.toLowerCase())) ? 'DC2626' :
+                                     (['high','moderate'].includes(data.dew.tonightIntensity.toLowerCase())) ? 'F59E0B' : '374151';
+                dewRows.push(createKeyValueRow('Expected Intensity', intensityDisplay, intensityColor));
+            }
+            if (data.dew.daysWithDew !== undefined) dewRows.push(createKeyValueRow('Days with Dew (7-day)', data.dew.daysWithDew));
+            if (data.dew.totalDewHours) dewRows.push(createKeyValueRow('Total Dew Hours (7-day)', data.dew.totalDewHours + ' hrs'));
+            if (data.dew.leafWetnessHours) dewRows.push(createKeyValueRow('Leaf Wetness Hours', data.dew.leafWetnessHours + ' hrs'));
+            if (data.dew.consecutiveWetHours) dewRows.push(createKeyValueRow('Max Consecutive Wet', data.dew.consecutiveWetHours + ' hrs'));
+            
+            if (dewRows.length > 0) {
+                sections.push(createTable(dewRows));
+                sections.push(new Paragraph({ children: [] }));
+            }
+            
+            // Note about disease implications
+            if (data.dew.leafWetnessHours && data.dew.leafWetnessHours > 40) {
+                sections.push(new Paragraph({
+                    spacing: { after: 200 },
+                    children: [new TextRun({ 
+                        text: '⚠️ Extended leaf wetness increases fungal disease risk. Monitor for dollar spot and brown patch.', 
+                        size: 22, 
+                        color: 'F59E0B',
+                        italics: true
+                    })]
+                }));
+            }
+        }
+        
+        // Traffic/Wear section
+        if (data.traffic && data.traffic.hasData) {
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Traffic & Wear Analysis')] 
+            }));
+            
+            // Methodology explanation
+            sections.push(new Paragraph({
+                spacing: { after: 150 },
+                children: [new TextRun({ 
+                    text: 'Traffic analysis quantifies wear pressure using sport-specific impact factors that account for player density, movement patterns, and cleat damage. Weekly traffic load is calculated from scheduled matches and training sessions, with each activity type weighted by its relative impact on turf surfaces. The wear index combines traffic load with current growth conditions to predict turf sustainability.', 
+                    size: 22 
+                })]
+            }));
+            
+            // Recovery window explanation
+            var recoveryExplanation = '';
+            if (data.traffic.recoveryDays) {
+                recoveryExplanation = 'The recovery window (' + data.traffic.recoveryDays + ' days) represents the minimum rest period between high-intensity use required for the turf to recover adequate wear tolerance. ';
+                if (data.traffic.recoveryDays <= 3) {
+                    recoveryExplanation += 'This short recovery period is typical of warm-season grasses during peak growing conditions, where rapid cell division and leaf replacement occur.';
+                } else if (data.traffic.recoveryDays <= 7) {
+                    recoveryExplanation += 'This moderate recovery period reflects current growth rates - sufficient for most scheduling scenarios but may require adjustment during fixture congestion.';
+                } else {
+                    recoveryExplanation += 'This extended recovery period indicates slower growth conditions. Consider reducing training intensity or redistributing traffic to auxiliary areas during this period.';
+                }
+                sections.push(new Paragraph({
+                    spacing: { after: 150 },
+                    children: [new TextRun({ text: recoveryExplanation, size: 22 })]
+                }));
+            }
+            
+            // Status-specific guidance
+            var trafficIntro = '';
+            if (data.traffic.status) {
+                var statusLower = data.traffic.status.toLowerCase();
+                if (statusLower.indexOf('high') !== -1 || statusLower.indexOf('excessive') !== -1) {
+                    trafficIntro = 'Current analysis indicates high wear pressure relative to recovery capacity. Management options include: reducing training session frequency, relocating training to secondary areas, implementing rest/rotation zones, or adjusting match scheduling where possible.';
+                } else if (statusLower.indexOf('moderate') !== -1) {
+                    trafficIntro = 'Wear levels are moderate and manageable with current recovery protocols. Continue monitoring and maintain flexibility to adjust if fixture density increases.';
+                } else {
+                    trafficIntro = 'Current wear levels are within the sustainable range for this turf type under prevailing growth conditions. Recovery capacity exceeds wear pressure.';
+                }
+                sections.push(new Paragraph({
+                    spacing: { after: 200 },
+                    children: [new TextRun({ text: trafficIntro, size: 22 })]
+                }));
+            }
+            
+            var trafficRows = [];
+            var sportNames = { soccer: 'Soccer/Football', afl: 'AFL', rugby_union: 'Rugby Union', rugby_league: 'Rugby League', cricket: 'Cricket', nfl: 'American Football', baseball: 'Baseball' };
+            if (data.traffic.sport) trafficRows.push(createKeyValueRow('Sport', sportNames[data.traffic.sport] || data.traffic.sport));
+            if (data.traffic.matchesPerWeek) trafficRows.push(createKeyValueRow('Matches per Week', data.traffic.matchesPerWeek));
+            if (data.traffic.sessionsPerWeek) trafficRows.push(createKeyValueRow('Training Sessions per Week', data.traffic.sessionsPerWeek));
+            if (data.traffic.weeklyLoad) trafficRows.push(createKeyValueRow('Weekly Traffic Load', Math.round(data.traffic.weeklyLoad) + ' units'));
+            if (data.traffic.wearIndex) trafficRows.push(createKeyValueRow('Wear Index', Math.round(data.traffic.wearIndex * 100) / 100));
+            if (data.traffic.recoveryDays) trafficRows.push(createKeyValueRow('Recovery Window', data.traffic.recoveryDays + ' days'));
+            if (data.traffic.wearZone) trafficRows.push(createKeyValueRow('Primary Wear Zone', data.traffic.wearZone));
+            if (data.traffic.canSustain !== undefined) {
+                var sustainColor = data.traffic.canSustain ? '166534' : 'dc2626';
+                trafficRows.push(createKeyValueRow('Sustainable at Current Load', data.traffic.canSustain ? 'Yes' : 'No - reduce load or allow recovery', sustainColor));
+            }
+            if (data.traffic.status) trafficRows.push(createKeyValueRow('Overall Status', data.traffic.status, getStatusColor(data.traffic.status)));
+            
+            if (trafficRows.length > 0) {
+                sections.push(createTable(trafficRows));
+                sections.push(new Paragraph({ children: [] }));
+            }
+            
+            // Add stress factors affecting recovery from orchestrator
+            var orchestratorWear = window.GaipOrchestrator && window.GaipOrchestrator.getComputed ? 
+                                   window.GaipOrchestrator.getComputed('wear') : null;
+            var adjustedRecovery = orchestratorWear ? orchestratorWear.adjustedRecovery : null;
+            
+            if (adjustedRecovery && adjustedRecovery.adjustments && adjustedRecovery.adjustments.length > 0) {
+                sections.push(new Paragraph({
+                    heading: HeadingLevel.HEADING_2,
+                    keepNext: true,
+                    children: [new TextRun('Environmental Stress Factors Affecting Recovery')]
+                }));
+                
+                // Summary paragraph
+                var baseProb = adjustedRecovery.baseProbability || 80;
+                var adjProb = adjustedRecovery.adjustedProbability || baseProb;
+                var baseDays = adjustedRecovery.baseDays || 5;
+                var adjDays = adjustedRecovery.adjustedDays || baseDays;
+                
+                var summaryText = 'Current environmental conditions are reducing recovery capacity. ';
+                summaryText += 'Base recovery probability of ' + baseProb + '% has been reduced to ' + adjProb + '%. ';
+                summaryText += 'Recovery window has extended from ' + baseDays + ' days to ' + adjDays + ' days. ';
+                summaryText += 'The following stress factors are contributing to this reduction:';
+                
+                sections.push(new Paragraph({
+                    spacing: { after: 150 },
+                    children: [new TextRun({ text: summaryText, size: 22 })]
+                }));
+                
+                // Stress factors table
+                var stressRows = [];
+                adjustedRecovery.adjustments.forEach(function(adj) {
+                    var factorName = adj.factor.charAt(0).toUpperCase() + adj.factor.slice(1);
+                    var modification = adj.modification || adj.factor;
+                    var effect = adj.effect || '';
+                    
+                    // Color based on severity
+                    var color = '000000';
+                    if (adj.factor === 'shade') color = '6366F1';
+                    else if (adj.factor === 'salinity') color = '0891B2';
+                    else if (adj.factor === 'temperature') color = 'DC2626';
+                    else if (adj.factor === 'compound') color = '7C3AED';
+                    
+                    stressRows.push(new TableRow({
+                        children: [
+                            new TableCell({
+                                width: { size: 2000, type: WidthType.DXA },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: factorName, bold: true, size: 22, color: color })] 
+                                })]
+                            }),
+                            new TableCell({
+                                width: { size: 4500, type: WidthType.DXA },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: modification, size: 22 })] 
+                                })]
+                            }),
+                            new TableCell({
+                                width: { size: 3000, type: WidthType.DXA },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: effect, size: 22, color: 'B45309' })] 
+                                })]
+                            })
+                        ]
+                    }));
+                });
+                
+                if (stressRows.length > 0) {
+                    // Header row
+                    var headerRow = new TableRow({
+                        children: [
+                            new TableCell({
+                                width: { size: 2000, type: WidthType.DXA },
+                                shading: { fill: 'E5E7EB' },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: 'Stress Factor', bold: true, size: 22 })] 
+                                })]
+                            }),
+                            new TableCell({
+                                width: { size: 4500, type: WidthType.DXA },
+                                shading: { fill: 'E5E7EB' },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: 'Condition', bold: true, size: 22 })] 
+                                })]
+                            }),
+                            new TableCell({
+                                width: { size: 3000, type: WidthType.DXA },
+                                shading: { fill: 'E5E7EB' },
+                                children: [new Paragraph({ 
+                                    children: [new TextRun({ text: 'Recovery Impact', bold: true, size: 22 })] 
+                                })]
+                            })
+                        ]
+                    });
+                    
+                    sections.push(new Table({
+                        width: { size: 100, type: WidthType.PERCENTAGE },
+                        rows: [headerRow].concat(stressRows)
+                    }));
+                    sections.push(new Paragraph({ children: [] }));
+                }
+                
+                // Warning if present
+                if (adjustedRecovery.warning) {
+                    sections.push(new Paragraph({
+                        spacing: { before: 100, after: 150 },
+                        shading: { fill: 'FEF2F2' },
+                        border: { left: { color: 'DC2626', size: 24, style: BorderStyle.SINGLE } },
+                        children: [
+                            new TextRun({ text: '⚠ Warning: ', bold: true, size: 22, color: 'DC2626' }),
+                            new TextRun({ text: adjustedRecovery.warning, size: 22 })
+                        ]
+                    }));
+                }
+            }
+            // v2.0.8: Fallback - use recovery modifiers from wear-recovery engine
+            else if (data.traffic.recoveryModifiers) {
+                var rm = data.traffic.recoveryModifiers;
+                var hasStressFactors = (rm.salinity && rm.salinity.factor > 1) || 
+                                      (rm.shade && rm.shade > 1) || 
+                                      (rm.temperatureStress && rm.temperatureStress.factor > 1);
+                
+                if (hasStressFactors) {
+                    sections.push(new Paragraph({
+                        heading: HeadingLevel.HEADING_2,
+                        keepNext: true,
+                        children: [new TextRun('Environmental Stress Factors Affecting Recovery')]
+                    }));
+                    
+                    // Summary
+                    var modSummary = 'Environmental stress factors are extending the recovery window from ' + 
+                        rm.baseDays + ' to ' + rm.adjustedDays + ' days.';
+                    sections.push(new Paragraph({
+                        spacing: { after: 150 },
+                        children: [new TextRun({ text: modSummary, size: 22 })]
+                    }));
+                    
+                    // Build modifier rows
+                    var modRows = [];
+                    
+                    if (rm.salinity && rm.salinity.factor > 1) {
+                        var salEffect = '+' + Math.round((rm.salinity.factor - 1) * 100) + '% recovery time';
+                        modRows.push(new TableRow({
+                            children: [
+                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Salinity', bold: true, size: 22, color: '0891B2' })] })] }),
+                                new TableCell({ width: { size: 4500, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: rm.salinity.note || 'Elevated water EC', size: 22 })] })] }),
+                                new TableCell({ width: { size: 3000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: salEffect, size: 22, color: 'B45309' })] })] })
+                            ]
+                        }));
+                    }
+                    
+                    if (rm.shade && rm.shade > 1) {
+                        var shadeEffect = '+' + Math.round((rm.shade - 1) * 100) + '% recovery time';
+                        modRows.push(new TableRow({
+                            children: [
+                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Shade', bold: true, size: 22, color: '6366F1' })] })] }),
+                                new TableCell({ width: { size: 4500, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'DLI deficit reducing photosynthesis', size: 22 })] })] }),
+                                new TableCell({ width: { size: 3000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: shadeEffect, size: 22, color: 'B45309' })] })] })
+                            ]
+                        }));
+                    }
+                    
+                    if (rm.temperatureStress && rm.temperatureStress.factor > 1) {
+                        var tempEffect = '+' + Math.round((rm.temperatureStress.factor - 1) * 100) + '% recovery time';
+                        modRows.push(new TableRow({
+                            children: [
+                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Temperature', bold: true, size: 22, color: 'DC2626' })] })] }),
+                                new TableCell({ width: { size: 4500, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'ESI ' + (rm.temperatureStress.esi || '?') + '/100', size: 22 })] })] }),
+                                new TableCell({ width: { size: 3000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: tempEffect, size: 22, color: 'B45309' })] })] })
+                            ]
+                        }));
+                    }
+                    
+                    if (rm.growth && rm.growth < 0.8) {
+                        var growthEffect = '+' + Math.round((1/rm.growth - 1) * 100) + '% recovery time';
+                        modRows.push(new TableRow({
+                            children: [
+                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Growth Rate', bold: true, size: 22, color: '059669' })] })] }),
+                                new TableCell({ width: { size: 4500, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Low growth potential (' + Math.round(rm.growth * 100) + '%)', size: 22 })] })] }),
+                                new TableCell({ width: { size: 3000, type: WidthType.DXA },
+                                    children: [new Paragraph({ children: [new TextRun({ text: growthEffect, size: 22, color: 'B45309' })] })] })
+                            ]
+                        }));
+                    }
+                    
+                    if (modRows.length > 0) {
+                        var modHeaderRow = new TableRow({
+                            children: [
+                                new TableCell({ width: { size: 2000, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Stress Factor', bold: true, size: 22 })] })] }),
+                                new TableCell({ width: { size: 4500, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Condition', bold: true, size: 22 })] })] }),
+                                new TableCell({ width: { size: 3000, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
+                                    children: [new Paragraph({ children: [new TextRun({ text: 'Recovery Impact', bold: true, size: 22 })] })] })
+                            ]
+                        });
+                        
+                        sections.push(new Table({
+                            width: { size: 100, type: WidthType.PERCENTAGE },
+                            rows: [modHeaderRow].concat(modRows)
+                        }));
+                        sections.push(new Paragraph({ children: [] }));
+                    }
+                }
+            }
+            
+            // Add traffic chart if generated
+            if (charts.traffic) {
+                sections.push(createImageParagraph(charts.traffic, 'traffic'));
+                sections.push(new Paragraph({ children: [] }));
+            }
+        }
+        
+        // Overseed Climate Assessment section
+        if (data.overseedClimate && data.overseedClimate.hasData) {
+            var osc = data.overseedClimate;
+            var stageLower = (osc.stage || '').toLowerCase();
+            var isTransitionStage = (stageLower === 'transitioning' || stageLower === 'fading' || stageLower === 'dying');
+            
+            // Use appropriate title based on stage
+            var sectionTitle = isTransitionStage ? 'Overseed Transition Status' : 'Overseed Climate Assessment';
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun(sectionTitle)] 
+            }));
+            
+            // Stage-appropriate introductory text
+            var overseedIntro;
+            if (isTransitionStage) {
+                overseedIntro = 'Summer transition assessment for overseeded turf. ';
+                overseedIntro += 'The cool-season ryegrass overseed is declining as expected for this season, allowing the warm-season base grass to recover.';
+            } else {
+                overseedIntro = 'Climate-enhanced assessment of overseed establishment conditions. ';
+                if (osc.temperatureStress === 'none' || osc.temperatureStress === 'mild') {
+                    overseedIntro += 'Temperature conditions are suitable for overseed maintenance.';
+                } else if (osc.temperatureStress === 'moderate') {
+                    overseedIntro += 'Moderate temperature stress may affect overseed performance.';
+                } else {
+                    overseedIntro += 'Temperature conditions are challenging for overseed - monitor closely.';
+                }
+            }
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ text: overseedIntro, size: 22 })]
+            }));
+            
+            // Status rows - use appropriate label for stage
+            var overseedRows = [];
+            var stageLabel = isTransitionStage ? 'Transition Stage' : 'Overseed Stage';
+            overseedRows.push(createKeyValueRow(stageLabel, osc.stage.charAt(0).toUpperCase() + osc.stage.slice(1)));
+            
+            // Only show wear tolerance for non-transition stages (it's not relevant during summer)
+            if (!isTransitionStage) {
+                overseedRows.push(createKeyValueRow('Wear Tolerance', Math.round(osc.adjustedMultiplier * 100) + '%'));
+            }
+            
+            if (osc.temperatureNote) overseedRows.push(createKeyValueRow('Temperature Effect', osc.temperatureNote));
+            if (osc.airTemp !== null) overseedRows.push(createKeyValueRow('Air Temperature', osc.airTemp.toFixed(1) + '°C'));
+            if (osc.soilTemp !== null) overseedRows.push(createKeyValueRow('Soil Temperature', osc.soilTemp.toFixed(1) + '°C (' + osc.soilTempSource + ')'));
+            
+            // Only show germination for establishment stages
+            if (!isTransitionStage && osc.germination && osc.germination.days) {
+                overseedRows.push(createKeyValueRow('Germination Time', '~' + osc.germination.days + ' days at current temps'));
+            }
+            if (!isTransitionStage && osc.overseedWindow && osc.overseedWindow.score) {
+                overseedRows.push(createKeyValueRow('Window Score', osc.overseedWindow.score + '/100'));
+            }
+            if (osc.weatherStatus && osc.weatherStatus.status) overseedRows.push(createKeyValueRow('Weather Data', osc.weatherStatus.status.charAt(0).toUpperCase() + osc.weatherStatus.status.slice(1)));
+            
+            if (overseedRows.length > 0) {
+                sections.push(createTable(overseedRows));
+            }
+            
+            // Recommendations
+            if (osc.recommendations && osc.recommendations.length > 0) {
+                sections.push(new Paragraph({ 
+                    spacing: { before: 200, after: 80 },
+                    children: [new TextRun({ text: 'Recommendations:', bold: true, size: 22 })] 
+                }));
+                osc.recommendations.forEach(function(rec) {
+                    sections.push(new Paragraph({
+                        bullet: { level: 0 },
+                        spacing: { after: 60 },
+                        children: [new TextRun({ text: rec, size: 22 })]
+                    }));
+                });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Performance Impact Analysis section - discusses relationships between factors
+        var impactAnalysis = generatePerformanceImpactAnalysis(data);
+        if (impactAnalysis) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            sections.push(new Paragraph({ 
+                heading: HeadingLevel.HEADING_1, keepNext: true, 
+                children: [new TextRun('Performance Impact Analysis')] 
+            }));
+            
+            // Introductory paragraph
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({ 
+                    text: 'This section examines how site-specific factors interact to affect turf performance. Understanding these relationships helps prioritise management interventions.', 
+                    size: 22, 
+                    color: '4B5563' 
+                })]
+            }));
+            
+            // Narrative paragraphs (cultivar overview)
+            if (impactAnalysis.narrative && impactAnalysis.narrative.length > 0) {
+                impactAnalysis.narrative.forEach(function(text) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 120 },
+                        children: [new TextRun({ text: text, size: 22, color: '374151' })]
+                    }));
+                });
+            }
+            
+            // Relationships and interactions - rendered as professional prose paragraphs
+            if (impactAnalysis.relationships && impactAnalysis.relationships.length > 0) {
+                impactAnalysis.relationships.forEach(function(rel) {
+                    // Main text as a paragraph
+                    sections.push(new Paragraph({
+                        spacing: { after: 120 },
+                        children: [new TextRun({ text: rel.text, size: 22, color: '374151' })]
+                    }));
+                    
+                    // Source citation if available - inline italics
+                    if (rel.source) {
+                        sections.push(new Paragraph({
+                            spacing: { after: 160 },
+                            children: [new TextRun({ 
+                                text: 'Reference: ' + rel.source, 
+                                size: 18, 
+                                color: '6B7280',
+                                italics: true
+                            })]
+                        }));
+                    }
+                });
+            }
+            
+            // Recommendations - as numbered prose, not bullet points
+            if (impactAnalysis.recommendations && impactAnalysis.recommendations.length > 0) {
+                sections.push(new Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [new TextRun({ text: 'Management Recommendations', bold: true, size: 22, color: '1F2937' })]
+                }));
+                
+                impactAnalysis.recommendations.forEach(function(rec, index) {
+                    sections.push(new Paragraph({
+                        spacing: { after: 100 },
+                        children: [new TextRun({ text: (index + 1) + '. ' + rec, size: 22, color: '374151' })]
+                    }));
+                });
+            }
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // v10.3.38: Nutrition Program section - page break before for clean separation
+        if (data.nutritionProgram && data.nutritionProgram.hasData) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            var nutritionElements = renderNutritionProgramSection(data);
+            nutritionElements.forEach(function(el) {
+                sections.push(el);
+            });
+        }
+        
+        // Spray Application Log section
+        if (data.sprayLog && data.sprayLog.hasData) {
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            var sprayElements = renderSprayLogSection(data);
+            sprayElements.forEach(function(el) {
+                sections.push(el);
+            });
+        }
+        
+        // Cultivar Performance Profile section - flows directly after Performance Impact Analysis
+        var cultivarProfile = generateCultivarProfile(data);
+        if (cultivarProfile && cultivarProfile.hasData) {
+            // No page break - cultivar profile flows naturally after performance impact
+            var profileElements = renderCultivarProfileSection(cultivarProfile);
+            profileElements.forEach(function(el) {
+                sections.push(el);
+            });
+            
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Companion surface disease section (golf greens only)
+        if (data.companionDisease && data.companionDisease.hasData) {
+            var cd = data.companionDisease;
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1, keepNext: true,
+                children: [new TextRun(cd.speciesLabel + ' Fairway/Tee — Disease Assessment')]
+            }));
+            sections.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun(
+                    'Parallel disease assessment for ' + cd.speciesLabel + ' using the same weather conditions as the greens assessment. ' +
+                    cd.note
+                )]
+            }));
+            if (cd.diseases && cd.diseases.length > 0) {
+                var cdRows = [
+                    new TableRow({
+                        tableHeader: true,
+                        children: [
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Level', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        ]
+                    })
+                ];
+                cd.diseases.forEach(function(d) {
+                    var risk = Math.round(d.adjustedRisk || d.riskScore || 0);
+                    var level = risk >= 70 ? 'Severe' : risk >= 50 ? 'High' : risk >= 30 ? 'Moderate' : 'Low';
+                    cdRows.push(new TableRow({ children: [
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: d.displayName || d.disease || '', size: 20 })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: risk + '%', size: 20 })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: level, size: 20 })] })] }),
+                    ]}));
+                });
+                sections.push(new Table({ rows: cdRows, width: { size: 9000, type: WidthType.DXA } }));
+            }
+            sections.push(new Paragraph({ spacing: { after: 300 }, children: [] }));
+        }
+
+        // ─────────────────────────────────────────────────────────────────
+        // Pre-Emergent Timing section
+        // Rendered when GAIP_PRE_EMERGENT_RESULT is available and has alerts
+        // ─────────────────────────────────────────────────────────────────
+        if (data.preEmergent && data.preEmergent.hasData) {
+            var pe = data.preEmergent;
+
+            // Status colour helper (mirrors STATUS_CONFIG in pre-emergent-integration.js)
+            var PE_STATUS_COLOUR = {
+                GREEN:               '22C55E',
+                AMBER:               'F59E0B',
+                RED_EARLY:           'EF4444',
+                RED_MISSED:          '7C3AED',
+                PERSISTENT_PRESSURE: 'EA580C',
+                ADVISORY_ONLY:       '6B7280'
+            };
+            var PE_STATUS_LABEL = {
+                GREEN:               'No action',
+                AMBER:               'Apply now',
+                RED_EARLY:           'Closing fast',
+                RED_MISSED:          'Timing passed',
+                PERSISTENT_PRESSURE: 'Persistent pressure',
+                ADVISORY_ONLY:       'Post-emergent only'
+            };
+
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            sections.push(new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                keepNext: true,
+                children: [new TextRun('Pre-Emergent Herbicide Timing')]
+            }));
+
+            // Intro paragraph
+            var peStatusLabel = PE_STATUS_LABEL[pe.aggregateStatus] || pe.aggregateStatus;
+            var peIntro = 'Pre-emergent timing based on current and forecast soil temperatures at 5 cm depth. ' +
+                'Aggregate status: ' + peStatusLabel + '. ';
+            if (pe.isTropicalRegion) {
+                peIntro += 'Tropical/subtropical region — weed pressure driven by programme intervals and rainfall onset rather than temperature threshold alone. ';
+            }
+            if (pe.activeAlertCount > 0) {
+                peIntro += pe.activeAlertCount + ' species at or approaching application threshold.';
+            } else {
+                peIntro += 'No species currently at application threshold.';
+            }
+            sections.push(new Paragraph({
+                spacing: { after: 160 },
+                children: [new TextRun({ text: peIntro, size: 22, color: '374151' })]
+            }));
+
+            // Soil temperature summary table
+            var peSummaryRows = [];
+            peSummaryRows.push(new TableRow({
+                tableHeader: true,
+                children: [
+                    new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Parameter', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                    new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Value', bold: true, color: 'FFFFFF', size: 20 })] })] })
+                ]
+            }));
+            if (pe.soilTemp5cm != null) {
+                var soilTempDisplay = pe.soilTemp5cm.toFixed(1) + '°C';
+                if (pe.soilTempSource === 'derived_from_air_temp') soilTempDisplay += ' (est. from air temp)';
+                peSummaryRows.push(new TableRow({ children: [
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Soil Temperature (5 cm)', size: 20 })] })] }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: soilTempDisplay, size: 20 })] })] })
+                ]}));
+            }
+            if (pe.rollingAvg10d != null) {
+                peSummaryRows.push(new TableRow({ children: [
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '10-Day Rolling Average', size: 20 })] })] }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pe.rollingAvg10d.toFixed(1) + '°C', size: 20 })] })] })
+                ]}));
+            }
+            if (pe.trendDirection) {
+                var trendArrow = pe.trendDirection === 'warming' ? '↑ Warming' : pe.trendDirection === 'cooling' ? '↓ Cooling' : '→ Stable';
+                peSummaryRows.push(new TableRow({ children: [
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Temperature Trend', size: 20 })] })] }),
+                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: trendArrow, size: 20 })] })] })
+                ]}));
+            }
+            peSummaryRows.push(new TableRow({ children: [
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Total Species Monitored', size: 20 })] })] }),
+                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(pe.totalSpecies), size: 20 })] })] })
+            ]}));
+            sections.push(new Table({ rows: peSummaryRows, width: { size: 9000, type: WidthType.DXA } }));
+            sections.push(new Paragraph({ children: [] }));
+
+            // Active alerts table (only if any exist)
+            if (pe.activeAlerts && pe.activeAlerts.length > 0) {
+                sections.push(new Paragraph({
+                    heading: HeadingLevel.HEADING_2,
+                    keepNext: true,
+                    children: [new TextRun('Active Alerts')]
+                }));
+
+                var peAlertRows = [];
+                peAlertRows.push(new TableRow({
+                    tableHeader: true,
+                    children: [
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Species', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Scientific Name', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Days', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Threshold', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Conf', bold: true, color: 'FFFFFF', size: 20 })] })] })
+                    ]
+                }));
+
+                pe.activeAlerts.forEach(function(alert) {
+                    var statusColour = PE_STATUS_COLOUR[alert.alertStatus] || '374151';
+                    var statusLabel  = PE_STATUS_LABEL[alert.alertStatus]  || alert.alertStatus;
+                    var daysText     = alert.daysToThreshold != null ? alert.daysToThreshold + 'd' : '—';
+                    var threshText   = alert.germinationThreshold != null ? alert.germinationThreshold + '°C' : '—';
+                    peAlertRows.push(new TableRow({ children: [
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.commonName || '', size: 20 })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.scientificName || '', size: 20, italics: true })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: statusLabel, size: 20, bold: true, color: statusColour })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: daysText, size: 20 })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: threshText, size: 20 })] })] }),
+                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.confidenceRating || '', size: 20 })] })] })
+                    ]}));
+
+                    // Recommended action as indented sub-row
+                    if (alert.recommendedAction) {
+                        peAlertRows.push(new TableRow({ children: [
+                            new TableCell({ columnSpan: 6, children: [new Paragraph({
+                                indent: { left: 360 },
+                                spacing: { before: 20, after: 60 },
+                                children: [new TextRun({ text: alert.recommendedAction, size: 18, italics: true, color: '6B7280' })]
+                            })] })
+                        ]}));
+                    }
+                });
+
+                sections.push(new Table({ rows: peAlertRows, width: { size: 9000, type: WidthType.DXA } }));
+                sections.push(new Paragraph({ children: [] }));
+            } else {
+                // No active alerts — brief confirmation
+                sections.push(new Paragraph({
+                    spacing: { after: 200 },
+                    children: [new TextRun({
+                        text: 'No species are currently at or approaching their application threshold. Continue monitoring as soil temperatures change.',
+                        size: 22, color: '374151', italics: true
+                    })]
+                }));
+            }
+
+            // Efficacy caveat
+            sections.push(new Paragraph({
+                spacing: { before: 100, after: 200 },
+                children: [new TextRun({
+                    text: 'Note: Pre-emergent efficacy thresholds are indicative. Field validation of germination timing is recommended before committing to applications. Confidence ratings reflect data quality: H = peer-reviewed primary research; M = university extension; L = industry/extension, limited validation.',
+                    size: 18, italics: true, color: '9CA3AF'
+                })]
+            }));
+        }
+
+        // Page break before References section - always on its own page
+        sections.push(new Paragraph({ children: [new PageBreak()] }));
+        
+        // References section
+        sections.push(new Paragraph({ 
+            heading: HeadingLevel.HEADING_1, keepNext: true, 
+            children: [new TextRun('References & Methodology')] 
+        }));
+        
+        // Add methodology note
+        sections.push(new Paragraph({
+            spacing: { after: 200 },
+            children: [new TextRun({ 
+                text: 'This report represents a point-in-time analysis based on the soil, tissue, and water quality data provided. Turf conditions are dynamic, and the relationships identified in this report may change as environmental conditions, management practices, and plant development progress. For comprehensive trend analysis and to track the effectiveness of management interventions, periodic re-testing is recommended, with soil analysis annually, tissue testing during active growth periods, and water quality assessment when source conditions change.', 
+                size: 22, 
+                color: '4B5563' 
+            })]
+        }));
+        
+        sections.push(new Paragraph({
+            spacing: { after: 120 },
+            children: [new TextRun({ 
+                text: 'The analysis and recommendations in this report are based on peer-reviewed methodologies and evidence-based guidelines. The following sources underpin the interpretations provided:', 
+                size: 22, 
+                color: '4B5563' 
+            })]
+        }));
+        
+        // Reference list
+        var references = [
+            { category: 'Soil Nutrition', refs: [
+                'Woods, M.S., Stowell, L.J. & Gelernter, W.D. (2014). Minimum Levels for Sustainable Nutrition (MLSN) guidelines. PACE Turf.',
+                'Carrow, R.N., Waddington, D.V. & Rieke, P.E. (2001). Turfgrass Soil Fertility and Chemical Problems: Assessment and Management. John Wiley & Sons.',
+                'Kreuser, W.C. (2015). Sufficiency Level of Available Nutrients (SLAN) guidelines for turfgrass. University of Nebraska-Lincoln.'
+            ]},
+            { category: 'Tissue Analysis', refs: [
+                'Jones, J.B., Wolf, B. & Mills, H.A. (1991). Plant Analysis Handbook. Micro-Macro Publishing.',
+                'Turner, T.R. & Hummel, N.W. (1992). Nutritional requirements and fertilisation. In: Waddington et al. (eds) Turfgrass. ASA-CSSA-SSSA.',
+                'Christians, N.E., Patton, A.J. & Law, Q.D. (2016). Fundamentals of Turfgrass Management, 5th ed. John Wiley & Sons.'
+            ]},
+            { category: 'Water Quality', refs: [
+                'Ayers, R.S. & Westcot, D.W. (1985). Water Quality for Agriculture. FAO Irrigation and Drainage Paper 29.',
+                'Carrow, R.N. & Duncan, R.R. (2012). Best Management Practices for Saline and Sodic Turfgrass Soils. CRC Press.',
+                'Harivandi, M.A. (1999). Interpreting Turfgrass Irrigation Water Test Results. University of California ANR Publication 8009.'
+            ]},
+            { category: 'Growth Potential & Climate', refs: [
+                'Kreuser, W.C. & Soldat, D.J. (2011). A growing degree day model to schedule trinexapac-ethyl applications on Agrostis stolonifera golf putting greens. Crop Science 51:2228-2236.',
+                'Beard, J.B. (1973). Turfgrass: Science and Culture. Prentice-Hall.'
+            ]},
+            { category: 'Disease Risk', refs: [
+                'Smiley, R.W., Dernoeden, P.H. & Clarke, B.B. (2005). Compendium of Turfgrass Diseases, 3rd ed. APS Press.',
+                'Fidanza, M.A. & Dernoeden, P.H. (1996). Brown patch and dollar spot model development. HortScience 31:1006-1009.',
+                'Smith, J.D., Jackson, N. & Woolhouse, A.R. (1989). Fungal Diseases of Amenity Turf Grasses. E. & F.N. Spon.'
+            ]},
+            { category: 'Pre-Emergent Herbicide Timing', refs: [
+                'Fidanza, M.A., Dernoeden, P.H. & Zhang, M. (1996). Degree-days for predicting smooth crabgrass emergence in cool-season turfgrasses. Crop Science 36:990-996.',
+                'Cardina, J., Herms, C.P. & Doohan, D.J. (2011). Crop planting date and crop density effects on weed emergence and growth. Weed Technology 25:211-219.',
+                'Teuton, T.C. et al. (2004). Factors affecting seed germination of cogongrass. Weed Science 52:417-424.',
+                'Grundy, A.C., Mead, A. & Burston, S. (2000). Modelling the effect of soil disturbance on weed emergence. Weed Research 40:366-378.',
+                'Chauhan, B.S. & Johnson, D.E. (2008). Germination ecology of goosegrass (Eleusine indica). Weed Science 56:699-706.',
+                'King, C.A. & Oliver, L.R. (1994). Application rate and timing effects on sethoxydim and clodinafop control of annual grasses. Weed Technology 8:1-5.'
+            ]},
+            { category: 'Variety Traits & Performance', refs: [
+                'National Turfgrass Evaluation Program (NTEP). Multi-year variety trial data. ntep.org.',
+                'Wu, Y., Taliaferro, C.M. & Martin, D.L. (2011). Bermudagrass shade tolerance research. Oklahoma State University.',
+                'Amgain, N.R. et al. (2018). Evapotranspiration rates of bermudagrass cultivars. Crop Science 58:1409-1421.'
+            ]},
+            { category: 'Salinity & Stress Interactions', refs: [
+                'Maas, E.V. & Hoffman, G.J. (1977). Crop salt tolerance - current assessment. J. Irrig. Drain. Div. 103:115-134.',
+                'Harivandi, M.A. et al. (1992). Turfgrass salinity tolerance. California Turfgrass Culture 42:1-4.',
+                'Carrow, R.N. & Duncan, R.R. (1998). Salt-affected turfgrass sites: Assessment and management. Ann Arbor Press.'
+            ]}
+        ];
+        
+        references.forEach(function(refGroup) {
+            // Category heading
+            sections.push(new Paragraph({
+                spacing: { before: 150, after: 60 },
+                children: [new TextRun({ text: refGroup.category, bold: true, size: 22, color: '374151' })]
+            }));
+            
+            // Individual references
+            refGroup.refs.forEach(function(ref) {
+                sections.push(new Paragraph({
+                    spacing: { after: 40 },
+                    indent: { left: 360 },
+                    children: [new TextRun({ text: '• ' + ref, size: 18, color: '6B7280' })]
+                }));
+            });
+        });
+        
+        sections.push(new Paragraph({ children: [] }));
+        
+        // Export metadata section (data quality, citations, disclaimer)
+        if (data._exportMetadata && typeof GilbaExportMetadata !== 'undefined') {
+            // Page break to keep metadata on its own page
+            sections.push(new Paragraph({ children: [new PageBreak()] }));
+            
+            var metadataElements = GilbaExportMetadata.createMetadataSection(data._exportMetadata);
+            if (metadataElements && metadataElements.length > 0) {
+                metadataElements.forEach(function(el) { sections.push(el); });
+            }
+            sections.push(new Paragraph({ children: [] }));
+        }
+        
+        // Glossary section
+        var glossaryElements = generateGlossary();
+        if (glossaryElements && glossaryElements.length > 0) {
+            glossaryElements.forEach(function(el) { sections.push(el); });
+        }
+        
+        // Footer note
+        sections.push(new Paragraph({ 
+            spacing: { before: 400 },
+            children: [new TextRun({ 
+                text: 'Generated by Gilba Agronomic Intelligence Hub • ' + new Date().toLocaleString(), 
+                size: 18, 
+                color: '9CA3AF',
+                italics: true
+            })] 
+        }));
+        
+        return sections;
+    }
+    
+    // Helper to create image paragraph
+    // Global image counter for unique IDs
+    var imageIdCounter = 0;
+    
+    function createImageParagraph(chartData, chartType) {
+        // Increment counter for unique ID
+        imageIdCounter++;
+        var uniqueId = imageIdCounter;
+        
+        // Chart-specific sizing - some charts need more space for readability
+        // Disease chart made larger (v2.1.1) for 8-day forecast readability
+        // Disease forecast has wide aspect ratio (~3.5:1), needs more width allowance
+        // NOTE: A4 page with 1080 twip margins = ~6.5" usable width = ~624px max
+        // For taller disease chart, modify the disease-forecast module SVG height
+        var chartSizes = {
+            irrigation: { maxWidth: 580, maxHeight: 400 },
+            disease: { maxWidth: 624, maxHeight: 300 },  // Max practical width for A4
+            water: { maxWidth: 560, maxHeight: 380 },
+            trajectory: { maxWidth: 580, maxHeight: 400 },
+            default: { maxWidth: MAX_CHART_WIDTH || 560, maxHeight: MAX_CHART_HEIGHT || 380 }
+        };
+        
+        var sizes = chartSizes[chartType] || chartSizes.default;
+        var maxWidth = sizes.maxWidth;
+        var maxHeight = sizes.maxHeight;
+        
+        // Scale to fit: scale UP to fill width, then constrain by max height
+        // Previous logic only scaled down (Math.min(1,...)) which left small SVGs tiny
+        var scaleW = maxWidth / chartData.width;
+        var scaleH = maxHeight / chartData.height;
+        var scale = Math.min(scaleW, scaleH);
+        
+        var width = Math.round(chartData.width * scale);
+        var height = Math.round(chartData.height * scale);
+        
+        return new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 120, after: 120 },
+            children: [new ImageRun({
+                type: 'png',
+                data: Uint8Array.from(atob(chartData.base64), function(c) { return c.charCodeAt(0); }),
+                transformation: { width: width, height: height },
+                altText: {
+                    title: chartType + ' Chart ' + uniqueId,
+                    description: 'GAIP ' + chartType + ' analysis chart',
+                    name: 'chart_' + chartType + '_' + uniqueId
+                }
+            })]
+        });
+    }
+    
+    // Capture all charts
+    async function captureCharts(data) {
+        var charts = {};
+        
+        // Chart selectors - look for container first, then find SVG inside
+        var chartSelectors = {
+            irrigation: ['.gaip-irrigation-forecast-chart', '.gaip-irrigation-chart', '.gaip-irrigation-body'],
+            disease: ['.gaip-disease-forecast-chart', '.gaip-disease-chart', '.gaip-disease-body'],
+            shade: ['.gaip-shade-forecast', '.gaip-shade-chart', '.gaip-shade-body'],
+            pgr: ['.gaip-pgr-forecast', '.gaip-pgr-chart', '.gaip-pgr-body'],
+            trajectory: ['.gaip-trajectory-chart', '#gaip-trajectory-container', '.gaip-trajectory-module'],
+            climate: ['.gaip-climate-chart', '.gaip-gp-chart', '.gaip-climate-body']
+        };
+        
+        // Capture on-screen SVG charts
+        for (var key in chartSelectors) {
+            var selectors = chartSelectors[key];
+            var captured = false;
+            
+            for (var i = 0; i < selectors.length && !captured; i++) {
+                var element = document.querySelector(selectors[i]);
+                if (!element) continue;
+                
+                // Find SVG - either the element itself or inside it
+                var svg = element.tagName.toLowerCase() === 'svg' 
+                    ? element 
+                    : element.querySelector('svg');
+                
+                if (svg) {
+                    var result = await captureSvgElement(svg);
+                    if (result && result.base64) {
+                        charts[key] = result;
+                        captured = true;
+                    }
+                }
+            }
+            
+            if (!captured) {
+            }
+        }
+        
+        // Generate soil/tissue/water charts from data
+        if (data) {
+            // Soil chart (macros)
+            if (data.soil && data.soil.thresholds && (data.soil.P || data.soil.K)) {
+                var soilSvg = generateSoilChartSvg(data.soil);
+                if (soilSvg) {
+                    var soilChart = await svgStringToBase64Png(soilSvg, 500, 200);
+                    if (soilChart) {
+                        charts.soil = soilChart;
+                    }
+                }
+            }
+            // Trace element chart (Fe, Mn, Zn, Cu, B)
+            if (data.soil && (data.soil.Fe || data.soil.Mn || data.soil.Zn || data.soil.Cu || data.soil.B)) {
+                var traceSvg = generateTraceChartSvg(data.soil);
+                if (traceSvg) {
+                    // Parse actual height from SVG viewBox to ensure canvas matches exactly
+                    var traceHMatch = traceSvg.match(/viewBox="0 0 \d+ (\d+)"/);
+                    var traceH = traceHMatch ? parseInt(traceHMatch[1]) : 280;
+                    var traceChart = await svgStringToBase64Png(traceSvg, 500, traceH);
+                    if (traceChart) {
+                        charts.trace = traceChart;
+                    }
+                }
+            } else {
+                console.log('[WordExport] No trace data — skipping trace chart. Fe:', data.soil && data.soil.Fe, 'Mn:', data.soil && data.soil.Mn);
+            }
+            
+            // Tissue chart
+            if (data.tissue && data.tissue.ranges && (data.tissue.N || data.tissue.K)) {
+                var tissueSvg = generateTissueChartSvg(data.tissue);
+                if (tissueSvg) {
+                    var tissueChart = await svgStringToBase64Png(tissueSvg, 500, 280);
+                    if (tissueChart) {
+                        charts.tissue = tissueChart;
+                    }
+                }
+            }
+            
+            // Water chart
+            if (data.water && data.water.thresholds && (data.water.EC || data.water.SAR)) {
+                var waterSvg = generateWaterChartSvg(data.water);
+                if (waterSvg) {
+                    var waterChart = await svgStringToBase64Png(waterSvg, 500, 200);
+                    if (waterChart) {
+                        charts.water = waterChart;
+                    }
+                }
+            }
+        }
+        
+        // Nutrient trend sparklines - generate from GilbaNutrientTrend (soil, tissue, water)
+        if (data && data.nutrientTrend && data.nutrientTrend.hasData &&
+            window.GilbaNutrientTrend && typeof window.GilbaNutrientTrend.calculateNutrientTrend === 'function') {
+            try {
+                charts.nutrientTrends = {};
+                var sparkTypes = [
+                    { type: 'soil',   nutrients: ['K', 'P', 'Ca', 'Mg', 'S', 'Fe', 'Mn'] },
+                    { type: 'tissue', nutrients: ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn'] },
+                    { type: 'water',  nutrients: ['SAR', 'EC', 'Na', 'Cl', 'HCO3', 'B'] }
+                ];
+                
+                for (var st = 0; st < sparkTypes.length; st++) {
+                    var sparkType = sparkTypes[st].type;
+                    var sparkNuts = sparkTypes[st].nutrients;
+                    var trendIndex = window.GilbaNutrientTrend.buildTemporalIndex(sparkType);
+                    var trendKeys = Object.keys(trendIndex);
+                    
+                    for (var tk = 0; tk < trendKeys.length; tk++) {
+                        var group = trendIndex[trendKeys[tk]];
+                        if (group.length < 2) continue;
+                        
+                        if (!charts.nutrientTrends[trendKeys[tk]]) {
+                            charts.nutrientTrends[trendKeys[tk]] = {};
+                        }
+                        
+                        for (var tn = 0; tn < sparkNuts.length; tn++) {
+                            var trendResult = window.GilbaNutrientTrend.calculateNutrientTrend(group, sparkNuts[tn], sparkType);
+                            if (trendResult && trendResult.points && trendResult.points.length >= 2) {
+                                var sparkSvg = window.GilbaNutrientTrend.renderTrendChart(trendResult, {
+                                    width: 360,
+                                    height: 100,
+                                    showThreshold: true,
+                                    showLabels: true
+                                });
+                                if (sparkSvg) {
+                                    var sparkPng = await svgStringToBase64Png(sparkSvg, 360, 100);
+                                    if (sparkPng) {
+                                        charts.nutrientTrends[trendKeys[tk]][sparkNuts[tn]] = sparkPng;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        var capturedCount = Object.keys(charts.nutrientTrends[trendKeys[tk]]).length;
+                        if (capturedCount > 0) {
+                        }
+                    }
+                }
+            } catch (trendChartErr) {
+                console.warn('[WordExport] Error capturing trend sparklines:', trendChartErr);
+            }
+        }
+
+        // Multi-source overlay charts (all sources on one chart per nutrient)
+        if (window.GilbaNutrientTrend &&
+            typeof window.GilbaNutrientTrend.buildMultiSourceIndex === 'function' &&
+            typeof window.GilbaNutrientTrend.renderMultiSourceChart === 'function') {
+            try {
+                charts.multiSource = {};
+                var msoTypes = ['water', 'soil', 'tissue'];
+                var msoNutrients = {
+                    water:   ['SAR', 'SARadj', 'EC', 'pH', 'Na', 'Cl', 'HCO3', 'B', 'Fe', 'Ca', 'Mg', 'K', 'SO4'],
+                    soil:    ['K', 'P', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Na', 'pH'],
+                    tissue:  ['N', 'P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn']
+                };
+                for (var mt = 0; mt < msoTypes.length; mt++) {
+                    var mType = msoTypes[mt];
+                    var mIndex = window.GilbaNutrientTrend.buildMultiSourceIndex(mType);
+                    var mKeys = Object.keys(mIndex);
+                    if (mKeys.length < 2) continue; // need 2+ sources
+
+                    charts.multiSource[mType] = {};
+                    var mNuts = msoNutrients[mType];
+                    for (var mn = 0; mn < mNuts.length; mn++) {
+                        var mNut = mNuts[mn];
+                        // Use export-sized chart: 500x220
+                        var mSvg = window.GilbaNutrientTrend.renderMultiSourceChart(
+                            mIndex, mNut, mType,
+                            ['#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#0284c7'],
+                            500, 220, { t: 20, r: 16, b: 36, l: 52 }
+                        );
+                        if (!mSvg) continue;
+                        var mPng = await svgStringToBase64Png(mSvg, 500, 220);
+                        if (mPng) charts.multiSource[mType][mNut] = mPng;
+                    }
+                }
+            } catch (msoErr) {
+                console.warn('[WordExport] Error capturing multi-source charts:', msoErr);
+            }
+        }
+        
+        return charts;
+    }
+    
+    /**
+     * Fix duplicate image IDs in docx file
+     * Word requires unique IDs for wp:docPr and pic:cNvPr elements
+     * docx.js library reuses the same IDs which causes Word to reject the file
+     */
+    async function fixDuplicateImageIds(blob) {
+        // Check if JSZip is available
+        if (typeof JSZip === 'undefined') {
+            console.warn('[WordExport] JSZip not available, skipping ID fix');
+            return blob;
+        }
+        
+        try {
+            var zip = new JSZip();
+            var zipContents = await zip.loadAsync(blob);
+            
+            // Get document.xml
+            var docXmlFile = zipContents.file('word/document.xml');
+            if (!docXmlFile) {
+                console.warn('[WordExport] document.xml not found in zip');
+                return blob;
+            }
+            
+            var docXml = await docXmlFile.async('string');
+            
+            // Count how many docPr elements exist
+            var docPrMatches = docXml.match(/<wp:docPr\s+id="[^"]*"/g) || [];
+            var imageCount = docPrMatches.length;
+            
+            // Only fix if there are multiple images (duplicate IDs are only a problem with >1 image)
+            if (imageCount <= 1) {
+                return blob;
+            }
+            
+            // Fix duplicate wp:docPr ids
+            var docPrId = 1;
+            docXml = docXml.replace(/<wp:docPr\s+id="[^"]*"/g, function() {
+                return '<wp:docPr id="' + (docPrId++) + '"';
+            });
+            
+            // Fix duplicate pic:cNvPr ids  
+            var cNvPrId = 1;
+            docXml = docXml.replace(/<pic:cNvPr\s+id="[^"]*"/g, function() {
+                return '<pic:cNvPr id="' + (cNvPrId++) + '"';
+            });
+            
+            
+            // Create a new zip preserving original structure
+            var newZip = new JSZip();
+            
+            // Copy all files preserving their properties
+            var files = Object.keys(zipContents.files);
+            for (var i = 0; i < files.length; i++) {
+                var filename = files[i];
+                var file = zipContents.files[filename];
+                
+                if (file.dir) {
+                    // Directory entry
+                    newZip.folder(filename);
+                } else if (filename === 'word/document.xml') {
+                    // Use our modified document.xml
+                    newZip.file(filename, docXml);
+                } else {
+                    // Copy file as-is (binary)
+                    var content = await file.async('uint8array');
+                    newZip.file(filename, content);
+                }
+            }
+            
+            // Generate with same settings docx.js uses
+            var fixedBlob = await newZip.generateAsync({
+                type: 'blob',
+                mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            
+            return fixedBlob;
+        } catch (err) {
+            console.error('[WordExport] Error in fixDuplicateImageIds:', err);
+            return blob; // Return original on error
+        }
+    }
+    
+    // Generate and download Word document
+    async function exportToWord() {
+        
+        // Reset image ID counter for each export
+        imageIdCounter = 0;
+        
+        // Show loading indicator
+        var loadingDiv = document.createElement('div');
+        loadingDiv.id = 'word-export-loading';
+        loadingDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--gaip-surface);padding:20px 40px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.3);z-index:10000;font-family:Arial;';
+        loadingDiv.innerHTML = '📝 Generating Word document...<br><small>Capturing charts...</small>';
+        document.body.appendChild(loadingDiv);
+        
+        try {
+            
+            // Collect data - use GAIP_WordExport.collectData() to allow patch interception
+            var data = GAIP_WordExport.collectData();
+            
+            // Capture charts (pass data for generating soil/tissue/water charts)
+            var charts = await captureCharts(data);
+            
+            // Build sections with charts - use GAIP_WordExport.buildSections() to allow patch interception
+            var sections = GAIP_WordExport.buildSections(data, charts);
+            
+            var doc = new Document({
+                features: { updateFields: true },
+                styles: {
+                default: { document: { run: { font: 'Calibri', size: 22 } } },
+                paragraphStyles: [
+                    { id: 'Title', name: 'Title', basedOn: 'Normal',
+                      run: { size: 48, bold: true, color: '1F2937', font: 'Calibri' },
+                      paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },
+                    { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+                      run: { size: 28, bold: true, color: '059669', font: 'Calibri' },
+                      paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 0 } },
+                    { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
+                      run: { size: 24, bold: true, color: '374151', font: 'Calibri' },
+                      paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 1 } }
+                ]
+            },
+            sections: [{
+                properties: {
+                    page: { margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } }
+                },
+                headers: {
+                    default: new Header({ children: [new Paragraph({ 
+                        alignment: AlignmentType.RIGHT,
+                        children: [new TextRun({ text: 'GAIP Analysis Report', size: 18, color: '9CA3AF' })]
+                    })] })
+                },
+                footers: {
+                    default: new Footer({ children: [new Paragraph({ 
+                        alignment: AlignmentType.CENTER,
+                        children: [
+                            new TextRun({ text: 'Page ', size: 18, color: '9CA3AF' }), 
+                            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF' }), 
+                            new TextRun({ text: ' of ', size: 18, color: '9CA3AF' }), 
+                            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, color: '9CA3AF' })
+                        ]
+                    })] })
+                },
+                children: sections
+            }]
+        });
+        
+        // Generate and download
+        Packer.toBlob(doc).then(async function(blob) {
+            var filename = 'GAIP_Report_' + new Date().toISOString().split('T')[0] + '.docx';
+            
+            // Post-process to fix duplicate image IDs (Word requirement)
+            // docx.js generates all images with id="1" which Word may reject with multiple images
+            try {
+                var fixedBlob = await fixDuplicateImageIds(blob);
+                blob = fixedBlob;
+            } catch (fixErr) {
+                console.warn('[WordExport] Could not fix image IDs:', fixErr);
+                // Continue with original blob
+            }
+            
+            // Create download link
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            
+            // Remove loading indicator
+            var loading = document.getElementById('word-export-loading');
+            if (loading) loading.remove();
+            
+        }).catch(function(err) {
+            console.error('[WordExport] Error generating document:', err);
+            var loading = document.getElementById('word-export-loading');
+            if (loading) loading.remove();
+            alert('Error generating Word document: ' + err.message);
+        });
+        
+        } catch (err) {
+            console.error('[WordExport] Export failed:', err);
+            var loading = document.getElementById('word-export-loading');
+            if (loading) loading.remove();
+            alert('Error generating Word document: ' + err.message);
+        }
+    }
+    
+    // ============================================
+    // ============================================
+    // LOGO MANAGEMENT — server-backed dropdown
+    // ============================================
+
+    // In-memory cache: array of {id, name, base64, width, height, type}
+    var _logoCache = [];
+    // Currently active logo object (null = none)
+    var _selectedLogo = null;
+
+    function _ajaxLogo(action, data, cb) {
+        var cfg = window.GAIP_HUB_CONFIG || {};
+        var ajaxUrl = cfg.ajaxUrl || '/wp-admin/admin-ajax.php';
+        var nonce   = cfg.nonce   || '';
+        var payload = 'action=' + action + '&nonce=' + encodeURIComponent(nonce);
+        Object.keys(data).forEach(function(k) {
+            payload += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
+        });
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', ajaxUrl, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.onload = function() {
+            try { cb(null, JSON.parse(xhr.responseText)); }
+            catch(e) { cb(e); }
+        };
+        xhr.onerror = function() { cb(new Error('Network error')); };
+        xhr.send(payload);
+    }
+
+    function _populateDropdown(logos, selectedId) {
+        var sel = document.getElementById('gaip-logo-select');
+        var delBtn = document.getElementById('gaip-logo-delete-btn');
+        var status = document.getElementById('gaip-logo-status');
+        if (!sel) return;
+
+        // Rebuild options
+        sel.innerHTML = '<option value="">— None —</option>';
+        logos.forEach(function(logo) {
+            var opt = document.createElement('option');
+            opt.value = logo.id;
+            opt.textContent = logo.name;
+            if (logo.id === selectedId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        // Resolve selected logo object
+        var currentId = sel.value;
+        _selectedLogo = logos.find(function(l) { return l.id === currentId; }) || null;
+
+        if (delBtn) delBtn.style.display = (currentId && currentId !== '') ? 'inline-block' : 'none';
+        if (status) status.textContent = _selectedLogo ? ('✓ ' + _selectedLogo.name) : '';
+    }
+
+    function _loadLogos() {
+        _ajaxLogo('gilba_logo_get', {}, function(err, res) {
+            if (err || !res || !res.success) return;
+            _logoCache = res.data.logos || [];
+
+            // Determine persisted selection from localStorage (fast, no extra ajax)
+            var savedId = localStorage.getItem('gaip_selected_logo_id') || '';
+            // Fall back to first logo if saved id no longer exists
+            var ids = _logoCache.map(function(l) { return l.id; });
+            if (savedId && ids.indexOf(savedId) === -1) savedId = '';
+            if (!savedId && _logoCache.length) savedId = _logoCache[0].id;
+
+            _populateDropdown(_logoCache, savedId);
+        });
+    }
+
+    function initLogoUpload() {
+        var uploadInput = document.getElementById('gaip-logo-upload');
+        var addBtn      = document.getElementById('gaip-logo-add-btn');
+        var delBtn      = document.getElementById('gaip-logo-delete-btn');
+        var sel         = document.getElementById('gaip-logo-select');
+        var status      = document.getElementById('gaip-logo-status');
+        var exportBtn   = document.getElementById('gaip-export-word');
+
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() { exportToWord(); });
+        }
+
+        // Add button triggers hidden file input
+        if (addBtn && uploadInput) {
+            addBtn.addEventListener('click', function() { uploadInput.click(); });
+        }
+
+        // File chosen — upload to server
+        if (uploadInput) {
+            uploadInput.addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (!file) return;
+                if (!file.type.match(/image\/(png|jpeg|gif|webp)/)) {
+                    if (status) status.textContent = '❌ Use PNG, JPG, GIF or WebP';
+                    return;
+                }
+                if (file.size > 500 * 1024) {
+                    if (status) status.textContent = '❌ Max 500KB';
+                    return;
+                }
+                if (status) status.textContent = 'Uploading…';
+
+                var reader = new FileReader();
+                reader.onload = function(ev) {
+                    var base64 = ev.target.result;
+                    var img = new Image();
+                    img.onload = function() {
+                        var name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
+                        _ajaxLogo('gilba_logo_save', {
+                            name:   name,
+                            base64: base64,
+                            width:  img.width,
+                            height: img.height,
+                            type:   file.type
+                        }, function(err2, res2) {
+                            uploadInput.value = '';
+                            if (err2 || !res2 || !res2.success) {
+                                if (status) status.textContent = '❌ Save failed';
+                                return;
+                            }
+                            // Add to cache and re-populate, selecting new logo
+                            _logoCache.push({
+                                id: res2.data.id, name: res2.data.name,
+                                base64: base64, width: img.width,
+                                height: img.height, type: file.type
+                            });
+                            localStorage.setItem('gaip_selected_logo_id', res2.data.id);
+                            _populateDropdown(_logoCache, res2.data.id);
+                        });
+                    };
+                    img.src = base64;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // Dropdown change — save selection to localStorage (no round-trip needed)
+        if (sel) {
+            sel.addEventListener('change', function() {
+                var id = sel.value;
+                _selectedLogo = _logoCache.find(function(l) { return l.id === id; }) || null;
+                localStorage.setItem('gaip_selected_logo_id', id || '');
+                if (delBtn) delBtn.style.display = (id && id !== '') ? 'inline-block' : 'none';
+                if (status) status.textContent = _selectedLogo ? ('✓ ' + _selectedLogo.name) : '';
+            });
+        }
+
+        // Delete selected logo
+        if (delBtn) {
+            delBtn.addEventListener('click', function() {
+                var id = sel ? sel.value : '';
+                if (!id) return;
+                var logo = _logoCache.find(function(l) { return l.id === id; });
+                if (!confirm('Delete logo "' + (logo ? logo.name : id) + '"?')) return;
+                _ajaxLogo('gilba_logo_delete', {id: id}, function(err3, res3) {
+                    if (err3 || !res3 || !res3.success) {
+                        if (status) status.textContent = '❌ Delete failed';
+                        return;
+                    }
+                    _logoCache = _logoCache.filter(function(l) { return l.id !== id; });
+                    localStorage.removeItem('gaip_selected_logo_id');
+                    _selectedLogo = null;
+                    _populateDropdown(_logoCache, '');
+                });
+            });
+        }
+
+        // Load logos from server
+        _loadLogos();
+    }
+
+    function getStoredLogo() {
+        return _selectedLogo || null;
+    }
+
+    function getOrgName() {
+        var input = document.getElementById('gaip-org-name');
+        return input ? input.value.trim() : '';
+    }
+
+    // Expose logo functions
+    global.GAIP_getReportLogo = getStoredLogo;
+    global.GAIP_getOrgName = getOrgName;
+
+    // Init on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initLogoUpload);
+    } else {
+        initLogoUpload();
+    }
+    
+    // Export to global
+    global.GAIP_WordExport = {
+        version: '2.3.0',
+        export: exportToWord,
+        collectData: collectData,
+        buildSections: buildSections  // Exposed for scenario patch integration
+    };
+
+    // Expose internal functions for combined export module
+    global.GAIP_WordExport_captureCharts = captureCharts;
+    global.GAIP_WordExport_fixDuplicateImageIds = fixDuplicateImageIds;
+    
+    
+})(window);

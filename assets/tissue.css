@@ -1,0 +1,31 @@
+/* =========================================================================
+   Gilba Tissue Testing Module — Scoped CSS
+   All selectors scoped under .gaip-tissue-module to avoid hub collisions
+   ========================================================================= */
+
+.gaip-tissue-module{ font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+.gaip-tissue-module .gaip-card{ border:1px solid var(--gaip-surface-muted); border-radius:12px; padding:16px; background:var(--gaip-surface); }
+.gaip-tissue-module .gaip-card-head{ margin-bottom:10px; }
+.gaip-tissue-module .gaip-title{ font-weight:700; font-size:18px; }
+.gaip-tissue-module .gaip-sub{ color:var(--gaip-text-secondary); font-size:13px; margin-top:2px; }
+.gaip-tissue-module .gaip-grid{ display:grid; grid-template-columns: repeat(4, minmax(160px,1fr)); gap:10px; }
+.gaip-tissue-module .gaip-grid label{ font-size:12px; color:var(--gaip-text); display:flex; flex-direction:column; gap:6px; }
+.gaip-tissue-module .gaip-inp{ padding:8px 10px; border:1px solid var(--gaip-border); border-radius:10px; font-size:14px; background:var(--gaip-surface); color:var(--gaip-text); }
+.gaip-tissue-module .gaip-divider{ height:1px; background:var(--gaip-border); margin:14px 0; }
+.gaip-tissue-module .gaip-tablewrap{ overflow:auto; }
+.gaip-tissue-module .gaip-table{ width:100%; border-collapse:collapse; font-size:13px; color:var(--gaip-text); }
+.gaip-tissue-module .gaip-table th,
+.gaip-tissue-module .gaip-table td{ border-bottom:1px solid var(--gaip-surface-muted); padding:8px 10px; text-align:left; color:var(--gaip-text); }
+.gaip-tissue-module .gaip-actions{ margin-top:10px; }
+.gaip-tissue-module .gaip-btn{ padding:10px 12px; border-radius:10px; border:1px solid #16a34a; background:#16a34a; color:#ffffff; font-weight:600; cursor:pointer; }
+.gaip-tissue-module .band-Deficient{ color:#b91c1c; font-weight:700; }
+.gaip-tissue-module .band-Marginal{ color:#b45309; font-weight:700; }
+.gaip-tissue-module .band-Sufficient{ color:#166534; font-weight:700; }
+.gaip-tissue-module .band-High{ color:var(--gaip-text); font-weight:700; }
+.gaip-tissue-module .band-Missing{ color:var(--gaip-text-secondary); font-weight:700; }
+.gaip-tissue-module .gaip-out-title{ font-weight:700; margin-bottom:6px; }
+.gaip-tissue-module .gaip-out-body{ color:var(--gaip-text); font-size:13px; line-height:1.35; }
+
+@media (max-width: 980px){
+  .gaip-tissue-module .gaip-grid{ grid-template-columns: repeat(2, minmax(160px,1fr)); }
+}

@@ -1,0 +1,525 @@
+/* ============================================================
+   GILBA HUB — Mobile Responsive Layer v1.0
+   
+   LOAD ORDER: After all other CSS files (including gaip-design-system.css)
+   SCOPE: Only activates inside @media queries — desktop is untouched
+   APPROACH: Override-only via high specificity selectors + !important
+   ZERO changes to desktop layout, JS wiring, or class names
+   ============================================================ */
+
+
+/* ============================================================
+   TABLET (max-width: 768px)
+   Mostly tightening spacing, single-column grids
+   ============================================================ */
+@media (max-width: 768px) {
+
+    /* Hub container — reduce padding, remove horizontal margin */
+    #gaip-hub {
+        margin: 10px 4px !important;
+        padding: 12px 10px !important;
+        border-radius: 6px !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Main card grid — single column on tablet */
+    #gaip-hub .gaip-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+    }
+
+    /* Turf profile card — keep full width */
+    #gaip-hub .gaip-turf-profile-card {
+        grid-column: 1 / -1 !important;
+    }
+
+    /* Two-column form grids — stack on tablet */
+    #gaip-hub .gaip-form-row-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    /* Three-column form grids (inline styles) */
+    #gaip-hub .gaip-form-row-grid[style*="grid-template-columns: 1fr 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Site selector bar — wrap and stack */
+    #gaip-hub #gaip-site-selector-top {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        padding: 10px !important;
+    }
+
+    #gaip-hub #gaip-site-select-top {
+        min-width: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        order: 1 !important;
+    }
+
+    /* Site selector buttons — same row */
+    #gaip-hub #gaip-site-selector-top button {
+        flex: 0 0 auto !important;
+    }
+
+    /* Card headers — more tap-friendly */
+    #gaip-hub .gaip-card-header {
+        padding: 12px !important;
+        min-height: 44px !important;
+    }
+
+    /* Card bodies — reduce padding */
+    #gaip-hub .gaip-card-body {
+        padding: 10px !important;
+    }
+
+    /* Soil/Water data grids — reduce column count */
+    #gaip-hub .gaip-grid-mini {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* MLSN table — horizontal scroll */
+    #gaip-hub .gaip-result-block[data-section="mlsn"],
+    #gaip-hub .gaip-result-block[data-section="water"] {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    #gaip-hub .gaip-mlsn-table {
+        min-width: 500px !important;
+    }
+
+    /* Module toggles in card headers — stack below title */
+    #gaip-hub .gaip-header-controls {
+        gap: 8px !important;
+    }
+
+    #gaip-hub .gaip-module-toggle {
+        font-size: 11px !important;
+        padding: 3px 6px !important;
+    }
+
+    /* Inline flex rows — wrap */
+    #gaip-hub .gaip-inline {
+        flex-wrap: wrap !important;
+    }
+
+    /* Date inputs — full width */
+    #gaip-hub .gaip-dates {
+        flex-direction: column !important;
+    }
+
+    #gaip-hub .gaip-dates input {
+        width: 100% !important;
+    }
+
+    /* Export controls — stack */
+    #gaip-hub .gaip-export-controls {
+        flex-wrap: wrap !important;
+    }
+
+    /* Profile controls — wrap */
+    #gaip-hub .gaip-profile-controls {
+        flex-wrap: wrap !important;
+    }
+
+    #gaip-hub .gaip-profile-controls select {
+        min-width: 100% !important;
+    }
+
+    /* Shade/PGR chart metrics — stack on narrow */
+    #gaip-hub .gaip-shade-metrics,
+    #gaip-hub .gaip-pgr-metrics {
+        flex-wrap: wrap !important;
+    }
+
+    /* Notification toast — full width at bottom */
+    .gaip-notification {
+        left: 10px !important;
+        right: 10px !important;
+        bottom: 10px !important;
+        text-align: center !important;
+    }
+
+    /* Clegg range fields and similar inline grids */
+    #gaip-hub .gaip-clegg-range-fields,
+    #gaip-hub div[style*="grid-template-columns: 1fr 1fr"][style*="gap: 10px"] {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Sample metadata rows (inline style flex rows) */
+    #gaip-hub div[style*="display: flex"][style*="align-items: center"][style*="gap: 6px"] {
+        flex-wrap: wrap !important;
+    }
+
+    /* Soil/water sample labels and inputs */
+    #gaip-hub .gaip-soil-sample-label,
+    #gaip-hub .gaip-soil-lab-ref,
+    #gaip-hub .gaip-soil-date,
+    #gaip-hub .gaip-water-source-label,
+    #gaip-hub .gaip-water-lab-ref,
+    #gaip-hub .gaip-water-date {
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+
+    /* Section headers in results */
+    #gaip-hub .gaip-results h3 {
+        font-size: 14px !important;
+    }
+
+    /* Report org/logo inputs */
+    #gaip-hub #gaip-org-name {
+        width: 100% !important;
+    }
+
+    #gaip-hub #gaip-logo-upload {
+        max-width: 100% !important;
+    }
+}
+
+
+/* ============================================================
+   MOBILE (max-width: 480px)
+   Aggressive stacking, larger touch targets, smaller text
+   ============================================================ */
+@media (max-width: 480px) {
+
+    /* Hub container — edge to edge */
+    #gaip-hub {
+        margin: 4px 0 !important;
+        padding: 8px 6px !important;
+        border-radius: 0 !important;
+        border-left: none !important;
+        border-right: none !important;
+    }
+
+    /* Hub title */
+    #gaip-hub > h2 {
+        font-size: 16px !important;
+        margin-bottom: 8px !important;
+    }
+
+    /* Cards — tighter, no shadow on mobile */
+    #gaip-hub .gaip-card {
+        border-radius: 6px !important;
+        box-shadow: none !important;
+        border: 1px solid var(--gaip-border, var(--gaip-border)) !important;
+    }
+
+    #gaip-hub .gaip-card-header {
+        padding: 10px 12px !important;
+        min-height: 44px !important;
+    }
+
+    #gaip-hub .gaip-card-header h3 {
+        font-size: 13px !important;
+    }
+
+    #gaip-hub .gaip-card-body {
+        padding: 8px 10px !important;
+    }
+
+    /* Turf type grid — single column */
+    #gaip-hub .gaip-turf-type-grid {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+
+    /* Turf type buttons — larger tap target */
+    #gaip-hub .gaip-turf-type-option {
+        padding: 14px 12px !important;
+        min-height: 44px !important;
+    }
+
+    /* Sub-category pills — wrap and bigger touch target */
+    #gaip-hub .gaip-subcategory-grid {
+        gap: 6px !important;
+    }
+
+    #gaip-hub .gaip-subcategory-option {
+        padding: 10px 14px !important;
+        font-size: 13px !important;
+        min-height: 36px !important;
+    }
+
+    /* All inputs — 16px font to prevent iOS zoom */
+    #gaip-hub input[type="text"],
+    #gaip-hub input[type="number"],
+    #gaip-hub input[type="date"],
+    #gaip-hub select,
+    #gaip-hub textarea {
+        font-size: 16px !important;
+        padding: 8px 10px !important;
+        min-height: 44px !important;
+        box-sizing: border-box !important;
+    }
+
+    /* Labels */
+    #gaip-hub label {
+        font-size: 12px !important;
+        margin-bottom: 4px !important;
+    }
+
+    /* Run button — full width, big tap target */
+    #gaip-hub .gaip-run-btn,
+    #gaip-hub button.gaip-run-btn {
+        width: 100% !important;
+        padding: 14px 18px !important;
+        font-size: 16px !important;
+        min-height: 48px !important;
+    }
+
+    /* Floating run button — adjust position for mobile */
+    #gaip-floating-run-btn,
+    .gaip-floating-run,
+    .gilba-floating-run {
+        bottom: 16px !important;
+        right: 16px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+    }
+
+    /* Result blocks */
+    #gaip-hub .gaip-result-block {
+        padding: 8px !important;
+        margin-bottom: 6px !important;
+    }
+
+    #gaip-hub .gaip-result-block h4 {
+        font-size: 12px !important;
+    }
+
+    #gaip-hub .gaip-result-body {
+        font-size: 12px !important;
+    }
+
+    /* Collapsible sections — bigger tap target */
+    #gaip-hub .gaip-collapsible-btn {
+        padding: 12px !important;
+        min-height: 44px !important;
+        font-size: 13px !important;
+    }
+
+    /* Status badges — keep readable */
+    #gaip-hub .status-badge,
+    #gaip-hub .gaip-priority-badge,
+    #gaip-hub .gaip-stress-status {
+        font-size: 10px !important;
+        padding: 2px 8px !important;
+    }
+
+    /* Profile badge in turf profile header */
+    #gaip-hub .gaip-profile-badge {
+        display: none !important;
+    }
+
+    /* Profile tags — smaller */
+    #gaip-hub .gaip-profile-tag {
+        font-size: 10px !important;
+        padding: 3px 8px !important;
+    }
+
+    /* Context indicators */
+    #gaip-hub .gaip-context-indicator {
+        font-size: 11px !important;
+        padding: 8px 10px !important;
+    }
+
+    /* Stale warning */
+    #gaip-hub .gaip-stale-warning {
+        flex-wrap: wrap !important;
+        font-size: 12px !important;
+        padding: 10px !important;
+    }
+
+    /* Chart containers — full width, smaller padding */
+    #gaip-hub .gaip-chart-container {
+        padding: 8px !important;
+    }
+
+    /* Chart metrics — stack vertically */
+    #gaip-hub .gaip-shade-metrics,
+    #gaip-hub .gaip-pgr-metrics {
+        flex-direction: column !important;
+        gap: 8px !important;
+    }
+
+    #gaip-hub .gaip-shade-metric,
+    #gaip-hub .gaip-pgr-metric {
+        text-align: left !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    }
+
+    /* Load breakdown table — smaller */
+    #gaip-hub .gaip-load-breakdown th,
+    #gaip-hub .gaip-load-breakdown td {
+        padding: 4px 6px !important;
+        font-size: 11px !important;
+    }
+
+    /* Recommendation cards */
+    #gaip-hub .gaip-recommendation {
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
+
+    /* Aeration schedule */
+    #gaip-hub .gaip-aeration-item {
+        font-size: 11px !important;
+        flex-wrap: wrap !important;
+    }
+
+    /* Tooltips — hide on mobile (no hover) */
+    #gaip-hub .gaip-tooltip {
+        display: none !important;
+    }
+
+    /* Climate banner — stack */
+    #gaip-hub .gaip-climate-banner > div {
+        flex-wrap: wrap !important;
+    }
+
+    /* Section heading dividers */
+    #gaip-hub .gaip-results > div[style*="border-bottom: 2px"] h3 {
+        font-size: 13px !important;
+    }
+
+    /* Wear/recovery risk bar */
+    #gaip-hub .gaip-risk-bar-container {
+        height: 14px !important;
+    }
+
+    #gaip-hub .gaip-risk-bar {
+        height: 14px !important;
+    }
+
+    /* Profile controls — full width buttons */
+    #gaip-hub .gaip-profile-controls button {
+        flex: 1 1 auto !important;
+        min-height: 40px !important;
+    }
+
+    /* Interpretation buttons — full width */
+    #gaip-hub .gaip-interpret-btn,
+    .gaip-interpret-btn {
+        width: 100% !important;
+        padding: 12px !important;
+        min-height: 44px !important;
+    }
+
+    /* Map container — ensure it doesn't overflow */
+    #gaip-hub #gaip-location-map {
+        max-width: 100% !important;
+        height: 200px !important;
+    }
+
+    /* Tissue/Water card grids */
+    #gaip-hub .gaip-tissue-cards-grid,
+    #gaip-hub .gaip-water-cards-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Overseed alert — wrap */
+    #gaip-hub .gaip-overseed-alert {
+        flex-wrap: wrap !important;
+    }
+}
+
+
+/* ============================================================
+   SMALL MOBILE (max-width: 360px)
+   Ultra-compact for older/smaller phones
+   ============================================================ */
+@media (max-width: 360px) {
+
+    #gaip-hub {
+        padding: 6px 4px !important;
+    }
+
+    #gaip-hub .gaip-card-header {
+        padding: 8px 10px !important;
+    }
+
+    #gaip-hub .gaip-card-header h3 {
+        font-size: 12px !important;
+    }
+
+    #gaip-hub .gaip-card-body {
+        padding: 6px 8px !important;
+    }
+
+    /* Force all MLSN-style tables to scroll */
+    #gaip-hub .gaip-mlsn-table {
+        min-width: 450px !important;
+        font-size: 11px !important;
+    }
+
+    #gaip-hub .gaip-mlsn-table th,
+    #gaip-hub .gaip-mlsn-table td {
+        padding: 5px 4px !important;
+    }
+}
+
+
+/* ============================================================
+   TOUCH DEVICE ENHANCEMENTS
+   Applied via pointer: coarse (touch screens regardless of width)
+   ============================================================ */
+@media (pointer: coarse) {
+
+    /* Minimum 44px touch targets per WCAG */
+    #gaip-hub .gaip-card-header,
+    #gaip-hub .gaip-collapsible-btn,
+    #gaip-hub .gaip-turf-type-option,
+    #gaip-hub .gaip-subcategory-option {
+        min-height: 44px !important;
+    }
+
+    /* Remove hover states that cause sticky on touch */
+    #gaip-hub .gaip-card-header:hover {
+        background: var(--gaip-surface-muted, var(--gaip-surface-muted)) !important;
+    }
+
+    #gaip-hub .gaip-turf-type-option:hover {
+        border-color: inherit !important;
+        background: inherit !important;
+    }
+
+    #gaip-hub .gaip-turf-type-option.selected:hover {
+        border-color: var(--gaip-accent, #2d7a4f) !important;
+        background: var(--gaip-accent-light, var(--gaip-accent-light)) !important;
+    }
+
+    /* Tap highlight for interactive elements */
+    #gaip-hub .gaip-card-header,
+    #gaip-hub .gaip-collapsible-btn,
+    #gaip-hub .gaip-turf-type-option,
+    #gaip-hub .gaip-subcategory-option,
+    #gaip-hub .gaip-run-btn,
+    #gaip-hub button {
+        -webkit-tap-highlight-color: rgba(45, 122, 79, 0.15) !important;
+    }
+}
+
+
+/* ============================================================
+   LANDSCAPE MOBILE
+   When phone is rotated — use available width better
+   ============================================================ */
+@media (max-width: 768px) and (orientation: landscape) {
+
+    /* Two columns for form grids when landscape gives us width */
+    #gaip-hub .gaip-form-row-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+
+    /* Turf type grid — row of 3 in landscape */
+    #gaip-hub .gaip-turf-type-grid {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
