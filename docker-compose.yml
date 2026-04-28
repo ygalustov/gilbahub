@@ -19,9 +19,6 @@ services:
       CACHE_STORE: database
       QUEUE_CONNECTION: database
       SESSION_DRIVER: database
-      MAIL_MAILER: smtp
-      MAIL_HOST: mailpit
-      MAIL_PORT: 1025
     depends_on:
       mysql:
         condition: service_healthy
@@ -54,61 +51,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-
-  queue:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-    container_name: gilba_queue
-    working_dir: /var/www/html
-    command: php artisan queue:work --sleep=3 --tries=3 --timeout=120
-    volumes:
-      - ./app:/var/www/html
-    environment:
-      APP_ENV: local
-      DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: gilba
-      DB_USERNAME: gilba
-      DB_PASSWORD: gilba_secret
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      SESSION_DRIVER: database
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  scheduler:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-    container_name: gilba_scheduler
-    working_dir: /var/www/html
-    command: sh -c "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"
-    volumes:
-      - ./app:/var/www/html
-    environment:
-      APP_ENV: local
-      DB_CONNECTION: mysql
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_DATABASE: gilba
-      DB_USERNAME: gilba
-      DB_PASSWORD: gilba_secret
-      CACHE_STORE: database
-      QUEUE_CONNECTION: database
-      SESSION_DRIVER: database
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  mailpit:
-    image: axllent/mailpit:v1.21
-    container_name: gilba_mailpit
-    ports:
-      - "8025:8025"
-      - "1025:1025"
 
 volumes:
   mysql_data:
