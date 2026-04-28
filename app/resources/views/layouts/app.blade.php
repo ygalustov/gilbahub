@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name') }}</title>
     <style>
         :root {
@@ -66,7 +67,7 @@
         .card strong { display: block; margin-bottom: 6px; color: var(--text); }
         .auth-wrap { width: min(420px, calc(100% - 32px)); margin: 72px auto; }
         label { display: block; margin: 14px 0 6px; font-weight: 600; }
-        input[type="email"], input[type="password"] {
+        input[type="email"], input[type="password"], input[type="text"], input[type="number"] {
             width: 100%;
             border: 1px solid var(--border);
             border-radius: 6px;
@@ -86,6 +87,18 @@
             font-weight: 700;
         }
         .primary:hover { background: var(--brand-dark); }
+        .secondary {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 9px 12px;
+            background: #fff;
+            color: var(--brand);
+            cursor: pointer;
+            font: inherit;
+            font-weight: 700;
+        }
+        .secondary:hover { background: #f1f7f4; text-decoration: none; }
+        .compact-button { width: auto; margin: 0; padding: 8px 11px; }
         .error { margin-top: 8px; color: var(--danger); font-size: 14px; }
         .check-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; color: var(--muted); }
         .section-title { margin: 28px 0 12px; font-size: 18px; }
@@ -93,7 +106,7 @@
         .site-list { display: grid; gap: 10px; margin-top: 12px; }
         .site-row {
             display: grid;
-            grid-template-columns: 1fr auto;
+            grid-template-columns: 1fr auto auto;
             gap: 12px;
             align-items: center;
             padding: 14px;
@@ -103,6 +116,23 @@
         }
         .site-row strong { display: block; }
         .site-meta { margin-top: 4px; color: var(--muted); font-size: 13px; }
+        .site-form {
+            display: grid;
+            gap: 14px;
+            margin-top: 12px;
+            padding: 16px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #fbfcfb;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+        .form-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .form-actions .primary { width: auto; margin-top: 0; }
+        .site-edit-panel[hidden] { display: none; }
         .pill {
             display: inline-flex;
             align-items: center;

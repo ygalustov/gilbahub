@@ -36,6 +36,65 @@ class SiteApiTest extends TestCase
             ->assertJsonPath('data.0.configs.gaip.config.status', 'ready_for_wp_liftout');
     }
 
+    public function test_authenticated_user_can_create_site(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/sites', [
+                '_token' => 'test-token',
+                'name' => 'Training Ground',
+                'location_name' => 'Sydney, NSW',
+                'timezone' => 'Australia/Sydney',
+                'latitude' => -33.8688,
+                'longitude' => 151.2093,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'Training Ground')
+            ->assertJsonPath('data.configs.gaip.config', []);
+
+        $this->assertDatabaseHas('sites', [
+            'owner_user_id' => $user->id,
+            'name' => 'Training Ground',
+            'slug' => 'training-ground',
+        ]);
+
+        $this->assertDatabaseHas('site_user', [
+            'user_id' => $user->id,
+            'role' => 'owner',
+        ]);
+    }
+
+    public function test_authenticated_user_can_update_site(): void
+    {
+        $user = User::factory()->create();
+        $site = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+        $site->users()->attach($user->id, ['role' => 'owner']);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->patchJson('/api/sites/'.$site->id, [
+                '_token' => 'test-token',
+                'name' => 'Updated Site',
+                'location_name' => 'Melbourne, VIC',
+                'timezone' => 'Australia/Melbourne',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Updated Site')
+            ->assertJsonPath('data.location_name', 'Melbourne, VIC');
+
+        $this->assertDatabaseHas('sites', [
+            'id' => $site->id,
+            'name' => 'Updated Site',
+            'slug' => 'updated-site',
+        ]);
+    }
+
     public function test_authenticated_user_can_update_site_config(): void
     {
         $user = User::factory()->create();
