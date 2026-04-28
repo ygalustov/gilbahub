@@ -1680,6 +1680,23 @@
             _currentSite = siteId;
             _initSite(siteId);
             log('Switched to site: ' + siteId + ' (' + (_sites[siteId].label || siteId) + ')');
+
+            var cfg = global.GAIP_HUB_CONFIG || {};
+            if (/^\d+$/.test(String(siteId)) && typeof fetch === 'function' && cfg.csrfToken) {
+                fetch((cfg.restUrl || '/api/') + 'active-site', {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': cfg.csrfToken
+                    },
+                    body: JSON.stringify({ site_id: Number(siteId) })
+                }).catch(function(err) {
+                    warn('Failed to sync active site to backend', err);
+                });
+            }
+
             document.dispatchEvent(new CustomEvent('gaip:site-changed', {
                 detail: { siteId: siteId, label: _sites[siteId].label }
             }));

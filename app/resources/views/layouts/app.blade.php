@@ -15,7 +15,7 @@
     @endphp
     <script>
         window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
-            ajaxUrl: "",
+            ajaxUrl: "{{ url('/api/ajax') }}",
             nonce: "{{ csrf_token() }}",
             csrfToken: "{{ csrf_token() }}",
             restUrl: "{{ url('/api') }}/",

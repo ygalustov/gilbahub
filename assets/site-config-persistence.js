@@ -538,6 +538,7 @@
                     type: 'POST',
                     data: {
                         action: 'gilba_save_location',
+                        site_id: (global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId) ? global.GAIP_SampleManager.getActiveSiteId() : '',
                         lat: location.lat,
                         lon: location.lon,
                         name: location.name || '',
@@ -639,6 +640,7 @@
      */
     function restoreNewSiteConfig(newSiteId) {
         _isSiteSwitch = true;
+        _isRestoring = true;
         var config = _configs[newSiteId];
         if (config) {
             restoreConfig(config);
@@ -652,6 +654,29 @@
             setDomVal('.gaip-pgr-rate',  '');
             setDomVal('.gaip-pgr-product', '');
             setDomVal('.gaip-dmi-date',  '');
+            setDomVal('.gaip-species', '');
+            setDomVal('.gaip-variety', '');
+            setDomVal('.gaip-construction', '');
+            setDomVal('.gaip-drainage', '');
+            setDomVal('.gaip-lat', '');
+            if (tp && tp.state) {
+                tp.state.turfType = '';
+                tp.state.subCategory = '';
+                tp.state.species = '';
+                tp.state.variety = '';
+                tp.state.construction = '';
+                tp.state.drainage = '';
+            }
+            var selectedButtons = document.querySelectorAll('.gaip-turf-type-option.selected, .gaip-turf-type-option.active, .gaip-subcategory-option.selected, .gaip-subcategory-option.active');
+            for (var si = 0; si < selectedButtons.length; si++) {
+                selectedButtons[si].classList.remove('selected');
+                selectedButtons[si].classList.remove('active');
+            }
+            setDomVal('.gaip-lat', '');
+            setDomVal('.gaip-lon', '');
+            setDomVal('.gaip-hemi', '');
+            var locSearch = document.getElementById('gaip-location-search');
+            if (locSearch) locSearch.value = '';
             try { document.querySelector('.gaip-enable-pgr') && (document.querySelector('.gaip-enable-pgr').checked = false); } catch(e) {}
             log('No saved config for', newSiteId, '— cleared transient fields (set turf type now to save it)');
         }
@@ -659,6 +684,10 @@
         // rather than the 1s fallback timer. Without this, site-switch always
         // produces the wrong GP on first run (42% vs correct value).
         setTimeout(function() {
+            if (!config) {
+                _isRestoring = false;
+                _isSiteSwitch = false;
+            }
             document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
                 detail: { siteId: newSiteId, source: 'site-switch' }
             }));
@@ -987,7 +1016,7 @@
             // the PENDING flag is cleared at t=1600ms.
             var tp = global.GaipTurfProfile;
             var isProfileLoading = tp && tp._isLoadingProfile;
-            if (!_isRestoring && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
+            if (!_isRestoring && !_isSiteSwitch && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
                 _configs[currentId] = snapshotConfig();
                 saveToStorage();
                 log('Auto-saved config on turf change for', currentId);
@@ -1011,6 +1040,7 @@
                     type: 'POST',
                     data: {
                         action: 'gilba_save_location',
+                        site_id: siteId,
                         lat: loc.lat,
                         lon: loc.lon,
                         name: loc.name || '',

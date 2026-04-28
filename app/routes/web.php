@@ -1,10 +1,12 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
 use App\Http\Controllers\MediaUploadController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
+use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/hub');
@@ -35,6 +37,10 @@ Route::middleware('auth')->group(function () {
     Route::view('/settings', 'placeholder', ['title' => 'Settings'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {
+        Route::post('/ajax', [LegacyAjaxController::class, 'handle'])
+            ->withoutMiddleware(VerifyCsrfToken::class)
+            ->name('legacy.ajax');
+
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/sites/{site}', [SiteController::class, 'show'])->name('sites.show');

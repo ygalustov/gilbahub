@@ -7,6 +7,7 @@ use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
@@ -223,6 +224,85 @@ class SiteApiTest extends TestCase
         $path = DB::table('media_uploads')->value('path');
 
         Storage::disk('local')->assertExists($path);
+    }
+
+    public function test_authenticated_user_can_use_legacy_ajax_geocode_search(): void
+    {
+        Http::fake([
+            'https://geocoding-api.open-meteo.com/*' => Http::response([
+                'results' => [[
+                    'name' => 'Sydney',
+                    'admin1' => 'New South Wales',
+                    'country' => 'Australia',
+                    'latitude' => -33.8688,
+                    'longitude' => 151.2093,
+                ]],
+            ]),
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/ajax', [
+                'action' => 'gilba_geocode_search',
+                'address' => 'Sydney',
+                'nonce' => 'test-token',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.display_name', 'Sydney, New South Wales, Australia')
+            ->assertJsonPath('data.0.lat', -33.8688)
+            ->assertJsonPath('data.0.lon', 151.2093);
+    }
+
+    public function test_authenticated_user_can_save_location_via_legacy_ajax(): void
+    {
+        $user = User::factory()->create();
+        $siteA = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+        $siteB = Site::query()->create([
+            'owner_user_id' => $user->id,
+            'name' => 'Test Site',
+            'slug' => 'test-site',
+        ]);
+        $siteA->users()->attach($user->id, ['role' => 'owner']);
+        $siteB->users()->attach($user->id, ['role' => 'owner']);
+        $user->forceFill(['last_active_site_id' => $siteA->id])->save();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/ajax', [
+                'action' => 'gilba_save_location',
+                'site_id' => $siteB->id,
+                'lat' => -33.8688,
+                'lon' => 151.2093,
+                'name' => 'Sydney Olympic Park',
+                'nonce' => 'test-token',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.saved', true)
+            ->assertJsonPath('data.site_id', $siteB->id)
+            ->assertJsonPath('data.name', 'Sydney Olympic Park');
+
+        $this->assertDatabaseHas('sites', [
+            'id' => $siteB->id,
+            'location_name' => 'Sydney Olympic Park',
+        ]);
+
+        $this->assertDatabaseHas('site_configs', [
+            'site_id' => $siteB->id,
+            'namespace' => 'gaip',
+        ]);
+
+        $config = SiteConfig::query()->where('site_id', $siteB->id)->where('namespace', 'gaip')->firstOrFail();
+
+        $this->assertSame('Sydney Olympic Park', $config->config['location']['name'] ?? null);
+        $this->assertSame($siteB->id, $user->refresh()->last_active_site_id);
     }
 
     public function test_legacy_site_list_endpoints_use_wordpress_style_response_shape(): void
