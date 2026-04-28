@@ -5,42 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name') }}</title>
-    
-        <script>
-            window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
-                ajaxUrl: "",
-                nonce: "{{ csrf_token() }}",
-                csrfToken: "{{ csrf_token() }}",
-                restUrl: "{{ url('/api') }}/",
-                wpRestUrl: "{{ url('/api') }}",
-                restNonce: "{{ csrf_token() }}",
-                userId: {{ auth()->id() ?? 0 }},
-                siteUrl: "{{ url('/') }}",
-                legacyAjaxEndpoints: {
-                    gilba_sites_load: "{{ url('/api/legacy/gilba-sites-load') }}",
-                    gilba_sites_save: "{{ url('/api/legacy/gilba-sites-save') }}",
-                    gilba_site_configs_load: "{{ url('/api/legacy/gilba-site-configs-load') }}",
-                    gilba_site_configs_save: "{{ url('/api/legacy/gilba-site-configs-save') }}"
+    @php
+        $activeSite = auth()->user()?->activeSite;
+        $savedLocation = [
+            'name' => $activeSite?->location_name ?? '',
+            'lat' => $activeSite?->latitude ?? '',
+            'lon' => $activeSite?->longitude ?? '',
+        ];
+    @endphp
+    <script>
+        window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
+            ajaxUrl: "",
+            nonce: "{{ csrf_token() }}",
+            csrfToken: "{{ csrf_token() }}",
+            restUrl: "{{ url('/api') }}/",
+            wpRestUrl: "{{ url('/api') }}",
+            restNonce: "{{ csrf_token() }}",
+            userId: {{ auth()->id() ?? 0 }},
+            siteUrl: "{{ url('/') }}",
+            hubMode: "agronomic",
+            savedLocation: @json($savedLocation),
+            legacyAjaxEndpoints: {
+                gilba_sites_load: "{{ url('/api/legacy/gilba-sites-load') }}",
+                gilba_sites_save: "{{ url('/api/legacy/gilba-sites-save') }}",
+                gilba_site_configs_load: "{{ url('/api/legacy/gilba-site-configs-load') }}",
+                gilba_site_configs_save: "{{ url('/api/legacy/gilba-site-configs-save') }}"
+            }
+        });
+        window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
+        window.GilbaLegacyAjax = {
+            endpoint: function (action, config) {
+                var cfg = config || window.GAIP_HUB_CONFIG || {};
+                var endpoints = cfg.legacyAjaxEndpoints || {};
+                return endpoints[action] || cfg.ajaxUrl || "";
+            },
+            appendToken: function (body, config) {
+                var cfg = config || window.GAIP_HUB_CONFIG || {};
+                var token = cfg.csrfToken || cfg.nonce || "";
+                if (token && body && typeof body.append === "function") {
+                    body.append("_token", token);
                 }
-            });
-            window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
-            window.GilbaLegacyAjax = {
-                endpoint: function (action, config) {
-                    var cfg = config || window.GAIP_HUB_CONFIG || {};
-                    var endpoints = cfg.legacyAjaxEndpoints || {};
-                    return endpoints[action] || cfg.ajaxUrl || "";
-                },
-                appendToken: function (body, config) {
-                    var cfg = config || window.GAIP_HUB_CONFIG || {};
-                    var token = cfg.csrfToken || cfg.nonce || "";
-                    if (token && body && typeof body.append === "function") {
-                        body.append("_token", token);
-                    }
-                    return body;
-                }
-            };
-        </script>
-    
+                return body;
+            }
+        };
+    </script>
+    @yield('head')
     <style>
         :root {
             color-scheme: light;
@@ -85,6 +94,7 @@
             font: inherit;
         }
         .content { width: min(1120px, calc(100% - 32px)); margin: 32px auto; }
+        .content.content-wide { width: min(1400px, calc(100% - 24px)); margin: 16px auto 32px; }
         .panel {
             background: var(--panel);
             border: 1px solid var(--border);
@@ -202,5 +212,6 @@
 
     @yield('body')
 </div>
+@yield('scripts')
 </body>
 </html>

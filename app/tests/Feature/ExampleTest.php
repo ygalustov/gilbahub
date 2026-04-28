@@ -15,6 +15,18 @@ class ExampleTest extends TestCase
         $this->get('/')->assertRedirect('/hub');
     }
 
+    public function test_authenticated_user_can_open_hub_page(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/hub')
+            ->assertOk()
+            ->assertSee('id="gaip-hub"', false)
+            ->assertSee('/legacy-assets/hub.css', false)
+            ->assertSee('/legacy-assets/hub-tissue-v3.js', false);
+    }
+
     public function test_authenticated_user_can_open_field_log_page(): void
     {
         $user = User::factory()->create();
