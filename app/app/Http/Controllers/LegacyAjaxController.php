@@ -4,9 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Site;
 use App\Models\SiteConfig;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -22,6 +22,8 @@ class LegacyAjaxController extends Controller
             'gilba_geocode_search' => $this->geocodeSearch($request),
             'gilba_reverse_geocode' => $this->reverseGeocode($request),
             'gilba_save_location' => $this->saveLocation($request),
+            'gssh_get_venue_profiles' => $this->getVenueProfiles($request),
+            'gssh_save_venue_profile' => $this->saveVenueProfile($request),
             default => $this->error('Unknown action', 400),
         };
     }
@@ -176,6 +178,95 @@ class LegacyAjaxController extends Controller
             'name' => $site->location_name,
             'lat' => $site->latitude,
             'lon' => $site->longitude,
+        ]);
+    }
+
+    private function getVenueProfiles(Request $request): JsonResponse
+    {
+        $profiles = DB::table('stadium_venue_profiles')
+            ->where('user_id', $request->user()->id)
+            ->orderBy('venue_id')
+            ->get(['venue_id', 'profile']);
+
+        $payload = [];
+
+        foreach ($profiles as $profile) {
+            $decoded = is_array($profile->profile)
+                ? $profile->profile
+                : json_decode((string) $profile->profile, true);
+
+            $payload[$profile->venue_id] = is_array($decoded) ? $decoded : [];
+        }
+
+        return $this->success($payload);
+    }
+
+    private function saveVenueProfile(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'venue_id' => ['required', 'string', 'max:120'],
+            'turfType' => ['nullable', 'string', 'max:80'],
+            'subCategory' => ['nullable', 'string', 'max:80'],
+            'species' => ['nullable', 'string', 'max:120'],
+            'variety' => ['nullable', 'string', 'max:120'],
+            'construction' => ['nullable', 'string', 'max:120'],
+            'overseedSpecies' => ['nullable', 'string', 'max:120'],
+            'overseedVariety' => ['nullable', 'string', 'max:120'],
+            'percentC3Cover' => ['nullable', 'numeric', 'between:0,100'],
+            'venueEnv' => ['nullable'],
+        ]);
+
+        $venueEnv = $request->input('venueEnv');
+        if (is_string($venueEnv) && $venueEnv !== '') {
+            $decoded = json_decode($venueEnv, true);
+            $venueEnv = is_array($decoded) ? $decoded : null;
+        }
+        if (! is_array($venueEnv)) {
+            $venueEnv = null;
+        }
+
+        $profile = [
+            'turfType' => (string) ($data['turfType'] ?? ''),
+            'subCategory' => (string) ($data['subCategory'] ?? ''),
+            'species' => (string) ($data['species'] ?? ''),
+            'variety' => (string) ($data['variety'] ?? 'generic'),
+            'construction' => (string) ($data['construction'] ?? ''),
+            'overseedSpecies' => (string) ($data['overseedSpecies'] ?? ''),
+            'overseedVariety' => (string) ($data['overseedVariety'] ?? ''),
+            'percentC3Cover' => isset($data['percentC3Cover']) ? (float) $data['percentC3Cover'] : 0.0,
+        ];
+
+        if ($venueEnv !== null) {
+            $profile['venueEnv'] = $venueEnv;
+        }
+
+        $timestamp = now();
+        $existing = DB::table('stadium_venue_profiles')
+            ->where('user_id', $request->user()->id)
+            ->where('venue_id', $data['venue_id'])
+            ->exists();
+
+        if ($existing) {
+            DB::table('stadium_venue_profiles')
+                ->where('user_id', $request->user()->id)
+                ->where('venue_id', $data['venue_id'])
+                ->update([
+                    'profile' => json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'updated_at' => $timestamp,
+                ]);
+        } else {
+            DB::table('stadium_venue_profiles')->insert([
+                'user_id' => $request->user()->id,
+                'venue_id' => $data['venue_id'],
+                'profile' => json_encode($profile, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'created_at' => $timestamp,
+                'updated_at' => $timestamp,
+            ]);
+        }
+
+        return $this->success([
+            'venue_id' => $data['venue_id'],
+            'profile' => $profile,
         ]);
     }
 

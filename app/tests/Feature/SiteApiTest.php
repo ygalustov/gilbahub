@@ -305,6 +305,52 @@ class SiteApiTest extends TestCase
         $this->assertSame($siteB->id, $user->refresh()->last_active_site_id);
     }
 
+    public function test_authenticated_user_can_save_and_load_stadium_venue_profiles_via_legacy_ajax(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/ajax', [
+                'action' => 'gssh_save_venue_profile',
+                'nonce' => 'test-token',
+                'venue_id' => 'allianz_stadium',
+                'turfType' => 'sports',
+                'subCategory' => 'football',
+                'species' => 'Couch',
+                'variety' => 'TifTuf',
+                'construction' => 'sand_carpet',
+                'overseedSpecies' => 'Perennial Ryegrass',
+                'overseedVariety' => 'RPR',
+                'percentC3Cover' => 35,
+                'venueEnv' => json_encode([
+                    'enclosureType' => 'open',
+                    'drainageRating' => 0.8,
+                ]),
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.venue_id', 'allianz_stadium')
+            ->assertJsonPath('data.profile.species', 'Couch');
+
+        $this->assertDatabaseHas('stadium_venue_profiles', [
+            'user_id' => $user->id,
+            'venue_id' => 'allianz_stadium',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/ajax', [
+                'action' => 'gssh_get_venue_profiles',
+                'nonce' => 'test-token',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.allianz_stadium.species', 'Couch')
+            ->assertJsonPath('data.allianz_stadium.variety', 'TifTuf')
+            ->assertJsonPath('data.allianz_stadium.venueEnv.enclosureType', 'open');
+    }
+
     public function test_legacy_site_list_endpoints_use_wordpress_style_response_shape(): void
     {
         $user = User::factory()->create();
