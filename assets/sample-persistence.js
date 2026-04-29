@@ -473,109 +473,110 @@
             return;
         }
 
-        StorageAdapter.load(CONFIG.storageKey)
-            .then(function(data) {
-                if (!data) {
-                    log('No persisted samples found — checking server for site list and samples');
-
-                    fetchSiteListFromServer(function() {
-                        fetchSamplesFromServer(function(restoredFromServer) {
-                            if (restoredFromServer) {
-                                var serverSnap = global.GAIP_SampleManager.getAllSamples();
-                                var restoredCount = 0;
-                                var siteKeys = Object.keys(serverSnap.allSites || {});
-                                for (var s = 0; s < siteKeys.length; s++) {
-                                    var site = serverSnap.allSites[siteKeys[s]];
-                                    var types = ['soil', 'water', 'tissue', 'loi'];
-                                    for (var t = 0; t < types.length; t++) {
-                                        if (site[types[t]]) {
-                                            restoredCount += Object.keys(site[types[t]]).length;
-                                        }
-                                    }
-                                }
-                                global._gaipSamplePersistenceReady = true;
-                                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
-                                    detail: { restored: true, count: restoredCount, samplesFromServer: true }
-                                }));
-                                return;
-                            }
-
-                            try {
-                                var configsRaw = _ls.getItem('gilba_hub_site_configs');
-                                if (configsRaw) {
-                                    var configs = JSON.parse(configsRaw);
-                                    var siteIds = Object.keys(configs);
-                                    if (siteIds.length > 0 && global.GAIP_SampleManager) {
-                                        var SM = global.GAIP_SampleManager;
-                                        var recovered = 0;
-                                        siteIds.forEach(function(siteId) {
-                                            if (siteId === 'default') return;
-                                            var cfg = configs[siteId];
-                                            var label = (cfg.location && cfg.location.name)
-                                                      || (cfg.turf && (cfg.turf.species || cfg.turf.turfType))
-                                                      || siteId.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
-                                            var existing = SM.getSiteList ? SM.getSiteList() : [];
-                                            var exists = existing.some(function(s){ return s.id === siteId; });
-                                            if (!exists && typeof SM.addSiteWithId === 'function') {
-                                                SM.addSiteWithId(siteId, label);
-                                                recovered++;
-                                            }
-                                        });
-                                        if (recovered > 0) {
-                                            log('RECOVERY: Rebuilt ' + recovered + ' sites from gilba_hub_site_configs');
-                                            var snap = SM.getAllSamples();
-                                            _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
-                                        }
-                                    }
-                                }
-                            } catch(e) {
-                                warn('Site recovery failed:', e.message);
-                            }
-
-                            global._gaipSamplePersistenceReady = true;
-                            document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
-                                detail: { restored: false, count: 0 }
-                            }));
-                        });
-                    });
-
-                    return;
+        function countSnapshotSamples(snapshot) {
+            var count = 0;
+            var siteKeys = Object.keys((snapshot && snapshot.allSites) || {});
+            for (var s = 0; s < siteKeys.length; s++) {
+                var site = snapshot.allSites[siteKeys[s]];
+                var types = ['soil', 'water', 'tissue', 'loi'];
+                for (var t = 0; t < types.length; t++) {
+                    if (site[types[t]]) {
+                        count += Object.keys(site[types[t]]).length;
+                    }
                 }
+            }
+            return count;
+        }
 
-                var success = global.GAIP_SampleManager.restoreFromPersistence(data);
-                var count = 0;
+        function finishReady(detail) {
+            global._gaipSamplePersistenceReady = true;
+            document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
+                detail: detail
+            }));
+        }
 
-                if (success && data.allSites) {
-                    var siteKeys = Object.keys(data.allSites);
-                    for (var s = 0; s < siteKeys.length; s++) {
-                        var site = data.allSites[siteKeys[s]];
-                        var types = ['soil', 'water', 'tissue', 'loi'];
-                        for (var t = 0; t < types.length; t++) {
-                            if (site[types[t]]) {
-                                count += Object.keys(site[types[t]]).length;
+        function recoverSitesFromLegacyConfig() {
+            try {
+                var configsRaw = _ls.getItem('gilba_hub_site_configs');
+                if (configsRaw) {
+                    var configs = JSON.parse(configsRaw);
+                    var siteIds = Object.keys(configs);
+                    if (siteIds.length > 0 && global.GAIP_SampleManager) {
+                        var SM = global.GAIP_SampleManager;
+                        var recovered = 0;
+                        siteIds.forEach(function(siteId) {
+                            if (siteId === 'default') return;
+                            var cfg = configs[siteId];
+                            var label = (cfg.location && cfg.location.name)
+                                      || (cfg.turf && (cfg.turf.species || cfg.turf.turfType))
+                                      || siteId.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+                            var existing = SM.getSiteList ? SM.getSiteList() : [];
+                            var exists = existing.some(function(site) { return site.id === siteId; });
+                            if (!exists && typeof SM.addSiteWithId === 'function') {
+                                SM.addSiteWithId(siteId, label);
+                                recovered++;
                             }
+                        });
+                        if (recovered > 0) {
+                            log('RECOVERY: Rebuilt ' + recovered + ' sites from gilba_hub_site_configs');
+                            var snap = SM.getAllSamples();
+                            _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
                         }
                     }
                 }
+            } catch (e) {
+                warn('Site recovery failed:', e.message);
+            }
+        }
 
-                log('Restored ' + count + ' samples from storage');
+        function restoreFromLocalFallback() {
+            StorageAdapter.load(CONFIG.storageKey)
+                .then(function(data) {
+                    if (!data) {
+                        log('No local sample snapshot found after server restore miss');
+                        recoverSitesFromLegacyConfig();
+                        finishReady({ restored: false, count: 0, samplesFromServer: false });
+                        return;
+                    }
 
-                global._gaipSamplePersistenceReady = true;
-                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
-                    detail: {
+                    var success = global.GAIP_SampleManager.restoreFromPersistence(data);
+                    var count = success && data.allSites ? countSnapshotSamples(data) : 0;
+
+                    log('Restored ' + count + ' samples from storage');
+                    finishReady({
                         restored: success,
                         count: count,
+                        sizeBytes: StorageAdapter.getSize(CONFIG.storageKey),
+                        samplesFromServer: false
+                    });
+                })
+                .catch(function(err) {
+                    warn('Restore failed: ' + err.message);
+                    document.dispatchEvent(new CustomEvent('gaip:samples-persistence-error', {
+                        detail: { error: err.message, reason: 'restore' }
+                    }));
+                });
+        }
+
+        log('Attempting server-first sample restore');
+        fetchSiteListFromServer(function() {
+            fetchSamplesFromServer(function(restoredFromServer) {
+                if (restoredFromServer) {
+                    var serverSnap = global.GAIP_SampleManager.getAllSamples();
+                    finishReady({
+                        restored: true,
+                        count: countSnapshotSamples(serverSnap),
+                        samplesFromServer: true,
                         sizeBytes: StorageAdapter.getSize(CONFIG.storageKey)
-                    }
-                }));
-            })
-            .catch(function(err) {
-                warn('Restore failed: ' + err.message);
-                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-error', {
-                    detail: { error: err.message, reason: 'restore' }
-                }));
+                    });
+                    return;
+                }
+
+                restoreFromLocalFallback();
             });
+        });
     }
+
 
     // =========================================================================
     // EVENT WIRING

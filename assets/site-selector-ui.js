@@ -161,6 +161,7 @@
 
     var _updatingUI = false;
     var _lastDispatchedSiteId = null;  // prevents bounce from restore-triggered updateUI calls
+    var _preserveDraftOnNextReload = false;
     function updateUI() {
         if (_updatingUI) return;
         _updatingUI = true;
@@ -267,11 +268,23 @@
                 }
             }
 
-            // No samples at all for this type on this site - clear the form
+            // No samples at all for this type on this site. During page-load draft restore
+            // hub-persistence may already have repopulated manual inputs that have not yet been
+            // promoted to a saved sample; do not wipe that draft once on boot. Real site switches
+            // still clear as before.
+            if (_preserveDraftOnNextReload) {
+                log('Preserved ' + dt + ' draft form on boot (no samples yet)');
+                continue;
+            }
+
             if (clearFns[dt]) {
                 clearFns[dt]();
                 log('Cleared ' + dt + ' form (no samples on this site)');
             }
+        }
+
+        if (_preserveDraftOnNextReload) {
+            _preserveDraftOnNextReload = false;
         }
     }
 
@@ -404,6 +417,15 @@
         inject();
         setTimeout(inject, 500);
         setTimeout(inject, 1500);
+
+        // If hub-persistence restored raw input state on boot, preserve it through the
+        // first reloadActiveSample() pass when the site has no saved samples yet.
+        document.addEventListener('gaip:state-restored', function(e) {
+            if (e && e.detail && e.detail.savedAt) {
+                _preserveDraftOnNextReload = true;
+                log('Boot draft restore detected — next reloadActiveSample will preserve empty-site forms');
+            }
+        });
 
         // After persistence restores samples, reload the active site's sample
         document.addEventListener('gaip:samples-restored', function() {

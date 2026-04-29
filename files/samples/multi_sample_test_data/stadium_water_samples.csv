@@ -1,0 +1,5 @@
+Sample ID,Date,pH,EC,Ca,Mg,Na,K,Cl,SO4,HCO3,CO3,B,Fe,Mn,NO3,PO4,Notes
+Bore Water,2025-01-18,7.5,2.20,88,48,195,7,235,155,205,0,0.38,0.10,0.02,6,0.4,Primary source - marginal quality
+Recycled Class A,2025-01-18,7.6,1.35,58,35,115,10,135,85,165,0,0.25,0.04,0.01,18,2.2,Secondary source - elevated nutrients
+Mains Backup,2025-01-18,7.1,0.52,32,14,40,2,48,22,92,0,0.10,0.02,0.00,3,0.1,Emergency backup only
+Current Blend,2025-01-18,7.5,1.85,75,42,160,8,190,125,185,0,0.32,0.08,0.02,11,1.1,60% Bore + 40% Recycled

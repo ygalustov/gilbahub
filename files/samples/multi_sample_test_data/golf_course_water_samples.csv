@@ -1,0 +1,7 @@
+Sample ID,Date,pH,EC,Ca,Mg,Na,K,Cl,SO4,HCO3,CO3,B,Fe,Mn,NO3,PO4,Notes
+Bore 1 - Main,2025-01-10,7.2,1.85,95,42,185,8,220,145,195,0,0.35,0.12,0.02,8,0.5,Primary irrigation source
+Bore 2 - Backup,2025-01-10,7.4,2.10,82,55,210,6,250,160,210,0,0.42,0.08,0.01,5,0.3,Secondary bore - higher salinity
+Recycled Water,2025-01-10,7.8,1.45,65,38,125,12,145,95,180,0,0.28,0.05,0.01,22,2.8,Council recycled - high N and P
+Town Supply,2025-01-10,7.0,0.45,28,12,35,2,42,18,85,0,0.08,0.02,0.00,2,0.1,Potable backup - low EC
+Dam Storage,2025-01-10,7.6,0.95,45,25,75,5,88,55,120,0,0.15,0.18,0.04,12,1.2,Surface water - variable quality
+Blend Tank,2025-01-10,7.3,1.55,78,38,155,7,175,115,165,0,0.30,0.10,0.02,10,0.8,70% Bore 1 + 30% Recycled
