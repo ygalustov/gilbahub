@@ -6,6 +6,89 @@ Migrate the Gilba Agronomic Intelligence Hub from a WordPress plugin into a stan
 
 The priority is to remove the WordPress dependency first. The first standalone version should preserve the current vanilla JavaScript/frontend behavior as much as possible. Vue or any other frontend rewrite is deferred until after the Laravel/MySQL version is stable.
 
+## Current Plugin Delta: 11.20.25
+
+The freshly copied WordPress plugin version `11.20.25` does **not** introduce a new backend/domain model beyond the earlier `includes/data/` foundation. It is mainly a runtime patch release with frontend-state correctness fixes, export labeling fixes, and provenance/audit corrections.
+
+Migration impact from this drop:
+
+- **No new canonical table family** beyond the already identified:
+  - `accounts`
+  - `precinct_groups`
+  - `sites`
+  - `samples`
+  - `spray_logs`
+  - `site_summaries`
+- **No new standalone architecture change** is required. Laravel remains the correct migration target.
+- **Yes, the standalone asset layer must absorb the new runtime fixes**, because several of them correct state-routing bugs that affect real behavior, exports, and multi-site integrity.
+
+Key plugin changes in `11.20.25` that must be mirrored in the standalone app:
+
+1. **Proxy-safe GAIP state writes**
+   - `assets/ammonium-acetate-methodology.js`
+   - `assets/site-settings-panel.js`
+   - These fixes stop direct writes to transient `GAIP_STATE.soil.*` shapes and instead merge through the canonical routed store.
+   - Migration implication: keep treating `GAIP_STATE` as a compatibility facade only; standalone writes should continue to target canonical state/services, not ad hoc top-level objects.
+
+2. **Cotula / bowls state clearing**
+   - `assets/cotula-bowling-green.js`
+   - `assets/site-config-persistence.js`
+   - These fixes remove stale bowls/cotula identity when switching to non-bowls sites.
+   - Migration implication: site-switch restore logic in Laravel-mounted assets must preserve this behavior, otherwise cross-site contamination will persist in exports and analysis.
+
+3. **Hub tissue writeback merge protection**
+   - `assets/hub-tissue-v3.js`
+   - Prevents stale run-start turf snapshots from overwriting fresher routed state at analysis end.
+   - Migration implication: standalone analysis persistence must continue to treat in-run state merges carefully; run completion must not blindly overwrite canonical turf state.
+
+4. **Word export label coverage for bowls**
+   - `assets/word-export.js`
+   - Adds correct display mapping for bowls/cotula labels.
+   - Migration implication: exports in the standalone app should use the updated turf-type label map, not the older golf/sports-only assumptions.
+
+5. **Disease provenance correction**
+   - `assets/disease-engine-pure.js`
+   - `docs/provenance-audit-tier2.md`
+   - Corrects Fusarium citation naming and adds provenance notes for unverified thresholds.
+   - Migration implication: no schema change, but standalone should keep the corrected source strings and audit notes so exported/explained results stay aligned with the current plugin.
+
+6. **New regression tests / audit helpers in plugin repo**
+   - `tests/aa-methodology-soil-proxy-write-b35fix393.test.js`
+   - `tests/cotula-clear-bowls-state-b35fix394.test.js`
+   - `tests/fusarium-tier2-audit-b35fix395.test.js`
+   - `tests/hub-tissue-analysis-writeback-merge-b35fix391.test.js`
+   - `tests/turf-type-bowls-label-b35fix392.test.js`
+   - `verify-audit.js`, `audit-summary.js`
+   - Migration implication: these are useful as behavioral references. Equivalent Laravel/asset regression coverage should be added where these paths are now exercised in the standalone app.
+
+### Plan Update From 11.20.25
+
+The migration plan changes only in execution priority, not in overall architecture:
+
+- Keep the canonical Laravel schema and API plan as-is.
+- Add a **Plugin Delta Assimilation** track during migration for asset/runtime fixes from ongoing WP plugin releases.
+- Treat plugin-side JS/tests/docs updates as an upstream stream that must be triaged into:
+  - standalone asset patch
+  - standalone regression test
+  - export/provenance sync
+  - or ignored if WP-only
+
+### Immediate Follow-up Work
+
+When a new WP plugin version is dropped into the repo, do this before any broader migration work:
+
+1. Diff the plugin drop against the current standalone assets.
+2. Classify changes into:
+   - canonical data-model changes
+   - API/storage changes
+   - runtime/frontend bug fixes
+   - audit/documentation-only changes
+3. If there is **no data-model change**, do **not** redesign the migration plan.
+4. Port only the relevant runtime fixes into the standalone app and add regression coverage.
+5. Update `migration-plan.md` only when the target architecture actually changes.
+
+This `11.20.25` drop falls into category 4: **port runtime fixes, keep architecture unchanged**.
+
 ## Recommended Stack
 
 - PHP 8.2+

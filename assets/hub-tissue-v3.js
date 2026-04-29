@@ -6921,13 +6921,39 @@ function initTurfTypeMode() {
 
                             gaip_render_results(t, a, l, d, oe, ne, ae, me, se, le);
                             var xe = document.querySelector(".gaip-results");
+                            // b35fix391: prevent stale-snapshot clobber of routed turf writes.
+                            // The local `t.turf` is built at run-start from a snapshot of GAIP_STATE.
+                            // If a routed write to inputs.turf happened DURING the run (e.g. cotula
+                            // bowls activation via cotula-bowling-green.js:571 routed write per b35fix388),
+                            // `t.turf` here is stale. Writing it back through the proxy setter's
+                            // e.turf branch (gilba-hub-v2.js:1415) replaces inputs.turf wholesale —
+                            // reverts the routed write. Symptom: live-UI chips/SiteSelector/Prebble
+                            // preview read TPC.state and show 'bowls' correctly, but Word export's
+                            // collectData (word-export.js:5957–5959) reads window.GAIP_STATE.turf
+                            // and gets the post-run-clobbered 'sports' value.
+                            //
+                            // Fix: merge fresh inputs.turf (post any in-run routed writes) over the
+                            // stale snapshot. The setter still runs c.set("inputs.turf", merged, ...)
+                            // so any field the run engines computed and assigned to t.turf
+                            // (effectiveSpecies, ambientDLI, etc.) still propagates, but cotula keys
+                            // and any other fresh routed-write keys are preserved.
+                            //
+                            // Verified by DevTools probe (b35fix391 diagnostic): with mock t.turf =
+                            // {turfType:'sports'} writing back over inputs.turf = {turfType:'bowls',
+                            // cotula:true, speciesKey:'cotula', ...} the unfixed setter produces
+                            // {turfType:'sports', cotula:undefined}. With this merge, fresh inputs.turf
+                            // wins on the cotula keys and t.turf wins on engine-computed extras.
+                            var _b35fix391_freshTurf = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.turf) || null;
+                            var _b35fix391_mergedTurf = _b35fix391_freshTurf
+                                ? Object.assign({}, t.turf || {}, _b35fix391_freshTurf)
+                                : t.turf;
                             (xe ? (xe.style.display = "block") : console.warn("GAIP: .gaip-results container not found"),
                                 console.log("GAIP: Preparing state dispatch..."),
                                 (window.GAIP_STATE = {
                                     soil: t.soil,
                                     tissue: t.tissue,
                                     water: t.water,
-                                    turf: t.turf,
+                                    turf: _b35fix391_mergedTurf,
                                     traffic: t.traffic,
                                     climate: t.climate,
                                     variety: t.variety,

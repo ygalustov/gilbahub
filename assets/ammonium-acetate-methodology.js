@@ -22,6 +22,46 @@
 (function(global) {
     'use strict';
 
+    // b35fix393: helper for routed soil writes through the hub-store proxy.
+    // Pre-fix, this module wrote `window.GAIP_STATE.soil.<key> = value` at three
+    // sites (lines 412, 512). All silently dropped through the proxy installed at
+    // gilba-hub-v2.js:1393 — the getter synthesises a fresh object per read; only
+    // the setter's e.inputs branch routes writes via c.set("inputs.soil", ...).
+    // Same bug class as b35fix386 / b35fix388 / b35fix391. The setter REPLACES
+    // inputs.soil wholesale, so writers must merge with existing fields first.
+    //
+    // setSoilField(key, value): merges {[key]: value} into the canonical
+    // inputs.soil slot. Reads existing state from inputs.soil (post-fix canonical)
+    // or .soil (legacy fallback for any module still writing to top-level slot).
+    function _b35fix393_setSoilField(key, value) {
+        if (!global.GAIP_STATE) return;
+        try {
+            var existingSoil = (global.GAIP_STATE.inputs && global.GAIP_STATE.inputs.soil)
+                || global.GAIP_STATE.soil
+                || {};
+            var patch = {};
+            patch[key] = value;
+            global.GAIP_STATE = {
+                inputs: {
+                    soil: Object.assign({}, existingSoil, patch)
+                }
+            };
+        } catch (e) {
+            console.warn('[AmmoniumAcetate b35fix393] state writeback failed for', key, ':', e && e.message);
+        }
+    }
+
+    // getSoilField(key): tolerant read — prefers canonical inputs.soil, falls
+    // back to legacy top-level .soil. Returns undefined if neither has the key.
+    function _b35fix393_getSoilField(key) {
+        if (!global.GAIP_STATE) return undefined;
+        var canonical = global.GAIP_STATE.inputs && global.GAIP_STATE.inputs.soil;
+        if (canonical && canonical[key] !== undefined) return canonical[key];
+        var legacy = global.GAIP_STATE.soil;
+        if (legacy && legacy[key] !== undefined) return legacy[key];
+        return undefined;
+    }
+
 
     // ═══════════════════════════════════════════════════════════════════════════
     // SUFFICIENCY RANGES - AMMONIUM ACETATE / OLSEN EXTRACTANTS
@@ -408,9 +448,8 @@
             // If restored state already has a methodology set, mark it as explicit
             const methodologySelect = document.querySelector('.gaip-soil-methodology');
             if (methodologySelect && methodologySelect.value && methodologySelect.value !== 'mlsn') {
-                if (window.GAIP_STATE?.soil) {
-                    window.GAIP_STATE.soil.methodologyExplicit = true;
-                }
+                // b35fix393: route through hub-store proxy (was direct .soil.X assignment, dropped)
+                _b35fix393_setSoilField('methodologyExplicit', true);
             }
             updateMethodologyVisibility();
         });
@@ -437,7 +476,14 @@
             if (currentMethod !== 'ammonium_acetate') {
                 // Check if user has explicitly chosen their methodology via site settings
                 // If no explicit choice stored, auto-select AA for NZ
-                const explicitChoice = window.GAIP_STATE?.soil?.methodologyExplicit;
+                // b35fix393: tolerant read — prefers canonical inputs.soil, falls
+                // back to legacy top-level .soil. Pre-fix the legacy-only read
+                // returned undefined post-analysis-run because the proxy synthesiser
+                // doesn't expose top-level .soil; explicit choice was lost on every
+                // updateMethodologyVisibility fire (route change, profile change,
+                // state restore), and NZ users were force-switched to AA on every
+                // re-fire even after they explicitly chose otherwise.
+                const explicitChoice = _b35fix393_getSoilField('methodologyExplicit');
                 if (!explicitChoice) {
                     methodologySelect.value = 'ammonium_acetate';
                     methodologySelect.dispatchEvent(new Event('change'));
@@ -507,10 +553,13 @@
         const textureSelect = textureContainer?.querySelector('.gaip-aa-soil-texture');
         if (textureSelect) {
             textureSelect.addEventListener('change', function() {
-                // Update GAIP_STATE if available
-                if (window.GAIP_STATE && window.GAIP_STATE.soil) {
-                    window.GAIP_STATE.soil.aaSoilTexture = this.value;
-                }
+                // b35fix393: route through hub-store proxy (was direct .soil.X assignment, dropped).
+                // Symptom: gilba-soil-interpretation.js:249, hub-tissue-v3.js:2360, and
+                // word-export.js:6477 fall back to DOM-element value when state.soil
+                // is empty, so single-export hides this. Combined export iterates saved
+                // sites with their DOM cleared; falls through to 'others' default and
+                // every saved site's K/Mg threshold ranges are wrong.
+                _b35fix393_setSoilField('aaSoilTexture', this.value);
                 
                 // Dispatch event to trigger recalculation
                 document.dispatchEvent(new CustomEvent('gaip:soil-texture-change', {

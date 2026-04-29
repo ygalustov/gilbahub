@@ -953,9 +953,36 @@
                 btn.classList.add('active');
                 // Write to real DOM
                 setDomVal('.gaip-soil-methodology', m.id);
-                // Mark as explicit user choice (prevents auto-select override for NZ)
-                if (window.GAIP_STATE && window.GAIP_STATE.soil) {
-                    window.GAIP_STATE.soil.methodologyExplicit = true;
+                // Mark as explicit user choice (prevents auto-select override for NZ).
+                //
+                // b35fix393: route through hub-store proxy setter contract. Pre-fix:
+                //   window.GAIP_STATE.soil.methodologyExplicit = true
+                // dropped through the proxy installed at gilba-hub-v2.js:1393. The
+                // getter synthesises a fresh object on every read; assignments to
+                // top-level .soil.<key> land on that ephemeral object and are GC'd.
+                // Symptom: NZ region detection at ammonium-acetate-methodology.js:440
+                // reads `window.GAIP_STATE?.soil?.methodologyExplicit` — always
+                // undefined post-analysis-run, so the auto-AA branch overrides the
+                // user's explicit choice every time updateMethodologyVisibility fires
+                // (on gaip:turf-profile-change, gaip:stateRestored, and location
+                // updates). Same proxy bug class as b35fix386 / b35fix388 / b35fix391.
+                // Merge with existing inputs.soil to preserve other fields the setter
+                // would otherwise wipe (the e.inputs.soil branch REPLACES wholesale).
+                if (window.GAIP_STATE) {
+                    try {
+                        var _existingSoil = (window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil)
+                            || window.GAIP_STATE.soil
+                            || {};
+                        window.GAIP_STATE = {
+                            inputs: {
+                                soil: Object.assign({}, _existingSoil, {
+                                    methodologyExplicit: true
+                                })
+                            }
+                        };
+                    } catch (e) {
+                        console.warn('[SiteSettings b35fix393] state writeback failed:', e && e.message);
+                    }
                 }
                 updateMethodNote();
                 updateAATextureVisibility();

@@ -614,6 +614,88 @@
     }
 
     // =========================================================================
+    // CLEAR BOWLS STATE — b35fix394
+    //
+    // Inverse of handleBowlsSelection. Removes the six cotula identity keys
+    // from inputs.turf so that downstream readers (turf-profile-controller.js:836,
+    // nutrition-uk-fertiliser-integration.js:690, hub-tissue-v3.js:1102, the
+    // b35fix365 species-resolution probe, and word-export collectData) no longer
+    // see cotula state on a site that isn't a cotula bowling green.
+    //
+    // BUG WITHOUT THIS FUNCTION (production-confirmed 2026-04-29 from Canturf
+    // combined-export log + report):
+    //   1. User activates X Cotula BC → handleBowlsSelection routes 6 cotula
+    //      keys into inputs.turf (b35fix388 fix shape).
+    //   2. User switches to Canturf (Fyshwick, Australia, tall fescue site).
+    //      site-config-persistence.js:402-410 calls tp.selectTurfType('sports')
+    //      and updates DOM, but inputs.turf still carries cotula:true,
+    //      speciesKey:cotula, surfaceType:cotula_bowling_green, etc.
+    //   3. b35fix391's hub-tissue:6952 merge preserves fresh inputs.turf over
+    //      the run-snapshot t.turf — which is the correct fix for the bowls
+    //      analysis-end clobber, but means stale cotula keys also survive
+    //      the post-analysis writeback.
+    //   4. Combined export collectData reads inputs.turf, sees cotula keys,
+    //      report renders Turf Type:bowls, Species:cotula on every Canturf
+    //      sample. Tissue advice falls back to cotula sufficiency thresholds
+    //      for tall fescue tissue analysis — wrong.
+    //
+    // Production probe evidence (gilbasolutions_com-1777429985062.log line 49):
+    //   GAIP_STATE_turf_grassSpecies: "cotula"  ← stale from previous site
+    //   SC_getBaseSpecies: "tallFescue"          ← TPC.state correctly carries
+    //                                              the new site's species
+    //
+    // FIX: route a write that strips the six cotula keys and explicitly nulls
+    // them so the merge in hub-tissue:6952 (which uses Object.assign with fresh
+    // inputs.turf as last arg) overrides any t.turf snapshot that carries the
+    // cotula keys. The merge contract requires explicit undefined or null —
+    // simply omitting the keys would leave them in t.turf and the merge would
+    // surface them. So we set the six keys to explicit defaults that clear them.
+    //
+    // Set at non-bowls site restore (site-config-persistence.js handles the
+    // single confirmed-broken path). Direct DOM-click-to-non-bowls-tile path
+    // is theoretically affected too but not yet observed in production —
+    // deferred to b35fix395+ if that path produces a report.
+    function clearBowlsState() {
+        if (!global.GAIP_STATE) return;
+        try {
+            var existingTurf = (global.GAIP_STATE.inputs && global.GAIP_STATE.inputs.turf)
+                || global.GAIP_STATE.turf
+                || {};
+            // Defensive: only strip cotula keys, preserve everything else
+            // (variety, companionSpecies, hoc, ambientDLI, etc.)
+            var cleared = Object.assign({}, existingTurf);
+            // Use delete to actually remove keys — Object.assign treats undefined
+            // as a value-to-set, so explicit undefined would not strip. delete
+            // makes them absent from the merged object so neither the routed
+            // write nor any subsequent hub-tissue:6952 merge can resurrect them
+            // from a stale snapshot.
+            delete cleared.cotula;
+            delete cleared.surfaceType;
+            delete cleared.speciesKey;
+            delete cleared.grassSpecies;
+            delete cleared.physiology;
+            // turfType: don't strip here — TPC.selectTurfType() at the call site
+            // is responsible for setting the new turfType. If we delete it, the
+            // routed write below carries no turfType for this site at all,
+            // breaking downstream readers that check for it.
+            // But if existingTurf.turfType is still 'bowls' (stale), strip it
+            // so the new TPC.selectTurfType call's eventual state propagation
+            // wins.
+            if (cleared.turfType === 'bowls') {
+                delete cleared.turfType;
+            }
+            global.GAIP_STATE = {
+                inputs: {
+                    turf: cleared
+                }
+            };
+            console.log('[CotulaBowling b35fix394] Cleared bowls/cotula state from inputs.turf for non-bowls site.');
+        } catch (e) {
+            console.warn('[CotulaBowling b35fix394] clearBowlsState failed:', e && e.message);
+        }
+    }
+
+    // =========================================================================
     // METHODOLOGY HEADER
     // Renders S78 badge analogous to the existing AA methodology header.
     // =========================================================================
@@ -879,6 +961,7 @@
         // UI
         renderCotulaMethHeader,
         handleBowlsSelection,
+        clearBowlsState, // b35fix394: inverse of handleBowlsSelection — strips cotula keys
 
         // Utilities
         isNZ: _isNZ,

@@ -133,23 +133,39 @@
     }
 
     var StorageAdapter = {
+        /**
+         * Save data to storage
+         * @param {string} key
+         * @param {object} data
+         * @returns {Promise<boolean>}
+         */
         save: function(key, data) {
             return new Promise(function(resolve, reject) {
                 try {
                     var json = JSON.stringify(data);
+
+                    // Size check
                     if (json.length > CONFIG.sizeWarningBytes) {
-                        warn('Storage size approaching limit: ' + Math.round(json.length / 1024) + 'KB / ~5120KB');
+                        warn('Storage size approaching limit: ' + 
+                            Math.round(json.length / 1024) + 'KB / ~5120KB');
                     }
+
                     _ls.setItem(key, json);
                     log('Saved ' + Math.round(json.length / 1024) + 'KB to ' + key);
                     resolve(true);
                 } catch (e) {
+                    // QuotaExceededError or SecurityError
                     warn('Save failed: ' + e.message);
                     reject(e);
                 }
             });
         },
 
+        /**
+         * Load data from storage
+         * @param {string} key
+         * @returns {Promise<object|null>}
+         */
         load: function(key) {
             return new Promise(function(resolve, reject) {
                 try {
@@ -159,6 +175,7 @@
                         resolve(null);
                         return;
                     }
+
                     var data = JSON.parse(raw);
                     log('Loaded ' + Math.round(raw.length / 1024) + 'KB from ' + key);
                     resolve(data);
@@ -169,6 +186,11 @@
             });
         },
 
+        /**
+         * Delete data from storage
+         * @param {string} key
+         * @returns {Promise<boolean>}
+         */
         delete: function(key) {
             return new Promise(function(resolve) {
                 try {
@@ -182,10 +204,15 @@
             });
         },
 
+        /**
+         * Get approximate storage usage for this key (bytes)
+         * @param {string} key
+         * @returns {number}
+         */
         getSize: function(key) {
             try {
                 var raw = _ls.getItem(key);
-                return raw ? raw.length * 2 : 0;
+                return raw ? raw.length * 2 : 0;  // UTF-16 = 2 bytes per char
             } catch (e) {
                 return 0;
             }

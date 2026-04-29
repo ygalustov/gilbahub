@@ -406,6 +406,19 @@
             // species, and GAIP_STATE.turf.cotula flag
             if (turf.turfType === 'bowls' && global.GAIP_CotulaBowling) {
                 global.GAIP_CotulaBowling.handleBowlsSelection();
+            } else if (turf.turfType !== 'bowls' && global.GAIP_CotulaBowling
+                       && typeof global.GAIP_CotulaBowling.clearBowlsState === 'function') {
+                // b35fix394: when restoring a non-bowls site, strip any lingering
+                // cotula identity keys from inputs.turf. Without this, switching
+                // from a bowls site (e.g. X Cotula BC) to a non-bowls site
+                // (e.g. Canturf, Australia, tall fescue) leaves cotula:true,
+                // speciesKey:cotula, surfaceType:cotula_bowling_green in the
+                // canonical state — production-confirmed via Canturf combined
+                // export 2026-04-29 rendering Species:cotula and Turf Type:bowls
+                // on every tall-fescue sample. The bug compounds with b35fix391's
+                // fresh-wins merge, which preserves stale cotula keys across
+                // analysis runs once they're in inputs.turf.
+                global.GAIP_CotulaBowling.clearBowlsState();
             }
         }
 
@@ -679,6 +692,19 @@
             setDomVal('.gaip-pgr-product', '');
             setDomVal('.gaip-dmi-date',  '');
             try { document.querySelector('.gaip-enable-pgr') && (document.querySelector('.gaip-enable-pgr').checked = false); } catch(e) {}
+            // b35fix394: also strip lingering cotula identity keys from inputs.turf.
+            // First-visit-on-this-device sites don't have a saved config, so
+            // restoreConfig() doesn't run and the non-bowls branch above doesn't
+            // fire either. Cotula keys persisted from the previous site would
+            // otherwise corrupt the first analysis run on the new site. Cleanest
+            // invariant: on every site-switch, strip cotula state — if the new
+            // site IS a bowls site, the user clicking the bowls tile (or the
+            // restored config path on subsequent visits) re-routes the cotula
+            // keys back via handleBowlsSelection.
+            if (global.GAIP_CotulaBowling
+                && typeof global.GAIP_CotulaBowling.clearBowlsState === 'function') {
+                global.GAIP_CotulaBowling.clearBowlsState();
+            }
             log('No saved config for', newSiteId, '— cleared transient fields (set turf type now to save it)');
         }
         // Dispatch site-config-applied so tissue auto-run uses the event path

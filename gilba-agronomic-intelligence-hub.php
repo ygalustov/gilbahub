@@ -2,7 +2,7 @@
 /*
 Plugin Name: Gilba Agronomic Intelligence Hub
 Description: Gilba Agronomic Intelligence Platform — soil/water/tissue analysis, disease modelling (Smith-Kerns, Fidanza, Danneberger, Bipolaris/Curvularia, Waitea, Large Patch, Red Thread), irrigation scheduling, PGR/DMI tracking, growth potential, and Word/iCal export. Designed for golf, sports turf, and councils across AU/NZ/UK/EU. See CHANGELOG.md for build history.
-Version: 11.20.20
+Version: 11.20.25
 Author: Gilba Solutions
 Author URI: https://gilbasolutions.com
 */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-if ( ! defined( 'GILBA_HUB_VERSION' ) ) { define( 'GILBA_HUB_VERSION', '11.20.20' ); }
+if ( ! defined( 'GILBA_HUB_VERSION' ) ) { define( 'GILBA_HUB_VERSION', '11.20.25' ); }
 if ( ! defined( 'GILBA_ASSET_VERSION' ) ) { define( 'GILBA_ASSET_VERSION', GILBA_HUB_VERSION ); }
 if ( ! defined( 'GILBA_REST_NAMESPACE' ) ) { define( 'GILBA_REST_NAMESPACE', 'gilba/v1' ); }
 if ( ! defined( 'GSSH_HUB_VERSION' ) )    { define( 'GSSH_HUB_VERSION',    '1.2.0' ); }

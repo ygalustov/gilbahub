@@ -6064,7 +6064,22 @@
                 'lawns': 'Lawns',
                 'lawn': 'Lawn',
                 'residential': 'Residential Lawn',
-                'commercial': 'Commercial'
+                'commercial': 'Commercial',
+                // b35fix392: bowls/cotula label coverage. Pre-fix the typeMap had
+                // no bowls entry, so cotula bowls reports rendered the raw lowercase
+                // value `Turf Type: bowls` in Site Information. Five keys map to the
+                // same display label — same coverage shape as b35fix390's
+                // extractTurfIntentKey mapping (bowls / bowling / bowling_green /
+                // bowling_greens — handles any writer that puts the long form into
+                // turfType). 'cotula_bowling_green' is the surfaceType value emitted
+                // by cotula-bowling-green.js:575; covered defensively in case a
+                // future read path falls back to surfaceType through this map.
+                'bowls': 'Bowling Greens',
+                'bowls_': 'Bowling Greens',
+                'bowling': 'Bowling Greens',
+                'bowling_green': 'Bowling Greens',
+                'bowling_greens': 'Bowling Greens',
+                'cotula_bowling_green': 'Bowling Greens'
             };
             
             // If turfType is 'golf' and we have a subCategory, combine them

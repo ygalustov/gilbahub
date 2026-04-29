@@ -1955,7 +1955,7 @@ const FusariumModel = {
                 disease: 'fusarium', displayName: 'Fusarium Patch (Microdochium)',
                 riskScore: 0, riskLevel: 'minimal', confidence: 'low', confidenceScore: 20,
                 drivers: { temperature: { value: null, note: 'No temperature data available' } },
-                source: 'Smiley, Vargas, Smith et al. 1989',
+                source: 'Smith, Jackson & Woolhouse 1989',
             };
         }
         const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
@@ -1985,7 +1985,7 @@ const FusariumModel = {
                     nitrogen: { status: nStatus, modifier: 1 },
                     freezeThaw: { active: false, contribution: 0 },
                 },
-                source: 'Smiley, Vargas, Smith et al. 1989',
+                source: 'Smith, Jackson & Woolhouse 1989',
             };
         }
 
@@ -2010,17 +2010,23 @@ const FusariumModel = {
         }
 
         // Diurnal fluctuation
+        // PROVENANCE NOTE: Specific diurnal range thresholds (8, 10, 15°C) lack peer-reviewed citation.
+        // Temperature fluctuation concept is sound but exact values are unverified assumptions.
+        // Future: locate literature supporting specific diurnal temperature effects on Microdochium.
         let fluctuationMod = 1.0;
-        if (diurnalRange > 15) fluctuationMod = 1.25;
-        else if (diurnalRange > 10) fluctuationMod = 1.15;
-        else if (diurnalRange > 8) fluctuationMod = 1.08;
+        if (diurnalRange > 15) fluctuationMod = 1.25; // UNVERIFIED threshold
+        else if (diurnalRange > 10) fluctuationMod = 1.15; // UNVERIFIED threshold
+        else if (diurnalRange > 8) fluctuationMod = 1.08; // UNVERIFIED threshold
 
         // Snow cover
+        // PROVENANCE NOTE: Specific day thresholds (7, 14) lack direct peer-reviewed citation.
+        // Literature supports snow duration effect but exact timing needs verification.
+        // Future: locate studies with specific snow cover duration vs disease severity data.
         let snowFactor = 0, snowNote = null;
         if (snowCover && meanTemp > -5 && meanTemp < 5) {
             snowFactor = Math.min(1, snowDays / 10);
-            if (snowDays > 14) snowNote = 'Extended snow cover - Pink Snow Mould risk elevated';
-            else if (snowDays > 7) snowNote = 'Snow cover persisting - monitor for snow mould';
+            if (snowDays > 14) snowNote = 'Extended snow cover - Pink Snow Mould risk elevated'; // UNVERIFIED threshold
+            else if (snowDays > 7) snowNote = 'Snow cover persisting - monitor for snow mould'; // UNVERIFIED threshold
         }
 
         // Moisture
@@ -2091,7 +2097,7 @@ const FusariumModel = {
                 snow: { present: snowCover, days: snowDays, contribution: Math.round(snowFactor * 100), note: snowNote },
                 nitrogen: { status: nStatus, modifier: nModifier, winterRisk: winterNRisk, note: winterNRisk ? 'Excess N in cool conditions significantly elevates risk' : null },
             },
-            source: 'Smiley, Vargas, Smith et al. 1989',
+            source: 'Smith, Jackson & Woolhouse 1989',
         };
     },
     getInterventions(riskLevel, opts) {
