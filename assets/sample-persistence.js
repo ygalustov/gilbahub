@@ -104,40 +104,52 @@
     // All methods return Promises for future async compatibility.
     // =========================================================================
 
+    function getApiBaseUrl() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.restUrl || '/api/';
+    }
+
+    function getCsrfToken() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.csrfToken || cfg.nonce || '';
+    }
+
+    function apiFetchJson(url, options) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, (options && options.headers) || {});
+        var token = getCsrfToken();
+        if (token) headers['X-CSRF-TOKEN'] = token;
+        return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    if (!r.ok) {
+                        var msg = (data && data.message) || (data && data.data && data.data.message) || ('HTTP ' + r.status);
+                        throw new Error(msg);
+                    }
+                    return data;
+                });
+            });
+    }
+
     var StorageAdapter = {
-        /**
-         * Save data to storage
-         * @param {string} key
-         * @param {object} data
-         * @returns {Promise<boolean>}
-         */
         save: function(key, data) {
             return new Promise(function(resolve, reject) {
                 try {
                     var json = JSON.stringify(data);
-
-                    // Size check
                     if (json.length > CONFIG.sizeWarningBytes) {
-                        warn('Storage size approaching limit: ' + 
-                            Math.round(json.length / 1024) + 'KB / ~5120KB');
+                        warn('Storage size approaching limit: ' + Math.round(json.length / 1024) + 'KB / ~5120KB');
                     }
-
                     _ls.setItem(key, json);
                     log('Saved ' + Math.round(json.length / 1024) + 'KB to ' + key);
                     resolve(true);
                 } catch (e) {
-                    // QuotaExceededError or SecurityError
                     warn('Save failed: ' + e.message);
                     reject(e);
                 }
             });
         },
 
-        /**
-         * Load data from storage
-         * @param {string} key
-         * @returns {Promise<object|null>}
-         */
         load: function(key) {
             return new Promise(function(resolve, reject) {
                 try {
@@ -147,7 +159,6 @@
                         resolve(null);
                         return;
                     }
-
                     var data = JSON.parse(raw);
                     log('Loaded ' + Math.round(raw.length / 1024) + 'KB from ' + key);
                     resolve(data);
@@ -158,11 +169,6 @@
             });
         },
 
-        /**
-         * Delete data from storage
-         * @param {string} key
-         * @returns {Promise<boolean>}
-         */
         delete: function(key) {
             return new Promise(function(resolve) {
                 try {
@@ -176,15 +182,10 @@
             });
         },
 
-        /**
-         * Get approximate storage usage for this key (bytes)
-         * @param {string} key
-         * @returns {number}
-         */
         getSize: function(key) {
             try {
                 var raw = _ls.getItem(key);
-                return raw ? raw.length * 2 : 0;  // UTF-16 = 2 bytes per char
+                return raw ? raw.length * 2 : 0;
             } catch (e) {
                 return 0;
             }
@@ -246,9 +247,9 @@
                 log('Auto-saved (' + reason + '): ' + count + ' samples across ' + 
                     siteKeys.length + ' sites [batch #' + batchId + ']');
 
-                // Sync site registry to server — fire-and-forget.
-                // Lets other devices (mobile) discover this user's site list.
+                // Sync site registry and samples to server — fire-and-forget.
                 syncSiteListToServer(snapshot.sites || {});
+                syncSamplesToServer(snapshot);
 
                 document.dispatchEvent(new CustomEvent('gaip:samples-persistence-saved', {
                     detail: {
@@ -272,6 +273,93 @@
      * Fire-and-forget — never blocks the save path, never retries.
      * @param {object} sites  { siteId: { label, createdAt } }
      */
+    function syncSamplesToServer(snapshot) {
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') return;
+
+        apiFetchJson(base.replace(/\/?$/, '/') + 'samples/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ allSites: snapshot.allSites || {} })
+        })
+            .then(function(data) {
+                log('Sample snapshot synced to server', data && data.data ? data.data : data);
+            })
+            .catch(function(err) {
+                warn('Server sample sync failed: ' + err.message);
+            });
+    }
+
+    function fetchSamplesFromServer(onComplete) {
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined' || !global.GAIP_SampleManager) {
+            onComplete(false);
+            return;
+        }
+
+        apiFetchJson(base.replace(/\/?$/, '/') + 'samples?limit=200')
+            .then(function(data) {
+                var samples = (data && data.data) || [];
+                if (!samples.length) {
+                    onComplete(false);
+                    return;
+                }
+
+                var SM = global.GAIP_SampleManager;
+                var originalSite = SM.getActiveSiteId ? SM.getActiveSiteId() : 'default';
+                var restored = 0;
+
+                samples.forEach(function(sample) {
+                    var siteId = sample.site_id;
+                    if (!siteId || !sample.sample_type || !sample.payload) return;
+
+                    var existingSites = SM.getSiteList ? SM.getSiteList() : [];
+                    var exists = existingSites.some(function(site) { return site.id === siteId; });
+                    if (!exists && typeof SM.addSiteWithId === 'function') {
+                        var siteLabel = (sample.summary && sample.summary.site_name) || siteId;
+                        SM.addSiteWithId(siteId, siteLabel);
+                    }
+
+                    if (typeof SM.setActiveSite === 'function') {
+                        SM.setActiveSite(siteId);
+                    }
+
+                    var sampleId = sample.client_uid || (sample.payload && (sample.payload.label || sample.payload.sampleId)) || ('sample_' + sample.id);
+                    if (SM.getSample && SM.getSample(sample.sample_type, sampleId)) {
+                        return;
+                    }
+
+                    SM.addSample(sample.sample_type, {
+                        id: sampleId,
+                        label: (sample.payload && sample.payload.label) || sampleId,
+                        date: sample.lab_date || sample.sample_date || null,
+                        notes: sample.notes || '',
+                        zoneType: (sample.payload && sample.payload.zone) || 'other',
+                        values: sample.payload
+                    });
+                    restored++;
+                });
+
+                if (typeof SM.setActiveSite === 'function' && originalSite) {
+                    SM.setActiveSite(originalSite);
+                }
+
+                if (restored > 0) {
+                    try {
+                        var snap = SM.getAllSamples();
+                        _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
+                    } catch (e) {}
+                }
+
+                log('SERVER SYNC: Restored ' + restored + ' samples from Laravel');
+                onComplete(restored > 0);
+            })
+            .catch(function(err) {
+                warn('Server sample fetch failed: ' + err.message);
+                onComplete(false);
+            });
+    }
+
     function syncSiteListToServer(sites) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
         var ajaxUrl = cfg.ajaxUrl || '';
@@ -388,62 +476,70 @@
         StorageAdapter.load(CONFIG.storageKey)
             .then(function(data) {
                 if (!data) {
-                    log('No persisted samples found — checking server for site list');
+                    log('No persisted samples found — checking server for site list and samples');
 
-                    // STEP 1: Try to fetch site registry from server.
-                    // Key cross-device path: desktop saved sites to user meta,
-                    // mobile has empty localStorage, server bridges the gap.
-                    fetchSiteListFromServer(function(importedFromServer) {
-                        if (importedFromServer) {
-                            log('Sites imported from server — ready');
-                            global._gaipSamplePersistenceReady = true;
-                            document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
-                                detail: { restored: false, count: 0, sitesFromServer: true }
-                            }));
-                            return;
-                        }
-
-                        // STEP 2: Server had nothing — try gilba_hub_site_configs recovery
-                        // (existing fallback: localStorage wiped but site configs survived)
-                        try {
-                            var configsRaw = _ls.getItem('gilba_hub_site_configs');
-                            if (configsRaw) {
-                                var configs = JSON.parse(configsRaw);
-                                var siteIds = Object.keys(configs);
-                                if (siteIds.length > 0 && global.GAIP_SampleManager) {
-                                    var SM = global.GAIP_SampleManager;
-                                    var recovered = 0;
-                                    siteIds.forEach(function(siteId) {
-                                        if (siteId === 'default') return; // always exists
-                                        var cfg = configs[siteId];
-                                        var label = (cfg.location && cfg.location.name)
-                                                  || (cfg.turf && (cfg.turf.species || cfg.turf.turfType))
-                                                  || siteId.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
-                                        var existing = SM.getSiteList ? SM.getSiteList() : [];
-                                        var exists = existing.some(function(s){ return s.id === siteId; });
-                                        if (!exists && typeof SM.addSiteWithId === 'function') {
-                                            SM.addSiteWithId(siteId, label);
-                                            recovered++;
+                    fetchSiteListFromServer(function() {
+                        fetchSamplesFromServer(function(restoredFromServer) {
+                            if (restoredFromServer) {
+                                var serverSnap = global.GAIP_SampleManager.getAllSamples();
+                                var restoredCount = 0;
+                                var siteKeys = Object.keys(serverSnap.allSites || {});
+                                for (var s = 0; s < siteKeys.length; s++) {
+                                    var site = serverSnap.allSites[siteKeys[s]];
+                                    var types = ['soil', 'water', 'tissue', 'loi'];
+                                    for (var t = 0; t < types.length; t++) {
+                                        if (site[types[t]]) {
+                                            restoredCount += Object.keys(site[types[t]]).length;
                                         }
-                                    });
-                                    if (recovered > 0) {
-                                        log('RECOVERY: Rebuilt ' + recovered + ' sites from gilba_hub_site_configs');
-                                        var snap = SM.getAllSamples();
-                                        _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
                                     }
                                 }
+                                global._gaipSamplePersistenceReady = true;
+                                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
+                                    detail: { restored: true, count: restoredCount, samplesFromServer: true }
+                                }));
+                                return;
                             }
-                        } catch(e) {
-                            warn('Site recovery failed:', e.message);
-                        }
 
-                        global._gaipSamplePersistenceReady = true;
-                        document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
-                            detail: { restored: false, count: 0 }
-                        }));
+                            try {
+                                var configsRaw = _ls.getItem('gilba_hub_site_configs');
+                                if (configsRaw) {
+                                    var configs = JSON.parse(configsRaw);
+                                    var siteIds = Object.keys(configs);
+                                    if (siteIds.length > 0 && global.GAIP_SampleManager) {
+                                        var SM = global.GAIP_SampleManager;
+                                        var recovered = 0;
+                                        siteIds.forEach(function(siteId) {
+                                            if (siteId === 'default') return;
+                                            var cfg = configs[siteId];
+                                            var label = (cfg.location && cfg.location.name)
+                                                      || (cfg.turf && (cfg.turf.species || cfg.turf.turfType))
+                                                      || siteId.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+                                            var existing = SM.getSiteList ? SM.getSiteList() : [];
+                                            var exists = existing.some(function(s){ return s.id === siteId; });
+                                            if (!exists && typeof SM.addSiteWithId === 'function') {
+                                                SM.addSiteWithId(siteId, label);
+                                                recovered++;
+                                            }
+                                        });
+                                        if (recovered > 0) {
+                                            log('RECOVERY: Rebuilt ' + recovered + ' sites from gilba_hub_site_configs');
+                                            var snap = SM.getAllSamples();
+                                            _ls.setItem(CONFIG.storageKey, JSON.stringify(snap));
+                                        }
+                                    }
+                                }
+                            } catch(e) {
+                                warn('Site recovery failed:', e.message);
+                            }
+
+                            global._gaipSamplePersistenceReady = true;
+                            document.dispatchEvent(new CustomEvent('gaip:samples-persistence-ready', {
+                                detail: { restored: false, count: 0 }
+                            }));
+                        });
                     });
 
-                    return; // async path handles ready event
+                    return;
                 }
 
                 var success = global.GAIP_SampleManager.restoreFromPersistence(data);

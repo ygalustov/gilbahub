@@ -15,6 +15,7 @@ class Sample extends Model
         'account_id',
         'site_id',
         'sample_type',
+        'client_uid',
         'lab_name',
         'lab_ref',
         'sample_date',

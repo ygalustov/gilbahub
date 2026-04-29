@@ -138,6 +138,7 @@ return new class extends Migration
             $table->foreignId('account_id')->constrained('accounts')->cascadeOnDelete();
             $table->uuid('site_id');
             $table->string('sample_type', 16);
+            $table->string('client_uid', 191)->nullable();
             $table->string('lab_name', 128)->default('');
             $table->string('lab_ref', 64)->default('');
             $table->date('sample_date')->nullable();
@@ -155,6 +156,7 @@ return new class extends Migration
             $table->foreign('site_id')->references('id')->on('sites')->cascadeOnDelete();
             $table->index(['site_id', 'sample_type', 'lab_date']);
             $table->index(['account_id', 'sample_type']);
+            $table->index(['site_id', 'sample_type', 'client_uid'], 'samples_site_type_client_uid_idx');
         });
 
         Schema::create('site_summaries', function (Blueprint $table) {
@@ -175,6 +177,59 @@ return new class extends Migration
             $table->unique(['site_id', 'sample_type', 'lab_date']);
             $table->index(['account_id', 'site_id']);
         });
+
+
+        Schema::create('spray_logs', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->cascadeOnDelete();
+            $table->uuid('site_id');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->json('applied_to_site_ids')->nullable();
+            $table->json('applied_to_samples')->nullable();
+            $table->date('event_date');
+            $table->time('event_time')->nullable();
+            $table->string('zone', 80);
+            $table->string('product_name');
+            $table->string('product_type', 80)->default('other');
+            $table->string('active_ingredient')->default('');
+            $table->decimal('rate_value', 10, 3)->nullable();
+            $table->string('rate_unit', 40)->nullable();
+            $table->decimal('area_treated_ha', 10, 4)->nullable();
+            $table->decimal('water_rate_l_per_ha', 8, 2)->nullable();
+            $table->string('operator', 128)->default('');
+            $table->string('target')->nullable();
+            $table->json('conditions')->nullable();
+            $table->text('notes')->nullable();
+            $table->string('source', 40)->default('manual');
+            $table->timestamps();
+
+            $table->foreign('site_id')->references('id')->on('sites')->cascadeOnDelete();
+            $table->index(['site_id', 'event_date']);
+            $table->index(['account_id', 'event_date']);
+        });
+
+        Schema::create('media_uploads', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('disk', 40)->default('local');
+            $table->string('path');
+            $table->string('title')->nullable();
+            $table->string('original_name');
+            $table->string('mime_type', 120);
+            $table->unsignedBigInteger('size')->default(0);
+            $table->timestamps();
+        });
+
+        Schema::create('stadium_venue_profiles', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('venue_id', 120);
+            $table->json('profile')->nullable();
+            $table->timestamps();
+
+            $table->unique(['user_id', 'venue_id']);
+            $table->index(['venue_id']);
+        });
     }
 
     /**
@@ -182,6 +237,9 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('stadium_venue_profiles');
+        Schema::dropIfExists('media_uploads');
+        Schema::dropIfExists('spray_logs');
         Schema::dropIfExists('site_summaries');
         Schema::dropIfExists('samples');
         Schema::dropIfExists('site_configs');

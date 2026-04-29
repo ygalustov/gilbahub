@@ -166,6 +166,7 @@ class SiteApiTest extends TestCase
                 '_token' => 'test-token',
                 'site_id' => $site->id,
                 'sample_type' => 'soil',
+                'client_uid' => 'green_1',
                 'lab_name' => 'Hill Labs',
                 'lab_ref' => 'HL-123',
                 'sample_date' => '2026-04-20',
@@ -182,6 +183,7 @@ class SiteApiTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.site_id', $site->id)
             ->assertJsonPath('data.sample_type', 'soil')
+            ->assertJsonPath('data.client_uid', 'green_1')
             ->assertJsonPath('data.methodology_snapshot', 'ammonium-acetate')
             ->assertJsonPath('data.soil_texture_snapshot', 'sand')
             ->assertJsonPath('data.payload.label', 'Green 1');
@@ -192,6 +194,7 @@ class SiteApiTest extends TestCase
             'id' => $sampleId,
             'site_id' => $site->id,
             'sample_type' => 'soil',
+            'client_uid' => 'green_1',
             'methodology_snapshot' => 'ammonium-acetate',
             'soil_texture_snapshot' => 'sand',
         ]);
@@ -218,6 +221,246 @@ class SiteApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.id', $sampleId)
             ->assertJsonPath('data.payload.zone', 'green');
+    }
+
+    public function test_authenticated_user_can_sync_samples_snapshot(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Sync Site',
+            'slug' => 'sync-site',
+            'methodology_override' => 'mlsn',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'green_1' => [
+                                'id' => 'green_1',
+                                'label' => 'Green 1',
+                                'date' => '2026-04-25',
+                                'notes' => 'Synced from browser persistence.',
+                                'zoneType' => 'green',
+                                'rawData' => [
+                                    'label' => 'Green 1',
+                                    'zone' => 'green',
+                                    'pH' => 6.0,
+                                    'K' => 41,
+                                ],
+                            ],
+                        ],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 1);
+
+        $this->assertDatabaseHas('samples', [
+            'site_id' => $site->id,
+            'sample_type' => 'soil',
+            'client_uid' => 'green_1',
+            'notes' => 'Synced from browser persistence.',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
+            ->assertOk()
+            ->assertJsonPath('data.0.client_uid', 'green_1')
+            ->assertJsonPath('data.0.payload.K', 41);
+    }
+
+
+    public function test_authenticated_user_sync_reconciles_deleted_samples(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Reconcile Site',
+            'slug' => 'reconcile-site',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'green_1' => [
+                                'id' => 'green_1',
+                                'date' => '2026-04-25',
+                                'rawData' => [
+                                    'label' => 'Green 1',
+                                    'zone' => 'green',
+                                    'K' => 41,
+                                ],
+                            ],
+                            'green_2' => [
+                                'id' => 'green_2',
+                                'date' => '2026-04-26',
+                                'rawData' => [
+                                    'label' => 'Green 2',
+                                    'zone' => 'green',
+                                    'K' => 39,
+                                ],
+                            ],
+                        ],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 2)
+            ->assertJsonPath('data.deleted', 0);
+
+        $green2Id = Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_2')->value('id');
+        $this->assertNotNull($green2Id);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'green_1' => [
+                                'id' => 'green_1',
+                                'date' => '2026-04-27',
+                                'rawData' => [
+                                    'label' => 'Green 1',
+                                    'zone' => 'green',
+                                    'K' => 44,
+                                ],
+                            ],
+                        ],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 1)
+            ->assertJsonPath('data.deleted', 1);
+
+        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('sample_type', 'soil')->count());
+        $this->assertSoftDeleted('samples', [
+            'id' => $green2Id,
+            'client_uid' => 'green_2',
+        ]);
+        $this->assertSoftDeleted('site_summaries', [
+            'source_sample_id' => $green2Id,
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.client_uid', 'green_1')
+            ->assertJsonPath('data.0.payload.K', 44);
+    }
+
+    public function test_authenticated_user_sync_can_restore_soft_deleted_sample(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Restore Site',
+            'slug' => 'restore-site',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'green_1' => [
+                                'id' => 'green_1',
+                                'date' => '2026-04-25',
+                                'rawData' => [
+                                    'label' => 'Green 1',
+                                    'zone' => 'green',
+                                    'K' => 41,
+                                ],
+                            ],
+                        ],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk();
+
+        $sampleId = Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->value('id');
+        $this->assertNotNull($sampleId);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.deleted', 1);
+
+        $this->assertSoftDeleted('samples', ['id' => $sampleId]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'green_1' => [
+                                'id' => 'green_1',
+                                'date' => '2026-04-28',
+                                'rawData' => [
+                                    'label' => 'Green 1',
+                                    'zone' => 'green',
+                                    'K' => 47,
+                                ],
+                            ],
+                        ],
+                        'water' => [],
+                        'tissue' => [],
+                        'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 1)
+            ->assertJsonPath('data.deleted', 0);
+
+        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
+        $this->assertDatabaseHas('samples', [
+            'id' => $sampleId,
+            'client_uid' => 'green_1',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $sampleId)
+            ->assertJsonPath('data.0.payload.K', 47);
     }
 
     public function test_authenticated_user_can_list_site_summaries(): void

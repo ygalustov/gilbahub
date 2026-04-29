@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/samples', [SampleController::class, 'index'])->name('samples.index');
         Route::post('/samples', [SampleController::class, 'store'])->name('samples.store');
+        Route::post('/samples/sync', [SampleController::class, 'sync'])->name('samples.sync');
         Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
         Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
 
