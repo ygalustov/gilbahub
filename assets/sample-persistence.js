@@ -7,18 +7,17 @@
  * Listens for sample mutation events, auto-saves to storage, and restores
  * on page load.
  * 
- * STORAGE ADAPTER PATTERN:
- *   The StorageAdapter is a thin interface (save/load/delete) currently backed
- *   by localStorage. To migrate to server storage later, swap the adapter
- *   internals to wp_ajax calls. The sample-manager and this file don't change.
+ * STORAGE:
+ *   localStorage is retained as a browser cache for fast boot and legacy UI
+ *   compatibility. Every save must also reach the MySQL-backed REST sync route
+ *   before the save is reported as complete.
  * 
  * ARCHITECTURE:
  *   sample-manager.js  ──dispatches events──>  sample-persistence.js
  *                                                    │
- *                                              StorageAdapter
+ *                                              StorageAdapter cache
  *                                                    │
- *                                              localStorage (now)
- *                                              wp_ajax (later)
+ *                                        localStorage + MySQL REST sync
  * 
  * EVENTS CONSUMED (mutation signals from sample-manager.js):
  *   - gaip:samples-imported
@@ -96,10 +95,8 @@
     // STORAGE ADAPTER
     // =========================================================================
     //
-    // Thin interface over the actual storage backend.
-    // Currently: localStorage.
-    // To migrate to server: replace save/load/delete internals with wp_ajax
-    // fetch() calls. Everything else stays the same.
+    // Thin local cache over the server-backed sample store. Data is restored
+    // server-first and every save must sync to MySQL before completion.
     //
     // All methods return Promises for future async compatibility.
     // =========================================================================
@@ -111,7 +108,7 @@
 
     function getCsrfToken() {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        return cfg.csrfToken || cfg.nonce || '';
+        return cfg.csrfToken || cfg.restNonce || cfg.nonce || '';
     }
 
     function apiFetchJson(url, options) {
@@ -119,7 +116,10 @@
             'Accept': 'application/json'
         }, (options && options.headers) || {});
         var token = getCsrfToken();
-        if (token) headers['X-CSRF-TOKEN'] = token;
+        if (token) {
+            headers['X-WP-Nonce'] = token;
+            headers['X-CSRF-TOKEN'] = token;
+        }
         return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
             .then(function(r) {
                 return r.json().then(function(data) {
@@ -274,18 +274,20 @@
                 log('Auto-saved (' + reason + '): ' + count + ' samples across ' + 
                     siteKeys.length + ' sites [batch #' + batchId + ']');
 
-                // Sync site registry and samples to server — fire-and-forget.
+                // Sync site registry opportunistically, but require sample data
+                // to reach MySQL before reporting this save as complete.
                 syncSiteListToServer(snapshot.sites || {});
-                syncSamplesToServer(snapshot);
 
-                document.dispatchEvent(new CustomEvent('gaip:samples-persistence-saved', {
-                    detail: {
-                        sampleCount: count,
-                        siteCount: siteKeys.length,
-                        reason: reason,
-                        sizeBytes: StorageAdapter.getSize(CONFIG.storageKey)
-                    }
-                }));
+                return syncSamplesToServer(snapshot).then(function() {
+                    document.dispatchEvent(new CustomEvent('gaip:samples-persistence-saved', {
+                        detail: {
+                            sampleCount: count,
+                            siteCount: siteKeys.length,
+                            reason: reason,
+                            sizeBytes: StorageAdapter.getSize(CONFIG.storageKey)
+                        }
+                    }));
+                });
             })
             .catch(function(err) {
                 warn('Auto-save failed: ' + err.message);
@@ -296,15 +298,15 @@
     }
 
     /**
-     * Sync the site registry (id + label only) to WP user meta.
-     * Fire-and-forget — never blocks the save path, never retries.
-     * @param {object} sites  { siteId: { label, createdAt } }
+     * Sync all samples to MySQL so localStorage is only a browser cache.
      */
     function syncSamplesToServer(snapshot) {
         var base = getApiBaseUrl();
-        if (!base || typeof fetch === 'undefined') return;
+        if (!base || typeof fetch === 'undefined') {
+            return Promise.reject(new Error('REST sample sync unavailable'));
+        }
 
-        apiFetchJson(base.replace(/\/?$/, '/') + 'samples/sync', {
+        return apiFetchJson(base.replace(/\/?$/, '/') + 'samples/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ allSites: snapshot.allSites || {} })
@@ -314,6 +316,7 @@
             })
             .catch(function(err) {
                 warn('Server sample sync failed: ' + err.message);
+                throw err;
             });
     }
 
@@ -378,7 +381,7 @@
                     } catch (e) {}
                 }
 
-                log('SERVER SYNC: Restored ' + restored + ' samples from Laravel');
+                log('SERVER SYNC: Restored ' + restored + ' samples from MySQL');
                 onComplete(restored > 0);
             })
             .catch(function(err) {
@@ -387,6 +390,11 @@
             });
     }
 
+    /**
+     * Sync the site registry (id + label only) to WP user meta.
+     * Fire-and-forget — never blocks the save path, never retries.
+     * @param {object} sites  { siteId: { label, createdAt } }
+     */
     function syncSiteListToServer(sites) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
         var ajaxUrl = cfg.ajaxUrl || '';
@@ -569,7 +577,7 @@
                     var success = global.GAIP_SampleManager.restoreFromPersistence(data);
                     var count = success && data.allSites ? countSnapshotSamples(data) : 0;
 
-                    log('Restored ' + count + ' samples from storage');
+                    log('Restored ' + count + ' samples from storage fallback');
                     finishReady({
                         restored: success,
                         count: count,
@@ -603,7 +611,6 @@
             });
         });
     }
-
 
     // =========================================================================
     // EVENT WIRING

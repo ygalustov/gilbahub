@@ -6,14 +6,14 @@
  * Mobile-first field data capture for the [gaip_field_log] shortcode page.
  *
  * OBSERVATION TYPES:
- *   spray       — log a product application (saves to /gilba/v1/spray-log when online)
+ *   spray       — log a product application
  *   disease     — disease symptom observation (type, location, severity, photo)
  *   tdr         — manual TDR / soil moisture reading
  *   mowing      — mowing height and/or clipping yield
  *   note        — general field note with optional photo
  *
  * STORAGE:
- *   All observations save directly to Laravel/MySQL.
+ *   All observations save directly to MySQL through REST.
  *   Spray entries also mirror into the dedicated spray-log endpoint.
  *
  * OFFLINE:
@@ -30,8 +30,8 @@
  * PHOTO UPLOAD:
  *   Uses browser native <input type="file" accept="image/*" capture="environment">
  *   which triggers camera on mobile. On save, uploads to WP media library via
- *   POST /wp/v2/media (core REST, no plugin needed). Attachment ID stored with
- *   observation. Offline: photo stored as base64 in IndexedDB, uploaded on sync.
+ *   POST /wp/v2/media (core REST, no plugin needed). Attachment ID is stored
+ *   with the MySQL-backed observation payload.
  *
  * CONFIG:
  *   Reads window.GAIP_HUB_CONFIG for restUrl, restNonce, ajaxUrl, userId.
@@ -51,11 +51,6 @@
 
     // Namespaced localStorage shim — isolates keys per plugin instance (GAIP vs GSSH).
     var _ls = (window.GilbaStorageNS && window.GilbaStorageNS.get) ? window.GilbaStorageNS.get() : localStorage;
-
-    var DB_NAME = 'GAIP_FieldLog';
-    var DB_VERSION = 1;
-    var STORE_OBS = 'observations';
-    var STORE_QUEUE = 'sync_queue';
 
     var cfg = global.GAIP_FIELD_LOG_CONFIG || global.GAIP_HUB_CONFIG || {};
     var REST_URL    = (cfg.restUrl    || '/wp-json/gilba/v1/').replace(/\/$/, '');
@@ -92,185 +87,12 @@
     }
 
     // =========================================================================
-    // INDEXEDDB
-    // =========================================================================
-
-    var _db = null;
-
-    function openDB() {
-        return new Promise(function (resolve, reject) {
-            if (_db) { resolve(_db); return; }
-
-            var req = indexedDB.open(DB_NAME, DB_VERSION);
-
-            req.onupgradeneeded = function (e) {
-                var db = e.target.result;
-
-                // Observations store — all types
-                if (!db.objectStoreNames.contains(STORE_OBS)) {
-                    var obs = db.createObjectStore(STORE_OBS, { keyPath: 'id' });
-                    obs.createIndex('site_id',  'site_id',  { unique: false });
-                    obs.createIndex('type',     'type',     { unique: false });
-                    obs.createIndex('created',  'created',  { unique: false });
-                    obs.createIndex('synced',   'synced',   { unique: false });
-                }
-
-                // Sync queue — spray entries awaiting REST flush
-                if (!db.objectStoreNames.contains(STORE_QUEUE)) {
-                    db.createObjectStore(STORE_QUEUE, { keyPath: 'id' });
-                }
-            };
-
-            req.onsuccess = function (e) {
-                _db = e.target.result;
-                resolve(_db);
-            };
-
-            req.onerror = function (e) {
-                reject(e.target.error);
-            };
-        });
-    }
-
-    function dbPut(storeName, record) {
-        return openDB().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                var tx  = db.transaction(storeName, 'readwrite');
-                var req = tx.objectStore(storeName).put(record);
-                req.onsuccess = function () { resolve(req.result); };
-                req.onerror   = function () { reject(req.error); };
-            });
-        });
-    }
-
-    function dbGetAll(storeName, indexName, query) {
-        return openDB().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                var tx    = db.transaction(storeName, 'readonly');
-                var store = tx.objectStore(storeName);
-                var req   = indexName
-                    ? store.index(indexName).getAll(query)
-                    : store.getAll();
-                req.onsuccess = function () { resolve(req.result || []); };
-                req.onerror   = function () { reject(req.error); };
-            });
-        });
-    }
-
-    function dbDelete(storeName, key) {
-        return openDB().then(function (db) {
-            return new Promise(function (resolve, reject) {
-                var tx  = db.transaction(storeName, 'readwrite');
-                var req = tx.objectStore(storeName).delete(key);
-                req.onsuccess = function () { resolve(); };
-                req.onerror   = function () { reject(req.error); };
-            });
-        });
-    }
-
-    // =========================================================================
-    // OBSERVATION STORE
-    // =========================================================================
-
-    var ObservationStore = {
-
-        save: function (obs) {
-            obs.id      = obs.id || uuid();
-            obs.created = obs.created || new Date().toISOString();
-            obs.synced  = obs.synced  || false;
-            return dbPut(STORE_OBS, obs).then(function () { return obs; });
-        },
-
-        getBySite: function (siteId) {
-            return dbGetAll(STORE_OBS, 'site_id', siteId)
-                .then(function (rows) {
-                    return rows.sort(function (a, b) {
-                        return new Date(b.created) - new Date(a.created);
-                    });
-                });
-        },
-
-        markSynced: function (id) {
-            return openDB().then(function (db) {
-                return new Promise(function (resolve, reject) {
-                    var tx    = db.transaction(STORE_OBS, 'readwrite');
-                    var store = tx.objectStore(STORE_OBS);
-                    var req   = store.get(id);
-                    req.onsuccess = function () {
-                        var rec = req.result;
-                        if (rec) {
-                            rec.synced = true;
-                            store.put(rec);
-                        }
-                        resolve();
-                    };
-                    req.onerror = function () { reject(req.error); };
-                });
-            });
-        }
-    };
-
-    // =========================================================================
-    // SYNC QUEUE  (spray entries only)
-    // =========================================================================
-
-    var SyncQueue = {
-
-        add: function (entry) {
-            return dbPut(STORE_QUEUE, entry);
-        },
-
-        getAll: function () {
-            return dbGetAll(STORE_QUEUE);
-        },
-
-        remove: function (id) {
-            return dbDelete(STORE_QUEUE, id);
-        },
-
-        flush: function () {
-            if (!navigator.onLine) { return Promise.resolve(0); }
-
-            return SyncQueue.getAll().then(function (items) {
-                if (!items.length) { return 0; }
-                log('Flushing', items.length, 'queued field log entries');
-
-                var chain = Promise.resolve(0);
-                items.forEach(function (item) {
-                    chain = chain.then(function (count) {
-                        return postQueuedItem(item)
-                            .then(function () {
-                                return SyncQueue.remove(item.id)
-                                    .then(function () {
-                                        return ObservationStore.markSynced(item.observationId);
-                                    })
-                                    .then(function () { return count + 1; });
-                            })
-                            .catch(function (err) {
-                                warn('Sync item failed, keeping in queue:', err.message);
-                                return count;
-                            });
-                    });
-                });
-
-                return chain;
-            }).then(function (synced) {
-                if (synced > 0) {
-                    showToast(synced + ' field log entr' + (synced === 1 ? 'y' : 'ies') + ' synced');
-                    refreshRecentList();
-                }
-                return synced;
-            });
-        }
-    };
-
-    // =========================================================================
     // FIELD LOG REST API
     // =========================================================================
 
     function parseApiError(res) {
         return res.json().catch(function () { return {}; }).then(function (err) {
-            throw new Error(err.message || ('REST error ' + res.status));
+            throw new Error(err.message || (err.data && err.data.message) || ('REST error ' + res.status));
         });
     }
 
@@ -924,7 +746,7 @@
 
             var html = '<ul class="gaip-fl-recent-list">';
             obs.forEach(function (o) {
-                var date    = (o.observed_at || o.created_at || '').slice(0, 10);
+                var date    = (o.observed_at || o.created_at || o.created || '').slice(0, 10);
                 var typeMap = { spray: '🧪', disease: '🔬', tdr: '💧', mowing: '✂️', note: '📝' };
                 var icon    = typeMap[o.type] || '📋';
                 var summary = buildSummary(o);
@@ -1046,11 +868,10 @@
                 site_id: _state.activeSiteId,
                 zone:    data.zone,
                 created: new Date().toISOString(),
-                synced:  false,
                 data:    data,
                 photo:   {
                     attachmentId: attachmentId,
-                    base64:       attachmentId ? null : _state.photoBase64  // only store b64 if upload failed
+                    base64:       attachmentId ? null : _state.photoBase64
                 }
             };
 
@@ -1104,8 +925,7 @@
                     return SprayAPI.post(buildSprayPayload(obs, data));
                 }
                 return null;
-            })
-            .then(function () { return { synced: true }; });
+            });
     }
 
     function resetForm() {
@@ -1184,7 +1004,6 @@
             if (tilesEl) { renderStatusTiles(tilesEl); }
         });
 
-
         // b35fix97 — fetch site locations from server, inject into localStorage,
         // then render site selector with the authoritative list.
         // renderRecentList and analysis run after sites settle.
@@ -1221,6 +1040,7 @@
     // Public API
     global.GAIP_FieldLog = {
         version:         VERSION,
+        flush:           function () { return Promise.resolve(0); },
         getObs:          FieldLogAPI.list,
         triggerAnalysis: triggerAnalysis,
         renderTiles:     function () {
