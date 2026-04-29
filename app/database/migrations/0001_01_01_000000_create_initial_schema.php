@@ -230,6 +230,27 @@ return new class extends Migration
             $table->unique(['user_id', 'venue_id']);
             $table->index(['venue_id']);
         });
+
+
+        Schema::create('field_log_entries', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('account_id')->constrained('accounts')->cascadeOnDelete();
+            $table->uuid('site_id');
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('client_uid', 64);
+            $table->string('entry_type', 32);
+            $table->string('zone', 80)->nullable();
+            $table->timestamp('observed_at')->nullable();
+            $table->json('payload');
+            $table->foreignId('media_upload_id')->nullable()->constrained('media_uploads')->nullOnDelete();
+            $table->timestamp('synced_at')->nullable();
+            $table->timestamps();
+
+            $table->foreign('site_id')->references('id')->on('sites')->cascadeOnDelete();
+            $table->unique(['user_id', 'client_uid']);
+            $table->index(['site_id', 'entry_type', 'observed_at']);
+            $table->index(['account_id', 'entry_type']);
+        });
     }
 
     /**
@@ -237,6 +258,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('field_log_entries');
         Schema::dropIfExists('stadium_venue_profiles');
         Schema::dropIfExists('media_uploads');
         Schema::dropIfExists('spray_logs');

@@ -13,13 +13,12 @@
  *   note        — general field note with optional photo
  *
  * STORAGE:
- *   All observations write to IndexedDB (GAIP_FieldLog DB, v1).
- *   Spray entries additionally sync to /gilba/v1/spray-log via REST when online.
- *   Other types remain local until a server-side migration is built.
+ *   All observations save directly to Laravel/MySQL.
+ *   Spray entries also mirror into the dedicated spray-log endpoint.
  *
- * OFFLINE QUEUE:
- *   Spray entries that fail REST (offline) enter an IndexedDB sync queue.
- *   On reconnect (online event) the queue flushes automatically.
+ * OFFLINE:
+ *   No browser database is used for persistence. If the server request fails,
+ *   the save fails and nothing is stored locally.
  *
  * ANALYSIS:
  *   On load, triggers a lightweight weather fetch + engine run via the Hub's
@@ -234,12 +233,12 @@
 
             return SyncQueue.getAll().then(function (items) {
                 if (!items.length) { return 0; }
-                log('Flushing', items.length, 'queued spray entries');
+                log('Flushing', items.length, 'queued field log entries');
 
                 var chain = Promise.resolve(0);
                 items.forEach(function (item) {
                     chain = chain.then(function (count) {
-                        return SprayAPI.post(item.payload)
+                        return postQueuedItem(item)
                             .then(function () {
                                 return SyncQueue.remove(item.id)
                                     .then(function () {
@@ -257,10 +256,55 @@
                 return chain;
             }).then(function (synced) {
                 if (synced > 0) {
-                    showToast(synced + ' spray log entr' + (synced === 1 ? 'y' : 'ies') + ' synced');
+                    showToast(synced + ' field log entr' + (synced === 1 ? 'y' : 'ies') + ' synced');
                     refreshRecentList();
                 }
                 return synced;
+            });
+        }
+    };
+
+    // =========================================================================
+    // FIELD LOG REST API
+    // =========================================================================
+
+    function parseApiError(res) {
+        return res.json().catch(function () { return {}; }).then(function (err) {
+            throw new Error(err.message || ('REST error ' + res.status));
+        });
+    }
+
+    var FieldLogAPI = {
+
+        list: function (siteId, limit) {
+            var qs = new URLSearchParams();
+            qs.append('site_id', siteId);
+            qs.append('limit', String(limit || 20));
+
+            return fetch(REST_URL + '/field-log/entries?' + qs.toString(), {
+                method: 'GET',
+                headers: {
+                    'X-WP-Nonce': REST_NONCE
+                }
+            }).then(function (res) {
+                if (!res.ok) { return parseApiError(res); }
+                return res.json();
+            }).then(function (json) {
+                return json && Array.isArray(json.data) ? json.data : [];
+            });
+        },
+
+        post: function (payload) {
+            return fetch(REST_URL + '/field-log/entries', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-WP-Nonce': REST_NONCE
+                },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (!res.ok) { return parseApiError(res); }
+                return res.json();
             });
         }
     };
@@ -280,11 +324,7 @@
                 },
                 body: JSON.stringify(payload)
             }).then(function (res) {
-                if (!res.ok) {
-                    return res.json().then(function (err) {
-                        throw new Error(err.message || 'REST error ' + res.status);
-                    });
-                }
+                if (!res.ok) { return parseApiError(res); }
                 return res.json();
             });
         }
@@ -876,25 +916,23 @@
     function renderRecentList(container, siteId) {
         container.innerHTML = '<div class="gaip-fl-recent-loading">Loading...</div>';
 
-        ObservationStore.getBySite(siteId).then(function (obs) {
+        FieldLogAPI.list(siteId, 20).then(function (obs) {
             if (!obs.length) {
                 container.innerHTML = '<div class="gaip-fl-recent-empty">No observations recorded for this site yet.</div>';
                 return;
             }
 
             var html = '<ul class="gaip-fl-recent-list">';
-            obs.slice(0, 20).forEach(function (o) {
-                var date    = o.created ? o.created.slice(0, 10) : '';
+            obs.forEach(function (o) {
+                var date    = (o.observed_at || o.created_at || '').slice(0, 10);
                 var typeMap = { spray: '🧪', disease: '🔬', tdr: '💧', mowing: '✂️', note: '📝' };
                 var icon    = typeMap[o.type] || '📋';
                 var summary = buildSummary(o);
-                var syncBadge = (!o.synced && o.type === 'spray')
-                    ? '<span class="gaip-fl-sync-badge">⏳ pending</span>' : '';
 
                 html += '<li class="gaip-fl-recent-item">'
                       + '<span class="gaip-fl-recent-icon">' + icon + '</span>'
                       + '<div class="gaip-fl-recent-body">'
-                      + '<div class="gaip-fl-recent-summary">' + escHtml(summary) + syncBadge + '</div>'
+                      + '<div class="gaip-fl-recent-summary">' + escHtml(summary) + '</div>'
                       + '<div class="gaip-fl-recent-meta">'
                       + escHtml(o.zone || '') + (o.zone ? ' · ' : '') + escHtml(date)
                       + '</div>'
@@ -1016,20 +1054,9 @@
                 }
             };
 
-            return ObservationStore.save(obs).then(function () {
-                // For spray entries, also sync to spray-log REST
-                if (_state.activeType === 'spray') {
-                    return syncSprayEntry(obs, data);
-                }
-                return { synced: false };
-            }).then(function (syncResult) {
-                if (syncResult.synced) {
-                    obs.synced = true;
-                    return ObservationStore.save(obs);
-                }
-            });
+            return syncObservation(obs, data);
         }).then(function () {
-            showToast('Saved' + (navigator.onLine ? '' : ' — will sync when online'));
+            showToast('Saved');
             resetForm();
             refreshRecentList();
         }).catch(function (err) {
@@ -1043,8 +1070,20 @@
         });
     }
 
-    function syncSprayEntry(obs, data) {
-        var payload = {
+    function buildObservationPayload(obs) {
+        return {
+            client_uid:  obs.id,
+            site_id:     obs.site_id,
+            type:        obs.type,
+            zone:        obs.zone || null,
+            observed_at: obs.created || new Date().toISOString(),
+            data:        obs.data || {},
+            photo:       obs.photo || null
+        };
+    }
+
+    function buildSprayPayload(obs, data) {
+        return {
             site_id:          obs.site_id,
             zone:             obs.zone,
             application_date: data.date,
@@ -1056,19 +1095,17 @@
             notes:            data.notes  || null,
             source:           'manual'
         };
+    }
 
-        if (!navigator.onLine) {
-            return SyncQueue.add({ id: uuid(), observationId: obs.id, payload: payload })
-                .then(function () { return { synced: false }; });
-        }
-
-        return SprayAPI.post(payload)
-            .then(function () { return { synced: true }; })
-            .catch(function (err) {
-                warn('Spray REST failed, queuing:', err.message);
-                return SyncQueue.add({ id: uuid(), observationId: obs.id, payload: payload })
-                    .then(function () { return { synced: false }; });
-            });
+    function syncObservation(obs, data) {
+        return FieldLogAPI.post(buildObservationPayload(obs))
+            .then(function () {
+                if (obs.type === 'spray') {
+                    return SprayAPI.post(buildSprayPayload(obs, data));
+                }
+                return null;
+            })
+            .then(function () { return { synced: true }; });
     }
 
     function resetForm() {
@@ -1147,10 +1184,6 @@
             if (tilesEl) { renderStatusTiles(tilesEl); }
         });
 
-        // Online → flush queue
-        window.addEventListener('online', function () {
-            SyncQueue.flush();
-        });
 
         // b35fix97 — fetch site locations from server, inject into localStorage,
         // then render site selector with the authoritative list.
@@ -1188,8 +1221,7 @@
     // Public API
     global.GAIP_FieldLog = {
         version:         VERSION,
-        flush:           SyncQueue.flush,
-        getObs:          ObservationStore.getBySite,
+        getObs:          FieldLogAPI.list,
         triggerAnalysis: triggerAnalysis,
         renderTiles:     function () {
             var tilesEl = el('gaip-fl-tiles');

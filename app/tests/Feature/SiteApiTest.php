@@ -573,6 +573,140 @@ class SiteApiTest extends TestCase
         Storage::disk('local')->assertExists($path);
     }
 
+
+    public function test_authenticated_user_can_store_field_log_entry(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Field Site',
+            'slug' => 'field-site',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/field-log/entries', [
+                '_token' => 'test-token',
+                'client_uid' => 'obs-1',
+                'site_id' => $site->id,
+                'type' => 'disease',
+                'zone' => 'green-1',
+                'observed_at' => '2026-04-29T08:15:00+10:00',
+                'data' => [
+                    'date' => '2026-04-29',
+                    'disease_type' => 'Dollar Spot',
+                    'severity' => 'medium',
+                    'notes' => 'Morning walk-through.',
+                ],
+                'photo' => [
+                    'attachmentId' => null,
+                    'base64' => 'data:image/jpeg;base64,abc123',
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.client_uid', 'obs-1')
+            ->assertJsonPath('data.type', 'disease')
+            ->assertJsonPath('data.zone', 'green-1')
+            ->assertJsonPath('data.payload.data.disease_type', 'Dollar Spot');
+
+        $this->assertDatabaseHas('field_log_entries', [
+            'site_id' => $site->id,
+            'user_id' => $user->id,
+            'client_uid' => 'obs-1',
+            'entry_type' => 'disease',
+            'zone' => 'green-1',
+        ]);
+    }
+
+    public function test_authenticated_user_can_upsert_field_log_entry_by_client_uid(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Field Site',
+            'slug' => 'field-site',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/field-log/entries', [
+                '_token' => 'test-token',
+                'client_uid' => 'obs-queue-1',
+                'site_id' => $site->id,
+                'type' => 'note',
+                'zone' => 'tee',
+                'data' => ['date' => '2026-04-29', 'notes' => 'First save'],
+            ])
+            ->assertCreated();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/field-log/entries', [
+                '_token' => 'test-token',
+                'client_uid' => 'obs-queue-1',
+                'site_id' => $site->id,
+                'type' => 'note',
+                'zone' => 'approach',
+                'data' => ['date' => '2026-04-29', 'notes' => 'Updated save'],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.zone', 'approach')
+            ->assertJsonPath('data.payload.data.notes', 'Updated save');
+
+        $this->assertSame(1, DB::table('field_log_entries')->where('user_id', $user->id)->where('client_uid', 'obs-queue-1')->count());
+        $this->assertDatabaseHas('field_log_entries', [
+            'site_id' => $site->id,
+            'user_id' => $user->id,
+            'client_uid' => 'obs-queue-1',
+            'zone' => 'approach',
+        ]);
+    }
+
+
+    public function test_authenticated_user_can_list_field_log_entries(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Field Site',
+            'slug' => 'field-site',
+        ]);
+
+        DB::table('field_log_entries')->insert([
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'client_uid' => 'obs-a',
+                'entry_type' => 'note',
+                'zone' => 'green',
+                'observed_at' => '2026-04-29 09:00:00',
+                'payload' => json_encode(['data' => ['notes' => 'Later note'], 'photo' => null], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'client_uid' => 'obs-b',
+                'entry_type' => 'disease',
+                'zone' => 'tee',
+                'observed_at' => '2026-04-29 08:00:00',
+                'payload' => json_encode(['data' => ['disease_type' => 'Dollar Spot'], 'photo' => null], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'synced_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/field-log/entries?site_id='.$site->id.'&limit=20')
+            ->assertOk()
+            ->assertJsonPath('data.0.client_uid', 'obs-a')
+            ->assertJsonPath('data.0.data.notes', 'Later note')
+            ->assertJsonPath('data.1.client_uid', 'obs-b')
+            ->assertJsonPath('data.1.data.disease_type', 'Dollar Spot');
+    }
+
     public function test_authenticated_user_can_use_legacy_ajax_geocode_search(): void
     {
         Http::fake([

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\FieldLogEntryController;
 use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
 use App\Http\Controllers\MediaUploadController;
@@ -55,6 +56,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
         Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
 
+        Route::get('/field-log/entries', [FieldLogEntryController::class, 'index'])->name('field-log-entries.index');
+        Route::post('/field-log/entries', [FieldLogEntryController::class, 'store'])->name('field-log-entries.store');
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
