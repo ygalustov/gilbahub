@@ -123,6 +123,16 @@
               label: "Couch / Bermudagrass (ultradwarf)",
               type: "C4",
             },
+            {
+              // b35fix363 — AU-only. Saltene/Velvetene at greens HOC is borderline
+              // (medium-textured cultivars; true dwarves Sea Isle 2000/SeaDwarf/Salam
+              // are the conventional choice for greens). _greensCaveat in the trait
+              // data documents this — see VARIETY_TRAITS.seashore_paspalum.
+              value: "Seashore Paspalum",
+              label: "Seashore Paspalum (Saltene / Velvetene)",
+              type: "C4",
+              regions: ["australia_tropical", "australia_subtropical", "australia_temperate", "australia_mediterranean"],
+            },
           ],
           c3: [
             {
@@ -198,6 +208,15 @@
           },
           { value: "Kikuyu", label: "Kikuyu", type: "C4" },
           { value: "Zoysia", label: "Zoysia (Empire, Nara)", type: "C4" },
+          {
+            // b35fix363 — AU-only. Coastal/saline-affected residential and council
+            // sites; Sydney/QLD foreshore parks. Saltene/Velvetene both viable at
+            // lawn HOC (10-40 mm).
+            value: "Seashore Paspalum",
+            label: "Seashore Paspalum (Saltene / Velvetene)",
+            type: "C4",
+            regions: ["australia_tropical", "australia_subtropical", "australia_temperate", "australia_mediterranean"],
+          },
         ],
         c3: [
           {
@@ -292,6 +311,7 @@
       "Kikuyu":                    { func: "getAustralianKikuyuVarieties",     traitsKey: "kikuyu" },
       "Buffalograss":              { func: "getAustralianBuffaloVarieties",    traitsKey: "buffalo" },
       "St. Augustine":             { func: "getAustralianBuffaloVarieties",    traitsKey: "buffalo" },
+      "Seashore Paspalum":         { func: "getAustralianPaspalumVarieties",   traitsKey: "seashore_paspalum" },  // b35fix362
     },
 
     // Normalise species label to VARIETY_TRAITS camelCase key
@@ -688,11 +708,18 @@
             ((e.state.drainage = this.value), e.dispatchStateChange());
           }),
         this.elements.hocInput &&
-          this.elements.hocInput.addEventListener("change", function () {
+          this.elements.hocInput.addEventListener("input", function () {
+            // b35fix312_1: mark as user-set so applyDefaults stops overwriting.
+            // Using "input" not "change" so it fires on every keystroke — the
+            // user might type a value and immediately click a species option,
+            // and "change" doesn't fire until blur which would be too late.
+            this.dataset.userSet = "true";
             ((e.state.hoc = parseFloat(this.value)), e.dispatchStateChange());
           }),
         this.elements.nProgramInput &&
-          this.elements.nProgramInput.addEventListener("change", function () {
+          this.elements.nProgramInput.addEventListener("input", function () {
+            // b35fix312_1: see HoC note above.
+            this.dataset.userSet = "true";
             ((e.state.nProgram = parseFloat(this.value)),
               e.dispatchStateChange());
           }),
@@ -1307,12 +1334,18 @@
             }
             if (self.elements.hocInput && t.hoc) {
               self.elements.hocInput.value = t.hoc;
-              self.elements.hocInput.dataset.userSet = "true";
+              // b35fix312_1: do NOT set dataset.userSet here. Profile-loaded
+              // values should update when species/surface changes;
+              // userSet is reserved for genuine user-typed input.
               self.state.hoc = t.hoc;
             }
             if (self.elements.nProgramInput && t.nProgram) {
               self.elements.nProgramInput.value = t.nProgram;
-              self.elements.nProgramInput.dataset.userSet = "true";
+              // b35fix312_1: see HoC note above — same fix. Previous behaviour
+              // locked a profile-loaded N value (e.g. 250 from ryegrass/sport)
+              // so it stuck when switching to golf/greens, where the correct
+              // default is 150. applyDefaults now updates both fields freely
+              // whenever the user changes species/surface.
               self.state.nProgram = t.nProgram;
             }
             localStorage.setItem(self.STORAGE_KEY + "_last", e);

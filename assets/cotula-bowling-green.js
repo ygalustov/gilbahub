@@ -541,15 +541,48 @@
         _setSpeciesToCotula();
 
         // Update GAIP_STATE — persist cotula flag durably so gaip_build_state()
-        // can read it even after TurfProfileController repopulates from location events
+        // can read it even after TurfProfileController repopulates from location events.
+        //
+        // b35fix388: route writes through the hub-store setter contract. Pre-fix
+        // assigned to `window.GAIP_STATE.turf.<key>` directly, which silently
+        // dropped under the hub-store proxy installed in gilba-hub-v2.js (~line
+        // 1393). The getter synthesises a fresh `{turf: c.peek('inputs.turf')}`
+        // object on every read; mutations land on that ephemeral object and are
+        // GC'd. Only the setter's `e.inputs` and `e.turf` branches route writes
+        // into the actual store via `c.set('inputs.turf', val, ...)` — and the
+        // setter REPLACES (not patches) `inputs.turf` wholesale. So we read
+        // existing turf state first, spread it, override only the cotula keys,
+        // and route the merged object back through the setter. Without the
+        // merge, unrelated TurfProfileController-set state (variety, companion
+        // species, etc.) would be wiped every time the bowls profile activates.
+        //
+        // Same fix shape as b35fix386 (which closed the equivalent bug for the
+        // .soil slot in nutrition-calendar.js syncSoilFromDOM). Verified against
+        // a simulated proxy mirroring the gilba-hub-v2.js getter/setter pair —
+        // 4 downstream readers (turf-profile-controller.js:836, nutrition-uk-
+        // fertiliser-integration.js:690, hub-tissue-v3.js:1102, site-config-
+        // persistence.js:406) see the persisted cotula flags after the routed
+        // write; pre-existing turf keys preserved.
         if (window.GAIP_STATE) {
-            if (!window.GAIP_STATE.turf) window.GAIP_STATE.turf = {};
-            window.GAIP_STATE.turf.turfType = 'bowls';
-            window.GAIP_STATE.turf.surfaceType = 'cotula_bowling_green';
-            window.GAIP_STATE.turf.speciesKey = 'cotula';
-            window.GAIP_STATE.turf.grassSpecies = 'cotula';
-            window.GAIP_STATE.turf.physiology = 'dicot';
-            window.GAIP_STATE.turf.cotula = true;
+            try {
+                var existingTurf = (window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.turf)
+                    || window.GAIP_STATE.turf
+                    || {};
+                window.GAIP_STATE = {
+                    inputs: {
+                        turf: Object.assign({}, existingTurf, {
+                            turfType: 'bowls',
+                            surfaceType: 'cotula_bowling_green',
+                            speciesKey: 'cotula',
+                            grassSpecies: 'cotula',
+                            physiology: 'dicot',
+                            cotula: true
+                        })
+                    }
+                };
+            } catch (e) {
+                console.warn('[CotulaBowling b35fix388] state writeback failed:', e && e.message);
+            }
         }
 
         // Tell TurfProfileController that turfType is 'bowls' via its proper

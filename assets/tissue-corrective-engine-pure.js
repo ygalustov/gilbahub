@@ -451,28 +451,46 @@
 
     // ========================================================================
     // MLSN THRESHOLDS (for soil adequacy comparison)
+    // b35fix301a: Local threshold tables and local getSoilThresholds() resolver
+    //             moved to gaip-classification-constants.js. This file now
+    //             reads from the shared constants module and retains its own
+    //             thin wrappers that delegate to the shared resolver.
     // ========================================================================
 
-    const MLSN_THRESHOLDS = {
+    function _gcc() {
+        return (typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+               (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) ||
+               null;
+    }
+
+    const MLSN_THRESHOLDS = _gcc() ? _gcc().MLSN_THRESHOLDS : {
+        // Fallback literal for Node-test contexts without the constants module loaded.
+        // Production runs always have the constants module enqueued ahead of this file.
         P: 21, K: 37, Ca: 331, Mg: 47, S: 7,
         Fe: 2, Mn: 1, Zn: 1, Cu: 0.3, B: 0.3
     };
 
-    const SLAN_THRESHOLDS = {
+    const SLAN_THRESHOLDS = _gcc() ? _gcc().SLAN_THRESHOLDS : {
         P: 40, K: 117, Ca: 750, Mg: 120, S: 12,
         Fe: 2, Mn: 1, Zn: 1, Cu: 0.3, B: 0.3
     };
 
-    const AA_THRESHOLDS = {
+    const AA_THRESHOLDS = _gcc() ? _gcc().AA_THRESHOLDS : {
         sands:  { P: 12, K: 75,  Ca: 500, Mg: 100, S: 30, Fe: 40, Mn: 5, Zn: 1, Cu: 0.5, B: 0.3 },
         others: { P: 12, K: 100, Ca: 500, Mg: 140, S: 30, Fe: 40, Mn: 5, Zn: 1, Cu: 0.5, B: 0.3 }
     };
 
     /**
-     * Get soil adequacy thresholds for current methodology
-     * v2.0.0 pure: texture passed as parameter, no DOM read
+     * Get soil adequacy thresholds for current methodology.
+     * v2.0.0 pure: texture passed as parameter, no DOM read.
+     * b35fix301a: delegates to GilbaClassificationConstants.getSoilThresholds
+     *             when available; falls back to local resolution otherwise.
      */
     function getSoilThresholds(methodology, soilTexture) {
+        const gcc = _gcc();
+        if (gcc && typeof gcc.getSoilThresholds === 'function') {
+            return gcc.getSoilThresholds(methodology, soilTexture);
+        }
         const m = (methodology || 'mlsn').toLowerCase();
         if (m === 'slan') return SLAN_THRESHOLDS;
         if (m === 'ammonium_acetate' || m === 'ammoniumacetate' || m === 'aa') {

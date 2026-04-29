@@ -1,29 +1,44 @@
 /**
  * =============================================================================
- * GILBA HUB TAB NAVIGATION v1.1.0
+ * GILBA HUB TAB NAVIGATION v1.3.0 (b35fix358)
  * =============================================================================
  *
  * Phase 4 of the progressive UI redesign.
  *
- * Adds Today / Analysis / Programmes / Reports tabs below the header bar.
+ * Adds Today / Run / Programmes / Reports tabs below the header bar.
  * Each tab shows/hides groups of existing elements using display toggling.
  * No DOM destruction, no reparenting — purely visibility control.
  *
+ * b35fix358 changes (Option D treatment + icon-free labels):
+ *   - Tab bar gets a darker frame + accent-tinted bottom border so the strip
+ *     reads as a UI surface, not page background.
+ *   - Active tab merges with content below: removed bottom-radius on active
+ *     pill, soft accent shadow above pill, no shadow below.
+ *   - Inactive tabs get faint borders so they read as discrete controls.
+ *   - Icons dropped from labels (decision: top-bar icons add no
+ *     disambiguation at 16px). Icon prop kept on TABS array for the
+ *     floating quick-jump-nav which retains icons.
+ *
+ * b35fix357 history:
+ *   - "Analysis" label renamed to "Run" (tab id unchanged: 'analysis')
+ *     so all integration wiring (floating-run-button, hub-header-bar,
+ *     site-setup-wizard, spray-log-integration, persistence) is preserved.
+ *
  * Tab groupings:
  *   - Today:      Dashboard widgets + Disease Risk + Climate & Weather + Growth & Light
- *   - Analysis:   All result cards (full post-analysis output)
+ *   - Run:        Input cards + Run button + result cards (the working surface)
  *   - Programmes: Nutrition Program + PGR & Irrigation + Planning Tools
  *   - Reports:    Export controls (Word export, What-If, logo, org name)
  *
  * Dependencies: hub-header-bar.js, daily-dashboard.js, card-layout-redesign.js
- * @version 1.1.0
+ * @version 1.3.0
  * =============================================================================
  */
 
 (function() {
     'use strict';
 
-    var VERSION = '1.1.0';
+    var VERSION = '1.3.0';
     var TAB_BAR_ID = 'gaip-tab-navigation';
     var STORAGE_KEY = 'gaip-active-tab';
 
@@ -39,7 +54,7 @@
 
     var TABS = [
         { id: 'today',      label: 'Today',      icon: '📊', description: 'Dashboard overview with current conditions' },
-        { id: 'analysis',   label: 'Analysis',   icon: '🔬', description: 'Full analysis results across all modules' },
+        { id: 'analysis',   label: 'Run',        icon: '🔬', description: 'Run analysis: enter inputs, execute, see results' },
         { id: 'programmes', label: 'Programmes', icon: '📋', description: 'Nutrition, PGR & irrigation programmes' },
         { id: 'reports',    label: 'Reports',    icon: '📄', description: 'Export reports and run What-If scenarios' },
         { id: 'stadium',    label: 'Stadium',    icon: '🏟️', description: 'Stadium shade analysis and rig calculator' }
@@ -80,42 +95,74 @@
         if (document.getElementById('gaip-tab-nav-styles')) return;
 
         var css = [
-            '/* PHASE 4: TAB NAVIGATION */',
+            '/* PHASE 4: TAB NAVIGATION (b35fix358 — Option D: framed bar + merged active tab) */',
             '',
             '#' + TAB_BAR_ID + ' {',
-            '  display: flex; align-items: center; gap: 4px;',
-            '  padding: 8px 16px; background: var(--gaip-surface);',
-            '  border-bottom: 1px solid var(--gaip-border);',
+            '  display: flex; align-items: flex-end; gap: 8px;',
+            '  padding: 12px 16px 0;',
+            '  background: var(--gaip-surface-muted);',
+            '  border-bottom: 2px solid var(--gaip-accent, #2d7a4f);',
             '  margin: 0 -16px 16px; position: relative; z-index: 50;',
+            '  border-radius: 10px 10px 0 0;',
             '}',
             '',
             '.gaip-tab {',
-            '  display: flex; align-items: center; gap: 6px;',
-            '  padding: 8px 16px; border: none; background: none;',
-            '  font-size: 14px; font-weight: 500; color: var(--gaip-text-secondary);',
-            '  cursor: pointer; border-radius: 8px;',
-            '  transition: all 0.15s; white-space: nowrap;',
+            '  display: flex; align-items: center; gap: 8px;',
+            '  padding: 12px 22px 14px;',
+            '  border: 1px solid transparent;',
+            '  border-bottom: none;',
+            '  background: none;',
+            '  font-size: 15px; font-weight: 500;',
+            '  color: var(--gaip-text-secondary);',
+            '  cursor: pointer;',
+            '  border-radius: 8px 8px 0 0;',
+            '  transition: background 0.15s, color 0.15s, border-color 0.15s;',
+            '  white-space: nowrap; letter-spacing: 0.01em;',
+            '  position: relative;',
+            '  margin-bottom: -2px;', /* overlap the bar bottom border so active pill merges */
             '}',
-            '.gaip-tab:hover { background: var(--gaip-surface-hover); color: var(--gaip-text); }',
+            '.gaip-tab:hover {',
+            '  background: var(--gaip-surface-hover);',
+            '  color: var(--gaip-text);',
+            '  border-color: var(--gaip-border);',
+            '}',
+            '.gaip-tab:focus-visible {',
+            '  outline: none;',
+            '  box-shadow: 0 0 0 2px var(--gaip-accent, #2d7a4f);',
+            '}',
             '.gaip-tab.active {',
-            '  background: var(--gaip-accent-light, var(--gaip-good-bg));',
-            '  color: var(--gaip-accent, #2d7a4f); font-weight: 600;',
+            '  background: var(--gaip-accent, #2d7a4f);',
+            '  color: #ffffff;',
+            '  font-weight: 600;',
+            '  border-color: var(--gaip-accent, #2d7a4f);',
+            '  box-shadow: 0 -2px 8px rgba(45, 122, 79, 0.25);',
             '}',
-            '.gaip-tab-icon { font-size: 15px; }',
+            '.gaip-tab.active:hover {',
+            '  background: var(--gaip-accent, #2d7a4f);',
+            '  color: #ffffff;',
+            '  filter: brightness(1.05);',
+            '  border-color: var(--gaip-accent, #2d7a4f);',
+            '}',
             '',
             '.gaip-tab-badge {',
-            '  display: none; min-width: 18px; height: 18px;',
-            '  padding: 0 5px; border-radius: 10px;',
-            '  background: #ef4444; color: var(--gaip-surface);',
+            '  display: none; min-width: 20px; height: 20px;',
+            '  padding: 0 6px; border-radius: 10px;',
+            '  background: #ef4444; color: #ffffff;',
             '  font-size: 11px; font-weight: 600;',
-            '  line-height: 18px; text-align: center;',
+            '  line-height: 20px; text-align: center;',
             '}',
             '.gaip-tab-badge.visible { display: inline-block; }',
+            '/* Active-tab badge: invert so the red dot stays visible on the green pill */',
+            '.gaip-tab.active .gaip-tab-badge {',
+            '  background: #ffffff; color: var(--gaip-accent, #2d7a4f);',
+            '}',
             '',
             '@media (max-width: 640px) {',
-            '  #' + TAB_BAR_ID + ' { overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 6px 12px; }',
-            '  .gaip-tab { padding: 6px 12px; font-size: 13px; }',
-            '  .gaip-tab-icon { font-size: 13px; }',
+            '  #' + TAB_BAR_ID + ' {',
+            '    overflow-x: auto; -webkit-overflow-scrolling: touch;',
+            '    padding: 10px 12px 0;',
+            '  }',
+            '  .gaip-tab { padding: 10px 16px 12px; font-size: 14px; }',
             '}',
             '',
             '/* ---- Tab visibility: high-specificity selectors ---- */',
@@ -183,7 +230,6 @@
             btn.setAttribute('data-tab', tab.id);
             btn.setAttribute('title', tab.description);
             btn.innerHTML =
-                '<span class="gaip-tab-icon">' + tab.icon + '</span>' +
                 '<span class="gaip-tab-label">' + tab.label + '</span>' +
                 '<span class="gaip-tab-badge" id="gaip-tab-badge-' + tab.id + '"></span>';
             btn.addEventListener('click', function() { switchTab(tab.id); });

@@ -1,33 +1,46 @@
 /**
  * ============================================================================
- * GILBA WATER BLENDER v1.1.0
+ * GILBA WATER BLENDER v1.2.0
  * ============================================================================
- * 
- * v1.1.0: Implemented full Suarez (1981) SARadj calculation
- *   - Replaced placeholder with proper HCO₃/Ca precipitation adjustment
- *   - SARadj now increases when HCO₃/Ca ratio > 1 (Ca precipitation)
- *   - Added Suarez metadata to results (Cax, HCO3_Ca_ratio, adjustment factor)
- *   - Citation: Suarez DL (1981) SSSAJ 45:469-475
- * 
+ *
+ * v1.2.0 (b35fix335): Tier 1 provenance audit — adj RNa via FAO Table 11
+ *   - Pre-fix calcSuarezSARadj used an empirical power-law
+ *     Cax = Ca × 1/(1 + 0.15 × (HCO3/Ca − 1)^1.5)
+ *     which (a) does not appear in Suarez 1981, and (b) ignores ECw entirely.
+ *     Suarez 1981 / FAO Irrigation & Drainage Paper 29 Rev. 1 (Ayers &
+ *     Westcot 1985) Table 11 tabulates Cax against BOTH HCO3/Ca AND ECw —
+ *     ECw shifts Cax by 1.5–2× across the practical 0.1–8 dS/m range.
+ *   - Replaced with bilinear interpolation across the published Table 11
+ *     grid (27 HCO3/Ca rows × 12 ECw columns). Reference test: FAO 29
+ *     Example 6 (HCO3/Ca=1.76, ECw=1.15 dS/m) returns Cax≈1.43 me/l;
+ *     adj RNa = 7.73 / √((1.43+1.44)/2) ≈ 6.46.
+ *   - Output renamed to adj RNa (FAO terminology) with adjSAR retained as
+ *     alias for backward compatibility with existing consumers.
+ *   - Direction of the adjustment unchanged (HCO3/Ca > 1 → Ca down → SAR up).
+ *   - Magnitudes shift modestly on freshwater, materially on saline-alkali.
+ *
+ * v1.1.0: Earlier Suarez SARadj implementation (replaced by v1.2.0).
+ *
  * Multi-source irrigation water blending calculator with full Hub integration.
  * Calculates blended chemistry and feeds results to existing water quality,
  * salinity penalty, phytotoxicity, and irrigation scheduler modules.
- * 
+ *
  * SCIENTIFIC BASIS:
  * - Volumetric linear blending for conservative ions
  * - SAR calculation: Na / √((Ca + Mg) / 2)
- * - SARadj (Suarez 1981): Adjusts Ca for HCO₃-induced precipitation
+ * - adj RNa (Suarez 1981 via FAO 29 Table 11): Cax(HCO3/Ca, ECw) lookup,
+ *   then RNa = Na / √((Cax + Mg) / 2)
  * - RSC (Residual Sodium Carbonate): (HCO₃ + CO₃) − (Ca + Mg)
  * - LSI (Langelier Saturation Index): pH − pHc
  * - pHc via Langelier approximation at 25°C
  * - Classifications per Ayers & Westcot (1985), Carrow & Duncan (1998)
- * 
+ *
  * INTEGRATION POINTS:
  * - Water Progressive Disclosure: Feeds blended chemistry for analysis
  * - Salinity Penalty: Uses blended EC for growth impact
  * - Phytotoxicity Engine: Uses blended Na, Cl, B, HCO₃
  * - Irrigation Scheduler: Leaching requirement from blended salinity
- * 
+ *
  * ============================================================================
  */
 
@@ -164,73 +177,205 @@
      * @param {number} HCO3_meq - Bicarbonate in meq/L
      * @returns {Object} { adjSAR, basicSAR, Cax, HCO3_Ca_ratio, adjustment, method }
      */
-    function calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq) {
-        Ca_meq = safeNum(Ca_meq);
-        Mg_meq = safeNum(Mg_meq);
-        Na_meq = safeNum(Na_meq);
+    /**
+     * FAO Irrigation & Drainage Paper 29 Rev. 1 (Ayers & Westcot 1985) Table 11
+     * — Calcium concentration (Cax, me/l) expected to remain in near-surface
+     * soil-water following irrigation, as a function of HCO3/Ca ratio (rows)
+     * and applied-water ECw in dS/m (columns). Adapted from Suarez 1981.
+     *
+     * Assumptions (FAO 29 footnotes):
+     *   - Soil source of Ca from lime (CaCO3) or silicates
+     *   - No precipitation of magnesium
+     *   - PCO2 near soil surface = 0.0007 atm
+     *
+     * Used by calcSuarezSARadj (b35fix335) — bilinear interpolation between
+     * grid points; clamped to grid edges outside the published range.
+     */
+    var FAO29_TABLE11_HCO3_CA = [
+        0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50,
+        0.75, 1.00, 1.25, 1.50, 1.75, 2.00, 2.25, 2.50,
+        3.00, 3.50, 4.00, 4.50, 5.00, 7.00, 10.00, 20.00, 30.00
+    ];
+    var FAO29_TABLE11_ECW = [
+        0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0
+    ];
+    // Cax values in me/l. Row index = HCO3/Ca, column index = ECw.
+    var FAO29_TABLE11_CAX = [
+        [13.20, 13.61, 13.92, 14.40, 14.79, 15.26, 15.91, 16.43, 17.28, 17.97, 19.07, 19.94], // 0.05
+        [ 8.31,  8.57,  8.77,  9.07,  9.31,  9.62, 10.02, 10.35, 10.89, 11.32, 12.01, 12.56], // 0.10
+        [ 6.34,  6.54,  6.69,  6.92,  7.11,  7.34,  7.65,  7.90,  8.31,  8.64,  9.17,  9.58], // 0.15
+        [ 5.24,  5.40,  5.52,  5.71,  5.87,  6.06,  6.31,  6.52,  6.86,  7.13,  7.57,  7.91], // 0.20
+        [ 4.51,  4.65,  4.76,  4.92,  5.06,  5.22,  5.44,  5.62,  5.91,  6.15,  6.52,  6.82], // 0.25
+        [ 4.00,  4.12,  4.21,  4.36,  4.48,  4.62,  4.82,  4.98,  5.24,  5.44,  5.77,  6.04], // 0.30
+        [ 3.61,  3.72,  3.80,  3.94,  4.04,  4.17,  4.35,  4.49,  4.72,  4.91,  5.21,  5.45], // 0.35
+        [ 3.30,  3.40,  3.48,  3.60,  3.70,  3.82,  3.98,  4.11,  4.32,  4.49,  4.77,  4.98], // 0.40
+        [ 3.05,  3.14,  3.22,  3.33,  3.42,  3.53,  3.68,  3.80,  4.00,  4.15,  4.41,  4.61], // 0.45
+        [ 2.84,  2.93,  3.00,  3.10,  3.19,  3.29,  3.43,  3.54,  3.72,  3.87,  4.11,  4.30], // 0.50
+        [ 2.17,  2.24,  2.29,  2.37,  2.43,  2.51,  2.62,  2.70,  2.84,  2.95,  3.14,  3.28], // 0.75
+        [ 1.79,  1.85,  1.89,  1.96,  2.01,  2.09,  2.16,  2.23,  2.35,  2.44,  2.59,  2.71], // 1.00
+        [ 1.54,  1.59,  1.63,  1.68,  1.73,  1.78,  1.86,  1.92,  2.02,  2.10,  2.23,  2.33], // 1.25
+        [ 1.37,  1.41,  1.44,  1.49,  1.53,  1.58,  1.65,  1.70,  1.79,  1.86,  1.97,  2.07], // 1.50
+        [ 1.23,  1.27,  1.30,  1.35,  1.38,  1.43,  1.49,  1.54,  1.62,  1.68,  1.78,  1.86], // 1.75
+        [ 1.13,  1.16,  1.19,  1.23,  1.26,  1.31,  1.36,  1.40,  1.48,  1.54,  1.63,  1.70], // 2.00
+        [ 1.04,  1.08,  1.10,  1.14,  1.17,  1.21,  1.26,  1.30,  1.37,  1.42,  1.51,  1.58], // 2.25
+        [ 0.97,  1.00,  1.02,  1.06,  1.09,  1.12,  1.17,  1.21,  1.27,  1.32,  1.40,  1.47], // 2.50
+        [ 0.85,  0.89,  0.91,  0.94,  0.96,  1.00,  1.04,  1.07,  1.13,  1.17,  1.24,  1.30], // 3.00
+        [ 0.78,  0.80,  0.82,  0.85,  0.87,  0.90,  0.94,  0.97,  1.02,  1.06,  1.12,  1.17], // 3.50
+        [ 0.71,  0.73,  0.75,  0.78,  0.80,  0.82,  0.86,  0.88,  0.93,  0.97,  1.03,  1.07], // 4.00
+        [ 0.66,  0.68,  0.69,  0.72,  0.74,  0.76,  0.79,  0.82,  0.86,  0.90,  0.95,  0.99], // 4.50
+        [ 0.61,  0.63,  0.65,  0.67,  0.69,  0.71,  0.74,  0.76,  0.80,  0.83,  0.88,  0.93], // 5.00
+        [ 0.49,  0.50,  0.52,  0.53,  0.55,  0.57,  0.59,  0.61,  0.64,  0.67,  0.71,  0.74], // 7.00
+        [ 0.39,  0.40,  0.41,  0.42,  0.43,  0.45,  0.47,  0.48,  0.51,  0.53,  0.56,  0.58], // 10.00
+        [ 0.24,  0.25,  0.26,  0.26,  0.27,  0.28,  0.29,  0.30,  0.32,  0.33,  0.35,  0.37], // 20.00
+        [ 0.18,  0.19,  0.20,  0.20,  0.21,  0.21,  0.22,  0.23,  0.24,  0.25,  0.27,  0.28]  // 30.00
+    ];
+
+    /**
+     * Bilinear interpolation lookup of Cax from FAO 29 Table 11.
+     * Inputs outside the published grid are clamped to the nearest edge.
+     *
+     * @param {number} hco3CaRatio - HCO3/Ca in me/l basis
+     * @param {number} ecw_dSm     - ECw of applied water in dS/m
+     * @returns {number} Cax in me/l
+     */
+    function lookupCaxFAO29(hco3CaRatio, ecw_dSm) {
+        var rows = FAO29_TABLE11_HCO3_CA;
+        var cols = FAO29_TABLE11_ECW;
+        var grid = FAO29_TABLE11_CAX;
+
+        // Clamp inputs to grid bounds (reasonable agronomic clamping; the table
+        // already covers ECw 0.1–8 dS/m and HCO3/Ca 0.05–30 which spans virtually
+        // all natural irrigation waters)
+        var r = Math.max(rows[0], Math.min(rows[rows.length - 1], hco3CaRatio));
+        var c = Math.max(cols[0], Math.min(cols[cols.length - 1], ecw_dSm));
+
+        // Find bracketing row indices
+        var i0 = 0;
+        for (var i = 0; i < rows.length - 1; i++) {
+            if (r >= rows[i] && r <= rows[i + 1]) { i0 = i; break; }
+            if (i === rows.length - 2) { i0 = i; }
+        }
+        var i1 = i0 + 1;
+
+        // Find bracketing column indices
+        var j0 = 0;
+        for (var j = 0; j < cols.length - 1; j++) {
+            if (c >= cols[j] && c <= cols[j + 1]) { j0 = j; break; }
+            if (j === cols.length - 2) { j0 = j; }
+        }
+        var j1 = j0 + 1;
+
+        // Bilinear weights
+        var rSpan = rows[i1] - rows[i0];
+        var cSpan = cols[j1] - cols[j0];
+        var rT = rSpan > 0 ? (r - rows[i0]) / rSpan : 0;
+        var cT = cSpan > 0 ? (c - cols[j0]) / cSpan : 0;
+
+        var v00 = grid[i0][j0];
+        var v01 = grid[i0][j1];
+        var v10 = grid[i1][j0];
+        var v11 = grid[i1][j1];
+
+        var v0 = v00 * (1 - cT) + v01 * cT;
+        var v1 = v10 * (1 - cT) + v11 * cT;
+        return v0 * (1 - rT) + v1 * rT;
+    }
+
+    /**
+     * Calculate adjusted SAR (adj RNa) using the Suarez (1981) procedure
+     * as operationalised in FAO Irrigation & Drainage Paper 29 Rev. 1
+     * (Ayers & Westcot 1985), Table 11.
+     *
+     * adj RNa = Na / √((Cax + Mg) / 2)
+     *
+     * where Cax is the calcium concentration expected to remain in the
+     * near-surface soil-water at equilibrium, looked up from Table 11 by
+     * (HCO3/Ca ratio, ECw). ECw is required: at fixed HCO3/Ca ratio, Cax
+     * shifts by ~1.5–2× across the practical 0.1–8 dS/m ECw range.
+     *
+     * b35fix335: replaces the pre-fix empirical power-law formula
+     *   Cax = Ca × 1/(1 + 0.15 × (HCO3/Ca − 1)^1.5)
+     * which did not appear in Suarez 1981 and ignored ECw.
+     *
+     * CITATIONS:
+     *   - Suarez DL (1981) Relation between pHc and sodium adsorption ratio
+     *     (SAR) and an alternative method of estimating SAR of soil or
+     *     drainage waters. Soil Sci. Soc. Am. J. 45:469–475.
+     *     DOI 10.2136/sssaj1981.03615995004500030005x
+     *   - Ayers RS & Westcot DW (1985) Water quality for agriculture.
+     *     FAO Irrigation & Drainage Paper 29 Rev. 1, Table 11.
+     *
+     * @param {number} Ca_meq    - Calcium of applied water in me/l
+     * @param {number} Mg_meq    - Magnesium of applied water in me/l
+     * @param {number} Na_meq    - Sodium of applied water in me/l
+     * @param {number} HCO3_meq  - Bicarbonate of applied water in me/l
+     * @param {number} [ECw_dSm] - ECw of applied water in dS/m. If omitted
+     *                              or zero, defaults to 0.5 dS/m (mid-range
+     *                              freshwater) and result is flagged
+     *                              ecwMissing=true.
+     * @returns {Object} { adjSAR, basicSAR, Cax, HCO3_Ca_ratio, ECw,
+     *                     adjustment, method, citation, ecwMissing }
+     */
+    function calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq, ECw_dSm) {
+        Ca_meq   = safeNum(Ca_meq);
+        Mg_meq   = safeNum(Mg_meq);
+        Na_meq   = safeNum(Na_meq);
         HCO3_meq = safeNum(HCO3_meq);
-        
+        var ecwProvided = (ECw_dSm != null && !isNaN(ECw_dSm) && ECw_dSm > 0);
+        var ecw = ecwProvided ? Number(ECw_dSm) : 0.5;
+
         // Basic SAR for comparison
-        var denom = Math.sqrt(Math.max((Ca_meq + Mg_meq) / 2, EPS));
-        var basicSAR = Na_meq / denom;
-        
-        // If minimal HCO₃, adjustment is negligible
-        if (HCO3_meq < 0.5) {
+        var denomBasic = Math.sqrt(Math.max((Ca_meq + Mg_meq) / 2, EPS));
+        var basicSAR = Na_meq / denomBasic;
+
+        // If minimal HCO3 OR negligible Ca, adj RNa collapses to basic SAR.
+        // FAO 29 notes Table 11 starts at HCO3/Ca = 0.05; below that the Ca
+        // adjustment is immaterial.
+        var hco3CaRatio = HCO3_meq / Math.max(Ca_meq, 0.01);
+        if (HCO3_meq < 0.5 || hco3CaRatio < 0.05) {
             return {
                 adjSAR: basicSAR,
                 basicSAR: basicSAR,
                 Cax: Ca_meq,
-                HCO3_Ca_ratio: HCO3_meq / Math.max(Ca_meq, 0.1),
+                HCO3_Ca_ratio: hco3CaRatio,
+                ECw: ecw,
                 adjustment: 1.0,
-                method: 'Basic SAR (low HCO₃)',
-                citation: 'Standard SAR equation'
+                method: 'Basic SAR (HCO3/Ca below FAO Table 11 lower bound)',
+                citation: 'Standard SAR equation',
+                ecwMissing: !ecwProvided
             };
         }
-        
-        // HCO₃/Ca ratio - key indicator of precipitation potential
-        var HCO3_Ca_ratio = HCO3_meq / Math.max(Ca_meq, 0.1);
-        
-        // Suarez Cax calculation - effective Ca after equilibration
-        // If HCO₃/Ca > 1, Ca will precipitate; if < 1, Ca approximately unchanged
-        var Cax;
-        if (HCO3_Ca_ratio > 1) {
-            // Ca precipitation expected - reduce effective Ca
-            // Suarez empirical relationship based on carbonate equilibria
-            var precipFactor = 1 / (1 + 0.15 * Math.pow(HCO3_Ca_ratio - 1, 1.5));
-            Cax = Ca_meq * precipFactor;
-        } else {
-            Cax = Ca_meq;
-        }
-        
-        // Cax minimum to avoid divide by zero
-        Cax = Math.max(Cax, 0.1);
-        
-        // Calculate adjusted SAR with reduced effective Ca
+
+        var Cax = lookupCaxFAO29(hco3CaRatio, ecw);
+        Cax = Math.max(Cax, 0.1); // numerical floor, well below any tabulated value
+
         var adjDenom = Math.sqrt(Math.max((Cax + Mg_meq) / 2, EPS));
         var adjSAR = Na_meq / adjDenom;
-        
-        // Adjustment factor (how much SARadj exceeds basic SAR)
-        var adjustment = adjSAR / Math.max(basicSAR, 0.1);
-        
+        var adjustment = adjSAR / Math.max(basicSAR, 0.01);
+
         return {
-            adjSAR: adjSAR,
+            adjSAR: adjSAR,            // alias retained for backward compatibility
             basicSAR: basicSAR,
             Cax: Cax,
-            HCO3_Ca_ratio: HCO3_Ca_ratio,
+            HCO3_Ca_ratio: hco3CaRatio,
+            ECw: ecw,
             adjustment: adjustment,
-            method: 'Suarez (1981)',
-            citation: 'Suarez DL (1981) SSSAJ 45:469-475'
+            method: 'adj RNa via FAO 29 Table 11 (Suarez 1981)',
+            citation: 'Suarez DL (1981) SSSAJ 45:469-475; Ayers & Westcot (1985) FAO 29 Rev. 1 Table 11',
+            ecwMissing: !ecwProvided
         };
     }
     
     /**
-     * Legacy wrapper for backward compatibility
-     * Returns just the adjusted SAR value
+     * Legacy wrapper for backward compatibility — returns just the adjusted
+     * SAR scalar. b35fix335: now forwards EC_dSm into calcSuarezSARadj so the
+     * FAO Table 11 lookup uses the correct ECw column. Pre-fix, EC_dSm was
+     * accepted but discarded — the empirical formula did not use it.
      */
     function calcSARadj(SAR, EC_dSm, HCO3_meq, Ca_meq, Mg_meq, Na_meq) {
-        // If we have the full ion data, use proper Suarez calculation
+        // If we have the full ion data, use proper FAO Table 11 / Suarez 1981 lookup
         if (Ca_meq !== undefined && Mg_meq !== undefined && Na_meq !== undefined) {
-            var result = calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq);
+            var result = calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq, EC_dSm);
             return result.adjSAR;
         }
         // Fallback to basic SAR if insufficient data
@@ -595,7 +740,8 @@
         
         // Derived chemistry
         var SAR = calcSAR(Ca_meq, Mg_meq, Na_meq);
-        var suarezResult = calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq);
+        // b35fix335: forward EC_dSm so FAO Table 11 lookup uses the correct ECw column
+        var suarezResult = calcSuarezSARadj(Ca_meq, Mg_meq, Na_meq, HCO3_meq, blended.EC_dSm);
         var SARadj = suarezResult.adjSAR;
         var RSC = calcRSC(HCO3_meq, CO3_meq, Ca_meq, Mg_meq);
         var pHc = calcPHc(blended.EC_dSm, Ca_meq, Mg_meq, alkalinity_meq, tempC);

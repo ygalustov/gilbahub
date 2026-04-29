@@ -642,6 +642,79 @@
       }
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // b35fix365 — DIAGNOSTIC ONLY (no behaviour change)
+    //
+    // Surfaces every species source consulted by populateCanonicalState at
+    // the moment of resolution. Production logs from b35fix363 and b35fix364
+    // (gilbasolutions_com-1777266418415, -1777267335690) showed:
+    //   1. TurfProfileController dispatched species: 'Seashore Paspalum'
+    //      correctly (state-dispatched line in log)
+    //   2. populateCanonicalState fired TIER 0 species-required failure
+    //      shortly after
+    //   3. Disease engine ran anyway with stale species (couch from prev
+    //      Rockingham save; bentgrass earlier) and wrote that to GAIP_DISEASE_RESULT
+    //
+    // Three competing source paths feed speciesKey:
+    //   (a) inputs?.turf passed to populateCanonicalState
+    //   (b) _hubState.inputs.turf (the orchestrator's mirror)
+    //   (c) global.GAIP_STATE?.turf (hub-tissue's synchronous write)
+    //   (d) global.SpeciesController.getBaseSpecies/getEffectiveSpecies
+    //   (e) global.GAIP_STATE.turf.warmBase / effectiveSpecies / grassSpecies
+    //       (the cross-check at line 625 above)
+    //
+    // The diagnostic dumps all five so a single production log localises
+    // which source the function read, which one was stale, and which one
+    // had the user's actual selection. If (a-d) all agree → the bug is
+    // downstream of canonical state. If they disagree → write race within
+    // the orchestrator's own state mirror.
+    //
+    // Tag chosen to be greppable: "[b35fix365 species-resolution]".
+    // Removed in b35fix366 once the writer race is localised and closed.
+    // ─────────────────────────────────────────────────────────────────────
+    try {
+      const _diag = {
+        // Source path inputs
+        rawSpecies: rawSpecies || null,
+        rawEffectiveSpecies: rawEffectiveSpecies || null,
+        // Resolved keys (the values that will populate canonical state)
+        speciesKey: speciesKey || null,
+        effectiveSpeciesKey: effectiveSpeciesKey || null,
+        // Each source state object — keep to top-level species fields only
+        sources: {
+          inputsArg_turf_species: (inputs?.turf?.species != null)
+            ? (typeof inputs.turf.species === "string" ? inputs.turf.species : "<object>")
+            : null,
+          inputsArg_turf_grassSpecies: inputs?.turf?.grassSpecies || null,
+          hubStateInputs_turf_species: (_hubState.inputs.turf?.species != null)
+            ? (typeof _hubState.inputs.turf.species === "string" ? _hubState.inputs.turf.species : "<object>")
+            : null,
+          hubStateInputs_turf_grassSpecies: _hubState.inputs.turf?.grassSpecies || null,
+          GAIP_STATE_turf_species: (global.GAIP_STATE?.turf?.species != null)
+            ? (typeof global.GAIP_STATE.turf.species === "string" ? global.GAIP_STATE.turf.species : "<object>")
+            : null,
+          GAIP_STATE_turf_grassSpecies: global.GAIP_STATE?.turf?.grassSpecies || null,
+          GAIP_STATE_turf_effectiveSpecies: global.GAIP_STATE?.turf?.effectiveSpecies || null,
+          GAIP_STATE_turf_warmBase: global.GAIP_STATE?.turf?.warmBase || null,
+          SC_getBaseSpecies: (global.SpeciesController && typeof global.SpeciesController.getBaseSpecies === "function")
+            ? (function() { try { return global.SpeciesController.getBaseSpecies(); } catch(e) { return "<error:" + e.message + ">"; } })()
+            : null,
+          SC_getEffectiveSpecies: (global.SpeciesController && typeof global.SpeciesController.getEffectiveSpecies === "function")
+            ? (function() { try { return global.SpeciesController.getEffectiveSpecies(); } catch(e) { return "<error:" + e.message + ">"; } })()
+            : null,
+        },
+        // Build context so we can correlate against the dispatch sequence
+        timestamp: Date.now(),
+      };
+      // Single-line console dump — tagged for grep
+      try {
+        console.log("[b35fix365 species-resolution]", JSON.stringify(_diag));
+      } catch(e) { /* swallow stringify errors for cyclic objects */ }
+    } catch(e) {
+      // Diagnostic must never block the canonical state path
+      try { console.warn("[b35fix365 species-resolution] diagnostic error:", e); } catch(_) {}
+    }
+
     // Validate species - HARD STOP if missing (v1.4.0)
     if (!speciesKey) {
       const error = new Error(
@@ -779,7 +852,13 @@
       const defaultTemp = 20;
       GAIP_CANONICAL_STATE.climate.source = "default";
       GAIP_CANONICAL_STATE.climate.temperature = { current: defaultTemp, min: 15, max: 25, mean: defaultTemp };
-      GAIP_CANONICAL_STATE.climate.humidity = { current: 60, mean: 60 };
+      // b35fix345: humidity null on the no-climate-data path, not literal 60.
+      // Pre-fix `humidity = { current: 60, mean: 60 }` planted 60 into canonical
+      // state; getAuthoritativeClimate's moisture wrapper picked it up and
+      // dispatched it to disease engines as if real data. Disease engines
+      // already have degraded paths for null humidity (b35fix344) — give them
+      // null so they exercise those paths instead of computing on fabrication.
+      GAIP_CANONICAL_STATE.climate.humidity = { current: null, mean: null, dataSource: 'no-data' };
       GAIP_CANONICAL_STATE.climate.growthPotential = { weighted: 70, c3: 80, c4: 60 };
     }
 
@@ -1291,14 +1370,33 @@
     const tempMin = safeNum(manual.temperature?.min ?? manual.tempMin ?? manual.tmin, 10);
     const tempMax = safeNum(manual.temperature?.max ?? manual.tempMax ?? manual.tmax, 25);
     const tempMean = (tempMin + tempMax) / 2;
-    const humidity = safeNum(manual.moisture?.humidity?.mean ?? manual.moisture?.humidity ?? manual.humidity, 60);
+    // b35fix345: humidity null-passthrough. b35fix336 changelog claimed this
+    // was fixed; production verification 2026-04-26 (gilbasolutions_com-1777182748764.log)
+    // showed `safeNum(humidity, 60)` still planting literal 60 when manual
+    // humidity wasn't provided. Pull the humidity out of the nested shapes
+    // honestly: if explicitly entered, use it; if absent, null. Disease engines
+    // (b35fix344) handle null correctly; the literal 60 was pure fabrication.
+    const _humidityRaw = manual.moisture?.humidity?.mean
+                      ?? manual.moisture?.humidity
+                      ?? manual.humidity;
+    const humidity = (typeof _humidityRaw === 'number' && !isNaN(_humidityRaw))
+        ? _humidityRaw
+        : (typeof _humidityRaw === 'string' && _humidityRaw !== '' && !isNaN(parseFloat(_humidityRaw)))
+            ? parseFloat(_humidityRaw)
+            : null;
+    const humiditySource = humidity != null ? 'manual' : 'no-data';
     const rainfall = safeNum(manual.moisture?.rainfall ?? manual.rainfall, 0);
 
-    // Estimate dewpoint from temp and humidity (Magnus formula approximation)
-    const a = 17.27;
-    const b = 237.7;
-    const gamma = (a * tempMean) / (b + tempMean) + Math.log(humidity / 100);
-    const dewpoint = (b * gamma) / (a - gamma);
+    // Estimate dewpoint from temp and humidity (Magnus formula approximation).
+    // b35fix345: dewpoint can only be estimated when humidity is real. When
+    // humidity is null, dewpoint is null too (no fabrication).
+    let dewpoint = null;
+    if (humidity != null) {
+      const a = 17.27;
+      const b = 237.7;
+      const gamma = (a * tempMean) / (b + tempMean) + Math.log(humidity / 100);
+      dewpoint = (b * gamma) / (a - gamma);
+    }
 
     return {
       source: "manual",
@@ -1309,6 +1407,7 @@
       },
       humidity: {
         mean: humidity,
+        dataSource: humiditySource,
       },
       dewpoint: {
         mean: dewpoint,
@@ -1318,7 +1417,7 @@
       },
       // v1.5.1: Moisture wrapper for disease engine compatibility
       moisture: {
-        humidity: { mean: humidity },
+        humidity: { mean: humidity, dataSource: humiditySource },
         dewpoint: { mean: dewpoint },
         precipitation: { total: rainfall },
       },
@@ -1802,6 +1901,43 @@
       warn("disease", "No species available from canonical state - disease analysis may be unreliable");
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    // b35fix365 — DIAGNOSTIC ONLY (no behaviour change)
+    // Snapshots what the disease engine is about to receive at the exact
+    // moment buildDiseaseInputs assembles its species. Runs alongside the
+    // populateCanonicalState diagnostic — the timestamps allow correlating
+    // the two events. If buildDiseaseInputs's speciesForDisease disagrees
+    // with what populateCanonicalState resolved, GAIP_CANONICAL_STATE has
+    // been overwritten between the two calls (writer race). If they agree
+    // and the engine still produces wrong-species output, the bug is in
+    // the engine's own species handling, not the input pipeline.
+    // ─────────────────────────────────────────────────────────────────────
+    try {
+      const _diag = {
+        speciesForDisease: speciesForDisease || null,
+        // What the canonical state currently holds
+        canonical_speciesKey: canonicalTurf.speciesKey || null,
+        canonical_effectiveSpeciesKey: canonicalTurf.effectiveSpeciesKey || null,
+        canonical_speciesRaw: canonicalTurf.speciesRaw || null,
+        // Compare against the upstream sources at this moment
+        hubStateInputs_turf_grassSpecies: _hubState.inputs.turf?.grassSpecies || null,
+        hubStateInputs_turf_species: (_hubState.inputs.turf?.species != null)
+          ? (typeof _hubState.inputs.turf.species === "string" ? _hubState.inputs.turf.species : "<object>")
+          : null,
+        GAIP_STATE_turf_grassSpecies: global.GAIP_STATE?.turf?.grassSpecies || null,
+        GAIP_STATE_turf_effectiveSpecies: global.GAIP_STATE?.turf?.effectiveSpecies || null,
+        SC_getBaseSpecies: (global.SpeciesController && typeof global.SpeciesController.getBaseSpecies === "function")
+          ? (function() { try { return global.SpeciesController.getBaseSpecies(); } catch(e) { return "<error>"; } })()
+          : null,
+        timestamp: Date.now(),
+      };
+      try {
+        console.log("[b35fix365 disease-inputs-species]", JSON.stringify(_diag));
+      } catch(e) {}
+    } catch(e) {
+      try { console.warn("[b35fix365 disease-inputs-species] diagnostic error:", e); } catch(_) {}
+    }
+
     // Inject sensor VWC into climate.moisture.soilMoisture so the
     // take-all soil pathway modifier (disease-engine-pure.js line 1357) uses
     // measured soil moisture rather than the default 0.3 fallback.
@@ -1855,10 +1991,20 @@
     const _roofState = shade && shade.roof_state ? shade.roof_state : 'open';
     if (_roofState === 'closed') {
       try {
+        // b35fix345: GSSH closed-roof microclimate modifier degrades when no
+        // base humidity is available. Pre-fix `|| 70` planted a fabricated
+        // 70% baseline and then bumped it to 77% (×1.10). Result was an
+        // enclosed-stadium "humidity adjustment" computed against fabricated
+        // ambient — defensible only when ambient humidity is real. When the
+        // base is null, skip the +10% RH modifier (LWD ×1.5 still applies as
+        // it doesn't depend on RH magnitude). Provenance recorded so reports
+        // can flag the partial application.
         const _baseHumidity = climateForDisease && climateForDisease.humidity
-          ? (climateForDisease.humidity.mean || climateForDisease.humidity.current || 70)
-          : 70;
-        const _enclosedHumidity = Math.min(98, Math.round(_baseHumidity * 1.10));
+          ? (climateForDisease.humidity.mean ?? climateForDisease.humidity.current ?? null)
+          : null;
+        const _enclosedHumidity = _baseHumidity != null
+          ? Math.min(98, Math.round(_baseHumidity * 1.10))
+          : null;
 
         climateForDisease = Object.assign({}, climateForDisease, {
           humidity: Object.assign({}, climateForDisease && climateForDisease.humidity, {
@@ -1877,6 +2023,11 @@
             roof_state:     'closed',
             humidity_base:  _baseHumidity,
             humidity_adj:   _enclosedHumidity,
+            // b35fix345: humidity_adj_applied flag tells reports whether the
+            // +10% RH modifier was actually applied (real base humidity) or
+            // skipped because base humidity was null (no-data). LWD ×1.5
+            // applies in both cases as it doesn't depend on RH magnitude.
+            humidity_adj_applied: _baseHumidity != null,
             lwd_multiplier: 1.5,
             quality:        'low',
             source:         'operational_evidence',
@@ -3778,11 +3929,18 @@
         // Update global GAIP_DISEASE_RESULT so UI renders correct species
         if (_hubState.computed.disease) {
           _hubState.computed.disease._writtenAt = Date.now(); // recency stamp for dashboard freshness check
+          // b35fix365 — writer-source tag. Two paths write GAIP_DISEASE_RESULT
+          // (this one at line ~3822 = main disease block; another at ~4530 in
+          // the cascade disease-engine case). When both fire on the same
+          // computeAll, the second silently overwrites the first. Tag lets
+          // a single production log distinguish which writer produced the
+          // result the dashboard ultimately rendered.
+          _hubState.computed.disease._writerTag = "b35fix365:writer1-mainBlock";
           global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
           // Confirm disease result write for dashboard debugging
           warn(
             "disease",
-            `GAIP_DISEASE_RESULT written — species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
+            `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written — species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
           );
           document.dispatchEvent(
             new CustomEvent("gaip:disease-updated", { detail: { result: _hubState.computed.disease } }),
@@ -4482,7 +4640,20 @@
             // Update global for UI
             if (_hubState.computed.disease) {
               _hubState.computed.disease._writtenAt = Date.now(); // recency stamp
+              // b35fix365 — writer-source tag. This is the SECOND writer
+              // (cascade case). Previously silent — no log emission.
+              // When the cascade fires this case AND the main disease block
+              // (line ~3822) ran earlier in the same computeAll, the result
+              // here overwrites that one. Whichever writer fires LAST
+              // determines what the dashboard renders. Tagging both writers
+              // and emitting a log line on each lets a single production log
+              // localise the overwrite.
+              _hubState.computed.disease._writerTag = "b35fix365:writer2-cascadeCase";
               global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
+              warn(
+                "disease",
+                `[b35fix365 writer2-cascadeCase] GAIP_DISEASE_RESULT written — species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)} diseaseInputs.species: "${diseaseInputs.species || "none"}"`,
+              );
             }
           }
           break;

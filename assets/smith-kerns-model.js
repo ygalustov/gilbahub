@@ -1,28 +1,48 @@
 /**
  * ============================================================================
- * SMITH-KERNS DOLLAR SPOT MODEL v1.0.0
+ * SMITH-KERNS DOLLAR SPOT MODEL v2.0.0
  * ============================================================================
- * 
- * True implementation of the Smith-Kerns dollar spot prediction model based on:
- * 
- * Smith, D.L., Kerns, J.P., Walker, N.R., Roberts, A.F., Horvath, B.J., & 
- * Bhullar, M.I. (2018). Development and validation of a weather-based 
- * dollar spot prediction model for turfgrass. PLOS ONE 13(3): e0194216.
- * https://doi.org/10.1371/journal.pone.0194216
- * 
- * KEY FINDINGS FROM THE RESEARCH:
- * - Uses 5-day rolling averages of HOURLY relative humidity and air temperature
- * - Generates a cumulative risk index (0-100%)
- * - 20% action threshold controlled dollar spot equivalent to calendar-based
- *   programmes while reducing applications by 1-2 per year
- * - Model validated across multiple US locations (2014-2016)
- * 
- * CITATION REQUIRED: All outputs should reference Smith et al. 2018
- * 
- * @requires climate data with hourlyData.temperature_2m and hourlyData.relative_humidity_2m
- * @version 1.0.0
- * @date January 2026
- * @author Gilba Solutions
+ *
+ * b35fix335 (Tier 1 provenance audit): full rewrite. Pre-fix v1.0.0 claimed
+ * to implement Smith-Kerns 2018 but actually computed a Gaussian temp curve
+ * × favourable-hours score with arbitrary constants (RH≥65, temp 15–32°C
+ * Gaussian, scale factor 150) — none of which appear in the paper.
+ *
+ * This module now implements the published equation from:
+ *
+ *   Smith, D.L., Kerns, J.P., Walker, N.R., Payne, A.R., Horvath, B.,
+ *   Inguagiato, J.C., Kaminski, J.E., Tomaso-Peterson, M., & Koch, P.L. (2018).
+ *   "Development and validation of a weather-based warning system to advise
+ *   fungicide application to control dollar spot on turfgrass."
+ *   PLOS ONE 13(3): e0194216.
+ *   DOI: 10.1371/journal.pone.0194216
+ *
+ * MODEL:
+ *   logit(mu) = -11.4041 + 0.0894*MEANRH + 0.1932*MEANAT
+ *   mu        = 1 / (1 + exp(-logit(mu)))
+ *
+ * where:
+ *   MEANRH = 5-day rolling mean relative humidity (%)
+ *   MEANAT = 5-day rolling mean air temperature (°C)
+ *   mu     = probability that dollar spot will occur on a given day
+ *
+ * ACTION THRESHOLD: 20% probability (Smith et al. 2018 standard).
+ *   Hempfling et al. (2021) Crop Sci. 61(5):3149-3162 demonstrated that
+ *   the 20% threshold over-predicts on low-susceptibility cultivars and
+ *   recommends thresholds >20% on tolerant bentgrasses.
+ *
+ * SCOPE: validated on cool-season creeping bentgrass (Penncross initial
+ * calibration; multiple bentgrass cultivars in validation locations across
+ * Wisconsin, Oklahoma, Pennsylvania, Mississippi, Tennessee, Connecticut,
+ * New Jersey). Use on warm-season turf is indicative only.
+ *
+ * NOTE: this standalone module is enqueued by gilba-agronomic-intelligence-hub.php
+ * but its globals (window.SmithKernsModel, window.DollarSpotModelV2) are not
+ * currently consumed by other modules. The production dollar-spot path lives
+ * in disease-engine-pure.js, which also got a Smith-Kerns 2018 logistic
+ * implementation in b35fix335. This file is kept in lockstep so any future
+ * wiring picks up the correct model.
+ *
  * ============================================================================
  */
 
@@ -30,474 +50,174 @@ const SmithKernsModel = (function() {
     'use strict';
 
     // =========================================================================
-    // MODEL PARAMETERS (from Smith et al. 2018)
+    // PUBLISHED MODEL COEFFICIENTS (Smith et al. 2018)
     // =========================================================================
-    
-    const CONFIG = {
-        // Temperature thresholds (°C) - converted from original °F
-        temp: {
-            min: 15,        // ~59°F - below this, no favorable hours
-            optimal: 25,    // ~77°F - peak favorability
-            max: 32         // ~90°F - above this, reduced favorability
-        },
-        
-        // Relative humidity threshold
-        rh: {
-            threshold: 65   // Hours with RH ≥65% count as favorable
-        },
-        
-        // Rolling average window
-        rollingDays: 5,
-        
-        // Action threshold - THE KEY DECISION POINT
-        // At 20% risk index, apply fungicide
-        actionThreshold: 20,
-        
-        // Risk level classifications for display
-        riskLevels: {
-            minimal: 10,    // <10% - no action needed
-            low: 20,        // 10-20% - monitor closely
-            moderate: 40,   // 20-40% - consider treatment
-            high: 60,       // 40-60% - treatment recommended
-            severe: 100     // >60% - immediate treatment
+
+    const COEFFICIENTS = Object.freeze({
+        intercept: -11.4041,
+        rh:          0.0894,   // MEANRH (% units)
+        airTemp:     0.1932    // MEANAT (°C units)
+    });
+
+    const ACTION_THRESHOLD = 20;        // % probability — Smith et al. 2018
+    const ROLLING_DAYS     = 5;
+
+    // =========================================================================
+    // CORE EQUATIONS
+    // =========================================================================
+
+    /**
+     * Compute the Smith-Kerns 2018 logistic-regression probability of
+     * dollar spot occurrence on a given day.
+     *
+     * @param {number} meanRH - 5-day mean relative humidity (%, 0-100)
+     * @param {number} meanAT - 5-day mean air temperature (°C)
+     * @returns {number|null} probability in [0, 100], or null on bad input
+     */
+    function probability(meanRH, meanAT) {
+        if (typeof meanRH !== 'number' || typeof meanAT !== 'number'
+            || isNaN(meanRH) || isNaN(meanAT)) {
+            return null;
         }
-    };
-
-    // =========================================================================
-    // CORE CALCULATION FUNCTIONS
-    // =========================================================================
-
-    /**
-     * Calculate hourly temperature favorability
-     * Based on Smith et al. (2018) temperature response curve
-     * 
-     * @param {number} tempC - Temperature in Celsius
-     * @returns {number} Favorability score 0-1
-     */
-    function calcTempFavorability(tempC) {
-        if (tempC < CONFIG.temp.min) return 0;
-        if (tempC > CONFIG.temp.max) return Math.max(0, 1 - (tempC - CONFIG.temp.max) / 8);
-        
-        // Gaussian curve centered on optimal temp
-        const deviation = (tempC - CONFIG.temp.optimal) / 8;
-        return Math.exp(-0.5 * deviation * deviation);
+        const logit = COEFFICIENTS.intercept
+                    + COEFFICIENTS.rh      * meanRH
+                    + COEFFICIENTS.airTemp * meanAT;
+        const mu = 1 / (1 + Math.exp(-logit));
+        return mu * 100;
     }
 
     /**
-     * Check if an hour is "favorable" for dollar spot development
-     * An hour is favorable if:
-     * - RH ≥ 65%
-     * - Temperature is within favorable range
-     * 
-     * @param {number} tempC - Temperature in Celsius
-     * @param {number} rh - Relative humidity (%)
-     * @returns {boolean} True if hour is favorable
+     * Helper: 5-day mean relative humidity from an array of hourly RH values.
+     * Uses the most recent up to 120 hours.
      */
-    function isHourFavorable(tempC, rh) {
-        return rh >= CONFIG.rh.threshold && 
-               tempC >= CONFIG.temp.min && 
-               tempC <= CONFIG.temp.max;
+    function fiveDayMeanRH(hourlyRH) {
+        if (!Array.isArray(hourlyRH) || hourlyRH.length === 0) return null;
+        const start = Math.max(0, hourlyRH.length - ROLLING_DAYS * 24);
+        let sum = 0, count = 0;
+        for (let i = start; i < hourlyRH.length; i++) {
+            const v = hourlyRH[i];
+            if (typeof v === 'number' && !isNaN(v)) { sum += v; count++; }
+        }
+        return count > 0 ? sum / count : null;
     }
 
     /**
-     * Calculate daily favorability metrics from hourly data
-     * 
-     * @param {Array<number>} hourlyTemp - 24 hours of temperature data (°C)
-     * @param {Array<number>} hourlyRH - 24 hours of relative humidity data (%)
-     * @returns {Object} Daily metrics
+     * Helper: 5-day mean air temperature from an array of hourly °C values
+     * or a daily-pattern array of { mean } objects.
      */
-    function calcDailyMetrics(hourlyTemp, hourlyRH) {
-        let favorableHours = 0;
-        let tempFavorabilitySum = 0;
-        let rhFavorabilitySum = 0;
-        
-        for (let h = 0; h < 24; h++) {
-            const temp = hourlyTemp[h] ?? 20;
-            const rh = hourlyRH[h] ?? 70;
-            
-            // Count favorable hours (both conditions met)
-            if (isHourFavorable(temp, rh)) {
-                favorableHours++;
+    function fiveDayMeanTemp(hourlyTemp, dailyPattern) {
+        if (Array.isArray(dailyPattern) && dailyPattern.length > 0) {
+            const slice = dailyPattern.slice(0, ROLLING_DAYS);
+            let sum = 0, count = 0;
+            for (let i = 0; i < slice.length; i++) {
+                const v = slice[i] && slice[i].mean;
+                if (typeof v === 'number' && !isNaN(v)) { sum += v; count++; }
             }
-            
-            // Sum individual contributions for detailed analysis
-            tempFavorabilitySum += calcTempFavorability(temp);
-            rhFavorabilitySum += rh >= CONFIG.rh.threshold ? 1 : 0;
+            if (count > 0) return sum / count;
         }
-        
-        return {
-            favorableHours,
-            avgTempFavorability: tempFavorabilitySum / 24,
-            avgRHFavorability: rhFavorabilitySum / 24,
-            avgTemp: hourlyTemp.reduce((a, b) => a + (b ?? 20), 0) / hourlyTemp.length,
-            avgRH: hourlyRH.reduce((a, b) => a + (b ?? 70), 0) / hourlyRH.length
-        };
-    }
-
-    /**
-     * Calculate 5-day rolling average of daily metrics
-     * This is the core of the Smith-Kerns approach
-     * 
-     * @param {Array<Object>} dailyMetrics - Array of daily metric objects
-     * @param {number} currentDayIndex - Index of current day
-     * @returns {Object} Rolling averages
-     */
-    function calc5DayRollingAverage(dailyMetrics, currentDayIndex) {
-        const startIndex = Math.max(0, currentDayIndex - CONFIG.rollingDays + 1);
-        const window = dailyMetrics.slice(startIndex, currentDayIndex + 1);
-        
-        if (window.length === 0) {
-            return { favorableHours: 0, tempFavorability: 0, rhFavorability: 0 };
+        if (Array.isArray(hourlyTemp) && hourlyTemp.length > 0) {
+            const start = Math.max(0, hourlyTemp.length - ROLLING_DAYS * 24);
+            let sum = 0, count = 0;
+            for (let i = start; i < hourlyTemp.length; i++) {
+                const v = hourlyTemp[i];
+                if (typeof v === 'number' && !isNaN(v)) { sum += v; count++; }
+            }
+            return count > 0 ? sum / count : null;
         }
-        
-        const sum = window.reduce((acc, day) => ({
-            favorableHours: acc.favorableHours + day.favorableHours,
-            tempFavorability: acc.tempFavorability + day.avgTempFavorability,
-            rhFavorability: acc.rhFavorability + day.avgRHFavorability
-        }), { favorableHours: 0, tempFavorability: 0, rhFavorability: 0 });
-        
-        return {
-            favorableHours: sum.favorableHours / window.length,
-            tempFavorability: sum.tempFavorability / window.length,
-            rhFavorability: sum.rhFavorability / window.length,
-            daysInWindow: window.length
-        };
+        return null;
     }
 
     /**
-     * Calculate Smith-Kerns Risk Index
-     * 
-     * The risk index combines:
-     * - 5-day rolling average of favorable hours
-     * - Temperature favorability
-     * - RH favorability
-     * 
-     * Scaled to 0-100% where 20% = action threshold
-     * 
-     * @param {Object} rollingAvg - 5-day rolling averages
-     * @returns {number} Risk index 0-100
+     * Classify a Smith-Kerns probability into a coarse risk band for UI use.
+     * Bands are Gilba presentation choices, NOT from the paper. The only
+     * threshold from Smith et al. 2018 is the 20% action threshold.
      */
-    function calcRiskIndex(rollingAvg) {
-        // Maximum possible favorable hours per day = 24
-        // Normalize favorable hours to 0-1 scale
-        const favorableRatio = rollingAvg.favorableHours / 24;
-        
-        // Combine factors (weighted as per model validation)
-        // Primary driver is favorable hours, modified by temp/RH favorability
-        const rawRisk = favorableRatio * 
-                       (0.5 + 0.25 * rollingAvg.tempFavorability + 0.25 * rollingAvg.rhFavorability);
-        
-        // Scale to 0-100 where the action threshold (20%) represents 
-        // approximately 8 favorable hours/day average over 5 days
-        const scaledRisk = Math.min(100, rawRisk * 150);
-        
-        return Math.round(scaledRisk * 10) / 10;
-    }
-
-    /**
-     * Classify risk level based on index value
-     * 
-     * @param {number} riskIndex - Risk index 0-100
-     * @returns {string} Risk level classification
-     */
-    function classifyRisk(riskIndex) {
-        if (riskIndex >= CONFIG.riskLevels.high) return 'severe';
-        if (riskIndex >= CONFIG.riskLevels.moderate) return 'high';
-        if (riskIndex >= CONFIG.riskLevels.low) return 'moderate';
-        if (riskIndex >= CONFIG.riskLevels.minimal) return 'low';
-        return 'minimal';
+    function classifyRisk(prob) {
+        if (prob == null) return 'unknown';
+        if (prob < 10)  return 'minimal';
+        if (prob < 20)  return 'low';        // below action threshold
+        if (prob < 40)  return 'moderate';   // above action threshold
+        if (prob < 60)  return 'high';
+        return 'severe';
     }
 
     // =========================================================================
-    // MAIN CALCULATION FUNCTION
+    // HIGH-LEVEL CALCULATE (climate-object input compatible with hub)
     // =========================================================================
 
-    /**
-     * Calculate Smith-Kerns dollar spot risk from climate data
-     * 
-     * @param {Object} climate - Climate data object with hourlyData
-     * @param {Object} nitrogen - Nitrogen status object
-     * @param {Object} variety - Variety traits object
-     * @param {Object} options - Additional options
-     * @returns {Object} Complete risk assessment
-     */
-    function calculate(climate, nitrogen, variety, options = {}) {
-        // Validate input data
-        if (!climate?.hourlyData?.temperature_2m || !climate?.hourlyData?.relative_humidity_2m) {
+    function calculate(climate) {
+        const meanRH = fiveDayMeanRH(climate && climate.hourlyData && climate.hourlyData.relative_humidity_2m)
+                    || (climate && climate.moisture && climate.moisture.humidity && climate.moisture.humidity.mean)
+                    || null;
+        // b35fix335a: temp fallback chain matches disease-engine-pure.js. Order:
+        //   (1) hourly array → (2) dailyPattern → (3) max/min average →
+        //   (4) period-mean. Production showed dailyPattern rarely populated.
+        // b35fix337: added 5th rung — temperature.current — to match the Shirley
+        // GC Christchurch first-paint race fixed in disease-engine-pure.js. On
+        // a single dispatch out of 72 in the production log, only `current` was
+        // populated; chain returned null and SK collapsed to degraded despite
+        // a real temperature being available. Lockstep with the production engine.
+        let meanAT = fiveDayMeanTemp(
+            climate && climate.hourlyData && climate.hourlyData.temperature_2m,
+            climate && climate.temperature && climate.temperature.dailyPattern
+        );
+        if (meanAT == null
+            && climate && climate.temperature
+            && climate.temperature.max != null
+            && climate.temperature.min != null) {
+            meanAT = (climate.temperature.max + climate.temperature.min) / 2;
+        }
+        if (meanAT == null) {
+            meanAT = (climate && climate.temperature && climate.temperature.mean) || null;
+        }
+        if (meanAT == null) {
+            // b35fix337: 5th rung — current-hour reading. Single-hour value, not
+            // a 5-day mean; degraded but better than refusing to compute when
+            // a real temperature exists.
+            meanAT = (climate && climate.temperature && climate.temperature.current) || null;
+        }
+
+        const prob = probability(meanRH, meanAT);
+        if (prob == null) {
             return {
-                disease: 'dollarSpot',
-                displayName: 'Dollar Spot',
-                riskScore: 0,
-                riskIndex: 0,
-                riskLevel: 'low',
-                confidence: 'insufficient_data',
-                error: 'Smith-Kerns model requires hourly temperature and humidity data',
-                fallback: true,
-                source: 'Smith et al. 2018'
+                model: 'Smith-Kerns 2018',
+                citation: 'Smith et al. (2018) PLOS ONE 13(3):e0194216',
+                meanRH: meanRH,
+                meanAT: meanAT,
+                probability: null,
+                riskLevel: 'unknown',
+                actionRequired: false,
+                actionThreshold: ACTION_THRESHOLD,
+                degraded: true,
+                reason: 'Insufficient input data (missing 5-day mean RH or air temperature)'
             };
         }
 
-        const hourlyTemp = climate.hourlyData.temperature_2m;
-        const hourlyRH = climate.hourlyData.relative_humidity_2m;
-        const hoursAvailable = Math.min(hourlyTemp.length, hourlyRH.length);
-        const daysAvailable = Math.floor(hoursAvailable / 24);
-
-        if (daysAvailable < 1) {
-            return {
-                disease: 'dollarSpot',
-                displayName: 'Dollar Spot',
-                riskScore: 0,
-                riskIndex: 0,
-                riskLevel: 'low',
-                confidence: 'insufficient_data',
-                error: 'At least 24 hours of data required',
-                source: 'Smith et al. 2018'
-            };
-        }
-
-        // Calculate daily metrics for each available day
-        const dailyMetrics = [];
-        for (let d = 0; d < daysAvailable; d++) {
-            const startHour = d * 24;
-            const dayTemp = hourlyTemp.slice(startHour, startHour + 24);
-            const dayRH = hourlyRH.slice(startHour, startHour + 24);
-            dailyMetrics.push(calcDailyMetrics(dayTemp, dayRH));
-        }
-
-        // Calculate 5-day rolling average for the most recent day
-        const currentDayIndex = daysAvailable - 1;
-        const rollingAvg = calc5DayRollingAverage(dailyMetrics, currentDayIndex);
-
-        // Calculate risk index
-        const riskIndex = calcRiskIndex(rollingAvg);
-
-        // Apply modifiers (nitrogen, variety susceptibility)
-        let modifiedRisk = riskIndex;
-        const modifiers = {};
-
-        // Nitrogen modifier (low N dramatically increases dollar spot)
-        const N_MODIFIERS = {
-            deficient: 1.5,
-            low: 1.3,
-            adequate: 1.0,
-            optimal: 0.95,
-            high: 0.9,
-            excessive: 1.05
-        };
-        const nStatus = nitrogen?.status || 'adequate';
-        const nMod = N_MODIFIERS[nStatus] || 1.0;
-        modifiedRisk *= nMod;
-        modifiers.nitrogen = { status: nStatus, multiplier: nMod };
-
-        // Variety susceptibility modifier
-        const varietyMod = variety?.disease?.dollarSpot?.riskMultiplier || 1.0;
-        modifiedRisk *= varietyMod;
-        modifiers.variety = varietyMod;
-
-        // Cap at 100
-        modifiedRisk = Math.min(100, modifiedRisk);
-
-        // Determine action recommendation
-        const actionRequired = riskIndex >= CONFIG.actionThreshold;
-        const riskLevel = classifyRisk(modifiedRisk);
-
-        // Build response
         return {
-            disease: 'dollarSpot',
-            displayName: 'Dollar Spot',
-            pathogen: 'Clarireedia jacksonii',
-            
-            // Primary outputs
-            riskIndex: Math.round(riskIndex * 10) / 10,
-            riskScore: Math.round(modifiedRisk),  // For compatibility with existing UI
-            adjustedRisk: Math.round(modifiedRisk),
-            riskLevel,
-            
-            // Action threshold (THE KEY OUTPUT)
-            actionThreshold: CONFIG.actionThreshold,
-            actionRequired,
-            actionMessage: actionRequired 
-                ? `Risk index ${riskIndex.toFixed(1)}% exceeds ${CONFIG.actionThreshold}% threshold — fungicide application recommended`
-                : `Risk index ${riskIndex.toFixed(1)}% below ${CONFIG.actionThreshold}% threshold — continue monitoring`,
-            
-            // Model details
-            confidence: rollingAvg.daysInWindow >= 5 ? 'high' : 'medium',
-            rollingWindow: {
-                days: rollingAvg.daysInWindow,
-                avgFavorableHours: Math.round(rollingAvg.favorableHours * 10) / 10,
-                avgTempFavorability: Math.round(rollingAvg.tempFavorability * 100),
-                avgRHFavorability: Math.round(rollingAvg.rhFavorability * 100)
-            },
-            
-            // Driver breakdown
-            drivers: {
-                temperature: {
-                    current: Math.round(dailyMetrics[currentDayIndex].avgTemp * 10) / 10,
-                    favorability: Math.round(dailyMetrics[currentDayIndex].avgTempFavorability * 100),
-                    optimal: CONFIG.temp.optimal,
-                    range: `${CONFIG.temp.min}-${CONFIG.temp.max}°C`
-                },
-                humidity: {
-                    current: Math.round(dailyMetrics[currentDayIndex].avgRH),
-                    threshold: CONFIG.rh.threshold,
-                    hoursAboveThreshold: Math.round(dailyMetrics[currentDayIndex].favorableHours)
-                },
-                favorableHours: {
-                    today: dailyMetrics[currentDayIndex].favorableHours,
-                    rolling5Day: Math.round(rollingAvg.favorableHours * 10) / 10,
-                    description: 'Hours with RH ≥65% AND temp 15-32°C'
-                },
-                nitrogen: {
-                    status: nStatus,
-                    modifier: nMod,
-                    note: nMod > 1.1 ? 'Low N increases susceptibility' : null
-                }
-            },
-            
-            modifiers,
-            
-            // Daily breakdown for charts
-            dailyBreakdown: dailyMetrics.map((day, i) => ({
-                dayIndex: i,
-                favorableHours: day.favorableHours,
-                avgTemp: Math.round(day.avgTemp * 10) / 10,
-                avgRH: Math.round(day.avgRH)
-            })),
-            
-            // Citation
-            source: 'Smith et al. 2018',
-            citation: 'Smith, D.L. et al. (2018). Development and validation of a weather-based dollar spot prediction model. PLOS ONE 13(3): e0194216',
-            
-            // Model metadata
-            modelVersion: '1.0.0',
-            modelType: 'Smith-Kerns',
-            calculatedAt: new Date().toISOString()
+            model: 'Smith-Kerns 2018',
+            citation: 'Smith et al. (2018) PLOS ONE 13(3):e0194216',
+            meanRH: Math.round(meanRH * 10) / 10,
+            meanAT: Math.round(meanAT * 10) / 10,
+            probability: Math.round(prob * 10) / 10,
+            riskLevel: classifyRisk(prob),
+            actionRequired: prob >= ACTION_THRESHOLD,
+            actionThreshold: ACTION_THRESHOLD,
+            actionThresholdNote: 'Hempfling et al. 2021 (Crop Sci 61:3149-3162) found the 20% threshold over-predicts on low-susceptibility cultivars; consider higher thresholds on tolerant bentgrasses.',
+            degraded: false
         };
     }
 
-    // =========================================================================
-    // INTERVENTION RECOMMENDATIONS
-    // =========================================================================
-
-    /**
-     * Get intervention recommendations based on risk level and action threshold
-     * 
-     * @param {Object} assessment - Risk assessment from calculate()
-     * @param {Object} options - Options including region
-     * @returns {Object} Intervention recommendations
-     */
-    function getInterventions(assessment, options = {}) {
-        const interventions = {
-            cultural: [],
-            preventive: [],
-            curative: [],
-            timing: null,
-            resistanceNote: null
-        };
-
-        // Cultural practices (always relevant)
-        interventions.cultural = [
-            'Remove dew early morning (mow, roll, or drag)',
-            'Maintain adequate N fertility — low N is primary driver',
-            'Reduce thatch accumulation',
-            'Improve air circulation',
-            'Manage irrigation timing — avoid extended leaf wetness'
-        ];
-
-        // Action threshold drives treatment recommendation
-        if (assessment.actionRequired) {
-            interventions.timing = `ACTION THRESHOLD REACHED (${assessment.riskIndex}% ≥ ${CONFIG.actionThreshold}%)`;
-            
-            interventions.preventive = [
-                'Apply preventive fungicide within 24-48 hours',
-                'DMI fungicides (FRAC 3): propiconazole, tebuconazole',
-                'SDHI fungicides (FRAC 7): boscalid, penthiopyrad, fluopyram',
-                'Contact fungicides: chlorothalonil (FRAC M5), fluazinam (FRAC 29)'
-            ];
-
-            if (assessment.riskLevel === 'severe' || assessment.riskLevel === 'high') {
-                interventions.curative = [
-                    'If symptoms present, apply at curative rate',
-                    'Consider tank-mix systemic + contact for immediate + residual control'
-                ];
-            }
-
-            interventions.resistanceNote = 'Dollar spot has documented DMI (FRAC 3) and SDHI (FRAC 7) resistance. Rotate FRAC groups and include multi-site contacts.';
-        } else {
-            interventions.timing = `Below action threshold (${assessment.riskIndex}% < ${CONFIG.actionThreshold}%) — monitor daily`;
-            
-            if (assessment.riskIndex >= 15) {
-                interventions.preventive = [
-                    'Prepare preventive application — threshold approach imminent',
-                    'Check forecast for conditions favouring increase'
-                ];
-            }
+    function getInterventions(riskLevel, options) {
+        const cultural = ['Remove dew early morning (mow, roll, or drag)'];
+        const opts = options || {};
+        if (opts.nitrogen && (opts.nitrogen.status === 'deficient' || opts.nitrogen.status === 'low')) {
+            cultural.unshift('PRIORITY: Apply nitrogen — low N dramatically increases dollar spot susceptibility (Davis & Dernoeden 2002)');
         }
-
-        // Nitrogen-specific recommendations
-        if (assessment.drivers?.nitrogen?.modifier > 1.1) {
-            interventions.cultural.unshift('PRIORITY: Address N deficiency — dramatically increases susceptibility');
+        const preventive = [];
+        if (riskLevel === 'high' || riskLevel === 'severe') {
+            preventive.push('Consider preventive fungicide application (model probability above 20% action threshold)');
         }
-
-        return interventions;
-    }
-
-    // =========================================================================
-    // FORECAST INTEGRATION
-    // =========================================================================
-
-    /**
-     * Generate multi-day forecast using Smith-Kerns model
-     * For use with DiseaseForecast module
-     * 
-     * @param {Object} climate - Climate data with dailyPattern
-     * @param {Object} nitrogen - Nitrogen status
-     * @param {Object} variety - Variety traits
-     * @returns {Array} Daily risk forecasts
-     */
-    function generateForecast(climate, nitrogen, variety) {
-        if (!climate?.hourlyData?.temperature_2m) {
-            return [];
-        }
-
-        const hourlyTemp = climate.hourlyData.temperature_2m;
-        const hourlyRH = climate.hourlyData.relative_humidity_2m || [];
-        const daysAvailable = Math.floor(hourlyTemp.length / 24);
-
-        // Calculate daily metrics
-        const dailyMetrics = [];
-        for (let d = 0; d < daysAvailable; d++) {
-            const startHour = d * 24;
-            const dayTemp = hourlyTemp.slice(startHour, startHour + 24);
-            const dayRH = hourlyRH.slice(startHour, startHour + 24);
-            dailyMetrics.push(calcDailyMetrics(dayTemp, dayRH));
-        }
-
-        // Generate forecast for each day
-        const forecast = [];
-        for (let d = 0; d < daysAvailable; d++) {
-            const rollingAvg = calc5DayRollingAverage(dailyMetrics, d);
-            const riskIndex = calcRiskIndex(rollingAvg);
-            
-            // Apply modifiers
-            const nMod = nitrogen?.status === 'deficient' ? 1.5 : 
-                        nitrogen?.status === 'low' ? 1.3 : 1.0;
-            const varietyMod = variety?.disease?.dollarSpot?.riskMultiplier || 1.0;
-            const modifiedRisk = Math.min(100, riskIndex * nMod * varietyMod);
-
-            forecast.push({
-                day: d,
-                date: climate.temperature?.dailyPattern?.[d]?.date || `Day ${d + 1}`,
-                riskIndex: Math.round(riskIndex * 10) / 10,
-                risk: Math.round(modifiedRisk),
-                level: classifyRisk(modifiedRisk),
-                actionRequired: riskIndex >= CONFIG.actionThreshold,
-                favorableHours: dailyMetrics[d].favorableHours,
-                rollingAvgHours: Math.round(rollingAvg.favorableHours * 10) / 10
-            });
-        }
-
-        return forecast;
+        return { cultural: cultural, preventive: preventive, timing: null };
     }
 
     // =========================================================================
@@ -506,133 +226,70 @@ const SmithKernsModel = (function() {
 
     return {
         // Configuration
-        CONFIG,
-        
+        COEFFICIENTS: COEFFICIENTS,
+        ACTION_THRESHOLD: ACTION_THRESHOLD,
+        ROLLING_DAYS: ROLLING_DAYS,
+
         // Core functions
-        calculate,
-        getInterventions,
-        generateForecast,
-        
-        // Utility functions (exposed for testing)
-        calcTempFavorability,
-        isHourFavorable,
-        calcDailyMetrics,
-        calc5DayRollingAverage,
-        calcRiskIndex,
-        classifyRisk,
-        
+        probability: probability,
+        calculate: calculate,
+        getInterventions: getInterventions,
+        classifyRisk: classifyRisk,
+
+        // Helpers (exposed for testing)
+        fiveDayMeanRH: fiveDayMeanRH,
+        fiveDayMeanTemp: fiveDayMeanTemp,
+
         // Metadata
-        version: '1.0.0',
+        version: '2.0.0',
         name: 'Smith-Kerns Dollar Spot Model',
-        citation: 'Smith, D.L. et al. (2018). PLOS ONE 13(3): e0194216'
+        citation: 'Smith, D.L., Kerns, J.P., Walker, N.R., Payne, A.R., Horvath, B., Inguagiato, J.C., Kaminski, J.E., Tomaso-Peterson, M., & Koch, P.L. (2018). PLOS ONE 13(3): e0194216. DOI 10.1371/journal.pone.0194216',
+        scope: 'Validated on cool-season creeping bentgrass (US locations: WI, OK, PA, MS, TN, CT, NJ). Use on warm-season turf is indicative only.',
+        previousVersion: '1.0.0 (b35fix335: rewritten — pre-fix file claimed Smith-Kerns but implemented a different model)'
     };
 
 })();
 
 // =========================================================================
-// INTEGRATION WITH EXISTING DISEASE ENGINE
+// COMPATIBILITY WRAPPER (DollarSpotModelV2)
 // =========================================================================
 
-/**
- * Drop-in replacement for the existing DollarSpotModel
- * Maintains backward compatibility while using true Smith-Kerns methodology
- */
 const DollarSpotModelV2 = {
-    name: 'Dollar Spot',
+    name: 'Dollar Spot (Smith-Kerns 2018)',
     pathogen: 'Clarireedia jacksonii',
     version: '2.0.0',
-    methodology: 'Smith-Kerns 2018',
-    
-    /**
-     * Main calculate function - compatible with existing DiseaseEngine.analyse()
-     */
-    calculate(climate, nitrogen, variety, shade) {
-        // Try Smith-Kerns first (requires hourly data)
-        const skResult = SmithKernsModel.calculate(climate, nitrogen, variety);
-        
-        // If hourly data not available, fall back to legacy calculation
-        if (skResult.fallback || skResult.confidence === 'insufficient_data') {
-            return this._legacyCalculate(climate, nitrogen, variety, shade);
-        }
-        
-        // Add shade modifier if provided (not in original Smith-Kerns but relevant)
-        if (shade?.dliDeficit?.percentage > 30) {
-            const shadeMod = 1 + (shade.dliDeficit.percentage - 30) / 100;
-            skResult.adjustedRisk = Math.min(100, Math.round(skResult.adjustedRisk * shadeMod));
-            skResult.riskScore = skResult.adjustedRisk;
-            skResult.modifiers.shade = shadeMod;
-        }
-        
-        return skResult;
-    },
-    
-    /**
-     * Legacy calculation for backward compatibility when hourly data unavailable
-     * This is the current Hub implementation
-     */
-    _legacyCalculate(climate, nitrogen, variety, shade) {
-        const temp = climate?.temperature?.mean || 20;
-        const humidity = climate?.moisture?.humidity?.mean || 70;
-        const nStatus = nitrogen?.status || 'adequate';
-        const dliDeficit = shade?.dliDeficit?.percentage || 0;
-        
-        // Temperature risk (optimal 15-30°C, peak 22°C)
-        let tempRisk = 0;
-        if (temp >= 15 && temp <= 30) {
-            tempRisk = Math.exp(-0.5 * Math.pow((temp - 22) / 6, 2));
-        } else if (temp > 30) {
-            tempRisk = Math.max(0, 1 - (temp - 30) / 10);
-        } else if (temp > 10) {
-            tempRisk = (temp - 10) / 10;
-        }
-        
-        // Humidity risk
-        const humidityRisk = humidity > 70 ? Math.min(1, (humidity - 70) / 25) : 0;
-        
-        // Leaf wetness estimate
-        const leafWetness = climate?.moisture?.leafWetness?.hours || 6;
-        const lwRisk = Math.min(1, leafWetness / 10);
-        
-        // Modifiers
-        const N_MODIFIERS = { deficient: 1.5, low: 1.3, adequate: 1, optimal: 0.95, high: 0.9, excessive: 1.05 };
-        const nMod = N_MODIFIERS[nStatus] || 1;
-        const shadeMod = dliDeficit > 30 ? 1 + (dliDeficit - 30) / 100 : 1;
-        const varietyMod = variety?.disease?.dollarSpot?.riskMultiplier || 1;
-        
-        let risk = (0.35 * tempRisk + 0.35 * humidityRisk + 0.30 * lwRisk) * nMod * shadeMod * varietyMod * 100;
-        risk = Math.min(100, Math.max(0, risk));
-        
+
+    calculate(climate, nitrogen, variety) {
+        const skResult = SmithKernsModel.calculate(climate);
+        const varietyMod = (variety && variety.disease && variety.disease.dollarSpot && variety.disease.dollarSpot.riskMultiplier) || 1;
+
+        const adjusted = skResult.probability != null
+            ? Math.min(100, skResult.probability * varietyMod)
+            : null;
+
         return {
             disease: 'dollarSpot',
             displayName: 'Dollar Spot',
-            riskScore: Math.round(risk),
-            adjustedRisk: Math.round(risk),
-            riskLevel: SmithKernsModel.classifyRisk(risk),
-            confidence: 'medium',
+            riskScore: adjusted != null ? Math.round(adjusted) : null,
+            adjustedRisk: adjusted != null ? Math.round(adjusted) : null,
+            smithKernsProbability: skResult.probability,
+            riskLevel: SmithKernsModel.classifyRisk(adjusted != null ? adjusted : skResult.probability),
+            confidence: skResult.degraded ? 'low' : 'high',
             drivers: {
-                temperature: { value: Math.round(temp * 10) / 10, contribution: Math.round(tempRisk * 100) },
-                humidity: { value: Math.round(humidity), contribution: Math.round(humidityRisk * 100) },
-                leafWetness: { hours: leafWetness, contribution: Math.round(lwRisk * 100) },
-                nitrogen: { status: nStatus, modifier: nMod }
+                meanRH: skResult.meanRH,
+                meanAT: skResult.meanAT,
+                model: 'Smith-Kerns 2018 logistic regression'
             },
-            modifiers: { shade: shadeMod, variety: varietyMod, nitrogen: nMod },
-            source: 'Legacy model (hourly data unavailable)',
-            note: 'For full Smith-Kerns accuracy, provide hourly temperature and humidity data'
+            modifiers: { variety: varietyMod, nitrogen: (nitrogen && nitrogen.status) || 'adequate' },
+            actionThreshold: SmithKernsModel.ACTION_THRESHOLD,
+            actionRequired: skResult.actionRequired,
+            citation: skResult.citation,
+            degraded: skResult.degraded
         };
     },
-    
-    /**
-     * Get interventions - delegates to SmithKernsModel
-     */
+
     getInterventions(riskLevel, options) {
-        // Create mock assessment for intervention lookup
-        const assessment = {
-            riskIndex: riskLevel === 'severe' ? 60 : riskLevel === 'high' ? 45 : riskLevel === 'moderate' ? 25 : 15,
-            riskLevel,
-            actionRequired: ['moderate', 'high', 'severe'].includes(riskLevel),
-            drivers: { nitrogen: options?.nitrogen || { status: 'adequate', modifier: 1 } }
-        };
-        return SmithKernsModel.getInterventions(assessment, options);
+        return SmithKernsModel.getInterventions(riskLevel, options);
     }
 };
 
@@ -643,13 +300,8 @@ const DollarSpotModelV2 = {
 if (typeof window !== 'undefined') {
     window.SmithKernsModel = SmithKernsModel;
     window.DollarSpotModelV2 = DollarSpotModelV2;
-    
-    // Optionally replace existing model
-    // window.DollarSpotModel = DollarSpotModelV2;
-    
 }
 
-// Node.js export
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { SmithKernsModel, DollarSpotModelV2 };
+    module.exports = { SmithKernsModel: SmithKernsModel, DollarSpotModelV2: DollarSpotModelV2 };
 }

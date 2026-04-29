@@ -140,7 +140,7 @@
      */
     function pushConfigsToServer() {
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_site_configs_save', cfg) : (cfg.ajaxUrl || '');
+        var ajaxUrl = cfg.ajaxUrl || '';
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
         if (Object.keys(_configs).length === 0) return;
@@ -150,7 +150,6 @@
             var body = new URLSearchParams();
             body.append('action',  'gilba_site_configs_save');
             body.append('nonce',   nonce);
-            if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
             body.append('configs', JSON.stringify(_configs));
 
             fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
@@ -174,7 +173,7 @@
      */
     function pullConfigsFromServer(onComplete) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_site_configs_load', cfg) : (cfg.ajaxUrl || '');
+        var ajaxUrl = cfg.ajaxUrl || '';
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
             if (onComplete) onComplete(false);
@@ -184,7 +183,6 @@
         var body = new URLSearchParams();
         body.append('action', 'gilba_site_configs_load');
         body.append('nonce',  nonce);
-        if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
 
         fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
             .then(function(r) { return r.json(); })
@@ -338,6 +336,26 @@
             turf: turf,
             location: location,
             pgr: pgr,
+            // b35fix369: carry the multi-site turf toggle through snapshotConfig
+            // so saveCurrentSiteConfig's `_configs[siteId] = freshSnap` rewrite
+            // doesn't wipe it. Reads from the existing _configs entry of the
+            // active site (the toggle is set via setMultiSiteTurfEnabled and
+            // lives at top-level on the config — it's never rebuilt from DOM).
+            //
+            // Asymmetric-writers class: the setter wrote to _configs[siteId],
+            // but the saveCurrentSiteConfig path REPLACED _configs[siteId]
+            // with a fresh shape that didn't include the field. Two writers,
+            // mismatched shapes — pre-b35fix369 the second writer silently
+            // dropped the flag every time the user switched sites or any
+            // code triggered a snapshot.
+            multiSiteTurf: (function () {
+                var SM_snap2 = global.GAIP_SampleManager;
+                var siteId = SM_snap2 && typeof SM_snap2.getActiveSiteId === 'function'
+                    ? SM_snap2.getActiveSiteId() : null;
+                if (!siteId) return false;
+                var existing = _configs[siteId];
+                return !!(existing && existing.multiSiteTurf === true);
+            })(),
             savedAt: new Date().toISOString()
         };
     }
@@ -538,7 +556,6 @@
                     type: 'POST',
                     data: {
                         action: 'gilba_save_location',
-                        site_id: (global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId) ? global.GAIP_SampleManager.getActiveSiteId() : '',
                         lat: location.lat,
                         lon: location.lon,
                         name: location.name || '',
@@ -629,6 +646,14 @@
         if (existing.turf.companionSpecies !== undefined) {
             freshSnap.turf.companionSpecies = existing.turf.companionSpecies;
         }
+        // b35fix369: preserve multiSiteTurf from existing config. snapshotConfig
+        // already carries the flag for the active site (Fix B), but this
+        // belt-and-braces preservation guards against the case where
+        // _previousSiteId !== active site (the flag is read from the active
+        // site by snapshotConfig but should be preserved per-site here).
+        if (existing.multiSiteTurf !== undefined) {
+            freshSnap.multiSiteTurf = existing.multiSiteTurf;
+        }
         _configs[_previousSiteId] = freshSnap;
         saveToStorage();
         pushConfigsToServer();
@@ -640,7 +665,6 @@
      */
     function restoreNewSiteConfig(newSiteId) {
         _isSiteSwitch = true;
-        _isRestoring = true;
         var config = _configs[newSiteId];
         if (config) {
             restoreConfig(config);
@@ -654,29 +678,6 @@
             setDomVal('.gaip-pgr-rate',  '');
             setDomVal('.gaip-pgr-product', '');
             setDomVal('.gaip-dmi-date',  '');
-            setDomVal('.gaip-species', '');
-            setDomVal('.gaip-variety', '');
-            setDomVal('.gaip-construction', '');
-            setDomVal('.gaip-drainage', '');
-            setDomVal('.gaip-lat', '');
-            if (tp && tp.state) {
-                tp.state.turfType = '';
-                tp.state.subCategory = '';
-                tp.state.species = '';
-                tp.state.variety = '';
-                tp.state.construction = '';
-                tp.state.drainage = '';
-            }
-            var selectedButtons = document.querySelectorAll('.gaip-turf-type-option.selected, .gaip-turf-type-option.active, .gaip-subcategory-option.selected, .gaip-subcategory-option.active');
-            for (var si = 0; si < selectedButtons.length; si++) {
-                selectedButtons[si].classList.remove('selected');
-                selectedButtons[si].classList.remove('active');
-            }
-            setDomVal('.gaip-lat', '');
-            setDomVal('.gaip-lon', '');
-            setDomVal('.gaip-hemi', '');
-            var locSearch = document.getElementById('gaip-location-search');
-            if (locSearch) locSearch.value = '';
             try { document.querySelector('.gaip-enable-pgr') && (document.querySelector('.gaip-enable-pgr').checked = false); } catch(e) {}
             log('No saved config for', newSiteId, '— cleared transient fields (set turf type now to save it)');
         }
@@ -684,10 +685,6 @@
         // rather than the 1s fallback timer. Without this, site-switch always
         // produces the wrong GP on first run (42% vs correct value).
         setTimeout(function() {
-            if (!config) {
-                _isRestoring = false;
-                _isSiteSwitch = false;
-            }
             document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
                 detail: { siteId: newSiteId, source: 'site-switch' }
             }));
@@ -1016,7 +1013,7 @@
             // the PENDING flag is cleared at t=1600ms.
             var tp = global.GaipTurfProfile;
             var isProfileLoading = tp && tp._isLoadingProfile;
-            if (!_isRestoring && !_isSiteSwitch && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
+            if (!_isRestoring && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
                 _configs[currentId] = snapshotConfig();
                 saveToStorage();
                 log('Auto-saved config on turf change for', currentId);
@@ -1040,7 +1037,6 @@
                     type: 'POST',
                     data: {
                         action: 'gilba_save_location',
-                        site_id: siteId,
                         lat: loc.lat,
                         lon: loc.lon,
                         name: loc.name || '',
@@ -1168,6 +1164,46 @@
             saveToStorage();
             pushConfigsToServer();
             log('Companion species written directly:', '"' + value + '"', 'for site', siteId);
+        },
+
+        // b35fix367 — Multi-site turf toggle.
+        //
+        // When enabled for a site, samples within that site may carry their own
+        // sample.turfProfile override (species, variety, turfType, etc.) which
+        // wins over the site-level GaipTurfProfile in engine read paths.
+        // Default: false (single-site users see no behaviour change).
+        // Persisted on _configs[siteId].multiSiteTurf alongside turf/location/pgr.
+        // Round-trips to server via pushConfigsToServer like other site config.
+        // Read site: word-export.js _buildEngineInputs gates per-sample override
+        // reads on this flag for the active site.
+        isMultiSiteTurfEnabled: function(siteId) {
+            if (!siteId) {
+                var SM = global.GAIP_SampleManager;
+                siteId = SM && typeof SM.getActiveSiteId === 'function'
+                    ? SM.getActiveSiteId() : null;
+            }
+            if (!siteId) return false;
+            var cfg = _configs[siteId];
+            return !!(cfg && cfg.multiSiteTurf === true);
+        },
+        setMultiSiteTurfEnabled: function(siteId, enabled) {
+            if (!siteId) {
+                var SM = global.GAIP_SampleManager;
+                siteId = SM && typeof SM.getActiveSiteId === 'function'
+                    ? SM.getActiveSiteId() : null;
+            }
+            if (!siteId) return false;
+            if (!_configs[siteId]) _configs[siteId] = { turf: {}, location: {} };
+            _configs[siteId].multiSiteTurf = !!enabled;
+            saveToStorage();
+            pushConfigsToServer();
+            log('Multi-site turf toggle for', siteId, '=', !!enabled);
+            try {
+                document.dispatchEvent(new CustomEvent('gaip:multi-site-turf-change', {
+                    detail: { siteId: siteId, enabled: !!enabled }
+                }));
+            } catch (e) { /* event dispatch optional */ }
+            return true;
         }
     };
 

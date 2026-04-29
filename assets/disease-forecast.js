@@ -189,7 +189,10 @@ var DiseaseForecast = (function() {
      */
     function calcDollarSpotDaily(dayClimate, nitrogen, variety) {
         var temp = dayClimate.mean || 20;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Temperature risk (optimal 15-30°C, peak 22°C)
         var tempRisk = 0;
@@ -233,7 +236,10 @@ var DiseaseForecast = (function() {
     function calcBrownPatchDaily(dayClimate, nitrogen, variety) {
         var minTemp = dayClimate.min || 15;
         var maxTemp = dayClimate.max || 25;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Night temperature risk - key trigger is warm nights (>16°C)
         // Optimal 18-25°C night temps
@@ -289,7 +295,9 @@ var DiseaseForecast = (function() {
     function calcPythiumDaily(dayClimate, nitrogen, variety) {
         var nightTemp = dayClimate.min || 15;
         var dayTemp = dayClimate.max || 25;
-        var nightRH = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data.
+        if (dayClimate.humidity == null) return 0;
+        var nightRH = dayClimate.humidity;
         var recentRain = dayClimate.precipitation || 0;
         
         // Hard gate: Night temp must be ≥20°C for any risk
@@ -333,7 +341,10 @@ var DiseaseForecast = (function() {
     function calcAnthracnoseDaily(dayClimate, nitrogen, variety) {
         var temp = dayClimate.mean || 20;
         var maxTemp = dayClimate.max || 25;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Heat stress is the primary climate driver (onset >26°C, severe >30°C)
         var heatRisk = 0;
@@ -380,7 +391,10 @@ var DiseaseForecast = (function() {
      */
     function calcFusariumDaily(dayClimate, nitrogen, variety) {
         var temp = dayClimate.mean || 10;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Temperature risk - Fusarium ONLY active in cold conditions
         // Optimal 0-12°C, drops rapidly above 12°C, zero above 18°C
@@ -421,7 +435,9 @@ var DiseaseForecast = (function() {
     function calcGrayLeafSpotDaily(dayClimate, nitrogen, variety) {
         var avgTemp = dayClimate.mean || 25;
         var minTemp = dayClimate.min || (avgTemp - 5);
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Temperature risk (Penn State/Rutgers thresholds)
         // Min infection ≈20°C, Optimum 26-30°C (peak 28°C), Suppressed >34-35°C
@@ -487,7 +503,10 @@ var DiseaseForecast = (function() {
      */
     function calcBipolarisDaily(dayClimate, nitrogen, variety) {
         var temp = dayClimate.mean || 20;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Temperature risk (optimal 15-30°C, peak around 25°C)
         var tempRisk = 0;
@@ -524,7 +543,10 @@ var DiseaseForecast = (function() {
      */
     function calcDrechsleraDaily(dayClimate, nitrogen, variety) {
         var temp = dayClimate.mean || 18;
-        var humidity = dayClimate.humidity || 70;
+        // b35fix342: degrade explicitly when no humidity data — engine path now
+        // emits null instead of literal 70 from buildDailyClimate.
+        if (dayClimate.humidity == null) return 0;
+        var humidity = dayClimate.humidity;
         
         // Temperature risk (optimal 15-25°C, peak around 20°C - cooler preference)
         var tempRisk = 0;
@@ -598,6 +620,97 @@ var DiseaseForecast = (function() {
             return { error: 'No climate data available', diseases: [] };
         }
         
+        // b35fix355: humidity-shape diagnostic. Production log
+        // gilbasolutions_com-1777248533557 showed 7+7+7=21 forecast-loop
+        // dispatches all reading MEANRH n/a while the orchestrator's primary
+        // call (which goes through getAuthoritativeClimate's v1.5.1 shape
+        // adapter) resolved 82.36% on the same run. The forecast loop reads
+        // climateMetrics directly without that adapter, so any shape mismatch
+        // between v2's `humidity.mean` (top-level) and the v1 nested
+        // `moisture.humidity.mean` collapses humidity propagation silently.
+        // This one-line dump exposes exactly what shape the forecast sees on
+        // every invocation.
+        //
+        // b35fix356 production verification: this diagnostic is now the
+        // primary signal for whether Edit 1 (hub-tissue P-builder humidity
+        // extraction) is working. Healthy post-b35fix356 logs should show
+        // moisture.humidity.mean populated with a numeric value on every
+        // forecast invocation where raw weather hourly RH is present.
+        var _cmDiag = state.climateMetrics;
+        var _hourlyArr = _cmDiag.hourly && _cmDiag.hourly.humidity;
+        var _hourlyDataArr = _cmDiag.hourlyData && _cmDiag.hourlyData.relative_humidity_2m;
+        console.log('[DiseaseForecast b35fix355] climateMetrics humidity shape — ' +
+            'moisture.humidity.mean=' + (_cmDiag.moisture && _cmDiag.moisture.humidity ? _cmDiag.moisture.humidity.mean : 'undefined') +
+            ' | humidity.mean=' + (_cmDiag.humidity ? _cmDiag.humidity.mean : 'undefined') +
+            ' | hourly.humidity[len]=' + (Array.isArray(_hourlyArr) ? _hourlyArr.length : 'n/a') +
+            ' | hourlyData.relative_humidity_2m[len]=' + (Array.isArray(_hourlyDataArr) ? _hourlyDataArr.length : 'n/a') +
+            ' | source=' + (_cmDiag.source || 'unset'));
+        
+        // ===========================================================
+        // b35fix356 Edit 2 — orchestrator-adapter humidity fallback.
+        // ===========================================================
+        // Even with Edit 1's hub-tissue P-builder humidity extraction in
+        // place, edge cases remain where state.climateMetrics may reach
+        // generateForecast without a populated humidity field:
+        //   (a) site-switch race where forecast fires after a partial
+        //       state update but before hub-tissue's full re-run completes
+        //   (b) manual mode where the user enters tempMin/tempMax but no
+        //       humidity, raw weather hourly RH is absent, and the P-builder
+        //       falls into the empty-humidity branch (_rhCount === 0)
+        //   (c) any future code path that builds a state object passing
+        //       through climateMetrics from a stale snapshot
+        //
+        // Strategy: when state.climateMetrics has no usable humidity AND the
+        // orchestrator exposes getAuthoritativeClimate (which goes through the
+        // v1.5.1 shape adapter at hub-orchestrator.js:1198, reading from
+        // GAIP_CANONICAL_STATE → state.computed.climate → global.climateMetrics
+        // → manual fallback in that priority order), splice the adapter's
+        // humidity into a SHALLOW COPY of climateMetrics and use that for
+        // buildDailyClimate. Defensive — never mutates the caller's state.
+        //
+        // The orchestrator's adapter reads multiple sources, so even when
+        // hub-tissue's P-builder produced empty humidity, the adapter may
+        // still resolve via a different rung (e.g. GAIP_CANONICAL_STATE or
+        // state.computed.climate where the v2 climate engine wrote
+        // humidity.mean directly without going through hub-tissue's overwrite).
+        var climateMetrics = state.climateMetrics;
+        var _hasHumidity = !!(climateMetrics.moisture && climateMetrics.moisture.humidity &&
+                              typeof climateMetrics.moisture.humidity.mean === 'number' &&
+                              !isNaN(climateMetrics.moisture.humidity.mean));
+        if (!_hasHumidity &&
+            typeof window !== 'undefined' &&
+            window.GaipOrchestrator &&
+            typeof window.GaipOrchestrator.getAuthoritativeClimate === 'function') {
+            try {
+                var _adapted = window.GaipOrchestrator.getAuthoritativeClimate();
+                var _adaptedH = _adapted && _adapted.moisture && _adapted.moisture.humidity;
+                if (_adaptedH && typeof _adaptedH.mean === 'number' && !isNaN(_adaptedH.mean)) {
+                    // Shallow copy + merge so we don't mutate state.climateMetrics
+                    climateMetrics = Object.assign({}, climateMetrics, {
+                        moisture: Object.assign({}, climateMetrics.moisture || {}, {
+                            humidity: _adaptedH,
+                            // Preserve dailyPattern from adapter if present (some
+                            // adapter sources include per-day humidity); otherwise
+                            // keep what state had.
+                            dailyPattern: (_adapted.moisture && Array.isArray(_adapted.moisture.dailyPattern))
+                                ? _adapted.moisture.dailyPattern
+                                : (climateMetrics.moisture && climateMetrics.moisture.dailyPattern) || null,
+                        }),
+                        // Pull through hourlyData if adapter has it and state didn't —
+                        // get5DayMeanRH and BrownPatch's getFidanzaE2 both prefer
+                        // hourly arrays when available.
+                        hourlyData: climateMetrics.hourlyData || _adapted.hourlyData || null,
+                    });
+                    console.log('[DiseaseForecast b35fix356] humidity fallback fired — adapter resolved ' +
+                        _adaptedH.mean + '% (state.climateMetrics.moisture.humidity was missing)');
+                } else {
+                    console.log('[DiseaseForecast b35fix356] humidity fallback attempted — adapter returned no usable humidity');
+                }
+            } catch (_e) {
+                console.warn('[DiseaseForecast b35fix356] humidity fallback threw:', _e && _e.message);
+            }
+        }
+        
         // Check if a disease engine is available
         var hasEngine = (typeof window.DiseaseEnginePure !== 'undefined' && window.DiseaseEnginePure.analyse) ||
                         (typeof window.DiseaseEngine !== 'undefined' && window.DiseaseEngine.analyse);
@@ -606,7 +719,6 @@ var DiseaseForecast = (function() {
             return generateForecastFallback(state);
         }
         
-        var climateMetrics = state.climateMetrics;
         var dailyPattern = climateMetrics.temperature && climateMetrics.temperature.dailyPattern;
         
         // If no dailyPattern, try to build one from raw weather data or create synthetic forecast
@@ -842,6 +954,12 @@ var DiseaseForecast = (function() {
             var dayClimate = dailyClimate[d];
             
             // Build climate object for this day that matches what DiseaseEngine expects
+            // b35fix342: humidity field passes through null when upstream genuinely has
+            // no data — engines (Smith-Kerns, Brown Patch) degrade explicitly rather
+            // than computing on fabricated 70%. Pre-fix `dayClimate.humidity || 70`
+            // also defaulted falsy zero to 70, which would have hidden the rare but
+            // legitimate "0% RH" reading; the post-fix null check (!= null) preserves
+            // 0 as a real value. humiditySource flows through for engine provenance.
             var dayInputs = Object.assign({}, baseInputs, {
                 climate: {
                     temperature: {
@@ -856,20 +974,29 @@ var DiseaseForecast = (function() {
                         soilNightTemp: dayClimate.soilNightTemp
                     },
                     moisture: {
-                        humidity: { mean: dayClimate.humidity || 70, max: (dayClimate.humidity || 70) + 15 },
+                        humidity: {
+                            mean: dayClimate.humidity,                                                  // null-passthrough (b35fix342)
+                            max:  dayClimate.humidity != null ? dayClimate.humidity + 15 : null,        // null-passthrough (b35fix342)
+                            source: dayClimate.humiditySource                                           // 'per-day' | 'period-mean' | 'no-data'
+                        },
                         precipitation: { total: dayClimate.precipitation || 0 }
                     },
-                    leafWetness: estimateLeafWetnessFromHumidity(dayClimate.humidity || 70, dayClimate.precipitation || 0)
+                    leafWetness: dayClimate.humidity != null
+                        ? estimateLeafWetnessFromHumidity(dayClimate.humidity, dayClimate.precipitation || 0)
+                        : null
                 }
             });
             
-            // v1.6.0: Build synthetic hourlyData for concurrent hours calculation
+            // v1.6.0: Build synthetic hourlyData for the disease engine
             // When real hourly data isn't available, synthesize from daily min/max/humidity
-            // so the pure engine's getSmithKernsConcurrentHours can work per-day
-            // b35fix220: Always synthesize hourlyData for forecast days so
-            // getSmithKernsConcurrentHours() can count RH≥90 & temp 15-30°C hours
-            // rather than falling back to the mean-RH×0.7 estimator (which returns
-            // 0 for any mean RH below 128%). When real concurrentHrs are available
+            // so the pure engine's Smith-Kerns calculation can run per-day.
+            // b35fix220: Always synthesize hourlyData for forecast days.
+            // b35fix335: pre-fix getSmithKernsConcurrentHours was replaced with
+            // getSmithKerns2018Probability (the actual published logistic regression
+            // on 5-day mean RH and 5-day mean air temp). The synthetic hourlyData
+            // produced here still feeds the new function correctly via get5DayMeanRH —
+            // the means it computes are valid whether the underlying hours are real
+            // or synthesized.
             // (day 0, computed from actual API hourly data) use them directly.
             // Otherwise derive concurrent hours from the forecast-day humidity and
             // temperature: treat each daytime hour (06-20) as concurrent if RH≥90
@@ -883,7 +1010,7 @@ var DiseaseForecast = (function() {
                 if (dayClimate.concurrentHrs !== null && dayClimate.concurrentHrs !== undefined) {
                     // Pre-computed from actual hourly data (current day / b35fix103 path)
                     concHrs = Math.min(dayClimate.concurrentHrs, 14);
-                } else {
+                } else if (dayClimate.humidity != null) {
                     // Estimate from forecast day mean RH and temperature.
                     // Smith-Kerns threshold is RH≥90 in 15-30°C window.
                     // Forecast gives only daily mean RH. During warm humid days
@@ -893,7 +1020,7 @@ var DiseaseForecast = (function() {
                     // We then count the fraction of daytime hours (14h window 06-20)
                     // where that estimate exceeds 90%, and cap at 8h (one full
                     // Smith-Kerns event period).
-                    var dayRH = dayClimate.humidity || 70;
+                    var dayRH = dayClimate.humidity;
                     var dayTemp = dayClimate.mean || 20;
                     var daytimeRHest = dayRH - 10; // conservative daytime mean
                     var inTempWindow = dayTemp >= 15 && dayTemp <= 30;
@@ -907,13 +1034,75 @@ var DiseaseForecast = (function() {
                     } else {
                         concHrs = 0;
                     }
+                } else {
+                    // b35fix342: no humidity available — concHrs is null. The synth
+                    // below will emit null entries in synthRH, and Smith-Kerns + Brown
+                    // Patch will degrade explicitly rather than computing on a fabricated
+                    // 70-anchored array.
+                    concHrs = null;
                 }
-                for (var h = 0; h < 24; h++) {
-                    var isDaytime = h >= 6 && h < 20;
-                    var isConcurrent = isDaytime && (h - 6) < concHrs;
-                    synthRH.push(isConcurrent ? 95 : 50);
-                    synthTemp.push(isConcurrent ? (dayClimate.mean || 22) : (dayClimate.mean || 20));
-                    synthTime.push(baseDate + 'T' + (h < 10 ? '0' : '') + h + ':00');
+                // b35fix336: replace pre-fix binary 95/50 marker pattern with a
+                // physically honest diurnal RH pattern anchored on the forecast
+                // day's mean humidity. The pre-fix non-concurrent value (50) was
+                // an arbitrary "below all thresholds" marker chosen for the legacy
+                // favourable-hours engine; it was NEVER intended as a measurement.
+                // After b35fix335 wired the published Smith-Kerns 2018 logistic
+                // (which AVERAGES MEANRH directly), the marker became a fabricated
+                // measurement: 21 of 26 production sites on 2026-04-26 read MEANRH
+                // = 50.00 exactly, collapsing dollar-spot probability to ~6% on
+                // every forecast day with daily-mean RH < 80% — most of the AU
+                // autumn-winter year. This is the "asymmetric engines" bug class
+                // (skill recurring-bug-patterns): same hourly array consumed by
+                // both threshold-counters AND average-then-logit engines, with
+                // the synth designed only for the former.
+                //
+                // Post-fix synthesis:
+                //   - daytime non-concurrent hours: dayRH - 10 (matches the
+                //     "conservative daytime mean ~10pp below daily mean"
+                //     assumption already used at line 901 to estimate concHrs)
+                //   - nighttime hours (20:00-06:00): dayRH + 10 (matches the
+                //     "overnight peak ~10pp above daily mean" assumption
+                //     documented in the comment at line 893)
+                //   - concurrent daytime hours: 95 (legitimately near-saturated;
+                //     unchanged from pre-fix)
+                //   - all values clamped to [0, 100]
+                //
+                // Net effect: mean(synthRH) ≈ dayRH (physically honest).
+                // Threshold counters (>=85, >=90, >=95) read accurate hour counts
+                // for legitimate overnight saturation as well as concurrent windows.
+                // SK 2018 input MEANRH now reflects the actual forecast humidity.
+                //
+                // b35fix342: when dayClimate.humidity is null (no upstream data),
+                // synthRH is filled with null entries. Engines that consume hourly
+                // RH (Smith-Kerns get5DayMeanRH, Brown Patch getFidanzaE2) skip
+                // null entries during averaging — when the entire array is null,
+                // those engines correctly degrade and report null/n/a rather than
+                // computing on a fabricated 70-anchored synth. Pre-fix, the synth
+                // baked literal 70 into the array indistinguishably from real data.
+                if (dayClimate.humidity != null) {
+                    var clampedDayRH = Math.max(0, Math.min(100, dayClimate.humidity));
+                    var daytimeNonConcRH = Math.max(0, Math.min(100, clampedDayRH - 10));
+                    var nighttimeRH = Math.max(0, Math.min(100, clampedDayRH + 10));
+                    for (var h = 0; h < 24; h++) {
+                        var isDaytime = h >= 6 && h < 20;
+                        var isConcurrent = isDaytime && (h - 6) < concHrs;
+                        if (isConcurrent) {
+                            synthRH.push(95);
+                        } else if (isDaytime) {
+                            synthRH.push(daytimeNonConcRH);
+                        } else {
+                            synthRH.push(nighttimeRH);
+                        }
+                        synthTemp.push(isConcurrent ? (dayClimate.mean || 22) : (dayClimate.mean || 20));
+                        synthTime.push(baseDate + 'T' + (h < 10 ? '0' : '') + h + ':00');
+                    }
+                } else {
+                    // No upstream humidity — emit null RH entries. Engines must degrade.
+                    for (var h = 0; h < 24; h++) {
+                        synthRH.push(null);
+                        synthTemp.push(dayClimate.mean != null ? dayClimate.mean : null);
+                        synthTime.push(baseDate + 'T' + (h < 10 ? '0' : '') + h + ':00');
+                    }
                 }
                 dayInputs.climate.hourlyData = {
                     relative_humidity_2m: synthRH,
@@ -1204,6 +1393,7 @@ var DiseaseForecast = (function() {
         if (s.indexOf('kikuyu') >= 0) return 'kikuyu';
         if (s.indexOf('zoysia') >= 0) return 'zoysia';
         if (s.indexOf('buffalo') >= 0 || s.indexOf('stenotaphrum') >= 0) return 'buffalo';
+        if (s.indexOf('paspalum') >= 0 || s.indexOf('vaginatum') >= 0) return 'seashore_paspalum';  // b35fix364
         
         return 'perennialRyegrass';
     }
@@ -1304,8 +1494,16 @@ var DiseaseForecast = (function() {
      */
     function buildDailyClimate(dailyPattern, climateMetrics) {
         var daily = [];
-        var avgHumidity = climateMetrics.moisture && climateMetrics.moisture.humidity ?
-                         climateMetrics.moisture.humidity.mean : 70;
+        // b35fix342: emit null for genuinely missing upstream humidity instead
+        // of literal 70. Track the source so engines and downstream presentation
+        // can distinguish "real per-day data" from "period-mean fallback" from
+        // "no data at all". Pre-fix the 70-default was indistinguishable from
+        // a genuine 70% reading downstream — engines computed against fabricated
+        // values without flagging degradation.
+        var hasUpstreamHumidity = !!(climateMetrics.moisture && climateMetrics.moisture.humidity &&
+                                     typeof climateMetrics.moisture.humidity.mean === 'number' &&
+                                     !isNaN(climateMetrics.moisture.humidity.mean));
+        var avgHumidity = hasUpstreamHumidity ? climateMetrics.moisture.humidity.mean : null;
         
         // Get daily moisture data if available
         var moistureDaily = climateMetrics.moisture && climateMetrics.moisture.dailyPattern;
@@ -1366,6 +1564,22 @@ var DiseaseForecast = (function() {
                 soilNightEstimate = soilNightSum / soilNightCount;
             }
             
+            // b35fix342: humidity null-passthrough with explicit source.
+            // Resolution chain: per-day moistureDaily[i] > climateMetrics period mean > null.
+            // Pre-fix all three rungs collapsed to literal 70 via the avgHumidity || 70
+            // default. Now the chain emits null when upstream genuinely has no data,
+            // and humiditySource records which rung supplied the value so downstream
+            // engines and the presentation layer can degrade explicitly.
+            var perDayHumidity = null;
+            var humiditySource = 'no-data';
+            if (moistureDaily && moistureDaily[i] && typeof moistureDaily[i].humidity === 'number' && !isNaN(moistureDaily[i].humidity)) {
+                perDayHumidity = moistureDaily[i].humidity;
+                humiditySource = 'per-day';
+            } else if (avgHumidity != null) {
+                perDayHumidity = avgHumidity;
+                humiditySource = 'period-mean';
+            }
+            
             daily.push({
                 date: dayTemp.date,
                 min: dayTemp.min,
@@ -1374,7 +1588,8 @@ var DiseaseForecast = (function() {
                 soilTemp: soilTempEstimate,          // GAIP 50mm or 3-day rolling avg
                 soilNightTemp: soilNightEstimate,    // GAIP 50mm night or 3-day rolling min
                 soilTempSource: useGaipSoilTemp ? 'physics' : 'estimated',
-                humidity: moistureDaily && moistureDaily[i] ? moistureDaily[i].humidity : avgHumidity,
+                humidity: perDayHumidity,            // null when no upstream data (b35fix342)
+                humiditySource: humiditySource,      // 'per-day' | 'period-mean' | 'no-data' (b35fix342)
                 // Precipitation per forecast day — priority:
                 //   1. Per-day value from dailyPattern (climate engine populates from Open-Meteo precipitation_sum)
                 //   2. Per-day value from moistureDaily
@@ -1394,10 +1609,14 @@ var DiseaseForecast = (function() {
                 })(),
                 // v1.6.0: Smith-Kerns concurrent condition hours for this day
                 // Count hours where BOTH RH ≥ 90% AND temp 15-30°C
-                // b35fix103: Apply same 06:00-20:00 daytime restriction as
-                // getSmithKernsConcurrentHours() in the pure engine — overnight
-                // coastal RH saturation at warm temps is common in AU but does
-                // not drive dollar spot the way warm daytime leaf wetness does.
+                // b35fix103: Apply 06:00-20:00 daytime restriction.
+                // b35fix335: This per-day counter is a forecast-UI hint
+                // (used by the spark-line risk display), NOT the Smith-Kerns
+                // engine input. The engine itself now uses the published 2018
+                // logistic regression in disease-engine-pure.js. This counter
+                // is retained as a separate Gilba presentation aid because it
+                // gives forecast users an at-a-glance "how many high-risk
+                // hours did today have" display alongside the SK probability.
                 concurrentHrs: (function() {
                     var hrRH = climateMetrics.hourlyData && climateMetrics.hourlyData.relative_humidity_2m;
                     var hrTemp = climateMetrics.hourlyData && climateMetrics.hourlyData.temperature_2m;

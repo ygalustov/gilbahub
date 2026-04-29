@@ -307,15 +307,17 @@
             citations = registryMeta.citations;
             engineVersions = registryMeta.engines;
         } else {
-            // Fallback if registry not loaded
+            // b35fix315: if PHP inline injection failed, 'unknown' surfaces
+            // the deploy issue in the docx footer rather than silently stamping
+            // a hardcoded fallback that will drift from reality over time.
             engineVersions = {
-                'hub': global.GAIP_HUB_VERSION || '9.6.20'
+                'hub': global.GAIP_HUB_VERSION || 'unknown'
             };
         }
 
         return {
             generatedAt: new Date().toISOString(),
-            hubVersion: global.GAIP_HUB_VERSION || '9.6.20',
+            hubVersion: global.GAIP_HUB_VERSION || 'unknown',  // b35fix315: visible sentinel instead of hardcoded fallback
             metadataVersion: METADATA_VERSION,
             
             enginesUsed: engines,
@@ -386,7 +388,7 @@
             day: 'numeric'
         });
         
-        const versionStr = `Hub v${versions.hub || global.GAIP_HUB_VERSION || '9.6.20'}`;
+        const versionStr = `Hub v${versions.hub || global.GAIP_HUB_VERSION || 'unknown'}`;  // b35fix315: visible sentinel
         const qualityStr = `Data Quality: ${quality.level.toUpperCase()}`;
         
         return `Generated ${date} | ${versionStr} | ${qualityStr}`;

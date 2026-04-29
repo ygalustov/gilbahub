@@ -7,11 +7,29 @@
  * Data sourced from manufacturer labels and verified by Gilba Solutions.
  * 
  * @package Gilba_Hub
- * @version 3.17.1
+ * @version 3.19.0
  * @since 10.3.43
- * @updated 2026-02-02
+ * @updated 2026-04-28
  * 
- * Products: 111 granular, 93 liquid, 7 soluble (211 total)
+ * Products: 111 granular, 93 liquid, 10 soluble (214 total)
+ * 
+ * v3.19.0 - b35fix380 - Audit reconciliation against
+ *           fertiliser_product_analysis_audit.xlsx (verified-against-supplier):
+ *   - FT-MPGREENSTART: added S: 2.8 (audit row 56)
+ *   - WE-WILBURELLISL1: added S: 1.8 (audit row 127)
+ *   - WE-WILBURELLISP3: added S: 6.7 (audit row 131)
+ *   - WE-WILBURELLISS:  added S: 2.8 (audit row 132)
+ *   - TC-CARBONUREA:    removed erroneous S: 24 (urea has no S; audit row 23)
+ *   - SOL-KNO3:         oxide -> elemental conversion
+ *                       N: 13 -> 13.85, K: 44 -> 38.67
+ *                       (matches UK audit-verified row 395; rest of AU DB is elemental)
+ * 
+ * v3.18.0 - Seashore paspalum support - nitrate-based solubles:
+ *   - Added SOL-KNO3: Potassium Nitrate (13-0-44) for high-K needs with nitrate-N
+ *   - Added SOL-CANO3: Calcium Nitrate (15.5-0-0 + 19% Ca) for Ca supplementation  
+ *   - Added SOL-MGNO3: Magnesium Nitrate (11-0-0 + 9.5% Mg) for Mg with nitrate-N
+ *   - All nitrate products available nationally from all distributors as solubles
+ *   - Addresses seashore paspalum's preference for nitrate-N in cool weather
  * 
  * v3.17.1 - Autumn K hardening support:
  *   - Enhanced autumn K bonus (up to +55 points for high-K products)
@@ -174,7 +192,7 @@
 
     const AuFertiliserProducts = {
         
-        version: '3.15.1',
+        version: '3.18.0',
         brands: BRANDS,
         liquidBrands: LIQUID_BRANDS,
         
@@ -189,7 +207,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 17.8, P: 9.6, K: 8.7, S: 8.3 },
+                analysis: { N: 18, P: 10, K: 9, S: 8.3 } /* b35fix317: corrected from (N 17.8 P 9.6 K 8.7 S 8.3) per official Nuturf brochure */,
                 sgn: 350,
                 packSize: 20,
                 release: 'controlled',
@@ -205,7 +223,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 19.2, K: 19, Fe: 0.5 },
+                analysis: { N: 19, K: 19, Fe: 1.5, S: 12, Mg: 1.4, Mn: 0.13, Cu: 0.13 } /* b35fix317: was (N 19.2 K 19 Fe 0.5); added S, Mg, Mn, Cu and corrected Fe per official Nuturf brochure */,
                 sgn: 350,
                 packSize: 20,
                 release: 'controlled',
@@ -221,7 +239,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 19.9, K: 16 },
+                analysis: { N: 20, K: 16, Fe: 3, S: 2.8, Ca: 1.7, Mg: 0.1, Zn: 0.02 } /* b35fix317: was (N 19.9 K 16); added Fe, S, Ca, Mg, Zn per official Nuturf brochure */,
                 sgn: 350,
                 packSize: 20,
                 release: 'quick',
@@ -237,7 +255,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 22.4, P: 0.9, K: 10, Ca: 4, Mg: 2, Fe: 2.7, Mn: 0.5, S: 4.6 },
+                analysis: { N: 23, P: 1, K: 10, Fe: 2.5, S: 6.8, Mg: 1.7, Mn: 0.47 } /* b35fix317: removed phantom Ca=4; corrected S (4.6→6.8), N (22.4→23), P (0.9→1), Fe (2.7→2.5), Mg (2→1.7), Mn (0.5→0.47) per official Nuturf brochure */,
                 sgn: 250,
                 packSize: 20,
                 release: 'stabilised',
@@ -253,7 +271,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 28.3, P: 1.2, K: 7.9, Ca: 0.03, S: 7.6 },
+                analysis: { N: 28, P: 1, K: 8, Ca: 0.03, S: 7.6 } /* b35fix317: N 28.3→28, P 1.2→1, K 7.9→8 per official Nuturf brochure */,
                 sgn: 350,
                 packSize: 20,
                 release: 'controlled',
@@ -269,7 +287,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Standard',
-                analysis: { N: 23.2, K: 4.2, Ca: 0.9, Mg: 0.1, Fe: 1.5, Mn: 0.7, S: 5.1 },
+                analysis: { N: 23, K: 4, Ca: 0.9, Mg: 0.1, Fe: 1.5, Mn: 0.7, S: 5.1 } /* b35fix317: N 23.2→23, K 4.2→4 per official Nuturf brochure */,
                 sgn: 350,
                 packSize: 20,
                 release: 'controlled',
@@ -285,7 +303,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro',
-                analysis: { N: 24, P: 2, K: 9.1, Ca: 4.9, Fe: 1.9, S: 5.5 },
+                analysis: { N: 24, P: 2, K: 9, Ca: 4.9, Fe: 2, S: 5.5 } /* b35fix317: K 9.1→9, Fe 1.9→2 per official Nuturf brochure */,
                 sgn: 215,
                 packSize: 20,
                 release: 'controlled',
@@ -301,7 +319,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro',
-                analysis: { N: 22, K: 18, Fe: 2 },
+                analysis: { N: 22, K: 18, Fe: 2, S: 3.5, Ca: 0.9, Mg: 0.1, Zn: 0.01 } /* b35fix317: WATTLEFORD CASE — was (N 22 K 18 Fe 2) missing S, Ca, Mg, Zn. Pre-b35fix317 this product appeared to deliver zero S — directly caused wrong "elemental sulphur" recommendations at low-pH sites like Wattleford. Corrected per official Nuturf brochure. */,
                 sgn: 215,
                 packSize: 20,
                 release: 'controlled',
@@ -317,7 +335,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro',
-                analysis: { N: 29.7, P: 1, K: 5, Fe: 0.18, S: 8.6 },
+                analysis: { N: 30, P: 1, K: 5, Fe: 0.18, S: 8.6, Ca: 2.6 } /* b35fix317: N 29.7→30, added Ca 2.6 per official Nuturf brochure */,
                 sgn: 215,
                 packSize: 20,
                 release: 'controlled',
@@ -333,7 +351,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro',
-                analysis: { N: 33.9, P: 1, K: 5.7, Ca: 2.6, Fe: 0.18, S: 3.4 },
+                analysis: { N: 34, P: 1, K: 6, Ca: 1.7, Fe: 2, S: 3.6 } /* b35fix317: Fe 0.18→2 (significant), K 5.7→6, S 3.4→3.6, Ca 2.6→1.7, N 33.9→34 per official Nuturf brochure */,
                 sgn: 215,
                 packSize: 20,
                 release: 'controlled',
@@ -349,7 +367,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro',
-                analysis: { N: 14, K: 24, Fe: 1.5, Mn: 1.1, S: 12 },
+                analysis: { N: 14, K: 24, Fe: 0.2, Ca: 5.6, Mg: 2.9, S: 12 } /* b35fix317: Fe 1.5→0.2, removed phantom Mn 1.1, added Ca 5.6 and Mg 2.9 per official Nuturf brochure. S kept at 12 (brochure table was ambiguous for S column — VERIFY with Nuturf SDS). */,
                 sgn: 210,
                 packSize: 20,
                 release: 'controlled',
@@ -365,7 +383,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro+',
-                analysis: { N: 30.5, K: 7.2, Fe: 1.5, S: 6 },
+                analysis: { N: 30, K: 7, Fe: 1, S: 6 } /* b35fix317: N 30.5→30, K 7.2→7, Fe 1.5→1 per official Nuturf brochure */,
                 sgn: 150,
                 packSize: 20,
                 release: 'controlled',
@@ -381,7 +399,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro+',
-                analysis: { N: 25.3, K: 13.2, Fe: 3, S: 3.6 },
+                analysis: { N: 25, K: 13, Fe: 3, S: 3.6 } /* b35fix317: N 25.3→25, K 13.2→13 per official Nuturf brochure */,
                 sgn: 150,
                 packSize: 20,
                 release: 'controlled',
@@ -397,7 +415,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Black Label Pro+',
-                analysis: { N: 22, K: 19.4, Fe: 2, S: 3.1 },
+                analysis: { N: 22, K: 19, Fe: 2, S: 3.1 } /* b35fix317: K 19.4→19 per official Nuturf brochure */,
                 sgn: 150,
                 packSize: 20,
                 release: 'controlled',
@@ -413,7 +431,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Nutri DG',
-                analysis: { N: 18, P: 1, K: 15 },
+                analysis: { N: 18, P: 1, K: 15, S: 6.9 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→6.9) */,
                 sgn: 80,
                 packSize: 20,
                 release: 'slow',
@@ -429,7 +447,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Nutri DG',
-                analysis: { N: 12, P: 11, K: 7 },
+                analysis: { N: 12, P: 10.6, K: 6.6, Fe: 0.3, S: 4.9, Mg: 0.5, Mn: 0.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (P 11→10.6; K 7→6.6; Fe 0→0.3; S 0→4.9; Mg 0→0.5; Mn 0→0.5) */,
                 sgn: 80,
                 packSize: 20,
                 release: 'slow',
@@ -445,7 +463,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Nutri DG',
-                analysis: { N: 13, K: 22 },
+                analysis: { N: 13, K: 21.6, S: 8.8 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (K 22→21.6; S 0→8.8) */,
                 sgn: 80,
                 packSize: 20,
                 release: 'slow',
@@ -461,7 +479,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Nutri DG',
-                analysis: { K: 21, Mg: 4, Mn: 3 },
+                analysis: { K: 21, S: 13.7, Mg: 4, Mn: 3 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→13.7) */,
                 sgn: 80,
                 packSize: 20,
                 release: 'quick',
@@ -525,7 +543,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Amendments',
-                analysis: { K: 10, Mg: 10 },
+                analysis: { K: 10, S: 12, Mg: 24 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→12; Mg 10→24) */,
                 sgn: 80,
                 packSize: 25,
                 release: 'quick',
@@ -605,7 +623,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Amendments',
-                analysis: { Mg: 12, Fe: 1, Mn: 2, S: 8 },
+                analysis: { Fe: 8, S: 9, Mg: 12, Mn: 3, Zn: 1, Cu: 0.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 1→8; S 8→9; Mn 2→3; Zn 0→1; Cu 0→0.5) */,
                 sgn: 80,
                 packSize: 20,
                 release: 'quick',
@@ -621,7 +639,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Fert+Herb',
-                analysis: { N: 15, P: 2, K: 8 },
+                analysis: { N: 15, P: 2, K: 8, S: 2.4 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→2.4) */,
                 sgn: 200,
                 packSize: 20,
                 release: 'slow',
@@ -637,7 +655,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Fert+Herb',
-                analysis: { N: 18, P: 10, K: 9 },
+                analysis: { N: 18, P: 10, K: 9, S: 0.8 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→0.8) */,
                 sgn: 200,
                 packSize: 20,
                 release: 'blended',
@@ -653,7 +671,7 @@
                 distributor: 'Nuturf',
                 availability: 'National',
                 line: 'Fert+Herb',
-                analysis: { N: 22, K: 5 },
+                analysis: { N: 22, K: 5, S: 3.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→3.5) */,
                 sgn: 200,
                 packSize: 20,
                 release: 'slow',
@@ -925,7 +943,8 @@
                 distributor: 'Living Turf',
                 availability: 'National',
                 line: 'Match Play',
-                analysis: { N: 16, P: 9, K: 6, Ca: 1, Fe: 1.5, Mn: 0.5 },
+                // b35fix380: S: 2.8 added per audit row 56 (verified against supplier)
+                analysis: { N: 16, P: 9, K: 6, Ca: 1, Fe: 1.5, S: 2.8, Mn: 0.5 },
                 sgn: 100,
                 packSize: 20,
                 release: 'quick',
@@ -973,7 +992,7 @@
                 distributor: 'Living Turf',
                 availability: 'National',
                 line: 'Match Play',
-                analysis: { N: 19.5, P: 2, K: 5, Ca: 6, Mg: 0.1, Fe: 1.1 },
+                analysis: { N: 19.5, P: 2, K: 5, Fe: 2.4, S: 4, Ca: 7, Mg: 0.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 1.1→2.4; S 0→4; Ca 6→7; Mg 0.1→0.5) */,
                 sgn: 150,
                 packSize: 20,
                 release: 'quick',
@@ -1069,7 +1088,7 @@
                 distributor: 'Oasis Turf',
                 availability: 'VIC',
                 line: 'PCU/methylene urea',
-                analysis: { N: 25, K: 10, Fe: 5, Mn: 0.5 },
+                analysis: { N: 25, K: 10, Fe: 5, S: 4.92, Mn: 0.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→4.92) */,
                 sgn: 200,
                 packSize: 20,
                 release: 'slow',
@@ -1085,7 +1104,8 @@
                 distributor: 'Oasis Turf',
                 availability: 'VIC',
                 line: '60% PCU/40% straight',
-                analysis: { N: 28, K: 10, Fe: 4 },
+                // b35fix380: S: 1.8 added per audit row 127 (verified against supplier)
+                analysis: { N: 28, K: 10, Fe: 4, S: 1.8 },
                 sgn: 200,
                 packSize: 20,
                 release: 'slow',
@@ -1181,7 +1201,8 @@
                 distributor: 'Oasis Turf',
                 availability: 'VIC',
                 line: 'Straight',
-                analysis: { N: 10, P: 9, K: 16 },
+                // b35fix380: S: 6.7 added per audit row 131 (verified against supplier)
+                analysis: { N: 10, P: 9, K: 16, S: 6.7 },
                 sgn: 200,
                 packSize: 20,
                 release: 'quick',
@@ -1197,7 +1218,8 @@
                 distributor: 'Oasis Turf',
                 availability: 'VIC',
                 line: '60% PCU/40% straight',
-                analysis: { N: 20, K: 16, Fe: 6 },
+                // b35fix380: S: 2.8 added per audit row 132 (verified against supplier)
+                analysis: { N: 20, K: 16, Fe: 6, S: 2.8 },
                 sgn: 200,
                 packSize: 20,
                 release: 'slow',
@@ -1453,7 +1475,7 @@
                 distributor: 'K&B Adams',
                 availability: 'National',
                 line: 'ICL',
-                analysis: {  },
+                analysis: { Fe: 8, Mg: 12, Mn: 3, Zn: 1, Cu: 0.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→8; Mg 0→12; Mn 0→3; Zn 0→1; Cu 0→0.5) */,
                 sgn: 150,
                 packSize: 20,
                 release: 'quick',
@@ -1581,7 +1603,7 @@
                 distributor: 'K&B Adams',
                 availability: 'National',
                 line: 'Specialty',
-                analysis: { K: 11.6, Ca: 10, Mg: 5 },
+                analysis: { K: 11.6, S: 19.2, Ca: 3.6, Mg: 3.6 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→19.2; Ca 10→3.6; Mg 5→3.6) */,
                 sgn: 90,
                 packSize: 25,
                 release: 'quick',
@@ -1824,7 +1846,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'N-Lift',
-                analysis: { N: 22.2, P: 2.2, K: 8.5 },
+                analysis: { N: 22.2, P: 2.2, K: 8.5, Fe: 6.5, S: 8.8 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→6.5; S 0→8.8) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1840,7 +1862,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'N-Lift',
-                analysis: { N: 24.3, P: 4.2, K: 8.6 },
+                analysis: { N: 24.3, P: 4.2, K: 8.6, Fe: 3, S: 5.2 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→3; S 0→5.2) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1856,7 +1878,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'N-Lift',
-                analysis: { N: 33.1, K: 11 },
+                analysis: { N: 33.1, K: 11, S: 2.6 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (S 0→2.6) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1891,7 +1913,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'Simplot',
-                analysis: { N: 19, K: 10 },
+                analysis: { N: 19, K: 10, Fe: 2.2, S: 13, Mn: 0.25 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→2.2; S 0→13; Mn 0→0.25) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1907,7 +1929,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'Simplot',
-                analysis: { N: 22, P: 0.76, K: 6.89 },
+                analysis: { N: 22, P: 0.76, K: 6.89, Fe: 5.8, S: 5.5 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→5.8; S 0→5.5) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1923,7 +1945,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'Simplot',
-                analysis: { N: 23, P: 1, K: 3 },
+                analysis: { N: 21, P: 1, K: 3, Fe: 3, S: 13 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (N 23→21; Fe 0→3; S 0→13) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1939,7 +1961,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'Simplot',
-                analysis: { N: 12, P: 3, K: 13 },
+                analysis: { N: 12, P: 3, K: 13, Fe: 3, S: 17 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→3; S 0→17) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'controlled',
@@ -1990,7 +2012,7 @@
                 distributor: 'GTS',
                 availability: 'National',
                 line: 'Simplot',
-                analysis: { N: 20, P: 0.87, K: 2 },
+                analysis: { N: 20, P: 0.87, K: 2, Fe: 5, S: 12 } /* b35fix318: corrected per Jerry Spencer audit Apr 2026 (Fe 0→5; S 0→12) */,
                 sgn: 250,
                 packSize: 20,
                 release: 'quick',
@@ -2153,7 +2175,9 @@
                 distributor: 'Turfcare',
                 availability: 'National',
                 line: 'Fertpro',
-                analysis: { N: 46, S: 24 },
+                // b35fix380: S removed per audit row 23 — pure urea has no sulphur.
+                // Pre-fix value (S: 24) was an erroneous copy from ammonium sulphate.
+                analysis: { N: 46 },
                 sgn: 250,
                 packSize: 20,
                 release: 'quick',
@@ -3946,6 +3970,65 @@
                 useCase: 'Mg deficiency correction. Chlorophyll production. Tank mix.',
             },
             // ============================================================
+            // SOLUBLE POTASSIUM NITRATE - HIGH K WITH NITRATE N
+            // ============================================================
+            {
+                id: 'SOL-KNO3',
+                name: 'Potassium Nitrate (KNO3)',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                // b35fix380: K converted from oxide (44% K2O) to elemental (38.67% K)
+                // per AU agronomic convention. N updated to 13.85 to match KNO3
+                // stoichiometry (matches UK audit-verified row 395).
+                // Pre-fix b35fix378 entry was {N: 13, K: 44} = oxide values; rest of
+                // AU database is elemental, so this entry was inconsistent.
+                analysis: { N: 13.85, P: 0, K: 38.67, S: 0 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 100,
+                greensMaxRateKgHa: 30,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Nitrate N + high K. Chloride-free. Ideal cool weather NK source. Low scorch risk.',
+                useCase: 'Seashore paspalum NK. Cool-season K hardening. Nitrate N preference.',
+            },
+            // ============================================================
+            // SOLUBLE CALCIUM NITRATE - CALCIUM WITH NITRATE N
+            // ============================================================
+            {
+                id: 'SOL-CANO3',
+                name: 'Calcium Nitrate Ca(NO3)2',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 15.5, P: 0, K: 0, Ca: 19, S: 0 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 150,
+                greensMaxRateKgHa: 30,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Nitrate N + readily available Ca. Fast Ca uptake. Cool-temperature N source.',
+                useCase: 'Seashore paspalum Ca needs. Cell wall strength. Cool-season growth.',
+            },
+            // ============================================================
+            // SOLUBLE MAGNESIUM NITRATE - MAGNESIUM WITH NITRATE N
+            // ============================================================
+            {
+                id: 'SOL-MGNO3',
+                name: 'Magnesium Nitrate Mg(NO3)2',
+                brand: 'various',
+                distributor: 'Various',
+                availability: 'National',
+                analysis: { N: 11, P: 0, K: 0, Mg: 9.5, S: 0 },
+                form: 'soluble',
+                packSize: 25,
+                maxRateKgHa: 100,
+                greensMaxRateKgHa: 25,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Nitrate N + Mg. Superior to sulphate form in cool weather. Chlorophyll response.',
+                useCase: 'Mg deficiency with nitrate N. Cool-weather Mg uptake. Tank mix compatible.',
+            },
+            // ============================================================
             // SOLUBLE MKP - PHOSPHORUS + POTASSIUM
             // ============================================================
             {
@@ -4971,44 +5054,21 @@
         },
         
         /**
-         * Select potassium source for K deficit
+         * selectPotassiumSource — REMOVED b35fix330
+         *
+         * Single call site (per-month K supplementation in generateAnnualProgram)
+         * was removed; see the rationale block at the former call site for the
+         * full audit. Summary:
+         *   - Sportsfield path was dead (granular returns silently dropped).
+         *   - Greens path duplicated b35fix324 K-recon synthesis without its
+         *     soil-K sanity floor, which created Item 1a-class over-application
+         *     risk on samples with SLAN-midpoint-inflated K targets.
+         *   - b35fix324's _synthesiseKReconDecision (word-export.js) is the
+         *     architected K-shortfall path; selectGreensSpoonfeed (below) is
+         *     the architected greens-spoonfeed path.
+         *   - PrebbleRecommender has its own selectPotassiumSource — not
+         *     affected by this removal.
          */
-        selectPotassiumSource: function(granular, liquidAndSoluble, kDeficit, season, surfaceType) {
-            if (kDeficit <= 0) return null;
-            
-            const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
-            
-            // For greens: prefer soluble SOP (spoonfeeding)
-            // For sportsfield: granular high-K or liquid
-            
-            if (isGreens) {
-                // Look for soluble SOP first
-                const solubleSOP = liquidAndSoluble.find(p => 
-                    p.form === 'soluble' && (p.analysis?.K || 0) >= 30
-                );
-                if (solubleSOP) return { product: solubleSOP, form: 'soluble' };
-                
-                // Then high-K liquid
-                const highKLiquid = liquidAndSoluble.find(p => 
-                    p.form === 'liquid' && (p.analysis?.K || 0) >= 15
-                );
-                if (highKLiquid) return { product: highKLiquid, form: 'liquid' };
-            }
-            
-            // For sportsfield or fallback: high-K granular
-            const highKGranular = granular.filter(p => (p.analysis?.K || 0) >= 15)
-                .sort((a, b) => (b.analysis?.K || 0) - (a.analysis?.K || 0));
-            
-            if (highKGranular.length > 0) {
-                return { product: highKGranular[0], form: 'granular' };
-            }
-            
-            // Fallback to any K source
-            const anyK = liquidAndSoluble.find(p => (p.analysis?.K || 0) > 0);
-            if (anyK) return { product: anyK, form: anyK.form };
-            
-            return null;
-        },
         
         /**
          * Select soluble product for greens spoonfeeding program
@@ -5416,6 +5476,12 @@
                             name: granularRec.name,
                             brand: granularRec.brand,
                             npk: granularRec.npk,
+                            // b35fix322 Bug 1 structural: publish full analysis
+                            // (S/Ca/Mg/Fe/Mn/Zn/Cu/B etc.) so amendment self-suppression
+                            // and combined-export totalDelivered see real deliveries.
+                            // delivers{} only tracks N/P/K (engine-computed for release
+                            // timing); analysis is the canonical full breakdown.
+                            analysis: granularRec.analysis || {},
                             rateKgHa: granularRec.rateKgHa,
                             rateGM2: granularRec.rateGM2,
                             release: granularRec.release,
@@ -5475,6 +5541,8 @@
                             brand: liquidRec.brand,
                             npk: liquidRec.npk,
                             form: liquidRec.form,
+                            // b35fix322 Bug 1 structural: see granular.push above.
+                            analysis: liquidRec.analysis || {},
                             rate: rateDisplay,
                             rateLHa: liquidRec.rateLHa,
                             rateMLM2: liquidRec.rateMLM2,
@@ -5497,46 +5565,49 @@
                 }
                 
                 // ================================================================
-                // K SUPPLEMENTATION (if K running behind)
+                // K SUPPLEMENTATION — REMOVED b35fix330
                 // ================================================================
-                const kDeliveredThisMonth = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.K || 0), 0) +
-                                           monthResult.liquid.reduce((sum, l) => sum + (l.delivers?.K || 0), 0);
-                const kShortfall = netK - kDeliveredThisMonth;
-                
-                if (kShortfall > 5 && all.length > 0) {
-                    const kSource = this.selectPotassiumSource(granular, all, kShortfall, month.season, surfaceType);
-                    
-                    if (kSource && kSource.product) {
-                        const { product, form } = kSource;
-                        const kPct = (product.analysis?.K || 0) / 100;
-                        
-                        if (form === 'soluble' || form === 'liquid') {
-                            const calc = this.calculateLiquidApplication(product, kShortfall * (100 / (product.analysis?.K || 40)), surfaceType);
-                            
-                            if (calc.kDelivered > 0) {
-                                delivered.K += calc.kDelivered;
-                                delivered.N += calc.nDelivered;
-                                
-                                monthResult.liquid.push({
-                                    id: product.id,
-                                    name: product.name,
-                                    brand: BRANDS[product.brand]?.name || LIQUID_BRANDS[product.brand]?.name || product.brand,
-                                    npk: `${product.analysis.N || 0}-${product.analysis.P || 0}-${product.analysis.K || 0}`,
-                                    form: form,
-                                    rateLHa: calc.rateLHa,
-                                    rateMLM2: (calc.rateLHa / 10).toFixed(1),
-                                    delivers: {
-                                        N: calc.nDelivered,
-                                        P: 0,
-                                        K: calc.kDelivered,
-                                    },
-                                    notes: 'K supplement',
-                                });
-                            }
-                        }
-                    }
-                }
-                
+                // Pre-b35fix330 this block computed a per-month kShortfall and,
+                // when > 5 kg K/ha and !greens-only, called selectPotassiumSource
+                // to push a soluble/liquid K supplement onto the month.
+                //
+                // Removed because the path is functionally redundant with the
+                // b35fix324 K-reconciliation synthesis (word-export.js
+                // _synthesiseKReconDecision) and agronomically less safe:
+                //
+                //   1. Sportsfield surfaces — dead code. selectPotassiumSource
+                //      returns granular for non-greens; the consumer was gated
+                //      to soluble/liquid only and silently dropped granular
+                //      returns. Sites needing 165 kg K/ha annually never got
+                //      spot-K from this path (the original Item 1b symptom).
+                //
+                //   2. Greens surfaces — duplicates b35fix324's intent without
+                //      its Gate 2 (soil-K sanity floor). On Item 1a-class sites
+                //      where SLAN-midpoint inflation pushes month.K above
+                //      catalogue delivery while soil K is in range, this path
+                //      applied K to soils that did not need K. b35fix324
+                //      explicitly defends against that with soilK < floor.
+                //
+                //   3. No coordination with K-recon. The two paths shared no
+                //      state. Catalogue-form K from this path was counted by
+                //      _computeProgrammeKDelivered, which could mask a genuine
+                //      programme deficit and prevent the (more carefully
+                //      gated) split-SOP from firing.
+                //
+                // Greens spoonfeeding remains available via selectGreensSpoonfeed
+                // (line 5011 below in this file, post-deletion line numbering)
+                // — that is the architected greens-K path.
+                //
+                // Production-verified at Kew 2026-04-25: 5/5 affected greens
+                // received the b35fix324 split-SOP via _synthesiseKReconDecision.
+                // No regression expected from removing this path; if anything,
+                // Item 1a-class over-application risk is reduced.
+                //
+                // selectPotassiumSource function definition was the only caller
+                // and is also removed (was lines ~4976–5011). PrebbleRecommender
+                // has its own selectPotassiumSource — unrelated, untouched.
+                // ================================================================
+
                 // Add GP note
                 if (gp < 0.15) {
                     monthResult.notes.push(`Very low GP (${(gp * 100).toFixed(0)}%) - minimal application recommended`);

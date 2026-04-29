@@ -28,14 +28,19 @@
  *   - NEW: Post-processing balancing pass to hit annual N/K targets precisely
  *   - Lowered deficit thresholds: N > 5 kg/ha, K > 5 kg/ha trigger balancing
  *   - N balancing: Ammos 22 or soluble AS at calculated rate across high-GP months
- *   - K balancing: Liquid Potassium or Soluble SOP at calculated rate
+ *   - K balancing: REMOVED in b35fix332 — see in-line removal block at the
+ *     POTASSIUM BALANCING site for full audit. K supplementation flows
+ *     through (a) the architected greens spoonfeeding path in the main
+ *     month loop, and (b) word-export.js _synthesiseKReconDecision (b35fix324)
+ *     which is gated on both programme balance AND soil-K floor.
  *   - Balancing products clearly labelled in program output
  *   - Typical programs now achieve 97-100% of target vs previous 90-95%
  * 
  * v1.32.0 - Soluble products now included in recommendations:
  *   - filterBySurface() includes form:'soluble' (WSF, soluble urea, SOP, etc.)
  *   - selectFoliarNitrogen() considers solubles for N delivery
- *   - selectPotassiumSource() considers solubles (Soluble SOP) for K
+ *   - selectPotassiumSource() — REMOVED b35fix332 (caller deleted, function
+ *     replaced with documentation stub at original definition site)
  *   - Enables "little and often" spoonfeeding programs on greens
  * 
  * Release Technology Reference:
@@ -704,7 +709,7 @@
                 packSize: 10,
                 maxRateLHa: 10, // Label: 10 L/ha
                 suitableFor: ['greens', 'golf_greens', 'fairways', 'tees', 'sports'],
-                notes: 'Complete micronutrient package.',
+                notes: 'Complete trace element package.',
                 useCase: 'Micronutrient correction. General health.',
             },
             {
@@ -1153,21 +1158,62 @@
                 }
             }
             
-            // K supplementation if needed (accounting for active K from slow-release)
-            const kFromN = recommendations.granular.reduce((sum, p) => sum + (p.kDelivered || 0), 0);
-            const kFromActive = activeNutrients.K || 0;
-            const kDeficit = monthData.K - kFromN - kFromActive;
-            if (kDeficit > 5 && !skipGranular) { // Significant K deficit and not skipping granular
-                const kProduct = this.selectPotassiumSource(suitableGranular, suitableLiquid, kDeficit, season, surfaceType);
-                if (kProduct) {
-                    if (kProduct.form === 'liquid' || kProduct.form === 'soluble') {
-                        recommendations.liquid.push(kProduct);
-                    } else {
-                        recommendations.granular.push(kProduct);
-                    }
-                }
-            }
-            
+            // ================================================================
+            // PER-MONTH K SUPPLEMENTATION — REMOVED b35fix332
+            // ================================================================
+            // Pre-b35fix332 this block computed per-month kDeficit (monthData.K
+            // - K-from-N-products - K-from-active-slow-release) and, when
+            // > 5 kg K/ha and !skipGranular, called selectPotassiumSource to
+            // push a K product onto the month.
+            //
+            // Removed for the same reasons the AU equivalent was removed in
+            // b35fix330 — though the surface form-gate symptom (granular
+            // returns silently dropped) does NOT apply here (Prebble's
+            // consumer correctly pushes granular to recommendations.granular).
+            // The other two defects do apply:
+            //
+            //   1. Missing soil-K sanity gate (Item 1a class). The kDeficit
+            //      threshold is purely arithmetic on programme balance. On a
+            //      sample with soil K in the SLAN sufficiency range and
+            //      SLAN-midpoint inflation pushing monthData.K above catalogue
+            //      delivery, this path applied K to soil that did not need K.
+            //      b35fix324 _synthesiseKReconDecision defends against this
+            //      with Gate 2 (soilData.K < soilData.thresholds.K.min).
+            //
+            //   2. No coordination with b35fix324 K-recon. The product pushed
+            //      by selectPotassiumSource lands in program.annualSummary.
+            //      products (via the aggregator at ~line 364) with regular
+            //      nutrients.K and NO _isAmendment flag. _computeProgrammeKDelivered
+            //      sums it into kDelivered, which feeds the K-recon balance
+            //      gate (kDelivered − kRequired < −20). A genuine programme
+            //      deficit is masked, and the more carefully gated split-SOP
+            //      from _synthesiseKReconDecision does not fire where it
+            //      otherwise would.
+            //
+            //   3. Duplicates Phase 3 annual K balancing intent (line ~1885,
+            //      also removed in b35fix332). Phase 3 was season-aware
+            //      (autumn/late-season targeting via summerAutumnMonths sort)
+            //      and product-specific (LIQPOT 0-0-20, SOL-SOP). Per-month
+            //      K-supplement ran first and partly substituted for it
+            //      without the targeting.
+            //
+            // The architected greens-K path on Prebble remains untouched —
+            // per-month spoonfeeding embedded in the main month loop
+            // (~lines 1025, 1107, 1132, 1539+) using LIQPOT/SOL-AS scaled by
+            // isGreens ? 4 : 10 kg per app. Sportsfield K deficits flow
+            // through b35fix324's _synthesiseKReconDecision, gated on both
+            // programme balance AND soil-K floor.
+            //
+            // selectPotassiumSource function definition at line ~2950 is also
+            // removed in b35fix332 (no remaining callers).
+            //
+            // Verification by absence: post-deploy Prebble exports should
+            // contain zero "K supplement: dissolve N kg/ha" or "K supplement:
+            // NL container" strings in Monthly Schedule notes. If they
+            // reappear: stale cached build, or third-party patch reintroducing
+            // the path.
+            // ================================================================
+
             // ============================================================
             // P SUPPLEMENTATION
             // ============================================================
@@ -1876,99 +1922,54 @@
             }
             
             // ----------------------------------------------------------------
-            // POTASSIUM BALANCING
+            // POTASSIUM BALANCING — REMOVED b35fix332
             // ----------------------------------------------------------------
-            // Threshold: 5 kg/ha for all surfaces (tighter than before)
-            const kDeficit = annualK - actualKDelivered;
-            const kSurplus = actualKDelivered - annualK;
-            
-            if (kDeficit > 5) {
-                
-                // Find best month for K (autumn/late season preferred for stress hardening)
-                const kBalancingMonths = summerAutumnMonths
-                    .map(idx => ({ ...monthlyData[idx], idx }))
-                    .filter(m => m && m.gp >= 0.3)
-                    .sort((a, b) => a.gp - b.gp); // Lower GP = later season = better for K
-                
-                // Use Liquid Potassium (0-0-20) for precision
-                const liqK = PrebbleProducts.liquid.find(p => p.id === 'LIQPOT' || p.name.includes('Liquid Potassium'));
-                const solSOP = PrebbleProducts.soluble?.find(p => p.id === 'SOL-SOP');
-                
-                let remainingKDeficit = kDeficit;
-                
-                // Spread across 1-2 months
-                const kMonthsToUse = Math.min(
-                    Math.ceil(kDeficit / (isGreens ? 4 : 10)),
-                    kBalancingMonths.length,
-                    2
-                );
-                
-                for (let i = 0; i < kMonthsToUse && remainingKDeficit > 2; i++) {
-                    const month = kBalancingMonths[i];
-                    if (!month) break;
-                    
-                    const rec = program.monthly[month.idx];
-                    const kForThisApp = Math.min(remainingKDeficit, isGreens ? 4 : 10);
-                    
-                    if (liqK) {
-                        // Calculate exact rate: kForThisApp = rateLHa * 0.20
-                        let rateLHa = kForThisApp / 0.20;
-                        // Round to nearest 5L
-                        rateLHa = Math.round(rateLHa / 5) * 5;
-                        rateLHa = Math.max(5, Math.min(rateLHa, liqK.maxRateLHa || 20));
-                        
-                        const kDelivered = rateLHa * 0.20;
-                        
-                        const balanceProduct = {
-                            id: liqK.id + '-BAL',
-                            name: liqK.name,
-                            npk: liqK.npk,
-                            analysis: liqK.analysis,
-                            form: 'liquid',
-                            rateLHa: rateLHa,
-                            rateMLM2: (rateLHa / 10).toFixed(1),
-                            nDelivered: 0,
-                            kDelivered: Math.round(kDelivered * 10) / 10,
-                            splitCount: 1,
-                            deliveryMethod: 'foliar',
-                            isBalancing: true,
-                            notes: `K balancing (+${kDelivered.toFixed(1)} kg K/ha to hit annual target)`,
-                        };
-                        
-                        rec.liquid.push(balanceProduct);
-                        rec.notes.push(`🎯 K balance: ${liqK.name} @ ${rateLHa} L/ha`);
-                        
-                        // Track in annual summary
-                        const balanceId = liqK.id + '-BAL';
-                        if (!program.annualSummary.products[balanceId]) {
-                            program.annualSummary.products[balanceId] = {
-                                name: liqK.name + ' (Balance)',
-                                totalKg: 0,
-                                applications: 0,
-                                release: 'quick',
-                                releaseTech: 'standard',
-                                analysis: liqK.analysis,
-                                nutrients: { N: 0, P: 0, K: 0 },
-                                isLiquid: true,
-                                isBalancing: true,
-                            };
-                        }
-                        program.annualSummary.products[balanceId].totalKg += rateLHa;
-                        program.annualSummary.products[balanceId].applications += 1;
-                        program.annualSummary.products[balanceId].nutrients.K += kDelivered;
-                        
-                        actualKDelivered += kDelivered;
-                        remainingKDeficit -= kDelivered;
-                        
-                    }
-                }
-                
-                if (remainingKDeficit > 5) {
-                    console.warn(`[PrebbleRecommender] Still ${remainingKDeficit.toFixed(0)} kg K/ha short after balancing`);
-                }
-            } else if (kSurplus > 10) {
-            }
-            
+            // Pre-b35fix332 this block computed annual kDeficit (annualK -
+            // actualKDelivered) and, when > 5 kg K/ha, pushed Liquid Potassium
+            // (LIQPOT, 0-0-20) or SOL-SOP into 1–2 autumn/late-season months
+            // selected from summerAutumnMonths sorted by ascending GP. The
+            // products were tagged isBalancing:true and accumulated into
+            // program.annualSummary.products[liqK.id + '-BAL'].
+            //
+            // Removed for the same reasons as the per-month K-supplement
+            // path above (and the AU equivalent in b35fix330):
+            //
+            //   1. Missing soil-K sanity gate (Item 1a class). Triggered on
+            //      annual programme arithmetic only — no reference to
+            //      soilData.K or thresholds.K.min. On Item 1a-class samples
+            //      (soil K in SLAN sufficiency range, SLAN-midpoint inflation
+            //      pushing annualK above catalogue delivery), this path
+            //      applied K to soils that did not need K.
+            //
+            //   2. No coordination with b35fix324 K-recon. The '-BAL' entries
+            //      land in annualSummary.products with regular nutrients.K
+            //      and NO _isAmendment flag. _computeProgrammeKDelivered sums
+            //      them, masking deficit and preventing _synthesiseKReconDecision
+            //      from firing where soil-K-floor logic would otherwise
+            //      indicate split-SOP.
+            //
+            //   3. Functionally redundant with the architected Prebble greens
+            //      spoonfeeding path (LIQPOT/SOL-AS in the main month loop)
+            //      and the b35fix324 sportsfield K-recon synthesis. Phase 3
+            //      Phase 3 balancing was a "hit the annual number"
+            //      programme-completion mechanism that ignored whether the
+            //      soil could justify the application.
+            //
+            // After removal, kDeficit/kSurplus diagnostics are no longer
+            // computed at this stage — the FINAL TALLY block below still
+            // recomputes finalKDelivered from annualSummary.products and
+            // populates program.meta.annualPlan.achievement.K. Annual K
+            // achievement may report below 100% for samples with genuine
+            // programme shortfall — that is the correct signal, and
+            // _synthesiseKReconDecision picks it up at export time when soil
+            // K is also below floor.
+            //
+            // The "Still N kg K/ha short after balancing" console warning
+            // (pre-fix line 2008) is no longer emitted from this block.
+            // Equivalent visibility is now provided by the K Reconciliation
+            // table caption on export.
+            // ----------------------------------------------------------------
+
             // ----------------------------------------------------------------
             // FINAL TALLY
             // ----------------------------------------------------------------
@@ -2945,91 +2946,32 @@
         },
         
         /**
-         * Select K source for supplementation
+         * selectPotassiumSource — REMOVED b35fix332
+         *
+         * Was the K-product picker called from the per-month K-supplementation
+         * path at line ~1156 (also removed in b35fix332). Returned a granular,
+         * soluble, or liquid K product based on kDeficit size and surface
+         * type.
+         *
+         * Removed because:
+         *   - The only caller (per-month K-supplement path) has been removed.
+         *     See the deletion comment block at line ~1156 for full audit
+         *     trail.
+         *   - Phase 3 annual K balancing (also removed) had its own
+         *     hard-coded LIQPOT/SOL-SOP selection logic; it never called
+         *     this function.
+         *   - The architected greens-K spoonfeeding path in the main month
+         *     loop (~lines 1025, 1107, 1132, 1539+) selects products
+         *     directly without going through this picker.
+         *   - b35fix324's _synthesiseKReconDecision in word-export.js handles
+         *     the soil-K-floor-gated K supplementation that the deleted
+         *     paths were trying (badly) to provide. It synthesises a SOP
+         *     amendment with full _isAmendment + _isKReconciliation
+         *     sentinels so it does not contaminate _computeProgrammeKDelivered
+         *     or self-suppress.
+         *
+         * Mirror of the AU equivalent removal in b35fix330.
          */
-        selectPotassiumSource: function(granular, liquid, kDeficit, season, surfaceType) {
-            // For greens, prefer CC IV Potash (SGN 80)
-            const isGreens = surfaceType.includes('green') || surfaceType.includes('wicket');
-            
-            // Find pure K sources
-            const kSources = [...granular, ...liquid].filter(p => 
-                (p.analysis?.K || 0) >= 15 && (p.analysis?.N || 0) <= 6
-            );
-            
-            if (kSources.length === 0) return null;
-            
-            // Prefer granular for larger deficits, liquid/soluble for small/foliar
-            let bestProduct;
-            if (kDeficit > 20) {
-                bestProduct = kSources.find(p => p.form !== 'liquid' && p.form !== 'soluble' && (!isGreens || p.sgn <= 145));
-            }
-            if (!bestProduct) {
-                bestProduct = kSources.find(p => isGreens ? (p.sgn <= 145 || p.form === 'liquid' || p.form === 'soluble') : true);
-            }
-            if (!bestProduct) {
-                bestProduct = kSources[0];
-            }
-            
-            const kPct = bestProduct.analysis.K / 100;
-            const isLiquidOrSoluble = bestProduct.form === 'liquid' || bestProduct.form === 'soluble';
-            
-            if (isLiquidOrSoluble) {
-                // Round liquid to 10L container, soluble to 5kg
-                const isSoluble = bestProduct.form === 'soluble';
-                let rate = kDeficit / kPct;
-                
-                if (isSoluble) {
-                    // Soluble: rate in kg/ha, round to 5kg
-                    rate = Math.ceil(rate / 5) * 5;
-                    const maxRate = bestProduct.greensMaxRateKgHa || bestProduct.maxRateKgHa || 50;
-                    rate = Math.min(rate, maxRate);
-                    
-                    return {
-                        id: bestProduct.id,
-                        name: bestProduct.name,
-                        npk: bestProduct.npk,
-                        analysis: bestProduct.analysis,
-                        form: 'soluble',
-                        rateKgHa: rate,
-                        rateGM2: (rate / 10).toFixed(1),
-                        kDelivered: Math.round(rate * kPct * 10) / 10,
-                        notes: `K supplement: dissolve ${rate} kg/ha in spray tank`,
-                    };
-                } else {
-                    // Liquid: rate in L/ha, round to 10L container
-                    rate = Math.ceil(rate / 10) * 10;
-                    const maxRate = bestProduct.maxRateLHa || 50;
-                    rate = Math.min(rate, maxRate);
-                    
-                    return {
-                        id: bestProduct.id,
-                        name: bestProduct.name,
-                        npk: bestProduct.npk,
-                        analysis: bestProduct.analysis,
-                        form: 'liquid',
-                        rateLHa: rate,
-                        rateMLM2: (rate / 10).toFixed(1),
-                        kDelivered: Math.round(rate * kPct * 10) / 10,
-                        notes: `K supplement: ${rate}L container`,
-                    };
-                }
-            } else {
-                const rateKgHa = Math.round(kDeficit / kPct);
-                return {
-                    id: bestProduct.id,
-                    name: bestProduct.name,
-                    npk: bestProduct.npk,
-                    analysis: bestProduct.analysis,
-                    form: 'granular',
-                    rateKgHa: rateKgHa,
-                    rateGM2: (rateKgHa / 10).toFixed(1),
-                    kDelivered: kDeficit,
-                    bagsPerHa: bestProduct.packSize ? (rateKgHa / bestProduct.packSize).toFixed(1) : null,
-                    notes: bestProduct.notes,
-                };
-            }
-        },
-        
         /**
          * Select P source for establishment
          */

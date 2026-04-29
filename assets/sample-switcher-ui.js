@@ -84,6 +84,8 @@
                         <option value="">Select a sample...</option>
                     </select>
                     <button class="gaip-sample-rename-btn" title="Rename this sample" style="background:none;border:1px solid var(--gaip-border);border-radius:4px;padding:2px 6px;cursor:pointer;font-size:13px;color:var(--gaip-text-secondary);margin-left:4px;" type="button">✏️</button>
+                    ${dataType === 'soil' ? `<button class="gaip-sample-bulk-area-btn" title="Set area (ha) for multiple samples at once" style="background:none;border:1px solid var(--gaip-border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:var(--gaip-text-secondary);margin-left:4px;" type="button">📐 Set area…</button>` : ''}
+                    ${dataType === 'soil' ? `<button class="gaip-sample-bulk-turf-btn" title="Set turf profile (species + companion) for multiple samples at once. Only visible when Multi-site turf is enabled." style="background:none;border:1px solid #10b981;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:12px;color:#10b981;margin-left:4px;display:none;" type="button">🌱 Set turf profile…</button>` : ''}
                     <span class="gaip-sample-count"></span>
                 </div>
                 <div class="gaip-sample-quick-btns"></div>
@@ -170,6 +172,55 @@
             }
         };
 
+        // b35fix311: bulk area entry button for soil samples.
+        // Opens a modal letting the user assign area (ha) to multiple samples
+        // in one operation. Primary use case: council/multi-site operators
+        // with 100+ zones who would otherwise edit each sample individually.
+        if (dataType === 'soil') {
+            const bulkAreaBtn = wrapper.querySelector('.gaip-sample-bulk-area-btn');
+            if (bulkAreaBtn) {
+                bulkAreaBtn.onclick = () => {
+                    if (typeof global.GaipBulkAreaModal !== 'undefined' &&
+                        typeof global.GaipBulkAreaModal.open === 'function') {
+                        global.GaipBulkAreaModal.open(dataType, wrapper);
+                    } else {
+                        console.warn('[SampleSwitcher] GaipBulkAreaModal not loaded');
+                    }
+                };
+            }
+
+            // b35fix368: bulk turf profile button. Same pattern as bulk-area but
+            // visibility-gated on multi-site turf toggle for the active site —
+            // only relevant for council/multi-cohort workflows. Hidden by
+            // default in the template, shown via _refreshBulkTurfBtnVisibility
+            // on init and on gaip:multi-site-turf-change / gaip:site-changed.
+            const bulkTurfBtn = wrapper.querySelector('.gaip-sample-bulk-turf-btn');
+            const _refreshBulkTurfBtnVisibility = () => {
+                if (!bulkTurfBtn) return;
+                let on = false;
+                try {
+                    const SC = global.GAIP_SiteConfig;
+                    if (SC && typeof SC.isMultiSiteTurfEnabled === 'function') {
+                        on = !!SC.isMultiSiteTurfEnabled();
+                    }
+                } catch (e) { /* defensive */ }
+                bulkTurfBtn.style.display = on ? '' : 'none';
+            };
+            if (bulkTurfBtn) {
+                bulkTurfBtn.onclick = () => {
+                    if (typeof global.GaipBulkTurfProfileModal !== 'undefined' &&
+                        typeof global.GaipBulkTurfProfileModal.open === 'function') {
+                        global.GaipBulkTurfProfileModal.open(dataType, wrapper);
+                    } else {
+                        console.warn('[SampleSwitcher] GaipBulkTurfProfileModal not loaded');
+                    }
+                };
+                _refreshBulkTurfBtnVisibility();
+                document.addEventListener('gaip:multi-site-turf-change', _refreshBulkTurfBtnVisibility);
+                document.addEventListener('gaip:site-changed', _refreshBulkTurfBtnVisibility);
+            }
+        }
+
         // Listen for sample events
         document.addEventListener('gaip:samples-imported', (e) => {
             if (e.detail.dataType === dataType) {
@@ -190,6 +241,20 @@
             if (e.detail.dataType === dataType) {
                 updateSampleSelector(wrapper, dataType);
                 selectorArea.style.display = 'block';
+            }
+        });
+
+        // b35fix311: refresh after bulk area assignment so the new areaHa values
+        // show up in the select options and quick-button tooltips immediately.
+        document.addEventListener('gaip:bulk-area-applied', (e) => {
+            if (e.detail.dataType === dataType) {
+                updateSampleSelector(wrapper, dataType);
+            }
+        });
+        // Also cover single-sample updates (areaHa edit from elsewhere, rename, zone-type change)
+        document.addEventListener('gaip:sample-updated', (e) => {
+            if (e.detail.dataType === dataType) {
+                updateSampleSelector(wrapper, dataType);
             }
         });
 
@@ -221,6 +286,18 @@
         document.addEventListener('gaip:sample-renamed', (e) => {
             if (e.detail.dataType === dataType) {
                 updateSampleSelector(wrapper, dataType);
+            }
+        });
+
+        // b35fix367 — re-render card on multi-site-turf toggle change so the
+        // "Set turf profile…" button appears/disappears immediately, and on
+        // sample-turf-profile change so the override chip refreshes.
+        document.addEventListener('gaip:multi-site-turf-change', () => {
+            updateSampleInfo(wrapper, dataType);
+        });
+        document.addEventListener('gaip:sample-turf-profile-changed', (e) => {
+            if (e.detail && e.detail.dataType === dataType) {
+                updateSampleInfo(wrapper, dataType);
             }
         });
 
@@ -262,7 +339,19 @@
             grouped[zoneType].forEach(sample => {
                 const option = document.createElement('option');
                 option.value = sample.id;
-                option.textContent = sample.label || sample.id;
+                // b35fix311: for soil samples, append area info to the label so
+                // the operator sees areaHa status at a glance (essential at
+                // council scale where they'll have 100+ samples to audit).
+                let displayText = sample.label || sample.id;
+                if (dataType === 'soil') {
+                    const ha = sample.rawData && sample.rawData.areaHa;
+                    if (ha != null && isFinite(ha) && ha > 0) {
+                        displayText += '  \u00b7  ' + parseFloat(ha).toFixed(2) + ' ha';
+                    } else {
+                        displayText += '  \u00b7  \u26a0 area missing';
+                    }
+                }
+                option.textContent = displayText;
                 if (sample.id === activeId) option.selected = true;
                 optGroup.appendChild(option);
             });
@@ -279,6 +368,17 @@
         // Update info if active
         if (activeId) {
             updateSampleInfo(wrapper, dataType);
+        }
+
+        // b35fix311a: selector-area visibility is managed here, not by callers.
+        // Previously, gaip:site-changed and other events called updateSampleSelector
+        // but did NOT set `selectorArea.style.display = 'block'`, so if the switcher
+        // was mounted before samples existed (common for sites restored from
+        // localStorage on page load), the selector stayed hidden permanently.
+        // Single source of truth: samples.length > 0 → show, otherwise hide.
+        var selectorArea = wrapper.querySelector('.gaip-sample-selector-area');
+        if (selectorArea) {
+            selectorArea.style.display = samples.length > 0 ? 'block' : 'none';
         }
     }
 
@@ -302,7 +402,18 @@
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'gaip-sample-quick-btn' + (sample.id === activeId ? ' active' : '');
-            btn.title = (sample.label || sample.id) + ' (double-click to rename)';
+            // b35fix311: tooltip includes area for soil samples — instant audit
+            // signal for missing/incorrect area data in large sample sets.
+            let tooltipText = (sample.label || sample.id) + ' (double-click to rename)';
+            if (dataType === 'soil') {
+                const ha = sample.rawData && sample.rawData.areaHa;
+                tooltipText = (sample.label || sample.id) +
+                    ((ha != null && isFinite(ha) && ha > 0)
+                        ? '  \u2022  ' + parseFloat(ha).toFixed(2) + ' ha'
+                        : '  \u2022  \u26a0 area missing') +
+                    '  (double-click to rename)';
+            }
+            btn.title = tooltipText;
             btn.innerHTML = `<span class="zone-icon">${zoneInfo.icon}</span><span class="sample-name">${truncate(sample.label || sample.id, 12)}</span>`;
             btn.style.borderColor = zoneInfo.color;
             // Inline styles can't reliably use CSS custom properties —
@@ -627,6 +738,43 @@
 
         const zoneInfo = ZONE_LABELS[sample.zoneType] || ZONE_LABELS.other;
 
+        // b35fix367 — multi-site turf state for the active site governs whether
+        // the "Set turf profile…" button renders and whether the override chip
+        // shows. Only soil samples carry per-sample turf overrides — water and
+        // tissue samples don't independently re-key turf identity.
+        var _b367_multiOn = false;
+        try {
+            var _SC367 = global.GAIP_SiteConfig;
+            if (_SC367 && typeof _SC367.isMultiSiteTurfEnabled === 'function') {
+                _b367_multiOn = !!_SC367.isMultiSiteTurfEnabled();
+            }
+        } catch (e) { /* defensive */ }
+        var _b367_sampleProfile = null;
+        if (_b367_multiOn && dataType === 'soil') {
+            try {
+                _b367_sampleProfile = global.GAIP_SampleManager.getSampleTurfProfile
+                    ? global.GAIP_SampleManager.getSampleTurfProfile(dataType, sample.id)
+                    : null;
+            } catch (e) { /* defensive */ }
+        }
+        var _b367_chipHtml = '';
+        if (_b367_sampleProfile) {
+            var chipParts = [];
+            if (_b367_sampleProfile.species) chipParts.push(_b367_sampleProfile.species);
+            if (_b367_sampleProfile.variety) chipParts.push(_b367_sampleProfile.variety);
+            if (_b367_sampleProfile.companionSpecies) chipParts.push('+ ' + _b367_sampleProfile.companionSpecies);
+            _b367_chipHtml = '<div class="gaip-sample-info-row" style="margin-top:4px;">' +
+                '<span class="gaip-sample-info-label">Turf override:</span>' +
+                '<span class="gaip-sample-info-value">' +
+                '<span class="zone-badge" style="background-color:#10b981;color:white;">🌱 ' +
+                (chipParts.length ? chipParts.join(' · ') : 'set') + '</span>' +
+                '</span>' +
+                '</div>';
+        }
+        var _b367_buttonHtml = (_b367_multiOn && dataType === 'soil')
+            ? '<button type="button" class="gaip-sample-turfprofile-btn" title="Override turf type / species / variety for this sample" style="font-size: 11px; padding: 3px 8px; border: 1px solid #10b981; border-radius: 3px; background: var(--gaip-good-bg, rgba(16,185,129,0.1)); cursor: pointer; color: #10b981; font-weight: 600;">🌱 Set turf profile…</button>'
+            : '';
+
         infoDiv.innerHTML = `
             <div class="gaip-sample-info-row">
                 <span class="gaip-sample-info-label">Zone Type:</span>
@@ -646,9 +794,11 @@
                 <span class="gaip-sample-info-value">${sample.notes}</span>
             </div>
             ` : ''}
+            ${_b367_chipHtml}
             <div class="gaip-sample-info-row" style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--gaip-surface-hover); display: flex; gap: 8px; flex-wrap: wrap;">
                 <button type="button" class="gaip-sample-update-btn" title="Overwrite this sample with current form values" style="font-size: 11px; padding: 3px 8px; border: 1px solid #86efac; border-radius: 3px; background: var(--gaip-good-bg); cursor: pointer; color: #16a34a; font-weight: 600;">&#128190; Update</button>
                 <button type="button" class="gaip-sample-zone-btn" title="Change zone type" style="font-size: 11px; padding: 3px 8px; border: 1px solid var(--gaip-info-bg); border-radius: 3px; background: var(--gaip-info-bg); cursor: pointer; color: #2563eb;">&#128204; Zone</button>
+                ${_b367_buttonHtml}
                 <button type="button" class="gaip-sample-rename-btn" title="Rename this sample" style="font-size: 11px; padding: 3px 8px; border: 1px solid var(--gaip-border); border-radius: 3px; background: var(--gaip-surface-muted); cursor: pointer; color: var(--gaip-text-secondary);">\u270F\uFE0F Rename</button>
                 <button type="button" class="gaip-sample-delete-btn" title="Delete this sample" style="font-size: 11px; padding: 3px 8px; border: 1px solid #fca5a5; border-radius: 3px; background: var(--gaip-critical-bg); cursor: pointer; color: #dc2626;">\u2716 Delete</button>
             </div>
@@ -717,6 +867,29 @@
                     updateSampleSelector(wrapper, dataType);
                     updateSampleInfo(wrapper, dataType);
                 }
+            });
+        }
+
+        // b35fix367 — wire Set turf profile button (renders only when multi-site
+        // turf is on for the active site and dataType === 'soil').
+        const turfProfileBtn = infoDiv.querySelector('.gaip-sample-turfprofile-btn');
+        if (turfProfileBtn) {
+            turfProfileBtn.addEventListener('click', function () {
+                if (!global.GaipSampleTurfProfileModal ||
+                    typeof global.GaipSampleTurfProfileModal.open !== 'function') {
+                    console.warn('[SampleSwitcher] GaipSampleTurfProfileModal not loaded');
+                    return;
+                }
+                global.GaipSampleTurfProfileModal.open(dataType, sample.id, function (newProfile) {
+                    // Re-render the card to reflect the new override chip state
+                    updateSampleInfo(wrapper, dataType);
+                    // If sample is currently active and multi-site turf is on,
+                    // re-load to apply the override into GaipTurfProfile.state
+                    // and fire the species-change cascade.
+                    try {
+                        global.GAIP_SampleManager.loadSample(dataType, sample.id);
+                    } catch (e) { /* defensive */ }
+                });
             });
         }
     }

@@ -905,20 +905,31 @@
             }
         }
 
-        // Re-sort diseases by adjusted risk (descending)
+        // Re-sort diseases by adjusted risk (descending). b35fix353b: defensive
+        // `|| 0` coercion on each side — bare `b.adjustedRisk - a.adjustedRisk`
+        // propagates NaN if either operand is undefined/NaN, sending the
+        // NaN-affected disease to an undefined sort position.
         diseaseResult.diseases.sort(function(a, b) {
-            return b.adjustedRisk - a.adjustedRisk;
+            return (b.adjustedRisk || 0) - (a.adjustedRisk || 0);
         });
 
-        // Recalculate overall score using same MAX logic as disease engine
+        // Recalculate overall score using same MAX logic as disease engine.
+        // b35fix353b: defensive Number.isFinite guard mirrors the
+        // disease-engine-pure.js fix. If any disease's adjustedRisk is NaN or
+        // undefined post-coupling, Math.max returns NaN and surfaces as
+        // `Disease Pressure: MINIMAL NaN%`. Coerce non-finite values to 0 at
+        // the read point — same shape as the engine's overallScore guard.
         var validatedDiseases = diseaseResult.diseases.filter(function(d) {
             return d.validationStatus !== 'beta' &&
                    !(d.validationBadge && d.validationBadge.indexOf('BETA') >= 0);
         });
+        var _safeAdjRisk = function(d) {
+            return (typeof d.adjustedRisk === 'number' && isFinite(d.adjustedRisk)) ? d.adjustedRisk : 0;
+        };
         var newOverallScore = validatedDiseases.length > 0
-            ? Math.max.apply(null, validatedDiseases.map(function(d) { return d.adjustedRisk; }))
+            ? Math.max.apply(null, validatedDiseases.map(_safeAdjRisk))
             : (diseaseResult.diseases.length > 0
-                ? Math.max.apply(null, diseaseResult.diseases.map(function(d) { return d.adjustedRisk; }))
+                ? Math.max.apply(null, diseaseResult.diseases.map(_safeAdjRisk))
                 : 0);
 
         diseaseResult.overallScore = newOverallScore;

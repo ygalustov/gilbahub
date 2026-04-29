@@ -1,7 +1,34 @@
 /**
  * Gilba Word Export - Combined Multi-Site Report
- * Version: 1.0.0
- * 
+ * Version: 1.3.0 (b35fix313)
+ *
+ * v1.3.0 (b35fix313): Per-sample engine context baked during loop, not globals.
+ *   Structural fix for handoff-doc Item 7. Combined multi-site exports were
+ *   reading window.GAIP_STATE / GAIP_OVERSEED_STATE / GilbaClimateEngine at
+ *   render time (post-loop), which reflected only the last sample's site.
+ *   The ANR engine call also hardcoded hemisphere='south', isOverseed=false,
+ *   and a species fallback of 'bentgrass' — silently wrong for any Vietnam
+ *   couch, Sydney overseed, UK temperate-north, or non-bentgrass site.
+ *   Now reads r.data.engineInputs which is assembled by _buildEngineInputs()
+ *   in word-export.js collectData() during each loop iteration with the
+ *   correct site active. Hard-fail on missing species (no silent bentgrass).
+ *
+ * v1.2.0 (b35fix302b): Per-sample ANR via NutritionRequirementEngine_Pure
+ *   - Each sample now drives its OWN engine.compute() from its OWN soil chemistry.
+ *     Fixes Jerry's reported bug where every green/sportsground showed identical
+ *     fert recs (root cause: stale GAIP_NUTRITION_SOIL_CACHE + lossy stand-alone
+ *     computeANRFromSoil with hardcoded species table).
+ *   - Engine now handles MLSN, AMMONIUM_ACETATE, and SLAN methodologies natively
+ *     (per-sample soil.methodology field). NZ Hill Labs AA sites and SLAN sites
+ *     get correct treatment without methodology-specific code in this file.
+ *   - computeANRFromSoil() DELETED — superseded by engine. See engine
+ *     SPECIES_ALIASES (browntopBent/colonialBent/hardFescue/sheepFescue/
+ *     slenderRedFescue/strongRedFescue/tetraploidRyegrass/zoysiaJaponica/
+ *     zoysiaMatrella/hybridcouch all alias correctly now).
+ *   - Cotula S78 stays inline (engine doesn't model dicot sufficiency).
+ *
+ * v1.1.0:
+ *
  * Generates a single Word document containing reports for all soil samples
  * across all sites (or the current site). Instead of exporting 20 separate
  * documents for 20 greens, the superintendent gets one combined report.
@@ -113,22 +140,19 @@
         var stores = allData.allSites || {};
         var result = [];
 
-        // Derive zone identity from a sample object by stripping temporal qualifiers.
-        // Mirrors NutrientTrend.deriveZoneKey — keeps this logic in sync.
+        // b35fix311_1: zone-key derivation moved to assets/zone-key.js — single
+        // source of truth shared with nutrient-trend.js. See zone-key.js for
+        // stripping logic. This wrapper exists only because the rest of this
+        // file uses the short name in many places.
         function deriveZoneKeyLocal(sampleObj) {
-            var key = (sampleObj && (sampleObj.label || sampleObj.id)) || '';
-            key = key.replace(/\s*\(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?\)\s*$/, '');
-            key = key.replace(/\b[Qq][1-4]\b/g, '');
-            key = key.replace(/\b[Hh][12]\b/g, '');
-            key = key.replace(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi, '');
-            key = key.replace(/\b20\d{2}\b/g, '');
-            key = key.replace(/\b\d{4}[\/-]\d{1,2}[\/-]\d{1,2}\b/g, '');
-            key = key.replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g, '');
-            key = key.replace(/\b(spring|summer|autumn|fall|winter)\b/gi, '');
-            key = key.replace(/\b(pre|post|mid)\s*-?\s*(season|summer|winter|spring|autumn)\b/gi, '');
-            key = key.replace(/\b(test|sample|report)\s*#?\d*\b/gi, '');
-            key = key.replace(/[\s_-]+/g, ' ').trim().toLowerCase();
-            return key || ((sampleObj && (sampleObj.label || sampleObj.id)) || '').toLowerCase().trim();
+            if (typeof global.GaipZoneKey === 'undefined' ||
+                typeof global.GaipZoneKey.derive !== 'function') {
+                // Defensive fallback — should never happen in production if
+                // enqueue order is correct, but keeps the build tolerant.
+                console.warn('[CombinedExport] GaipZoneKey not loaded; zone collapse may drift');
+                return ((sampleObj && (sampleObj.label || sampleObj.id)) || '').toLowerCase().trim();
+            }
+            return global.GaipZoneKey.derive(sampleObj);
         }
 
         var siteIds = Object.keys(sites);
@@ -156,23 +180,59 @@
             // samples for the same zone represent different testing dates. We keep only
             // the latest date per zone. Historical data is covered by the trend section.
             if (hasSoil) {
-                // Group all soil samples by zone, pick the one with the latest date per zone
+                // Group all soil samples by zone, pick the one with the latest date per zone.
+                // Historical (non-winner) samples still drive the Nutrient Trend section; the
+                // winner alone drives recommendation sections. See b35fix310a design note.
                 var soilZones = {}; // zoneKey -> { sampleId, sampleObj, date }
+                var _zoneCandidates = {}; // zoneKey -> [{sampleId, date, label}, ...]
                 for (var si = 0; si < soilSamples.length; si++) {
                     var sid = soilSamples[si];
                     var sobj = siteStore.soil[sid];
                     var zkey = deriveZoneKeyLocal(sobj);
                     var sdate = (sobj && sobj.date) || '';
+                    if (!_zoneCandidates[zkey]) _zoneCandidates[zkey] = [];
+                    _zoneCandidates[zkey].push({
+                        sampleId: sid,
+                        date: sdate,
+                        label: (sobj && sobj.label) || sid
+                    });
                     if (!soilZones[zkey] || sdate > soilZones[zkey].date) {
                         soilZones[zkey] = { sampleId: sid, sampleObj: sobj, date: sdate };
                     }
                 }
+
+                // b35fix310a: zone collapse is correct behaviour (recommendations must use the
+                // latest sample per zone; historical samples drive the Trend section only).
+                // Log this at INFO level for traceability, not as a warning.
+                Object.keys(_zoneCandidates).forEach(function(zk) {
+                    var cands = _zoneCandidates[zk];
+                    if (cands.length > 1) {
+                        var winner = soilZones[zk];
+                        console.info(
+                            '[CombinedExport] Zone "' + zk + '" on site "' + siteId +
+                            '" has ' + cands.length + ' soil samples — latest drives recommendations, ' +
+                            'all samples feed trend analysis.',
+                            { winner: { sampleId: winner.sampleId, date: winner.date }, candidates: cands }
+                        );
+                    }
+                });
+
                 var zoneKeys = Object.keys(soilZones);
                 for (var zi = 0; zi < zoneKeys.length; zi++) {
-                    var zEntry = soilZones[zoneKeys[zi]];
+                    var zKey = zoneKeys[zi];
+                    var zEntry = soilZones[zKey];
                     var zSoilId = zEntry.sampleId;
                     var zWater   = hasWater  ? ((siteStore.water  && siteStore.water[zSoilId])  ? zSoilId : waterSamples[waterSamples.length - 1])   : null;
                     var zTissue  = hasTissue ? ((siteStore.tissue && siteStore.tissue[zSoilId]) ? zSoilId : tissueSamples[tissueSamples.length - 1]) : null;
+
+                    // b35fix310a Fix A1: persist provenance so the render layer can print a
+                    // per-section footer disclosing which sample is driving recommendations
+                    // and how many prior samples feed the trend section.
+                    var _candidatesForZone = _zoneCandidates[zKey] || [];
+                    var _priorSamples = _candidatesForZone
+                        .filter(function(c) { return c.sampleId !== zSoilId; })
+                        .sort(function(a, b) { return (b.date || '').localeCompare(a.date || ''); });
+
                     result.push({
                         siteId:        siteId,
                         siteLabel:     sites[siteId].label || siteId,
@@ -183,7 +243,15 @@
                         hasWater:      hasWater,
                         hasTissue:     hasTissue,
                         waterSampleId: zWater,
-                        tissueSampleId:zTissue
+                        tissueSampleId:zTissue,
+                        // b35fix310a Fix A1: zone provenance for the per-section footer
+                        zoneProvenance: {
+                            zoneKey:       zKey,
+                            winnerDate:    zEntry.date || null,
+                            winnerLabel:   (zEntry.sampleObj && zEntry.sampleObj.label) || zSoilId,
+                            candidateCount: _candidatesForZone.length,
+                            priorSamples:   _priorSamples  // [{sampleId, date, label}, ...] most recent first
+                        }
                     });
                 }
             } else if (hasWater) {
@@ -444,6 +512,75 @@
                 // label input which reflects the last-active sample, not the current iteration.
                 if (data.soil) data.soil.sampleLabel = resolvedLabel;
 
+                // ──────────────────────────────────────────────────────────────
+                // b35fix313 — Per-sample engine context bake
+                //
+                // Problem (Item 7 from handoff doc): the post-loop ANR engine call
+                // at buildCombinedDocument lines ~1420-1431 hardcoded:
+                //   - overseedConfig: { isOverseed: false, baseIsC4: false }
+                //   - climate: { monthlyTemps: {}, hemisphere: 'south' }
+                //   - species fallback: 'bentgrass'
+                // For a multi-site export spanning e.g. a Vietnam couch course
+                // (tropical, C4, no overseed) + a Bowral bentgrass green
+                // (temperate, C3) + a Sydney couch fairway on winter ryegrass
+                // overseed (C4 base, C3 overseed), every report got the same
+                // wrong nutrition context. Species sometimes-OK by dumb luck,
+                // but hemisphere/overseed/climate silently wrong everywhere.
+                //
+                // Fix: capture the per-sample engine inputs HERE, while the
+                // correct site is active. The same readers the single-export
+                // path uses (extractTurfConfig, extractMonthlyTemps,
+                // detectOverseedScenario, extractAnnualNRate) are exposed on
+                // window.GilbaNutritionSummary. Bake their output onto
+                // data._combinedCtx so the post-loop ANR call reads it instead
+                // of hardcoding globals at render time (when GAIP_STATE
+                // reflects only the last sample loaded).
+                // ──────────────────────────────────────────────────────────────
+                try {
+                    var _nsIntegration = global.GilbaNutritionSummary;
+                    if (_nsIntegration) {
+                        var _turfCfg = typeof _nsIntegration.extractTurfConfig === 'function'
+                            ? _nsIntegration.extractTurfConfig() : null;
+                        var _monthlyTemps = typeof _nsIntegration.extractMonthlyTemps === 'function'
+                            ? _nsIntegration.extractMonthlyTemps() : null;
+                        var _overseedCfg = typeof _nsIntegration.detectOverseedScenario === 'function'
+                            ? _nsIntegration.detectOverseedScenario() : null;
+
+                        // User N override — read via the same precedence the
+                        // single-export path uses (b35fix312 made nutrition-panel
+                        // input primary). No direct exporter; inline the read.
+                        var _userN = null;
+                        var _nEl = document.querySelector('.gaip-nutrition-annual-n');
+                        if (!_nEl || !_nEl.value) {
+                            _nEl = document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
+                        }
+                        if (_nEl && _nEl.value) {
+                            var _nParsed = parseFloat(_nEl.value);
+                            if (isFinite(_nParsed) && _nParsed >= 0) _userN = _nParsed;
+                        }
+
+                        data._combinedCtx = {
+                            species:            _turfCfg ? _turfCfg.species : null,
+                            clippingsCollected: _turfCfg ? !!_turfCfg.clippingsCollected : false,
+                            trafficIntensity:   _turfCfg ? (_turfCfg.trafficIntensity || 'moderate') : 'moderate',
+                            hemisphere:         _turfCfg ? (_turfCfg.hemisphere || 'south') : 'south',
+                            monthlyTemps:       _monthlyTemps || {},
+                            overseedConfig:     _overseedCfg || { isOverseed: false, baseIsC4: false, summerIntent: 'transition' },
+                            userN:              _userN,
+                            siteId:             entry.siteId  // self-check marker
+                        };
+                        log('Baked ctx for', entry.siteLabel, '—',
+                            'species=' + data._combinedCtx.species,
+                            'hem=' + data._combinedCtx.hemisphere,
+                            'overseed=' + !!data._combinedCtx.overseedConfig.isOverseed,
+                            'base=' + (data._combinedCtx.overseedConfig.baseSpecies || '(none)'));
+                    } else {
+                        warn('GilbaNutritionSummary not loaded — _combinedCtx skipped for', entry.sampleId);
+                    }
+                } catch (_ctxErr) {
+                    warn('_combinedCtx bake failed for', entry.sampleId, '—', _ctxErr.message);
+                }
+
                 // Capture charts
                 var charts = {};
                 if (typeof global.GAIP_WordExport_captureCharts === 'function') {
@@ -460,7 +597,9 @@
                     sampleId: entry.sampleId,
                     sampleLabel: resolvedLabel,
                     data: data,
-                    charts: charts
+                    charts: charts,
+                    // b35fix310a Fix A1: forward zone provenance to render layer
+                    zoneProvenance: entry.zoneProvenance || null
                 });
 
                 log('Collected report', (i + 1), '/', samples.length, ':', entry.siteLabel, '—', entry.sampleId);
@@ -669,9 +808,17 @@
         var cellMargins = { top: 60, bottom: 60, left: 100, right: 100 };
 
         // Nutrients to compare — label, data.soil key, unit
+        // b35fix371: GP (%) column dropped. Pre-fix it rendered the same value
+        // for every row because cm.growth.{c3,c4,weighted} is a single global
+        // computed once for the active site's climate; with mostly-C4 cohorts
+        // (couch + kikuyu) every row read the same C4 value. Wasted column
+        // space and looked broken to council users. Replaced with Area (ha)
+        // which IS per-sample (read from r.data.soil.areaHa) and is what
+        // councils use for budget and product purchasing decisions.
         var nutrients = [
-            { label: 'GP (%)',        key: '_gp',  unit: '%',   isGP: true },
+            { label: 'Area (ha)',     key: 'areaHa', unit: 'ha',  isArea: true },
             { label: 'pH',            key: 'pH',   unit: '' },
+            { label: 'EC (dS/m)',     key: 'EC',   unit: 'dS/m' },
             { label: 'P (ppm)',       key: 'P',    unit: 'ppm' },
             { label: 'K (ppm)',       key: 'K',    unit: 'ppm' },
             { label: 'Ca (ppm)',      key: 'Ca',   unit: 'ppm' },
@@ -749,25 +896,38 @@
                 var nut = nutrients[ni2];
                 var val, fill, displayText;
 
-                if (nut.isGP) {
-                    val = d.climate && d.climate.growthPotential !== undefined
-                        ? Math.round(d.climate.growthPotential) : null;
-                    if (val !== null) {
-                        fill = val < 30 ? 'FEE2E2' : val < 60 ? 'FEF3C7' : 'D1FAE5';
-                        displayText = val + '%';
+                if (nut.isArea) {
+                    // b35fix371: per-sample area read from data.soil.areaHa.
+                    // Format matches the b35fix368 _buildSectionHeaderLine
+                    // helper: 1.0 → "1", 0.85 → "0.85", 12.345 → "12.34".
+                    var areaRaw = d.soil && d.soil.areaHa;
+                    if (areaRaw != null && isFinite(areaRaw) && areaRaw > 0) {
+                        var areaN = Number(areaRaw);
+                        if (areaN >= 10) {
+                            displayText = areaN.toFixed(2);
+                        } else {
+                            displayText = areaN.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+                        }
+                        if (!displayText) displayText = String(areaN);
+                        fill = 'F9FAFB';   // neutral — area is not a status
+                        val = areaN;
+                    } else {
+                        val = null;
                     }
                 } else {
                     val = d.soil ? d.soil[nut.key] : null;
                     if (val !== null && val !== undefined) {
                         var thresh = d.soil && d.soil.thresholds && d.soil.thresholds[nut.key];
-                        if (nut.key === 'pH' || nut.key === 'CEC' || nut.key === 'Na') {
+                        if (nut.key === 'pH' || nut.key === 'CEC' || nut.key === 'Na' || nut.key === 'EC') {
                             fill = 'F9FAFB';
                         } else if (thresh && thresh.min !== undefined) {
                             fill = (parseFloat(val) < thresh.min) ? 'FEE2E2' : 'D1FAE5';
                         } else {
                             fill = 'F9FAFB';
                         }
-                        displayText = typeof val === 'number' ? val.toFixed(val >= 10 ? 0 : 1) : String(val);
+                        displayText = typeof val === 'number'
+                            ? (nut.key === 'EC' ? val.toFixed(2) : val.toFixed(val >= 10 ? 0 : 1))
+                            : String(val);
                     }
                 }
 
@@ -787,88 +947,232 @@
         });
     }
 
-    // Compute ANR from raw soil ppm — avoids stale GAIP_NUTRITION_SOIL_CACHE across samples
-    function computeANRFromSoil(soil) {
-        if (!soil) return null;
+    /**
+     * Build Zone Issues Summary table — aggregates per-green diagnostic flags.
+     * Columns: Zone | Key Issues | Priority Action
+     * Sources: MLSN deficiencies, Mulder's interactions, pH, EC, CEC.
+     * Inserted after the Zone Comparison table in the combined report.
+     *
+     * b35fix300
+     */
+    function buildZoneIssuesSummaryTable(reports, docxRefs) {
+        var Paragraph = docxRefs.Paragraph;
+        var TextRun = docxRefs.TextRun;
+        var Table = docxRefs.Table;
+        var TableRow = docxRefs.TableRow;
+        var TableCell = docxRefs.TableCell;
+        var AlignmentType = docxRefs.AlignmentType;
+        var WidthType = docxRefs.WidthType;
+        var BorderStyle = docxRefs.BorderStyle;
+        var ShadingType = docxRefs.ShadingType;
+        var VerticalAlign = docxRefs.VerticalAlign;
 
-        // Cotula S78 — ANR via N-uptake model is not valid (dicot, no tissue ratios).
-        // Return a placeholder that the export table will render as S78 sufficiency status.
-        if (soil.methodology === 'cotula_s78' || soil.surfaceType === 'cotula_bowling_green') {
-            return { isCotula: true, s78: soil };
+        var border = { style: BorderStyle.SINGLE, size: 1, color: 'DDDDDD' };
+        var borders = { top: border, bottom: border, left: border, right: border };
+        var cellMargins = { top: 60, bottom: 60, left: 100, right: 100 };
+
+        // Column widths (DXA) — Zone narrow, Issues wide, Action wide
+        var totalWidth = 9360;
+        var zoneW = 1400;
+        var issuesW = 4280;
+        var actionW = totalWidth - zoneW - issuesW; // 3680
+
+        function makeHeaderCell(text, w) {
+            return new TableCell({
+                borders: borders,
+                margins: cellMargins,
+                width: { size: w, type: WidthType.DXA },
+                shading: { fill: '059669', type: ShadingType.CLEAR },
+                verticalAlign: VerticalAlign.CENTER,
+                children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new TextRun({ text: String(text), bold: true, size: 16, color: 'FFFFFF' })]
+                })]
+            });
         }
 
-        var methodology = (soil.methodology || 'MLSN').toUpperCase().replace(' ', '_');
-        var isAA   = methodology === 'AMMONIUM_ACETATE';
-        var isSLAN = methodology === 'SLAN';
+        function makeCell(text, w, opts) {
+            opts = opts || {};
+            var shading = opts.fill ? { fill: opts.fill, type: ShadingType.CLEAR } : undefined;
+            return new TableCell({
+                borders: borders,
+                margins: cellMargins,
+                width: { size: w, type: WidthType.DXA },
+                shading: shading,
+                verticalAlign: VerticalAlign.TOP,
+                children: [new Paragraph({
+                    children: [new TextRun({
+                        text: String(text),
+                        bold: !!opts.bold,
+                        size: opts.size || 16,
+                        color: opts.color || '1F2937'
+                    })]
+                })]
+            });
+        }
 
-        // MLSN minimums (Mehlich-3/Colwell calibration)
-        var MLSN_MIN = { P: 21, K: 37, S: 6 };
-        var MLSN_TARGET_MULT = 1.5;
-        // SLAN sufficiency ranges midpoints (approximate)
-        var SLAN_TARGET = { P: 37, K: 112, S: 18 }; // midpoints of typical SLAN sufficiency ranges
+        // ── Aggregate issues per report ──────────────────────────────────────
+        var zoneRows = [];
+        var hasAnyIssues = false;
 
-        var ph = soil.pH || soil.ph || 7;
-        // pH-adjusted P threshold (MLSN only — SLAN P is pH-independent at lab level)
-        var pMlsnMin = ph <= 5.5 ? 35 : ph <= 6.0 ? 28 : ph <= 7.5 ? 21 : ph <= 8.0 ? 32 : 40;
-        MLSN_MIN.P = pMlsnMin;
+        for (var ri = 0; ri < reports.length; ri++) {
+            var rep = reports[ri];
+            var d = rep.data;
+            var soil = d.soil || {};
+            var zoneLabel = rep.sampleLabel || rep.sampleId || ('Zone ' + (ri + 1));
+            var issues = [];
+            var actions = [];
 
-        var YEARS = { P: 2, K: 2, S: 2 };
-
-        var speciesKey = (soil.speciesKey || soil.species || 'bentgrass').toLowerCase()
-            .replace(/\s+/g,'').replace('creepingbentgrass','bentgrass')
-            .replace('hybridcouch','couch').replace('bermuda','couch');
-        var REMOVAL = {
-            bentgrass:         { P: 15, K: 80,  S: 8 },
-            perennialryegrass: { P: 18, K: 100, S: 10 },
-            kentuckybluegrass: { P: 16, K: 90,  S: 9 },
-            finefescue:        { P: 10, K: 60,  S: 6 },
-            tallfescue:        { P: 14, K: 80,  S: 8 },
-            couch:             { P: 20, K: 120, S: 12 },
-            zoysiagrass:       { P: 12, K: 70,  S: 7 },
-            kikuyu:            { P: 25, K: 140, S: 14 },
-            buffalo:           { P: 8,  K: 50,  S: 5 },
-            seashorepaspalum:  { P: 16, K: 90,  S: 9 }
-        };
-        var removal = REMOVAL[speciesKey] || { P: 15, K: 80, S: 8 };
-
-        function req(nutrient, currentPPM) {
-            if (currentPPM == null || isNaN(currentPPM)) return null;
-            var annual, status;
-
-            if (isAA) {
-                // AA extractant: thresholds calibrated for Mehlich-3/Colwell don't apply
-                // Return removal-only — no deficit correction
-                annual = removal[nutrient];
-                status = 'Adequate'; // can't determine status without AA-calibrated thresholds
-            } else if (isSLAN) {
-                var target = SLAN_TARGET[nutrient];
-                var correction = currentPPM < target ? (target - currentPPM) / YEARS[nutrient] : 0;
-                annual = currentPPM > target ? 0 : Math.max(0, removal[nutrient] + correction);
-                status = currentPPM < target * 0.5 ? 'Very Low'
-                       : currentPPM < target       ? 'Low'
-                       : currentPPM > target * 1.5 ? 'High'
-                       : 'Adequate';
-            } else {
-                // MLSN strict three-tier:
-                // Above target (min × 1.5): apply 0 — let soil draw down
-                // Between min and target: apply removal only — maintain
-                // Below min: apply removal + deficit correction
-                var threshold = MLSN_MIN[nutrient];
-                var mlsnTarget = threshold * MLSN_TARGET_MULT;
-                var mlsnCorrection = currentPPM < threshold ? (mlsnTarget - currentPPM) / YEARS[nutrient] : 0;
-                annual = currentPPM > mlsnTarget ? 0 : Math.max(0, removal[nutrient] + mlsnCorrection);
-                status = currentPPM < threshold * 0.5 ? 'Very Low'
-                       : currentPPM < threshold       ? 'Low'
-                       : currentPPM > mlsnTarget * 2  ? 'Excessive'
-                       : currentPPM > mlsnTarget       ? 'High'
-                       : 'Adequate';
+            // 1. MLSN / SLAN deficiencies
+            if (soil.hasData && soil.thresholds) {
+                var defNutrients = [];
+                var majorKeys = ['P', 'K', 'Ca', 'Mg', 'S'];
+                for (var mi = 0; mi < majorKeys.length; mi++) {
+                    var nk = majorKeys[mi];
+                    var nv = soil[nk];
+                    var nt = soil.thresholds[nk];
+                    if (nv != null && nt && nt.min != null && parseFloat(nv) < nt.min) {
+                        defNutrients.push(nk);
+                    }
+                }
+                if (defNutrients.length > 0) {
+                    issues.push(defNutrients.join(', ') + ' below ' +
+                        (soil.methodology === 'SLAN' ? 'SLAN' : 'MLSN') + ' minimum');
+                    actions.push('Correct ' + defNutrients.join(', ') + ' deficits — see per-zone recommendations');
+                }
             }
 
-            return { val: Math.round(annual * 10) / 10, status: status };
+            // 2. Mulder's interactions (Ca:Mg, Fe:Mn, K:Mg, etc.)
+            if (global.GilbaMulders && soil.hasData) {
+                try {
+                    var mNutrients = [];
+                    var mKeys = ['K', 'Ca', 'Mg', 'P', 'Fe', 'Mn', 'Zn', 'Cu', 'B', 'S'];
+                    for (var mk = 0; mk < mKeys.length; mk++) {
+                        var mv = soil[mKeys[mk]];
+                        if (mv != null && parseFloat(mv) > 0) {
+                            mNutrients.push({ nutrient: mKeys[mk], actual: parseFloat(mv) });
+                        }
+                    }
+                    var mCtx = {
+                        methodology: soil.methodology || 'mlsn',
+                        soilPH: soil.pH || null,
+                        extractant: soil.extractant || soil.methodology || null
+                    };
+                    var mResult = global.GilbaMulders.analyse(mNutrients, mCtx);
+                    var mFlags = mResult.flags || {};
+                    var mEntries = [];
+                    Object.keys(mFlags).forEach(function(sym) {
+                        mFlags[sym].forEach(function(f) { mEntries.push(f); });
+                    });
+                    if (mEntries.length > 0) {
+                        // Summarise: list unique ratio labels
+                        var ratioLabels = [];
+                        for (var mj = 0; mj < mEntries.length; mj++) {
+                            var rl = mEntries[mj].suppressor + ':' + mEntries[mj].suppressed;
+                            if (ratioLabels.indexOf(rl) === -1) ratioLabels.push(rl);
+                        }
+                        issues.push('Nutrient antagonism: ' + ratioLabels.join(', '));
+                        // High severity gets explicit action
+                        var highSev = mEntries.filter(function(f) {
+                            return f.severity === 'high';
+                        });
+                        if (highSev.length > 0) {
+                            actions.push('Address ' + highSev[0].suppressor + ':' +
+                                highSev[0].suppressed + ' imbalance (high severity)');
+                        }
+                    }
+                } catch (e) {
+                    // Non-critical — skip Mulder's for this zone
+                }
+            }
+
+            // 3. pH flags
+            var pH = soil.pH != null ? parseFloat(soil.pH) : null;
+            if (pH !== null) {
+                if (pH < 5.5) {
+                    issues.push('pH ' + pH.toFixed(1) + ' — strongly acidic');
+                    actions.push('Lime to raise pH into 5.8\u20136.5 range');
+                } else if (pH > 8.0) {
+                    issues.push('pH ' + pH.toFixed(1) + ' — alkaline, trace element lockup risk');
+                    actions.push('Acidify or use chelated trace element foliar applications');
+                } else if (pH > 7.5) {
+                    issues.push('pH ' + pH.toFixed(1) + ' — elevated, monitor trace element availability');
+                }
+            }
+
+            // 4. Low EC (rootzone salinity or very low fertility indicator)
+            var ec = soil.EC != null ? parseFloat(soil.EC) : null;
+            if (ec !== null && ec < 0.3) {
+                issues.push('EC ' + ec.toFixed(2) + ' dS/m — very low');
+            }
+
+            // 5. Low CEC (sand-based rootzone, limited nutrient holding capacity)
+            var cec = soil.CEC != null ? parseFloat(soil.CEC) : null;
+            if (cec !== null && cec < 5) {
+                issues.push('CEC ' + cec.toFixed(1) + ' — low holding capacity (spoon-feeding required)');
+                actions.push('Spoon-feed nutrients; increase organic matter over time');
+            }
+
+            // Only add zones with issues
+            if (issues.length > 0) {
+                hasAnyIssues = true;
+                zoneRows.push({
+                    zone: zoneLabel,
+                    issues: issues.join('. ') + '.',
+                    action: actions.length > 0 ? actions[0] : 'Review per-zone report'
+                });
+            } else {
+                zoneRows.push({
+                    zone: zoneLabel,
+                    issues: 'No significant issues detected.',
+                    action: 'Maintain current programme'
+                });
+            }
         }
 
-        return { P: req('P', soil.P), K: req('K', soil.K), S: req('S', soil.S) };
+        // Don't render the table if every zone is clear — no value added
+        if (!hasAnyIssues) return null;
+
+        // ── Build docx table ─────────────────────────────────────────────────
+        var rows = [];
+
+        // Header row
+        rows.push(new TableRow({
+            tableHeader: true,
+            children: [
+                makeHeaderCell('Zone', zoneW),
+                makeHeaderCell('Key Issues', issuesW),
+                makeHeaderCell('Priority Action', actionW)
+            ]
+        }));
+
+        // Data rows
+        for (var zi = 0; zi < zoneRows.length; zi++) {
+            var zr = zoneRows[zi];
+            var hasIssue = zr.issues !== 'No significant issues detected.';
+            rows.push(new TableRow({
+                children: [
+                    makeCell(zr.zone, zoneW, { bold: true, fill: 'F3F4F6', color: '374151' }),
+                    makeCell(zr.issues, issuesW, { fill: hasIssue ? 'FEF3C7' : 'F0FDF4' }),
+                    makeCell(zr.action, actionW, { fill: hasIssue ? 'FEF3C7' : 'F0FDF4' })
+                ]
+            }));
+        }
+
+        return new Table({
+            width: { size: totalWidth, type: WidthType.DXA },
+            columnWidths: [zoneW, issuesW, actionW],
+            rows: rows
+        });
     }
+
+    // computeANRFromSoil — DELETED in b35fix302b.
+    // All methodology routing (MLSN | AMMONIUM_ACETATE | SLAN) now lives in
+    // NutritionRequirementEngine_Pure.compute() with full unit-test coverage
+    // (see tests/nutrition-requirement-engine.test.js: 'Methodology routing'
+    // and 'compute() routes methodology end-to-end' sections).
+    // Cotula S78 placeholder is constructed inline at the call site below
+    // (engine doesn't model dicot sufficiency).
 
     async function buildCombinedDocument(reports) {
         // docx.js globals (same as word-export.js)
@@ -926,7 +1230,7 @@
         allChildren.push(new Paragraph({
             alignment: AlignmentType.CENTER,
             spacing: { after: 120 },
-            children: [new TextRun({ text: 'Gilba Agronomic Intelligence Hub', bold: true, size: 48, color: '059669' })]
+            children: [new TextRun({ text: 'Gilba Agronomic Intelligence Hub', bold: true, size: 48, color: '1F2937' })]
         }));
         allChildren.push(new Paragraph({
             alignment: AlignmentType.CENTER,
@@ -975,7 +1279,7 @@
                 heading: HeadingLevel.HEADING_1,
                 keepNext: true,
                 spacing: { before: 0, after: 100 },
-                children: [new TextRun({ text: 'Cross-Module Pattern Analysis', bold: true, size: 36, color: '059669' })]
+                children: [new TextRun({ text: 'Cross-Module Pattern Analysis', bold: true, size: 36, color: '1F2937' })]
             }));
             allChildren.push(new Paragraph({
                 spacing: { after: 150 },
@@ -996,7 +1300,7 @@
                     var hText = para.trim().split('\n')[0].replace(/<<BOLD>>|<<\/BOLD>>/g, '');
                     allChildren.push(new Paragraph({
                         spacing: { before: 200, after: 80 },
-                        children: [new TextRun({ text: hText, bold: true, size: 22, color: '6D28D9' })]
+                        children: [new TextRun({ text: hText, bold: true, size: 22, color: '1F2937' })]
                     }));
                     para = para.split('\n').slice(1).join('\n');
                     if (!para.trim()) return;
@@ -1007,7 +1311,7 @@
                         var bChildren = [];
                         var isBold = false;
                         line.split(/<<BOLD>>|<<\/BOLD>>/).forEach(function(part) {
-                            if (part) bChildren.push(new TextRun({ text: part, bold: isBold, size: 20, color: isBold ? '6D28D9' : '374151' }));
+                            if (part) bChildren.push(new TextRun({ text: part, bold: isBold, size: 20, color: isBold ? '374151' : '374151' }));
                             isBold = !isBold;
                         });
                         allChildren.push(new Paragraph({ spacing: { before: 40, after: 40 }, indent: { left: 300 }, bullet: { level: 0 }, children: bChildren }));
@@ -1017,7 +1321,7 @@
                 var pChildren = [];
                 var isPBold = false;
                 para.split(/<<BOLD>>|<<\/BOLD>>/).forEach(function(part) {
-                    if (part) pChildren.push(new TextRun({ text: part, bold: isPBold, size: 20, color: isPBold ? '6D28D9' : '374151' }));
+                    if (part) pChildren.push(new TextRun({ text: part, bold: isPBold, size: 20, color: isPBold ? '374151' : '374151' }));
                     isPBold = !isPBold;
                 });
                 allChildren.push(new Paragraph({ spacing: { after: 100 }, children: pChildren }));
@@ -1038,7 +1342,7 @@
             allChildren.push(new Paragraph({
                 heading: HeadingLevel.HEADING_1,
                 spacing: { before: 0, after: 200 },
-                children: [new TextRun({ text: 'Zone Comparison', bold: true, size: 36, color: '059669' })]
+                children: [new TextRun({ text: 'Zone Comparison', bold: true, size: 36, color: '1F2937' })]
             }));
             allChildren.push(new Paragraph({
                 spacing: { after: 240 },
@@ -1059,6 +1363,33 @@
                 allChildren.push(compTable);
             } catch (e) {
                 warn('Zone comparison table failed:', e);
+            }
+
+            // b35fix300: Zone Issues Summary — aggregated diagnostic flags per green
+            try {
+                var issuesTable = buildZoneIssuesSummaryTable(reports, {
+                    Paragraph: Paragraph, TextRun: TextRun,
+                    Table: Table, TableRow: TableRow, TableCell: TableCell,
+                    AlignmentType: AlignmentType, WidthType: WidthType,
+                    BorderStyle: BorderStyle, ShadingType: ShadingType, VerticalAlign: VerticalAlign
+                });
+                if (issuesTable) {
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 360, after: 120 },
+                        children: [new TextRun({ text: 'Zone Issues Summary', bold: true, size: 28, color: '1F2937' })]
+                    }));
+                    allChildren.push(new Paragraph({
+                        spacing: { after: 200 },
+                        children: [new TextRun({
+                            text: 'Aggregated diagnostic flags per zone. Deficiency thresholds, nutrient antagonisms, ' +
+                                  'pH, EC, and CEC assessed against current soil data.',
+                            size: 18, color: '6B7280'
+                        })]
+                    }));
+                    allChildren.push(issuesTable);
+                }
+            } catch (e) {
+                warn('Zone issues summary table failed:', e);
             }
 
             // Zone soil charts — two across the page below the comparison table
@@ -1099,7 +1430,7 @@
                                 children: [
                                     new Paragraph({
                                         spacing: { after: 60 },
-                                        children: [new TextRun({ text: cr.sampleLabel || cr.sampleId, bold: true, size: 18, color: '059669' })]
+                                        children: [new TextRun({ text: cr.sampleLabel || cr.sampleId, bold: true, size: 18, color: '374151' })]
                                     }),
                                     new Paragraph({
                                         alignment: AlignmentType.CENTER,
@@ -1142,6 +1473,691 @@
         // Track which sites have already had their shared sections (climate, site info) included
         var seenSites = {};
 
+        // ──────────────────────────────────────────────────────────────────
+        // b35fix307 Q1: Hoist per-sample ANR computation + Step 5 programme
+        // overlay BEFORE the per-report render loop.
+        //
+        // Previously these ran later (around line ~1525+), AFTER we.buildSections
+        // had already rendered each report's Nutrition Program section using the
+        // facility-cached programme. Result: every per-green table showed the
+        // same facility programme while the bottom-of-doc K reconciliation and
+        // Purchasing Summary used per-sample output — two contradictory
+        // programmes in one docx.
+        //
+        // Running the overlay here means each report's r.data.nutritionProgram
+        // is per-sample by the time we.buildSections is called. Every downstream
+        // render sees consistent data.
+        // ──────────────────────────────────────────────────────────────────
+        var anrReports = reports.filter(function(r) {
+            return r.data && r.data.soil && r.data.soil.hasData && (r.data.soil.P != null || r.data.soil.K != null);
+        });
+
+        var _enginePure = (typeof window !== 'undefined' && window.NutritionRequirementEngine_Pure) ||
+                          (typeof global !== 'undefined' && global.NutritionRequirementEngine_Pure);
+        var _engineReadyCombined = _enginePure && typeof _enginePure.compute === 'function';
+        var _engineCount = 0, _cotulaCount = 0, _failedCount = 0;
+
+        anrReports.forEach(function(r) {
+            if (!r.data.soil) { r._anr = null; return; }
+
+            // Cotula S78 — engine doesn't model dicot sufficiency; keep placeholder
+            // for the S78 sufficiency-table renderer downstream.
+            if (r.data.soil.methodology === 'cotula_s78' || r.data.soil.surfaceType === 'cotula_bowling_green') {
+                r._anr = { isCotula: true, s78: r.data.soil };
+                _cotulaCount++;
+                return;
+            }
+
+            if (!_engineReadyCombined) {
+                console.warn('[CombinedExport] engine not loaded — skipping ANR for', r.siteLabel || '?', r.sampleId || '?');
+                r._anr = null;
+                _failedCount++;
+                return;
+            }
+
+            // b35fix313: read per-sample engine inputs from r.data.engineInputs
+            // (baked during the collection loop by _buildEngineInputs in
+            // word-export.js collectData, while the correct site was active).
+            // Previously this block hardcoded hemisphere='south', overseed=false,
+            // and species-fallback='bentgrass' — silently wrong for any site
+            // that wasn't temperate-southern-non-overseed-bentgrass. Handoff
+            // Item 7.
+            var _ei = r.data.engineInputs;
+            if (!_ei || !_ei.turf || !_ei.turf.species) {
+                console.warn('[CombinedExport] engineInputs missing or species unset for',
+                             r.siteLabel || '?', r.sampleId || '?',
+                             '— skipping ANR (no silent species fallback). Check collectData ran during loop.');
+                r._anr = null;
+                _failedCount++;
+                return;
+            }
+
+            try {
+                var _engineResult = _enginePure.compute({
+                    soil: r.data.soil,
+                    turf: _ei.turf,
+                    climate: _ei.climate,
+                    overseedConfig: _ei.overseedConfig
+                });
+                // b35fix325: carry structured methodology fields through from
+                // the engine. _anr.K.val retained for backward compat with
+                // pre-b35fix325 readers; new fields (intent, methodology, floor,
+                // ceiling, citation, correctionRequired, removal) enable
+                // intent-aware reconciliation rendering and gate logic.
+                function _shapeAnr(perSampleNut) {
+                    if (!perSampleNut) return null;
+                    return {
+                        // Legacy fields (backward compat)
+                        val: perSampleNut.annualRequirement,
+                        status: perSampleNut.status,
+                        // Structured fields (b35fix325)
+                        annual: perSampleNut.annualRequirement,
+                        intent: perSampleNut.intent || null,
+                        methodology: perSampleNut.methodology || null,
+                        citation: perSampleNut.citation || null,
+                        floor: perSampleNut.floor != null ? perSampleNut.floor : null,
+                        ceiling: perSampleNut.ceiling != null ? perSampleNut.ceiling : null,
+                        removal: perSampleNut.removal != null ? perSampleNut.removal : null,
+                        correctionRequired: perSampleNut.correctionRequired != null
+                                          ? perSampleNut.correctionRequired : 0,
+                        currentLevel: perSampleNut.currentLevel != null
+                                    ? perSampleNut.currentLevel : null
+                    };
+                }
+                r._anr = {
+                    P: _shapeAnr(_engineResult.perSample.P),
+                    K: _shapeAnr(_engineResult.perSample.K),
+                    S: _shapeAnr(_engineResult.perSample.S)
+                };
+                _engineCount++;
+            } catch (_err) {
+                console.warn('[CombinedExport] engine failed for', r.siteLabel || '?', r.sampleId || '?', '—', _err.message);
+                r._anr = null;
+                _failedCount++;
+            }
+        });
+
+        if (_engineCount > 0 || _cotulaCount > 0 || _failedCount > 0) {
+            console.log('[CombinedExport] per-sample ANR: engine=' + _engineCount +
+                        ' cotula=' + _cotulaCount +
+                        ' failed=' + _failedCount +
+                        ' (total=' + anrReports.length + ')');
+        }
+
+        // Per-sample programme overlay (moved from later in the pipeline).
+        // Without this moved up, per-green Nutrition Program sections would
+        // still render from the facility-cached programme.
+        var _facilityCalendarInputs = null;
+        if (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.collectFromState) {
+            try {
+                _facilityCalendarInputs = window.GilbaNutritionCalendar.collectFromState();
+                _facilityCalendarInputs.aaTextureKey =
+                    window.GilbaNutritionCalendar._collectAATexture
+                        ? window.GilbaNutritionCalendar._collectAATexture()
+                        : null;
+            } catch (e) {
+                console.warn('[CombinedExport] Could not collect facility calendar inputs:', e.message);
+            }
+        }
+
+        var _perSampleProgGen = !!(
+            _facilityCalendarInputs &&
+            _facilityCalendarInputs.annualNOverride > 0 &&
+            window.GilbaNutritionCalendar &&
+            window.GilbaNutritionCalendar.computeProgram &&
+            ((window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram) ||
+             (window.PrebbleRecommender && window.PrebbleRecommender.generateProgram))
+        );
+
+        var _perSampleProgOk = 0, _perSampleProgFail = 0, _perSampleProgSkip = 0;
+
+        if (_perSampleProgGen && anrReports.length > 0) {
+            // b35fix305 region-based branch selection (preserved here).
+            var _isNZ = !!(window.NutritionPrebbleIntegration
+                && typeof window.NutritionPrebbleIntegration.isNewZealand === 'function'
+                && window.NutritionPrebbleIntegration.isNewZealand());
+            var _usePrebble = _isNZ && !!(window.PrebbleRecommender && window.PrebbleRecommender.generateProgram);
+            var _useAU = !_usePrebble && !!(window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram);
+
+            if (_isNZ && !_usePrebble) {
+                console.warn('[CombinedExport] b35fix305: NZ site detected but PrebbleRecommender unavailable — falling back to AU recommender.');
+            }
+            console.log('[CombinedExport] b35fix305 recommender branch: isNZ=' + _isNZ + ' usePrebble=' + _usePrebble + ' useAU=' + _useAU);
+
+            anrReports.forEach(function(r) {
+                if (!r.data || !r.data.soil || !r.data.soil.hasData) { _perSampleProgSkip++; return; }
+                if (r._anr && r._anr.isCotula) { _perSampleProgSkip++; return; }
+
+                var perSampleInputs = Object.assign({}, _facilityCalendarInputs);
+                perSampleInputs.soilPpm = {
+                    P:  parseFloat(r.data.soil.P)  || 0,
+                    K:  parseFloat(r.data.soil.K)  || 0,
+                    Ca: parseFloat(r.data.soil.Ca) || 0,
+                    Mg: parseFloat(r.data.soil.Mg) || 0,
+                    S:  parseFloat(r.data.soil.S)  || 0,
+                    Fe: parseFloat(r.data.soil.Fe) || 0,
+                    Mn: parseFloat(r.data.soil.Mn) || 0,
+                    Zn: parseFloat(r.data.soil.Zn) || 0,
+                    Cu: parseFloat(r.data.soil.Cu) || 0,
+                };
+                if (r.data.soil.methodology) {
+                    perSampleInputs.methodology = r.data.soil.methodology;
+                }
+
+                // b35fix382 INSTRUMENTATION — log calendar engine inputs BEFORE
+                // computeProgram fires, so we can see exactly what soilPpm,
+                // bulkDensity, soilDepth, methodology, annualNOverride and
+                // monthlyTemps the per-sample calendar saw. b35fix381 logged
+                // the recommender inputs (post-calendar). This logs the calendar
+                // inputs (pre-calendar). Diff against the live preview to find
+                // whether soilPpm overlay actually reached the engine.
+                try {
+                    console.log('[CombinedExport b35fix382] calendar PRE-compute inputs:', {
+                        sampleId: r.sampleId,
+                        siteId: r.siteId,
+                        soilPpm: perSampleInputs.soilPpm,
+                        bulkDensity: perSampleInputs.bulkDensity,
+                        soilDepth: perSampleInputs.soilDepth,
+                        methodology: perSampleInputs.methodology,
+                        annualNOverride: perSampleInputs.annualNOverride,
+                        species: perSampleInputs.species,
+                        clippingManagement: perSampleInputs.clippingManagement,
+                        traffic: perSampleInputs.traffic,
+                        surfaceType: perSampleInputs.surfaceType,
+                        rDataSoilK: r.data.soil.K,
+                        rDataSoilHasData: r.data.soil.hasData,
+                    });
+                } catch (_e) {
+                    console.warn('[CombinedExport b35fix382] PRE-compute log failed:', _e && _e.message);
+                }
+
+                try {
+                    var perSampleCalendar = window.GilbaNutritionCalendar.computeProgram(perSampleInputs);
+                    if (!perSampleCalendar || perSampleCalendar.error) {
+                        console.warn('[CombinedExport] computeProgram error for sample', r.sampleId, ':', perSampleCalendar && perSampleCalendar.error);
+                        _perSampleProgFail++;
+                        return;
+                    }
+
+                    // b35fix382 INSTRUMENTATION — log what the calendar engine
+                    // produced. annual_totals.K shows the engine's resolved
+                    // annual K requirement (removal + correction). If this is
+                    // identical for every sample despite different soilPpm.K,
+                    // the calendar engine isn't seeing the per-sample overlay.
+                    try {
+                        console.log('[CombinedExport b35fix382] calendar POST-compute output:', {
+                            sampleId: r.sampleId,
+                            annualN: perSampleCalendar.annual_totals && perSampleCalendar.annual_totals.N,
+                            annualK: perSampleCalendar.annual_totals && perSampleCalendar.annual_totals.K,
+                            annualP: perSampleCalendar.annual_totals && perSampleCalendar.annual_totals.P,
+                            soilSeenK: perSampleCalendar.soil && perSampleCalendar.soil.ppm && perSampleCalendar.soil.ppm.K,
+                            methodology: perSampleCalendar.meta && perSampleCalendar.meta.methodology,
+                            adjustments_K: perSampleCalendar.adjustments && perSampleCalendar.adjustments.K,
+                        });
+                    } catch (_e) {
+                        console.warn('[CombinedExport b35fix382] POST-compute log failed:', _e && _e.message);
+                    }
+
+                    var perSampleProgram;
+                    if (_useAU) {
+                        // b35fix381 INSTRUMENTATION — paired with
+                        // [NutritionAuFertiliserIntegration b35fix381] PRE log
+                        // in nutrition-au-fertiliser-integration.js. Same
+                        // shape, same fields, different `path` tag. Diff the
+                        // two PRE blocks for a given sampleId to find the
+                        // monthly K profile divergence (or confirm inputs
+                        // match and the difference is post-input).
+                        var _options = {
+                            surfaceType: perSampleInputs.surfaceType,
+                            methodology: perSampleInputs.methodology,
+                            distributorFilter: (window.NutritionAuFertiliserIntegration
+                                && window.NutritionAuFertiliserIntegration.selectedDistributor) || 'all',
+                            muldersFlags: {}
+                        };
+                        var _monthly = perSampleCalendar.program.monthly;
+                        console.log('[CombinedExport b35fix381] PRE-recommender input snapshot:', {
+                            path: 'combined-export-per-sample',
+                            siteId: r.siteId,
+                            sampleId: r.sampleId,
+                            annualK: _monthly.reduce(function(s, m) { return s + (m.K || 0); }, 0),
+                            annualN: _monthly.reduce(function(s, m) { return s + (m.N || 0); }, 0),
+                            annualP: _monthly.reduce(function(s, m) { return s + (m.P || 0); }, 0),
+                            monthlyK: _monthly.map(function(m) {
+                                return { month: m.month_name || m.month, K: +(m.K || 0).toFixed(2), gp: +(m.gp || 0).toFixed(2) };
+                            }),
+                            options: {
+                                surfaceType: _options.surfaceType,
+                                methodology: _options.methodology,
+                                distributorFilter: _options.distributorFilter,
+                                muldersFlagsCount: 0,
+                                muldersFlagsKeys: [],
+                            },
+                        });
+
+                        perSampleProgram = window.AuFertiliserRecommender.generateAnnualProgram(
+                            _monthly, _options
+                        );
+
+                        // b35fix381 INSTRUMENTATION — POST product set, paired
+                        // with [NutritionAuFertiliserIntegration b35fix381]
+                        // POST log. If PRE blocks match for the same sampleId
+                        // but POST blocks differ, the divergence is in
+                        // recommender selection (not input data).
+                        try {
+                            var _sel = [];
+                            (perSampleProgram && perSampleProgram.monthly || []).forEach(function(m) {
+                                (m.granular || []).forEach(function(p) {
+                                    _sel.push({ id: p.id, name: p.name, kind: 'granular',
+                                        month: m.month_name || m.month, rateKgHa: p.rateKgHa || 0 });
+                                });
+                                (m.liquid || []).forEach(function(p) {
+                                    _sel.push({ id: p.id, name: p.name, kind: 'liquid',
+                                        month: m.month_name || m.month, rateLHa: p.rateLHa || 0 });
+                                });
+                            });
+                            console.log('[CombinedExport b35fix381] POST-recommender selection:', {
+                                path: 'combined-export-per-sample',
+                                sampleId: r.sampleId,
+                                productIds: Array.from(new Set(_sel.map(function(s) { return s.id; }))),
+                                applications: _sel,
+                            });
+                        } catch (_e) {
+                            console.warn('[CombinedExport b35fix381] POST-instrument failed for ' +
+                                r.sampleId + ': ' + (_e && _e.message));
+                        }
+                    } else if (_usePrebble) {
+                        perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, {
+                            surfaceType: perSampleInputs.surfaceType,
+                            methodology: perSampleInputs.methodology,
+                            muldersFlags: {}
+                        });
+                    }
+
+                    if (!perSampleProgram || !perSampleProgram.monthly) {
+                        console.warn('[CombinedExport] Recommender returned no monthly for sample', r.sampleId);
+                        _perSampleProgFail++;
+                        return;
+                    }
+
+                    var productUsage = null;
+                    if (perSampleProgram.annualSummary && perSampleProgram.annualSummary.products) {
+                        productUsage = perSampleProgram.annualSummary.products;
+                    } else {
+                        productUsage = {};
+                        perSampleProgram.monthly.forEach(function(m) {
+                            (m.granular || []).forEach(function(p) {
+                                if (!productUsage[p.id]) {
+                                    productUsage[p.id] = {
+                                        product: p,
+                                        brandName: p.brand,
+                                        applications: 0,
+                                        totalKgHa: 0,
+                                        // b35fix322 Bug 1 quick fix: extend totalDelivered
+                                        // to all macros + key micros so amendment self-suppression
+                                        // (P/K/S/Ca/Mg) sees programme delivery correctly.
+                                        // Previously only N/P/K were initialised → S/Ca/Mg/Fe
+                                        // additions silently failed, then `delivers` only carried
+                                        // N/P/K anyway (Bug 1 structural fix patches au-fertiliser-products.js
+                                        // to publish full analysis).
+                                        totalDelivered: { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0, Fe: 0 }
+                                    };
+                                }
+                                productUsage[p.id].applications++;
+                                productUsage[p.id].totalKgHa += (p.rateKgHa || 0);
+                                // b35fix322: derive deliveries from analysis when delivers
+                                // doesn't carry the nutrient (delivers only tracks N/P/K
+                                // for legacy reasons). analysis is the canonical source.
+                                var gAnalysis = (p.analysis) || {};
+                                ['N','P','K','S','Ca','Mg','Fe'].forEach(function(nut) {
+                                    var fromDelivers = (p.delivers && p.delivers[nut]) || 0;
+                                    var fromAnalysis = (parseFloat(gAnalysis[nut]) || 0) * (p.rateKgHa || 0) / 100;
+                                    // Prefer delivers when populated (engine-computed
+                                    // for N/P/K accounts for release timing); fall back
+                                    // to analysis-derived for the others.
+                                    var add = (fromDelivers > 0) ? fromDelivers : fromAnalysis;
+                                    productUsage[p.id].totalDelivered[nut] += add;
+                                });
+                            });
+                            (m.liquid || []).forEach(function(p) {
+                                if (!productUsage[p.id]) {
+                                    productUsage[p.id] = {
+                                        product: p,
+                                        brandName: p.brand,
+                                        applications: 0,
+                                        totalLHa: 0,
+                                        // b35fix322 Bug 1 quick fix: full totalDelivered keys.
+                                        totalDelivered: { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0, Fe: 0 }
+                                    };
+                                }
+                                productUsage[p.id].applications++;
+                                if (p.form === 'soluble') {
+                                    productUsage[p.id].totalKgHa =
+                                        (productUsage[p.id].totalKgHa || 0) + (p.rateLHa || 0);
+                                } else {
+                                    productUsage[p.id].totalLHa =
+                                        (productUsage[p.id].totalLHa || 0) + (p.rateLHa || 0);
+                                }
+                                // b35fix322: see granular branch above for rationale.
+                                var lAnalysis = (p.analysis) || {};
+                                // For liquids the rate is L/ha or kg/ha depending on form;
+                                // analysis is %w/v or %w/w respectively. Both yield kg/ha
+                                // of nutrient when multiplied by rate × pct / 100 to first
+                                // approximation (catalogue convention used elsewhere in
+                                // word-export-combined.js for purchasing summary maths).
+                                var lRate = (p.rateLHa || 0);
+                                ['N','P','K','S','Ca','Mg','Fe'].forEach(function(nut) {
+                                    var fromDelivers = (p.delivers && p.delivers[nut]) || 0;
+                                    var fromAnalysis = (parseFloat(lAnalysis[nut]) || 0) * lRate / 100;
+                                    var add = (fromDelivers > 0) ? fromDelivers : fromAnalysis;
+                                    productUsage[p.id].totalDelivered[nut] += add;
+                                });
+                            });
+                        });
+                    }
+
+                    // Write per-sample programme BEFORE we.buildSections runs for this report.
+                    // This is the core of b35fix307 Q1 — every downstream render now sees
+                    // per-sample data consistently.
+                    r.data.nutritionProgram = {
+                        hasData: true,
+                        monthly: perSampleProgram.monthly,
+                        annualSummary: { products: productUsage },
+                        strategy: perSampleCalendar.adjustments || {},
+                        muldersFlags: {},
+                        _generatedForSample: r.sampleId
+                    };
+
+                    // ───────── b35fix322: amendment merge ─────────
+                    // After the per-sample N programme is in place, compute
+                    // amendment decisions against that programme and merge any
+                    // `apply` decisions into annualSummary.products. This is
+                    // the bridge that lets Annual Product Summary, Monthly
+                    // Schedule, and Purchasing Summary all see amendments.
+                    //
+                    // Self-suppression is prevented by the _isAmendment flag on
+                    // each entry — checkProgrammeDelivery() inside
+                    // _computeAmendmentDecision skips flagged entries when
+                    // computing programme delivery for downstream nutrients.
+                    //
+                    // ORDER MATTERS: decisions must be computed against the
+                    // programme that contains ONLY catalogue products
+                    // (productUsage as built above). We then merge amendments
+                    // into r.data.nutritionProgram.annualSummary.products. If
+                    // we computed decisions after the merge, the very products
+                    // we're producing would be visible in the programme-delivery
+                    // calculation (and only suppressed by the _isAmendment guard
+                    // — better not to depend on it twice).
+                    try {
+                        var _wx = window.GAIP_WordExport;
+                        if (_wx && typeof _wx._computeAmendmentDecision === 'function'
+                                && typeof _wx._amendmentDecisionsToProducts === 'function'
+                                && r.data.soil && r.data.soil.thresholds) {
+                            var _soilForAmend = r.data.soil;
+                            var _surfaceType = (_facilityCalendarInputs && _facilityCalendarInputs.surfaceType) || '';
+                            var _ctx = (r.data._combinedCtx || {});
+                            var _hem = _ctx.hemisphere || 'south';
+                            var _amendCtx = {
+                                isOverseed: !!(_ctx.overseedConfig && _ctx.overseedConfig.isOverseed),
+                                seedingActive: !!(_ctx.overseedConfig && _ctx.overseedConfig.isOverseed)
+                            };
+
+                            // Build decisions for any nutrient with measured deficit.
+                            // Programme passed in is the catalogue-only programme
+                            // (productUsage); amendments computed against this.
+                            var _amendNutrients = ['P','K','Ca','Mg','S'];
+                            var _amendDecisions = [];
+                            _amendNutrients.forEach(function(n) {
+                                var v = _soilForAmend[n];
+                                var th = _soilForAmend.thresholds[n];
+                                if (v === undefined || v === null || !th) return;
+                                if (!(v < th.min)) return;
+                                var deficit = th.min - v;
+                                var d = _wx._computeAmendmentDecision(
+                                    n, deficit, _soilForAmend, _surfaceType,
+                                    r.data.nutritionProgram, _amendCtx
+                                );
+                                if (d) _amendDecisions.push(d);
+                            });
+
+                            // Convert apply-decisions to product entries.
+                            var _amendOut = _wx._amendmentDecisionsToProducts(
+                                _amendDecisions, _soilForAmend, _hem
+                            );
+
+                            var _amendIds = Object.keys(_amendOut.products);
+                            if (_amendIds.length > 0) {
+                                _amendIds.forEach(function(pid) {
+                                    // No collision risk — amendment ids are
+                                    // namespaced "amendment:NUT:slug". If a
+                                    // catalogue product already used the same
+                                    // id (impossible by construction but defend
+                                    // against future namespace clashes), prefer
+                                    // catalogue and skip.
+                                    if (!productUsage[pid]) {
+                                        productUsage[pid] = _amendOut.products[pid];
+                                    }
+                                });
+
+                                // ───────── b35fix323: Monthly Schedule injection ─────────
+                                // Annual Product Summary and Purchasing Summary read from
+                                // annualSummary.products (merged above), but Monthly
+                                // Schedule reads from `perSampleProgram.monthly[i].granular`.
+                                // Without this injection the April/October row stays blank
+                                // even though the Annual Product Summary shows the dolomite
+                                // line. b35fix322 surfaced the bug by getting the row into
+                                // Annual Product Summary; b35fix323 closes the loop.
+                                //
+                                // Index resolution preference (in order):
+                                //   1. Match by month_name === monthSlot ('April' | 'October')
+                                //      — handles both 'Apr'/'Oct' abbreviations and full names
+                                //      because we test indexOf(monthSlot.slice(0,3))
+                                //   2. Fall back to fixed monthIndex (3 for April, 9 for October)
+                                //      — correct when monthly[] is a 12-entry Jan→Dec array
+                                //
+                                // If monthly[] is shorter than monthIndex (rare — partial
+                                // year programmes), skip the schedule injection but keep
+                                // the annualSummary merge — the Annual Product Summary
+                                // and Purchasing Summary still show the row.
+                                var _monthly = perSampleProgram.monthly || [];
+                                var _slotAbbrev = (_amendOut.monthSlot || '').slice(0, 3);
+                                var _idx = -1;
+                                for (var _mi = 0; _mi < _monthly.length; _mi++) {
+                                    var _mn = (_monthly[_mi] && _monthly[_mi].month_name) || '';
+                                    if (_mn && _slotAbbrev &&
+                                        _mn.toLowerCase().indexOf(_slotAbbrev.toLowerCase()) === 0) {
+                                        _idx = _mi;
+                                        break;
+                                    }
+                                }
+                                if (_idx === -1 && _monthly.length > _amendOut.monthIndex) {
+                                    _idx = _amendOut.monthIndex;
+                                }
+
+                                var _granEntries = _amendOut.granularEntries || [];
+                                if (_idx >= 0 && _granEntries.length > 0) {
+                                    if (!Array.isArray(_monthly[_idx].granular)) {
+                                        _monthly[_idx].granular = [];
+                                    }
+                                    _granEntries.forEach(function(g) {
+                                        // Defence: don't double-inject if a previous
+                                        // run somehow left the same id in place.
+                                        var alreadyThere = _monthly[_idx].granular.some(function(x) {
+                                            return x && x.id === g.id;
+                                        });
+                                        if (!alreadyThere) _monthly[_idx].granular.push(g);
+                                    });
+                                    console.log('[CombinedExport] b35fix323 amendment scheduled for ' +
+                                                r.sampleId + ': ' + _granEntries.length +
+                                                ' entry/entries → monthly[' + _idx + '] (' +
+                                                (_monthly[_idx].month_name || 'unknown') + ')');
+                                } else if (_granEntries.length > 0) {
+                                    console.warn('[CombinedExport] b35fix323 amendment NOT scheduled for ' +
+                                                 r.sampleId + ': could not resolve monthly slot ' +
+                                                 _amendOut.monthSlot + ' (monthly.length=' + _monthly.length + ')');
+                                }
+                                // ───────── end b35fix323 ─────────
+
+                                console.log('[CombinedExport] b35fix322 amendments merged for ' +
+                                            r.sampleId + ': ' + _amendIds.length +
+                                            ' product(s), slot=' + _amendOut.monthSlot +
+                                            ' hem=' + _hem);
+                            }
+
+                            // Also expose the structured decisions on the
+                            // report so downstream renderers (Annual Soil
+                            // Amendments table) can consume them without
+                            // re-computing — both single and combined paths
+                            // can rely on the same shape.
+                            r.data._amendmentDecisions = _amendDecisions;
+                            r.data._amendmentMonthSlot = _amendOut.monthSlot;
+
+                            // ───────── b35fix324: K reconciliation merge ─────────
+                            // Programme-shortfall-driven spot-K, distinct from the
+                            // soil-deficit K above. This block runs AFTER the
+                            // b35fix322/323 merge so:
+                            //   (a) productUsage now contains both catalogue products
+                            //       and any soil-deficit amendments
+                            //   (b) the SSOT helper _computeProgrammeKDelivered skips
+                            //       _isAmendment entries, so the catalogue-only K
+                            //       sum is invariant under that merge
+                            //
+                            // K req comes from r._anr.K.val (the same number rendered
+                            // in the K Reconciliation table). K delivered comes from
+                            // _computeProgrammeKDelivered (the SAME function the
+                            // K Reconciliation renderer uses via r._programmeKDelivered).
+                            // Two callers, one source of truth — no asymmetric-engines
+                            // pattern.
+                            //
+                            // _synthesiseKReconDecision applies both gates (programme
+                            // balance < -20 AND soil K below threshold floor); returns
+                            // null when either gate fails, so the merge is a no-op
+                            // for sites that don't warrant spot-K.
+                            try {
+                                if (typeof _wx._synthesiseKReconDecision === 'function'
+                                        && typeof _wx._computeProgrammeKDelivered === 'function'
+                                        && r._anr && r._anr.K && r._anr.K.val != null) {
+                                    // SSOT: compute catalogue-only K once, store on r,
+                                    // share with the renderer.
+                                    var _catalogueK = _wx._computeProgrammeKDelivered(productUsage);
+                                    r._programmeKDelivered = _catalogueK;
+
+                                    var _kReconDecision = _wx._synthesiseKReconDecision(
+                                        _soilForAmend,
+                                        parseFloat(r._anr.K.val),
+                                        _catalogueK
+                                    );
+
+                                    if (_kReconDecision) {
+                                        var _kReconOut = _wx._amendmentDecisionsToProducts(
+                                            [_kReconDecision], _soilForAmend, _hem
+                                        );
+
+                                        // Merge product entry (single, namespaced
+                                        // amendment:K-recon:potassium-sulphate).
+                                        Object.keys(_kReconOut.products).forEach(function(pid) {
+                                            if (!productUsage[pid]) {
+                                                productUsage[pid] = _kReconOut.products[pid];
+                                            }
+                                        });
+
+                                        // Push split granular entries into their
+                                        // resolved monthly slots. Each entry carries
+                                        // _monthIndex set by the helper (Sep/Nov/Jan
+                                        // south, Mar/May/Jul north). Resolution
+                                        // preference: match by month_name first
+                                        // (handles Jan/Feb abbreviations), fall back
+                                        // to fixed _monthIndex.
+                                        var _kMonthly = perSampleProgram.monthly || [];
+                                        var _monthAbbrevs = ['Jan','Feb','Mar','Apr','May','Jun',
+                                                             'Jul','Aug','Sep','Oct','Nov','Dec'];
+                                        var _placedCount = 0, _missedCount = 0;
+
+                                        (_kReconOut.granularEntries || []).forEach(function(g) {
+                                            var targetIdx = g._monthIndex;
+                                            var resolvedIdx = -1;
+
+                                            // Try month_name match first
+                                            if (typeof targetIdx === 'number' &&
+                                                    targetIdx >= 0 && targetIdx < 12) {
+                                                var targetAbbrev = _monthAbbrevs[targetIdx];
+                                                for (var _ki = 0; _ki < _kMonthly.length; _ki++) {
+                                                    var _kmn = (_kMonthly[_ki] && _kMonthly[_ki].month_name) || '';
+                                                    if (_kmn && targetAbbrev &&
+                                                            _kmn.toLowerCase().indexOf(targetAbbrev.toLowerCase()) === 0) {
+                                                        resolvedIdx = _ki;
+                                                        break;
+                                                    }
+                                                }
+                                                // Fallback: fixed index
+                                                if (resolvedIdx === -1 && _kMonthly.length > targetIdx) {
+                                                    resolvedIdx = targetIdx;
+                                                }
+                                            }
+
+                                            if (resolvedIdx >= 0) {
+                                                if (!Array.isArray(_kMonthly[resolvedIdx].granular)) {
+                                                    _kMonthly[resolvedIdx].granular = [];
+                                                }
+                                                // Defensive: don't double-inject
+                                                var alreadyThere = _kMonthly[resolvedIdx].granular.some(function(x) {
+                                                    return x && x.id === g.id;
+                                                });
+                                                if (!alreadyThere) {
+                                                    _kMonthly[resolvedIdx].granular.push(g);
+                                                    _placedCount++;
+                                                }
+                                            } else {
+                                                _missedCount++;
+                                            }
+                                        });
+
+                                        console.log('[CombinedExport] b35fix324 K-recon spot-K for ' +
+                                                    r.sampleId + ': ' + _placedCount +
+                                                    ' split(s) placed' +
+                                                    (_missedCount > 0 ? ', ' + _missedCount + ' unresolved' : '') +
+                                                    ' (kReq=' + parseFloat(r._anr.K.val).toFixed(0) +
+                                                    ', kDel=' + _catalogueK.toFixed(0) +
+                                                    ', balance=' + (_catalogueK - parseFloat(r._anr.K.val)).toFixed(0) +
+                                                    ', soilK=' + (_soilForAmend.K || '?') +
+                                                    ', floor=' + ((_soilForAmend.thresholds && _soilForAmend.thresholds.K && _soilForAmend.thresholds.K.min) || '?') + ')');
+
+                                        // Expose K-recon decision on the report alongside
+                                        // the b35fix322 decisions, so any future renderer
+                                        // can distinguish the two amendment sources.
+                                        if (!Array.isArray(r.data._kReconDecisions)) {
+                                            r.data._kReconDecisions = [];
+                                        }
+                                        r.data._kReconDecisions.push(_kReconDecision);
+                                    }
+                                }
+                            } catch (_kReconErr) {
+                                console.warn('[CombinedExport] b35fix324 K-recon merge failed for ' +
+                                             r.sampleId + ': ' + (_kReconErr && _kReconErr.message));
+                            }
+                            // ───────── end b35fix324 K reconciliation merge ─────────
+                        }
+                    } catch (_amendErr) {
+                        console.warn('[CombinedExport] b35fix322 amendment merge failed for ' +
+                                     r.sampleId + ': ' + (_amendErr && _amendErr.message));
+                    }
+                    // ───────── end b35fix322 amendment merge ─────────
+
+                    _perSampleProgOk++;
+                } catch (e) {
+                    console.warn('[CombinedExport] per-sample programme failed for', r.sampleId, ':', e.message);
+                    _perSampleProgFail++;
+                }
+            });
+
+            if (_perSampleProgOk > 0 || _perSampleProgFail > 0 || _perSampleProgSkip > 0) {
+                console.log('[CombinedExport] b35fix307 per-sample programme (hoisted): ok=' + _perSampleProgOk +
+                            ' failed=' + _perSampleProgFail +
+                            ' skipped=' + _perSampleProgSkip +
+                            ' (total samples=' + anrReports.length + ')');
+            }
+        }
+        // ───────────── end b35fix307 Q1 hoisted preprocessing ─────────────
+
         // Each report gets a page break + sections (minus titles/References/Glossary/Metadata)
         for (var r = 0; r < reports.length; r++) {
             var report = reports[r];
@@ -1155,7 +2171,7 @@
             allChildren.push(new Paragraph({
                 spacing: { after: 100 },
                 children: [
-                    new TextRun({ text: report.siteLabel, bold: true, size: 28, color: '059669' }),
+                    new TextRun({ text: report.siteLabel, bold: true, size: 28, color: '1F2937' }),
                     new TextRun({ text: '  \u2014  ', size: 28, color: '9CA3AF' }),
                     new TextRun({ text: report.sampleLabel || report.sampleId, bold: true, size: 28, color: '374151' })
                 ]
@@ -1165,6 +2181,44 @@
                 spacing: { after: 200 },
                 children: [new TextRun({ text: 'Report ' + (r + 1) + ' of ' + reports.length, size: 18, color: '9CA3AF' })]
             }));
+
+            // b35fix310a Fix A1: zone provenance footer
+            // Discloses which sample drives recommendations for this zone and whether
+            // other samples for the same zone exist (which feed the trend section).
+            // Keeps the reader informed of the collapse decision rather than hiding it.
+            if (report.zoneProvenance) {
+                var zp = report.zoneProvenance;
+                var provenanceRuns = [];
+                var winnerDate = zp.winnerDate ? ' (' + zp.winnerDate + ')' : '';
+                if (zp.candidateCount > 1) {
+                    provenanceRuns.push(new TextRun({
+                        text: 'Recommendations based on latest sample: ' + zp.winnerLabel + winnerDate + '. ',
+                        italics: true, size: 18, color: '6B7280'
+                    }));
+                    var priorDates = (zp.priorSamples || []).map(function(s) {
+                        return s.date || s.label || s.sampleId;
+                    }).join(', ');
+                    var priorCount = zp.candidateCount - 1;
+                    provenanceRuns.push(new TextRun({
+                        text: priorCount + ' prior sample' +
+                              (priorCount === 1 ? '' : 's') +
+                              ' for this zone (' + priorDates + ') ' +
+                              (priorCount === 1 ? 'informs' : 'inform') +
+                              ' the Nutrient Trend Analysis section.',
+                        italics: true, size: 18, color: '6B7280'
+                    }));
+                } else {
+                    provenanceRuns.push(new TextRun({
+                        text: 'Recommendations based on sample: ' + zp.winnerLabel + winnerDate +
+                              ' (single sample for this zone — no trend history available).',
+                        italics: true, size: 18, color: '6B7280'
+                    }));
+                }
+                allChildren.push(new Paragraph({
+                    spacing: { after: 200 },
+                    children: provenanceRuns
+                }));
+            }
 
             // Build report sections using standard pipeline
             try {
@@ -1317,13 +2371,35 @@
             }
         }
 
-        // Consolidated Annual Nutrient Requirements table (all greens side by side)
-        // Use computeANRFromSoil() per report — GAIP_NUTRITION_SOIL_CACHE is stale across samples
-        var anrReports = reports.filter(function(r) {
-            return r.data && r.data.soil && r.data.soil.hasData && (r.data.soil.P != null || r.data.soil.K != null);
-        });
-        // Pre-compute ANR for each report from its own soil data
-        anrReports.forEach(function(r) { r._anr = computeANRFromSoil(r.data.soil); });
+        // b35fix316 — TRANSPOSED Annual Nutrient Requirements table.
+        //
+        // Previous layout (pre-b35fix316): samples-as-columns. Each green got its own
+        // column; nutrient rows ran down. That worked fine for 3-6 sample golf course
+        // reports but broke down at council scale — Sutherland Shire Council's 45-sample
+        // multi-site report produced a 1,464-character-wide table that spilled off the
+        // page with illegible text.
+        //
+        // This transpose: samples-as-rows, nutrients-as-columns. Table width is now
+        // fixed (8 columns for standard MLSN/SLAN/AA, 12 for cotula S78) regardless
+        // of sample count; only table height grows. Scales linearly from 2 samples
+        // to 100+ without horizontal overflow.
+        //
+        // Architecture:
+        //   - Main ANR table: Sample | N | P ppm | P req | K ppm | K req | S ppm | S req
+        //   - K reconciliation extracted to a separate follow-up table (standard path only):
+        //     Sample | K req | K delivered | K balance | Spot K?
+        //   - Cotula S78 path: Sample | pH | Olsen P | K %BS | Ca %BS | Mg %BS |
+        //     Na %BS | CEC | TBS | VW | K/Mg | N program
+        //
+        // Rationale for splitting K reconciliation into a separate table:
+        //   - Keeps main table narrow (8 cols vs 12 with K recon inline)
+        //   - The five K columns (ppm, req, delivered, balance, spot) visually
+        //     dominated the table even at 3-sample scale
+        //   - K reconciliation is a different semantic concern (per-sample vs
+        //     facility-level interplay) worth calling out separately
+        // b35fix307 Q1: the per-sample ANR pass + Step 5 programme overlay already
+        // ran before the per-report render loop, so r._anr and r.data.nutritionProgram
+        // are populated by the time we reach here.
         if (anrReports.length > 0) {
             var BorderStyle = docx.BorderStyle;
             var WidthType = docx.WidthType;
@@ -1345,242 +2421,1031 @@
             });
             var uniqueMethods = methodLabels.filter(function(v, i, a) { return a.indexOf(v) === i; });
             var methodStr = uniqueMethods.join('/');
-            var subtitleText = methodStr === 'MLSN' ? 'MLSN removal + deficit correction. All rates kg/ha/yr.'
-                             : methodStr === 'SLAN'  ? 'SLAN sufficiency-based requirements. All rates kg/ha/yr.'
-                             : methodStr === 'AA'    ? 'Ammonium acetate extraction — removal-only estimate (MLSN/SLAN thresholds not applicable). All rates kg/ha/yr.'
-                             : methodStr === 'S78'   ? 'Hill Labs S78 — Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.'
-                             : 'Requirements based on ' + methodStr + ' methodology. All rates kg/ha/yr.';
+
+            // b35fix303 Task 1: Detect cotula early so subtitle and table both agree
+            // on whether reconciliation rows will render.
+            var hasCotula = anrReports.some(function(r) { return r._anr && r._anr.isCotula; });
+            var hasStandard = anrReports.some(function(r) { return !r._anr || !r._anr.isCotula; });
+
+
+            // b35fix303 Task 1: Compute facility-level K delivery from N programme.
+            // Fallback used when a specific sample's programme didn't generate.
+            //
+            // b35fix324a: prefer the per-sample _programmeKDelivered field
+            // baked during the b35fix324 hoist (catalogue-only sum, single
+            // source of truth). Fall back to legacy raw sum for samples that
+            // didn't go through the hoist (defensive — should be all samples
+            // post-b35fix324a).
+            var _facilityKDelivered = null;
+            for (var _kdi = 0; _kdi < anrReports.length; _kdi++) {
+                var _ar = anrReports[_kdi];
+                if (typeof _ar._programmeKDelivered === 'number' && _ar._programmeKDelivered > 0) {
+                    _facilityKDelivered = Math.round(_ar._programmeKDelivered);
+                    break;
+                }
+                var _np = _ar.data && _ar.data.nutritionProgram;
+                if (_np && _np.annualSummary && _np.annualSummary.products) {
+                    var _kSum = 0;
+                    Object.values(_np.annualSummary.products).forEach(function(p) {
+                        var n = p.nutrients || p.totalDelivered || {};
+                        _kSum += parseFloat(n.K || 0);
+                    });
+                    if (_kSum > 0) {
+                        _facilityKDelivered = Math.round(_kSum);
+                        break;
+                    }
+                }
+            }
+
+            // b35fix304 Task 2 Step 5: per-sample K delivery. Falls back to facility
+            // value if this sample's programme didn't generate.
+            //
+            // b35fix324a: prefer r._programmeKDelivered (set by the b35fix324
+            // hoist using _computeProgrammeKDelivered — catalogue-only). Falls
+            // back to raw sum for samples missing that field.
+            function _perSampleKDelivered(r) {
+                if (r && typeof r._programmeKDelivered === 'number' && r._programmeKDelivered > 0) {
+                    return Math.round(r._programmeKDelivered);
+                }
+                var np = r && r.data && r.data.nutritionProgram;
+                if (!np || !np.annualSummary || !np.annualSummary.products) return null;
+                var sum = 0;
+                Object.values(np.annualSummary.products).forEach(function(p) {
+                    var n = p.nutrients || p.totalDelivered || {};
+                    sum += parseFloat(n.K || 0);
+                });
+                return sum > 0 ? Math.round(sum) : null;
+            }
+            var _willRenderKReconciliation = (_facilityKDelivered != null) && !hasCotula && hasStandard;
+            var _reconSuffix = _willRenderKReconciliation
+                ? ' K reconciliation against N programme delivery shown in follow-up table.'
+                : '';
+
+            // b35fix331 — Item 1a residual closure (Option B: caption + cell marker).
+            //
+            // Pre-pass K-recon classification for the ANR table.
+            //
+            // Background: the engine's K req is removal-rate (under MLSN within
+            // floor, under SLAN within range) — what the turf removes through
+            // clippings — not "annual application target". On samples where soil
+            // K is sufficient, this often produces a non-zero K req with a
+            // negative programme balance, which the K Reconciliation row
+            // classifier correctly labels 'trend' (soil reserves cover the
+            // immediate gap, programme is mining reserves over time, no spot
+            // intervention warranted).
+            //
+            // Pre-b35fix331 the ANR table showed e.g. "K req = 120.0" without
+            // any visual cue distinguishing those rows from genuine deficits.
+            // Superintendents skimming the table read the figure as "apply 120
+            // kg K/ha", which contradicts the K Reconciliation table directly
+            // below. Per Spencer review (b35fix330 follow-up): the engine is
+            // correct (removal-only intent); the display lacks framing.
+            //
+            // Fix: classify each sample's K-recon state ONCE here, store on
+            // r._b35fix331KReconState, then both the ANR-table renderer below
+            // AND the K-recon-table renderer further down read from it. SSOT
+            // replaces what was previously a duplicate compute.
+            //
+            // Marker policy (ANR table): cells with state === 'trend' get a
+            // dagger (†) appended to the K req number. State 'no-need' already
+            // renders as 0.0 (no marker needed). State 'applied' / 'advisory'
+            // are real deficits where the K req IS driving action — no marker.
+            //
+            // Classifier returns { state, text, color }. We only need .state
+            // for the ANR marker; the K-recon table uses the full object.
+            var _wxClassifyB35fix331 = (typeof window !== 'undefined' &&
+                                        window.GAIP_WordExport &&
+                                        window.GAIP_WordExport._classifyKReconState) || null;
+            anrReports.forEach(function(r) {
+                if (!_willRenderKReconciliation || !_wxClassifyB35fix331) {
+                    r._b35fix331KReconState = null;
+                    return;
+                }
+                var anrK = r._anr && r._anr.K;
+                var req = anrK && anrK.val != null ? parseFloat(anrK.val) : null;
+                var _psK = _perSampleKDelivered(r);
+                var kDel = _psK != null ? _psK : _facilityKDelivered;
+                var _isZeroReq = (req === 0 || req == null);
+                var balance = (_isZeroReq) ? null : (kDel - req);
+                var _kReconApplied = !!(r.data && r.data._kReconDecisions
+                                      && r.data._kReconDecisions.length > 0);
+                var _kReconDecision = _kReconApplied ? r.data._kReconDecisions[0] : null;
+                try {
+                    r._b35fix331KReconState = _wxClassifyB35fix331({
+                        anrK: anrK,
+                        kReconApplied: _kReconApplied,
+                        kReconDecision: _kReconDecision,
+                        kRequired: req,
+                        kDelivered: kDel,
+                        balance: balance
+                    });
+                } catch (e) {
+                    r._b35fix331KReconState = null;
+                }
+            });
+
+            // b35fix331 — Caption rewrite (Item 1a residual).
+            //
+            // Pre-fix MLSN caption: "MLSN removal + deficit correction." — true
+            //   but doesn't say "K req is removal-rate, not application target".
+            // Pre-fix SLAN caption: "SLAN sufficiency-based requirements
+            //   (P pH-adjusted where pH is available)." — accurate methodology
+            //   label but again doesn't frame what the K req figure means on
+            //   sufficient soils.
+            //
+            // Post-fix: both captions now explicitly state that K req is the
+            // removal-rate (replacement target on sufficient soils, or removal
+            // + lift correction on deficit soils), with a cross-reference to
+            // the K Reconciliation table for the actual programme decision.
+            // Footnote symbol † is wired in when any ANR row is in 'trend'
+            // state, with explanation appended to the caption.
+            //
+            // Citations: SLAN range source is Carrow et al. (2004), GCM 72(1):
+            // 194-198 — corrected in b35fix333 from a fabricated "Throssell et
+            // al. 2009" citation that did not justify the encoded ranges.
+            // Carrow, Waddington & Rieke (2001) is retained as a secondary
+            // reference for the sufficiency-as-floor framing. Caption references
+            // both honestly.
+            var _hasTrendRows = _willRenderKReconciliation && anrReports.some(function(r) {
+                return r._b35fix331KReconState && r._b35fix331KReconState.state === 'trend';
+            });
+            var _trendNote = _hasTrendRows
+                ? ' Rows marked † have K req above programme delivery but soil K is in sufficiency range (programme is drawing on soil reserves; see K Reconciliation table for application decision).'
+                : '';
+
+            var subtitleText;
+            if (methodStr === 'MLSN') {
+                subtitleText = 'MLSN methodology (Woods et al. 2016): K/P/S req figures are removal-rate ' +
+                               '(replacement target). Below the MLSN floor, req = removal + deficit ' +
+                               'correction; at or above the floor, req = removal only — soil reserves ' +
+                               'are agronomically sufficient, the figure indicates the rate at which ' +
+                               'clippings are removing the nutrient, not a per-year application target.' +
+                               _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
+            } else if (methodStr === 'SLAN') {
+                subtitleText = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
+                               'K/P/S req figures are removal-rate (replacement target), with P pH-adjusted ' +
+                               'where pH is available. Within the sufficiency range, req = removal only ' +
+                               '(soil reserves cover the agronomic requirement); below floor, req = removal ' +
+                               '+ lift correction over years-to-correct; above ceiling, req = 0. ' +
+                               'Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001).' +
+                               _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
+            } else if (methodStr === 'AA') {
+                subtitleText = 'Ammonium acetate extraction — removal-only estimate (MLSN/SLAN thresholds not applicable). All rates kg/ha/yr.';
+            } else if (methodStr === 'S78') {
+                subtitleText = 'Hill Labs S78 — Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
+            } else {
+                subtitleText = 'Requirements based on ' + methodStr + ' methodology.' + _reconSuffix + ' All rates kg/ha/yr.';
+            }
             allChildren.push(new Paragraph({
                 spacing: { before: 50, after: 160 },
                 children: [new TextRun({ text: subtitleText, size: 20, italics: true, color: '6B7280' })]
             }));
 
-            // Build comparison table: nutrient rows with ppm context sub-rows for P/K/S
+            // Styling constants
             var noBorder = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
             var noBorders = { top: noBorder, bottom: noBorder, left: noBorder, right: noBorder };
-            var colW = Math.floor(8800 / (anrReports.length + 1));
+            var HEADER_FILL = '1F2937';
+            var HEADER_TEXT = 'FFFFFF';
 
-            // Header row
-            var hdrCells = [new TableCell({
-                borders: noBorders, shading: { fill: '1F2937', type: ShadingType.CLEAR },
-                width: { size: colW, type: WidthType.DXA },
-                children: [new Paragraph({ children: [new TextRun({ text: 'Nutrient', bold: true, size: 18, color: 'FFFFFF' })] })]
-            })];
-            anrReports.forEach(function(r) {
-                hdrCells.push(new TableCell({
-                    borders: noBorders, shading: { fill: '1F2937', type: ShadingType.CLEAR },
-                    width: { size: colW, type: WidthType.DXA },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.sampleLabel || r.sampleId, bold: true, size: 18, color: 'FFFFFF' })] })]
-                }));
-            });
+            // b35fix316 helper: build a TableCell with standard styling.
+            function _mkCell(text, opts) {
+                opts = opts || {};
+                var runs = Array.isArray(text)
+                    ? text
+                    : [new TextRun({
+                        text: String(text),
+                        bold: !!opts.bold,
+                        italics: !!opts.italics,
+                        size: opts.size || 17,
+                        color: opts.color || '111827'
+                    })];
+                return new TableCell({
+                    borders: noBorders,
+                    shading: { fill: opts.fill || 'FFFFFF', type: ShadingType.CLEAR },
+                    width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+                    children: [new Paragraph({
+                        alignment: opts.align || AlignmentType.LEFT,
+                        children: runs
+                    })]
+                });
+            }
 
-            var tableRows = [new TableRow({ children: hdrCells })];
+            // b35fix316 helper: build a header cell (dark fill, white bold text).
+            function _mkHdr(text, width) {
+                return new TableCell({
+                    borders: noBorders,
+                    shading: { fill: HEADER_FILL, type: ShadingType.CLEAR },
+                    width: width ? { size: width, type: WidthType.DXA } : undefined,
+                    children: [new Paragraph({
+                        alignment: AlignmentType.CENTER,
+                        children: [new TextRun({ text: text, bold: true, size: 16, color: HEADER_TEXT })]
+                    })]
+                });
+            }
 
-            // ── Detect if any reports are cotula S78 ─────────────────────────
-            var hasCotula = anrReports.some(function(r) {
-                return r._anr && r._anr.isCotula;
-            });
-            var hasStandard = anrReports.some(function(r) {
-                return !r._anr || !r._anr.isCotula;
-            });
+            var tableRows = [];
 
             if (hasCotula && !hasStandard) {
-                // ── All-cotula report: S78 sufficiency table ──────────────
-                var S78_ROWS = [
-                    { key: 'pH',         label: 'pH',        unit: '',        range: '5.8–6.5' },
-                    { key: 'P_olsen',    label: 'Olsen P',   unit: 'mg/L',    range: '20–30' },
-                    { key: 'K_pct_bs',   label: 'K %BS',     unit: '%',       range: '3.0–6.0' },
-                    { key: 'Ca_pct_bs',  label: 'Ca %BS',    unit: '%',       range: '45–75' },
-                    { key: 'Mg_pct_bs',  label: 'Mg %BS',    unit: '%',       range: '5.0–15.0' },
-                    { key: 'Na_pct_bs',  label: 'Na %BS',    unit: '%',       range: '0–5.0' },
-                    { key: 'CEC',        label: 'CEC',        unit: 'me/100g', range: '12–25' },
-                    { key: 'TBS',        label: 'Total BS',   unit: '%',       range: '40–80' },
-                    { key: 'VW',         label: 'Vol. Wt',   unit: 'g/mL',    range: '0.60–1.00' },
-                    { key: 'K_Mg_ratio', label: 'K/Mg',       unit: '',        range: '0.3–1.0' }
+                // ── All-cotula report: S78 sufficiency table (TRANSPOSED) ────
+                //
+                // Columns: Sample | pH | Olsen P | K %BS | Ca %BS | Mg %BS |
+                //          Na %BS | CEC | TBS | VW | K/Mg | N program
+                //
+                // Each cell shows the measured value coloured by status
+                // (LOW/OK/HIGH per GAIP_CotulaBowling.interpretS78Value).
+                var S78_COLS = [
+                    { key: 'pH',         label: 'pH',        width: 500 },
+                    { key: 'P_olsen',    label: 'Olsen P',   width: 650 },
+                    { key: 'K_pct_bs',   label: 'K %BS',     width: 600 },
+                    { key: 'Ca_pct_bs',  label: 'Ca %BS',    width: 600 },
+                    { key: 'Mg_pct_bs',  label: 'Mg %BS',    width: 600 },
+                    { key: 'Na_pct_bs',  label: 'Na %BS',    width: 600 },
+                    { key: 'CEC',        label: 'CEC',       width: 550 },
+                    { key: 'TBS',        label: 'TBS',       width: 550 },
+                    { key: 'VW',         label: 'Vol Wt',    width: 600 },
+                    { key: 'K_Mg_ratio', label: 'K/Mg',      width: 550 }
                 ];
+                var SAMPLE_COL_W_COTULA = 1800;
+                var NPROG_COL_W = 700;
 
-                S78_ROWS.forEach(function(rowDef, ri) {
+                var hdr = [_mkHdr('Sample', SAMPLE_COL_W_COTULA)];
+                S78_COLS.forEach(function(col) { hdr.push(_mkHdr(col.label, col.width)); });
+                hdr.push(_mkHdr('N prog', NPROG_COL_W));
+                tableRows.push(new TableRow({ children: hdr }));
+
+                anrReports.forEach(function(r, ri) {
                     var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
-                    var cells = [new TableCell({
-                        borders: noBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
-                        width: { size: colW, type: WidthType.DXA },
-                        children: [
-                            new Paragraph({ children: [new TextRun({ text: rowDef.label, bold: true, size: 18 })] }),
-                            new Paragraph({ children: [new TextRun({ text: (rowDef.unit ? rowDef.unit + '  ' : '') + 'Range: ' + rowDef.range, size: 15, color: '9CA3AF', italics: true })] })
-                        ]
+                    var soil = r._anr && r._anr.s78 ? r._anr.s78 : (r.data && r.data.soil ? r.data.soil : null);
+
+                    var cells = [_mkCell(r.sampleLabel || r.sampleId, {
+                        fill: rowFill, bold: true, size: 16, width: SAMPLE_COL_W_COTULA
                     })];
-                    anrReports.forEach(function(r) {
-                        var soil = r._anr && r._anr.s78 ? r._anr.s78 : (r.data && r.data.soil ? r.data.soil : null);
-                        var raw = soil ? soil[rowDef.key] : null;
+
+                    S78_COLS.forEach(function(col) {
+                        var raw = soil ? soil[col.key] : null;
                         var interp = null;
                         if (window.GAIP_CotulaBowling && soil) {
-                            try { interp = window.GAIP_CotulaBowling.interpretS78Value(rowDef.key, parseFloat(raw)); } catch(e) {}
+                            try { interp = window.GAIP_CotulaBowling.interpretS78Value(col.key, parseFloat(raw)); } catch(e) {}
                         }
                         var color = !interp ? '6B7280'
                                   : interp.status === 'LOW'  ? 'DC2626'
                                   : interp.status === 'HIGH' ? 'F59E0B'
                                   : '16A34A';
-                        var displayVal = raw != null ? (parseFloat(raw).toFixed(2).replace(/\.?0+$/, '') + (rowDef.unit ? ' ' + rowDef.unit : '')) : '—';
-                        var statusLabel = interp ? (' (' + interp.status + ')') : '';
-                        cells.push(new TableCell({
-                            borders: noBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
-                            width: { size: colW, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [
-                                new TextRun({ text: displayVal, bold: true, size: 18, color: color }),
-                                new TextRun({ text: statusLabel, size: 15, color: color, italics: true })
-                            ]})]
+                        var displayVal = raw != null
+                            ? parseFloat(raw).toFixed(2).replace(/\.?0+$/, '')
+                            : '—';
+                        cells.push(_mkCell(displayVal, {
+                            fill: rowFill, bold: true, size: 16, color: color,
+                            align: AlignmentType.CENTER, width: col.width
                         }));
                     });
+
+                    // N programme — empirical range for cotula (not GP-modelled)
+                    cells.push(_mkCell('50–120', {
+                        fill: rowFill, bold: true, size: 16, color: '1D4ED8',
+                        align: AlignmentType.CENTER, width: NPROG_COL_W
+                    }));
+
                     tableRows.push(new TableRow({ children: cells }));
                 });
 
-                // N rate row for cotula — empirical range, not MLSN-derived
-                var nFill = 'EFF6FF';
-                var nCells = [new TableCell({
-                    borders: noBorders, shading: { fill: nFill, type: ShadingType.CLEAR },
-                    width: { size: colW, type: WidthType.DXA },
-                    children: [
-                        new Paragraph({ children: [new TextRun({ text: 'N program', bold: true, size: 19 })] }),
-                        new Paragraph({ children: [new TextRun({ text: 'kg N/ha/yr (empirical — no GP model)', size: 15, italics: true, color: '9CA3AF' })] })
-                    ]
-                })];
-                anrReports.forEach(function() {
-                    nCells.push(new TableCell({
-                        borders: noBorders, shading: { fill: nFill, type: ShadingType.CLEAR },
-                        width: { size: colW, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '50–120', bold: true, size: 19, color: '1D4ED8' })] })]
-                    }));
-                });
-                tableRows.push(new TableRow({ children: nCells }));
+                allChildren.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+
+                // Cotula footnote — ranges reference
+                allChildren.push(new Paragraph({
+                    spacing: { before: 100, after: 80 },
+                    children: [new TextRun({
+                        text: 'Target ranges (Hill Labs S78 Turf Cotula): pH 5.8–6.5, Olsen P 20–30 mg/L, K %BS 3.0–6.0, Ca %BS 45–75, Mg %BS 5.0–15.0, Na %BS 0–5.0, CEC 12–25 me/100g, TBS 40–80%, Vol Wt 0.60–1.00 g/mL, K/Mg 0.3–1.0. N programme is empirical (no GP model for cotula). Colour: red=low, amber=high, green=within range.',
+                        size: 15, italics: true, color: '6B7280'
+                    })]
+                }));
 
             } else {
-                // ── Standard MLSN/SLAN/AA nutrient rows ───────────────────
-                // N — single row, no soil ppm equivalent
-                var nFill = 'F9FAFB';
-                var nCells = [new TableCell({
-                    borders: noBorders, shading: { fill: nFill, type: ShadingType.CLEAR },
-                    width: { size: colW, type: WidthType.DXA },
-                    children: [
-                        new Paragraph({ children: [new TextRun({ text: 'N (Total)', bold: true, size: 19 })] }),
-                        new Paragraph({ children: [new TextRun({ text: 'kg/ha/yr', size: 16, color: '9CA3AF' })] })
-                    ]
-                })];
-                anrReports.forEach(function(r) {
-                    var ns = r.data.nutritionSummary;
-                    var val = ns && ns.totalN ? parseFloat(ns.totalN).toFixed(0) : '—';
-                    nCells.push(new TableCell({
-                        borders: noBorders, shading: { fill: nFill, type: ShadingType.CLEAR },
-                        width: { size: colW, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: val, bold: true, size: 19, color: '111827' })] })]
-                    }));
-                });
-                tableRows.push(new TableRow({ children: nCells }));
+                // ── Standard MLSN/SLAN/AA table (TRANSPOSED) ─────────────────
+                //
+                // Columns: Sample | N Total | P ppm | P req | K ppm | K req | S ppm | S req
+                //
+                // Main table is fixed 8-column width regardless of sample count.
+                // K reconciliation (delivered/balance/spot) extracted to a separate
+                // follow-up table below — keeps the main table narrow and separates
+                // the "what's required" concern from the "how does that compare to
+                // your programme" concern.
+                var SAMPLE_COL_W = 1800;
+                var N_COL_W = 700;
+                var PKS_PPM_COL_W = 800;
+                var PKS_REQ_COL_W = 900;
 
-            // P, K, S — each gets a ppm context row (grey/italic) then a kg/ha/yr requirement row
-            var pksDefs = [
-                { label: 'P', ppmKey: 'P', anrKey: 'P' },
-                { label: 'K', ppmKey: 'K', anrKey: 'K' },
-                { label: 'S', ppmKey: 'S', anrKey: 'S' }
-            ];
-            pksDefs.forEach(function(nut, ni) {
-                var rowFill = ni % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
-                var ppmFill = ni % 2 === 0 ? 'F3F4F6' : 'ECECEC';
+                var hdr = [
+                    _mkHdr('Sample',        SAMPLE_COL_W),
+                    _mkHdr('N kg/ha',       N_COL_W),
+                    _mkHdr('P ppm',         PKS_PPM_COL_W),
+                    _mkHdr('P req',         PKS_REQ_COL_W),
+                    _mkHdr('K ppm',         PKS_PPM_COL_W),
+                    _mkHdr('K req',         PKS_REQ_COL_W),
+                    _mkHdr('S ppm',         PKS_PPM_COL_W),
+                    _mkHdr('S req',         PKS_REQ_COL_W)
+                ];
+                tableRows.push(new TableRow({ children: hdr }));
 
-                // ppm row — current soil level, coloured by status
-                var ppmCells = [new TableCell({
-                    borders: noBorders, shading: { fill: ppmFill, type: ShadingType.CLEAR },
-                    width: { size: colW, type: WidthType.DXA },
-                    children: [new Paragraph({ children: [new TextRun({ text: nut.label + ' (soil ppm)', italics: true, size: 17, color: '6B7280' })] })]
-                })];
-                anrReports.forEach(function(r) {
-                    var ppm = r.data.soil && r.data.soil[nut.ppmKey] != null ? r.data.soil[nut.ppmKey] : null;
-                    var anrResult = r._anr && r._anr[nut.anrKey];
-                    var ppmColor = anrResult
-                        ? (anrResult.status === 'Very Low' ? 'DC2626'
-                         : anrResult.status === 'Low'     ? 'F59E0B'
-                         : anrResult.status === 'Excessive'? 'F59E0B'
-                         : '16A34A')
-                        : '6B7280';
-                    ppmCells.push(new TableCell({
-                        borders: noBorders, shading: { fill: ppmFill, type: ShadingType.CLEAR },
-                        width: { size: colW, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: ppm != null ? ppm.toFixed(0) + ' ppm' : '—', size: 17, color: ppmColor, italics: true })] })]
-                    }));
-                });
-                tableRows.push(new TableRow({ children: ppmCells }));
-
-                // kg/ha/yr row
-                var reqCells = [new TableCell({
-                    borders: noBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
-                    width: { size: colW, type: WidthType.DXA },
-                    children: [
-                        new Paragraph({ children: [new TextRun({ text: nut.label + ' requirement', bold: true, size: 19 })] }),
-                        new Paragraph({ children: [new TextRun({ text: 'kg/ha/yr', size: 16, color: '9CA3AF' })] })
-                    ]
-                })];
-                anrReports.forEach(function(r) {
-                    var result = r._anr && r._anr[nut.anrKey];
-                    var color = result && (result.status === 'Low' || result.status === 'Very Low') ? 'DC2626'
-                              : result && result.status === 'Excessive' ? 'F59E0B'
-                              : '16A34A';
-                    var text = result && result.val != null ? parseFloat(result.val).toFixed(1) : '—';
-                    reqCells.push(new TableCell({
-                        borders: noBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
-                        width: { size: colW, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: text, bold: true, size: 19, color: color })] })]
-                    }));
-                });
-                tableRows.push(new TableRow({ children: reqCells }));
-            }); // end pksDefs.forEach
-
-            } // end if hasCotula / else standard
-
-            allChildren.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
-
-            // Monthly N distribution — one row per green
-            var hasMonthlyN = anrReports.some(function(r) { return r.data.nutritionSummary.monthlyN && r.data.nutritionSummary.monthlyN.length > 0; });
-            if (hasMonthlyN) {
-                allChildren.push(new Paragraph({ spacing: { before: 240, after: 80 }, children: [new TextRun({ text: 'Monthly N Distribution (kg N/ha) — GP-Weighted', bold: true, size: 22 })] }));
-
-                var monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-                // Header
-                var mHdrCells = [new TableCell({
-                    borders: noBorders, shading: { fill: '1F2937', type: ShadingType.CLEAR },
-                    width: { size: 1400, type: WidthType.DXA },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Green', bold: true, size: 17, color: 'FFFFFF' })] })]
-                })];
-                monthNames.forEach(function(m) {
-                    mHdrCells.push(new TableCell({
-                        borders: noBorders, shading: { fill: '1F2937', type: ShadingType.CLEAR },
-                        width: { size: 620, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: m, bold: true, size: 15, color: 'FFFFFF' })] })]
-                    }));
-                });
-                var mTableRows = [new TableRow({ children: mHdrCells })];
+                // Colour helper for ANR status. Recognises both MLSN status
+                // bands (Very Low / Low / Adequate / High / Excessive) and
+                // SLAN status bands (Deficient / Sufficient / Excessive).
+                function _anrColor(anrResult) {
+                    if (!anrResult) return '6B7280';
+                    var s = anrResult.status;
+                    // Red — deficit
+                    if (s === 'Very Low' || s === 'Low' || s === 'Deficient') return 'DC2626';
+                    // Amber — excess
+                    if (s === 'Excessive' || s === 'High') return 'F59E0B';
+                    // Green — in-range (Adequate under MLSN, Sufficient under SLAN)
+                    return '16A34A';
+                }
 
                 anrReports.forEach(function(r, ri) {
-                    var mFill = ri % 2 === 0 ? 'F9FAFB' : 'FFFFFF';
-                    var mData = r.data.nutritionSummary.monthlyN || [];
-                    var mCells = [new TableCell({
-                        borders: noBorders, shading: { fill: mFill, type: ShadingType.CLEAR },
-                        width: { size: 1400, type: WidthType.DXA },
-                        children: [new Paragraph({ children: [new TextRun({ text: r.sampleLabel || r.sampleId, bold: true, size: 17 })] })]
-                    })];
-                    monthNames.forEach(function(m, mi) {
-                        var monthData = mData[mi] || {};
-                        var n = monthData.n || 0;
-                        var nColor = n > 15 ? '16A34A' : n > 10 ? '65A30D' : n > 5 ? 'F59E0B' : '9CA3AF';
-                        mCells.push(new TableCell({
-                            borders: noBorders, shading: { fill: mFill, type: ShadingType.CLEAR },
-                            width: { size: 620, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: n > 0 ? n.toFixed(0) : '—', bold: n > 0, size: 17, color: nColor })] })]
+                    var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+                    var ns = r.data.nutritionSummary;
+                    var soil = r.data.soil || {};
+
+                    var nVal = ns && ns.totalN ? parseFloat(ns.totalN).toFixed(0) : '—';
+
+                    var cells = [
+                        // Sample label — bold, left-aligned
+                        _mkCell(r.sampleLabel || r.sampleId, {
+                            fill: rowFill, bold: true, size: 16, width: SAMPLE_COL_W
+                        }),
+                        // N Total — single column, no soil ppm equivalent
+                        _mkCell(nVal, {
+                            fill: rowFill, bold: true, size: 17, align: AlignmentType.CENTER,
+                            width: N_COL_W
+                        })
+                    ];
+
+                    // P / K / S — each gets a (ppm, req) pair
+                    ['P', 'K', 'S'].forEach(function(nut) {
+                        var anrResult = r._anr && r._anr[nut];
+                        var ppmVal = soil[nut] != null ? soil[nut].toFixed(0) : '—';
+                        var reqVal = anrResult && anrResult.val != null
+                            ? parseFloat(anrResult.val).toFixed(1)
+                            : '—';
+
+                        // b35fix331: append † on K req cells where the K-recon
+                        // classifier returned 'trend' state (programme short of
+                        // removal but soil K sufficient — caption explains).
+                        // Only K column gets the marker; P/S have analogous
+                        // sufficiency-vs-deficit logic but Item 1a closure is
+                        // scoped to K. P/S marker treatment is a candidate
+                        // follow-up if superintendents request it.
+                        if (nut === 'K' && r._b35fix331KReconState
+                                        && r._b35fix331KReconState.state === 'trend'
+                                        && reqVal !== '—') {
+                            reqVal = reqVal + ' †';
+                        }
+
+                        var statusColor = _anrColor(anrResult);
+
+                        cells.push(_mkCell(ppmVal, {
+                            fill: rowFill, size: 15, color: statusColor, italics: true,
+                            align: AlignmentType.CENTER, width: PKS_PPM_COL_W
+                        }));
+                        cells.push(_mkCell(reqVal, {
+                            fill: rowFill, bold: true, size: 17, color: statusColor,
+                            align: AlignmentType.CENTER, width: PKS_REQ_COL_W
                         }));
                     });
-                    mTableRows.push(new TableRow({ children: mCells }));
+
+                    tableRows.push(new TableRow({ children: cells }));
                 });
-                allChildren.push(new Table({ rows: mTableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+
+                allChildren.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+
+                // b35fix316: K reconciliation — separate follow-up table.
+                // Only renders when a facility N programme exists (standard path).
+                // Previously these were inline rows in the main ANR table; extracting
+                // them keeps the main table narrow and makes the reconciliation
+                // semantics explicit: "here's what your N programme delivers in K,
+                // and here's how that compares to each sample's K requirement."
+                if (_facilityKDelivered != null) {
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 240, after: 60 },
+                        children: [new TextRun({
+                            text: 'K Reconciliation — Programme Delivery vs Requirement',
+                            bold: true, size: 20, color: '111827'
+                        })]
+                    }));
+                    // b35fix325: methodology citation in caption.
+                    // Pull from the first sample's _anr.K.methodology+citation
+                    // (all samples share the same methodology in a given run).
+                    var _capMethod = null, _capCitation = null;
+                    for (var _ci = 0; _ci < anrReports.length; _ci++) {
+                        var _capK = anrReports[_ci]._anr && anrReports[_ci]._anr.K;
+                        if (_capK && _capK.methodology) {
+                            _capMethod = _capK.methodology;
+                            _capCitation = _capK.citation;
+                            break;
+                        }
+                    }
+                    var _captionText;
+                    if (_capMethod && /SLAN-Carrow|carrow.*2004|SLAN-Throssell|throssell/i.test(_capMethod)) {
+                        // b35fix333: source corrected from fabricated Throssell to
+                        // Carrow et al. (2004). Regex retains Throssell match so
+                        // any cached/stored old methodology strings still trigger
+                        // this branch (caption itself reads Carrow 2004 either way).
+                        // K range also updated 75-150 → 75-176 per Carrow 2004
+                        // "other soils" / high-CEC values (Option 1).
+                        _captionText = 'SLAN sufficiency range (Carrow et al. 2004, GCM 72(1):194-198): ' +
+                                       'K 75–176 ppm. Below floor → removal + lift correction; within ' +
+                                       'range → removal only; above ceiling → zero application. ' +
+                                       'Balance = programme K (catalogue products only) − engine K req. ' +
+                                       'Source: ' + (_capCitation || 'Carrow et al. (2004). GCM 72(1):194-198.') + '.';
+                    } else if (_capMethod && /MLSN/i.test(_capMethod)) {
+                        _captionText = 'MLSN methodology (Woods et al. 2016): K req = removal + ' +
+                                       'deficit correction (lift toward target × 1.5 over 2 years) ' +
+                                       'when soil K below 37 ppm threshold. Balance = programme K ' +
+                                       '(catalogue products only) − engine K req.';
+                    } else {
+                        _captionText = 'K delivered by the facility-level N programme compared to ' +
+                                       'each sample\'s K requirement. Negative balance suggests ' +
+                                       'per-sample spot K supplement needed.';
+                    }
+                    allChildren.push(new Paragraph({
+                        spacing: { after: 120 },
+                        children: [new TextRun({
+                            text: _captionText,
+                            size: 15, italics: true, color: '6B7280'
+                        })]
+                    }));
+
+                    var reconRows = [new TableRow({ children: [
+                        _mkHdr('Sample',        2200),
+                        _mkHdr('K req',         1200),
+                        _mkHdr('K delivered',   1400),
+                        _mkHdr('K balance',     1400),
+                        _mkHdr('Spot K?',       2600)
+                    ]})];
+
+                    anrReports.forEach(function(r, ri) {
+                        var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+                        var anrK = r._anr && r._anr.K;
+                        var req = anrK && anrK.val != null ? parseFloat(anrK.val) : null;
+                        var _psK = _perSampleKDelivered(r);
+                        var kDel = _psK != null ? _psK : _facilityKDelivered;
+
+                        // b35fix325: intent-aware balance display.
+                        // When K req = 0 (intent='suppress-above-ceiling') the
+                        // balance arithmetic is meaningless — the engine has
+                        // declared NO requirement, so "+82" type values were
+                        // the cosmetic bug surfaced in production. Display "—"
+                        // for K req=0 and Spot K?='No' (there's nothing to
+                        // reconcile).
+                        var intent = anrK && anrK.intent;
+                        var _isZeroReq = (req === 0 || req == null);
+                        var balance = (_isZeroReq) ? null : (kDel - req);
+
+                        var balText = balance == null ? '—'
+                                    : (balance >= 0 ? '+' : '') + balance.toFixed(1);
+                        var balColor = balance == null ? '6B7280'
+                                     : balance > 20 ? '16A34A'
+                                     : balance >= -10 ? '6B7280'
+                                     : 'DC2626';
+
+                        // b35fix326a: classify Spot K? cell state via SSOT
+                        // classifier in word-export.js. Distinguishes 'trend'
+                        // (sufficient soil + programme mining reserves, amber)
+                        // from 'advisory' (deficient soil + spot-K not fired,
+                        // red) which the pre-b35fix326a inline state machine
+                        // collapsed into a single "Advisory" red state.
+                        //
+                        // b35fix331: read from r._b35fix331KReconState (set by
+                        // the pre-pass loop above). The pre-pass already called
+                        // the classifier once with the same inputs; reusing its
+                        // result here eliminates an asymmetric-engines pattern
+                        // (two compute sites for the same conceptual quantity).
+                        // If the pre-pass produced no result (defensive null),
+                        // fall back to a fresh classification.
+                        var _state = r._b35fix331KReconState;
+                        if (!_state) {
+                            var _kReconApplied = !!(r.data && r.data._kReconDecisions
+                                                  && r.data._kReconDecisions.length > 0);
+                            var _kReconDecision = _kReconApplied ? r.data._kReconDecisions[0] : null;
+                            var _wxClassifyFallback = (typeof window !== 'undefined' &&
+                                                       window.GAIP_WordExport &&
+                                                       window.GAIP_WordExport._classifyKReconState) || null;
+                            if (_wxClassifyFallback) {
+                                try {
+                                    _state = _wxClassifyFallback({
+                                        anrK: anrK,
+                                        kReconApplied: _kReconApplied,
+                                        kReconDecision: _kReconDecision,
+                                        kRequired: req,
+                                        kDelivered: kDel,
+                                        balance: balance
+                                    });
+                                } catch (e) {
+                                    _state = { state: 'unknown', text: '—', color: '6B7280' };
+                                }
+                            } else {
+                                _state = { state: 'unknown', text: '—', color: '6B7280' };
+                            }
+                        }
+                        var rec      = _state.text;
+                        var recColor = _state.color;
+
+                        reconRows.push(new TableRow({ children: [
+                            _mkCell(r.sampleLabel || r.sampleId, {
+                                fill: rowFill, bold: true, size: 16, width: 2200
+                            }),
+                            _mkCell(req != null ? req.toFixed(1) : '—', {
+                                fill: rowFill, size: 16, align: AlignmentType.CENTER, width: 1200
+                            }),
+                            _mkCell(String(kDel), {
+                                fill: rowFill, size: 16, color: '6B7280', italics: true,
+                                align: AlignmentType.CENTER, width: 1400
+                            }),
+                            _mkCell(balText, {
+                                fill: rowFill, bold: true, size: 17, color: balColor,
+                                align: AlignmentType.CENTER, width: 1400
+                            }),
+                            _mkCell(rec, {
+                                fill: rowFill, size: 15, color: recColor, italics: true,
+                                align: AlignmentType.CENTER, width: 2600
+                            })
+                        ]}));
+                    });
+
+                    allChildren.push(new Table({ rows: reconRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                }
+            } // end if hasCotula / else standard
+
+            // b35fix303 Task 1: Footnote when no facility N programme exists,
+            // explaining why the K reconciliation table is absent.
+            if (_facilityKDelivered == null && hasStandard && !hasCotula) {
+                allChildren.push(new Paragraph({
+                    spacing: { before: 120, after: 100 },
+                    children: [new TextRun({
+                        text: 'Note: K reconciliation omitted — no fertiliser programme found for this site. Add an N programme to enable per-sample K balance reporting.',
+                        size: 17, italics: true, color: '9CA3AF'
+                    })]
+                }));
+            }
+
+            // b35fix307 Q4: Monthly N distribution.
+            // Previously rendered as one-row-per-sample. Every row was identical
+            // by construction — monthly N is derived from (annual N target,
+            // monthly GP, distribution strategy), all of which are site-level
+            // in the current data model. Soil chemistry varies sample-by-sample
+            // but doesn't feed N distribution. Collapsed to a single-line
+            // caption per site to remove the redundant table noise.
+            //
+            // b35fix387: routed through _buildMonthlyNDistribution helper on
+            // GAIP_WordExport (shared with single-export). Pre-fix combined
+            // rendered three plain prose paragraphs; the single-export already
+            // had a proper colour-graded table. Same data shape on
+            // r.data.nutritionSummary.{monthlyN, totalN, activeMonths} via
+            // the b35fix313 collectData path. Combined-export passes
+            // siteUniformCaption:true so the helper appends the caption
+            // explaining why every sample on the site shows the same
+            // distribution.
+            var firstWithMonthlyN = null;
+            var firstNutritionSummary = null;
+            for (var _mi = 0; _mi < anrReports.length; _mi++) {
+                var _ns = anrReports[_mi].data && anrReports[_mi].data.nutritionSummary;
+                if (_ns && _ns.monthlyN && _ns.monthlyN.length > 0) {
+                    firstWithMonthlyN = _ns.monthlyN;
+                    firstNutritionSummary = _ns;
+                    break;
+                }
+            }
+            if (firstWithMonthlyN && we && typeof we._buildMonthlyNDistribution === 'function') {
+                var _mnDocxRefs = {
+                    Paragraph: Paragraph, TextRun: TextRun, Table: Table,
+                    TableRow: TableRow, TableCell: TableCell,
+                    WidthType: WidthType, AlignmentType: AlignmentType
+                };
+                var _mnNodes = we._buildMonthlyNDistribution(
+                    firstWithMonthlyN,
+                    firstNutritionSummary && firstNutritionSummary.totalN,
+                    firstNutritionSummary && firstNutritionSummary.activeMonths,
+                    _mnDocxRefs,
+                    { siteUniformCaption: true }
+                );
+                _mnNodes.forEach(function(node) { allChildren.push(node); });
             }
             allChildren.push(new Paragraph({ children: [] }));
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // b35fix303 Task 3: Per-site fertiliser purchasing rollup
+        // For each site, aggregate per-sample fert programmes into total product
+        // requirements. Useful for procurement: golf clubs ordering one truckload
+        // per year; council parks managers ordering per-region.
+        //
+        // Aggregation logic:
+        //   - Iterate site groups
+        //   - For each site, walk its samples and sum products by name
+        //   - If sample area is available, multiply per-ha rate × area for absolute kg
+        //   - Otherwise show per-ha rate only with a footnote
+        //   - Skip silently if no programme exists for any sample at the site
+        // ────────────────────────────────────────────────────────────────────
+        if (anrReports.length > 0 && !hasCotula) {
+            // Group anrReports by siteLabel for rollup processing
+            var sitesForRollup = {};
+            anrReports.forEach(function(r) {
+                var label = r.siteLabel || 'Unknown Site';
+                if (!sitesForRollup[label]) sitesForRollup[label] = [];
+                sitesForRollup[label].push(r);
+            });
+
+            var siteLabels = Object.keys(sitesForRollup);
+            siteLabels.forEach(function(siteLabel) {
+                var siteReports = sitesForRollup[siteLabel];
+
+                // b35fix311: partition samples by freshness BEFORE aggregating.
+                // Stale samples never feed procurement math — you cannot buy
+                // product against soil chemistry from 2+ years ago. The
+                // per-site opt-out (`allowStaleRecommendations: true`) bypasses
+                // this check but stamps a warning banner on the output.
+                var siteId = siteReports[0] && siteReports[0].siteId;
+                var sm = global.GAIP_SampleManager;
+                var siteOptOut = false;
+                try {
+                    if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function') {
+                        var scfg = global.GAIP_SiteConfig.getConfig(siteId);
+                        siteOptOut = !!(scfg && scfg.allowStaleRecommendations);
+                    }
+                } catch (_e) { /* config unavailable; stay with default (no opt-out) */ }
+
+                var freshReports = [];
+                var staleReports = [];
+                siteReports.forEach(function(r) {
+                    // Look up the stored sample for freshness. r.data.site/turf doesn't
+                    // carry the full sample record, so we pull it from the store.
+                    var storedSample = null;
+                    try {
+                        if (sm && typeof sm.getAllSamples === 'function') {
+                            var all = sm.getAllSamples();
+                            storedSample = all && all.allSites && all.allSites[r.siteId] &&
+                                           all.allSites[r.siteId].soil &&
+                                           all.allSites[r.siteId].soil[r.sampleId];
+                        }
+                    } catch (_e) { /* fall through — treat as missing */ }
+
+                    // With opt-out on, everything is treated as fresh for
+                    // procurement purposes. Otherwise gate by canDriveRecommendations.
+                    var fresh = siteOptOut ||
+                                (sm && typeof sm.canDriveRecommendations === 'function' &&
+                                 sm.canDriveRecommendations(storedSample, r.siteId));
+
+                    if (fresh) {
+                        freshReports.push(r);
+                    } else {
+                        staleReports.push({ report: r, sample: storedSample });
+                    }
+                });
+
+                // Aggregate products across FRESH samples only
+                // b35fix328: aggregate now carries full macro vector
+                // (N/P/K/S/Ca/Mg). Pre-fix only N/P/K/S were summed and the
+                // table only rendered N/K — Ca and Mg from amendments
+                // (dolomite, gypsum) were invisible. Per-entry extraction
+                // routes through window.GAIP_WordExport._extractEntryNutrients
+                // so catalogue products derive Ca/Mg/S from analysis × mass
+                // (their nutrients map only carries N/P/K) while amendments
+                // use their populated totalDelivered vector.
+                var aggregate = {};   // { productName: { kgHaSum, samplesContributing, N, P, K, S, Ca, Mg, kgAbsSum } }
+                var totalAreaHa = 0;
+                var anyAreaSeen = false;
+                var anyProgrammeSeen = false;
+                var samplesMissingArea = [];
+
+                var _wxExtract = (global.GAIP_WordExport && typeof global.GAIP_WordExport._extractEntryNutrients === 'function')
+                    ? global.GAIP_WordExport._extractEntryNutrients
+                    : null;
+
+                freshReports.forEach(function(r) {
+                    var sampleArea = null;
+                    if (r.data.site && r.data.site.areaHa != null) sampleArea = parseFloat(r.data.site.areaHa);
+                    else if (r.data.turf && r.data.turf.areaHa != null) sampleArea = parseFloat(r.data.turf.areaHa);
+                    if (sampleArea != null && !isNaN(sampleArea) && sampleArea > 0) {
+                        totalAreaHa += sampleArea;
+                        anyAreaSeen = true;
+                    } else {
+                        samplesMissingArea.push(r.sampleLabel || r.sampleId);
+                    }
+
+                    var prog = r.data.nutritionProgram;
+                    if (!prog || !prog.annualSummary || !prog.annualSummary.products) return;
+                    anyProgrammeSeen = true;
+
+                    Object.values(prog.annualSummary.products).forEach(function(p) {
+                        var name = p.name || (p.product && p.product.name) || 'Unknown product';
+                        var kgHa = parseFloat(p.totalKg || p.totalKgHa || p.totalLHa || 0);
+                        // b35fix328: use exposed helper for full macro vector.
+                        // Fallback path (older catalogue entries with only
+                        // nutrients map) preserves N/P/K/S only — Ca and Mg
+                        // stay zero, which is the pre-b35fix328 behaviour for
+                        // those entries.
+                        var vec;
+                        if (_wxExtract) {
+                            vec = _wxExtract(p);
+                        } else {
+                            var n = p.nutrients || p.totalDelivered || {};
+                            vec = {
+                                N: parseFloat(n.N || 0) || 0,
+                                P: parseFloat(n.P || 0) || 0,
+                                K: parseFloat(n.K || 0) || 0,
+                                S: parseFloat(n.S || 0) || 0,
+                                Ca: parseFloat(n.Ca || 0) || 0,
+                                Mg: parseFloat(n.Mg || 0) || 0
+                            };
+                        }
+                        if (!aggregate[name]) {
+                            aggregate[name] = {
+                                kgHaSum: 0, samplesContributing: 0,
+                                N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0,
+                                kgAbsSum: 0
+                            };
+                        }
+                        aggregate[name].kgHaSum += kgHa;
+                        aggregate[name].samplesContributing++;
+                        aggregate[name].N += vec.N;
+                        aggregate[name].P += vec.P;
+                        aggregate[name].K += vec.K;
+                        aggregate[name].S += vec.S;
+                        aggregate[name].Ca += vec.Ca;
+                        aggregate[name].Mg += vec.Mg;
+                        if (sampleArea != null && !isNaN(sampleArea) && sampleArea > 0) {
+                            aggregate[name].kgAbsSum += kgHa * sampleArea;
+                        }
+                    });
+                });
+
+                // b35fix311: zero-fresh-zones case — suppress the summary and
+                // emit a re-sample prompt. Procurement on stale data alone is
+                // worse than no procurement guidance at all.
+                if (freshReports.length === 0) {
+                    allChildren.push(new Paragraph({ children: [new PageBreak()] }));
+                    allChildren.push(new Paragraph({
+                        heading: HeadingLevel.HEADING_1, keepNext: true,
+                        children: [new TextRun(siteLabel + ' — Fertiliser Purchasing Summary')]
+                    }));
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 120, after: 120 },
+                        children: [new TextRun({
+                            text: 'Procurement planning suppressed — no current soil data.',
+                            bold: true, size: 22, color: 'C96A5F'
+                        })]
+                    }));
+                    allChildren.push(new Paragraph({
+                        spacing: { after: 160 },
+                        children: [new TextRun({
+                            text: 'All ' + siteReports.length + ' soil samples for this site exceed the ' +
+                                  (sm && sm.STALENESS_CONFIG ? sm.STALENESS_CONFIG.thresholdMonths : 18) +
+                                  '-month freshness threshold. ' +
+                                  'Fertiliser purchasing recommendations require recent soil chemistry. ' +
+                                  'Re-sample and re-run this report to enable purchasing guidance.',
+                            size: 20, italics: true, color: '374151'
+                        })]
+                    }));
+                    return;  // next site
+                }
+
+                if (!anyProgrammeSeen) return;   // no programmes — skip this site silently
+
+                var aggregateNames = Object.keys(aggregate);
+                if (aggregateNames.length === 0) return;
+
+                // Render section
+                allChildren.push(new Paragraph({ children: [new PageBreak()] }));
+                allChildren.push(new Paragraph({
+                    heading: HeadingLevel.HEADING_1, keepNext: true,
+                    children: [new TextRun(siteLabel + ' — Fertiliser Purchasing Summary')]
+                }));
+
+                // b35fix311: opt-out warning banner — stale data being used
+                // because the site explicitly allowed it. Makes the risk visible
+                // in the procurement document itself.
+                if (siteOptOut && staleReports.length > 0) {
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 60, after: 100 },
+                        children: [new TextRun({
+                            text: 'PROCUREMENT WARNING: Quantities below include soil data older than the ' +
+                                  (sm && sm.STALENESS_CONFIG ? sm.STALENESS_CONFIG.thresholdMonths : 18) +
+                                  '-month freshness threshold. ' +
+                                  'This site is configured to allow stale-data recommendations ' +
+                                  '(allowStaleRecommendations: true). Re-sample before making ' +
+                                  'purchasing commitments.',
+                            bold: true, size: 20, color: 'C96A5F'
+                        })]
+                    }));
+                }
+
+                var subText;
+                if (anyAreaSeen && totalAreaHa > 0) {
+                    subText = 'Aggregate across ' + freshReports.length + ' fresh sample' +
+                              (freshReports.length === 1 ? '' : 's') + ', ' +
+                              totalAreaHa.toFixed(2) + ' ha total. ' +
+                              'Absolute kg = per-ha rate × area summed across samples. ' +
+                              'Use for purchase planning.';
+                } else {
+                    subText = 'Aggregate across ' + freshReports.length + ' fresh sample' +
+                              (freshReports.length === 1 ? '' : 's') + '. ' +
+                              'Per-ha rates only — area data not entered on any sample. ' +
+                              'Enter sample area (ha) to enable absolute kg totals for procurement.';
+                }
+                allChildren.push(new Paragraph({
+                    spacing: { before: 50, after: 160 },
+                    children: [new TextRun({ text: subText, size: 20, italics: true, color: '6B7280' })]
+                }));
+
+                // Build table
+                var rNoBorder = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+                var rBorders = { top: rNoBorder, bottom: rNoBorder, left: rNoBorder, right: rNoBorder };
+
+                // b35fix328: detect which optional macro columns to render
+                // (P, Ca, Mg, S). N and K always render in the area-aware
+                // branch (existing contract). Detection uses absolute kg
+                // totals (agg.* are already kg, summed across samples) so
+                // sub-detection trace nutrients on a single product won't
+                // light up a column. Threshold floor 0.5 kg absolute — at
+                // typical procurement scales (multi-ha sites) this filters
+                // analysis-line trace elements but lets real Ca/Mg from
+                // dolomite (~210 kg Ca, ~115 kg Mg per ha) through.
+                var aggNames = Object.keys(aggregate);
+                var _wxDetect = (global.GAIP_WordExport && typeof global.GAIP_WordExport._detectActiveNutrientColumns === 'function')
+                    ? global.GAIP_WordExport._detectActiveNutrientColumns
+                    : null;
+
+                var includeP = false, includeCa = false, includeMg = false, includeS = false;
+                if (anyAreaSeen) {
+                    var _absThreshold = 0.5;  // kg, absolute (post-area scaling)
+                    aggNames.forEach(function(nm) {
+                        var a = aggregate[nm];
+                        if ((a.P || 0) > _absThreshold) includeP = true;
+                        if ((a.Ca || 0) > _absThreshold) includeCa = true;
+                        if ((a.Mg || 0) > _absThreshold) includeMg = true;
+                        if ((a.S || 0) > _absThreshold) includeS = true;
+                    });
+                }
+
+                var rollupCols, hdrLabels;
+                if (anyAreaSeen) {
+                    // Base: Product, Total kg, Total kg/ha avg, N kg, K kg
+                    // Nutrient columns sized at 1100 DXA each when many are
+                    // active, 1700 when none — keeps total row width
+                    // bounded for A4 portrait. Approx widths:
+                    //   3200 + 1500 + 1600 + (5 × 1100) = 11800 DXA (≈ 8.2")
+                    //   3200 + 1600 + 1700 + (2 × 1700) = 11800 DXA (≈ 8.2")
+                    var optCount = (includeP ? 1 : 0) + (includeCa ? 1 : 0) + (includeMg ? 1 : 0) + (includeS ? 1 : 0);
+                    var nutColWidth = optCount === 0 ? 1700 : 1100;
+                    var prodColWidth = optCount === 0 ? 3200 : 3000;
+                    var totalKgColWidth = optCount === 0 ? 1600 : 1400;
+                    var avgKgHaColWidth = optCount === 0 ? 1700 : 1400;
+
+                    rollupCols = [prodColWidth, totalKgColWidth, avgKgHaColWidth];
+                    hdrLabels = ['Product', 'Total kg', 'Total kg/ha avg'];
+                    // N always
+                    rollupCols.push(nutColWidth);
+                    hdrLabels.push('N kg');
+                    if (includeP) { rollupCols.push(nutColWidth); hdrLabels.push('P kg'); }
+                    // K always
+                    rollupCols.push(nutColWidth);
+                    hdrLabels.push('K kg');
+                    if (includeCa) { rollupCols.push(nutColWidth); hdrLabels.push('Ca kg'); }
+                    if (includeMg) { rollupCols.push(nutColWidth); hdrLabels.push('Mg kg'); }
+                    if (includeS) { rollupCols.push(nutColWidth); hdrLabels.push('S kg'); }
+                } else {
+                    rollupCols = [4200, 2400, 2400];          // Product, Total kg/ha, Apps
+                    hdrLabels = ['Product', 'Total kg/ha', 'Samples'];
+                }
+
+                var hdrCellsRollup = hdrLabels.map(function(label, idx) {
+                    return new TableCell({
+                        borders: rBorders,
+                        shading: { fill: '1F2937', type: ShadingType.CLEAR },
+                        width: { size: rollupCols[idx], type: WidthType.DXA },
+                        children: [new Paragraph({
+                            alignment: idx === 0 ? AlignmentType.LEFT : AlignmentType.CENTER,
+                            children: [new TextRun({ text: label, bold: true, size: 18, color: 'FFFFFF' })]
+                        })]
+                    });
+                });
+                var rollupRows = [new TableRow({ children: hdrCellsRollup })];
+
+                aggNames.forEach(function(name, ri) {
+                    var agg = aggregate[name];
+                    var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
+                    var cells;
+                    if (anyAreaSeen) {
+                        var avgKgHa = agg.samplesContributing > 0 ? agg.kgHaSum / agg.samplesContributing : 0;
+                        cells = [
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[0], type: WidthType.DXA },
+                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 18 })] })]
+                            }),
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[1], type: WidthType.DXA },
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(agg.kgAbsSum).toString(), bold: true, size: 18, color: '1F2937' })] })]
+                            }),
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[2], type: WidthType.DXA },
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0), size: 18, color: '6B7280' })] })]
+                            })
+                        ];
+
+                        // Walk the same column order used for the header so
+                        // hdrLabels[i] matches the i'th cell value. colIdx
+                        // tracks position in rollupCols for width lookups.
+                        var colIdx = 3;
+                        function pushNutCell(value) {
+                            cells.push(new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[colIdx], type: WidthType.DXA },
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(value || 0).toString(), size: 18, color: '6B7280' })] })]
+                            }));
+                            colIdx++;
+                        }
+                        pushNutCell(agg.N);
+                        if (includeP) pushNutCell(agg.P);
+                        pushNutCell(agg.K);
+                        if (includeCa) pushNutCell(agg.Ca);
+                        if (includeMg) pushNutCell(agg.Mg);
+                        if (includeS) pushNutCell(agg.S);
+                    } else {
+                        var avgPerHa = agg.samplesContributing > 0 ? agg.kgHaSum / agg.samplesContributing : 0;
+                        cells = [
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[0], type: WidthType.DXA },
+                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 18 })] })]
+                            }),
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[1], type: WidthType.DXA },
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0), bold: true, size: 18, color: '1F2937' })] })]
+                            }),
+                            new TableCell({
+                                borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
+                                width: { size: rollupCols[2], type: WidthType.DXA },
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: agg.samplesContributing + '/' + siteReports.length, size: 18, color: '6B7280' })] })]
+                            })
+                        ];
+                    }
+                    rollupRows.push(new TableRow({ children: cells }));
+                });
+
+                allChildren.push(new Table({ rows: rollupRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                allChildren.push(new Paragraph({ children: [] }));
+
+                // b35fix311: exclusion footnotes — list zones dropped from
+                // procurement math so the superintendent knows what's missing
+                // from the totals and why.
+                if (staleReports.length > 0 && !siteOptOut) {
+                    var excludedLabels = staleReports.map(function(sr) {
+                        var lbl = (sr.report && (sr.report.sampleLabel || sr.report.sampleId)) || 'unknown';
+                        var age = sr.sample && sm && typeof sm.sampleAgeMonths === 'function'
+                                    ? sm.sampleAgeMonths(sr.sample)
+                                    : null;
+                        return lbl + (age != null ? ' (' + Math.round(age) + ' months old)' : '');
+                    }).join('; ');
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 80, after: 40 },
+                        children: [new TextRun({
+                            text: 'Excluded from procurement (' + staleReports.length +
+                                  ' sample' + (staleReports.length === 1 ? '' : 's') + '): ',
+                            bold: true, size: 18, color: '6B7280'
+                        }), new TextRun({
+                            text: excludedLabels + '. ',
+                            size: 18, color: '6B7280'
+                        }), new TextRun({
+                            text: 'Most recent sample exceeds the ' +
+                                  (sm && sm.STALENESS_CONFIG ? sm.STALENESS_CONFIG.thresholdMonths : 18) +
+                                  '-month freshness threshold. Re-sample to include.',
+                            italics: true, size: 18, color: '6B7280'
+                        })]
+                    }));
+                }
+                if (samplesMissingArea.length > 0 && anyAreaSeen) {
+                    // Only flag if at least one other sample DID have area
+                    // (otherwise the subtitle already explained it)
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 40, after: 40 },
+                        children: [new TextRun({
+                            text: 'Area (ha) missing for: ',
+                            bold: true, size: 18, color: '6B7280'
+                        }), new TextRun({
+                            text: samplesMissingArea.join(', ') + '. ',
+                            size: 18, color: '6B7280'
+                        }), new TextRun({
+                            text: 'Absolute kg totals above exclude these zones. ' +
+                                  'Enter sample area on each to include them.',
+                            italics: true, size: 18, color: '6B7280'
+                        })]
+                    }));
+                }
+            });
         }
 
         // Append ONE copy of References, Metadata, Glossary at the end
@@ -1600,7 +3465,7 @@
                       run: { size: 48, bold: true, color: '1F2937', font: 'Calibri' },
                       paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },
                     { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 28, bold: true, color: '059669', font: 'Calibri' },
+                      run: { size: 28, bold: true, color: '1F2937', font: 'Calibri' },
                       paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 0 } },
                     { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
                       run: { size: 24, bold: true, color: '374151', font: 'Calibri' },
@@ -1614,7 +3479,16 @@
                 headers: {
                     default: new Header({ children: [new Paragraph({
                         alignment: AlignmentType.RIGHT,
-                        children: [new TextRun({ text: 'GAIP Combined Report', size: 18, color: '9CA3AF' })]
+                        // b35fix310a_1: surface the hub version stamp on every page
+                        // of combined exports. Single-site exports already include
+                        // this via the metadata section, but combined exports strip
+                        // trailing References & Methodology, so the version never
+                        // made it into the rendered output. Pull from the same
+                        // global.GAIP_HUB_VERSION the export-metadata footer uses.
+                        children: [new TextRun({
+                            text: 'GAIP Combined Report  \u2022  Hub v' + (global.GAIP_HUB_VERSION || '11.3.10'),
+                            size: 18, color: '9CA3AF'
+                        })]
                     })] })
                 },
                 footers: {

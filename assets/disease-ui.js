@@ -94,7 +94,7 @@ const DiseaseUI = {
             return `
             <div class="gaip-threat-item">
                 <span class="gaip-threat-name">${t.disease}${betaBadge}</span>
-                <span class="gaip-threat-score gaip-risk-${t.level}">${t.risk}%</span>
+                <span class="gaip-threat-score gaip-risk-${t.level}">${(typeof t.risk === 'number' && isFinite(t.risk)) ? t.risk : 0}%</span>
             </div>
         `;
         }).join('');
@@ -104,7 +104,7 @@ const DiseaseUI = {
                 <div class="gaip-card-header">
                     <span class="gaip-risk-icon">${riskIcon}</span>
                     <h3>Disease Pressure: <span class="gaip-risk-label">${results.overallRisk.toUpperCase()}</span>${results.betaExcluded ? `<span style="font-size:10px;font-weight:400;color:#92400e;background:var(--gaip-warning-bg);border:1px solid var(--gaip-warning-border);border-radius:4px;padding:1px 6px;margin-left:8px;vertical-align:middle;" title="One or more beta (experimental) disease models show higher risk but are excluded from the validated overall score">🧪 beta models excluded</span>` : ''}</h3>
-                    <span class="gaip-overall-score">${results.overallScore}%</span>
+                    <span class="gaip-overall-score">${(typeof results.overallScore === 'number' && isFinite(results.overallScore)) ? results.overallScore : 0}%</span>
                 </div>
                 <div class="gaip-card-body">
                     <div class="gaip-top-threats">
@@ -195,7 +195,7 @@ const DiseaseUI = {
                         ${disease.displayName}${validationBadge}${phaseIndicator}
                     </div>
                     <div class="gaip-disease-score">
-                        <span class="gaip-score-value">${disease.adjustedRisk}%</span>
+                        <span class="gaip-score-value">${(typeof disease.adjustedRisk === 'number' && isFinite(disease.adjustedRisk)) ? disease.adjustedRisk : 0}%</span>
                         <span class="gaip-score-label">${disease.riskLevel}</span>
                     </div>
                 </div>

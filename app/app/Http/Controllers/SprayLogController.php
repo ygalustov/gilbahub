@@ -12,7 +12,7 @@ class SprayLogController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'site_id' => ['required', 'integer', 'exists:sites,id'],
+            'site_id' => ['required', 'string', 'exists:sites,id'],
             'zone' => ['required', 'string', 'max:80'],
             'application_date' => ['required', 'date'],
             'product_name' => ['required', 'string', 'max:255'],
@@ -32,13 +32,14 @@ class SprayLogController extends Controller
         );
 
         $id = DB::table('spray_logs')->insertGetId([
+            'account_id' => $site->account_id,
             'site_id' => $site->id,
             'user_id' => $request->user()->id,
+            'event_date' => $data['application_date'],
             'zone' => $data['zone'],
-            'application_date' => $data['application_date'],
             'product_name' => $data['product_name'],
-            'product_category' => $data['product_category'] ?? 'other',
-            'rate' => $data['rate'],
+            'product_type' => $data['product_category'] ?? 'other',
+            'rate_value' => $data['rate'],
             'rate_unit' => $data['rate_unit'],
             'target' => $data['target'],
             'notes' => $data['notes'],

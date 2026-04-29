@@ -7910,6 +7910,274 @@ const VARIETY_TRAITS = {
         }
       }
     }
+  },
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SEASHORE PASPALUM (Paspalum vaginatum Swartz)
+  // Halophytic warm-season C4 grass. Halophyte — tolerates seawater-class
+  // salinity (up to ~34,000 ppm in some cultivars). Different management
+  // requirements from couch/bermudagrass: lower N (40–50% less than hybrid
+  // bermudagrass), nitrate-N preferred over ammonium, deep-infrequent
+  // irrigation to train roots, frost-sensitive.
+  //
+  // CULTIVAR LANDSCAPE NOTE: 'Saltene' is the older Australian-released
+  // medium-textured genotype (parent of 'Velvetene', selected from within
+  // Saltene by Loch & Roche 2003 in WA). For greens-height work the dwarf
+  // cultivars (Sea Isle 2000, SeaDwarf, Salam) are conventionally preferred.
+  // Saltene at greens height is a borderline use — see _greensCaveat on
+  // the cultivar entry. Brosnan & Deputy (UH-CTAHR TM-1, 2008) document
+  // the dwarf cultivars as top-performing at <5/32" (~4mm) greens HOC,
+  // and note Salam was already commercial in Hawai'i pre-2008.
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  seashore_paspalum: {
+
+    _warning: 'Limited Australian-trial data for Saltene at greens height. Trait values are conservative defaults derived from species-level halophyte biology (Duncan & Carrow, 2000, CSIRO/Ann Arbor Press; Brosnan & Deputy, 2008, UH-CTAHR TM-1; Waltz, UGA Paspalum Agronomy) and Loch & Roche 2003 PVJ entry for Saltene/Velvetene. Refine when site-specific tissue and trial data accumulate.',
+
+    'Saltene': {
+      species: 'seashore_paspalum',
+      displayName: 'Saltene',
+
+      // Quality baseline — Saltene is older medium-textured genotype.
+      // Sea Isle 2000 entry on TurfFinder explicitly notes "Fewer seed heads
+      // than older varieties e.g. 'Adalayd' and Saltene™" (DAF Technical note).
+      qualityRating: 5.5,
+      qualitySource: 'Industry observation — Loch & Roche 2003 PVJ 16(2):65; Australian commercial use 1990s–present. NOT NTEP-trialled.',
+
+      testedRegions: ['au_subtropical', 'au_temperate'],
+
+      _greensCaveat: 'Saltene is medium-textured (10–40 mm typical mowing range per TurfFinder species page; species-level greens HOC for dwarf cultivars is 3–5 mm per Waltz/UGA). Maintaining Saltene at greens height (≤6 mm) is non-standard and will need aggressive verticutting + topdressing to manage thatch and grain. Consider Sea Isle 2000 / SeaDwarf / Salam for new greens construction.',
+
+      traits: {
+        // WEAR & RECOVERY MODULE
+        wear: {
+          multiplier: 0.95, // 5% better than baseline — moderate wear tolerance
+          confidence: 'low',
+          source: 'Trenholm, Carrow & Duncan 2000 Crop Sci 40:1350-1357 (species-level mechanism: greater shoot density, leaf moisture, K-driven turgor); Saltene-specific data not published',
+          recoveryMultiplier: 0.95,
+          notes: 'Species-level — paspalum reverts to rhizome rebuild on injury (Duncan & Carrow 2002). Saltene cultivar-specific wear data unavailable.'
+        },
+
+        // SHADE ANALYSIS MODULE
+        shade: {
+          thresholdModifier: 0.95, // 5% lower DLI tolerable than couch baseline
+          confidence: 'medium',
+          source: 'Jiang, Duncan & Carrow 2004 Crop Sci 44(2):587-594 — paspalum maintains photosynthetic efficiency under reduced light intensity (cloud, smog) better than bermudagrass; tree-shade quality reduction equivalent to bermuda',
+          notes: 'Better than couch under low-intensity / diffuse light; equivalent to couch under quality-altered tree shade'
+        },
+
+        // SALINITY MODULE — primary trait
+        salinity: {
+          multiplier: 0.55, // 45% better than baseline — halophyte
+          confidence: 'high',
+          source: 'Duncan & Carrow 2000 Seashore Paspalum (Ann Arbor Press); Lee, Carrow & Duncan 2004 HortScience 39:1143-1147; Carrow & Duncan 1998 Salt-Affected Turfgrass Sites (Ann Arbor Press); Uddin & Juraimi 2013 Sci World J 2013:409413 (>10 dS/m tolerant class)',
+          notes: 'Halophyte — tolerates EC up to ~54 dS/m (seawater class) under proper management. Saltene is older Australian genotype; salinity ceiling likely below newer cultivars (Sea Isle 2000, Platinum TE) but well above all couches. Conservative multiplier — refine with cultivar-specific test.'
+        },
+
+        // IRRIGATION MODULE
+        waterUse: {
+          multiplier: 0.90, // 10% lower than couch baseline
+          confidence: 'low',
+          source: 'Huang, Duncan & Carrow 1997 Crop Sci 37:1858-1869 (drought-resistance, root aspects); Jespersen et al. 2019 Crop Sci 59:778-786 (paspalum vs bermuda drought response)',
+          notes: 'Species-level — deep-infrequent irrigation regime trains rhizomes downward. Cultivar-specific ET data not published for Saltene.'
+        },
+
+        // CLIMATE MODULE — Cold tolerance (frost-sensitive)
+        cold: {
+          dormancyThresholdModifier: 1.10, // Goes dormant at warmer temps
+          winterkillRisk: 1.20, // 20% higher winterkill risk than couch baseline
+          confidence: 'medium',
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; McKays Grass Seeds (Sea Spray cultivar fact sheet) — "doesn\'t cope well with frosts, one chilly morning can severely affect health"; species-level frost-sensitivity well documented',
+          notes: 'Frost-sensitive. Bowral NSW Southern Highlands sits at the cool-edge of paspalum suitability — expect winter dormancy and elevated winterkill risk on frost-prone sites. Saltene cold tolerance specifically not characterised; use conservative penalty.'
+        },
+
+        // CLIMATE MODULE — Spring greenup
+        springGreenup: {
+          daysEarlier: -7, // ~1 week LATER than couch baseline (frost-sensitive)
+          confidence: 'low',
+          source: 'Inferred from species frost sensitivity (Brosnan & Deputy 2008) and 64°F (~18°C) growth threshold (West Coast Turf agronomy notes)',
+          notes: 'Slower spring greenup than couch in cool-temperate Australian climates. Saltene cultivar-specific data unavailable.'
+        },
+
+        // DISEASE MODULE — species-level susceptibilities
+        disease: {
+          dollarSpot: {
+            riskMultiplier: 1.15,
+            confidence: 'medium',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (multiple researchers report cultivar differences in dollar-spot susceptibility); TurfFinder Sea Isle 2000 entry: "in Queensland, diseases like dollar spot and spring dead patch are troublesome and prolific"',
+            notes: 'Saltene is older medium-textured genotype; dollar-spot susceptibility likely intermediate. Salam is the cultivar most clearly flagged for elevated dollar-spot pressure (Brosnan & Deputy 2008).'
+          },
+          springDeadSpot: {
+            riskMultiplier: 1.05,
+            confidence: 'low',
+            source: 'TurfFinder Sea Isle 2000 entry — Queensland field reports of spring dead patch on paspalum',
+            notes: 'Species-level concern in subtropical AU; not specifically calibrated for Saltene'
+          },
+          takeAllPatch: {
+            riskMultiplier: 1.30,
+            confidence: 'medium',
+            source: 'Duncan & Carrow 2005 GCM Feb p.114-118; Duncan & Carrow 2002 GCM 70(4):57-60 (scalping → take-all); Florida reports (per Brosnan & Deputy 2008)',
+            notes: 'Take-all patch is a known paspalum-specific concern, particularly when greens are over-irrigated, scalped, or Mn-deficient. Heckman et al. 2003 Crop Sci 43:1395-1398 (Mn fertilisation suppresses take-all on creeping bentgrass; paspalum literature recommends adequate Mn for the same pathway).'
+          },
+          fairyRing: {
+            riskMultiplier: 1.10,
+            confidence: 'low',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 Photo 11 (fairy ring observed on Salam paspalum greens in Hawaii)',
+            notes: 'Field-observed on paspalum greens; Saltene-specific rate not characterised'
+          },
+          helminthosporium: {
+            riskMultiplier: 1.10,
+            confidence: 'low',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 — leaf spot diseases (Helminthosporium spp., Bipolaris spp., Drechslera spp.) observed in Hawaii',
+            notes: 'Species-level susceptibility documented in Hawaii; Saltene-specific incidence not characterised'
+          }
+        },
+
+        // MOWING / HOC GUIDANCE
+        mowingHeight: {
+          minimum: 10,        // mm — TurfFinder species page: "10 mm to 40 mm"
+          optimal: '12-25',   // mm — fairway/sportsfield range
+          greensRange: null,  // Saltene NOT recommended for greens HOC
+          confidence: 'medium',
+          source: 'TurfFinder Seashore Paspalum species page (Globe Australia distributor data); Loch & Roche 2003 PVJ 16(2):65 — Saltene texture observations',
+          notes: 'For greens HOC (3–6 mm) use a dwarf paspalum cultivar (Sea Isle 2000, SeaDwarf, Salam). Saltene at greens HOC is non-standard.'
+        },
+
+        // FERTILITY GUIDANCE — paspalum-specific
+        fertility: {
+          nitrogenMultiplier: 0.55, // 45% lower N than couch baseline
+          nitrogenForm: 'nitrate-preferred',
+          confidence: 'high',
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (paspalum uses 40-50% less N than hybrid bermudagrass); Waltz UGA Paspalum Agronomy (greens 3-6 lb N/1000 ft²/yr in winter-dormant zones, 5-8 lb in humid tropics); Duncan & Carrow 2005 GCM Feb (nitrate-only uptake — Nitrosomonas conversion required for urea/ammonium, soil temps >12.8°C)',
+          notes: 'Nitrate-N preferred. Ammonium/urea conversion requires soil >12.8°C and pH >5.5. Greens N rate 30–50% below typical hybrid bermudagrass programme. Excessive N → puffiness, thatch, scalping.'
+        }
+      }
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // VELVETENE (TFWA02) — selected as a chance seedling from within Saltene in
+    // Western Australia (Loch & Roche 2003 PVJ 16(2):65). More dominant than
+    // Saltene under WA conditions, with smaller leaves and shorter internodes.
+    // PBR application date 2002, first sale Aug 2001 by Turf Farms (WA).
+    // Trade mark Velvetene® (no. 907679, Class 31). Not a true dwarf — sits
+    // between Saltene (medium-textured) and Sea Isle 2000/SeaDwarf (true
+    // dwarves). Closer to greens-tolerant than Saltene but still requires
+    // aggressive verticutting/topdressing if used at greens HOC.
+    //
+    // Added b35fix362 alongside Saltene because Australian customers using
+    // "Saltene greens" terminology have, in practice, often planted Velvetene
+    // (the WA-bred refinement). Cultivar identity in the field can be
+    // ambiguous — both share waxy dark-green foliage, both can show the
+    // 2–4 spikes inflorescence Loch & Roche 2003 documented.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    'Velvetene': {
+      species: 'seashore_paspalum',
+      displayName: 'Velvetene',
+
+      qualityRating: 6.0,
+      qualitySource: 'Loch & Roche 2003 PVJ 16(2):65 — TFWA02 selection notes; Australian PBR application + commercial deployment WA/east-coast 2001-present. NOT NTEP-trialled.',
+
+      testedRegions: ['au_subtropical', 'au_temperate'],
+
+      _greensCaveat: 'Velvetene has finer leaves and shorter internodes than its Saltene parent (Loch & Roche 2003) but is not a true dwarf cultivar. Achievable greens HOC ~5-8 mm with aggressive verticutting + topdressing programme; not equivalent to Sea Isle 2000 / SeaDwarf at 3-5 mm. If planning new greens construction with greens-tolerant paspalum, the dwarves remain the cleaner choice.',
+
+      traits: {
+        wear: {
+          multiplier: 0.93,
+          confidence: 'low',
+          source: 'Trenholm, Carrow & Duncan 2000 Crop Sci 40:1350-1357 (species-level); Loch & Roche 2003 — WA harsh-conditions selection implies modestly better stress recovery than parent',
+          recoveryMultiplier: 0.93,
+          notes: 'Slightly better than Saltene on dominance-under-stress evidence from the WA selection process. Cultivar-specific wear data not published.'
+        },
+
+        shade: {
+          thresholdModifier: 0.95,
+          confidence: 'medium',
+          source: 'Jiang, Duncan & Carrow 2004 Crop Sci 44(2):587-594 (species-level low-light tolerance)',
+          notes: 'Equivalent to Saltene; species-level trait, not cultivar-differentiated in published literature'
+        },
+
+        salinity: {
+          multiplier: 0.55,
+          confidence: 'medium',
+          source: 'Duncan & Carrow 2000 Seashore Paspalum (Ann Arbor Press); Lee, Carrow & Duncan 2004 HortScience 39:1143-1147; Loch & Roche 2003 PVJ entry references species-level salt tolerance, not cultivar-specific calibration',
+          notes: 'Halophyte trait inherited from Saltene parent. Tolerates effluent / reclaimed / brackish irrigation. Cultivar-specific EC ceiling not characterised; use species-level conservative multiplier until AU trial data available.'
+        },
+
+        waterUse: {
+          multiplier: 0.90,
+          confidence: 'low',
+          source: 'Huang, Duncan & Carrow 1997 Crop Sci 37:1858-1869 (species-level drought response); Loch & Roche 2003 — WA dominance selection',
+          notes: 'Species-level drought tolerance; cultivar-specific ET data unavailable'
+        },
+
+        cold: {
+          dormancyThresholdModifier: 1.10,
+          winterkillRisk: 1.20,
+          confidence: 'medium',
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; species-level frost sensitivity well documented',
+          notes: 'Same frost-sensitivity profile as Saltene. Bowral NSW Southern Highlands at the cool-edge of paspalum suitability — winter dormancy and frost-related winterkill expected on exposed sites.'
+        },
+
+        springGreenup: {
+          daysEarlier: -7,
+          confidence: 'low',
+          source: 'Inferred from species frost-sensitivity (Brosnan & Deputy 2008) and ~18°C growth threshold',
+          notes: 'Slower spring greenup than couch in cool-temperate AU climates'
+        },
+
+        disease: {
+          dollarSpot: {
+            riskMultiplier: 1.10,
+            confidence: 'medium',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (cultivar variation in dollar-spot susceptibility — Sea Isle 1 elevated, Salam elevated, Sea Isle 2000 reduced); TurfFinder Sea Isle 2000 entry: Queensland field reports of dollar spot on paspalum',
+            notes: 'No published Velvetene-specific dollar-spot data. Conservative slightly-elevated multiplier inherited from species baseline. Refine with field observation.'
+          },
+          springDeadSpot: {
+            riskMultiplier: 1.05,
+            confidence: 'low',
+            source: 'TurfFinder Sea Isle 2000 — Queensland field reports of spring dead patch on paspalum',
+            notes: 'Species-level concern; Velvetene-specific incidence not characterised'
+          },
+          takeAllPatch: {
+            riskMultiplier: 1.30,
+            confidence: 'medium',
+            source: 'Duncan & Carrow 2005 GCM Feb p.114-118; Heckman et al. 2003 Crop Sci 43:1395-1398 (Mn fertilisation pathway); Brosnan & Deputy 2008 UH-CTAHR TM-1 (Florida reports on paspalum)',
+            notes: 'Same paspalum-specific concern as Saltene. Maintain adequate Mn, avoid scalping, manage irrigation to avoid persistent surface wetness.'
+          },
+          fairyRing: {
+            riskMultiplier: 1.10,
+            confidence: 'low',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 Photo 11 (fairy ring on Salam paspalum greens, Hawaii)',
+            notes: 'Field-observed on paspalum greens; Velvetene-specific rate not characterised'
+          },
+          helminthosporium: {
+            riskMultiplier: 1.10,
+            confidence: 'low',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 — leaf spot diseases (Helminthosporium/Bipolaris/Drechslera) observed on paspalum in Hawaii',
+            notes: 'Species-level susceptibility; cultivar incidence not characterised'
+          }
+        },
+
+        mowingHeight: {
+          minimum: 5,
+          optimal: '8-20',
+          greensRange: '5-8',
+          confidence: 'medium',
+          source: 'Loch & Roche 2003 PVJ 16(2):65 (TFWA02 finer texture vs Saltene); UGA Waltz Paspalum Agronomy (species-level greens HOC for true dwarves 3-5 mm); Australian commercial use observation',
+          notes: 'Closer to greens-tolerant than Saltene. For greens HOC <5 mm a true dwarf (Sea Isle 2000, SeaDwarf) is still the conservative choice.'
+        },
+
+        fertility: {
+          nitrogenMultiplier: 0.55,
+          nitrogenForm: 'nitrate-preferred',
+          confidence: 'high',
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; Waltz UGA Paspalum Agronomy; Duncan & Carrow 2005 GCM Feb',
+          notes: 'Nitrate-N preferred. Same paspalum-specific N programme as Saltene — 30–50% below hybrid bermudagrass rate. Excessive N → puffiness, thatch.'
+        }
+      }
+    }
   }
 };
 
@@ -8379,6 +8647,31 @@ function getAustralianBuffaloVarieties(context) {
 }
 
 /**
+ * Get Seashore Paspalum varieties for dropdown (b35fix362)
+ * Saltene is the foundation Australian-released cultivar (Loch & Roche 2003
+ * PVJ 16(2):65). Other AU-relevant cultivars (Sea Isle 2000, SeaDwarf, Salam,
+ * Velvetene) can be added as cultivar-specific data accumulates.
+ * @returns {Array} Array of {value, label} objects
+ */
+function getAustralianPaspalumVarieties() {
+  const varieties = [
+    { value: 'generic', label: 'Generic / Unknown' }
+  ];
+  
+  Object.keys(VARIETY_TRAITS.seashore_paspalum || {}).forEach(name => {
+    if (!name.startsWith('_')) {
+      const v = VARIETY_TRAITS.seashore_paspalum[name];
+      varieties.push({
+        value: name,
+        label: v.displayName || name
+      });
+    }
+  });
+  
+  return varieties;
+}
+
+/**
  * Check if a species is available for a given turf profile context
  * @param {string} species - Species key (e.g., 'buffalo', 'couch')
  * @param {string} context - 'lawns', 'golf', or 'sports'
@@ -8442,6 +8735,7 @@ if (typeof module !== 'undefined' && module.exports) {
     getAustralianBentgrassVarieties,
     getBrowntopBentVarieties,
     getAustralianBuffaloVarieties,
+    getAustralianPaspalumVarieties,
     isSpeciesAvailableInContext,
     getSpeciesForContext
   };
@@ -8464,6 +8758,7 @@ if (typeof window !== 'undefined') {
   window.gaip_getAustralianBentgrassVarieties = getAustralianBentgrassVarieties;
   window.gaip_getBrowntopBentVarieties = getBrowntopBentVarieties;
   window.gaip_getAustralianBuffaloVarieties = getAustralianBuffaloVarieties;
+  window.gaip_getAustralianPaspalumVarieties = getAustralianPaspalumVarieties;
   window.gaip_isSpeciesAvailableInContext = isSpeciesAvailableInContext;
   window.gaip_getSpeciesForContext = getSpeciesForContext;
 }

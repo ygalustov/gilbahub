@@ -159,7 +159,7 @@
                 driver:     'Ca²⁺ ' + Ca.toFixed(0) + ' mg/L',
                 nutrients:  ['Fe', 'Mn', 'Cu', 'Zn'],
                 message:    'High irrigation Ca²⁺ suppresses Fe, Mn, Cu and Zn uptake at root level. ' +
-                            'Monitor tissue micronutrient status closely. Foliar supplementation likely required.',
+                            'Monitor tissue trace element status closely. Foliar supplementation likely required.',
                 detail:     'Ca²⁺ at >' + CA_MICRONUTRIENT_HIGH + ' mg/L in irrigation water ' +
                             'competes directly with Fe²⁺, Mn²⁺, Cu²⁺ and Zn²⁺ at IRT1 and NRAMP ' +
                             'divalent cation transporters in root cells. Effect is magnified on ' +
@@ -185,7 +185,7 @@
                 message:    'Elevated irrigation Ca²⁺ — moderate Fe, Mn and Zn suppression risk. ' +
                             'Monitor tissue levels; consider foliar Fe/Mn if chlorosis develops.',
                 detail:     'Ca²⁺ >' + CA_MICRONUTRIENT_THRESHOLD + ' mg/L in irrigation water ' +
-                            'is agronomically significant for micronutrient uptake, particularly ' +
+                            'is agronomically significant for trace element uptake, particularly ' +
                             'on sand-based rootzones with low buffering capacity.',
                 citation:   'Marschner 2012; Grattan & Grieve 1999'
             });

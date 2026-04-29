@@ -275,7 +275,7 @@ function renderTissueConflictDetails(conflict, nutrient) {
                     <li>Root zone compaction or restricted rooting</li>
                     <li>Water quality issues (salinity, sodicity)</li>
                     <li>Antagonistic nutrient interactions</li>
-                    ${nutrient.nutrient === 'Fe' || nutrient.nutrient === 'Mn' ? '<li>High soil pH locking out micronutrients</li>' : ''}
+                    ${nutrient.nutrient === 'Fe' || nutrient.nutrient === 'Mn' ? '<li>High soil pH locking out trace elements</li>' : ''}
                     ${nutrient.nutrient === 'K' || nutrient.nutrient === 'Mg' ? '<li>K:Mg imbalance affecting uptake</li>' : ''}
                 </ul>
             </div>

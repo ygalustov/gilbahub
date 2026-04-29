@@ -60,8 +60,12 @@
 
     /**
      * Open file picker and start parsing
+     * @param {string} [contextDataType] - 'soil' | 'water' | 'tissue', set by the
+     *   click handler so CSVs can be routed straight to SampleManager.importFile()
+     *   without the AI roundtrip. Falls back to 'auto' detection (server-side AI)
+     *   when not supplied — preserves the legacy generic-button behaviour.
      */
-    function openFilePicker() {
+    function openFilePicker(contextDataType) {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.pdf,.docx,.doc,.txt,.csv';
@@ -69,7 +73,7 @@
         
         input.addEventListener('change', function() {
             if (input.files.length > 0) {
-                parseFile(input.files[0]);
+                parseFile(input.files[0], contextDataType || null);
             }
             input.remove();
         });
@@ -80,8 +84,17 @@
 
     /**
      * Parse an uploaded file
+     * @param {File}   file
+     * @param {string} [contextDataType] - 'soil' | 'water' | 'tissue' from the
+     *   originating button. b35fix376: when supplied AND the file is a CSV,
+     *   we route through SampleManager.importFile() instead of the AI path.
+     *   The local importer handles extraction-method-suffixed nutrient column
+     *   names (K_Mehlich3, P_Olsen, Ca_Colwell etc), per-sample turf_species,
+     *   and per-sample area_ha — none of which the AI prompt was hardened
+     *   for, and all of which CSVs frequently carry. PDF/DOCX continue to
+     *   use the AI path.
      */
-    async function parseFile(file) {
+    async function parseFile(file, contextDataType) {
         // Validate
         const ext = file.name.split('.').pop().toLowerCase();
         if (!CONFIG.allowedExtensions.includes(ext)) {
@@ -93,7 +106,42 @@
             showError('File too large. Maximum size is 10MB.');
             return;
         }
-        
+
+        // ── b35fix376 LOCAL CSV BRANCH ──────────────────────────────────────
+        // CSVs from a context-tagged button (#gaip-soil-pdf-import-btn etc)
+        // bypass the AI roundtrip entirely. SampleManager.importFile() does
+        // its own header detection, multi-row import, turf_species cascade,
+        // and area_ha capture — and now (b35fix376) recognises the
+        // extraction-method-suffixed nutrient headers via the extended
+        // SOIL_FIELD_MAP. Falling through to the AI path on validation
+        // failure is intentional only for files without dataType context;
+        // a known-soil CSV that the local importer rejects should error,
+        // not silently retry against the AI validator that already failed.
+        if (ext === 'csv' && contextDataType) {
+            const SM = global.GAIP_SampleManager || global.SampleManager || global.GilbaSampleManager;
+            if (SM && typeof SM.importFile === 'function') {
+                console.log('[LabParser b35fix376] Routing CSV to local importer (dataType=' +
+                    contextDataType + ', file=' + file.name + ')');
+                _state.parsing = true;
+                showParsingUI(file.name);
+                try {
+                    const result = await SM.importFile(file, { dataType: contextDataType });
+                    _state.parsing = false;
+                    showLocalImportResult(result, file.name);
+                    return;
+                } catch (err) {
+                    _state.parsing = false;
+                    console.error('[LabParser b35fix376] Local CSV import failed:', err);
+                    showError('CSV import failed: ' + (err && err.message ? err.message : err) +
+                              ' — check column headers match the template.');
+                    return;
+                }
+            }
+            // SampleManager not available — fall through to AI path with a warning
+            console.warn('[LabParser b35fix376] SampleManager.importFile unavailable; ' +
+                'falling back to AI path for CSV');
+        }
+
         console.log('[LabParser] Uploading:', file.name, '(' + (file.size / 1024).toFixed(1) + ' KB)');
         
         _state.parsing = true;
@@ -666,6 +714,37 @@
         container.innerHTML = html;
     }
 
+    /**
+     * b35fix376: Result panel for local-CSV import path. Shape of `result`
+     * comes from SampleManager.processImportData(): { dataType, sampleCount,
+     * sampleIds, samples, meta }. No per-sample confirmation step like the
+     * AI path — the local importer commits everything by definition; if a
+     * row was malformed it would have thrown.
+     */
+    function showLocalImportResult(result, filename) {
+        const container = getOrCreateContainer();
+        const count = (result && result.sampleCount) || 0;
+        const dataType = (result && result.dataType) || 'sample';
+        const dtLabel = dataType.charAt(0).toUpperCase() + dataType.slice(1);
+
+        const html = `
+            <div class="gaip-lab-parser-content">
+                <div class="gaip-lab-success">
+                    <strong>Imported ${count} ${dtLabel.toLowerCase()} sample${count !== 1 ? 's' : ''} from ${escapeHtml(filename)}</strong>
+                    <div class="gaip-lab-import-summary">
+                        <span class="gaip-lab-badge ${dataType}">${count} ${dataType}</span>
+                    </div>
+                    <p>Samples are now in the ${dtLabel} sample switcher. The first sample has been loaded into the form. Switch between samples using the dropdown.</p>
+                    <div class="gaip-lab-actions">
+                        <button class="gaip-btn gaip-btn-sm gaip-btn-ghost" onclick="GAIP_LabParser.close()">Done</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.innerHTML = html;
+        container.style.display = 'block';
+    }
+
     function close() {
         const container = document.getElementById('gaip-lab-parser-panel');
         if (container) {
@@ -1005,11 +1084,16 @@
         }
     }
 
-    // Wire import strip buttons (new redesigned soil/water cards)
+    // Wire import strip buttons (new redesigned soil/water cards).
+    // b35fix376: pass the card's dataType down so CSVs route through the
+    // local SampleManager.importFile() path instead of the AI roundtrip.
     document.addEventListener('click', function(e) {
-        if (e.target.closest('#gaip-soil-pdf-import-btn') ||
-            e.target.closest('#gaip-water-pdf-import-btn')) {
-            openFilePicker();
+        if (e.target.closest('#gaip-soil-pdf-import-btn')) {
+            openFilePicker('soil');
+        } else if (e.target.closest('#gaip-water-pdf-import-btn')) {
+            openFilePicker('water');
+        } else if (e.target.closest('#gaip-tissue-pdf-import-btn')) {
+            openFilePicker('tissue');
         }
     });
 

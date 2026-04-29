@@ -190,14 +190,30 @@
          * @returns {Object} Risk assessment
          */
         calculate(climate, nitrogen, variety, options = {}) {
-            const meanTemp = climate?.temperature?.mean ?? 15;
-            const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
-            const maxTemp = climate?.temperature?.max ?? (meanTemp + 5);
-            const humidity = climate?.moisture?.humidity?.mean ?? climate?.humidity ?? 75;
+            // b35fix345: null-passthrough on temperature and humidity. Pre-fix
+            // meanTemp `?? 15` and humidity `?? 75` planted fabricated values
+            // when climate data was missing — produced spurious risk on no-data
+            // sites. Now: degrade explicitly when temperature is missing
+            // (humidity-only can't drive red thread; the engine needs a temp
+            // signal to enter the bell curve).
+            const meanTemp = climate?.temperature?.mean ?? null;
+            const humidity = climate?.moisture?.humidity?.mean ?? climate?.humidity ?? null;
             const precip = climate?.precipitation?.total ?? 0;
             const nStatus = nitrogen?.status || 'adequate';
             const species = options.species || 'perennialRyegrass';
             const region = options.region || 'uk_ireland';
+            
+            if (meanTemp == null) {
+                return this._buildResult(0, 'minimal', {
+                    temperature: { value: null, contribution: 0, note: 'No temperature data — degraded' },
+                    humidity: { value: humidity, contribution: 0 },
+                    nitrogen: { status: nStatus, modifier: 1 },
+                    species: { name: species, modifier: 1 }
+                }, 'Temperature data unavailable — risk computation skipped (b35fix345)');
+            }
+            
+            const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
+            const maxTemp = climate?.temperature?.max ?? (meanTemp + 5);
             
             // ==============================================================
             // EXIT EARLY: Temperature outside viable range
@@ -243,14 +259,18 @@
             let humidityFactor = 0;
             const hCfg = RED_THREAD_CONFIG.humidity;
             
-            if (humidity >= hCfg.optimal) {
-                humidityFactor = 1.0;
-            } else if (humidity >= hCfg.high) {
-                humidityFactor = 0.7 + 0.3 * ((humidity - hCfg.high) / (hCfg.optimal - hCfg.high));
-            } else if (humidity >= hCfg.moderate) {
-                humidityFactor = 0.4 + 0.3 * ((humidity - hCfg.moderate) / (hCfg.high - hCfg.moderate));
-            } else if (humidity >= hCfg.minForInfection) {
-                humidityFactor = 0.1 + 0.3 * ((humidity - hCfg.minForInfection) / (hCfg.moderate - hCfg.minForInfection));
+            // b35fix345: null-guard. When humidity null, factor stays 0.
+            // Precip-only path below still applies (rain-driven leaf wetness).
+            if (humidity != null) {
+                if (humidity >= hCfg.optimal) {
+                    humidityFactor = 1.0;
+                } else if (humidity >= hCfg.high) {
+                    humidityFactor = 0.7 + 0.3 * ((humidity - hCfg.high) / (hCfg.optimal - hCfg.high));
+                } else if (humidity >= hCfg.moderate) {
+                    humidityFactor = 0.4 + 0.3 * ((humidity - hCfg.moderate) / (hCfg.high - hCfg.moderate));
+                } else if (humidity >= hCfg.minForInfection) {
+                    humidityFactor = 0.1 + 0.3 * ((humidity - hCfg.minForInfection) / (hCfg.moderate - hCfg.minForInfection));
+                }
             }
             
             // Boost from precipitation (rain = extended wetness)
@@ -384,11 +404,20 @@
          * Simplified version for timeline display
          */
         calculateDaily(dayClimate, nitrogen, variety, options = {}) {
-            const temp = dayClimate.mean ?? dayClimate.temp ?? 15;
-            const humidity = dayClimate.humidity ?? 75;
+            // b35fix345: null-passthrough on temp and humidity. Pre-fix
+            // `?? 15` for temp and `?? 75` for humidity fabricated values
+            // when day-climate data was missing — produced spurious risk
+            // on no-data sites. Now: degrade explicitly when temp missing;
+            // null humidity yields humidityFactor=0 (no contribution).
+            const temp = dayClimate.mean ?? dayClimate.temp ?? null;
+            const humidity = dayClimate.humidity ?? null;
             const precip = dayClimate.precip ?? dayClimate.precipitation ?? 0;
             const nStatus = nitrogen?.status || nitrogen || 'adequate';
             const species = options.species || 'perennialRyegrass';
+            
+            if (temp == null) {
+                return 0; // Degraded — no temperature signal, no risk computed.
+            }
             
             // Quick temperature check
             if (temp > 29 || temp < 4) {
@@ -406,13 +435,16 @@
             }
             
             // Humidity factor (simplified)
+            // b35fix345: null-guard. When humidity null, factor stays 0.
             let humidityFactor = 0;
-            if (humidity >= 90) {
-                humidityFactor = 1.0;
-            } else if (humidity >= 80) {
-                humidityFactor = 0.5 + 0.5 * ((humidity - 80) / 10);
-            } else if (humidity >= 70) {
-                humidityFactor = 0.2 + 0.3 * ((humidity - 70) / 10);
+            if (humidity != null) {
+                if (humidity >= 90) {
+                    humidityFactor = 1.0;
+                } else if (humidity >= 80) {
+                    humidityFactor = 0.5 + 0.5 * ((humidity - 80) / 10);
+                } else if (humidity >= 70) {
+                    humidityFactor = 0.2 + 0.3 * ((humidity - 70) / 10);
+                }
             }
             
             // Rain boost

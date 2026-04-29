@@ -95,38 +95,21 @@
      * "Putting Green"     → "putting green"
      */
     function deriveZoneKey(sample) {
-        // Use label (display name) if available, otherwise fall back to id
-        var key = sample.label || sample.id || '';
-
-        // Strip auto-dedup parenthetical suffixes e.g. "(2026-02-13)" or "(2026-02-13 14:30)"
-        key = key.replace(/\s*\(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?\)\s*$/, '');
-
-        // Strip quarter/half references
-        key = key.replace(/\b[Qq][1-4]\b/g, '');
-        key = key.replace(/\b[Hh][12]\b/g, '');
-
-        // Strip month names (English)
-        key = key.replace(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\b/gi, '');
-
-        // Strip 4-digit years (2000-2099)
-        key = key.replace(/\b20\d{2}\b/g, '');
-
-        // Strip date patterns (dd/mm/yyyy, mm-dd-yy, ISO yyyy-mm-dd, etc.)
-        key = key.replace(/\b\d{4}[\/-]\d{1,2}[\/-]\d{1,2}\b/g, '');
-        key = key.replace(/\b\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4}\b/g, '');
-
-        // Strip seasonal words
-        key = key.replace(/\b(spring|summer|autumn|fall|winter)\b/gi, '');
-        key = key.replace(/\b(pre|post|mid)\s*-?\s*(season|summer|winter|spring|autumn)\b/gi, '');
-
-        // Strip standalone "test" or "sample" with optional number
-        key = key.replace(/\b(test|sample|report)\s*#?\d*\b/gi, '');
-
-        // Normalize whitespace, underscores, hyphens → single space, then trim
-        key = key.replace(/[\s_-]+/g, ' ').trim().toLowerCase();
-
-        // Fallback: if stripping removed everything, use the original label/id
-        return key || (sample.label || sample.id).toLowerCase().trim();
+        // b35fix311_1: zone-key derivation moved to assets/zone-key.js — single
+        // source of truth shared with word-export-combined.js. This wrapper
+        // preserves the internal name used throughout this file.
+        if (typeof global.GaipZoneKey !== 'undefined' &&
+            typeof global.GaipZoneKey.derive === 'function') {
+            return global.GaipZoneKey.derive(sample);
+        }
+        // Defensive fallback — should never happen if enqueue order is correct.
+        // Log once so an enqueue regression is visible in production logs.
+        if (!deriveZoneKey._warned) {
+            console.warn('[NutrientTrend] GaipZoneKey not loaded; trend grouping may drift');
+            deriveZoneKey._warned = true;
+        }
+        var key = (sample && (sample.label || sample.id)) || '';
+        return String(key).toLowerCase().trim();
     }
 
     // =========================================================================
@@ -183,9 +166,15 @@
     // =========================================================================
 
     /**
-     * MLSN fixed thresholds (fallback when NutrientDemandEngine not available)
+     * MLSN fixed thresholds (fallback when NutrientDemandEngine not available).
+     * b35fix301a: sourced from gaip-classification-constants.js when loaded.
      */
-    var MLSN_DEFAULTS = { K: 37, P: 21, Ca: 331, Mg: 47, S: 7, Fe: 2, Mn: 1, Zn: 1, Cu: 0.3, B: 0.3 };
+    var MLSN_DEFAULTS =
+        (typeof window !== 'undefined' && window.GilbaClassificationConstants &&
+         window.GilbaClassificationConstants.MLSN_THRESHOLDS) ||
+        (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants &&
+         globalThis.GilbaClassificationConstants.MLSN_THRESHOLDS) ||
+        { K: 37, P: 21, Ca: 331, Mg: 47, S: 7, Fe: 2, Mn: 1, Zn: 1, Cu: 0.3, B: 0.3 };
 
     /**
      * Get threshold for a nutrient, respecting the active methodology.

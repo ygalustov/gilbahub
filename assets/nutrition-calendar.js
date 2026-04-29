@@ -19,8 +19,14 @@
  * - PACE Turf GP model: Temperature-based growth potential for distribution
  * 
  * @package Gilba_Hub
- * @version 2.1.0
+ * @version 2.5.0
  * @since 10.2.0
+ *
+ * Changelog:
+ *   2.5.0 (b35fix304): Extract pure computeProgram(inputs). generate() is now a
+ *                      thin wrapper. getThresholds / calculateDeficit accept an
+ *                      explicit aaTextureKey so callers (e.g. word-export-combined
+ *                      per-sample loop) can drive the calendar without DOM access.
  */
 
 (function() {
@@ -31,26 +37,32 @@
     // ========================================================================
 
     const CONFIG = {
-        version: '2.4.0',
+        version: '2.5.0',
         
-        // MLSN thresholds (ppm) - Micah Woods / PACE Turf
-        // Minimum Level for Sustainable Nutrition - evidence-based minimums
-        mlsnThresholds: { P: 21, K: 37, Ca: 331, Mg: 47, S: 6 },
+        // Threshold tables (MLSN / SLAN / AA)
+        // b35fix301a: sourced from gaip-classification-constants.js when loaded.
+        //             MLSN S value changes from 6 to 7 here as part of the
+        //             standardisation onto the published MLSN guideline
+        //             (Woods, Stowell, Gelernter 2016, PeerJ Preprints 4:e2144v1).
+        //             Fallback literals retained for Node-test contexts without
+        //             the constants module loaded.
+        mlsnThresholds:
+            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).MLSN_THRESHOLDS ||
+            { P: 21, K: 37, Ca: 331, Mg: 47, S: 7 },
         
-        // SLAN thresholds (ppm) - Sufficiency Level of Available Nutrients
-        // Traditional "sufficiency" approach - higher targets
-        // Sources: Carrow et al. (2001), PACE Turf historical data
-        slanThresholds: { P: 40, K: 117, Ca: 750, Mg: 120, S: 12 },
+        slanThresholds:
+            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).SLAN_THRESHOLDS ||
+            { P: 40, K: 117, Ca: 750, Mg: 120, S: 12 },
 
-        // Ammonium Acetate thresholds (Hill Labs NZ)
-        // Upper bound of "low" range = minimum sufficiency threshold
-        // Soil texture-dependent for K and Mg (sands vs others)
-        // P uses Olsen extraction (mg/L, equivalent to ppm for soil)
-        // Source: Hill Labs NZ standard soil test interpretation ranges
-        aaThresholds: {
-            sands:  { P: 12, K: 75,  Ca: 500, Mg: 100, S: 30 },
-            others: { P: 12, K: 100, Ca: 500, Mg: 140, S: 30 }
-        },
+        aaThresholds:
+            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).AA_THRESHOLDS ||
+            {
+                sands:  { P: 12, K: 75,  Ca: 500, Mg: 100, S: 30 },
+                others: { P: 12, K: 100, Ca: 500, Mg: 140, S: 30 }
+            },
         
         // Years to spread deficit correction
         yearsToCorrect: { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 },
@@ -230,8 +242,14 @@
         const hemisphere = (lat !== null && lat < 0) ? 'south' : 'north';
         
         // Species - prioritize effectiveSpecies from turf profile (set by orchestrator)
-        const rawSpecies = state.turf?.effectiveSpecies || 
-                          state.turf?.grassSpecies || 
+        // b35fix309 item 5: track whether we landed on the silent IIFE fallback so
+        // downstream code (UI, exports) can flag it. Previously this defaulted to
+        // 'creepingBentgrass' with no warning, indistinguishable from a genuine
+        // creeping bent sample. Surfaced during b35fix306 debugging.
+        let _speciesFallbackUsed = false;
+        let _speciesFallbackDomValue = null;
+        const rawSpecies = state.turf?.effectiveSpecies ||
+                          state.turf?.grassSpecies ||
                           state.grassSpecies ||
                           window.GAIP_CANONICAL_STATE?.turf?.effectiveSpeciesKey ||
                           window.GAIP_CANONICAL_STATE?.turf?.speciesKey ||
@@ -239,15 +257,57 @@
                           (function() {
                               const domSpecies = document.querySelector('.gaip-grass-species')?.value ||
                                                document.querySelector('[name="grassSpecies"]')?.value;
+                              _speciesFallbackDomValue = domSpecies || null;
+                              if (!domSpecies) {
+                                  _speciesFallbackUsed = true;
+                              }
                               return domSpecies || 'creepingBentgrass'; // neutral fallback, not C3 ryegrass
                           })();
         const species = this.normalizeSpecies(rawSpecies);
         const isC4 = this.isC4Species(species);
+
+        // b35fix309 item 5: warn once per generate when the silent fallback fired.
+        // Includes the raw value (null/undefined if missing entirely), the active
+        // sample id (best-effort lookup), and the resolved fallback species.
+        if (_speciesFallbackUsed) {
+            let _activeSampleId = null;
+            try {
+                if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSampleId === 'function') {
+                    _activeSampleId = window.GAIP_SampleManager.getActiveSampleId();
+                }
+            } catch (e) { /* sample manager unavailable; carry on with null */ }
+            console.warn(
+                '[NutritionCalendar] Species missing in state and DOM — defaulted to creepingBentgrass.',
+                'sampleId:', _activeSampleId,
+                'rawSpecies:', rawSpecies,
+                'domValue:', _speciesFallbackDomValue
+            );
+        }
+
+        // b35fix306: preserve the human-facing species string for the summary strip.
+        // `species` above is the nutrient-engine key (SpeciesController.toNutrientKey
+        // collapses browntop → creepingBentgrass for tissue % reuse per line 558 of
+        // species-controller.js). `speciesDisplay` is what the user actually sees —
+        // the original raw site label. Keep both; do not unify.
+        const speciesDisplay = (function(s) {
+            if (typeof s === 'string' && s.trim()) return s.trim();
+            if (s && typeof s === 'object') {
+                return s.name || s.species || s.grassSpecies || '';
+            }
+            return '';
+        })(rawSpecies);
         
         // Soil values (ppm)
         // b35fix282: include micronutrients so Mulder's interaction checker
         // has the full nutrient panel (Fe, Mn, Zn, Cu needed for ratio checks)
-        const soil = state.soil || {};
+        // b35fix386: read from `state.inputs.soil` first — that's where the
+        // hub-store routes writes via its setter contract. `state.soil` alone
+        // is always undefined on the synthesiser getter's view. The legacy
+        // `state.soil` fallback is preserved in case any other call site
+        // populates the legacy slot directly (none currently do, but it
+        // costs nothing to keep the read tolerant). Pairs with the writeback
+        // fix in syncSoilFromDOM above.
+        const soil = (state.inputs && state.inputs.soil) || state.soil || {};
         const soilPpm = {
             P: this.extractPpm(soil, 'P'),
             K: this.extractPpm(soil, 'K'),
@@ -302,7 +362,10 @@
         
         // Clipping management - default based on surface type
         // Greens typically collect, fairways/sports typically return
-        const surfaceType = state.soil?.surfaceType || state.turf?.subCategory || 'sports';
+        // b35fix386: read surfaceType from the locally-resolved `soil` const
+        // (above), not `state.soil` which is undefined on the synthesised
+        // state view. `soil` already prefers `state.inputs.soil`.
+        const surfaceType = soil.surfaceType || state.turf?.subCategory || 'sports';
         const defaultClippingMgmt = ['greens', 'golf_greens', 'bowling_greens', 'tees'].includes(surfaceType) 
             ? 'collected' : 'returned';
         const clippingManagement = this.elements.clippingSelect?.value || state.turf?.clippingManagement || defaultClippingMgmt;
@@ -311,6 +374,7 @@
             hemisphere,
             latitude: lat,
             species,
+            speciesDisplay,
             isC4,
             soilPpm,
             bulkDensity,
@@ -323,6 +387,7 @@
             traffic,
             surfaceType,
             clippingManagement,
+            _speciesDefaulted: _speciesFallbackUsed,  // b35fix309 item 5: true when silent creepingBentgrass fallback fired
         };
     };
 
@@ -342,8 +407,26 @@
     };
 
     /**
-     * Sync soil data from DOM inputs to GAIP_STATE
-     * Ensures state is current before generating program
+     * Sync soil data from DOM inputs and SampleManager active sample to GAIP_STATE
+     * Ensures state is current before generating program.
+     *
+     * b35fix383: Source of truth is SampleManager.getActiveSample('soil').normalized
+     * (where the lab values actually live). DOM inputs are a fallback for
+     * manually-typed values that haven't been persisted to a sample yet.
+     *
+     * Pre-fix this function only read DOM `[data-mlsn="X"]` fields. When the
+     * user wasn't on the soil tab those inputs were empty/unrendered, so
+     * `soilState.ppm.K` ended up undefined. The live preview then computed
+     * annual K targets as if soil K = 0 (treated as deficient by SLAN below
+     * the 75 ppm floor → triggered lift correction → inflated annualK from
+     * the correct ~52 to ~105). The recommender saw spurious K demand and
+     * pulled in specialty K products (SOL-KNO3) that the agronomic situation
+     * did NOT warrant.
+     *
+     * The combined export pathway (`word-export.js` line ~6188) already reads
+     * `GAIP_STATE.soil.ppm` which gets correctly populated when SampleManager
+     * activates a sample — that's why exports got K=141 for 14th_green while
+     * the live preview got K=0. Closes the asymmetric-readers bug class.
      */
     NutritionCalendar.syncSoilFromDOM = function() {
         // Ensure GAIP_STATE exists and has a writable soil object
@@ -352,8 +435,14 @@
         // Always create a fresh local soil object to avoid frozen/replaced state issues
         var soilState = {};
         try {
-            // Carry over existing ppm values if present
-            var existing = window.GAIP_STATE.soil;
+            // Carry over existing ppm values if present.
+            // b35fix386: read from `state.inputs.soil` first (canonical store
+            // path), fall back to `state.soil` for legacy compat. Pre-fix
+            // this read `state.soil` only — which is always undefined on the
+            // hub-store getter's synthesised view, so the carry-over branch
+            // never fired. Same root cause as the writeback fix below.
+            var existing = (window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil)
+                || window.GAIP_STATE.soil;
             if (existing && existing.ppm) {
                 soilState = { ppm: Object.assign({}, existing.ppm) };
             } else {
@@ -363,13 +452,56 @@
             soilState = { ppm: {} };
         }
 
-        // Read nutrient values from DOM inputs with data-mlsn attributes
+        // b35fix383: PRIORITY 1 — pull from SampleManager active sample
+        // (authoritative lab values, present regardless of which tab the user
+        // is currently viewing). This was the missing branch that caused the
+        // live preview to compute K=0 when the soil tab DOM was empty.
+        try {
+            var SM = window.GAIP_SampleManager;
+            var activeSoil = (SM && typeof SM.getActiveSample === 'function')
+                ? SM.getActiveSample('soil') : null;
+            if (activeSoil) {
+                // Sample structure: { id, label, date, rawData, normalized: {P, K, Ca, Mg, S, Fe, Mn, Zn, Cu, Na, ...} }
+                var src = activeSoil.normalized || activeSoil.rawData || {};
+                var nutKeys = ['P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Cu', 'Zn', 'Na'];
+                nutKeys.forEach(function(nut) {
+                    var v = parseFloat(src[nut]);
+                    if (!isNaN(v) && v > 0) {
+                        soilState.ppm[nut] = v;
+                        soilState[nut] = v;
+                    }
+                });
+                // Also lift methodology, pH, OM, CEC, bulkDensity if the
+                // sample carries them — same precedence rule (sample first,
+                // DOM-derived fallback below).
+                if (src.methodology) soilState.methodology = src.methodology;
+                if (src.pH_water != null) soilState.pH_water = parseFloat(src.pH_water);
+                if (src.pH_cacl2 != null) soilState.pH_cacl2 = parseFloat(src.pH_cacl2);
+                if (src.OM != null) soilState.OM = parseFloat(src.OM);
+                if (src.CEC != null) soilState.CEC = parseFloat(src.CEC);
+                if (src.bulkDensity != null) soilState.bulkDensity = parseFloat(src.bulkDensity);
+            }
+        } catch (e) {
+            console.warn('[NutritionCalendar b35fix383] SampleManager soil read failed, falling back to DOM:', e && e.message);
+        }
+
+        // PRIORITY 2 — DOM inputs override sample values when the user has
+        // typed a positive non-zero value into the soil panel. Empty inputs
+        // and literal-zero inputs do NOT overwrite the SampleManager values
+        // populated above.
+        //
+        // b35fix384: Pre-fix the DOM scan accepted parseFloat('0') = 0 as a
+        // valid value and zeroed out the SampleManager K=141 override — net
+        // effect was b35fix383's SampleManager priority block silently
+        // produced no behaviour change. The `> 0` guard mirrors the
+        // SampleManager block's own guard above, keeping the two halves of
+        // this function symmetric on what counts as "real data".
         const nutrients = ['P', 'K', 'Ca', 'Mg', 'S', 'Fe', 'Mn', 'Cu', 'Zn', 'Na'];
         nutrients.forEach(nutrient => {
             const input = document.querySelector(`[data-mlsn="${nutrient}"]`);
             if (input && input.value) {
                 const value = parseFloat(input.value);
-                if (!isNaN(value)) {
+                if (!isNaN(value) && value > 0) {
                     soilState.ppm[nutrient] = value;
                     soilState[nutrient] = value;
                 }
@@ -399,11 +531,41 @@
             soilState.surfaceType = surfaceSelect.value;
         }
 
-        // Single write-back — all fields collected, one assignment
+        // b35fix386: route the writeback through the hub-store setter's
+        // `e.inputs` branch. The legacy `window.GAIP_STATE.soil = ...` write
+        // appears to succeed (no exception) but is silently dropped because
+        // `window.GAIP_STATE` is a getter/setter pair, not a data property.
+        // The getter synthesises a fresh object on every read from
+        // `c.peek('inputs')`, `c.peek('computed')`, etc.; assignments to
+        // top-level `.soil` land on that ephemeral object and are GC'd. Only
+        // assignments that match the setter's `e.inputs` branch reach the
+        // actual store.
+        //
+        // Pre-fix (b35fix383+384): SampleManager-priority block correctly
+        // built `soilState.ppm.K = 141`, then `window.GAIP_STATE.soil =
+        // soilState` was a no-op. `collectFromState` then read `state.soil`
+        // → undefined → `extractPpm(soil, 'K')` → 0 (via `parseFloat(undef.ppm)
+        // || 0`). soilSeenK=0 across every site, every sample, every click.
+        // Live preview agronomically wrong on every K-sufficient soil.
+        // Word export survived only because it constructs perSampleInputs
+        // as a plain local object handed straight to computeProgram(), never
+        // round-tripping through window.GAIP_STATE.
+        //
+        // Post-fix: assigning `window.GAIP_STATE = { inputs: { soil: soilState
+        // } }` triggers the setter's transaction path — `c.transaction((t)
+        // => t.set('inputs.soil', soilState, 'legacy-state-write'))`. The
+        // store accepts the write; subsequent reads of `state.inputs.soil`
+        // return what we wrote. Verified at the console: probe 2 shows
+        // `inputs.soil` carrying `{ppm:{K:999}, K:999, methodology:'mlsn'}`
+        // after the routed write, and the run-count probe confirms no
+        // analysis-cascade re-trigger (safe to write from inside generate()).
+        //
+        // The matched read fix lives in collectFromState below — `state.soil`
+        // alone returns undefined; the canonical read is `state.inputs.soil`.
         try {
-            window.GAIP_STATE.soil = soilState;
-        } catch(e) {
-            window.GAIP_STATE = Object.assign({}, window.GAIP_STATE, { soil: soilState });
+            window.GAIP_STATE = { inputs: { soil: soilState } };
+        } catch (e) {
+            console.warn('[NutritionCalendar b35fix386] state writeback failed:', e && e.message);
         }
     };
 
@@ -589,9 +751,9 @@
      * @param {string} methodology - 'mlsn' or 'slan'
      * @returns {number} Deficit in kg/ha (0 if at or above threshold)
      */
-    NutritionCalendar.calculateDeficit = function(currentPpm, nutrient, bulkDensity, soilDepth, methodology = 'mlsn') {
+    NutritionCalendar.calculateDeficit = function(currentPpm, nutrient, bulkDensity, soilDepth, methodology = 'mlsn', aaTextureKey = null) {
         // Select threshold based on methodology
-        const thresholds = this.getThresholds(methodology);
+        const thresholds = this.getThresholds(methodology, aaTextureKey);
         
         const threshold = thresholds[nutrient];
         if (!threshold || currentPpm >= threshold) return 0;
@@ -605,18 +767,28 @@
     /**
      * Get threshold values for a methodology
      * @param {string} methodology - 'mlsn', 'slan', or 'ammonium_acetate'
+     * @param {string|null} aaTextureKey - optional precomputed AA texture key
+     *                                     ('sands' | 'others'). When null and
+     *                                     methodology is AA, falls back to DOM
+     *                                     read. Supply the key to keep this
+     *                                     function pure (b35fix304).
      * @returns {object} Threshold values for each nutrient
      */
-    NutritionCalendar.getThresholds = function(methodology = 'mlsn') {
+    NutritionCalendar.getThresholds = function(methodology = 'mlsn', aaTextureKey = null) {
         const m = (methodology || 'mlsn').toLowerCase();
         if (m === 'slan') {
             return { ...CONFIG.slanThresholds };
         }
         if (m === 'ammonium_acetate' || m === 'ammoniumacetate' || m === 'aa') {
-            // Read soil texture for texture-dependent thresholds
-            const textureEl = document.querySelector('.gaip-aa-soil-texture');
-            const texture = (textureEl?.value || 'sands').toLowerCase();
-            const key = texture === 'others' ? 'others' : 'sands';
+            // b35fix304 Task 2: prefer the explicit aaTextureKey when supplied so
+            // callers can drive this function without DOM access. Fall back to the
+            // DOM read when no key is provided (legacy behaviour).
+            let key = aaTextureKey;
+            if (key == null && typeof document !== 'undefined') {
+                const textureEl = document.querySelector('.gaip-aa-soil-texture');
+                key = (textureEl?.value || 'sands').toLowerCase();
+            }
+            key = (key === 'others') ? 'others' : 'sands';
             return { ...CONFIG.aaThresholds[key] };
         }
         return { ...CONFIG.mlsnThresholds };
@@ -708,35 +880,47 @@
      * - Clipping management affects all nutrient requirements
      * - MLSN deficits added on top for P, K, Ca, Mg, S
      */
-    NutritionCalendar.generate = function() {
-        
-        // Sync soil data from DOM to GAIP_STATE first
-        this.syncSoilFromDOM();
-        
-        const inputs = this.collectFromState();
-        
-        // ================================================================
+    /**
+     * b35fix304 Task 2: DOM-free helper to read ammonium-acetate soil texture key.
+     * Used by the wrapper to populate inputs.aaTextureKey so computeProgram stays pure.
+     */
+    NutritionCalendar._collectAATexture = function() {
+        if (typeof document === 'undefined') return null;
+        const textureEl = document.querySelector('.gaip-aa-soil-texture');
+        return (textureEl?.value || 'sands').toLowerCase();
+    };
+
+    /**
+     * b35fix304 Task 2: Pure programme compute.
+     *
+     * No DOM reads, no global writes, no event dispatch.
+     *
+     * @param {object} inputs - Shape returned by collectFromState(), plus
+     *                          optional aaTextureKey for AA methodology.
+     *   { hemisphere, latitude, species, isC4, soilPpm, bulkDensity, soilDepth,
+     *     methodology, monthlyTemps, annualNOverride, maxNPerMonth, distribution,
+     *     traffic, surfaceType, clippingManagement, aaTextureKey? }
+     *
+     * @returns {object} Program object on success:
+     *   { meta, soil, annual_totals, adjustments, program: { monthly } }
+     * or an error object on invalid input:
+     *   { error: '<message>' }
+     */
+    NutritionCalendar.computeProgram = function(inputs) {
         // STEP 1: Validate Annual N (REQUIRED)
-        // ================================================================
-        // User must enter their N target - we don't guess
-        if (!inputs.annualNOverride || inputs.annualNOverride < 50) {
-            alert('Please enter your Annual N Target (kg/ha).\n\nTypical ranges:\n• Greens: 80-150\n• Tees: 120-180\n• Fairways: 150-250\n• Sports fields: 180-350');
-            if (this.elements.annualNInput) {
-                this.elements.annualNInput.focus();
-            }
-            return;
+        if (!inputs || !inputs.annualNOverride || inputs.annualNOverride < 50) {
+            return { error: 'Annual N target required (>= 50 kg/ha)' };
         }
-        
+
         const baseAnnualN = inputs.annualNOverride;
-        
+
         // Traffic modifier - only applies if explicitly high/extreme
         const trafficMod = CONFIG.trafficModifiers[inputs.traffic] || 1.0;
         const annualN = Math.round(baseAnnualN * trafficMod);
-        
+
         // ================================================================
         // STEP 2: Calculate base nutrient removal (N-driven ratios)
         // ================================================================
-        // Based on typical tissue composition ratios
         const baseRemoval = {
             N: annualN,
             P: Math.round(annualN * CONFIG.nutrientRatiosToN.P),
@@ -745,7 +929,7 @@
             Mg: Math.round(annualN * CONFIG.nutrientRatiosToN.Mg),
             S: Math.round(annualN * CONFIG.nutrientRatiosToN.S),
         };
-        
+
         // ================================================================
         // STEP 3: Apply clipping management factor
         // ================================================================
@@ -758,35 +942,34 @@
             Mg: Math.round(baseRemoval.Mg * clipMgmt.kFactor),
             S: Math.round(baseRemoval.S * clipMgmt.kFactor),
         };
-        
+
         // ================================================================
         // STEP 4: Calculate deficits and correction based on methodology
         // ================================================================
         const deficits = {};
         const annualCorrection = {};
         const methodologyUsed = inputs.methodology || 'mlsn';
-        
-        
+        const aaTextureKey = inputs.aaTextureKey != null ? inputs.aaTextureKey : null;
+
         ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
             const deficit = this.calculateDeficit(
                 inputs.soilPpm[nutrient],
                 nutrient,
                 inputs.bulkDensity,
                 inputs.soilDepth,
-                methodologyUsed
+                methodologyUsed,
+                aaTextureKey
             );
             deficits[nutrient] = deficit;
             annualCorrection[nutrient] = deficit / (CONFIG.yearsToCorrect[nutrient] || 2);
         });
-        
+
         // ================================================================
         // STEP 5: Calculate final annual requirements
         // ================================================================
-        // Removal (adjusted for clipping management) + deficit correction
-        // N: Apply clipping factor to reduce applied N when clippings returned
         // Research: Kopp & Guillard (2002) - 33-50% N reduction with clipping return
         const adjustedAnnualN = Math.round(annualN * clipMgmt.nFactor);
-        
+
         const annualRequirements = {
             N: adjustedAnnualN,
             P: Math.round(adjustedRemoval.P + annualCorrection.P),
@@ -795,7 +978,7 @@
             Mg: Math.round(adjustedRemoval.Mg + annualCorrection.Mg),
             S: Math.round(adjustedRemoval.S + annualCorrection.S),
         };
-        
+
         // Calculate monthly GP
         const monthlyGP = this.calculateMonthlyGP(inputs.monthlyTemps, inputs.isC4);
         const distributions = {};
@@ -806,15 +989,15 @@
                 inputs.distribution
             );
         });
-        
+
         // Apply N cap
         const nCapResult = this.applyNCap(distributions.N, inputs.maxNPerMonth);
         distributions.N = nCapResult.allocations;
-        
+
         // Build monthly program
         const seasons = inputs.hemisphere === 'south' ? CONFIG.seasonsSouth : CONFIG.seasonsNorth;
         const monthly = [];
-        
+
         for (let m = 0; m < 12; m++) {
             monthly.push({
                 month_num: m,
@@ -830,14 +1013,14 @@
                 S: Math.round(distributions.S[m] * 10) / 10,
             });
         }
-        
-        // Build program object
-        this.program = {
+
+        return {
             meta: {
                 generated: new Date().toISOString(),
                 version: CONFIG.version,
-                methodology: inputs.methodology.toUpperCase(),
+                methodology: (inputs.methodology || 'mlsn').toUpperCase(),
                 species: inputs.species,
+                speciesDisplay: inputs.speciesDisplay || null,
                 surfaceType: inputs.surfaceType,
                 hemisphere: inputs.hemisphere,
                 distribution: inputs.distribution,
@@ -864,18 +1047,93 @@
                 monthly: monthly,
             },
         };
-        
-        
+    };
+
+    /**
+     * Thin wrapper: DOM/state → computeProgram → render + dispatch.
+     *
+     * Keep this function small. All programme math lives in computeProgram().
+     */
+    NutritionCalendar.generate = function() {
+        // Sync soil data from DOM to GAIP_STATE first
+        this.syncSoilFromDOM();
+
+        const inputs = this.collectFromState();
+        inputs.aaTextureKey = this._collectAATexture();
+
+        // Keep the original user-facing validation (alert + focus) in the wrapper.
+        // computeProgram() also rejects annualNOverride < 50 via error object, but
+        // we short-circuit here so the user sees the alert with suggested ranges.
+        if (!inputs.annualNOverride || inputs.annualNOverride < 50) {
+            alert('Please enter your Annual N Target (kg/ha).\n\nTypical ranges:\n• Greens: 80-150\n• Tees: 120-180\n• Fairways: 150-250\n• Sports fields: 180-350');
+            if (this.elements.annualNInput) {
+                this.elements.annualNInput.focus();
+            }
+            return;
+        }
+
+        // b35fix382 INSTRUMENTATION — paired with [CombinedExport b35fix382]
+        // calendar PRE-compute log in word-export-combined.js. Same shape,
+        // different `path` tag, lets us diff calendar inputs per path.
+        try {
+            var _activeSampleId = null;
+            try {
+                if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSampleId === 'function') {
+                    _activeSampleId = window.GAIP_SampleManager.getActiveSampleId('soil');
+                }
+            } catch (e) { /* ignore */ }
+            console.log('[NutritionCalendar b35fix382] calendar PRE-compute inputs:', {
+                path: 'live-preview-calendar',
+                sampleId: _activeSampleId,
+                soilPpm: inputs.soilPpm,
+                bulkDensity: inputs.bulkDensity,
+                soilDepth: inputs.soilDepth,
+                methodology: inputs.methodology,
+                annualNOverride: inputs.annualNOverride,
+                species: inputs.species,
+                clippingManagement: inputs.clippingManagement,
+                traffic: inputs.traffic,
+                surfaceType: inputs.surfaceType,
+            });
+        } catch (_e) {
+            console.warn('[NutritionCalendar b35fix382] PRE-compute log failed:', _e && _e.message);
+        }
+
+        const program = this.computeProgram(inputs);
+        if (program.error) {
+            console.warn('[NutritionCalendar]', program.error);
+            return;
+        }
+
+        // b35fix382 INSTRUMENTATION — POST-compute calendar output. Diff
+        // annualK between this and the [CombinedExport b35fix382] POST log
+        // for the same sampleId to find where the K target diverges.
+        try {
+            console.log('[NutritionCalendar b35fix382] calendar POST-compute output:', {
+                path: 'live-preview-calendar',
+                annualN: program.annual_totals && program.annual_totals.N,
+                annualK: program.annual_totals && program.annual_totals.K,
+                annualP: program.annual_totals && program.annual_totals.P,
+                soilSeenK: program.soil && program.soil.ppm && program.soil.ppm.K,
+                methodology: program.meta && program.meta.methodology,
+                adjustments_K: program.adjustments && program.adjustments.K,
+            });
+        } catch (_e) {
+            console.warn('[NutritionCalendar b35fix382] POST-compute log failed:', _e && _e.message);
+        }
+
+        this.program = program;
+
         // Render results
         this.renderResults();
         this.showResults();
-        
+
         // Dispatch event for Prebble integration
         console.log('[NutritionCalendar] Dispatching gaip:nutrition-calendar-generated — program keys:', Object.keys(this.program || {}));
         document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated', {
             detail: { program: this.program }
         }));
-        
+
         return this.program;
     };
 
@@ -903,7 +1161,7 @@
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
                     <div style="padding: 12px; background: var(--gaip-good-bg); border-radius: 6px; text-align: center;">
                         <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Species</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #166534;">${this.formatSpecies(meta.species)}</div>
+                        <div style="font-size: 14px; font-weight: 600; color: #166534;">${meta.speciesDisplay || this.formatSpecies(meta.species)}</div>
                     </div>
                     <div style="padding: 12px; background: var(--gaip-info-bg); border-radius: 6px; text-align: center;">
                         <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Methodology</div>
@@ -1039,6 +1297,10 @@
             perennialRyegrass: 'Perennial Ryegrass',
             kentuckyBluegrass: 'Kentucky Bluegrass',
             bentgrass: 'Creeping Bentgrass',
+            // b35fix306: defensive — SpeciesController.toNutrientKey produces these
+            // camelCase nutrient-engine keys. Without entries they leaked raw to UI.
+            creepingBentgrass: 'Creeping Bentgrass',
+            browntopBent: 'Browntop Bent',
             fineFescue: 'Fine Fescue',
             tallFescue: 'Tall Fescue',
             bermuda: 'Bermudagrass',

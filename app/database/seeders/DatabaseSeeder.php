@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Account;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
@@ -28,14 +29,30 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        $account = Account::query()->updateOrCreate(
+            ['owner_user_id' => $user->id],
+            [
+                'display_name' => 'Yury',
+                'country' => 'AU',
+                'region' => '',
+                'methodology' => 'mlsn',
+                'soil_texture' => 'loam',
+                'created_by_user_id' => $user->id,
+                'modified_by_user_id' => $user->id,
+            ]
+        );
+
         $site = Site::query()->updateOrCreate(
             [
-                'owner_user_id' => $user->id,
+                'account_id' => $account->id,
                 'name' => 'Default Site',
             ],
             [
                 'slug' => Str::slug('Default Site'),
+                'site_type' => 'precinct',
                 'timezone' => 'Australia/Sydney',
+                'created_by_user_id' => $user->id,
+                'modified_by_user_id' => $user->id,
             ]
         );
 

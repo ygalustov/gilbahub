@@ -603,9 +603,14 @@
       const avgDailyMJ = avg(radDailySum);
 
       // --- Growth Potential ---
+      // b35fix297: GP is a daily metric (Kreuser & Soldat 2011). Use today's
+      // daily mean, not the multi-day hourly average which dampens shoulder-season
+      // signals. Aligns hub GP with field log analysis calculation.
       const c3Frac = turf.c3Fraction ?? (turf.isC4 ? 0 : 1);
       const c4Frac = turf.c4Fraction ?? (turf.isC4 ? 1 : 0);
-      const gpp = calcWeightedGPP(tempMean, c3Frac, c4Frac);
+      const todayDailyMean = (daily.temperature_2m_mean || [])[0];
+      const tempForGP = todayDailyMean != null ? todayDailyMean : tempMean;
+      const gpp = calcWeightedGPP(tempForGP, c3Frac, c4Frac);
 
       // --- GDD ---
       const gddBase = turf.isC4 ? 10 : 0;

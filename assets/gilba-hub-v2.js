@@ -1567,7 +1567,17 @@
                 return n.on(s, t);
               },
             }),
-            (e.GAIP_HUB_VERSION = "10.9.9"),
+            /* b35fix315: GAIP_HUB_VERSION assignment removed from bundle.
+               PHP's wp_add_inline_script (hook 'after' on gilba-hub-v2-core)
+               is now sole source of truth for the version stamp. Rationale:
+               Autoptimize / WP Rocket cache a minified copy of this file at
+               /cache/min/1/ that was generated when the bundle still contained
+               a hardcoded "10.9.9". Even after b35fix309 moved canonical
+               version to PHP, the cached minified copy kept re-asserting
+               10.9.9 AFTER the inline override ran — so exports stamped the
+               stale value. Removing the in-bundle fallback eliminates the
+               race: if PHP doesn't inject, GAIP_HUB_VERSION is undefined
+               (visible deploy issue) rather than silently "10.9.9". */
             (e.GAIP_HUB_CONFIG = e.GAIP_HUB_CONFIG || {}),
             (e.GilbaPersistence = e.GilbaPersistence || {
               save: () => {},

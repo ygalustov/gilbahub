@@ -1,7 +1,22 @@
 /**
  * Gilba Hub Word Export Module
  * Exports analysis results to .docx format
- * 
+ *
+ * Version 2.4.0 (b35fix302b) - Nutrition engine delegation
+ *   - collectData() nutrition block now delegates to NutritionRequirementEngine_Pure
+ *   - Retired the monthlyN recalc-at-export workaround (used non-canonical σ=7/7
+ *     Gaussian). Engine uses canonical PACE (σ=5.5 C3, σ=7 C4 per Gelernter &
+ *     Stowell 2005) — numeric output for users who previously hit the recalc
+ *     path will shift, but in the direction of correctness.
+ *   - Climate engine live data preferred; latitude-band fallback preserved for
+ *     robustness during programmatic site-switching in combined export.
+ *   - Legacy GAIP_NUTRITION_SOIL_CACHE read preserved as last-resort fallback
+ *     for environments where the engine fails to load. Log line identifies
+ *     which path fired: `via engine` | `via legacy cache`.
+ *     b35fix329: legacy fallback removed. Engine path is mandatory; if it
+ *     doesn't fire the section is dropped (hasData=false) and a warn is
+ *     logged. Mirrors combined-export hard-fail rule.
+ *
  * Version 2.3.0 - Nutrient Trend Analysis Section
  *   - NEW: Nutrient Trend Analysis section after N Program Validation
  *   - Collects trend data from GilbaNutrientTrend.getTrendExportData()
@@ -1061,10 +1076,17 @@
     // ========================================
     
     /**
-     * Generate soil interpretation narrative and recommendations
+     * Generate soil interpretation narrative and recommendations.
+     *
+     * b35fix320: optional `context` parameter carries non-soil signals that
+     * affect product selection (overseed/seeding state, etc). Default {} for
+     * backward compatibility — callers that don't pass context get the same
+     * behaviour as before, except where the function defaults to seedling-
+     * safe choices when ambiguity remains.
      */
-    function generateSoilNarrative(soilData) {
+    function generateSoilNarrative(soilData, nutritionProgram, context) {
         if (!soilData || !soilData.thresholds) return null;
+        context = context || {};
         
         var methodology = soilData.methodology || 'MLSN';
         var isSLAN = methodology === 'SLAN';
@@ -1104,7 +1126,7 @@
             if (status === 'deficient') {
                 deficiencies.push(n.name);
                 var deficit = thresh.min - value;
-                var rec = generateFertiliserRecommendation(n.key, deficit, soilData, soilData.surfaceType || '');
+                var rec = generateFertiliserRecommendation(n.key, deficit, soilData, soilData.surfaceType || '', nutritionProgram, context);
                 if (rec) recommendations.push(rec);
             } else if (status === 'adequate') {
                 adequate.push(n.name);
@@ -1152,10 +1174,14 @@
             
             // dolomiticCorrection: true when Mg deficit + low pH -> dolomite already recommended
             // In that case dolomite handles pH correction — suppress standalone lime recommendation
+            // b35fix322 Bug 2: simplified to lowpH && mgDeficit (matches updated
+            // _dolomiteWillBeRecommended in _computeAmendmentDecision). Also
+            // suppresses the "Light lime application" hint at slightly-acidic pH
+            // when dolomite is already covering the lime job.
             var lowpH = pH < 6.0;
             var caDeficit = soilData.Ca && soilData.thresholds && soilData.thresholds.Ca ? soilData.Ca < soilData.thresholds.Ca.min : false;
             var mgDeficit = soilData.Mg && soilData.thresholds && soilData.thresholds.Mg ? soilData.Mg < soilData.thresholds.Mg.min : false;
-            var dolomiticCorrection = lowpH && mgDeficit && (caDeficit || pH < 5.5);
+            var dolomiticCorrection = lowpH && mgDeficit;
 
             // hasSpeciesPhBlock: if species tolerance data is present, the species-specific pH
             // block (further in the report) will also fire — suppress duplicate dolomite sentence here
@@ -1190,7 +1216,7 @@
                 recommendations.push('Use ammonium-based nitrogen sources to help lower pH. Consider foliar iron applications if chlorosis appears.');
             } else if (pH > optHi + 0.5) {
                 // More than 0.5 above optimal high
-                narrative.push('Soil pH is moderately alkaline (' + pH + '). Above optimal range (' + rangeStr + ') for ' + speciesName + '. Monitor micronutrient availability.');
+                narrative.push('Soil pH is moderately alkaline (' + pH + '). Above optimal range (' + rangeStr + ') for ' + speciesName + '. Monitor trace element availability.');
                 recommendations.push('Use ammonium-based nitrogen sources. Monitor for iron chlorosis.');
             } else if (pH > optHi) {
                 // Slightly above optimal
@@ -1209,100 +1235,1757 @@
     
     /**
      * Generate fertiliser recommendation for a specific nutrient deficiency.
-     * pH-aware: selects dolomite when Mg deficit co-occurs with low pH and Ca deficit,
-     * avoiding Epsom salts + separate lime when a single product addresses both.
+     *
+     * b35fix319: extended b35fix317 programme-aware S logic to P, K, Mg, Ca.
+     * The core principle from b35fix317 — check what the N programme already
+     * delivers before recommending a standalone amendment — applies to all
+     * macronutrients. Lomandra Reserve case showed the bug class: programme
+     * over-delivered K (141 vs 76 deficit) yet a full-deficit potassium
+     * sulphate rec was still issued; programme under-delivered P (6 vs 22
+     * deficit) yet a full-deficit MAP rec was issued instead of the residual.
+     *
+     * This function is now a thin string formatter wrapping the pure decision
+     * function _computeAmendmentDecision(). The structured decision is also
+     * consumed directly by buildAnnualSoilAmendmentsTable() (b35fix319 Phase 3
+     * orphan-bug fix).
+     *
+     * pH-aware selection (unchanged from b35fix316/317):
+     *   - Mg: dolomite when Mg+Ca deficit + low pH (covers both, raises pH)
+     *          kieserite when pH >= 7 (dolomite would worsen alkalinity)
+     *          Epsom salts otherwise
+     *   - S: 5-rule context-aware (b35fix317)
+     *   - Ca: suppressed when dolomite is already recommended (covers Ca)
+     *
+     * Programme-aware additions (b35fix319):
+     *   - P: programme delivery → suppress or reduce to residual; pH-aware
+     *        product (DAP avoided > 7.5; rock phosphate at < 5.5; MAP otherwise).
+     *   - K: programme delivery → suppress or reduce to residual; chloride-free
+     *        K source (potassium sulphate, also delivers S) preferred for turf.
+     *   - Mg: programme delivery → suppress or reduce; pH-aware product unchanged.
+     *   - Ca: programme delivery → suppress or reduce; dolomite-suppression unchanged.
+     *
+     * Side-fix (b35fix319): K product analysis label corrected from
+     *   "0-0-42 (17% K)" to "0-0-50 (41.5% K)". The /0.415 divisor was already
+     *   correct (matches AU catalogue SOL-SOP at K=41.5%); only the display
+     *   string was wrong.
+     *
      * Rates expressed as elemental kg/ha (AU/NZ/UK convention).
+     * nutritionProgram shape: data.nutritionProgram.annualSummary.products keyed by product
+     * id with { product: { analysis: {N,P,K,S,...} }, applications, totalKgHa }.
+     *
+     * b35fix320: `context` param carries non-soil signals — currently
+     * { isOverseed, seedingActive }. When seedingActive (overseed configured
+     * or explicit grow-in flag), MAP is forced for P regardless of pH band
+     * because DAP volatilises NH₃ at alkaline pH which is phytotoxic to
+     * juvenile seedlings (Bremner & Krogmeier 1989). Same logic also drives
+     * a urea-volatilisation warning at pH > 7.5 in S Rule 4.
      */
-    function generateFertiliserRecommendation(nutrient, deficit, soilData, surfaceType) {
+    function generateFertiliserRecommendation(nutrient, deficit, soilData, surfaceType, nutritionProgram, context) {
+        var d = _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context);
+        if (!d) return null;
+
+        // Suppression cases — return the human-readable suppression message
+        // verbatim. Table builder reads d.status + d.reason.
+        if (d.status === 'suppressed_programme' || d.status === 'suppressed_dolomite' ||
+            d.status === 'suppressed_combined' || d.status === 'no_deficit') {
+            return d.reason;
+        }
+
+        // Apply case — format as "Apply <product> (<analysis>) at approximately <rate> ..."
+        if (d.status === 'apply') {
+            return 'Apply ' + d.product + ' (' + d.analysis + ') at approximately ' + d.rate +
+                   ' to address ' + nutrient + ' deficiency.';
+        }
+
+        return null;
+    }
+
+    /**
+     * b35fix319: pure decision function for soil amendment recommendation.
+     *
+     * Returns a structured object describing the amendment decision so the
+     * Annual Soil Amendments table can render structured rows AND the legacy
+     * sentence path can format strings — both reading the same SSOT.
+     *
+     * Returns null when nutrient is unknown or soilData is missing.
+     * Otherwise:
+     *   {
+     *     nutrient:       'P'|'K'|'Ca'|'Mg'|'S',
+     *     status:         'apply' | 'suppressed_programme' | 'suppressed_dolomite'
+     *                   | 'suppressed_combined' | 'no_deficit',
+     *     kgDeficit:      Number  // soil deficit in kg elemental nutrient/ha
+     *     kgProgramme:    Number  // delivered by N programme
+     *     kgResidual:     Number  // max(0, kgDeficit - kgProgramme), with status_dolomite caveats
+     *     product:        String  // product trade name when status='apply', else null
+     *     analysis:       String  // analysis label when status='apply', else null
+     *     rate:           String  // formatted rate string when status='apply', else null
+     *     reason:         String  // human-readable explanation (always populated)
+     *     contributing:   [{ name, kgProduct, kgNutrient, pct }]  // programme contributors
+     *   }
+     */
+    function _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context) {
+        if (['P','K','Ca','Mg','S'].indexOf(nutrient) === -1) return null;
+        if (!soilData) return null;
+
+        // b35fix320: context carries non-soil signals affecting product choice.
+        // Default to {} for backward compat; treat seedingActive as the
+        // critical gate for ammonium-source phytotoxicity decisions.
+        context = context || {};
+        // seedingActive is true when seedlings are in or near the soil profile.
+        // Sources:
+        //   1. context.seedingActive (explicit caller-provided flag, e.g. grow-in)
+        //   2. context.isOverseed (overseed configured → seed will be applied
+        //      this cycle; default to seedling-safe)
+        //   3. soilData.seedingActive (direct stamp from upstream)
+        var seedingActive = !!(context.seedingActive || context.isOverseed || soilData.seedingActive);
+
         var depth = 10; // cm sampling depth
         var bd = 1.4;   // bulk density g/cm³
-        
-        // kg elemental nutrient/ha needed
+
+        // kg elemental nutrient/ha needed (deficit in ppm × depth × BD × 0.1)
         var kgPerHa = deficit * depth * bd * 0.1;
-        
-        var pH = soilData && soilData.pH ? parseFloat(soilData.pH) : 7.0;
-        var caDeficit = soilData && (soilData.Ca < (soilData.mlsnCa || soilData.sufficiencyCa || 99999));
-        var mgDeficit = soilData && (soilData.Mg < (soilData.mlsnMg || soilData.sufficiencyMg || 99999));
+
+        var pH = soilData.pH ? parseFloat(soilData.pH) : 7.0;
+
+        var caMin = soilData.thresholds && soilData.thresholds.Ca ? soilData.thresholds.Ca.min : null;
+        var mgMin = soilData.thresholds && soilData.thresholds.Mg ? soilData.thresholds.Mg.min : null;
+        var caDeficit = caMin != null && (soilData.Ca || 0) < caMin;
+        var mgDeficit = mgMin != null && (soilData.Mg || 0) < mgMin;
         var lowpH = pH < 6.0;
 
-        // Fine turf surfaces (greens, tees, bowling, croquet) require split applications
-        // to avoid smothering. Cap single-application granular product rates.
+        // Fine turf surfaces require split applications to avoid smothering.
         var isFineTurf = surfaceType && /green|tee|bowl|croquet/i.test(surfaceType);
-        var FINE_TURF_CAP = 400; // kg product/ha per application for granular liming/mineral products
+        var FINE_TURF_CAP = 400;
 
-        // Helper: format a product rate string with split-application note if needed
-        function formatRate(kgNutrient, kgProduct, unit, productName) {
+        function formatRate(kgNutrient, kgProduct, unit) {
             var base = kgNutrient.toFixed(0) + ' kg ' + unit + '/ha (' + kgProduct.toFixed(0) + ' kg product/ha)';
             if (isFineTurf && kgProduct > FINE_TURF_CAP) {
                 var apps = Math.ceil(kgProduct / FINE_TURF_CAP);
-                base += ' — apply in ' + apps + ' split dressings of ' + Math.round(kgProduct / apps) + ' kg product/ha; water in after each application';
+                base += ' — apply in ' + apps + ' split dressings of ' + Math.round(kgProduct / apps) +
+                        ' kg product/ha; water in after each application';
             }
             return base;
         }
 
-        var products = {
-            P: { name: 'MAP (Mono-ammonium phosphate)', analysis: '10% P', rate: kgPerHa.toFixed(0) },
-            K: { name: 'Potassium sulphate', analysis: '0-0-42 (17% K)', rate: formatRate(kgPerHa, kgPerHa / 0.415, 'K', 'Potassium sulphate') },
-            Ca: { name: 'Gypsum', analysis: '23% Ca', rate: formatRate(kgPerHa, kgPerHa / 0.23, 'Ca', 'Gypsum') },
-            Mg: null, // resolved below
-            S: { name: 'Elemental sulphur', analysis: '90% S', rate: formatRate(kgPerHa, kgPerHa / 0.90, 'S', 'Elemental sulphur') }
+        // Programme delivery check — supports any nutrient key.
+        // Returns { kgDelivered, productsContributing: [...] } or null.
+        //
+        // b35fix322: skip entries flagged _isAmendment. Amendment products
+        // (gypsum, dolomite, kieserite, MOP/SOP/MAP/DAP, Epsom, lime) are
+        // injected into nutritionProgram.annualSummary.products so that the
+        // Annual Product Summary, Monthly Schedule, and Purchasing Summary
+        // see them. But they MUST NOT contribute to "programme delivery"
+        // calculations — that would self-suppress the very amendment that
+        // produced the entry. The _isAmendment sentinel breaks the loop.
+        function checkProgrammeDelivery(nut) {
+            if (!nutritionProgram || !nutritionProgram.annualSummary
+                    || !nutritionProgram.annualSummary.products) {
+                return null;
+            }
+            var products = nutritionProgram.annualSummary.products;
+            var kgDelivered = 0;
+            var contributing = [];
+            Object.keys(products).forEach(function(pid) {
+                var entry = products[pid];
+                if (!entry) return;
+                // b35fix322: amendment self-suppression guard.
+                if (entry._isAmendment) return;
+                var analysis = (entry.product && entry.product.analysis)
+                             || entry.nutrients || entry.totalDelivered || {};
+                var pct = parseFloat(analysis[nut]);
+                if (!isFinite(pct) || pct <= 0) return;
+                var totalKgHa = parseFloat(entry.totalKgHa) || 0;
+                if (totalKgHa <= 0) return;
+                var nutKg = totalKgHa * pct / 100;
+                kgDelivered += nutKg;
+                contributing.push({
+                    name: (entry.brandName || (entry.product && entry.product.name)) || pid,
+                    kgProduct: Math.round(totalKgHa),
+                    kgNutrient: +nutKg.toFixed(1),
+                    pct: pct
+                });
+            });
+            return { kgDelivered: kgDelivered, productsContributing: contributing };
+        }
+
+        // Build a "programme delivers X kg/ha" descriptor string.
+        function programmeBlurb(prog, unit) {
+            if (!prog || !prog.productsContributing.length) return '';
+            return prog.productsContributing.map(function(p) {
+                return p.name + ' (' + p.kgNutrient + ' kg ' + unit + '/ha via ' + p.kgProduct + ' kg product)';
+            }).join(', ');
+        }
+
+        // Dolomite-will-be-recommended flag (used by Ca/Mg/S branches).
+        // b35fix322 Bug 2a: simplified to lowpH && mgDeficit. Previously gated on
+        // (caDeficit || pH < 5.5), which suppressed dolomite for moderate-acidity
+        // (5.5 ≤ pH < 6.0) sites with no measured Ca deficit even when Mg was low —
+        // dolomite is the correct call there because it lifts pH and supplies Mg
+        // simultaneously and the Ca it adds is benign at MLSN/SLAN guideline ranges.
+        var _dolomiteWillBeRecommended = (lowpH && mgDeficit);
+
+        // Build the empty decision skeleton — populated by branches below.
+        var d = {
+            nutrient: nutrient,
+            status: null,
+            kgDeficit: +kgPerHa.toFixed(1),
+            kgProgramme: 0,
+            kgResidual: 0,
+            product: null,
+            analysis: null,
+            rate: null,
+            reason: null,
+            contributing: []
         };
 
-        // Mg product: pH-aware selection
-        // Dolomite (12% Mg, 22% Ca) preferred when: low pH AND (Ca also deficient OR pH < 5.5).
-        // Rate is driven by whichever deficit (Mg or Ca) requires more product.
-        // When dolomite is selected, suppress the Ca (gypsum) recommendation — dolomite covers it.
+        // No deficit case — defensive (callers guard, but include for robustness).
+        if (!(kgPerHa > 0)) {
+            d.status = 'no_deficit';
+            d.reason = nutrient + ' is at or above the soil threshold; no amendment required.';
+            return d;
+        }
+
+        // Programme delivery (pulled once for use across status decisions).
+        var prog = checkProgrammeDelivery(nutrient);
+        var progKg = prog ? prog.kgDelivered : 0;
+        var residual = Math.max(0, kgPerHa - progKg);
+        d.kgProgramme = +progKg.toFixed(1);
+        d.kgResidual = +residual.toFixed(1);
+        if (prog) d.contributing = prog.productsContributing;
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Rule 1 (universal): N programme covers the deficit → SUPPRESS.
+        // Applies to P, K, Mg, Ca, S. Reason text names the contributors.
+        // ─────────────────────────────────────────────────────────────────────
+        if (prog && progKg >= kgPerHa) {
+            d.status = 'suppressed_programme';
+            var unit = (nutrient === 'P' ? 'P' : nutrient === 'K' ? 'K'
+                     : nutrient === 'Ca' ? 'Ca' : nutrient === 'Mg' ? 'Mg' : 'S');
+            var nutLabel = (nutrient === 'P' ? 'Phosphorus'
+                         : nutrient === 'K' ? 'Potassium'
+                         : nutrient === 'Ca' ? 'Calcium'
+                         : nutrient === 'Mg' ? 'Magnesium'
+                         : 'Sulphur');
+            d.reason = nutLabel + ' deficit (' + kgPerHa.toFixed(1) + ' kg ' + unit +
+                       '/ha) is fully met by the fertiliser programme — no standalone ' +
+                       nutrient + ' amendment required. Programme ' + nutrient + ' sources: ' +
+                       programmeBlurb(prog, unit) + ' delivering ' + progKg.toFixed(0) +
+                       ' kg ' + unit + '/ha/yr total.';
+            return d;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // Per-nutrient product selection (for residual amount).
+        // ─────────────────────────────────────────────────────────────────────
+
+        if (nutrient === 'P') {
+            // P product selection (b35fix321: simplified — RPR dropped):
+            //
+            // The AU/NZ turf supply chain doesn't stock Reactive Phosphate Rock,
+            // and turf timeframes (weeks for seedling establishment, months for
+            // grow-in) don't match RPR's 6-18 month release kinetics. b35fix320
+            // included RPR at pH < 5.5 on chemistry grounds; b35fix321 drops it
+            // because it's not a real-world option for turf. P recommendation
+            // is always MAP, with pH-band-specific reason text.
+            //
+            // Rationale tiers (priority order):
+            //
+            //   1. SEEDING ACTIVE — MAP regardless of pH. DAP's alkaline granule
+            //      microsite (~pH 8) drives free NH₃ formation; phytotoxic to
+            //      germinating seed and emerging radicles. MAP's microsite is
+            //      acidic (~pH 4) so ammonium stays as NH₄⁺.
+            //      Source: Bremner & Krogmeier (1989) PNAS 86:8185.
+            //
+            //   2. STRONGLY ACID SOIL (pH < 5.5) — MAP, but the priority
+            //      intervention is lime/dolomite to address underlying pH.
+            //      Standalone P is otherwise inefficient (Fe/Al fixation
+            //      continues until pH > 5.8). Sequencing matters: lime and
+            //      ammoniacal P sources must be separated by 14 days.
+            //
+            //   3. ALKALINE SOIL (pH > 7.5) — MAP. NH₃ volatilisation from DAP
+            //      at this pH band can lose 20-30% of N (Hofman & Van Cleemput
+            //      2004). MAP avoids the loss path. Secondary benefit: less
+            //      Ca-P fixation than DAP.
+            //
+            //   4. NEUTRAL/SLIGHTLY ACID (pH 5.5-7.5) — MAP, default.
+            //
+            // The product output is identical across all branches (MAP, 10% P,
+            // 11% N) — the value of the branching is the *reason text* the
+            // user reads, which differs materially across pH bands.
+            var pName = 'MAP (Mono-ammonium phosphate)';
+            var pAnalysis = '10% P, 11% N';
+            var pPct = 0.10;
+            var pNote;
+
+            if (seedingActive) {
+                pNote = ' — selected for seedling safety (overseed/establishment context). ' +
+                        'Avoid DAP near germinating seed: at pH ' + pH.toFixed(1) +
+                        (pH > 7.0 ? ' (alkaline)' : '') +
+                        ', DAP\'s alkaline granule microsite (pH ~8.0) generates free NH₃ which is ' +
+                        'phytotoxic to emerging radicles. MAP\'s acidic microsite (~pH 4) keeps ' +
+                        'ammonium as NH₄⁺. Source: Bremner & Krogmeier (1989) PNAS 86:8185.';
+            } else if (pH < 5.5) {
+                pNote = ' — at pH ' + pH.toFixed(1) + ', the priority intervention is lime/dolomite ' +
+                        'to address underlying pH; without that, P uptake remains inefficient ' +
+                        '(Fe/Al fixation continues until pH > 5.8). MAP is the appropriate P source ' +
+                        'once pH correction is underway. See sequencing note for lime ↔ ammoniacal ' +
+                        'fertiliser timing requirements.';
+            } else if (pH > 7.5) {
+                pNote = ' — MAP preferred over DAP at pH ' + pH.toFixed(1) + '. DAP\'s alkaline ' +
+                        'granule microsite combined with alkaline bulk soil drives NH₃ volatilisation ' +
+                        '(20-30% N loss reported on calcareous soils, Hofman & Van Cleemput 2004); ' +
+                        'MAP avoids this loss pathway. Secondary benefit: less Ca-P fixation. ' +
+                        'Apply in autumn/spring when uptake is active; banded placement improves recovery.';
+            } else {
+                pNote = '';
+            }
+
+            d.status = 'apply';
+            d.product = pName;
+            d.analysis = pAnalysis;
+            d.rate = formatRate(residual, residual / pPct, 'P') +
+                     (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                      ' kg P/ha; this addresses the residual ' + residual.toFixed(1) + ' kg P/ha' : '') +
+                     pNote;
+            d.reason = 'Apply ' + pName + ' (' + pAnalysis + ') at ' + d.rate;
+            return d;
+        }
+
+        if (nutrient === 'K') {
+            // Potassium sulphate (chloride-free, also delivers S). 41.5% elemental K
+            // (= 50% K₂O). The catalogue SOL-SOP uses K=41.5 — this matches.
+            // Side-fix b35fix319: analysis label was wrong ("0-0-42 (17% K)") despite
+            // the math (/ 0.415) being correct. Corrected to "0-0-50 (41.5% K)".
+            //
+            // High-Mg flag: when soil Mg is very high relative to K, K uptake is
+            // antagonised. Note this in the reason text but don't change the product —
+            // the soil-level K deficit still needs filling.
+            var kHighMg = soilData.Mg && soilData.K && (soilData.Mg / Math.max(1, soilData.K)) > 4;
+
+            d.status = 'apply';
+            d.product = 'Potassium sulphate';
+            d.analysis = '0-0-50 (41.5% K, 18% S)';
+            d.rate = formatRate(residual, residual / 0.415, 'K') +
+                     (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                      ' kg K/ha; this addresses the residual ' + residual.toFixed(1) + ' kg K/ha' : '') +
+                     (kHighMg ? ' — Mg:K ratio is wide; expect competitive uptake antagonism, ' +
+                      'split applications recommended' : '');
+            d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
+            return d;
+        }
+
         if (nutrient === 'Mg') {
-            if (lowpH && (caDeficit || pH < 5.5)) {
-                // Rate: Mg-driven = kgPerHa/0.12; Ca-driven = caDeficit kg Ca / 0.22
-                // Use the higher to ensure both deficits are addressed by the same product
-                var dolRateMg = kgPerHa / 0.12;
-                var caDef = soilData && soilData.thresholds && soilData.thresholds.Ca
-                    ? Math.max(0, soilData.thresholds.Ca.min - (soilData.Ca || 0))
-                    : 0;
+            // Mg pH-aware selection. Programme check wraps it — if programme
+            // covers the deficit, suppression already returned above. We get
+            // here only if programme < deficit.
+            //
+            // b35fix322 Bug 2a: dolomite trigger simplified to `lowpH` (the
+            // outer Mg branch already implies mgDeficit). Previously also
+            // gated on (caDeficit || pH < 5.5); see _dolomiteWillBeRecommended
+            // comment above for rationale.
+            var mgName, mgAnalysis, mgPct, mgRate, mgExtra = '';
+            if (lowpH) {
+                // Dolomite — rate driven by max(Mg need, Ca need)
+                var dolRateMg = residual / 0.12;
+                var caDef = caMin != null ? Math.max(0, caMin - (soilData.Ca || 0)) : 0;
                 var caDef_kg = caDef * depth * bd * 0.1;
                 var dolRateCa = caDef_kg > 0 ? caDef_kg / 0.22 : 0;
                 var dolProduct = Math.max(dolRateMg, dolRateCa);
                 var dolMgKg = dolProduct * 0.12;
-                var rateStr = formatRate(dolMgKg, dolProduct, 'Mg', 'Dolomite');
-                // Annotate what drove the rate
-                var driver = dolRateCa > dolRateMg ? ' (rate driven by Ca deficit; also corrects Mg and raises pH)' : ' (rate driven by Mg deficit; also supplies Ca and raises pH)';
-                products.Mg = {
-                    name: 'Dolomite (CaMg(CO₃)₂)',
-                    analysis: '12% Mg, 22% Ca',
-                    rate: rateStr + driver,
-                    coversCa: true  // flag to suppress separate Ca gypsum recommendation
-                };
+                mgName = 'Dolomite (CaMg(CO₃)₂)';
+                mgAnalysis = '12% Mg, 22% Ca';
+                mgRate = formatRate(dolMgKg, dolProduct, 'Mg');
+                mgExtra = (dolRateCa > dolRateMg ? ' (rate driven by Ca deficit; also corrects Mg and raises pH)'
+                                                  : ' (rate driven by Mg deficit; also supplies Ca and raises pH)');
             } else if (pH >= 7.0) {
-                // High pH — dolomite will worsen alkalinity; use kieserite
-                products.Mg = {
-                    name: 'Kieserite (MgSO₄·H₂O)',
-                    analysis: '16% Mg',
-                    rate: formatRate(kgPerHa, kgPerHa / 0.16, 'Mg', 'Kieserite')
-                };
+                mgName = 'Kieserite (MgSO₄·H₂O)';
+                mgAnalysis = '16% Mg, 22% S';
+                mgPct = 0.16;
+                mgRate = formatRate(residual, residual / mgPct, 'Mg');
             } else {
-                // Near-neutral pH, Ca adequate — Epsom salts appropriate
-                products.Mg = {
-                    name: 'Magnesium sulphate (Epsom salts)',
-                    analysis: '10% Mg',
-                    rate: formatRate(kgPerHa, kgPerHa / 0.10, 'Mg', 'Epsom salts')
-                };
+                mgName = 'Magnesium sulphate (Epsom salts)';
+                mgAnalysis = '10% Mg, 13% S';
+                mgPct = 0.10;
+                mgRate = formatRate(residual, residual / mgPct, 'Mg');
+            }
+            d.status = 'apply';
+            d.product = mgName;
+            d.analysis = mgAnalysis;
+            d.rate = mgRate +
+                     (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                      ' kg Mg/ha; this addresses the residual ' + residual.toFixed(1) + ' kg Mg/ha' : '') +
+                     mgExtra;
+            d.reason = 'Apply ' + mgName + ' (' + mgAnalysis + ') at ' + d.rate;
+            return d;
+        }
+
+        if (nutrient === 'Ca') {
+            // Dolomite-suppression: if dolomite is being recommended for Mg/pH,
+            // it covers the Ca deficit too — suppress the standalone Ca rec.
+            if (_dolomiteWillBeRecommended) {
+                d.status = 'suppressed_dolomite';
+                d.reason = 'Calcium deficit is addressed by dolomite (being recommended for Mg/pH). ' +
+                           'No standalone Ca amendment required.';
+                return d;
+            }
+            // Default: gypsum (also delivers S, pH-neutral). At low pH without Mg
+            // co-deficit, lime (CaCO3) would address pH too — but the standard
+            // recommendation here is the Ca-specific product; pH-correction lime
+            // is handled in the pH narrative section, not here.
+            d.status = 'apply';
+            d.product = 'Gypsum (CaSO₄·2H₂O)';
+            d.analysis = '23% Ca, 18.6% S';
+            d.rate = formatRate(residual, residual / 0.23, 'Ca') +
+                     (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                      ' kg Ca/ha; this addresses the residual ' + residual.toFixed(1) + ' kg Ca/ha' : '') +
+                     ' — pH-neutral; gypsum also delivers S';
+            d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
+            return d;
+        }
+
+        if (nutrient === 'S') {
+            // S logic unchanged from b35fix317 (5-rule context-aware), restructured
+            // to populate the structured decision object. Rule 1 (programme covers)
+            // is handled by the universal Rule 1 above — we only reach here if
+            // residual > 0.
+            //
+            // Rule 2 — Dolomite recommended → gypsum for residual S (pH-neutral).
+            // Rule 3 — pH < 6.5 → sulphate of ammonia (NOT elemental S).
+            // Rule 4 — pH > 7.5 → elemental S IS correct (acidification wanted).
+            // Rule 5 — pH 6.5-7.5 default → gypsum (pH-neutral S delivery).
+            d.status = 'apply';
+            if (_dolomiteWillBeRecommended) {
+                // Rule 2
+                if (residual <= 0) {
+                    // Programme + dolomite covers everything — suppress.
+                    d.status = 'suppressed_combined';
+                    d.reason = 'Sulphur deficit is addressed by the fertiliser programme in combination ' +
+                               'with dolomite (being recommended for Mg/pH). No standalone S amendment required.';
+                    return d;
+                }
+                d.product = 'Gypsum (CaSO₄·2H₂O)';
+                d.analysis = '18.6% S, 23% Ca';
+                d.rate = formatRate(residual, residual / 0.186, 'S') +
+                         ' — pH-neutral, avoids undoing dolomite\'s liming effect' +
+                         (prog ? '. Programme already delivers ' + progKg.toFixed(0) +
+                          ' kg S/ha; this addresses the residual ' + residual.toFixed(1) + ' kg/ha' : '');
+            } else if (pH < 6.5) {
+                // Rule 3
+                d.product = 'Sulphate of ammonia ((NH₄)₂SO₄)';
+                d.analysis = '21% N, 24% S';
+                d.rate = formatRate(residual, residual / 0.24, 'S') +
+                         ' — DO NOT use elemental sulphur at pH ' + pH.toFixed(1) +
+                         ' (would further acidify). Sulphate of ammonia delivers S and is the preferred ' +
+                         'N source at low pH' +
+                         (prog && progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                          ' kg S/ha; this addresses residual ' + residual.toFixed(1) + ' kg/ha' : '');
+            } else if (pH > 7.5) {
+                // Rule 4
+                d.product = 'Elemental sulphur';
+                d.analysis = '90% S';
+
+                // b35fix320: flag urea/DAP in the programme — at pH > 7.5 these
+                // N sources lose 20-40% of N to NH₃ volatilisation unless
+                // immediately incorporated. Recommend switching to ammonium
+                // sulphate. Detection by product-name pattern (urea, DAP,
+                // di-ammonium phosphate); ammonium sulphate is fine.
+                var alkalineLossSources = [];
+                if (nutritionProgram && nutritionProgram.annualSummary &&
+                        nutritionProgram.annualSummary.products) {
+                    var _allProds = nutritionProgram.annualSummary.products;
+                    Object.keys(_allProds).forEach(function(pid) {
+                        var entry = _allProds[pid];
+                        if (!entry) return;
+                        var pname = (entry.brandName || (entry.product && entry.product.name) || pid || '').toLowerCase();
+                        // Match urea (but not "ureaform" / "methylene urea" — those are
+                        // controlled-release coated forms with much lower volatilisation)
+                        // and DAP / di-ammonium phosphate.
+                        var isUrea = /\burea\b/.test(pname) &&
+                                     !/ureaform|methylene urea|coated urea|controlled.release/.test(pname);
+                        var isDAP = /\bdap\b|\bdi-?ammonium\s*phosphate/.test(pname);
+                        if (isUrea || isDAP) {
+                            alkalineLossSources.push((entry.brandName || (entry.product && entry.product.name)) || pid);
+                        }
+                    });
+                }
+
+                var volatilisationWarning = '';
+                if (alkalineLossSources.length > 0) {
+                    volatilisationWarning = ' Note: the current programme includes ' +
+                        alkalineLossSources.join(', ') + ' which will lose 20-40% of applied N ' +
+                        'to NH₃ volatilisation at pH ' + pH.toFixed(1) + ' unless immediately ' +
+                        'irrigated in (>5 mm within 4 hours). Strongly consider substituting ' +
+                        'ammonium sulphate (21-0-0 + 24% S) — acidifying, no volatilisation loss, ' +
+                        'and contributes to the S deficit. Source: Hofman & Van Cleemput (2004) ' +
+                        'Soil and Plant Nitrogen, IFA.';
+                }
+
+                d.rate = formatRate(residual, residual / 0.90, 'S') +
+                         ' — correct at pH ' + pH.toFixed(1) + ' (acidifying effect is desired). ' +
+                         'Apply ONLY after hollow-tine aeration, worked into the holes, heading into ' +
+                         'autumn — do NOT apply over turf surface or into summer.' +
+                         volatilisationWarning;
+            } else {
+                // Rule 5
+                d.product = 'Gypsum (CaSO₄·2H₂O)';
+                d.analysis = '18.6% S, 23% Ca';
+                d.rate = formatRate(residual, residual / 0.186, 'S') +
+                         ' — pH-neutral S delivery at pH ' + pH.toFixed(1) +
+                         (prog && progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                          ' kg S/ha; this addresses residual ' + residual.toFixed(1) + ' kg/ha' : '');
+            }
+            d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
+            return d;
+        }
+
+        return null;
+    }
+
+    /**
+     * b35fix324a — Single source of truth for "programme K delivery".
+     *
+     * Sums K from CATALOGUE products only. Skips _isAmendment-flagged entries.
+     * This is the canonical "how much K does the N programme deliver" number,
+     * consumed by:
+     *   1. The K reconciliation gate in _synthesiseKReconDecision (deciding
+     *      whether to recommend spot-K)
+     *   2. The K Reconciliation renderer in word-export-combined.js
+     *      (displaying the balance to the user)
+     *
+     * Both must see the same value or the user's "balance" doesn't match what
+     * justified the spot-K recommendation. Eliminating the asymmetric-engines
+     * pattern (two callers computing the same conceptual quantity by
+     * independent means — flagged in the gaip-hub skill).
+     *
+     * Accepted shapes:
+     *   - annualSummary: { products: { id: entry, ... } } — auto-unwrapped
+     *   - raw productUsage map: { id: entry, ... } — used as-is
+     *
+     * Each entry's K value is read in priority order: nutrients.K then
+     * totalDelivered.K (matches existing _perSampleKDelivered convention).
+     *
+     * Returns:
+     *   number — kg K/ha summed from catalogue products only.
+     *            0 when input is null/undefined/empty or all entries are
+     *            _isAmendment. The function is a sum, not a presence probe;
+     *            caller decides what zero means.
+     */
+    function _computeProgrammeKDelivered(productMapOrSummary) {
+        if (!productMapOrSummary || typeof productMapOrSummary !== 'object') return 0;
+
+        // Auto-unwrap annualSummary shape: { products: {...} }
+        var map = (productMapOrSummary.products && typeof productMapOrSummary.products === 'object')
+            ? productMapOrSummary.products
+            : productMapOrSummary;
+
+        var sum = 0;
+        Object.keys(map).forEach(function(id) {
+            var entry = map[id];
+            if (!entry) return;
+            if (entry._isAmendment) return;  // catalogue-only by definition
+            var n = entry.nutrients || entry.totalDelivered || {};
+            var k = parseFloat(n.K);
+            if (isFinite(k)) sum += k;
+        });
+        return sum;
+    }
+
+    /**
+     * b35fix328 — Extract a complete macro-nutrient delivery vector from any
+     * product entry (catalogue or amendment) for the Annual Product Summary
+     * and Fertiliser Purchasing Summary tables.
+     *
+     * Background: catalogue products created by prebbles-products.js and
+     * nutrition-au-fertiliser-integration.js only initialise
+     * `nutrients = { N, P, K }`. Their `analysis` field carries the full
+     * macro/micro percentage breakdown (Ca, Mg, S, Fe, ...), but the
+     * accumulated `nutrients` object never gets the secondary macros baked
+     * in. Amendment products created by `_amendmentDecisionsToProducts`
+     * initialise the full `totalDelivered = { N, P, K, S, Ca, Mg, Fe }`.
+     *
+     * Pre-b35fix328 the renderer read `p.nutrients || p.totalDelivered` and
+     * only displayed N and K. Result: dolomite rows showed `Total kg/ha 955,
+     * N 0, K 0` — the entire reason the row exists (Ca + Mg delivery) was
+     * invisible. The b35fix323 fix put dolomite into the Monthly Schedule;
+     * b35fix328 makes its delivery legible in the summary tables.
+     *
+     * Strategy: prefer real measured/computed values. Use `nutrients` for
+     * N/P/K (these are tracked through programme balancing). Use
+     * `totalDelivered` for S/Ca/Mg if amendments populated it. For catalogue
+     * entries with no `totalDelivered`, derive the secondary macros from
+     * `analysis × totalKg` — the analysis array is preserved on every
+     * catalogue entry (verified b35fix317 corrections, AU fertiliser DB
+     * integration, prebbles integration).
+     *
+     * Returns { N, P, K, S, Ca, Mg } in kg/ha. Always returns all six keys
+     * (zero for missing). Never returns undefined or NaN — caller can sum
+     * blindly.
+     */
+    function _extractEntryNutrients(entry) {
+        var out = { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0 };
+        if (!entry || typeof entry !== 'object') return out;
+
+        // Prefer measured nutrients (catalogue and amendment) for N/P/K
+        var nutrients = (entry.nutrients && typeof entry.nutrients === 'object') ? entry.nutrients : null;
+        var delivered = (entry.totalDelivered && typeof entry.totalDelivered === 'object') ? entry.totalDelivered : null;
+
+        function pickNum(primary, secondary) {
+            var v = parseFloat(primary);
+            if (isFinite(v)) return v;
+            v = parseFloat(secondary);
+            return isFinite(v) ? v : 0;
+        }
+
+        // N/P/K — nutrients first (catalogue path keeps these accumulated),
+        // then totalDelivered (amendment path)
+        if (nutrients || delivered) {
+            out.N = pickNum(nutrients && nutrients.N, delivered && delivered.N);
+            out.P = pickNum(nutrients && nutrients.P, delivered && delivered.P);
+            out.K = pickNum(nutrients && nutrients.K, delivered && delivered.K);
+        }
+
+        // S/Ca/Mg — totalDelivered first (amendments), then nutrients (rare),
+        // then derive from analysis × total mass (catalogue path).
+        out.S = pickNum(delivered && delivered.S, nutrients && nutrients.S);
+        out.Ca = pickNum(delivered && delivered.Ca, nutrients && nutrients.Ca);
+        out.Mg = pickNum(delivered && delivered.Mg, nutrients && nutrients.Mg);
+
+        var analysis = (entry.product && entry.product.analysis) || entry.analysis;
+        if (analysis && typeof analysis === 'object') {
+            // Total mass in kg/ha — granular uses totalKg/totalKgHa, liquid
+            // uses totalLHa (kg-equivalent for solubles via b35fix282
+            // catalogue convention). Either field is valid.
+            var totalMass = parseFloat(entry.totalKg);
+            if (!isFinite(totalMass) || totalMass <= 0) totalMass = parseFloat(entry.totalKgHa);
+            if (!isFinite(totalMass) || totalMass <= 0) totalMass = parseFloat(entry.totalLHa);
+            if (isFinite(totalMass) && totalMass > 0) {
+                ['S', 'Ca', 'Mg'].forEach(function(el) {
+                    if (out[el] > 0) return;  // already populated from nutrients/delivered
+                    var pct = parseFloat(analysis[el]);
+                    if (isFinite(pct) && pct > 0) {
+                        out[el] = +(totalMass * pct / 100).toFixed(2);
+                    }
+                });
+                // P top-up only if neither nutrients nor delivered carried it
+                if (out.P === 0) {
+                    var pPct = parseFloat(analysis.P);
+                    if (isFinite(pPct) && pPct > 0) {
+                        out.P = +(totalMass * pPct / 100).toFixed(2);
+                    }
+                }
             }
         }
 
-        // If Ca is requested but dolomite is already covering Ca (via Mg recommendation),
-        // suppress the gypsum bullet — dolomite already addresses the deficit
-        if (nutrient === 'Ca' && lowpH && mgDeficit && (caDeficit || pH < 5.5)) {
-            // Dolomite will be recommended for Mg and covers Ca — skip gypsum
-            return null;
+        return out;
+    }
+
+    /**
+     * b35fix328 — Decide which optional macro columns (P, Ca, Mg, S) to
+     * render in the Annual Product Summary / Purchasing Summary tables.
+     * N and K are always shown (existing behaviour, never optional).
+     *
+     * Input: array of nutrient vectors as returned by _extractEntryNutrients
+     *        (one per row that will be rendered).
+     * Output: { P: bool, Ca: bool, Mg: bool, S: bool } — true means
+     *         render the column.
+     *
+     * Rule: render a column if any row delivers > 0.05 kg/ha. The 0.05
+     * floor suppresses analyses that carry trace nutrients at sub-detection
+     * percentages (e.g. an N-K blend listed as "Mg: 0.01%" — at 200 kg/ha
+     * that's 0.02 kg/ha, agronomically meaningless and not worth a column).
+     */
+    function _detectActiveNutrientColumns(rowVectors) {
+        var active = { P: false, Ca: false, Mg: false, S: false };
+        if (!Array.isArray(rowVectors)) return active;
+        var threshold = 0.05;
+        rowVectors.forEach(function(v) {
+            if (!v) return;
+            if (v.P > threshold) active.P = true;
+            if (v.Ca > threshold) active.Ca = true;
+            if (v.Mg > threshold) active.Mg = true;
+            if (v.S > threshold) active.S = true;
+        });
+        return active;
+    }
+
+    /**
+     * b35fix324 — Synthesise a K-reconciliation amendment decision.
+     *
+     * Programme-shortfall-driven spot-K (distinct from b35fix322's soil-deficit K).
+     * Fires when the per-sample N programme delivers materially less K than the
+     * sample's annual K requirement, AND the soil itself is genuinely K-limited
+     * (sanity gate against SLAN-midpoint inflation — Item 1a).
+     *
+     * Two gates — both must trip:
+     *
+     *   GATE 1 (programme balance):
+     *     balance = kDelivered - kRequired
+     *     fires when balance < BALANCE_THRESHOLD (default −20 kg K/ha).
+     *     Strict <, not <=. Sites at exactly the threshold don't fire — the
+     *     "20 kg K/ha" is the noise floor for in-season sampling variability;
+     *     a balance of −20 is within measurement uncertainty.
+     *
+     *   GATE 2 (soil-K sanity):
+     *     soilData.K < soilData.thresholds.K.min
+     *     fires only when soil K is genuinely below the methodology floor.
+     *     Defends against the SLAN single-midpoint formula (engine line 311)
+     *     emitting K req values that exceed in-range soil's actual need.
+     *     Without this gate, a site with soil K = 100 ppm (in 75–150 SLAN range)
+     *     could trigger spot-K because the engine's midpoint-driven K req = 127
+     *     exceeds programme delivery. With the gate, the site needs to be
+     *     genuinely K-limited (< 75 ppm under SLAN, < 35 ppm under MLSN) before
+     *     spot-K fires regardless of programme balance.
+     *
+     *   Both gates are intentionally independent. The balance gate addresses
+     *   "did the N programme deliver enough K?" (programme integrity). The soil
+     *   gate addresses "does this soil need more K?" (agronomic justification).
+     *   Both questions must answer "yes" for spot-K to be the right intervention.
+     *
+     * Spot rate:
+     *   abs(balance), capped at capKgKHa (default 60 kg K/ha). The cap defends
+     *   against runaway recommendations on samples with engine-inflated K req
+     *   (Item 1a-class issue) — a balance of −200 doesn't justify 200 kg K/ha
+     *   spot K, that level of correction belongs in the soil-deficit pathway
+     *   (b35fix322) over years, not a single-season spot programme.
+     *
+     * Returns: null when either gate fails or when inputs are invalid.
+     *          Otherwise a decision object matching the K branch shape from
+     *          _computeAmendmentDecision, with `_isKReconciliation: true`.
+     *          The downstream _amendmentDecisionsToProducts helper recognises
+     *          the flag and emits split-month placement instead of single-autumn.
+     *
+     * Inputs:
+     *   soilData       per-sample soil object with K (number) and thresholds.K.min
+     *   kRequired      kg K/ha annual requirement (from r._anr.K.val)
+     *   kDelivered     kg K/ha delivered by the N programme
+     *   opts           { balanceThreshold: -20, capKgKHa: 60 } — both optional
+     */
+    function _synthesiseKReconDecision(soilData, kRequired, kDelivered, opts) {
+        opts = opts || {};
+        var BALANCE_THRESHOLD = (typeof opts.balanceThreshold === 'number')
+                              ? opts.balanceThreshold : -20;
+        var CAP_KG_K_HA       = (typeof opts.capKgKHa === 'number')
+                              ? opts.capKgKHa : 60;
+        // b35fix326b — near-floor buffer (default 5 ppm).
+        // Soil-test measurement uncertainty on Mehlich-3 K is typically ±5 ppm.
+        // A sample reading within `buffer` ppm of the methodology floor could
+        // genuinely be at-or-above floor. Firing 50 kg/ha spot-K on a sample
+        // that's 2 ppm "below" floor over-reacts to noise. Suppress within the
+        // buffer band; fire when soilK < (floor - buffer).
+        // Configurable: opts.nearFloorBuffer = 0 disables (b35fix324 behaviour).
+        // Negative values clamped to 0 (defensive).
+        var rawBuffer = (typeof opts.nearFloorBuffer === 'number')
+                      ? opts.nearFloorBuffer : 5;
+        var NEAR_FLOOR_BUFFER = Math.max(0, rawBuffer);
+
+        // Defensive: invalid inputs.
+        if (!soilData) return null;
+        if (typeof kRequired !== 'number' || !isFinite(kRequired) || kRequired <= 0) return null;
+        if (typeof kDelivered !== 'number' || !isFinite(kDelivered)) return null;
+
+        // Gate 1: programme balance.
+        var balance = kDelivered - kRequired;
+        if (!(balance < BALANCE_THRESHOLD)) return null;  // strict <
+
+        // Gate 2: soil-K sanity (Item 1a defence).
+        // b35fix326b: extended with NEAR_FLOOR_BUFFER. Effective floor for the
+        // gate is (floor - buffer); samples between (floor - buffer) and floor
+        // inclusive of the lower bound get suppressed alongside truly in-range
+        // samples. Defends against soil-test measurement uncertainty triggering
+        // spot-K on borderline samples.
+        var soilK = parseFloat(soilData.K);
+        if (!isFinite(soilK)) return null;
+        var floor = soilData.thresholds && soilData.thresholds.K && soilData.thresholds.K.min;
+        if (typeof floor !== 'number' || !isFinite(floor)) return null;
+        var effectiveFloor = floor - NEAR_FLOOR_BUFFER;
+        if (!(soilK < effectiveFloor)) return null;  // strict <: at-buffer-edge inclusive in suppression
+
+        // Both gates trip. Compute spot rate (capped).
+        var rawSpotK = Math.abs(balance);
+        var spotKgKHa = Math.min(rawSpotK, CAP_KG_K_HA);
+        spotKgKHa = Math.round(spotKgKHa);  // round to nearest 1 kg K/ha
+        if (spotKgKHa <= 0) return null;
+
+        // SOP @ 41.5% K → product rate = spot K / 0.415.
+        var kgProductHa = Math.round(spotKgKHa / 0.415);
+
+        return {
+            nutrient: 'K',
+            status: 'apply',
+            product: 'Potassium sulphate',
+            analysis: '0-0-50 (41.5% K, 18% S)',
+            rate: spotKgKHa.toFixed(0) + ' kg K/ha (' + kgProductHa +
+                  ' kg product/ha) — split across 3 peak K-uptake months. ' +
+                  'Programme delivers ' + kDelivered.toFixed(0) +
+                  ' kg K/ha against ' + kRequired.toFixed(0) +
+                  ' kg K/ha annual requirement (balance ' +
+                  (balance >= 0 ? '+' : '') + balance.toFixed(0) + ').',
+            reason: 'Spot K supplement — N programme delivers ' +
+                    kDelivered.toFixed(0) + ' kg K/ha against K requirement ' +
+                    kRequired.toFixed(0) + ' kg K/ha (balance ' + balance.toFixed(0) +
+                    '). Soil K (' + soilK.toFixed(0) + ' ppm) below floor (' +
+                    floor + ' ppm) confirms agronomic justification.',
+            _isKReconciliation: true
+        };
+    }
+
+    /**
+     * b35fix326a — Classify a K Reconciliation row state.
+     *
+     * Pure function. Given the engine output (anrK), the spot-K decision (if
+     * any), and the balance arithmetic, returns the renderer state for the
+     * Spot K? cell: { state, text, color }.
+     *
+     * Five states:
+     *
+     *   'applied'   — spot-K fired (b35fix324 gates both tripped). Green.
+     *                 Text echoes the applied amount + "see programme".
+     *
+     *   'trend'     — engine intent='removal-only' (soil in sufficiency range)
+     *                 but programme delivery is shorter than removal by more
+     *                 than the noise threshold. Spot-K correctly suppressed
+     *                 (soil reserves cover the immediate gap), but programme
+     *                 IS mining reserves over time. Amber. Text indicates
+     *                 trend without alarm.
+     *                 b35fix326a addition — distinguishes mining-trend from
+     *                 deficit on the renderer; pre-fix collapsed both into
+     *                 a single red "Advisory" state.
+     *
+     *   'no-need'   — engine declared zero requirement (intent='suppress-above-
+     *                 ceiling' under SLAN, or simply K req=0 under
+     *                 any methodology). Grey. Text: "No (soil K above
+     *                 sufficiency ceiling)" when intent supplied, plain "No"
+     *                 otherwise.
+     *
+     *   'no'        — programme delivers near or above K req. Grey. "No".
+     *
+     *   'advisory'  — engine intent='lift-to-floor' (deficient soil) AND
+     *                 programme is short, AND spot-K did NOT fire. Indicates
+     *                 something blocked the gate (missing thresholds, missing
+     *                 hemisphere context). Red. Renders as "Advisory" so the
+     *                 user knows to investigate.
+     *
+     *   'unknown'   — engine output absent. Em-dash, grey.
+     *
+     * Inputs:
+     *   ctx.anrK            r._anr.K — engine output, can be null/missing fields
+     *   ctx.kReconApplied   true if r.data._kReconDecisions has at least one
+     *   ctx.kReconDecision  first kReconDecisions entry (only used when applied)
+     *   ctx.kRequired       numeric K req or null
+     *   ctx.kDelivered      numeric K delivered (catalogue-only)
+     *   ctx.balance         numeric balance (kDelivered - kRequired) or null
+     *
+     * Returns: { state, text, color }
+     *   color is a hex RGB string (no '#'), matching the docx renderer convention.
+     */
+    function _classifyKReconState(ctx) {
+        ctx = ctx || {};
+        var anrK = ctx.anrK || null;
+        var balance = (typeof ctx.balance === 'number') ? ctx.balance : null;
+        var kReq = (typeof ctx.kRequired === 'number') ? ctx.kRequired : null;
+        var intent = anrK && anrK.intent;
+
+        // 1. Engine missing → unknown.
+        if (!anrK || (kReq == null && balance == null)) {
+            return { state: 'unknown', text: '—', color: '6B7280' };
         }
 
-        var p = products[nutrient];
-        if (!p) return null;
+        // 2. Spot-K applied → applied state.
+        if (ctx.kReconApplied && ctx.kReconDecision) {
+            var rate = ctx.kReconDecision.rate || '';
+            var m = rate.match(/(\d+)\s*kg\s*K\/ha/);
+            var amount = m ? m[1] : '?';
+            return {
+                state: 'applied',
+                text: 'Applied (' + amount + ' kg K/ha, split 3) — see programme',
+                color: '16A34A'
+            };
+        }
 
-        return 'Apply ' + p.name + ' (' + p.analysis + ') at approximately ' + p.rate + ' to address ' + nutrient + ' deficiency.';
+        // 3. K req=0 → no-need. Distinguishes SLAN ceiling from generic zero.
+        if (kReq === 0 || kReq == null) {
+            if (intent === 'suppress-above-ceiling') {
+                return {
+                    state: 'no-need',
+                    text: 'No (soil K above sufficiency ceiling)',
+                    color: '6B7280'
+                };
+            }
+            return { state: 'no-need', text: 'No', color: '6B7280' };
+        }
+
+        // 4. Balanced or positive → no.
+        if (balance == null || balance >= -10) {
+            return { state: 'no', text: 'No', color: '6B7280' };
+        }
+
+        // 5. Negative balance: distinguish trend (sufficient soil) from
+        //    advisory (deficient soil, spot-K should have fired but didn't).
+        var shortfallKg = Math.abs(Math.round(balance / 5) * 5);
+        if (shortfallKg < 5) shortfallKg = 5;
+
+        if (intent === 'removal-only') {
+            // Sufficient soil + programme short of removal: trend, not deficit.
+            // Soil reserves cover the immediate gap; programme designers should
+            // know they're mining reserves but no spot intervention warranted.
+            return {
+                state: 'trend',
+                text: 'Trend (~' + shortfallKg + ' kg/ha shortfall vs removal) — ' +
+                      'soil sufficient, programme replenishment recommended',
+                color: 'F59E0B'  // amber
+            };
+        }
+
+        // 6. intent='lift-to-floor' (or unknown intent) + neg balance + spot-K
+        //    not applied. Something blocked the gate. Render advisory red so
+        //    user investigates.
+        return {
+            state: 'advisory',
+            text: 'Advisory (~' + shortfallKg + ' kg/ha) — review N programme',
+            color: 'DC2626'  // red
+        };
     }
-    
+
+    /**
+     * b35fix322 — Convert amendment decisions to nutrition-program product entries.
+     *
+     * The Annual Soil Amendments table has historically rendered standalone (gypsum,
+     * dolomite, kieserite, MAP/DAP, MOP/SOP, Epsom, lime) outside the nutrition
+     * programme. The Annual Product Summary, Monthly Schedule, and Purchasing Summary
+     * therefore never saw amendment products and produced incomplete totals.
+     *
+     * This helper takes the structured decisions produced by _computeAmendmentDecision
+     * and converts each `apply` decision into a product entry shaped to drop into
+     * `nutritionProgram.annualSummary.products`. Entries are flagged `_isAmendment: true`
+     * so checkProgrammeDelivery() skips them (preventing self-suppression — an amendment
+     * cannot count itself as programme delivery for the deficit it was created to fix).
+     *
+     * Single autumn application is the standard practice for slow-react amendments
+     * (lime/dolomite/gypsum/sulphate) — autumn placement gives time to react before
+     * the next growing season. South hemisphere = April; north = October.
+     *
+     * b35fix323: ALSO returns `granularEntries` — granular-shaped objects ready to
+     * push into `perSampleProgram.monthly[<aprilOrOctIdx>].granular`. The Monthly
+     * Schedule renderer reads from `monthly[].granular`, not from
+     * `annualSummary.products`, so without this push the April row stays blank
+     * even though the amendment is in the Annual Product Summary table.
+     *
+     * Inputs:
+     *   decisions     array of decisions from _computeAmendmentDecision (any status)
+     *   soilData      not used directly; reserved for future per-soil rate adjustments
+     *   hemisphere    'south' | 'north' (default 'south' — Gilba's primary territory)
+     *
+     * Returns:
+     *   {
+     *     products:   { id: { product: { name, analysis }, brandName, applications: 1,
+     *                          totalKgHa, totalDelivered: {N,P,K,S,Ca,Mg,Fe},
+     *                          _isAmendment: true, _appliedMonth: 'April'|'October',
+     *                          _nutrient: 'P'|'K'|'Ca'|'Mg'|'S' }, ... },
+     *     granularEntries: [
+     *       { id, name, brand, npk, analysis, rateKgHa, rateGM2, release, weeks,
+     *         delivers, notes, _isAmendment, _nutrient }
+     *     ],
+     *     monthSlot:  'April' | 'October',
+     *     monthIndex: 3 | 9      // zero-based index into the monthly[] array
+     *                            // (Jan=0, Apr=3, Oct=9). Caller uses this to
+     *                            // locate the right slot — independent of
+     *                            // whether monthly[] entries carry month_num.
+     *   }
+     *
+     * Defensive: returns { products: {}, granularEntries: [], monthSlot, monthIndex }
+     * when decisions is empty/null or when no decision is in `apply` status.
+     */
+    function _amendmentDecisionsToProducts(decisions, soilData, hemisphere) {
+        var monthSlot  = (hemisphere === 'north') ? 'October' : 'April';
+        var monthIndex = (hemisphere === 'north') ? 9 : 3;     // 0-based: Jan=0
+        var out = {
+            products: {},
+            granularEntries: [],
+            monthSlot: monthSlot,
+            monthIndex: monthIndex
+        };
+
+        if (!decisions || !decisions.length) return out;
+
+        // Parse "12% Mg, 22% Ca" → { Mg: 12, Ca: 22 }
+        // Also handles a leading NPK form like "0-0-50 (41.5% K, 18% S)" by
+        // ignoring the NPK triple and reading the parenthesised pct list.
+        function parseAnalysisLabel(label) {
+            var pcts = {};
+            if (!label || typeof label !== 'string') return pcts;
+            // Strip any "0-0-50 " or "10-20-0 " NPK prefix — only the % entries matter
+            // for nutrient-mass accounting; the NPK form is a display label.
+            var body = label.replace(/^\s*\d+\s*-\s*\d+\s*-\s*\d+\s*/, '');
+            // Match "NN% Element" or "NN.NN% Element" (Element = 1-2 letters,
+            // capital first, optional lower second; covers N/P/K/S/Ca/Mg/Fe/Mn/Zn/Cu/B).
+            var re = /(\d+(?:\.\d+)?)\s*%\s*([A-Z][a-z]?)/g;
+            var m;
+            while ((m = re.exec(body)) !== null) {
+                var pct = parseFloat(m[1]);
+                var el  = m[2];
+                if (isFinite(pct) && el) pcts[el] = pct;
+            }
+            return pcts;
+        }
+
+        // Parse "30 kg Mg/ha (250 kg product/ha)" → 250
+        // The split-application suffix (" — apply in N split dressings of MMM kg")
+        // is harmless; the parenthesised total is what matters for annual totals.
+        function parseProductKgHa(rateStr) {
+            if (!rateStr || typeof rateStr !== 'string') return 0;
+            var m = rateStr.match(/\(\s*(\d+(?:\.\d+)?)\s*kg\s*product\s*\/\s*ha\s*\)/i);
+            if (!m) return 0;
+            var v = parseFloat(m[1]);
+            return isFinite(v) ? v : 0;
+        }
+
+        // b35fix324: split-month placement for K-reconciliation amendments.
+        //
+        // Soluble K (SOP) loaded as a single-autumn application leaches before
+        // the next growing season can take it up. Splitting across 2-3 peak
+        // K-uptake months gives better uptake efficiency and reduces leaching
+        // loss. The placement targets active-growth K demand, NOT cold-hardening
+        // (those are different physiological windows).
+        //
+        // South hemisphere splits: Jan / Sep / Nov  (idx 0 / 8 / 10)
+        // North hemisphere splits: Mar / May / Jul  (idx 2 / 4 / 6)
+        //
+        // FUTURE — Item 8 (pre-winter K hardening engine, queued separately):
+        // when that engine lands, the SOUTH_K_RECON_MONTHS / NORTH_K_RECON_MONTHS
+        // arrays are the natural redistribution point. A pre-dormancy K loading
+        // window (May–early June south for cool-season; ~6 weeks pre-dormancy for
+        // warm-season) would shift one of the splits toward the hardening month
+        // when soil-temp-driven cold acclimation is the relevant K demand. For
+        // now the splits are pure active-growth uptake — Goss & Beard 1980,
+        // Webster & Ebdon 2005 (cool-season tissue K & cold tolerance);
+        // Tredway et al. 2009 (warm-season K & spring dead spot).
+        var SOUTH_K_RECON_MONTHS = [8, 10, 0];   // Sep, Nov, Jan
+        var NORTH_K_RECON_MONTHS = [2, 4, 6];    // Mar, May, Jul
+        var K_RECON_SPLIT_COUNT  = 3;
+
+        decisions.forEach(function(d) {
+            if (!d || d.status !== 'apply') return;
+            if (!d.product || !d.analysis || !d.rate) return;
+
+            var pcts = parseAnalysisLabel(d.analysis);
+            var totalKgHa = parseProductKgHa(d.rate);
+            if (totalKgHa <= 0) return;
+
+            var isKRecon = !!d._isKReconciliation;
+
+            // Build totalDelivered from the analysis (kg product × % / 100).
+            // Canonical for amendment products (no release-timing discount —
+            // either single-autumn placement or split application; the full
+            // product mass enters the soil over the application period).
+            var totalDelivered = { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0, Fe: 0 };
+            Object.keys(pcts).forEach(function(el) {
+                if (totalDelivered.hasOwnProperty(el)) {
+                    totalDelivered[el] = +(totalKgHa * pcts[el] / 100).toFixed(2);
+                }
+            });
+
+            // Synthesise a stable id. Amendment ids must not collide with
+            // catalogue product ids — prefix with "amendment:" + nutrient + slug.
+            //
+            // b35fix324: K-reconciliation uses a distinct namespace
+            // ("amendment:K-recon:<slug>") so it doesn't collide with the
+            // soil-deficit K amendment ("amendment:K:<slug>") from b35fix322.
+            // A site can legitimately receive BOTH — soil K below SLAN floor
+            // (b35fix322) AND programme delivery short of K req (b35fix324) —
+            // and they need to render as separate rows in Annual Product Summary.
+            var slug = d.product.toLowerCase()
+                                  .replace(/\([^)]*\)/g, '')
+                                  .replace(/[^a-z0-9]+/g, '-')
+                                  .replace(/^-|-$/g, '');
+            var idNamespace = isKRecon ? 'K-recon' : d.nutrient;
+            var id = 'amendment:' + idNamespace + ':' + slug;
+
+            out.products[id] = {
+                product: {
+                    id: id,
+                    name: d.product,
+                    // Provide the analysis as a structured object too, so any
+                    // downstream code that looks up entry.product.analysis[nut]
+                    // (the canonical path used by checkProgrammeDelivery for
+                    // catalogue products) finds the same numbers we baked into
+                    // totalDelivered. Belt-and-braces — checkProgrammeDelivery
+                    // skips _isAmendment entries anyway.
+                    analysis: pcts
+                },
+                brandName: d.product,
+                applications: isKRecon ? K_RECON_SPLIT_COUNT : 1,
+                totalKgHa: +totalKgHa.toFixed(1),
+                totalDelivered: totalDelivered,
+                _isAmendment: true,
+                _appliedMonth: monthSlot,
+                _nutrient: d.nutrient,
+                _isKReconciliation: isKRecon || undefined
+            };
+
+            // ── b35fix324: K-recon split path ─────────────────────────────
+            if (isKRecon) {
+                // Spread the total product mass across K_RECON_SPLIT_COUNT
+                // applications. Per-split rate is total/N rounded; the last
+                // split absorbs any rounding remainder so the sum still equals
+                // input total to the nearest 1 kg product/ha.
+                var splitMonths = (hemisphere === 'north')
+                    ? NORTH_K_RECON_MONTHS
+                    : SOUTH_K_RECON_MONTHS;
+                var splitRate    = Math.round(totalKgHa / K_RECON_SPLIT_COUNT);
+                var splitDelKper = +(splitRate * (pcts.K || 0) / 100).toFixed(2);
+                var splitDelSper = +(splitRate * (pcts.S || 0) / 100).toFixed(2);
+
+                for (var s = 0; s < K_RECON_SPLIT_COUNT; s++) {
+                    // Last split takes the remainder so total reconciles.
+                    var thisRate = (s === K_RECON_SPLIT_COUNT - 1)
+                        ? Math.round(totalKgHa) - splitRate * (K_RECON_SPLIT_COUNT - 1)
+                        : splitRate;
+                    var thisDelK = (s === K_RECON_SPLIT_COUNT - 1)
+                        ? +(thisRate * (pcts.K || 0) / 100).toFixed(2)
+                        : splitDelKper;
+                    var thisDelS = (s === K_RECON_SPLIT_COUNT - 1)
+                        ? +(thisRate * (pcts.S || 0) / 100).toFixed(2)
+                        : splitDelSper;
+
+                    out.granularEntries.push({
+                        id: id + ':s' + (s + 1),
+                        name: d.product,
+                        brand: d.product,
+                        npk: '0-0-50',  // SOP NPK label for display
+                        analysis: pcts,
+                        rateKgHa: thisRate,
+                        rateGM2: (thisRate / 10).toFixed(1),
+                        release: 'standard',
+                        weeks: 1,
+                        splitCount: 1,    // single application within the month
+                        // K-recon DOES deliver K (unlike pH-amendments that
+                        // deliver only Ca/Mg/S). The whole point of this entry
+                        // is to make up programme K shortfall.
+                        delivers: { N: 0, P: 0, K: thisDelK, S: thisDelS },
+                        notes: 'Spot K supplement (split ' + (s + 1) + '/' +
+                               K_RECON_SPLIT_COUNT + ' — programme reconciliation)',
+                        _isAmendment: true,
+                        _isKReconciliation: true,
+                        _nutrient: d.nutrient,
+                        _monthIndex: splitMonths[s],
+                        _appliedMonth: monthSlot   // top-level autumn slot retained
+                                                    // for any caller still using it
+                    });
+                }
+                return;
+            }
+            // ── end K-recon split path ────────────────────────────────────
+
+            // b35fix323: granular entry for monthly[<idx>].granular push
+            // (single-slot autumn path — pH amendments, soil-deficit K, etc.).
+            // Shape mirrors monthResult.granular.push() at au-fertiliser-products.js:5414
+            // (post-b35fix322 with `analysis` field). The Monthly Schedule renderer
+            // at word-export.js:4030-4035 reads `g.name`, `g.rateKgHa`, `g.splitCount`.
+            // delivers[N/P/K] = 0 for all amendments in this branch — they don't
+            // deliver N (dolomite, lime, gypsum, kieserite, Epsom) or P/K to first
+            // approximation. The Annual Product Summary draws Ca/Mg/S from
+            // `analysis` × `rateKgHa` / 100 when those columns are extended; for
+            // now they're invisible (Item 3 backlog — column extension).
+            //
+            // splitCount is set to 1 — fine-turf splitting is already handled inside
+            // the rate string emitted by formatRate() (the " — apply in N split
+            // dressings of MM kg" suffix). Setting splitCount > 1 would double-cite
+            // the splits in the schedule cell.
+            out.granularEntries.push({
+                id: id,
+                name: d.product,
+                brand: d.product,
+                npk: '0-0-0',  // amendments deliver no N/P/K to first approximation
+                analysis: pcts,
+                rateKgHa: +totalKgHa.toFixed(0),
+                rateGM2: (+totalKgHa.toFixed(0) / 10).toFixed(1),
+                release: 'standard',
+                weeks: 1,
+                splitCount: 1,
+                delivers: { N: 0, P: 0, K: 0 },
+                notes: 'Amendment (single autumn application)',
+                _isAmendment: true,
+                _nutrient: d.nutrient,
+                _monthIndex: monthIndex,
+                _appliedMonth: monthSlot
+            });
+        });
+
+        return out;
+    }
+
+    /**
+     * b35fix321 — Cross-cutting warnings collector.
+     *
+     * Runs ONCE over the full per-nutrient decision set after all individual
+     * decisions are made. Identifies interactions that span multiple nutrients
+     * or span the decision/programme boundary — things no single decision
+     * branch can detect on its own.
+     *
+     * Each warning is a structured object pushed onto `decision.warnings[]`
+     * for whichever nutrient(s) it applies to. The table builder reads
+     * decision.warnings to render warning text in the table or as footnotes.
+     *
+     * Warning emitters (extensible — add to this list as future cross-cutting
+     * issues are identified):
+     *
+     *   1. lime_ammoniacal_sequencing
+     *      Fires when dolomite is being recommended (Mg branch + low pH +
+     *      Mg/Ca co-deficit) AND any ammoniacal product is in the
+     *      recommendation set or programme. 14-day separation required.
+     *      Source: Black et al. (1985) NZ J Agric Res 28:553.
+     *
+     *   2. ca_phosphate_incompatibility
+     *      Fires when calcium nitrate AND any phosphate (MAP/DAP/MKP/
+     *      phosphoric acid) are both present in programme or recommendations.
+     *      Standard fertigation rule: Ca²⁺ + HPO₄²⁻ → calcium phosphate
+     *      precipitate. Never tank-mix; granular surface co-application
+     *      reduces P availability.
+     *
+     *   3. ca_sulphate_incompatibility
+     *      Fires when calcium nitrate AND ammonium sulphate are both present.
+     *      Forms gypsum precipitate in fertigation lines. Surface co-
+     *      application has secondary NH₃ loss risk in alkaline conditions.
+     *
+     * Inputs:
+     *   decisions — array of decision objects from _computeAmendmentDecision()
+     *               (one per deficient nutrient)
+     *   programme — nutritionProgram (same shape as fed to decision function)
+     *   soilData  — soil object (for pH, etc.)
+     *   context   — context object (for seedingActive flag etc.)
+     *
+     * Side effect: mutates decisions[i].warnings = [...] (creates the array
+     * if not present). Each warning object: { code, severity, text, source }
+     */
+    function _collectCrossCuttingWarnings(decisions, programme, soilData, context) {
+        if (!Array.isArray(decisions) || decisions.length === 0) return;
+        decisions.forEach(function(d) { if (!d.warnings) d.warnings = []; });
+
+        // ── Helpers ────────────────────────────────────────────────────────
+
+        // Detect ammoniacal products by name pattern. Matches urea (excluding
+        // controlled-release variants), MAP, DAP, ammonium sulphate / sulphate
+        // of ammonia. Returns array of names found.
+        function findAmmoniacalInProgramme() {
+            var found = [];
+            if (!programme || !programme.annualSummary || !programme.annualSummary.products) return found;
+            var prods = programme.annualSummary.products;
+            Object.keys(prods).forEach(function(pid) {
+                var entry = prods[pid];
+                if (!entry) return;
+                var pname = (entry.brandName || (entry.product && entry.product.name) || pid || '').toLowerCase();
+                var isUrea = /\burea\b/.test(pname) &&
+                             !/ureaform|methylene urea|coated urea|controlled.release|polymer.coated/.test(pname);
+                var isMAP = /\bmap\b|\bmono-?ammonium\s*phosphate/.test(pname);
+                var isDAP = /\bdap\b|\bdi-?ammonium\s*phosphate/.test(pname);
+                var isAS  = /\bammonium\s*sulphate|\bsulphate\s*of\s*ammonia\b|\bAS\s*(soluble|tech)/i.test(pname);
+                if (isUrea || isMAP || isDAP || isAS) {
+                    found.push((entry.brandName || (entry.product && entry.product.name)) || pid);
+                }
+            });
+            return found;
+        }
+
+        // Detect calcium nitrate in the programme.
+        function findCalciumNitrateInProgramme() {
+            var found = [];
+            if (!programme || !programme.annualSummary || !programme.annualSummary.products) return found;
+            var prods = programme.annualSummary.products;
+            Object.keys(prods).forEach(function(pid) {
+                var entry = prods[pid];
+                if (!entry) return;
+                var pname = (entry.brandName || (entry.product && entry.product.name) || pid || '').toLowerCase();
+                if (/\bcalcium\s*nitrate\b|\bca\(no3\)2|\bcal-mag\s*nitrate/i.test(pname)) {
+                    found.push((entry.brandName || (entry.product && entry.product.name)) || pid);
+                }
+            });
+            return found;
+        }
+
+        // Detect phosphate sources in the programme (MAP, DAP, MKP, phosphoric
+        // acid, mono-potassium phosphate).
+        function findPhosphateInProgramme() {
+            var found = [];
+            if (!programme || !programme.annualSummary || !programme.annualSummary.products) return found;
+            var prods = programme.annualSummary.products;
+            Object.keys(prods).forEach(function(pid) {
+                var entry = prods[pid];
+                if (!entry) return;
+                var pname = (entry.brandName || (entry.product && entry.product.name) || pid || '').toLowerCase();
+                var isMAP = /\bmap\b|\bmono-?ammonium\s*phosphate/.test(pname);
+                var isDAP = /\bdap\b|\bdi-?ammonium\s*phosphate/.test(pname);
+                var isMKP = /\bmkp\b|\bmono-?potassium\s*phosphate/.test(pname);
+                var isPhosAcid = /\bphosphoric\s*acid\b/.test(pname);
+                if (isMAP || isDAP || isMKP || isPhosAcid) {
+                    found.push((entry.brandName || (entry.product && entry.product.name)) || pid);
+                }
+            });
+            return found;
+        }
+
+        // Detect ammonium sulphate specifically (subset of ammoniacal)
+        function findAmmoniumSulphateInProgramme() {
+            var found = [];
+            if (!programme || !programme.annualSummary || !programme.annualSummary.products) return found;
+            var prods = programme.annualSummary.products;
+            Object.keys(prods).forEach(function(pid) {
+                var entry = prods[pid];
+                if (!entry) return;
+                var pname = (entry.brandName || (entry.product && entry.product.name) || pid || '').toLowerCase();
+                if (/\bammonium\s*sulphate|\bsulphate\s*of\s*ammonia\b|\bAS\s*(soluble|tech)/i.test(pname)) {
+                    found.push((entry.brandName || (entry.product && entry.product.name)) || pid);
+                }
+            });
+            return found;
+        }
+
+        // Check whether a recommended product (in a decision) is ammoniacal.
+        function recIsAmmoniacal(decision) {
+            if (!decision || decision.status !== 'apply' || !decision.product) return false;
+            var pname = decision.product.toLowerCase();
+            return /\burea\b|\bmap\b|\bdap\b|\bmono-?ammonium|\bdi-?ammonium|\bammonium\s*sulphate|\bsulphate\s*of\s*ammonia/i.test(pname) &&
+                   !/ureaform|methylene urea|coated urea|polymer.coated/.test(pname);
+        }
+
+        // ── Warning 1: lime/dolomite ↔ ammoniacal sequencing ───────────────
+        //
+        // Fires when dolomite is being recommended (Mg decision with status
+        // 'apply' and product containing "Dolomite") AND any ammoniacal
+        // product is in the rec set or in the programme. Co-application drives
+        // 25-50% NH₃ volatilisation losses.
+        var dolomiteRec = decisions.find(function(d) {
+            return d.status === 'apply' && d.product && /Dolomite/i.test(d.product);
+        });
+        if (dolomiteRec) {
+            var ammoniacalRecs = decisions.filter(recIsAmmoniacal).map(function(d) { return d.product; });
+            var ammoniacalProg = findAmmoniacalInProgramme();
+            var allAmmoniacal = ammoniacalRecs.concat(ammoniacalProg);
+            // De-duplicate
+            var seen = {};
+            allAmmoniacal = allAmmoniacal.filter(function(n) {
+                var key = (n || '').toLowerCase();
+                if (seen[key]) return false;
+                seen[key] = true;
+                return true;
+            });
+
+            if (allAmmoniacal.length > 0) {
+                var seqWarning = {
+                    code: 'lime_ammoniacal_sequencing',
+                    severity: 'high',
+                    text: 'Sequencing note: apply lime/dolomite at minimum 14 days before or after ' +
+                          'any ammoniacal N source (urea, MAP, DAP, ammonium sulphate). The current ' +
+                          'recommendation/programme includes: ' + allAmmoniacal.join(', ') + '. ' +
+                          'Co-application drives 25-50% NH₃ volatilisation losses through the ' +
+                          'reaction: NH₄⁺ + CaCO₃ → CaSO₄ + (NH₄)₂CO₃ → NH₃↑.',
+                    source: 'Black et al. (1985) NZ J Agric Res 28:553; Fenn & Hossner (1985)'
+                };
+                // Attach to dolomite decision (it's the trigger) AND to any
+                // ammoniacal-rec decisions so the user sees it next to either.
+                dolomiteRec.warnings.push(seqWarning);
+                decisions.forEach(function(d) {
+                    if (recIsAmmoniacal(d) && d !== dolomiteRec) {
+                        // Avoid duplicate warning objects — push a reference
+                        d.warnings.push(seqWarning);
+                    }
+                });
+            }
+        }
+
+        // ── Warning 2: Ca(NO₃)₂ + phosphate fertigation incompatibility ────
+        //
+        // Calcium nitrate + any phosphate (MAP/DAP/MKP/phosphoric acid) forms
+        // calcium phosphate precipitate when combined in fertigation lines.
+        // Standard rule: never tank-mix Ca with phosphate. Granular surface
+        // co-application reduces P availability via the same chemistry.
+        var caNitrateProg = findCalciumNitrateInProgramme();
+        var phosphateProg = findPhosphateInProgramme();
+        // Also check decision recs for phosphate (MAP from P branch)
+        var phosphateRecs = decisions.filter(function(d) {
+            return d.status === 'apply' && d.product &&
+                   /\bMAP\b|\bDAP\b|\bMKP\b|Mono-?ammonium\s*phosphate|Di-?ammonium\s*phosphate/i.test(d.product);
+        }).map(function(d) { return d.product; });
+        var allPhosphate = phosphateProg.concat(phosphateRecs);
+
+        if (caNitrateProg.length > 0 && allPhosphate.length > 0) {
+            var caPWarning = {
+                code: 'ca_phosphate_incompatibility',
+                severity: 'high',
+                text: 'Fertigation incompatibility flag: calcium nitrate (' + caNitrateProg.join(', ') +
+                      ') and phosphate sources (' + allPhosphate.join(', ') + ') form calcium phosphate ' +
+                      'precipitate when tank-mixed. Apply as separate granular drops or through separate ' +
+                      'fertigation events — never co-mixed. This is a standard fertigation rule.',
+                source: 'Standard fertigation chemistry; AU/NZ industry consensus'
+            };
+            // Attach to P decision (the most relevant) and any decision whose
+            // product is a phosphate
+            decisions.forEach(function(d) {
+                if (d.nutrient === 'P' || (d.status === 'apply' && d.product &&
+                        /\bMAP\b|\bDAP\b|\bMKP\b|Mono-?ammonium\s*phosphate|Di-?ammonium\s*phosphate/i.test(d.product))) {
+                    d.warnings.push(caPWarning);
+                }
+            });
+        }
+
+        // ── Warning 3: Ca(NO₃)₂ + (NH₄)₂SO₄ — gypsum precipitate ───────────
+        //
+        // Calcium nitrate + ammonium sulphate forms CaSO₄ (gypsum) precipitate
+        // when tank-mixed. Surface co-application carries secondary NH₃ loss
+        // risk via the same Ca²⁺ + NH₄⁺ → NH₃ pathway, more pronounced at
+        // alkaline pH but present at any pH if lime is also in rotation.
+        var asProg = findAmmoniumSulphateInProgramme();
+        if (caNitrateProg.length > 0 && asProg.length > 0) {
+            var caSWarning = {
+                code: 'ca_sulphate_incompatibility',
+                severity: 'medium',
+                text: 'Incompatibility flag: calcium nitrate (' + caNitrateProg.join(', ') +
+                      ') and ammonium sulphate (' + asProg.join(', ') + ') form gypsum (CaSO₄) ' +
+                      'precipitate when combined in fertigation lines. Apply as separate granular ' +
+                      'drops or through separate fertigation events. Surface co-application also ' +
+                      'carries secondary NH₃ loss risk, particularly if any lime/dolomite is in ' +
+                      'the rotation.',
+                source: 'Standard fertigation chemistry'
+            };
+            // Attach to all decisions that touch S or any ammoniacal rec
+            decisions.forEach(function(d) {
+                if (d.nutrient === 'S' || recIsAmmoniacal(d)) {
+                    d.warnings.push(caSWarning);
+                }
+            });
+        }
+
+        // ── (Future cross-cutting warnings: extend this list) ──────────────
+        //
+        // Hooks to add later when the tank-feasibility-engine ships:
+        //   - SOP solubility ceiling exceeded for fertigation rate
+        //   - Common-ion effect on simultaneous SOP + AS dissolution
+        //   - Order-of-addition violations
+    }
+
+    /**
+     * b35fix319 Phase 3 — Annual Soil Amendments table.
+     *
+     * Consolidates P/K/Ca/Mg/S amendment decisions into one Word table that
+     * makes the programme-vs-residual relationship explicit. Replaces the
+     * "orphan bullet list" of soil-narrative recommendations where
+     * suppression and residual-only cases were buried in prose.
+     *
+     * Each row reflects one nutrient and shows:
+     *   Nutrient | Soil deficit (kg/ha) | Programme delivers (kg/ha) |
+     *   Residual (kg/ha) | Product | Rate | Status
+     *
+     * Status values:
+     *   "Apply"                          — standalone amendment recommended
+     *   "Suppressed (programme covers)"  — Rule 1 (universal): programme delivery >= deficit
+     *   "Suppressed (dolomite covers)"   — Ca-only: dolomite already recommended for Mg/pH
+     *   "Suppressed (combined)"          — S-only: programme + dolomite together cover
+     *   "No deficit"                     — nutrient at/above threshold
+     *
+     * Returns an array of [Heading-Paragraph, intro-Paragraph, Table, footnote-Paragraph]
+     * (or [Heading, fallback-Paragraph] when no deficits exist). Caller pushes
+     * the array contents directly into sections[].
+     *
+     * Pure function: depends only on soilData + nutritionProgram + surfaceType.
+     * Safe to call per-iteration in combined exports.
+     */
+    function buildAnnualSoilAmendmentsTable(soilData, nutritionProgram, surfaceType, context) {
+        if (!soilData || !soilData.thresholds) return [];
+        context = context || {};
+
+        var methodology = soilData.methodology || 'MLSN';
+        var isSLAN = methodology === 'SLAN';
+        var isAA = methodology === 'AMMONIUM_ACETATE' || methodology === 'AMMONIUM ACETATE';
+        var isRangeBased = isSLAN || isAA;
+
+        var nutrients = [
+            { key: 'P',  name: 'Phosphorus (P)' },
+            { key: 'K',  name: 'Potassium (K)' },
+            { key: 'Ca', name: 'Calcium (Ca)' },
+            { key: 'Mg', name: 'Magnesium (Mg)' },
+            { key: 'S',  name: 'Sulphur (S)' }
+        ];
+
+        // Compute decisions for any nutrient with a deficit (range-based or
+        // MLSN min). Skip nutrients without a measured value.
+        var decisions = [];
+        nutrients.forEach(function(n) {
+            var value = soilData[n.key];
+            var thresh = soilData.thresholds[n.key];
+            if (value === undefined || value === null || !thresh) return;
+
+            var isDeficient;
+            if (isRangeBased) {
+                isDeficient = value < thresh.min;
+            } else {
+                isDeficient = value < thresh.min;
+            }
+            if (!isDeficient) return;
+
+            var deficit = thresh.min - value;
+            var d = _computeAmendmentDecision(n.key, deficit, soilData, surfaceType, nutritionProgram, context);
+            if (!d) return;
+            d._displayName = n.name;
+            decisions.push(d);
+        });
+
+        // b35fix321: run the cross-cutting warnings collector after all
+        // per-nutrient decisions are built. Mutates each decision's
+        // .warnings[] array. Pure function — depends only on the decision
+        // set, programme, soil, and context.
+        try {
+            _collectCrossCuttingWarnings(decisions, nutritionProgram, soilData, context);
+        } catch (e) {
+            if (typeof console !== 'undefined' && console.warn) {
+                console.warn('[WordExport] _collectCrossCuttingWarnings failed:', e && e.message);
+            }
+        }
+
+        var sectionPieces = [];
+
+        // Heading (always added when called — caller decides whether to call)
+        sectionPieces.push(new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            keepNext: true,
+            spacing: { before: 240, after: 80 },
+            children: [new TextRun({ text: 'Annual Soil Amendments', bold: true })]
+        }));
+
+        if (decisions.length === 0) {
+            sectionPieces.push(new Paragraph({
+                spacing: { after: 120 },
+                children: [new TextRun({
+                    text: 'No standalone soil amendments required — all measured nutrients are at or ' +
+                          'above ' + (isAA ? 'Ammonium Acetate (Hill Labs)' : methodology) +
+                          ' guideline levels.',
+                    size: 20, italics: true, color: '6B7280'
+                })]
+            }));
+            return sectionPieces;
+        }
+
+        // Intro
+        sectionPieces.push(new Paragraph({
+            spacing: { after: 120 },
+            children: [new TextRun({
+                text: 'Soil deficits are reconciled against the nutrition programme delivery before ' +
+                      'recommending standalone amendments. Where the programme already meets the deficit, ' +
+                      'the standalone product is suppressed; otherwise the rate is reduced to the residual.',
+                size: 18, italics: true, color: '6B7280'
+            })]
+        }));
+
+        var border = { style: BorderStyle.SINGLE, size: 1, color: 'D1D5DB' };
+        var borders = { top: border, bottom: border, left: border, right: border };
+
+        function headerCell(text, width, bg) {
+            return new TableCell({
+                borders: borders,
+                width: { size: width, type: WidthType.DXA },
+                shading: { fill: bg || 'F3F4F6', type: ShadingType.CLEAR },
+                children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new TextRun({ text: text, bold: true, size: 18 })]
+                })]
+            });
+        }
+
+        function bodyCell(text, width, opts) {
+            opts = opts || {};
+            return new TableCell({
+                borders: borders,
+                width: { size: width, type: WidthType.DXA },
+                shading: opts.shading ? { fill: opts.shading, type: ShadingType.CLEAR } : undefined,
+                children: [new Paragraph({
+                    alignment: opts.align || AlignmentType.LEFT,
+                    children: [new TextRun({
+                        text: String(text == null ? '—' : text),
+                        size: 16,
+                        bold: !!opts.bold,
+                        color: opts.color || '1F2937'
+                    })]
+                })]
+            });
+        }
+
+        // Column widths (DXA ≈ twentieths of a point; total ~9000-9200 to fit page)
+        var colW = {
+            nutrient:  1300,
+            deficit:   1100,
+            delivers:  1300,
+            residual:  1100,
+            product:   1900,
+            rate:      1800,
+            status:    1500
+        };
+
+        var headerRow = new TableRow({
+            tableHeader: true,
+            cantSplit: true,
+            children: [
+                headerCell('Nutrient',           colW.nutrient),
+                headerCell('Soil deficit\n(kg/ha)', colW.deficit),
+                headerCell('Programme delivers\n(kg/ha)', colW.delivers, 'EFF6FF'),
+                headerCell('Residual\n(kg/ha)',   colW.residual, 'EFF6FF'),
+                headerCell('Product',             colW.product),
+                headerCell('Rate',                colW.rate),
+                headerCell('Status',              colW.status)
+            ]
+        });
+
+        var rows = [headerRow];
+
+        decisions.forEach(function(d) {
+            var statusLabel, statusColor, statusBg;
+            switch (d.status) {
+                case 'apply':
+                    statusLabel = 'Apply';
+                    statusColor = 'B45309';
+                    statusBg = 'FEF3C7';
+                    break;
+                case 'suppressed_programme':
+                    statusLabel = 'Suppressed (programme covers)';
+                    statusColor = '15803D';
+                    statusBg = 'DCFCE7';
+                    break;
+                case 'suppressed_dolomite':
+                    statusLabel = 'Suppressed (dolomite covers)';
+                    statusColor = '15803D';
+                    statusBg = 'DCFCE7';
+                    break;
+                case 'suppressed_combined':
+                    statusLabel = 'Suppressed (combined)';
+                    statusColor = '15803D';
+                    statusBg = 'DCFCE7';
+                    break;
+                case 'no_deficit':
+                    statusLabel = 'No deficit';
+                    statusColor = '6B7280';
+                    statusBg = 'F9FAFB';
+                    break;
+                default:
+                    statusLabel = String(d.status || '—');
+                    statusColor = '1F2937';
+                    statusBg = null;
+            }
+
+            // For suppression rows, blank out product/rate cells (status carries the meaning).
+            var productText = d.status === 'apply' ? d.product : '—';
+            var rateText    = d.status === 'apply' ? d.rate    : '—';
+
+            rows.push(new TableRow({
+                cantSplit: true,
+                children: [
+                    bodyCell(d._displayName, colW.nutrient, { bold: true }),
+                    bodyCell(d.kgDeficit.toFixed(1), colW.deficit, { align: AlignmentType.CENTER }),
+                    bodyCell(d.kgProgramme.toFixed(1), colW.delivers, { align: AlignmentType.CENTER, shading: 'F8FAFC' }),
+                    bodyCell(d.kgResidual.toFixed(1), colW.residual, { align: AlignmentType.CENTER, shading: 'F8FAFC' }),
+                    bodyCell(productText, colW.product),
+                    bodyCell(rateText, colW.rate),
+                    bodyCell(statusLabel, colW.status, { bold: true, color: statusColor, shading: statusBg, align: AlignmentType.CENTER })
+                ]
+            }));
+        });
+
+        sectionPieces.push(new Table({
+            columnWidths: [colW.nutrient, colW.deficit, colW.delivers, colW.residual, colW.product, colW.rate, colW.status],
+            rows: rows
+        }));
+
+        // Footnote — flag any rows where programme contributors exist so the
+        // user can trace the programme reference.
+        var contribLines = [];
+        decisions.forEach(function(d) {
+            if (!d.contributing || !d.contributing.length) return;
+            var srcs = d.contributing.map(function(c) {
+                return c.name + ' (' + c.kgNutrient + ' kg ' + d.nutrient + '/ha)';
+            }).join(', ');
+            contribLines.push(d._displayName + ' programme sources: ' + srcs);
+        });
+        if (contribLines.length > 0) {
+            sectionPieces.push(new Paragraph({
+                spacing: { before: 80, after: 60 },
+                children: [new TextRun({
+                    text: contribLines.join(' | '),
+                    size: 14, italics: true, color: '6B7280'
+                })]
+            }));
+        }
+
+        // b35fix321: surface cross-cutting warnings (lime/ammoniacal sequencing,
+        // Ca-phosphate / Ca-sulphate fertigation incompatibility). De-duplicate
+        // by warning code so a warning attached to multiple decisions only
+        // renders once.
+        var renderedWarningCodes = {};
+        var allWarnings = [];
+        decisions.forEach(function(d) {
+            if (!d.warnings || d.warnings.length === 0) return;
+            d.warnings.forEach(function(w) {
+                if (!w || !w.code || renderedWarningCodes[w.code]) return;
+                renderedWarningCodes[w.code] = true;
+                allWarnings.push(w);
+            });
+        });
+
+        if (allWarnings.length > 0) {
+            // Section heading
+            sectionPieces.push(new Paragraph({
+                spacing: { before: 200, after: 60 },
+                keepNext: true,
+                children: [new TextRun({
+                    text: 'Application Warnings & Sequencing Notes',
+                    bold: true, size: 20, color: 'B45309'
+                })]
+            }));
+
+            allWarnings.forEach(function(w) {
+                var headerColour = w.severity === 'high' ? 'B91C1C'  // red-700
+                                 : w.severity === 'medium' ? 'B45309' // amber-700
+                                 : '6B7280';                          // grey-500
+                var bgColour = w.severity === 'high' ? 'FEF2F2'      // red-50
+                             : w.severity === 'medium' ? 'FFFBEB'    // amber-50
+                             : 'F9FAFB';                              // grey-50
+
+                // Warning body paragraph (inline title + text + source)
+                var titleByCode = {
+                    'lime_ammoniacal_sequencing':  'Lime/dolomite ↔ ammoniacal N timing',
+                    'ca_phosphate_incompatibility': 'Calcium nitrate + phosphate fertigation incompatibility',
+                    'ca_sulphate_incompatibility':  'Calcium nitrate + ammonium sulphate fertigation incompatibility'
+                };
+                var title = titleByCode[w.code] || w.code;
+
+                sectionPieces.push(new Paragraph({
+                    spacing: { before: 80, after: 40 },
+                    shading: { fill: bgColour, type: ShadingType.CLEAR },
+                    children: [
+                        new TextRun({ text: title + ': ', bold: true, size: 16, color: headerColour }),
+                        new TextRun({ text: w.text, size: 16, color: '1F2937' })
+                    ]
+                }));
+
+                if (w.source) {
+                    sectionPieces.push(new Paragraph({
+                        spacing: { after: 40 },
+                        children: [new TextRun({
+                            text: 'Source: ' + w.source,
+                            size: 13, italics: true, color: '6B7280'
+                        })]
+                    }));
+                }
+            });
+        }
+
+        sectionPieces.push(new Paragraph({
+            spacing: { before: 60, after: 160 },
+            children: [new TextRun({
+                text: 'Rates expressed as elemental kg/ha. Soil deficit = (threshold − measured) × 10 cm × 1.4 g/cm³ × 0.1. ' +
+                      'Programme delivery summed across annual applications.',
+                size: 14, italics: true, color: '9CA3AF'
+            })]
+        }));
+
+        return sectionPieces;
+    }
+
     /**
      * Generate tissue interpretation narrative and recommendations
      */
@@ -2472,13 +4155,37 @@
         };
         
         // SLAN ranges (min-max sufficiency)
-        var slanRanges = {
-            P: { min: 25, max: 50 },
-            K: { min: 75, max: 150 },
-            Ca: { min: 500, max: 1000 },
-            Mg: { min: 60, max: 120 },
-            S: { min: 15, max: 30 }
-        };
+        // b35fix333a: route through GilbaClassificationConstants.SLAN_RANGES SSOT.
+        // Pre-b35fix333a this was hardcoded at K=75-150, Ca=500-1000, Mg=60-120,
+        // S=15-30 — values that didn't match either the (post-b35fix333) Carrow
+        // 2004 GCM ranges in the constants module OR any single published source.
+        // The Mg 60-120 here happened to be sand-soil Carrow 2004; the K 75-150
+        // was the pre-b35fix333 fabricated range. b35fix333 corrected the SSOT
+        // module to Carrow 2004 "other soils" / high-CEC values but missed this
+        // inline table — clients saw "75-150" in the SLAN Range column despite
+        // the K-Reconciliation table caption reading "75-176" on the same export.
+        // Fallback below is the Carrow 2004 "other soils" set, matching SSOT.
+        var _gccSlan = (typeof window !== 'undefined' &&
+                        window.GilbaClassificationConstants &&
+                        window.GilbaClassificationConstants.SLAN_RANGES) || null;
+        var slanRanges;
+        if (_gccSlan) {
+            slanRanges = {
+                P:  { min: _gccSlan.P.floor,  max: _gccSlan.P.ceiling  },
+                K:  { min: _gccSlan.K.floor,  max: _gccSlan.K.ceiling  },
+                Ca: { min: _gccSlan.Ca.floor, max: _gccSlan.Ca.ceiling },
+                Mg: { min: _gccSlan.Mg.floor, max: _gccSlan.Mg.ceiling },
+                S:  { min: _gccSlan.S.floor,  max: _gccSlan.S.ceiling  }
+            };
+        } else {
+            slanRanges = {
+                P:  { min: 27,  max: 54  },
+                K:  { min: 75,  max: 176 },
+                Ca: { min: 500, max: 750 },
+                Mg: { min: 70,  max: 140 },
+                S:  { min: 15,  max: 40  }
+            };
+        }
         
         var nutrients = [
             { key: 'P', name: 'Phosphorus (P)' },
@@ -2703,7 +4410,7 @@
                 // Above optimal but within tolerance
                 narrative.push('Soil pH (' + pH + ') is above the optimal range (' + optRangeStr + ') for ' + speciesName + ', but within tolerance (' + tolRangeStr + '). Monitor for iron chlorosis.');
                 if (alkalineTolerant) {
-                    narrative.push(speciesName + ' tolerates alkaline conditions — focus on micronutrient management rather than aggressive acidification.');
+                    narrative.push(speciesName + ' tolerates alkaline conditions — focus on trace element management rather than aggressive acidification.');
                     recommendations.push('Use chelated iron (Fe-EDDHA) if chlorosis appears. Prefer ammonium-based nitrogen sources.');
                 } else {
                     recommendations.push('Consider acidification to bring pH into the optimal range. Use ammonium sulphate for nitrogen applications.');
@@ -2754,7 +4461,6 @@
                     spacing: { after: 80 },
                     indent: { left: 200 },
                     children: [
-                        new TextRun({ text: '→ ', size: 20, color: '16A34A' }),
                         new TextRun({ text: rec, size: 20, color: '374151' })
                     ]
                 }));
@@ -2955,7 +4661,7 @@
                 var ratioText = f.ratio ? ' (' + f.ratio + ' = ' + (f.value || '') + ', threshold: ' + f.threshold + ')' : '';
                 elements.push(new Paragraph({
                     spacing: { before: 60, after: 40 },
-                    children: [new TextRun({ text: pair + ratioText, bold: true, size: 22, color: 'D97706' })]
+                    children: [new TextRun({ text: pair + ratioText, bold: true, size: 22, color: '374151' })]
                 }));
                 if (f.message) {
                     elements.push(new Paragraph({
@@ -2975,45 +4681,107 @@
         }
 
         // Annual Product Summary table
+        // b35fix328: extended from N/K-only to N/P/K/Ca/Mg/S, with optional
+        // macro columns (P, Ca, Mg, S) hidden when no product in the report
+        // delivers them above the 0.05 kg/ha noise floor. N and K columns
+        // are always shown (existing contract). Two-pass build: extract all
+        // row vectors first via _extractEntryNutrients, detect active
+        // optional columns via _detectActiveNutrientColumns, then render.
+        // This makes amendment rows (dolomite, gypsum, SOP) legible — they
+        // were the trigger case for this fix (b35fix323 dolomite row read
+        // "Total 955 / N 0 / K 0" pre-fix).
         if (summary.products && Object.keys(summary.products).length > 0) {
             elements.push(new Paragraph({
                 spacing: { before: 200, after: 100 },
                 children: [new TextRun({ text: 'Annual Product Summary', bold: true, size: 24, color: '1F2937' })]
             }));
-            
-            var summaryRows = [
-                new TableRow({
-                    tableHeader: true,
-                    children: [
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'K', bold: true, size: 20 })] })] })
-                    ]
-                })
-            ];
-            
-            Object.values(summary.products).forEach(function(p) {
-                var nutrients = p.nutrients || p.totalDelivered || {};
-                var productName = p.name || (p.product && p.product.name) || 'Unknown';
-                var totalKg = p.totalKg || p.totalKgHa || p.totalLHa || 0;
-                summaryRows.push(new TableRow({
-                    children: [
-                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productName, size: 20 })] })] }),
-                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(p.applications || 0), size: 20 })] })] }),
-                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(totalKg || 0).toString(), size: 20 })] })] }),
-                        new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(nutrients.N || 0).toString(), size: 20 })] })] }),
-                        new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(nutrients.K || 0).toString(), size: 20 })] })] })
-                    ]
-                }));
+
+            // Pass 1: extract per-row nutrient vectors and metadata
+            var productList = Object.values(summary.products);
+            var rowsData = productList.map(function(p) {
+                var vec = _extractEntryNutrients(p);
+                var totalKg = parseFloat(p.totalKg);
+                if (!isFinite(totalKg) || totalKg <= 0) totalKg = parseFloat(p.totalKgHa);
+                if (!isFinite(totalKg) || totalKg <= 0) totalKg = parseFloat(p.totalLHa);
+                if (!isFinite(totalKg)) totalKg = 0;
+                return {
+                    name: p.name || (p.product && p.product.name) || 'Unknown',
+                    applications: p.applications || 0,
+                    totalKg: totalKg,
+                    nutrients: vec
+                };
             });
-            
+
+            // Detect optional macro columns to render
+            var activeCols = _detectActiveNutrientColumns(
+                rowsData.map(function(r) { return r.nutrients; })
+            );
+
+            // Column widths: keep Product/Applications/Total kg/ha fixed,
+            // distribute the remaining space across the active nutrient
+            // columns. Existing widths (N=1200, K=1200) preserved when only
+            // N and K render. Adding columns shrinks each nutrient cell to
+            // 950 DXA so the table doesn't overflow A4 portrait.
+            var includeP = activeCols.P;
+            var includeCa = activeCols.Ca;
+            var includeMg = activeCols.Mg;
+            var includeS = activeCols.S;
+            var optionalCount = (includeP ? 1 : 0) + (includeCa ? 1 : 0) + (includeMg ? 1 : 0) + (includeS ? 1 : 0);
+            var nutWidth = optionalCount === 0 ? 1200 : 950;
+
+            // Build header
+            var headerCells = [
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })] })
+            ];
+            if (includeP) {
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'P', bold: true, size: 20 })] })] }));
+            }
+            headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'K', bold: true, size: 20 })] })] }));
+            if (includeCa) {
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ca', bold: true, size: 20 })] })] }));
+            }
+            if (includeMg) {
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Mg', bold: true, size: 20 })] })] }));
+            }
+            if (includeS) {
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'S', bold: true, size: 20 })] })] }));
+            }
+
+            var summaryRows = [new TableRow({ tableHeader: true, children: headerCells })];
+
+            // Pass 2: render rows
+            rowsData.forEach(function(r) {
+                var n = r.nutrients;
+                var rowCells = [
+                    new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 20 })] })] }),
+                    new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 20 })] })] }),
+                    new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 20 })] })] }),
+                    new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.N).toString(), size: 20 })] })] })
+                ];
+                if (includeP) {
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.P).toString(), size: 20 })] })] }));
+                }
+                rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.K).toString(), size: 20 })] })] }));
+                if (includeCa) {
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Ca).toString(), size: 20 })] })] }));
+                }
+                if (includeMg) {
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Mg).toString(), size: 20 })] })] }));
+                }
+                if (includeS) {
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.S).toString(), size: 20 })] })] }));
+                }
+                summaryRows.push(new TableRow({ children: rowCells }));
+            });
+
             elements.push(new Table({
                 width: { size: 100, type: WidthType.PERCENTAGE },
                 rows: summaryRows
             }));
-            
+
             elements.push(new Paragraph({ children: [] }));
         }
         
@@ -3049,7 +4817,12 @@
             }
             if (m.liquid && m.liquid.length > 0) {
                 m.liquid.forEach(function(l) {
-                    var rate = l.rateLHa ? l.rateLHa + ' L/ha' : '';
+                    // b35fix322 Bug 2b: soluble products are dosed by mass not
+                    // volume. rateLHa carries the kg/ha number for solubles
+                    // (catalogue convention — see calculateLiquidApplication
+                    // which keys off form). Display unit must follow form.
+                    var unit = (l.form === 'soluble') ? 'kg/ha' : 'L/ha';
+                    var rate = l.rateLHa ? l.rateLHa + ' ' + unit : '';
                     products.push(l.name + (rate ? ' @ ' + rate : ''));
                 });
             }
@@ -3585,6 +5358,521 @@
         return elements;
     }
     
+    // =========================================================================
+    // b35fix313 — Engine input assembly helper
+    //
+    // Consolidates the engine-input readers (species, clippings, traffic,
+    // nProgram, monthly temps, hemisphere, overseed) into a single function
+    // that writes its output onto data.engineInputs. Called from collectData()
+    // once per export. Per-sample correctness in combined exports comes from
+    // the fact that collectData() is called INSIDE the combined export loop
+    // (once per site-sample iteration, with the correct site active), so
+    // data.engineInputs captures that iteration's state before it's pushed
+    // to collectedReports. The post-loop ANR pass then reads r.data.engineInputs
+    // instead of re-reading globals which would reflect only the last site.
+    //
+    // Sources, in priority order:
+    //   species:     GAIP_STATE.inputs.turf.species → GAIP_STATE.turf.(species|grassSpecies)
+    //   clippings:   GAIP_STATE.turf.clippingsCollected
+    //   traffic:     GAIP_STATE.traffic.intensity → 'moderate'
+    //   nProgram:    .gaip-nutrition-annual-n DOM input → GAIP_STATE.turf.nProgramKgHaYr
+    //                → GAIP_STATE.inputs.turf.nProgramKgHaYr → null (engine default)
+    //   monthlyTemps: GilbaClimateEngine.getMonthlyData() → latitude-band fallback
+    //   hemisphere:  lat-based from GAIP_STATE → 'south' default
+    //   overseed:    GAIP_OVERSEED_STATE → default (no overseed)
+    // =========================================================================
+    function _buildEngineInputs(data) {
+        if (!data) return;
+
+        var _state = window.GAIP_STATE || {};
+        var _stInputs = _state.inputs || {};
+        var _stTurf = _state.turf || {};
+        var _stTraffic = _state.traffic || {};
+        var _canon = window.GAIP_CANONICAL_STATE || {};
+        var _canonTurf = _canon.turf || {};
+
+        // b35fix367 — Per-sample turf profile override (multi-site turf mode).
+        //
+        // For council clients with many heterogeneous samples per site, the
+        // active sample may carry sample.turfProfile = {species, variety, ...}
+        // that overrides the site-level identity. The override is gated on
+        // GAIP_SiteConfig.isMultiSiteTurfEnabled(activeSiteId) — when off,
+        // the override is ignored even if present (non-destructive).
+        //
+        // Read site precedence: sample override > canonical state > GAIP_STATE > DOM.
+        // This is THE only engine read site that needs the override —
+        // SpeciesController, hub-orchestrator, and disease engines all
+        // consume the species via canonical state which is rebuilt per
+        // sample-load when loadSample applies the override into
+        // GaipTurfProfile.state. _buildEngineInputs is the safety net for
+        // word-export's _buildEngineInputs called within combined-export
+        // per-iteration (where GAIP_CANONICAL_STATE may not yet have caught
+        // up to the active sample).
+        var _sampleOverrideSpecies = null;
+        var _sampleOverrideOverseed = null;
+        var _sampleOverrideTurfType = null;
+        try {
+            var _SM = window.GAIP_SampleManager;
+            var _SC = window.GAIP_SiteConfig;
+            if (_SM && _SC && typeof _SC.isMultiSiteTurfEnabled === 'function') {
+                var _activeSite = typeof _SM.getActiveSiteId === 'function'
+                    ? _SM.getActiveSiteId() : null;
+                if (_activeSite && _SC.isMultiSiteTurfEnabled(_activeSite)) {
+                    var _activeSample = typeof _SM.getActiveSample === 'function'
+                        ? _SM.getActiveSample('soil') : null;
+                    if (_activeSample && _activeSample.turfProfile) {
+                        var _tp = _activeSample.turfProfile;
+                        if (_tp.species)          _sampleOverrideSpecies  = _tp.species;
+                        if (_tp.companionSpecies) _sampleOverrideOverseed = _tp.companionSpecies;
+                        if (_tp.turfType)         _sampleOverrideTurfType = _tp.turfType;
+                    }
+                }
+            }
+        } catch (e) {
+            // Defensive: never let override read crash _buildEngineInputs.
+            // Falls through to canonical chain on any error.
+        }
+
+        // b35fix314: species resolution with readiness guard + hard-fail.
+        //
+        // Problem observed in production (b35fix313 Russley log): on fresh
+        // site-activation, the user clicks Export Word before the cascade
+        // has fully propagated species into GAIP_STATE.turf.grassSpecies.
+        // Previously the chain fell through to 'perennialRyegrass' and
+        // silently produced wrong-species ANR.
+        //
+        // Fix priority order:
+        //   0. b35fix367 sample.turfProfile.species — when multi-site turf
+        //      mode is on for the active site, the per-sample override wins.
+        //   1. GAIP_CANONICAL_STATE.turf.speciesKey — written at end of every
+        //      computeAll by hub-orchestrator.js. If present, the orchestrator
+        //      has resolved and normalised species (via SpeciesController).
+        //      This is the SAME source hub-orchestrator uses to emit the
+        //      disease engine's species. Most reliable readiness signal.
+        //   2. GAIP_STATE.inputs.turf.species / GAIP_STATE.turf.species /
+        //      GAIP_STATE.turf.grassSpecies — existing chain, left in place
+        //      because some consumer code paths write here directly.
+        //   3. DOM probe — .gaip-species select value. site-config-persistence
+        //      restores this synchronously on site-switch before any async
+        //      cascade, so it's the earliest source of truth.
+        //   4. NULL — hard-fail. Caller must handle missing engineInputs
+        //      rather than silently getting 'perennialRyegrass'.
+        var _species =
+            _sampleOverrideSpecies ||
+            _canonTurf.effectiveSpeciesKey ||
+            _canonTurf.speciesKey ||
+            (_stInputs.turf && _stInputs.turf.species) ||
+            _stTurf.species ||
+            _stTurf.grassSpecies ||
+            null;
+
+        if (!_species) {
+            // Last-resort DOM probe. The species <select> reflects what
+            // site-config-persistence wrote during restoreConfig, which
+            // happens 300ms after gaip:site-changed regardless of whether
+            // the async cascade has touched GAIP_STATE yet.
+            var _spEl = document.querySelector('.gaip-species');
+            if (_spEl && _spEl.value) {
+                var _opt = _spEl.options ? _spEl.options[_spEl.selectedIndex] : null;
+                _species = (_opt && _opt.text) || _spEl.value;
+            }
+        }
+
+        if (!_species) {
+            // Hard-fail: readiness check failed entirely. Signal to callers
+            // by nulling data.engineInputs. The single-export nutritionSummary
+            // block will detect this and fall through to the legacy cache
+            // path. The combined-export ANR pass will log a warning and skip
+            // that report's ANR. Neither silently substitutes a species.
+            console.warn('[WordExport] _buildEngineInputs: species unresolved ' +
+                         '(canonical, state, and DOM all empty) — ' +
+                         'setting data.engineInputs=null. ' +
+                         'Caller will fall back or hard-fail.');
+            data.engineInputs = null;
+            return;
+        }
+
+        // User-supplied N programme. b35fix312 made .gaip-nutrition-annual-n
+        // (Nutrition Program panel) the primary input, with .gaip-n-program
+        // (Site Settings) as fallback. Mirror that precedence here.
+        var _userN = null;
+        var _nEl = document.querySelector('.gaip-nutrition-annual-n');
+        if (!_nEl || !_nEl.value) {
+            _nEl = document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
+        }
+        if (_nEl && _nEl.value) {
+            var _nParsed = parseFloat(_nEl.value);
+            if (isFinite(_nParsed) && _nParsed >= 0) _userN = _nParsed;
+        }
+        if (_userN === null) {
+            _userN = (_stTurf.nProgramKgHaYr != null) ? _stTurf.nProgramKgHaYr :
+                     (_stInputs.turf && _stInputs.turf.nProgramKgHaYr != null)
+                         ? _stInputs.turf.nProgramKgHaYr : null;
+        }
+
+        // Monthly temps: live climate engine wins, otherwise latitude-band fallback.
+        var _climateData = (window.GilbaClimateEngine &&
+                            typeof window.GilbaClimateEngine.getMonthlyData === 'function')
+            ? (window.GilbaClimateEngine.getMonthlyData() || {}) : {};
+        var _monthlyTemps = {};
+        var _climateIsLive = false;
+        for (var _m = 1; _m <= 12; _m++) {
+            if (_climateData[_m] && typeof _climateData[_m].temp === 'number' && !isNaN(_climateData[_m].temp)) {
+                _monthlyTemps[_m] = _climateData[_m].temp;
+                _climateIsLive = true;
+            }
+        }
+
+        // Latitude extraction — DOM input is authoritative for the current
+        // active site (site-config-persistence restores it on site-switch).
+        var _latEl = document.querySelector('.gaip-lat');
+        var _lat = _latEl ? parseFloat(_latEl.value) : NaN;
+        if (!isFinite(_lat)) {
+            _lat = (_stInputs.site && _stInputs.site.latitude) ||
+                   (_state.site && _state.site.latitude) ||
+                   (_state.location && _state.location.lat);
+            if (typeof _lat !== 'number' || isNaN(_lat)) _lat = -33;  // Sydney-ish default
+        }
+
+        if (!_climateIsLive) {
+            var _absLat = Math.abs(_lat);
+            if (_absLat < 23.5) {
+                _monthlyTemps = _lat >= 0
+                    ? { 1:17,2:19,3:23,4:27,5:30,6:31,7:31,8:30,9:29,10:27,11:23,12:19 }
+                    : { 1:30,2:30,3:29,4:28,5:26,6:24,7:23,8:25,9:28,10:30,11:31,12:31 };
+            } else if (_absLat < 35) {
+                _monthlyTemps = _lat >= 0
+                    ? { 1:10,2:12,3:17,4:22,5:27,6:30,7:31,8:30,9:26,10:21,11:15,12:11 }
+                    : { 1:26,2:26,3:24,4:21,5:17,6:14,7:13,8:15,9:18,10:21,11:24,12:26 };
+            } else {
+                _monthlyTemps = _lat < 0
+                    ? { 1:25,2:25,3:22,4:18,5:14,6:11,7:10,8:12,9:15,10:18,11:21,12:24 }
+                    : { 1: 5,2: 7,3:11,4:15,5:20,6:24,7:26,8:25,9:21,10:15,11: 9,12: 5 };
+            }
+        }
+
+        var _hemisphere = (_lat < 0) ? 'south' : 'north';
+
+        // Overseed: null GAIP_OVERSEED_STATE = pure C4 / no overseed config
+        // (explicitly cleared by overseed-climate-integration v1.2.3 for pure C4).
+        var _overseedConfig;
+        if (window.GAIP_OVERSEED_STATE) {
+            var _os = window.GAIP_OVERSEED_STATE;
+            _overseedConfig = {
+                isOverseed: !!(_os.isC4Base && _os.overseedSpecies),
+                baseSpecies: _os.baseSpecies || null,
+                overseedSpecies: _os.overseedSpecies || null,
+                summerIntent: _os.summerIntent || 'transition',
+                baseIsC4: !!_os.isC4Base
+            };
+        } else {
+            _overseedConfig = {
+                isOverseed: false,
+                baseSpecies: null,
+                overseedSpecies: null,
+                summerIntent: 'transition',
+                baseIsC4: false
+            };
+        }
+
+        // b35fix367 — Per-sample overseed override (companionSpecies).
+        // When the active sample carries a non-empty companionSpecies and
+        // multi-site turf mode is on for the active site, override the
+        // site-level overseed assembly. baseSpecies and baseIsC4 derive
+        // from the (possibly-overridden) species above so the C3-on-C4
+        // dominance check downstream still gets the right base.
+        if (_sampleOverrideOverseed) {
+            var _baseSp = _species || null;
+            var _baseIsC4 = false;
+            try {
+                var _SC2 = window.SpeciesController;
+                if (_SC2 && typeof _SC2.isC4Species === 'function' && _baseSp) {
+                    _baseIsC4 = _SC2.isC4Species(_baseSp);
+                }
+            } catch (e) { /* defensive */ }
+            _overseedConfig = {
+                isOverseed: true,
+                baseSpecies: _baseSp,
+                overseedSpecies: _sampleOverrideOverseed,
+                summerIntent: _overseedConfig.summerIntent || 'transition',
+                baseIsC4: _baseIsC4
+            };
+        }
+
+        data.engineInputs = {
+            turf: {
+                species: _species,
+                clippingsCollected: !!_stTurf.clippingsCollected,
+                trafficIntensity: _stTraffic.intensity || 'moderate',
+                nProgramKgHaYr: _userN
+            },
+            climate: {
+                monthlyTemps: _monthlyTemps,
+                hemisphere: _hemisphere,
+                isLive: _climateIsLive,
+                latitude: _lat
+            },
+            overseedConfig: _overseedConfig
+        };
+
+        // b35fix370 — Propagate per-sample species override into data.turf so
+        // ALL render sites (pH narrative, fertiliser recs, soil interpretation,
+        // section headings, etc.) pick up the same species the engines used.
+        //
+        // Pre-b35fix370 the engineInputs.turf.species was correct (engines saw
+        // Kikuyu when override was Kikuyu) but data.turf.species was stale
+        // site-level (Couch). Result: nutrition kg/ha was right, but the
+        // accompanying narrative said "Couch pH requirements" and "Soil pH is
+        // above optimal range for Couch" — confusing and wrong for any client
+        // report. Surfaced in production on Banksia Park (Kikuyu override on a
+        // Couch-default site): metadata line correctly said Kikuyu (b35fix368
+        // fix to that specific render site) but the pH narrative below it
+        // still said Couch (this render site, plus several others).
+        //
+        // Only fires when there IS a per-sample override (_sampleOverrideSpecies
+        // is non-null) — otherwise data.turf is left exactly as collectData
+        // populated it from DOM. This is non-destructive: the original
+        // site-level values are preserved on the rare consumer that might
+        // need them (none in current code, but defensive).
+        //
+        // Fields rewritten:
+        //   - data.turf.species         — primary read site for most narrative
+        //   - data.turf.effectiveSpecies — read by overseed-aware narrative
+        //   - data.turf.warmBase        — read by C3-overseed-on-C4 logic
+        //   - data.turf.speciesDisplay  — formatted "X (overseeded: Y)" string
+        //
+        // Companion species override (_sampleOverrideOverseed) similarly
+        // propagates into data.turf.coolOverseed / overseedConfig.overseedSpecies
+        // so overseeded-period narratives reflect the per-sample companion.
+        if (_sampleOverrideSpecies) {
+            data.turf = data.turf || {};
+            data.turf.species = _sampleOverrideSpecies;
+            data.turf.warmBase = _sampleOverrideSpecies;
+            data.turf.grassSpecies = _sampleOverrideSpecies;
+            // Rebuild speciesDisplay to match. If there's also an overseed
+            // override, fold it into the parenthetical the same way
+            // collectData would have. Otherwise just the species name.
+            if (_sampleOverrideOverseed) {
+                data.turf.coolOverseed = _sampleOverrideOverseed;
+                data.turf.speciesDisplay = _sampleOverrideSpecies + ' (overseeded: ' + _sampleOverrideOverseed + ')';
+                // effectiveSpecies — depends on overseed status. Conservative:
+                // when overseed is active for the date, effective is the cool
+                // overseed; otherwise the warm base. Without per-sample-load
+                // re-evaluation here, default to warm base — the existing
+                // overseed-status logic in collectData populated this field
+                // before _buildEngineInputs ran, so we only override when the
+                // existing value was clearly site-level. Safest: leave
+                // effectiveSpecies unchanged unless overseed is OFF, in which
+                // case it should match the species.
+                if (data.turf.overseedStatus === 'off' || data.turf.overseedStatus === 'inactive') {
+                    data.turf.effectiveSpecies = _sampleOverrideSpecies;
+                }
+            } else {
+                data.turf.speciesDisplay = _sampleOverrideSpecies;
+                data.turf.effectiveSpecies = _sampleOverrideSpecies;
+            }
+        }
+        if (_sampleOverrideOverseed && !_sampleOverrideSpecies) {
+            // Companion-only override (no species override) — still propagate
+            data.turf = data.turf || {};
+            data.turf.coolOverseed = _sampleOverrideOverseed;
+        }
+    }
+
+    // b35fix368 — Per-sample section header line.
+    //
+    // Format: "Site name · 1.0 ha · Species"
+    //
+    // Used in per-sample sections (combined exports especially) where each
+    // section needs at-a-glance identity. Pulls species from
+    // data.engineInputs.turf.species — the SAME field that flowed to the
+    // engines for this sample's analysis (b35fix367 single-source-of-truth
+    // contract). Falls back to data.turf.species when engineInputs absent.
+    //
+    // Pure: no DOM access, no side effects. Defensive against null/empty —
+    // returns '' rather than throwing.
+    //
+    // Exposed as window.GAIP_WordExport._buildSectionHeaderLine for testing
+    // and for combined-export module to call directly.
+    function _buildSectionHeaderLine(d) {
+        if (!d) return '';
+        var parts = [];
+        if (d.site && d.site.name && d.site.name !== 'Not specified') {
+            parts.push(d.site.name);
+        }
+        var areaHa = d.soil && d.soil.areaHa;
+        if (areaHa != null && isFinite(areaHa) && areaHa > 0) {
+            // 1.0 → "1 ha", 0.85 → "0.85 ha", 12.345 → "12.34 ha"
+            var n = Number(areaHa);
+            var formatted;
+            if (n >= 10) {
+                formatted = n.toFixed(2);
+            } else {
+                formatted = n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+            }
+            if (!formatted) formatted = String(n);
+            parts.push(formatted + ' ha');
+        }
+        // engineInputs.turf.species is authoritative — that's the species
+        // the engines used. Fall back to data.turf.species only when
+        // engineInputs absent (fresh export before analysis).
+        var species = (d.engineInputs && d.engineInputs.turf && d.engineInputs.turf.species)
+            || (d.turf && d.turf.species)
+            || null;
+        if (species) parts.push(String(species));
+        return parts.join(' \u00b7 ');
+    }
+
+    // b35fix387: SSOT renderer for the Monthly N Distribution (GP-Weighted)
+    // table. Pre-fix, single-export rendered a proper 12-column table with
+    // colour-graded N values and GP% subscripts (word-export.js inline) while
+    // combined-export rendered three plain prose paragraphs (word-export-
+    // combined.js, b35fix307 simplification). Same data on `data.nutritionSummary
+    // .monthlyN` / `.totalN` / `.activeMonths`, two divergent renderers — exactly
+    // the asymmetric-renderer pattern.
+    //
+    // This helper produces a uniform docx node sequence usable by both export
+    // paths. Returns an array of docx elements (Paragraph + Paragraph + Table),
+    // ready to spread into a sections / allChildren array. docxRefs is required
+    // because the docx library classes are local-scoped inside the export build
+    // functions; the helper pulls Paragraph/TextRun/Table/TableRow/TableCell/
+    // WidthType/AlignmentType from the bag.
+    //
+    // Args:
+    //   monthlyN     — array of 12 {n, gp} objects (engine output)
+    //   totalN       — annual total N kg/ha (or null/undefined)
+    //   activeMonths — count of months with n > 0 (or null/undefined)
+    //   docxRefs     — { Paragraph, TextRun, Table, TableRow, TableCell,
+    //                    WidthType, AlignmentType }
+    //   opts         — { titleSize, totalsSize, monthCellWidth,
+    //                    siteUniformCaption: bool, siteUniformText: string }
+    //
+    // Returns: [Paragraph, Paragraph, Table, ...optionalCaption] or []
+    // when monthlyN is empty/missing (no-op for the caller).
+    function _buildMonthlyNDistribution(monthlyN, totalN, activeMonths, docxRefs, opts) {
+        if (!monthlyN || !Array.isArray(monthlyN) || monthlyN.length === 0) {
+            return [];
+        }
+        opts = opts || {};
+
+        var Paragraph = docxRefs.Paragraph;
+        var TextRun = docxRefs.TextRun;
+        var Table = docxRefs.Table;
+        var TableRow = docxRefs.TableRow;
+        var TableCell = docxRefs.TableCell;
+        var WidthType = docxRefs.WidthType;
+        var AlignmentType = docxRefs.AlignmentType;
+
+        var titleSize = opts.titleSize != null ? opts.titleSize : 24;
+        var totalsSize = opts.totalsSize != null ? opts.totalsSize : 20;
+        var cellWidth = opts.monthCellWidth != null ? opts.monthCellWidth : 750;
+
+        var nodes = [];
+
+        // Title
+        nodes.push(new Paragraph({
+            spacing: { before: 200 },
+            children: [new TextRun({
+                text: 'Monthly N Distribution (GP-Weighted)',
+                bold: true,
+                size: titleSize
+            })]
+        }));
+
+        // Totals line — guarded against missing fields. Combined-export's
+        // `r.data.nutritionSummary` carries totalN/activeMonths from the same
+        // collectData path single-export uses (b35fix313), so both should be
+        // populated; this guard is belt-and-braces for any caller that skips
+        // collectData (scenario patches, future entry points).
+        var totalsParts = [];
+        if (totalN != null && isFinite(totalN)) {
+            totalsParts.push('Total: ' + Number(totalN).toFixed(0) + ' kg N/ha/yr');
+        }
+        if (activeMonths != null && isFinite(activeMonths)) {
+            totalsParts.push(activeMonths + ' active growing months');
+        }
+        if (totalsParts.length > 0) {
+            nodes.push(new Paragraph({
+                spacing: { before: 50, after: 100 },
+                children: [new TextRun({
+                    text: totalsParts.join(' | '),
+                    size: totalsSize,
+                    color: '6B7280'
+                })]
+            }));
+        }
+
+        // Header row — month labels with shaded background
+        var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var headerCells = monthNames.map(function(month) {
+            return new TableCell({
+                children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [new TextRun({ text: month, bold: true, size: 18 })]
+                })],
+                shading: { fill: 'F3F4F6' },
+                width: { size: cellWidth, type: WidthType.DXA }
+            });
+        });
+
+        // Data row — N values colour-graded by magnitude, GP% subscript.
+        // Colour bands match single-export's pre-b35fix387 inline render:
+        //   >15 kg → green     (16A34A) — peak growing month
+        //   >10 kg → lime      (65A30D) — strong growing month
+        //   > 5 kg → amber     (F59E0B) — shoulder month
+        //   ≤ 5 kg → grey      (9CA3AF) — minimal/dormant
+        var dataCells = monthlyN.map(function(monthData) {
+            var md = monthData || {};
+            var n = md.n || 0;
+            var gp = md.gp || 0;
+            var nColor = n > 15 ? '16A34A'
+                       : n > 10 ? '65A30D'
+                       : n > 5  ? 'F59E0B'
+                                : '9CA3AF';
+
+            return new TableCell({
+                children: [new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                        new TextRun({ text: n.toFixed(0), bold: true, size: 20, color: nColor }),
+                        new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 14, color: '6B7280' })
+                    ]
+                })],
+                width: { size: cellWidth, type: WidthType.DXA }
+            });
+        });
+
+        nodes.push(new Table({
+            rows: [
+                new TableRow({ children: headerCells }),
+                new TableRow({ children: dataCells })
+            ],
+            width: { size: 100, type: WidthType.PERCENTAGE }
+        }));
+
+        // Optional site-uniform caption — combined-export uses this to
+        // explain why every per-sample section shows the same monthly N
+        // (annual N target, monthly GP, and distribution strategy are all
+        // site-level inputs; soil-driven differentiation appears in P/K/S).
+        // Single-export omits it — only one sample, no asymmetry to explain.
+        if (opts.siteUniformCaption) {
+            var captionText = opts.siteUniformText
+                || 'Distribution is site-uniform — annual N target, monthly growth potential, and distribution strategy are all site-level inputs. Per-sample differentiation appears in P/K/S requirements above.';
+            nodes.push(new Paragraph({
+                spacing: { before: 80, after: 120 },
+                children: [new TextRun({
+                    text: captionText,
+                    size: 16,
+                    italics: true,
+                    color: '6B7280'
+                })]
+            }));
+        }
+
+        return nodes;
+    }
+
     // Collect data from DOM and window state
     function collectData() {
         var data = {
@@ -3653,6 +5941,17 @@
             data.site.name = savedLocationName || searchVal || data.site.location;
         }
         data.site.date = new Date().toLocaleDateString();
+
+        // b35fix311: area (ha) of the zone this sample represents.
+        // Read from the soil form input. Only set when populated so downstream
+        // Purchasing Summary logic can detect "missing area" reliably.
+        var areaInput = document.querySelector('.gaip-soil-area-ha');
+        if (areaInput && areaInput.value) {
+            var areaVal = parseFloat(areaInput.value);
+            if (isFinite(areaVal) && areaVal > 0) {
+                data.site.areaHa = areaVal;
+            }
+        }
         
         // Turf info - try state first, then DOM
         if (window.GAIP_STATE && window.GAIP_STATE.turf) {
@@ -4046,10 +6345,24 @@
                 data.soil.OM = soilInput.OM;
                 data.soil.CEC = soilInput.CEC;
                 data.soil.Na = soilInput.ppm.Na;  // For soil×water interactions
+                // Soil EC — read from DOM (1:5 extract, dS/m)
+                var ecEl = document.querySelector('.gaip-soil-ec');
+                if (ecEl && ecEl.value && !isNaN(parseFloat(ecEl.value))) {
+                    data.soil.EC = parseFloat(ecEl.value);
+                }
                 // Set hasData flag if we have any nutrient values
                 if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
                     data.soil.hasData = true;
                 }
+            }
+
+            // b35fix372: read area from sample.rawData.areaHa (set by bulk area
+            // modal via SampleManager.updateSample) and copy to data.soil.areaHa
+            // so Zone Comparison table can access it. Without this, the bulk area
+            // modal stores area values correctly but they don't flow through to
+            // the combined export table — appears as em-dash in every row.
+            if (activeSoilSample && activeSoilSample.rawData && activeSoilSample.rawData.areaHa != null) {
+                data.soil.areaHa = activeSoilSample.rawData.areaHa;
             }
 
             // Always read trace elements (Fe/Mn/Zn/Cu/B) directly from DOM inputs —
@@ -4105,13 +6418,39 @@
             
             // Add MLSN/SLAN/Ammonium Acetate thresholds for charting
             if (data.soil.methodology === 'SLAN') {
-                // SLAN ranges (typical sandy loam)
+                // b35fix325: SLAN ranges sourced from GilbaClassificationConstants
+                // .SLAN_RANGES.
+                // b35fix333: source corrected from fabricated "Throssell USGA 2009"
+                // to actual published Carrow et al. (2004) GCM 72(1):194-198. See
+                // gaip-classification-constants.js for the full provenance trail.
+                // Numbers shifted: P 25-50→27-54, K 75-150→75-176, Ca 500-1000→500-750,
+                // Mg 60-200→70-140, S 12-30→15-40 (Option 1, single ranges set,
+                // "other soils" / high-CEC values).
+                //
+                // Defensive fallback to Carrow 2004 values inline if the constants
+                // module hasn't loaded — keeps the export runnable in degraded
+                // environments rather than emitting a wrong-shape thresholds object.
+                var _gccSlan = (typeof window !== 'undefined' &&
+                                window.GilbaClassificationConstants &&
+                                window.GilbaClassificationConstants.SLAN_RANGES) || null;
+                var _slanRanges = _gccSlan || {
+                    P:  { floor: 27,  ceiling: 54  },
+                    K:  { floor: 75,  ceiling: 176 },
+                    Ca: { floor: 500, ceiling: 750 },
+                    Mg: { floor: 70,  ceiling: 140 },
+                    S:  { floor: 15,  ceiling: 40  }
+                };
                 data.soil.thresholds = {
-                    P: { min: 12, max: 28, label: '12-28' },
-                    K: { min: 40, max: 80, label: '40-80' },
-                    Ca: { min: 300, max: 600, label: '300-600' },
-                    Mg: { min: 36, max: 72, label: '36-72' },
-                    S: { min: 6, max: 12, label: '6-12' }
+                    P:  { min: _slanRanges.P.floor,  max: _slanRanges.P.ceiling,
+                          label: _slanRanges.P.floor + '-' + _slanRanges.P.ceiling },
+                    K:  { min: _slanRanges.K.floor,  max: _slanRanges.K.ceiling,
+                          label: _slanRanges.K.floor + '-' + _slanRanges.K.ceiling },
+                    Ca: { min: _slanRanges.Ca.floor, max: _slanRanges.Ca.ceiling,
+                          label: _slanRanges.Ca.floor + '-' + _slanRanges.Ca.ceiling },
+                    Mg: { min: _slanRanges.Mg.floor, max: _slanRanges.Mg.ceiling,
+                          label: _slanRanges.Mg.floor + '-' + _slanRanges.Mg.ceiling },
+                    S:  { min: _slanRanges.S.floor,  max: _slanRanges.S.ceiling,
+                          label: _slanRanges.S.floor + '-' + _slanRanges.S.ceiling }
                 };
             } else if (data.soil.methodology === 'AMMONIUM_ACETATE' || data.soil.methodology === 'AMMONIUM ACETATE') {
                 // Ammonium Acetate / Hill Labs NZ ranges
@@ -5239,93 +7578,160 @@
         }
         
         // Nutrition Summary (Annual P/K/S requirements + Monthly N Distribution)
+        //
+        // b35fix302b: delegates to NutritionRequirementEngine_Pure.compute() for
+        // the current site's values. This replaces:
+        //   (a) the stale GAIP_NUTRITION_SOIL_CACHE read, and
+        //   (b) the monthlyN recalc-at-export workaround (previously lines 5261–5331)
+        //       which used an unpublished σ=7/7 Gaussian — NOT PACE.
+        // The recalc block existed because combined export switched samples
+        // programmatically without re-rendering the nutrition panel (stale
+        // cache). Task 11 (word-export-combined) rewires the combined loop to
+        // call the engine per-sample directly, so this recalc is no longer
+        // necessary. For single-sample export here, the current-site cache is
+        // fresh anyway; engine call is canonical PACE methodology.
+        //
+        // b35fix329: legacy GAIP_NUTRITION_SOIL_CACHE fallback removed. Engine
+        // path is now mandatory — if engineInputs is missing or compute throws,
+        // the section is dropped (hasData = false) and a warn line is logged.
+        // Mirrors the combined-export hard-fail pattern. The legacy cache was
+        // belt-and-braces during the b35fix313 rollout; production has been
+        // exclusively engine-driven for many builds (Kew Combined 2026-04-25
+        // run shows engine line for every site, no fallback). Silent fallback
+        // is worse than a missing section — same logic that motivated the
+        // species hard-fail in combined export (b35fix313).
         ensureObject(data, 'nutritionSummary');
-        if (window.GAIP_NUTRITION_SOIL_CACHE) {
-            var nutCache = window.GAIP_NUTRITION_SOIL_CACHE;
-            data.nutritionSummary.hasData = true;
-            data.nutritionSummary.annualP = nutCache.annualP;
-            data.nutritionSummary.annualK = nutCache.annualK;
-            data.nutritionSummary.annualS = nutCache.annualS;
-            data.nutritionSummary.pStatus = nutCache.pStatus;
-            data.nutritionSummary.kStatus = nutCache.kStatus;
-            data.nutritionSummary.sStatus = nutCache.sStatus;
-            data.nutritionSummary.monthlyN = nutCache.monthlyN || null;
-            data.nutritionSummary.totalN = nutCache.totalN || null;
-            data.nutritionSummary.activeMonths = nutCache.activeMonths || 12;
+
+        var _engineReady = window.NutritionRequirementEngine_Pure &&
+                           typeof window.NutritionRequirementEngine_Pure.compute === 'function';
+        var _nutComputedViaEngine = false;
+
+        // b35fix313 — Structural fix for handoff doc Item 7.
+        //
+        // The turf/climate/overseed/userN context that the nutrition engine
+        // needs is assembled ONCE here and stored on data.engineInputs.
+        // Two consumers read from it:
+        //   1. The nutritionSummary engine call a few lines below (single
+        //      export + per-iteration in combined export's collection loop).
+        //   2. The combined export's post-loop ANR pass in
+        //      word-export-combined.js (previously hardcoded hemisphere='south',
+        //      overseed=false, species-fallback='bentgrass' — all wrong for a
+        //      multi-site export spanning varied species/latitudes/overseed
+        //      scenarios).
+        //
+        // Before: word-export-combined read globals at render time (post-loop),
+        // which reflected only the last sample's site. Every prior report got
+        // the last site's context. Now each report carries its own context
+        // baked in during the loop iteration when its site was active.
+        _buildEngineInputs(data);
+        // b35fix314: _buildEngineInputs hard-fails to null when species can't
+        // be resolved (readiness race). Gate the engine call on presence —
+        // null means fall through to the legacy cache, not a null-deref crash.
+        if (_engineReady && data.soil && data.engineInputs) {
+            try {
+                var _inputs = data.engineInputs;  // baked above by _buildEngineInputs
+
+                var _engineResult = window.NutritionRequirementEngine_Pure.compute({
+                    soil: data.soil,
+                    turf: _inputs.turf,
+                    climate: _inputs.climate,
+                    overseedConfig: _inputs.overseedConfig
+                });
+
+                data.nutritionSummary.hasData = true;
+                data.nutritionSummary.annualP = (_engineResult.perSample.P && _engineResult.perSample.P.annualRequirement) ?? null;
+                data.nutritionSummary.annualK = (_engineResult.perSample.K && _engineResult.perSample.K.annualRequirement) ?? null;
+                data.nutritionSummary.annualS = (_engineResult.perSample.S && _engineResult.perSample.S.annualRequirement) ?? null;
+                data.nutritionSummary.pStatus = (_engineResult.perSample.P && _engineResult.perSample.P.status) || 'Unknown';
+                data.nutritionSummary.kStatus = (_engineResult.perSample.K && _engineResult.perSample.K.status) || 'Unknown';
+                data.nutritionSummary.sStatus = (_engineResult.perSample.S && _engineResult.perSample.S.status) || 'Unknown';
+                data.nutritionSummary.monthlyN = _engineResult.facility.monthlyN;
+                data.nutritionSummary.totalN = _engineResult.facility.totalN;
+                data.nutritionSummary.activeMonths = _engineResult.facility.activeMonths;
+
+                // b35fix327: expose structured per-sample ANR shape on data._anr,
+                // mirroring the combined-export `r._anr` shape produced by the
+                // post-loop ANR pass. This is what the K-reconciliation merge
+                // (and any future intent-aware single-export renderer) reads
+                // from. Pre-b35fix327 single export discarded `intent`,
+                // `methodology`, `floor`, `ceiling`, `citation` etc. — only
+                // four scalars survived onto data.nutritionSummary. That made
+                // K-reconciliation classification (b35fix326a) impossible in
+                // the single-export path because the trend-vs-advisory split
+                // depends on `intent`. Symmetric assembly with combined export
+                // means single-export Annual Product Summary now carries the
+                // same amendment/K-recon entries combined-export does.
+                function _shapeAnrSingle(perSampleNut) {
+                    if (!perSampleNut) return null;
+                    return {
+                        // Legacy fields (backward compat with any pre-b35fix325 reader)
+                        val: perSampleNut.annualRequirement,
+                        status: perSampleNut.status,
+                        // Structured fields (b35fix325 — SLAN methodology; source Carrow 2004 per b35fix333)
+                        annual: perSampleNut.annualRequirement,
+                        intent: perSampleNut.intent || null,
+                        methodology: perSampleNut.methodology || null,
+                        citation: perSampleNut.citation || null,
+                        floor: perSampleNut.floor != null ? perSampleNut.floor : null,
+                        ceiling: perSampleNut.ceiling != null ? perSampleNut.ceiling : null,
+                        removal: perSampleNut.removal != null ? perSampleNut.removal : null,
+                        correctionRequired: perSampleNut.correctionRequired != null
+                                          ? perSampleNut.correctionRequired : 0,
+                        currentLevel: perSampleNut.currentLevel != null
+                                    ? perSampleNut.currentLevel : null
+                    };
+                }
+                data._anr = {
+                    P: _shapeAnrSingle(_engineResult.perSample.P),
+                    K: _shapeAnrSingle(_engineResult.perSample.K),
+                    S: _shapeAnrSingle(_engineResult.perSample.S)
+                };
+
+                _nutComputedViaEngine = true;
+                console.log('[WordExport] nutritionSummary via engine:',
+                    'P=' + data.nutritionSummary.annualP,
+                    'K=' + data.nutritionSummary.annualK,
+                    'S=' + data.nutritionSummary.annualS,
+                    'totalN=' + data.nutritionSummary.totalN,
+                    'species=' + _inputs.turf.species,
+                    'hem=' + _inputs.climate.hemisphere,
+                    'climateLive=' + _inputs.climate.isLive,
+                    'overseed=' + !!_inputs.overseedConfig.isOverseed);
+            } catch (_engineErr) {
+                console.warn('[WordExport] Engine compute failed, falling back to cache:', _engineErr.message);
+                _nutComputedViaEngine = false;
+            }
         }
 
-        // RECALCULATE monthlyN at export time using live lat — prevents stale cache
-        // from combined export (samples switch programmatically, nutrition panel may not re-render)
-        (function() {
-            try {
-                // Read lat from DOM (same priority as nutrition-calendar.js fix)
-                var latEl = document.querySelector('.gaip-lat');
-                var lat = latEl ? parseFloat(latEl.value) : null;
-                if (lat == null || isNaN(lat)) {
-                    var s = window.GAIP_STATE || {};
-                    lat = s.inputs?.site?.latitude || s.site?.latitude || s.location?.lat || null;
-                }
-                if (lat == null || isNaN(lat)) return; // can't recalculate
+        // b35fix329: legacy fallback read removed. If the engine path didn't
+        // fire (missing engineInputs, soil missing, or compute threw), the
+        // section is dropped rather than rendered from a stale global. Mirrors
+        // the combined-export "skip ANR — no silent fallback" rule.
+        if (!_nutComputedViaEngine) {
+            data.nutritionSummary.hasData = false;
+            console.warn('[WordExport] b35fix329 nutritionSummary section dropped — ' +
+                         'engine path did not fire (engineReady=' + _engineReady +
+                         ', soilPresent=' + !!data.soil +
+                         ', engineInputsPresent=' + !!data.engineInputs + '). ' +
+                         'No legacy GAIP_NUTRITION_SOIL_CACHE fallback applied.');
+        }
 
-                var absLat = Math.abs(lat);
-                var monthlyTemps;
-                if (absLat < 23.5) {
-                    monthlyTemps = lat >= 0
-                        ? { 1:17,2:19,3:23,4:27,5:30,6:31,7:31,8:30,9:29,10:27,11:23,12:19 }  // N tropical
-                        : { 1:30,2:30,3:29,4:28,5:26,6:24,7:23,8:25,9:28,10:30,11:31,12:31 }; // S tropical
-                } else if (absLat < 35) {
-                    monthlyTemps = lat >= 0
-                        ? { 1:10,2:12,3:17,4:22,5:27,6:30,7:31,8:30,9:26,10:21,11:15,12:11 }  // N subtropical
-                        : { 1:26,2:26,3:24,4:21,5:17,6:14,7:13,8:15,9:18,10:21,11:24,12:26 }; // S subtropical
-                } else {
-                    monthlyTemps = lat < 0
-                        ? { 1:25,2:25,3:22,4:18,5:14,6:11,7:10,8:12,9:15,10:18,11:21,12:24 }  // S temperate
-                        : { 1: 5,2: 7,3:11,4:15,5:20,6:24,7:26,8:25,9:21,10:15,11: 9,12: 5 }; // N temperate
-                }
-
-                // Determine if C4 species — check both internal key and display name
-                var speciesKey = window.GAIP_STATE?.inputs?.turf?.speciesKey || window.GAIP_STATE?.turf?.speciesKey || '';
-                var speciesDisplay = window.GAIP_STATE?.inputs?.turf?.species || window.GAIP_STATE?.turf?.species || window.GAIP_STATE?.turf?.grassSpecies || '';
-                var speciesStr = (speciesKey + ' ' + speciesDisplay).toLowerCase();
-                var isC4 = /couch|bermuda|kikuyu|zoysia|paspalum|buffalo|st\.aug|seashore|c4/.test(speciesStr);
-
-                // Calculate GP per month using same Wendt formula as nutrition-calendar.js
-                var totalGP = 0, gpByMonth = {};
-                for (var m = 1; m <= 12; m++) {
-                    var t = monthlyTemps[m];
-                    var gp;
-                    if (isC4) {
-                        // C4 GP: optimum 31°C (Wendt et al.)
-                        var num = Math.exp(-0.5 * Math.pow((t - 31) / 7, 2));
-                        gp = Math.max(0, Math.min(1, num));
-                    } else {
-                        // C3 GP: optimum 20°C
-                        var num = Math.exp(-0.5 * Math.pow((t - 20) / 7, 2));
-                        gp = Math.max(0, Math.min(1, num));
-                    }
-                    gpByMonth[m] = gp;
-                    if (gp >= 0.1) totalGP += gp;
-                }
-
-                // Distribute totalN proportionally
-                var totalN = data.nutritionSummary.totalN || (window.GAIP_NUTRITION_SOIL_CACHE && window.GAIP_NUTRITION_SOIL_CACHE.totalN) || 150;
-                var monthlyNRecalc = [], activeCount = 0;
-                for (var m = 1; m <= 12; m++) {
-                    var gp = gpByMonth[m];
-                    var n = totalGP > 0 && gp >= 0.1 ? (gp / totalGP) * totalN : 0;
-                    if (n > 0) activeCount++;
-                    monthlyNRecalc.push({ n: Math.round(n * 10) / 10, gp: gp, c3Frac: isC4 ? 0 : 1 });
-                }
-
-                // Only override if recalc gives a meaningfully different result (sanity check)
-                data.nutritionSummary.monthlyN = monthlyNRecalc;
-                data.nutritionSummary.activeMonths = activeCount;
-                console.log('[WordExport] monthlyN recalculated at export time — lat=' + lat.toFixed(2) +
-                    ' isC4=' + isC4 + ' tropical=' + (absLat < 23.5));
-            } catch(e) {
-                console.warn('[WordExport] monthlyN recalc failed, using cache:', e.message);
-            }
-        })();
+        // b35fix329a: upstream-writer detector. Fires whenever the legacy
+        // global is being populated with engine-output keys, regardless of
+        // whether the engine path itself succeeded. The detector's job is
+        // independent of the section-drop diagnostic — chasing the upstream
+        // writer doesn't require the engine to fail. Pre-b35fix329a this
+        // detector was nested inside the !_nutComputedViaEngine block and
+        // only fired on engine failure, which made it useless on healthy
+        // exports (the case where polluting writers most often go unnoticed).
+        // Read-side ignores the global either way; this is pure telemetry.
+        if (window.GAIP_NUTRITION_SOIL_CACHE &&
+            (window.GAIP_NUTRITION_SOIL_CACHE.annualP != null ||
+             window.GAIP_NUTRITION_SOIL_CACHE.annualK != null ||
+             window.GAIP_NUTRITION_SOIL_CACHE.totalN != null)) {
+            console.warn('[WordExport] b35fix329 legacy cache still being written to ' +
+                         'GAIP_NUTRITION_SOIL_CACHE — investigate upstream writer (read-side ignores it).');
+        }
         
         // v10.3.38: Collect nutrition program (product recommendations)
         // Only include if generated for the current site (prevents stale cross-site data)
@@ -5348,7 +7754,255 @@
                 console.warn('[WordExport] Skipping stale nutrition program — generated for', progSiteId, 'but current site is', currentSiteId);
             }
         }
-        
+
+        // ───────── b35fix327: amendment merge in single-export ─────────
+        // Symmetric port of the combined-export merge block (word-export-
+        // combined.js b35fix322/323/324). Closes the asymmetry that single-
+        // export Annual Product Summary previously omitted soil-deficit
+        // amendments and programme-shortfall spot-K, while combined export
+        // included both. The narrative-only Annual Soil Amendments table
+        // (buildAnnualSoilAmendmentsTable, called later in buildSections)
+        // remains in place; this block adds the *product* entries to
+        // annualSummary.products and the Monthly Schedule.
+        //
+        // Order constraints (same as combined):
+        //   1. Decisions computed against the catalogue-only programme — the
+        //      amendments themselves must not be visible to the programme-
+        //      delivery probe inside _computeAmendmentDecision (the
+        //      _isAmendment guard handles the case where a prior run already
+        //      merged into the global GAIP_NUTRITION_PROGRAM).
+        //   2. K-recon runs after the soil-deficit merge, but the SSOT helper
+        //      _computeProgrammeKDelivered skips _isAmendment entries, so
+        //      ordering is invariant for the K math.
+        //
+        // Belt-and-braces: if a previous combined-then-single workflow left
+        // _isAmendment entries in the programme already, skip the merge
+        // entirely (avoids duplicate amendment rows in Annual Product Summary).
+        // The skill calls this out as Item 4 explicitly.
+        try {
+            var _wxA = window.GAIP_WordExport;
+            if (data.nutritionProgram && data.nutritionProgram.hasData
+                    && data.nutritionProgram.annualSummary
+                    && data.nutritionProgram.annualSummary.products
+                    && _wxA
+                    && typeof _wxA._computeAmendmentDecision === 'function'
+                    && typeof _wxA._amendmentDecisionsToProducts === 'function'
+                    && data.soil && data.soil.thresholds) {
+
+                var _productUsageA = data.nutritionProgram.annualSummary.products;
+
+                // Defence: if any _isAmendment entry already present, the
+                // programme has been amendment-merged before. Skip to avoid
+                // double-injection. This protects the combined-then-single
+                // workflow (user runs combined export first, then single
+                // export of one of the same samples in the same browser
+                // session — GAIP_NUTRITION_PROGRAM persists across exports).
+                var _alreadyMerged = false;
+                Object.keys(_productUsageA).forEach(function(pid) {
+                    if (_productUsageA[pid] && _productUsageA[pid]._isAmendment) {
+                        _alreadyMerged = true;
+                    }
+                });
+
+                if (_alreadyMerged) {
+                    console.log('[WordExport] b35fix327 amendment merge skipped — ' +
+                                'programme already contains _isAmendment entries ' +
+                                '(combined-then-single workflow)');
+                } else {
+                    var _soilForAmendA = data.soil;
+                    var _surfaceTypeA = (data.soil.surfaceType) ||
+                                        ((data.turf && (data.turf.subCategory || data.turf.type)) || '').toLowerCase();
+                    var _hemA = (data.engineInputs && data.engineInputs.climate
+                                 && data.engineInputs.climate.hemisphere) || 'south';
+                    var _ocA = data.engineInputs && data.engineInputs.overseedConfig;
+                    var _amendCtxA = {
+                        isOverseed: !!(_ocA && _ocA.isOverseed),
+                        seedingActive: !!(_ocA && _ocA.isOverseed)
+                    };
+
+                    // Build decisions for any nutrient with measured deficit.
+                    var _amendNutrientsA = ['P','K','Ca','Mg','S'];
+                    var _amendDecisionsA = [];
+                    _amendNutrientsA.forEach(function(n) {
+                        var v = _soilForAmendA[n];
+                        var th = _soilForAmendA.thresholds[n];
+                        if (v === undefined || v === null || !th) return;
+                        if (!(v < th.min)) return;
+                        var deficit = th.min - v;
+                        var d = _wxA._computeAmendmentDecision(
+                            n, deficit, _soilForAmendA, _surfaceTypeA,
+                            data.nutritionProgram, _amendCtxA
+                        );
+                        if (d) _amendDecisionsA.push(d);
+                    });
+
+                    // Convert apply-decisions to product entries.
+                    var _amendOutA = _wxA._amendmentDecisionsToProducts(
+                        _amendDecisionsA, _soilForAmendA, _hemA
+                    );
+
+                    var _amendIdsA = Object.keys(_amendOutA.products);
+                    if (_amendIdsA.length > 0) {
+                        _amendIdsA.forEach(function(pid) {
+                            // Namespace check (same as combined-export logic)
+                            if (!_productUsageA[pid]) {
+                                _productUsageA[pid] = _amendOutA.products[pid];
+                            }
+                        });
+
+                        // Monthly Schedule injection (mirrors b35fix323).
+                        var _monthlyA = data.nutritionProgram.monthly || [];
+                        var _slotAbbrevA = (_amendOutA.monthSlot || '').slice(0, 3);
+                        var _idxA = -1;
+                        for (var _miA = 0; _miA < _monthlyA.length; _miA++) {
+                            var _mnA = (_monthlyA[_miA] && _monthlyA[_miA].month_name) || '';
+                            if (_mnA && _slotAbbrevA &&
+                                _mnA.toLowerCase().indexOf(_slotAbbrevA.toLowerCase()) === 0) {
+                                _idxA = _miA;
+                                break;
+                            }
+                        }
+                        if (_idxA === -1 && _monthlyA.length > _amendOutA.monthIndex) {
+                            _idxA = _amendOutA.monthIndex;
+                        }
+
+                        var _granEntriesA = _amendOutA.granularEntries || [];
+                        if (_idxA >= 0 && _granEntriesA.length > 0) {
+                            if (!Array.isArray(_monthlyA[_idxA].granular)) {
+                                _monthlyA[_idxA].granular = [];
+                            }
+                            _granEntriesA.forEach(function(g) {
+                                var alreadyThere = _monthlyA[_idxA].granular.some(function(x) {
+                                    return x && x.id === g.id;
+                                });
+                                if (!alreadyThere) _monthlyA[_idxA].granular.push(g);
+                            });
+                            console.log('[WordExport] b35fix327 amendment scheduled: ' +
+                                        _granEntriesA.length + ' entry/entries → monthly[' +
+                                        _idxA + '] (' +
+                                        (_monthlyA[_idxA].month_name || 'unknown') + ')');
+                        } else if (_granEntriesA.length > 0) {
+                            console.warn('[WordExport] b35fix327 amendment NOT scheduled: ' +
+                                         'could not resolve monthly slot ' +
+                                         _amendOutA.monthSlot +
+                                         ' (monthly.length=' + _monthlyA.length + ')');
+                        }
+
+                        console.log('[WordExport] b35fix327 amendments merged: ' +
+                                    _amendIdsA.length + ' product(s), slot=' +
+                                    _amendOutA.monthSlot + ' hem=' + _hemA);
+                    }
+
+                    // Expose structured decisions on data so the existing
+                    // narrative renderer (buildAnnualSoilAmendmentsTable)
+                    // and any future single-export consumer can read them
+                    // without re-computing. Mirrors r.data._amendmentDecisions
+                    // in combined.
+                    data._amendmentDecisions = _amendDecisionsA;
+                    data._amendmentMonthSlot = _amendOutA.monthSlot;
+
+                    // ───────── K reconciliation merge (mirrors b35fix324) ─────────
+                    // Programme-shortfall-driven spot-K. Reads K req from
+                    // data._anr.K.val (set above in the engine block, b35fix327
+                    // step 1). Falls back to data.nutritionSummary.annualK if
+                    // _anr is absent (engine path failed, legacy cache fallback
+                    // active — K-recon won't have intent fields anyway, so the
+                    // renderer will treat it as legacy MLSN-style without
+                    // distinguishing trend from advisory).
+                    try {
+                        var _kReq = (data._anr && data._anr.K && data._anr.K.val != null)
+                                  ? parseFloat(data._anr.K.val)
+                                  : (data.nutritionSummary && data.nutritionSummary.annualK != null
+                                     ? parseFloat(data.nutritionSummary.annualK) : null);
+                        if (typeof _wxA._synthesiseKReconDecision === 'function'
+                                && typeof _wxA._computeProgrammeKDelivered === 'function'
+                                && _kReq != null && isFinite(_kReq)) {
+                            // SSOT: catalogue-only K — same function combined uses.
+                            var _catalogueKA = _wxA._computeProgrammeKDelivered(_productUsageA);
+                            data._programmeKDelivered = _catalogueKA;
+
+                            var _kReconDecisionA = _wxA._synthesiseKReconDecision(
+                                _soilForAmendA, _kReq, _catalogueKA
+                            );
+
+                            if (_kReconDecisionA) {
+                                var _kReconOutA = _wxA._amendmentDecisionsToProducts(
+                                    [_kReconDecisionA], _soilForAmendA, _hemA
+                                );
+
+                                Object.keys(_kReconOutA.products).forEach(function(pid) {
+                                    if (!_productUsageA[pid]) {
+                                        _productUsageA[pid] = _kReconOutA.products[pid];
+                                    }
+                                });
+
+                                // Split granular entries placed by _monthIndex
+                                // (Sep/Nov/Jan south, Mar/May/Jul north).
+                                var _monthAbbrevsA = ['Jan','Feb','Mar','Apr','May','Jun',
+                                                      'Jul','Aug','Sep','Oct','Nov','Dec'];
+                                var _placedCountA = 0, _missedCountA = 0;
+                                (_kReconOutA.granularEntries || []).forEach(function(g) {
+                                    var targetIdx = g._monthIndex;
+                                    var resolvedIdx = -1;
+                                    if (typeof targetIdx === 'number' &&
+                                            targetIdx >= 0 && targetIdx < 12) {
+                                        var targetAbbrev = _monthAbbrevsA[targetIdx];
+                                        for (var _kiA = 0; _kiA < _monthlyA.length; _kiA++) {
+                                            var _kmnA = (_monthlyA[_kiA] && _monthlyA[_kiA].month_name) || '';
+                                            if (_kmnA && targetAbbrev &&
+                                                    _kmnA.toLowerCase().indexOf(targetAbbrev.toLowerCase()) === 0) {
+                                                resolvedIdx = _kiA;
+                                                break;
+                                            }
+                                        }
+                                        if (resolvedIdx === -1 && _monthlyA.length > targetIdx) {
+                                            resolvedIdx = targetIdx;
+                                        }
+                                    }
+                                    if (resolvedIdx >= 0) {
+                                        if (!Array.isArray(_monthlyA[resolvedIdx].granular)) {
+                                            _monthlyA[resolvedIdx].granular = [];
+                                        }
+                                        var alreadyThere = _monthlyA[resolvedIdx].granular.some(function(x) {
+                                            return x && x.id === g.id;
+                                        });
+                                        if (!alreadyThere) {
+                                            _monthlyA[resolvedIdx].granular.push(g);
+                                            _placedCountA++;
+                                        }
+                                    } else {
+                                        _missedCountA++;
+                                    }
+                                });
+
+                                console.log('[WordExport] b35fix327 K-recon spot-K: ' +
+                                            _placedCountA + ' split(s) placed' +
+                                            (_missedCountA > 0 ? ', ' + _missedCountA + ' unresolved' : '') +
+                                            ' (kReq=' + _kReq.toFixed(0) +
+                                            ', kDel=' + _catalogueKA.toFixed(0) +
+                                            ', balance=' + (_catalogueKA - _kReq).toFixed(0) +
+                                            ', soilK=' + (_soilForAmendA.K || '?') +
+                                            ', floor=' + ((_soilForAmendA.thresholds && _soilForAmendA.thresholds.K && _soilForAmendA.thresholds.K.min) || '?') + ')');
+
+                                if (!Array.isArray(data._kReconDecisions)) {
+                                    data._kReconDecisions = [];
+                                }
+                                data._kReconDecisions.push(_kReconDecisionA);
+                            }
+                        }
+                    } catch (_kReconErrA) {
+                        console.warn('[WordExport] b35fix327 K-recon merge failed: ' +
+                                     (_kReconErrA && _kReconErrA.message));
+                    }
+                    // ───────── end K-recon merge ─────────
+                }
+            }
+        } catch (_amendErrA) {
+            console.warn('[WordExport] b35fix327 amendment merge failed: ' +
+                         (_amendErrA && _amendErrA.message));
+        }
+        // ───────── end b35fix327 amendment merge ─────────
+
         // Collect spray log entries for current site
         ensureObject(data, 'sprayLog');
         try {
@@ -5422,6 +8076,38 @@
             var amendFn = window.GilbaSoilTissueIntegration && 
                           window.GilbaSoilTissueIntegration.recommendSoilAmendments;
             if (amendFn && data.soil && data.soil.hasData) {
+                // b35fix311: gate by sample freshness. Amendment recommendations
+                // must come from current soil chemistry — computing lime/gypsum
+                // kg/ha from a 2-year-old sample is worse than silence.
+                // Respects the per-site `allowStaleRecommendations` opt-out.
+                var _amendSample = null;
+                var _amendSiteId = null;
+                var _amendFresh = true;
+                try {
+                    var _sm = window.GAIP_SampleManager;
+                    if (_sm && typeof _sm.getActiveSample === 'function') {
+                        _amendSample = _sm.getActiveSample('soil');
+                    }
+                    if (_sm && typeof _sm.getAllSamples === 'function') {
+                        var _all = _sm.getAllSamples();
+                        // Derive current site id if possible (used by canDriveRecommendations
+                        // to check per-site opt-out)
+                        _amendSiteId = _all && _all.currentSite;
+                    }
+                    if (_sm && typeof _sm.canDriveRecommendations === 'function' && _amendSample) {
+                        _amendFresh = _sm.canDriveRecommendations(_amendSample, _amendSiteId);
+                    }
+                } catch (_gateErr) { /* best-effort; stay fresh=true if anything fails */ }
+
+                if (!_amendFresh) {
+                    // Stale: suppress recommendations, leave a marker for the renderer
+                    data.amendment.hasData = false;
+                    data.amendment.suppressedForStaleness = true;
+                    data.amendment.sampleDate = _amendSample && _amendSample.date;
+                    data.amendment.thresholdMonths = (window.GAIP_SampleManager &&
+                        window.GAIP_SampleManager.STALENESS_CONFIG &&
+                        window.GAIP_SampleManager.STALENESS_CONFIG.thresholdMonths) || 18;
+                } else {
                 // Build soilState from collected data
                 var soilState = {
                     pH_cacl2:    data.soil.pH_cacl2 || (data.soil.pH ? data.soil.pH - 0.5 : null),
@@ -5458,6 +8144,7 @@
                     data.amendment.interactions = amendResult.interactions || [];
                     data.amendment.summary    = amendResult.summary || [];
                 }
+                }   // end fresh branch
             }
         } catch (amendErr) {
             console.warn('[WordExport] Amendment engine error:', amendErr);
@@ -5937,7 +8624,7 @@
                             text: headerText,
                             bold: true,
                             size: 22,
-                            color: '6D28D9'
+                            color: '1F2937'
                         })]
                     }));
                     para = para.split('\n').slice(1).join('\n');
@@ -5956,7 +8643,7 @@
                             if (part) {
                                 bulletChildren.push(new TextRun({
                                     text: part, bold: isBoldB, size: 20,
-                                    color: isBoldB ? '6D28D9' : '374151'
+                                    color: isBoldB ? '374151' : '374151'
                                 }));
                             }
                             isBoldB = !isBoldB;
@@ -5979,7 +8666,7 @@
                     if (part) {
                         synChildren.push(new TextRun({
                             text: part, bold: isBoldS, size: 20,
-                            color: isBoldS ? '6D28D9' : '374151'
+                            color: isBoldS ? '374151' : '374151'
                         }));
                     }
                     isBoldS = !isBoldS;
@@ -6039,7 +8726,7 @@
                 children: [new TextRun(soilHeading)] 
             }));
             
-            // Show sample metadata line (date, lab ref, species)
+            // Show sample metadata line (date, lab ref, area, species)
             var soilMetaParts = [];
             if (data.soil.testDate) {
                 var soilDate = new Date(data.soil.testDate);
@@ -6048,7 +8735,29 @@
             if (data.soil.labRef) {
                 soilMetaParts.push('Lab ref: ' + data.soil.labRef);
             }
-            var speciesName = data.turf.speciesDisplay || data.turf.species || '';
+            // b35fix368: include per-sample area in the metadata line (for
+            // council multi-site reports where the area varies per zone).
+            var areaHa = data.soil && data.soil.areaHa;
+            if (areaHa != null && isFinite(areaHa) && areaHa > 0) {
+                var n = Number(areaHa);
+                var formattedArea;
+                if (n >= 10) {
+                    formattedArea = n.toFixed(2);
+                } else {
+                    formattedArea = n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+                }
+                if (!formattedArea) formattedArea = String(n);
+                soilMetaParts.push('Area: ' + formattedArea + ' ha');
+            }
+            // b35fix368: prefer engineInputs.turf.species over data.turf.species
+            // when the per-sample override is in play. data.turf.species is the
+            // site-level value; engineInputs.turf.species is the value that
+            // actually flowed to the engines for this sample (b35fix367
+            // single-source-of-truth contract).
+            var speciesName = (data.engineInputs && data.engineInputs.turf && data.engineInputs.turf.species)
+                || data.turf.speciesDisplay
+                || data.turf.species
+                || '';
             if (speciesName) soilMetaParts.push(speciesName);
             if (soilMetaParts.length > 0) {
                 sections.push(new Paragraph({
@@ -6193,17 +8902,17 @@
                         fill: 'F0FDF4', textColor: '166534'
                     },
                     {
-                        name: 'MLSN (PACE Turf, 2014)',
+                        name: 'MLSN (Woods et al. 2016)',
                         extractant: 'Mehlich-3',
-                        philosophy: 'Minimum threshold below which deficiency becomes likely. Conservative — avoids over-fertilisation. Used globally in precision turf management.',
+                        philosophy: 'Minimum threshold below which deficiency becomes likely. Conservative — avoids over-fertilisation. Used globally in precision turf management. First introduced 2012; canonical published guidelines Woods, Stowell & Gelernter (2016) PeerJ Preprints 4:e2144v1.',
                         regional: 'AU/NZ: values not directly applicable to AA data',
                         compatible: '\u274C No — extractant mismatch',
                         fill: 'FEF2F2', textColor: 'DC2626'
                     },
                     {
-                        name: 'SLAN (Kreuser, 2015)',
+                        name: 'SLAN (Carrow et al. 2004)',
                         extractant: 'Mehlich-3',
-                        philosophy: 'Sufficiency range — target band above minimum. Higher thresholds than MLSN. Based on agronomic optimum rather than minimum viable level.',
+                        philosophy: 'Sufficiency range — target band above minimum. Higher thresholds than MLSN. Based on agronomic optimum rather than minimum viable level. Canonical published ranges Carrow, Stowell, Gelernter, Davis, Duncan & Skorulski (2004) GCM 72(1):194-198.',
                         regional: 'AU/NZ: values not directly applicable to AA data',
                         compatible: '\u274C No — extractant mismatch',
                         fill: 'FFFBEB', textColor: '92400E'
@@ -6277,18 +8986,60 @@
             if (data.soil && data.turf) {
                 data.soil.surfaceType = (data.turf.subCategory || data.turf.type || '').toLowerCase();
             }
-            var soilNarrative = generateSoilNarrative(data.soil);
+
+            // b35fix320: build amendmentContext from engineInputs.overseedConfig.
+            // Drives seedling-safe product selection (MAP-not-DAP for P, urea/DAP
+            // volatilisation warnings at high pH for S Rule 4).
+            var amendmentContext = {};
+            try {
+                var _oc = data.engineInputs && data.engineInputs.overseedConfig;
+                amendmentContext.isOverseed = !!(_oc && _oc.isOverseed);
+                // Carry overseed species through for any downstream rec text
+                amendmentContext.overseedSpecies = _oc ? _oc.overseedSpecies : null;
+                // Allow explicit caller override (e.g. grow-in flag set elsewhere)
+                if (data.turf && data.turf.establishmentMode) {
+                    amendmentContext.seedingActive = true;
+                }
+            } catch (_e) { amendmentContext = {}; }
+
+            var soilNarrative = generateSoilNarrative(data.soil, data.nutritionProgram, amendmentContext);
             if (soilNarrative) {
                 var soilInterpretation = createInterpretationSection('Interpretation', soilNarrative);
                 soilInterpretation.forEach(function(el) { sections.push(el); });
             }
-            
+
+            // ========================================
+            // b35fix319 Phase 3 — Annual Soil Amendments table
+            // b35fix320 — context threaded through for seedling-safe product
+            //   selection and pH-aware N-source volatilisation warnings.
+            // Pure function — depends only on soil + nutritionProgram + surface
+            //   + context; safe to call per-iteration in combined exports.
+            // ========================================
+            try {
+                var amendmentSurface = (data.soil && data.soil.surfaceType) ||
+                                       ((data.turf && (data.turf.subCategory || data.turf.type)) || '').toLowerCase();
+                var amendmentPieces = buildAnnualSoilAmendmentsTable(
+                    data.soil, data.nutritionProgram, amendmentSurface, amendmentContext
+                );
+                amendmentPieces.forEach(function(el) { sections.push(el); });
+            } catch (e) {
+                if (typeof console !== 'undefined' && console.warn) {
+                    console.warn('[WordExport] buildAnnualSoilAmendmentsTable failed:', e && e.message);
+                }
+            }
+
             // ========================================
             // AI INTERPRETATION v1.0.0
             // Adds Claude-generated narrative if user clicked "Interpret results"
+            // b35fix313: suppressed in combined export — GAIP_SOIL_INTERPRETATION
+            // is a single-sample global (populated when the user clicked
+            // Interpret on whichever sample was active). Rendering it per-report
+            // in a combined export would paste the same narrative on every
+            // site's soil section. No per-sample AI narrative is available
+            // today, so the combined export just omits the section entirely.
             // ========================================
             var aiInterpretation = window.GAIP_SOIL_INTERPRETATION;
-            if (aiInterpretation && aiInterpretation.narrative) {
+            if (aiInterpretation && aiInterpretation.narrative && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
                 sections.push(new Paragraph({
                     spacing: { before: 300, after: 100 },
                     children: [new TextRun({ 
@@ -6438,10 +9189,6 @@
 
                         // One paragraph block per interaction
                         _mEntries.forEach(function(f) {
-                            var severityColor = f.severity === 'high' ? 'DC2626' :
-                                               f.severity === 'advisory' ? '2563EB' : 'D97706';
-                            var icon = f.severity === 'high' ? '⚠ ' :
-                                       f.severity === 'advisory' ? 'ℹ ' : '⚡ ';
                             var ratioStr = f.value != null
                                 ? ' (' + f.ratio + ' = ' + f.value + ', threshold: ' + f.threshold + ')'
                                 : '';
@@ -6449,8 +9196,8 @@
                             sections.push(new Paragraph({
                                 spacing: { before: 160, after: 60 },
                                 children: [new TextRun({
-                                    text: icon + f.suppressor + ' → ' + f.suppressed + ratioStr,
-                                    bold: true, size: 20, color: severityColor
+                                    text: f.suppressor + ' suppresses ' + f.suppressed + ratioStr,
+                                    bold: true, size: 20, color: '374151'
                                 })]
                             }));
                             sections.push(new Paragraph({
@@ -6464,7 +9211,7 @@
                             sections.push(new Paragraph({
                                 spacing: { after: 120 },
                                 children: [new TextRun({
-                                    text: '📖 ' + f.citation,
+                                    text: f.citation,
                                     size: 16, italics: true, color: '9CA3AF'
                                 })]
                             }));
@@ -6593,13 +9340,47 @@
                 heading: HeadingLevel.HEADING_1, keepNext: true, 
                 children: [new TextRun('Annual Nutrient Requirements')] 
             }));
+            // b35fix331 — Item 1a residual closure (single-export ANR caption).
+            //
+            // Pre-fix caption: "Based on SLAN methodology with removal + deficit
+            //   correction" — actively wrong for SLAN. Under SLAN sufficiency-band
+            //   methodology (Carrow 2004 per b35fix333; previously mis-cited as
+            //   Throssell 2009), in-range samples receive removal-only (no deficit
+            //   correction); only sub-floor samples receive removal + lift-to-floor.
+            //
+            // Post-fix: methodology-specific captions matching engine behaviour.
+            // Same framing as the combined-export caption (b35fix331 sister
+            // change in word-export-combined.js): "removal-rate (replacement
+            // target)" with explicit cross-reference to soil sufficiency.
+            var _b35fix331_methStr = data.soil && data.soil.methodology;
+            var _b35fix331_isAA = _b35fix331_methStr === 'AMMONIUM_ACETATE' || _b35fix331_methStr === 'AMMONIUM ACETATE';
+            var _b35fix331_isSLAN = _b35fix331_methStr === 'SLAN';
+            var _b35fix331_caption;
+            if (_b35fix331_isAA) {
+                _b35fix331_caption = 'Ammonium Acetate extraction (Hill Labs) — removal-only estimate. ' +
+                                     'MLSN/SLAN sufficiency thresholds not applicable to AA-extracted data. ' +
+                                     'All rates kg/ha/yr.';
+            } else if (_b35fix331_isSLAN) {
+                _b35fix331_caption = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
+                                     'K/P/S figures are removal-rate (replacement target), with P pH-adjusted ' +
+                                     'where pH is available. Within the sufficiency range, requirement = removal ' +
+                                     'only (soil reserves cover the agronomic requirement); below floor, ' +
+                                     'requirement = removal + lift correction over years-to-correct; above ' +
+                                     'ceiling, requirement = 0. Sufficiency-as-floor framing per Carrow, ' +
+                                     'Waddington & Rieke (2001). All rates kg/ha/yr.';
+            } else {
+                _b35fix331_caption = 'MLSN methodology (Woods et al. 2016): K/P/S figures are removal-rate ' +
+                                     '(replacement target). Below the MLSN floor, requirement = removal + ' +
+                                     'deficit correction; at or above the floor, requirement = removal only — ' +
+                                     'soil reserves are agronomically sufficient and the figure indicates the ' +
+                                     'rate at which clippings are removing the nutrient, not a per-year ' +
+                                     'application target. All rates kg/ha/yr.';
+            }
             sections.push(new Paragraph({
                 spacing: { before: 50, after: 100 },
-                children: [new TextRun({ 
-                    text: (data.soil && (data.soil.methodology === 'AMMONIUM_ACETATE' || data.soil.methodology === 'AMMONIUM ACETATE'))
-                        ? 'Based on removal + deficit correction (Ammonium Acetate extraction — MLSN/SLAN not applicable)'
-                        : 'Based on ' + (data.soil && data.soil.methodology === 'SLAN' ? 'SLAN' : 'MLSN') + ' methodology with removal + deficit correction', 
-                    size: 20, italics: true, color: '6B7280' 
+                children: [new TextRun({
+                    text: _b35fix331_caption,
+                    size: 20, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -6622,61 +9403,24 @@
                 sections.push(createTable(nutRows));
             }
             
-            // Monthly N Distribution (GP-Weighted) table
+            // Monthly N Distribution (GP-Weighted) table — b35fix387: routed
+            // through _buildMonthlyNDistribution helper, shared with combined-
+            // export (word-export-combined.js). Single-export does NOT pass
+            // siteUniformCaption (only one sample, no asymmetry to explain).
             if (data.nutritionSummary.monthlyN && data.nutritionSummary.monthlyN.length > 0) {
-                sections.push(new Paragraph({
-                    spacing: { before: 200 },
-                    children: [new TextRun({ text: 'Monthly N Distribution (GP-Weighted)', bold: true, size: 24 })]
-                }));
-                sections.push(new Paragraph({
-                    spacing: { before: 50, after: 100 },
-                    children: [new TextRun({ 
-                        text: 'Total: ' + (data.nutritionSummary.totalN || 0).toFixed(0) + ' kg N/ha/yr | ' + data.nutritionSummary.activeMonths + ' active growing months', 
-                        size: 20, color: '6B7280' 
-                    })]
-                }));
-                
-                // Build monthly N table
-                var monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                var monthlyData = data.nutritionSummary.monthlyN;
-                
-                // Header row
-                var headerCells = monthNames.map(function(month) {
-                    return new TableCell({
-                        children: [new Paragraph({ 
-                            alignment: AlignmentType.CENTER, 
-                            children: [new TextRun({ text: month, bold: true, size: 18 })] 
-                        })],
-                        shading: { fill: 'F3F4F6' },
-                        width: { size: 750, type: WidthType.DXA }
-                    });
-                });
-                
-                // Data row with N values and GP%
-                var dataCells = monthlyData.map(function(monthData) {
-                    var n = monthData.n || 0;
-                    var gp = monthData.gp || 0;
-                    var nColor = n > 15 ? '16A34A' : n > 10 ? '65A30D' : n > 5 ? 'F59E0B' : '9CA3AF';
-                    
-                    return new TableCell({
-                        children: [new Paragraph({ 
-                            alignment: AlignmentType.CENTER, 
-                            children: [
-                                new TextRun({ text: n.toFixed(0), bold: true, size: 20, color: nColor }),
-                                new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 14, color: '6B7280' })
-                            ] 
-                        })],
-                        width: { size: 750, type: WidthType.DXA }
-                    });
-                });
-                
-                sections.push(new Table({
-                    rows: [
-                        new TableRow({ children: headerCells }),
-                        new TableRow({ children: dataCells })
-                    ],
-                    width: { size: 100, type: WidthType.PERCENTAGE }
-                }));
+                var _mnDocxRefs = {
+                    Paragraph: Paragraph, TextRun: TextRun, Table: Table,
+                    TableRow: TableRow, TableCell: TableCell,
+                    WidthType: WidthType, AlignmentType: AlignmentType
+                };
+                var _mnNodes = _buildMonthlyNDistribution(
+                    data.nutritionSummary.monthlyN,
+                    data.nutritionSummary.totalN,
+                    data.nutritionSummary.activeMonths,
+                    _mnDocxRefs,
+                    { siteUniformCaption: false }
+                );
+                _mnNodes.forEach(function(node) { sections.push(node); });
             }
             
             sections.push(new Paragraph({ children: [] }));
@@ -7505,9 +10249,11 @@
             // ========================================
             // AI WATER INTERPRETATION v1.0.0
             // Adds Claude-generated narrative if user clicked "Interpret Water Quality"
+            // b35fix313: suppressed in combined export — see soil interpretation
+            // comment above. Same single-sample-global issue.
             // ========================================
             var aiWaterInterpretation = window.GAIP_WATER_INTERPRETATION;
-            if (aiWaterInterpretation && aiWaterInterpretation.narrative) {
+            if (aiWaterInterpretation && aiWaterInterpretation.narrative && !window.GAIP_COMBINED_EXPORT_ACTIVE) {
                 sections.push(new Paragraph({
                     spacing: { before: 300, after: 100 },
                     children: [new TextRun({ 
@@ -7692,7 +10438,6 @@
                         spacing: { before: 30, after: 50 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: '→ ', size: 20, color: statusColor }),
                             new TextRun({ text: assessment.recommendation, size: 20, bold: true, color: '374151' })
                         ]
                     }));
@@ -8743,7 +11488,6 @@
                     sections.push(new Paragraph({
                         spacing: { after: 100 },
                         children: [
-                            new TextRun({ text: '⚠ ', size: 22, color: 'DC2626' }),
                             new TextRun({ text: recText, size: 22 })
                         ]
                     }));
@@ -8762,7 +11506,6 @@
                     sections.push(new Paragraph({
                         spacing: { after: 100 },
                         children: [
-                            new TextRun({ text: '⚡ ', size: 22, color: 'D97706' }),
                             new TextRun({ text: recText, size: 22 })
                         ]
                     }));
@@ -10359,7 +13102,7 @@
                       run: { size: 48, bold: true, color: '1F2937', font: 'Calibri' },
                       paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },
                     { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 28, bold: true, color: '059669', font: 'Calibri' },
+                      run: { size: 28, bold: true, color: '1F2937', font: 'Calibri' },
                       paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 0 } },
                     { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
                       run: { size: 24, bold: true, color: '374151', font: 'Calibri' },
@@ -10630,7 +13373,46 @@
         version: '2.3.0',
         export: exportToWord,
         collectData: collectData,
-        buildSections: buildSections  // Exposed for scenario patch integration
+        buildSections: buildSections,  // Exposed for scenario patch integration
+
+        // b35fix322: expose pure decision/conversion helpers so combined-export
+        // can compute amendment products per-sample (during the loop iteration
+        // where the correct site is active) and merge them into
+        // r.data.nutritionProgram.annualSummary.products. Without this exposure,
+        // amendments only appeared in the per-sample Annual Soil Amendments
+        // narrative and were invisible to Annual Product Summary, Monthly
+        // Schedule, and Purchasing Summary.
+        _computeAmendmentDecision: _computeAmendmentDecision,
+        _amendmentDecisionsToProducts: _amendmentDecisionsToProducts,
+        _synthesiseKReconDecision: _synthesiseKReconDecision,
+        _computeProgrammeKDelivered: _computeProgrammeKDelivered,
+        _classifyKReconState: _classifyKReconState,
+
+        // b35fix328: nutrient-extraction helpers exposed so word-export-combined
+        // can render the same Ca/Mg/S column logic in the Fertiliser Purchasing
+        // Summary aggregator. Single-export and combined-export must produce
+        // tables with the same active-column set when given the same product
+        // mix — that symmetry is the renderer-level corollary of the
+        // amendment-as-product contract.
+        _extractEntryNutrients: _extractEntryNutrients,
+        _detectActiveNutrientColumns: _detectActiveNutrientColumns,
+
+        // b35fix368: per-sample section header line. Pure helper that takes a
+        // collectData()-shaped object and returns "Site · area · species".
+        // Combined export calls this once per per-sample section to render
+        // a consistent at-a-glance identity line. Reads species from
+        // engineInputs.turf.species (b35fix367 authoritative source) so the
+        // header reflects the per-sample override when one is set.
+        _buildSectionHeaderLine: _buildSectionHeaderLine,
+
+        // b35fix387: SSOT renderer for the Monthly N Distribution table.
+        // Used by both single-export (word-export.js) and combined-export
+        // (word-export-combined.js) to produce a uniform 12-column docx
+        // table with header row, colour-graded N values, GP% subscript, and
+        // optional site-uniform caption (combined-export only). Returns an
+        // array of docx nodes; caller pushes them onto its sections list.
+        // See helper definition for opts contract.
+        _buildMonthlyNDistribution: _buildMonthlyNDistribution
     };
 
     // Expose internal functions for combined export module

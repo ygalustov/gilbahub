@@ -40,6 +40,85 @@
     };
 
     // =========================================================================
+    // SAMPLE STALENESS (b35fix310a)
+    // =========================================================================
+    // Recommendations must be based on recent lab data. A sample older than the
+    // freshness threshold is considered stale and should not drive recommendations
+    // (though it can still feed trend analysis). b35fix310b wires enforcement
+    // across the recommendation modules; 310a ships the helper only.
+    //
+    // Rule of thumb (set by Jerry 2026-04-23):
+    //   - Default threshold: 18 months (accommodates 6-monthly sampling cadence)
+    //   - Globally hardcoded in 310a; may become site-configurable later
+    //   - Per-site opt-out boolean (`allowStaleRecommendations`) lets legacy sites
+    //     preserve pre-310a behaviour until they re-sample
+
+    const STALENESS = {
+        // Freshness threshold: samples older than this are stale for rec purposes
+        thresholdMonths: 18,
+        // Per-site config key that opts a site out of staleness enforcement
+        siteOptOutKey: 'allowStaleRecommendations'
+    };
+
+    /**
+     * Test whether a sample is fresh (suitable for driving recommendations).
+     * A sample with no date is treated as stale (we cannot verify freshness).
+     * @param {object} sample - sample record with `date` field (ISO or YYYY-MM-DD)
+     * @param {object} [opts]
+     * @param {Date}   [opts.now] - reference date; defaults to today
+     * @param {number} [opts.thresholdMonths] - override the default 18-month threshold
+     * @returns {boolean} true if the sample is within the freshness window
+     */
+    function isSampleFresh(sample, opts) {
+        opts = opts || {};
+        if (!sample || !sample.date) return false;
+        const threshold = opts.thresholdMonths || STALENESS.thresholdMonths;
+        const now = opts.now || new Date();
+        const sampleDate = new Date(sample.date);
+        if (isNaN(sampleDate.getTime())) return false;
+        // Freshness window in milliseconds (average month ~30.44 days)
+        const windowMs = threshold * 30.44 * 24 * 60 * 60 * 1000;
+        return (now.getTime() - sampleDate.getTime()) <= windowMs;
+    }
+
+    /**
+     * Age of a sample in months (approximate, via 30.44 days/month).
+     * @returns {number|null} months since sample.date, or null if undatable
+     */
+    function sampleAgeMonths(sample, now) {
+        if (!sample || !sample.date) return null;
+        const d = new Date(sample.date);
+        if (isNaN(d.getTime())) return null;
+        const ref = now || new Date();
+        return (ref.getTime() - d.getTime()) / (30.44 * 24 * 60 * 60 * 1000);
+    }
+
+    /**
+     * Should this sample drive recommendations?
+     * Combines the freshness check with the per-site opt-out boolean.
+     * Recommendation modules should call this, not isSampleFresh directly.
+     *
+     * @param {object} sample - sample record
+     * @param {string} [siteId] - site the sample belongs to; defaults to current site
+     * @returns {boolean}
+     */
+    function canDriveRecommendations(sample, siteId) {
+        if (!sample) return false;
+        // Per-site opt-out: if the site config sets allowStaleRecommendations:true,
+        // bypass the freshness check entirely. Used for legacy sites that haven't
+        // re-sampled yet but still need reports generated.
+        const sid = siteId || _currentSite;
+        try {
+            if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function') {
+                const siteCfg = global.GAIP_SiteConfig.getConfig(sid);
+                if (siteCfg && siteCfg[STALENESS.siteOptOutKey] === true) return true;
+            }
+        } catch (_e) { /* config unavailable; fall through to freshness check */ }
+        return isSampleFresh(sample);
+    }
+
+
+    // =========================================================================
     // SAMPLE STORAGE (site-scoped)
     // =========================================================================
 
@@ -78,6 +157,151 @@
     let _allSiteMeta = {
         'default': { soil: null, water: null, tissue: null, loi: null }
     };
+
+    // =========================================================================
+    // AREA (HA) HELPERS  (b35fix311)
+    // =========================================================================
+    // Zone-type-aware placeholder text and soft sanity range.
+    // Used by the sample form to guide the user and warn on obvious mistakes
+    // (e.g. typing 600 meaning m², getting a 600-hectare green in the math).
+    //
+    // Ranges are deliberately wide — they catch order-of-magnitude errors but
+    // don't reject legitimate edge cases. Warning is informational only,
+    // never blocks save.
+
+    // b35fix312 Fix 1: ranges tightened to match real-world zone sizes.
+    // Original 311 ranges were set conservatively-wide and let obvious mistakes
+    // (e.g. 6.01 for a green, which is ~100× too big) through the soft check
+    // without a helpful correction. Revised ranges reflect USGA/STRI and
+    // common sports-turf practice, with some latitude for historic outliers.
+    //
+    // Sources:
+    //   - USGA Green Section: typical putting green 500-700 m²
+    //   - STRI golf course guidance: 400-700 m² typical, larger for
+    //     premium/championship designs up to ~1000 m²
+    //   - Historic oversized greens (e.g. Augusta 1st ~0.1 ha) accommodated
+    //     by the upper bound but not the placeholder
+    //   - Sports pitch dimensions per World Rugby, FIFA, AFL Laws of the Game
+    //
+    // Placeholders show a reasonable typical for the zone type; min/max are
+    // soft-range bounds beyond which the UI suggests corrections but does
+    // not block save.
+    const AREA_GUIDANCE = {
+        green:        { placeholder: '0.05', minHa: 0.02,  maxHa: 0.15,  example: '0.03–0.07 ha typical (300–700 m² per USGA/STRI)' },
+        fairway:      { placeholder: '2.5',  minHa: 0.3,   maxHa: 6.0,   example: '1.5–5 ha typical per fairway' },
+        tee:          { placeholder: '0.03', minHa: 0.01,  maxHa: 0.1,   example: '0.015–0.05 ha typical (150–500 m²)' },
+        rough:        { placeholder: '3.0',  minHa: 0.5,   maxHa: 25.0,  example: 'varies widely (1–20+ ha depending on course)' },
+        approach:     { placeholder: '0.05', minHa: 0.01,  maxHa: 0.15,  example: '0.02–0.1 ha typical' },
+        collar:       { placeholder: '0.015', minHa: 0.003, maxHa: 0.05, example: '0.005–0.03 ha (narrow ring around green)' },
+        bunker:       { placeholder: '0.02', minHa: 0.003, maxHa: 0.05,  example: '0.005–0.05 ha per bunker complex' },
+        sports_pitch: { placeholder: '0.7',  minHa: 0.3,   maxHa: 2.5,   example: '0.7 ha soccer / 1.4 ha AFL / 1.8 ha cricket' },
+        goal_area:    { placeholder: '0.012', minHa: 0.003, maxHa: 0.03, example: '0.005–0.02 ha per goal mouth' },
+        centre:       { placeholder: '0.5',  minHa: 0.05,  maxHa: 2.0,   example: 'varies with sport' },
+        other:        { placeholder: '0.5',  minHa: 0.001, maxHa: 50.0,  example: '0.5 ha default — range deliberately permissive' }
+    };
+
+    /**
+     * Get the guidance entry for a zone type, falling back to `other`.
+     */
+    function _areaGuidanceFor(zoneType) {
+        return AREA_GUIDANCE[zoneType] || AREA_GUIDANCE.other;
+    }
+
+    /**
+     * Update the area input's placeholder and validation hint based on a
+     * sample's zone type. Called by loadSample after the zone is resolved.
+     */
+    function _updateAreaInputHint(zoneType, container) {
+        const scope = container || document;
+        const input = scope.querySelector('.gaip-soil-area-ha');
+        if (!input) return;
+        const g = _areaGuidanceFor(zoneType);
+        input.placeholder = 'e.g. ' + g.placeholder;
+        input.title = g.example + '. Optional — leave blank to report per-hectare rates only.';
+    }
+
+    /**
+     * Pure function: given an area value and zone-type guidance, return the
+     * warning message text if out-of-range, or null if in-range.
+     * Extracted for testability — _validateAreaInput is DOM-bound and can't
+     * be tested in Node; this helper is pure and drives all the suggestion
+     * logic.
+     *
+     * @param {number} val - area value entered by user
+     * @param {object} g - guidance entry ({ minHa, maxHa, placeholder, example })
+     * @returns {string|null} warning message or null if value is in range
+     */
+    function _buildAreaWarning(val, g) {
+        if (!isFinite(val) || val <= 0) return null;
+        if (val >= g.minHa && val <= g.maxHa) return null;
+
+        let msg = 'That value is outside the typical range for this zone type (' + g.example + '). ';
+        const suggestions = [];
+
+        // m²-to-ha interpretation: value treated as m² would be val/10000 ha.
+        // Only plausible if the m² interpretation lands inside the typical range.
+        const asHaFromM2 = val / 10000;
+        if (asHaFromM2 >= g.minHa && asHaFromM2 <= g.maxHa) {
+            suggestions.push('Did you mean ' + asHaFromM2.toFixed(4).replace(/\.?0+$/, '') + ' ha (' + val + ' m²)?');
+        }
+
+        // Decimal-slip interpretations: same digits, decimal misplaced.
+        // Pick the slip whose result is CLOSEST to the typical value for this
+        // zone type (the placeholder), not just any in-range value. For a
+        // green with typical 0.06, 6.01 → 0.0601 (slip /100) is a better
+        // suggestion than 0.601 (slip /10) even though both are in range.
+        const typicalRaw = parseFloat(g.placeholder);
+        const typical = isFinite(typicalRaw) && typicalRaw > 0 ? typicalRaw : (g.minHa + g.maxHa) / 2;
+        const slipCandidates = [val / 10, val / 100, val / 1000, val * 10, val * 100]
+            .filter(v => v >= g.minHa && v <= g.maxHa)
+            .map(v => ({ v: v, dist: Math.abs(Math.log10(v / typical)) }))
+            .sort((a, b) => a.dist - b.dist);
+        if (slipCandidates.length > 0) {
+            const best = slipCandidates[0].v;
+            const pretty = best.toFixed(4).replace(/\.?0+$/, '');
+            const suggestion = 'Did you mean ' + pretty + ' ha?';
+            if (!suggestions.some(s => s.indexOf(pretty + ' ha') >= 0)) {
+                suggestions.push(suggestion);
+            }
+        }
+
+        if (suggestions.length > 0) {
+            msg += suggestions.join(' ');
+        } else {
+            msg += 'Check this is correct before saving.';
+        }
+        return msg;
+    }
+
+    /**
+     * Soft-validate the current area input against the zone-type sanity range.
+     * Shows/hides the warning div next to the input. Never blocks save.
+     * Called on `blur` of the area input.
+     */
+    function _validateAreaInput(zoneType, container) {
+        const scope = container || document;
+        const input = scope.querySelector('.gaip-soil-area-ha');
+        const warn = scope.querySelector('.gaip-soil-area-warning');
+        if (!input || !warn) return;
+        const val = parseFloat(input.value);
+        if (!input.value || !isFinite(val) || val <= 0) {
+            warn.style.display = 'none';
+            input.style.borderColor = '';
+            return;
+        }
+        const g = _areaGuidanceFor(zoneType);
+        const msg = _buildAreaWarning(val, g);
+        if (msg) {
+            warn.textContent = msg;
+            warn.style.display = 'block';
+            input.style.borderColor = '#c96a5f';
+        } else {
+            warn.style.display = 'none';
+            input.style.borderColor = '';
+        }
+    }
+
+    // =========================================================================
 
     // ── Convenience accessors to the current site's data ──
     // These are used throughout the module so existing code doesn't change
@@ -160,6 +384,9 @@
         'Texture': '.gaip-soil-texture', 'texture': '.gaip-soil-texture', 'Soil_Texture': '.gaip-soil-texture',
         'CEC_meq100g': '.gaip-cec', 'CEC': '.gaip-cec', 'cec': '.gaip-cec',
         'OM_Percent': '.gaip-loi', 'Organic Matter': '.gaip-loi', 'OM': '.gaip-loi', 'LOI': '.gaip-loi',
+        // b35fix311: area of the zone this sample represents, for Fertiliser Purchasing Summary totals
+        'areaHa': '.gaip-soil-area-ha', 'area_ha': '.gaip-soil-area-ha', 'Area_ha': '.gaip-soil-area-ha',
+        'AreaHa': '.gaip-soil-area-ha', 'area': '.gaip-soil-area-ha',
         // Stratified OM fields (Golf Greens)
         'LOI_0_2': '.gaip-loi-0-2', 'OM_0_2': '.gaip-loi-0-2', 'LOI_0-2': '.gaip-loi-0-2', 'OM_0-2cm': '.gaip-loi-0-2',
         'LOI_2_4': '.gaip-loi-2-4', 'OM_2_4': '.gaip-loi-2-4', 'LOI_2-4': '.gaip-loi-2-4', 'OM_2-4cm': '.gaip-loi-2-4',
@@ -225,6 +452,104 @@
         // Overall OM (some labs report this too)
         'OM_Percent': '.gaip-loi', 'Organic Matter': '.gaip-loi', 'OM': '.gaip-loi', 'LOI': '.gaip-loi', 'Total_OM': '.gaip-loi'
     };
+
+    // =========================================================================
+    // b35fix377 — case-and-suffix-tolerant column resolver
+    //
+    // Real lab CSVs almost never use bare element symbols for columns. They
+    // carry extraction-method suffixes (`K_Mehlich3`, `P_Olsen`, `K_Colwell`,
+    // `S_KCl`, `B_HotWater`, `Fe_DTPA`) and arbitrary casing. Pre-b35fix377
+    // both `normalizeValues` and `loadSample` did literal `row[fieldMapKey]`
+    // lookups, so a CSV with `K_Mehlich3` headers populated zero nutrient
+    // cells even though `K` is in SOIL_FIELD_MAP — `K_Mehlich3` is not a
+    // string-equal match.
+    //
+    // Resolution algorithm, applied per row:
+    //   1. Exact match (preserves all existing alias behaviour, fast path)
+    //   2. Case-insensitive match
+    //   3. Strip a known extraction-method suffix and retry case-insensitive
+    //
+    // Returns a Map of fieldMapKey → actualRowKey for every fieldMap entry
+    // that has a value in this row. Consumers iterate the resolved map
+    // instead of doing literal lookups.
+    //
+    // Suffix list covers the AU/NZ/UK/EU lab vocabulary Gilba sees in
+    // production. Adding more is a one-line edit. Suffix matching is on the
+    // FULL trailing token after a separator (`_`, ` `, `-`), so `K_Mehlich3`
+    // strips to `K`, `P (Olsen)` strips to `P`, `K-Colwell` strips to `K`.
+    // =========================================================================
+    const EXTRACTION_METHOD_SUFFIXES = [
+        'mehlich3', 'mehlich-3', 'mehlich_3', 'm3',
+        'olsen',
+        'colwell',
+        'kcl',
+        'bray', 'bray1', 'bray2', 'brayi', 'brayii', 'bray-1', 'bray-2',
+        'ammac', 'nh4oac', 'nh4ac', 'ammonium acetate', 'ammoniumacetate',
+        'hotwater', 'hot water', 'hot-water',
+        'dtpa',
+        'cacl2',
+        'mehlich',
+        'extractable',
+        'available',
+        'total'
+    ];
+
+    function _stripExtractionSuffix(headerKey) {
+        // Lowercase, strip parentheses content (`P (Olsen)` → `P `), trim,
+        // then peel known suffixes from the right.
+        let s = String(headerKey).toLowerCase();
+        s = s.replace(/\s*\([^)]*\)\s*/g, ' ').trim();
+        // Try each suffix; longest first to avoid partial matches
+        // (e.g. 'mehlich3' before 'mehlich').
+        const sorted = EXTRACTION_METHOD_SUFFIXES.slice().sort((a, b) => b.length - a.length);
+        for (const suf of sorted) {
+            // Match suffix preceded by separator [_ - space] at end of string.
+            const re = new RegExp('[\\s_\\-]' + suf.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '$');
+            if (re.test(s)) {
+                return s.replace(re, '').trim();
+            }
+        }
+        return s;
+    }
+
+    function _buildColumnIndex(fieldMap, rowKeys) {
+        // Build lookup tables ONCE per row:
+        //   - exact: rowKey → rowKey (identity, used for fast O(1) check)
+        //   - lower: lowercased rowKey → rowKey
+        //   - stripped: extraction-method-stripped lowercased rowKey → rowKey
+        // Then for each fieldMap key, walk these in order to find a matching
+        // actual row column.
+        const lower = Object.create(null);
+        const stripped = Object.create(null);
+        for (const k of rowKeys) {
+            const kLower = k.toLowerCase();
+            // First-write wins so the document's natural order is honoured
+            // when two columns lowercase to the same string (rare).
+            if (lower[kLower] === undefined) lower[kLower] = k;
+            const kStrip = _stripExtractionSuffix(k);
+            if (kStrip && stripped[kStrip] === undefined) stripped[kStrip] = k;
+        }
+
+        // Resolve fieldMap keys → actual row keys. Built lazily per call.
+        function resolve(fieldMapKey) {
+            // 1. Exact case-sensitive match (existing behaviour, fastest)
+            if (rowKeys.indexOf(fieldMapKey) !== -1) return fieldMapKey;
+            // 2. Case-insensitive match
+            const fLower = String(fieldMapKey).toLowerCase();
+            if (lower[fLower] !== undefined) return lower[fLower];
+            // 3. Suffix-stripped match — only when the fieldMap key is itself
+            //    a "canonical" short symbol (no underscore in the key after
+            //    its first segment), to avoid false hits where stripping
+            //    `K_ppm` to `k` then matches a column called just `K`. We
+            //    already handle that via case-insensitive match above; here
+            //    we only want to catch things like fieldMap='K' matching
+            //    rowKey='K_Mehlich3'.
+            const fStrip = _stripExtractionSuffix(fieldMapKey);
+            if (fStrip && stripped[fStrip] !== undefined) return stripped[fStrip];
+            return null;
+        }
+        return { resolve };
+    }
 
     // =========================================================================
     // CSV PARSER
@@ -349,6 +674,54 @@
     function extractNotes(row) {
         return row['Notes'] || row['Comment'] || row['Comments'] ||
                row['Description'] || '';
+    }
+
+    // =========================================================================
+    // b35fix371 — turf_species column extraction
+    //
+    // Reads `turf_species` column case-insensitively, validates against the
+    // 5-species council sports list (same list as the b35fix368 bulk modal),
+    // canonicalises to title case, returns null if the value is missing,
+    // empty, or not in the allowed list. Unknown species skipped silently
+    // per spec — no error, no warning, no abort.
+    //
+    // Allowed values: Couch, Kikuyu, Perennial Ryegrass, Kentucky Bluegrass,
+    // Tall Fescue. Paspalum, bentgrass, zoysia all return null (excluded
+    // from council sports list — same rationale as bulk modal: there are no
+    // AU paspalum sports grounds, bentgrass is golf greens not sports turf).
+    //
+    // Lookup is built from a Map of lowercase keys → canonical names so the
+    // accepted column header AND the accepted species value are both
+    // case-insensitive.
+    // =========================================================================
+    var SPORTS_SPECIES_CANONICAL = {
+        'couch':              'Couch',
+        'kikuyu':             'Kikuyu',
+        'perennial ryegrass': 'Perennial Ryegrass',
+        'kentucky bluegrass': 'Kentucky Bluegrass',
+        'tall fescue':        'Tall Fescue'
+    };
+
+    function extractTurfSpecies(row) {
+        if (!row || typeof row !== 'object') return null;
+        // Case-insensitive column lookup — find any header that lowercases
+        // to "turf_species". Common variants: turf_species, Turf_Species,
+        // TURF_SPECIES, "Turf Species" with space (also accepted).
+        var rawValue = null;
+        var keys = Object.keys(row);
+        for (var i = 0; i < keys.length; i++) {
+            var k = keys[i];
+            var kNorm = String(k).toLowerCase().replace(/\s+/g, '_');
+            if (kNorm === 'turf_species') {
+                rawValue = row[k];
+                break;
+            }
+        }
+        if (rawValue == null) return null;
+        var trimmed = String(rawValue).trim();
+        if (trimmed === '') return null;
+        var canonical = SPORTS_SPECIES_CANONICAL[trimmed.toLowerCase()];
+        return canonical || null;   // unknown → null (skip silently)
     }
 
     // =========================================================================
@@ -732,12 +1105,22 @@
         // Process each row as a sample
         const importedIds = [];
         const samples = {};
+        // b35fix371: track whether ANY row produced a valid turfProfile
+        // species — if so, auto-enable the multi-site turf toggle for the
+        // active site at the end of the import. Same rationale as b35fix369
+        // bulk-modal apply: importing a CSV with species data is implicit
+        // consent that this site should run in multi-site turf mode.
+        let _b371_anySpeciesApplied = false;
 
         for (const row of parsed.rows) {
             const sampleId = extractSampleId(row);
             const sampleDate = extractSampleDate(row);
             const notes = extractNotes(row);
             const zoneType = detectZoneType(sampleId);
+            // b35fix371: per-sample turf species from the optional turf_species
+            // column. Returns null when missing, empty, or not in the 5-species
+            // council list — null means no override (sample inherits site-level).
+            const turfSpecies = extractTurfSpecies(row);
 
             // Create normalized sample object
             const sample = {
@@ -749,6 +1132,13 @@
                 rawData: row,
                 normalized: normalizeValues(row, dataType)
             };
+            // b35fix371: attach turfProfile when species column produced a
+            // valid override. Only soil samples carry turfProfile (turf
+            // identity is a soil-cohort concept). Water and tissue ignore.
+            if (turfSpecies && dataType === 'soil') {
+                sample.turfProfile = { species: turfSpecies };
+                _b371_anySpeciesApplied = true;
+            }
 
             // Auto-dedup: if key already exists (e.g., same name different date), append date
             if (samples[sampleId]) {
@@ -777,6 +1167,29 @@
         }
         
         log('Merged ' + sampleKeys.length + ' samples into ' + dataType + ' store (total: ' + Object.keys(_sampleStore[dataType]).length + ')');
+
+        // b35fix371: auto-enable multi-site turf toggle if the CSV contained
+        // any valid turf_species values. Mirrors the b35fix369 bulk-modal
+        // auto-flip — importing a CSV with species data is implicit consent
+        // that this site should run in multi-site turf mode. Without this,
+        // the overrides would be stored on the samples but ignored by the
+        // engines (toggle-gated read in word-export.js _buildEngineInputs).
+        // Same defensive try/catch as the bulk-modal version so a missing
+        // GAIP_SiteConfig dependency never blocks the import itself.
+        if (_b371_anySpeciesApplied) {
+            try {
+                var sc371 = window.GAIP_SiteConfig;
+                if (sc371 && _currentSite
+                    && typeof sc371.isMultiSiteTurfEnabled === 'function'
+                    && typeof sc371.setMultiSiteTurfEnabled === 'function'
+                    && !sc371.isMultiSiteTurfEnabled(_currentSite)) {
+                    sc371.setMultiSiteTurfEnabled(_currentSite, true);
+                    log('b35fix371: auto-enabled multi-site turf for "' +
+                        _currentSite + '" because CSV import contained ' +
+                        'turf_species values for at least one row.');
+                }
+            } catch (e) { /* defensive — never block import on toggle error */ }
+        }
         
         // Store new samples
         // (already merged above)
@@ -823,25 +1236,35 @@
         // Track which normalized keys we've already set
         const setKeys = new Set();
 
-        for (const col in fieldMap) {
-            if (row[col] !== undefined && row[col] !== '') {
-                const selector = fieldMap[col];
-                // Extract key from selector (e.g., '[data-mlsn="K"]' -> 'K')
-                let key = selector;
-                const match = selector.match(/\[data-(?:mlsn|ion|val)="(\w+)"\]/);
-                if (match) {
-                    key = match[1];
-                } else if (selector.startsWith('.gaip-')) {
-                    key = selector.replace('.gaip-', '').replace(/-/g, '_');
-                }
+        // b35fix377: resolve fieldMap keys to actual row columns via the
+        // case-and-suffix-tolerant resolver. Pre-fix this loop did
+        // `row[col]` direct lookup, missing every extraction-method-suffixed
+        // column the lab CSV carried.
+        const rowKeys = Object.keys(row);
+        const idx = _buildColumnIndex(fieldMap, rowKeys);
 
-                // Only set if we haven't already (prefer specific column names like K_ppm over K)
-                if (!setKeys.has(key)) {
-                    const val = parseFloat(row[col]);
-                    if (!isNaN(val)) {
-                        normalized[key] = val;
-                        setKeys.add(key);
-                    }
+        for (const col in fieldMap) {
+            const actualCol = idx.resolve(col);
+            if (actualCol === null) continue;
+            const rawVal = row[actualCol];
+            if (rawVal === undefined || rawVal === '') continue;
+
+            const selector = fieldMap[col];
+            // Extract key from selector (e.g., '[data-mlsn="K"]' -> 'K')
+            let key = selector;
+            const match = selector.match(/\[data-(?:mlsn|ion|val)="(\w+)"\]/);
+            if (match) {
+                key = match[1];
+            } else if (selector.startsWith('.gaip-')) {
+                key = selector.replace('.gaip-', '').replace(/-/g, '_');
+            }
+
+            // Only set if we haven't already (prefer specific column names like K_ppm over K)
+            if (!setKeys.has(key)) {
+                const val = parseFloat(rawVal);
+                if (!isNaN(val)) {
+                    normalized[key] = val;
+                    setKeys.add(key);
                 }
             }
         }
@@ -882,18 +1305,29 @@
         if (dataType === 'tissue') {
             populated.push(...populateTissueFields(sample.rawData));
         } else {
-            for (const col in fieldMap) {
-                if (sample.rawData[col] !== undefined && sample.rawData[col] !== '') {
-                    const selector = fieldMap[col];
-                    let input = container.querySelector(selector);
-                    if (!input) input = document.querySelector(selector);
+            // b35fix377: resolve fieldMap keys to actual row columns via the
+            // case-and-suffix-tolerant resolver. Pre-fix this loop did
+            // `sample.rawData[col]` direct lookup, so a sample whose rawData
+            // came from a CSV with `K_Mehlich3` headers populated zero
+            // nutrient inputs even though `K` is in fieldMap.
+            const rawKeys = Object.keys(sample.rawData || {});
+            const idx = _buildColumnIndex(fieldMap, rawKeys);
 
-                    if (input) {
-                        input.value = parseFloat(sample.rawData[col]) || sample.rawData[col];
-                        input.dispatchEvent(new Event('input', { bubbles: true }));
-                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                        populated.push(col);
-                    }
+            for (const col in fieldMap) {
+                const actualCol = idx.resolve(col);
+                if (actualCol === null) continue;
+                const rawVal = sample.rawData[actualCol];
+                if (rawVal === undefined || rawVal === '') continue;
+
+                const selector = fieldMap[col];
+                let input = container.querySelector(selector);
+                if (!input) input = document.querySelector(selector);
+
+                if (input) {
+                    input.value = parseFloat(rawVal) || rawVal;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    populated.push(col);
                 }
             }
         }
@@ -922,6 +1356,69 @@
             }
         }
 
+        // b35fix310a Fix B: restore the sample LABEL into the DOM label field.
+        // Previously loadSample updated only fields present in SOIL_FIELD_MAP
+        // (which excludes the label), so .gaip-soil-sample-label retained
+        // whatever the user had last typed or the previously loaded sample put
+        // there. Combined export logs showed every iteration with
+        // domGreenLabel: "Green 10" regardless of which sample was actually
+        // loaded. Confirmed during b35fix309 Green 10 diagnostic.
+        const labelSelectors = {
+            soil:   '.gaip-soil-sample-label',
+            water:  '.gaip-water-sample-label',
+            tissue: '.gaip-tissue-sample-label'
+        };
+        const labelSelector = labelSelectors[dataType];
+        if (labelSelector) {
+            const labelInput = container.querySelector(labelSelector) || document.querySelector(labelSelector);
+            if (labelInput) {
+                // Sample always has .label (set at write time; falls back to id)
+                labelInput.value = sample.label || sample.id || '';
+            }
+        }
+
+        // b35fix311: adjust the area input's placeholder/validation hint to
+        // reflect this sample's zone type, and re-run the soft-range validation
+        // against whatever value is now showing.
+        if (dataType === 'soil') {
+            _updateAreaInputHint(sample.zoneType, container);
+            _validateAreaInput(sample.zoneType, container);
+        }
+
+        // b35fix367 — Apply per-sample turf profile override into GaipTurfProfile
+        // and fire the cascade so SpeciesController, hub-orchestrator, and the
+        // disease engines pick up the override on the active interactive run.
+        // Gated on multi-site turf mode for the active site — when off, the
+        // override is ignored even if the sample carries one.
+        // Only acts on soil samples (turf is a soil-cohort concept; water/
+        // tissue samples don't independently re-key turf identity).
+        if (dataType === 'soil') {
+            try {
+                var _SC367 = window.GAIP_SiteConfig;
+                var _siteId367 = _currentSite;
+                if (_SC367 && typeof _SC367.isMultiSiteTurfEnabled === 'function'
+                    && _SC367.isMultiSiteTurfEnabled(_siteId367)
+                    && sample.turfProfile && window.GaipTurfProfile && window.GaipTurfProfile.state) {
+                    var _tp367 = sample.turfProfile;
+                    var _tps = window.GaipTurfProfile.state;
+                    if (_tp367.turfType)         _tps.turfType         = _tp367.turfType;
+                    if (_tp367.subCategory)      _tps.subCategory      = _tp367.subCategory;
+                    if (_tp367.species)          _tps.species          = _tp367.species;
+                    if (_tp367.variety)          _tps.variety          = _tp367.variety;
+                    if (_tp367.companionSpecies) _tps.overseedSpecies  = _tp367.companionSpecies;
+                    // Force-refresh SpeciesController cache (bypasses 100ms throttle).
+                    if (window.SpeciesController && typeof window.SpeciesController.refresh === 'function') {
+                        window.SpeciesController.refresh();
+                    }
+                    document.dispatchEvent(new CustomEvent('gaip:turf-profile-change', {
+                        detail: { source: 'b35fix367-sample-override', sampleId: sampleId }
+                    }));
+                }
+            } catch (e) {
+                warn('b35fix367 sample turfProfile cascade failed:', e);
+            }
+        }
+
         // Dispatch event
         document.dispatchEvent(new CustomEvent('gaip:sample-loaded', {
             detail: { dataType, sampleId, sample, populated }
@@ -946,12 +1443,27 @@
         const container = document.querySelector('#gaipTissueModule') ||
                          document.querySelector('.gaip-tissue-module') || document;
 
+        // b35fix377: resolve fieldMap keys to actual row columns via the
+        // case-and-suffix-tolerant resolver, same as normalizeValues and
+        // loadSample. Tissue suffixes are less varied than soil but the
+        // resolver costs nothing on the happy path and catches casing
+        // variants (`Cu_mgkg` vs `cu_mgkg` etc) for free.
+        const rowKeys = Object.keys(row || {});
+        const idx = _buildColumnIndex(TISSUE_FIELD_MAP, rowKeys);
+
         // Build nutrient map
         const nutrientValues = {};
         for (const col in TISSUE_FIELD_MAP) {
-            if (row[col] !== undefined && row[col] !== '') {
-                const nutrient = TISSUE_FIELD_MAP[col];
-                nutrientValues[nutrient] = parseFloat(row[col]);
+            const actualCol = idx.resolve(col);
+            if (actualCol === null) continue;
+            const rawVal = row[actualCol];
+            if (rawVal === undefined || rawVal === '') continue;
+            const nutrient = TISSUE_FIELD_MAP[col];
+            const val = parseFloat(rawVal);
+            // Don't overwrite a previously-set nutrient (preserves first-write
+            // wins for multiple aliases mapping to the same nutrient).
+            if (!isNaN(val) && nutrientValues[nutrient] === undefined) {
+                nutrientValues[nutrient] = val;
             }
         }
 
@@ -1227,17 +1739,25 @@
      */
     function captureSoilForm() {
         const values = {};
-        
+
         // pH, EC, CEC, OM
         const phInput = document.querySelector('.gaip-soil-ph');
         const ecInput = document.querySelector('.gaip-soil-ec');
         const cecInput = document.querySelector('.gaip-cec');
         const omInput = document.querySelector('.gaip-loi');
-        
+
         if (phInput?.value) values.pH = parseFloat(phInput.value);
         if (ecInput?.value) values.EC = parseFloat(ecInput.value);
         if (cecInput?.value) values.CEC = parseFloat(cecInput.value);
         if (omInput?.value) values.OM = parseFloat(omInput.value);
+
+        // b35fix311: capture the zone area (ha) for Fertiliser Purchasing Summary.
+        // Optional — missing is handled by downstream code (rate-only totals).
+        const areaInput = document.querySelector('.gaip-soil-area-ha');
+        if (areaInput?.value) {
+            const areaVal = parseFloat(areaInput.value);
+            if (isFinite(areaVal) && areaVal > 0) values.areaHa = areaVal;
+        }
 
         // Stratified OM fields (Golf Greens)
         const loi02Input = document.querySelector('.gaip-loi-0-2');
@@ -1531,6 +2051,17 @@
                 log('Added sample from legacy import:', sampleId);
             }
         });
+
+        // b35fix311: attach the soft-range validator to the areaHa input.
+        // Fires on blur so the user gets feedback after they finish typing.
+        // Zone type is resolved from whichever sample is currently loaded.
+        document.addEventListener('blur', function(e) {
+            if (e.target && e.target.classList && e.target.classList.contains('gaip-soil-area-ha')) {
+                const active = getActiveSample('soil');
+                const zoneType = (active && active.zoneType) || null;
+                _validateAreaInput(zoneType);
+            }
+        }, true);  // capture phase — blur doesn't bubble
     }
 
     // Initialize on DOM ready
@@ -1553,6 +2084,32 @@
         getActiveSample,
         getActiveSampleId,
         getSampleCount,
+
+        // b35fix371: text-based CSV importer (testable without File API).
+        // Calls the same processImportData path importFile uses but takes a
+        // string directly. Public API for programmatic imports + test harness.
+        importCSV: function (csvText, options) {
+            return processImportData(csvText, options || {}, (options && options.fileName) || 'inline.csv');
+        },
+
+        // b35fix371: pure helper for turf_species column extraction. Exposed
+        // for testing AND for any future UI that wants to validate species
+        // values before committing them (e.g. CSV preview).
+        extractTurfSpecies: extractTurfSpecies,
+
+        // b35fix310a: sample staleness helpers (no enforcement yet — landed in 310b)
+        isSampleFresh,
+        sampleAgeMonths,
+        canDriveRecommendations,
+        STALENESS_CONFIG: STALENESS,
+
+        // b35fix311_1: expose area guidance so consumers (bulk-area-modal,
+        // potential future UI) don't duplicate the table. Adding a new zone
+        // type now means editing AREA_GUIDANCE here and nothing else.
+        AREA_GUIDANCE: AREA_GUIDANCE,
+        getAreaGuidance: _areaGuidanceFor,
+        // b35fix311_2: pure area-warning builder, exposed for testability.
+        buildAreaWarning: _buildAreaWarning,
         
         // Manual entry
         addSample,
@@ -1564,6 +2121,48 @@
                 detail: { dataType, sampleId, sample }
             }));
             return sample;
+        },
+
+        // b35fix367 — Per-sample turf profile override.
+        //
+        // Storage: rides on the sample object as `sample.turfProfile`. Sample
+        // round-trips through sample-persistence.js as JSON so this requires
+        // no persistence changes — the field is part of the sample shape.
+        //
+        // Read site: word-export.js _buildEngineInputs. Gated on the active
+        // site's GAIP_SiteConfig.isMultiSiteTurfEnabled flag — when the toggle
+        // is off, the override is ignored even if present (non-destructive).
+        //
+        // Shape: { turfType, subCategory, species, variety, companionSpecies }
+        //   - construction is intentionally NOT in the override set; it is
+        //     site-only (USGA spec / push-up / native rarely varies sample-to-
+        //     sample within a single council site).
+        //   - Pass `null` to clear the override.
+        setSampleTurfProfile: function(dataType, sampleId, profile) {
+            const store = _sampleStore[dataType];
+            if (!store || !store[sampleId]) {
+                throw new Error('Sample not found: ' + dataType + '/' + sampleId);
+            }
+            if (profile === null || profile === undefined) {
+                delete store[sampleId].turfProfile;
+            } else {
+                store[sampleId].turfProfile = {
+                    turfType:         profile.turfType         || null,
+                    subCategory:      profile.subCategory      || null,
+                    species:          profile.species          || null,
+                    variety:          profile.variety          || null,
+                    companionSpecies: profile.companionSpecies || null
+                };
+            }
+            document.dispatchEvent(new CustomEvent('gaip:sample-turf-profile-changed', {
+                detail: { dataType, sampleId, profile: store[sampleId].turfProfile || null }
+            }));
+            return store[sampleId].turfProfile || null;
+        },
+        getSampleTurfProfile: function(dataType, sampleId) {
+            const store = _sampleStore[dataType];
+            if (!store || !store[sampleId]) return null;
+            return store[sampleId].turfProfile || null;
         },
         captureFromForm,
         // Returns raw form values for a given dataType without creating a new sample.
@@ -1680,23 +2279,6 @@
             _currentSite = siteId;
             _initSite(siteId);
             log('Switched to site: ' + siteId + ' (' + (_sites[siteId].label || siteId) + ')');
-
-            var cfg = global.GAIP_HUB_CONFIG || {};
-            if (/^\d+$/.test(String(siteId)) && typeof fetch === 'function' && cfg.csrfToken) {
-                fetch((cfg.restUrl || '/api/') + 'active-site', {
-                    method: 'PATCH',
-                    credentials: 'same-origin',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': cfg.csrfToken
-                    },
-                    body: JSON.stringify({ site_id: Number(siteId) })
-                }).catch(function(err) {
-                    warn('Failed to sync active site to backend', err);
-                });
-            }
-
             document.dispatchEvent(new CustomEvent('gaip:site-changed', {
                 detail: { siteId: siteId, label: _sites[siteId].label }
             }));

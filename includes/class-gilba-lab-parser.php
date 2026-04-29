@@ -82,8 +82,10 @@ class Gilba_Lab_Parser {
             return [ 'success' => false, 'error' => 'Old .doc format not supported. Please save as .docx or PDF.' ];
         } elseif ( $ext === 'csv' || $ext === 'txt' ) {
             $text_content = file_get_contents( $file['tmp_name'] );
-            // b35fix118b: schema validation — detect import type from headers and
-            // reject files with wrong/missing required columns before hitting Claude.
+            // b35fix118b/b35fix376: confirm the file is a structurally valid
+            // CSV (header + at least one data row) before sending to Claude.
+            // Per-column required-set checking was removed in b35fix376 — see
+            // validate_csv_schema() docblock.
             $csv_validation = $this->validate_csv_schema( $text_content, $file['name'] );
             if ( ! $csv_validation['valid'] ) {
                 return [
@@ -529,14 +531,19 @@ PROMPT;
 
     /**
      * b35fix118b: Validate CSV header schema before sending to Claude.
+     * b35fix376: Strict per-column check removed — it was rejecting valid
+     * lab CSVs whose headers carry extraction-method suffixes (e.g.
+     * "K_Mehlich3", "P_Olsen", "Ca_KCl") because they don't string-match
+     * the bare element symbols the validator looked for. Claude in the AI
+     * extractor already handles every lab format and unit convention per
+     * the prompt — the pre-flight check was net-negative.
      *
-     * Detects import type (soil / tissue / water) from the first-row headers,
-     * checks required columns are present, and returns a user-visible error
-     * with a specific list of missing columns if validation fails.
-     *
-     * Required sets are intentionally minimal — enough to confirm the user
-     * uploaded the right template, without rejecting custom lab exports that
-     * include extra columns.
+     * Now the validator only confirms the file is structurally a CSV with
+     * a header row and at least one data row. Type detection is preserved
+     * so the empty-file / no-data-rows error messages can still be
+     * type-specific. Anything beyond that is delegated to Claude; if no
+     * useful values come back, normalize_results returns empty arrays and
+     * the existing "No Results Found" UI handles it.
      *
      * @param  string $csv_text  Raw CSV text content.
      * @param  string $filename  Original filename (for error context).
@@ -551,7 +558,7 @@ PROMPT;
                 'valid' => false,
                 'type'  => null,
                 'error' => 'CSV file appears to be empty.',
-                'hint'  => 'Download a template from the Lab Import panel and re-export from your lab software into that format.',
+                'hint'  => 'Open the file in a text editor and confirm it has a header row and at least one data row.',
             ];
         }
 
@@ -572,10 +579,10 @@ PROMPT;
 
         $hset = array_flip( $headers ); // O(1) lookup
 
-        // ── Type detection ────────────────────────────────────────────────────
+        // ── Type detection (used only for friendlier error messages) ──────────
         // Water:   contains hco3 or so4 (distinctive water-quality markers)
         // Tissue:  contains 'n' column but NOT 'hco3'/'so4' and NOT 'cec'
-        // Soil:    everything else with 'ph' and 'ec'
+        // Soil:    everything else with 'ph' and 'ec'/'cec'
 
         $has_hco3 = isset( $hset['hco3'] );
         $has_so4  = isset( $hset['so4'] );
@@ -590,66 +597,17 @@ PROMPT;
         } elseif ( $has_ph || $has_cec ) {
             $type = 'soil';
         } else {
-            // Cannot identify type — still let Claude try, but warn.
-            return [
-                'valid' => true,
-                'type'  => 'unknown',
-                'error' => '',
-                'hint'  => '',
-            ];
-        }
-
-        // ── Required column sets ──────────────────────────────────────────────
-        $required = [
-            'soil'    => [ 'sample id', 'date', 'ph', 'ec', 'k', 'ca', 'mg' ],
-            'tissue'  => [ 'sample id', 'date', 'n', 'p', 'k', 'ca', 'mg' ],
-            'water'   => [ 'sample id', 'date', 'ph', 'ec', 'ca', 'mg', 'na', 'cl' ],
-        ];
-
-        // Accept 'sample id' OR 'sample_id' OR 'sampleid' OR 'id' as the identifier.
-        $id_aliases = [ 'sample id', 'sample_id', 'sampleid', 'id', 'sample name', 'label' ];
-
-        $req_cols  = $required[ $type ] ?? [];
-        $missing   = [];
-
-        foreach ( $req_cols as $col ) {
-            if ( $col === 'sample id' ) {
-                // Check any accepted ID alias.
-                $found = false;
-                foreach ( $id_aliases as $alias ) {
-                    if ( isset( $hset[ $alias ] ) ) { $found = true; break; }
-                }
-                if ( ! $found ) $missing[] = 'Sample ID';
-            } elseif ( ! isset( $hset[ $col ] ) ) {
-                $missing[] = strtoupper( $col );
-            }
-        }
-
-        if ( ! empty( $missing ) ) {
-            $type_label = ucfirst( $type );
-            return [
-                'valid' => false,
-                'type'  => $type,
-                'error' => sprintf(
-                    'This looks like a %s import but is missing required column(s): %s.',
-                    $type_label,
-                    implode( ', ', $missing )
-                ),
-                'hint'  => sprintf(
-                    'Download the %s template from the Lab Import panel. Required columns are: %s.',
-                    $type_label,
-                    implode( ', ', array_map( 'strtoupper', $req_cols ) )
-                ),
-            ];
+            $type = 'unknown';
         }
 
         // ── Row count sanity check ────────────────────────────────────────────
         $data_rows = count( $lines ) - 1; // exclude header
         if ( $data_rows < 1 ) {
+            $type_label = ( $type === 'unknown' ) ? 'CSV' : ucfirst( $type );
             return [
                 'valid' => false,
                 'type'  => $type,
-                'error' => ucfirst( $type ) . ' CSV has no data rows (header only).',
+                'error' => $type_label . ' file has no data rows (header only).',
                 'hint'  => 'Add at least one sample row below the header.',
             ];
         }

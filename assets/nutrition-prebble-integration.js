@@ -525,7 +525,13 @@
                 console.warn('[NutritionPrebbleIntegration] No container found for recommendations');
                 return;
             }
-            
+
+            // b35fix308: reset hidden state on every render — same issue as AU
+            // integration. hideRecommendations() sets display:none during a
+            // region-toggle race (NZ → AU → NZ), and without this reset the
+            // container stays hidden even though innerHTML gets rebuilt.
+            container.style.display = '';
+
             // Render
             container.innerHTML = this.buildRecommendationsHTML(program);
         },

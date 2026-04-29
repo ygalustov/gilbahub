@@ -830,30 +830,30 @@
         // Load config for new site and restart if configured
         loadConfig();
 
-        // Validate: if config says enabled but SensorManager has no mapping entry for
-        // this site, the config key is stale (migration artefact). Force-disable and
-        // delete the key so it self-heals permanently — no more manual localStorage cleanup.
-        // NOTE: Use getSiteMappings() (synchronous, localStorage-backed) NOT getSensorsForSite()
-        // which cross-references allSensors and returns [] before async discovery completes,
-        // causing false-positive unmapped detection on legitimate sites like Sydney Uni.
-        if (state.enabled) {
-            var activeSiteId = getActiveSiteId();
-            if (activeSiteId && activeSiteId !== 'default') {
-                var SM = global.GAIP_SensorManager;
-                if (SM && typeof SM.getSiteMappings === 'function') {
-                    var mappings = SM.getSiteMappings();
-                    var siteMapping = mappings[activeSiteId];
-                    var hasMappingEntry = siteMapping && Object.keys(siteMapping).some(function(v) {
-                        return siteMapping[v] && siteMapping[v].length > 0;
-                    });
-                    if (!hasMappingEntry) {
-                        // b35fix230: Don't wipe apiKey/config on unmapped site detection.
-                        // The mapping may not be loaded yet (hard reset clears localStorage
-                        // before sensor mappings restore). Only disable polling — apiKey
-                        // and stored config survive so the next proper load can map correctly.
-                        console.log('[Hydrosight] No sensor mapping for site:', activeSiteId, '— disabling fetch but preserving config');
-                        state.enabled = false;
+        // b35fix298: Check SensorManager mappings REGARDLESS of loadConfig result.
+        // A sensor may be mapped to this site via the dropdown but no per-site
+        // hydrosight config exists yet (first time). If mapping exists, enable and fetch.
+        var activeSiteId = getActiveSiteId();
+        if (activeSiteId && activeSiteId !== 'default') {
+            var SM = global.GAIP_SensorManager;
+            if (SM && typeof SM.getSiteMappings === 'function') {
+                var mappings = SM.getSiteMappings();
+                var siteMapping = mappings[activeSiteId];
+                var hasMappingEntry = siteMapping && Object.keys(siteMapping).some(function(v) {
+                    return siteMapping[v] && siteMapping[v].length > 0;
+                });
+                if (hasMappingEntry && !state.enabled) {
+                    // Mapping exists but config didn't enable — force enable
+                    // Credentials come from SensorManager, not per-site config
+                    if (SM.hasCredentials && SM.hasCredentials('hydrosight')) {
+                        state.keyConfigured = true;
+                        state.enabled = true;
+                        console.log('[Hydrosight] Enabled via SensorManager mapping for site:', activeSiteId);
                     }
+                } else if (!hasMappingEntry && state.enabled) {
+                    // Config says enabled but no mapping — stale config, disable
+                    console.log('[Hydrosight] No sensor mapping for site:', activeSiteId, '— disabling fetch but preserving config');
+                    state.enabled = false;
                 }
             }
         }

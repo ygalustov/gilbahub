@@ -234,26 +234,41 @@
             if (result.success && result.data) {
                 _state.credentials = result.data.credentials || {};
                 
-                // v10.9.9: Merge WP mappings with localStorage mappings.
-                // WP is source of truth when it has data, but don't overwrite
-                // localStorage mappings with empty WP response (handles first-time
-                // migration and failed saves).
+                // b35fix298: localStorage is the primary mapping store.
+                // WP is a best-effort backup — merge WP entries INTO localStorage
+                // mappings, never overwrite. This ensures mappings survive admin-ajax
+                // failures (500s, nonce expiry, hosting issues).
                 var wpMappings = result.data.siteMappings || {};
                 // Guard: PHP empty array serializes as [] not {}. Coerce to object.
                 if (Array.isArray(wpMappings)) wpMappings = {};
-                var hasWpMappings = Object.keys(wpMappings).length > 0;
-                var hasLocalMappings = Object.keys(_state.siteMappings).length > 0;
                 // Also guard localStorage-loaded mappings
                 if (Array.isArray(_state.siteMappings)) _state.siteMappings = {};
-                hasLocalMappings = Object.keys(_state.siteMappings).length > 0;
+                var hasWpMappings = Object.keys(wpMappings).length > 0;
+                var hasLocalMappings = Object.keys(_state.siteMappings).length > 0;
                 log('Mapping merge: WP has ' + Object.keys(wpMappings).length + ' sites, localStorage has ' + Object.keys(_state.siteMappings).length + ' sites');
+
                 if (hasWpMappings) {
-                    _state.siteMappings = wpMappings;
-                    log('Using WP mappings as source of truth');
-                } else if (hasLocalMappings) {
-                    // WP is empty but we have localStorage mappings — keep them
-                    // and push to WP so they're persisted server-side
-                    log('WP mappings empty, preserving localStorage mappings and syncing to WP');
+                    // Merge WP into localStorage — WP entries fill gaps but don't overwrite
+                    Object.keys(wpMappings).forEach(function(siteId) {
+                        if (!_state.siteMappings[siteId]) {
+                            _state.siteMappings[siteId] = wpMappings[siteId];
+                        } else {
+                            // Merge vendor arrays within existing site
+                            var wpSite = wpMappings[siteId];
+                            var localSite = _state.siteMappings[siteId];
+                            Object.keys(wpSite).forEach(function(vendorId) {
+                                if (!localSite[vendorId] || localSite[vendorId].length === 0) {
+                                    localSite[vendorId] = wpSite[vendorId];
+                                }
+                            });
+                        }
+                    });
+                    saveMappingsToLocalStorage();
+                    log('Merged WP mappings into localStorage (localStorage is primary)');
+                }
+                if (hasLocalMappings && !hasWpMappings) {
+                    // localStorage has mappings but WP is empty — sync to WP as backup
+                    log('WP mappings empty, syncing localStorage mappings to WP as backup');
                     setTimeout(function() { saveSiteMappings(); }, 2000);
                 }
                 
@@ -430,7 +445,9 @@
 
     function saveMappingsToLocalStorage() {
         try {
-            _ls.setItem(CONFIG.storageKey, JSON.stringify(_state.siteMappings));
+            var data = JSON.stringify(_state.siteMappings);
+            _ls.setItem(CONFIG.storageKey, data);
+            log('Saved mappings to localStorage (' + Object.keys(_state.siteMappings).length + ' sites)');
         } catch (e) {
             warn('Failed to save mappings to localStorage:', e);
         }
@@ -443,7 +460,9 @@
                 var parsed = JSON.parse(saved);
                 // Guard: if localStorage has [] (from prior bug), coerce to {}
                 _state.siteMappings = Array.isArray(parsed) ? {} : parsed;
-                log('Loaded mappings from localStorage');
+                log('Loaded mappings from localStorage (' + Object.keys(_state.siteMappings).length + ' sites)');
+            } else {
+                log('No mappings found in localStorage');
             }
         } catch (e) {
             warn('Failed to load mappings from localStorage:', e);

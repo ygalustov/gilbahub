@@ -310,6 +310,16 @@
                 // v10.3.38: Store program globally for Word export, tagged with site
                 program._generatedForSite = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId) 
                     ? window.GAIP_SampleManager.getActiveSiteId() : 'unknown';
+                
+                // b35fix379 DEBUG: Log GAIP_NUTRITION_PROGRAM assignment
+                console.log('[NutritionAuFertiliserIntegration b35fix379] Setting GAIP_NUTRITION_PROGRAM:', {
+                    siteId: program._generatedForSite,
+                    hasAnnualSummary: !!(program.annualSummary),
+                    hasProducts: !!(program.annualSummary && program.annualSummary.products),
+                    productCount: program.annualSummary && program.annualSummary.products ? Object.keys(program.annualSummary.products).length : 0,
+                    productIds: program.annualSummary && program.annualSummary.products ? Object.keys(program.annualSummary.products) : []
+                });
+                
                 window.GAIP_NUTRITION_PROGRAM = program;
                 
                 this.renderProductRecommendations(program);
@@ -340,11 +350,73 @@
             
             // Use new annual program generator if available
             if (window.AuFertiliserRecommender.generateAnnualProgram) {
+                // b35fix381 INSTRUMENTATION — log the input monthly profile and
+                // resolved options BEFORE calling the recommender, then the
+                // resolved product set AFTER. The combined export per-sample
+                // path in word-export-combined.js carries an identical block
+                // ([CombinedExport b35fix381] tag) so the two side by side
+                // show whether the divergence is in inputs or selection.
+                console.log('[NutritionAuFertiliserIntegration b35fix381] PRE-recommender input snapshot:', {
+                    path: 'live-preview-integration',
+                    siteId: (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId)
+                        ? window.GAIP_SampleManager.getActiveSiteId() : 'unknown',
+                    sampleId: (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSampleId)
+                        ? window.GAIP_SampleManager.getActiveSampleId('soil') : 'unknown',
+                    annualK: monthly.reduce(function(s, m) { return s + (m.K || 0); }, 0),
+                    annualN: monthly.reduce(function(s, m) { return s + (m.N || 0); }, 0),
+                    annualP: monthly.reduce(function(s, m) { return s + (m.P || 0); }, 0),
+                    monthlyK: monthly.map(function(m) {
+                        return { month: m.month_name || m.month, K: +(m.K || 0).toFixed(2), gp: +(m.gp || 0).toFixed(2) };
+                    }),
+                    options: {
+                        surfaceType: surfaceType,
+                        methodology: methodology,
+                        distributorFilter: distributorFilter,
+                        muldersFlagsCount: Object.keys(context.muldersFlags || {}).length,
+                        muldersFlagsKeys: Object.keys(context.muldersFlags || {}),
+                    },
+                });
+
                 const program = window.AuFertiliserRecommender.generateAnnualProgram(monthly, {
                     surfaceType: surfaceType,
                     methodology: methodology,
                     distributorFilter: distributorFilter,
                     muldersFlags: context.muldersFlags || {},
+                });
+
+                // b35fix381 INSTRUMENTATION — POST-recommender product set,
+                // ordered by total contribution. Compare against the matching
+                // [CombinedExport b35fix381] POST log for the same sampleId to
+                // locate which product the per-sample path dropped vs the live
+                // preview, and at what monthly K target.
+                try {
+                    var _sel = [];
+                    program.monthly.forEach(function(m) {
+                        (m.granular || []).forEach(function(p) {
+                            _sel.push({ id: p.id, name: p.name, kind: 'granular',
+                                month: m.month_name || m.month, rateKgHa: p.rateKgHa || 0 });
+                        });
+                        (m.liquid || []).forEach(function(p) {
+                            _sel.push({ id: p.id, name: p.name, kind: 'liquid',
+                                month: m.month_name || m.month, rateLHa: p.rateLHa || 0 });
+                        });
+                    });
+                    console.log('[NutritionAuFertiliserIntegration b35fix381] POST-recommender selection:', {
+                        path: 'live-preview-integration',
+                        productIds: Array.from(new Set(_sel.map(function(s) { return s.id; }))),
+                        applications: _sel,
+                    });
+                } catch (_e) {
+                    console.warn('[NutritionAuFertiliserIntegration b35fix381] POST-instrument failed:', _e && _e.message);
+                }
+
+                // b35fix379 DEBUG: Log nutrition program generation details
+                console.log('[NutritionAuFertiliserIntegration b35fix379] Generated program:', {
+                    monthlyCount: program.monthly.length,
+                    hasMonthlyProducts: program.monthly.some(m => m.granular.length > 0 || m.liquid.length > 0),
+                    surfaceType: surfaceType,
+                    methodology: methodology,
+                    distributorFilter: distributorFilter
                 });
                 
                 // Add product usage summary
@@ -357,14 +429,18 @@
                                 brandName: p.brand,
                                 applications: 0,
                                 totalKgHa: 0,
-                                totalDelivered: { N: 0, P: 0, K: 0 },
+                                totalDelivered: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 },
                             };
                         }
                         productUsage[p.id].applications++;
                         productUsage[p.id].totalKgHa += p.rateKgHa;
-                        productUsage[p.id].totalDelivered.N += p.delivers.N;
-                        productUsage[p.id].totalDelivered.P += p.delivers.P;
-                        productUsage[p.id].totalDelivered.K += p.delivers.K;
+                        productUsage[p.id].totalDelivered.N += p.delivers.N || 0;
+                        productUsage[p.id].totalDelivered.P += p.delivers.P || 0;
+                        productUsage[p.id].totalDelivered.K += p.delivers.K || 0;
+                        // b35fix379: Include Ca, Mg, S for consistency with liquid products
+                        productUsage[p.id].totalDelivered.Ca += p.delivers.Ca || 0;
+                        productUsage[p.id].totalDelivered.Mg += p.delivers.Mg || 0;
+                        productUsage[p.id].totalDelivered.S += p.delivers.S || 0;
                     });
                     m.liquid.forEach(p => {
                         if (!productUsage[p.id]) {
@@ -373,7 +449,7 @@
                                 brandName: p.brand,
                                 applications: 0,
                                 totalLHa: 0,
-                                totalDelivered: { N: 0, P: 0, K: 0 },
+                                totalDelivered: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 },
                             };
                         }
                         productUsage[p.id].applications++;
@@ -383,11 +459,40 @@
                         } else {
                             productUsage[p.id].totalLHa = (productUsage[p.id].totalLHa || 0) + (p.rateLHa || 0);
                         }
-                        productUsage[p.id].totalDelivered.N += p.delivers.N;
-                        productUsage[p.id].totalDelivered.P += p.delivers.P;
-                        productUsage[p.id].totalDelivered.K += p.delivers.K;
+                        productUsage[p.id].totalDelivered.N += p.delivers.N || 0;
+                        productUsage[p.id].totalDelivered.P += p.delivers.P || 0;
+                        productUsage[p.id].totalDelivered.K += p.delivers.K || 0;
+                        // b35fix379: Include Ca, Mg, S for nitrate products (SOL-CANO3, SOL-MGNO3)
+                        productUsage[p.id].totalDelivered.Ca += p.delivers.Ca || 0;
+                        productUsage[p.id].totalDelivered.Mg += p.delivers.Mg || 0;
+                        productUsage[p.id].totalDelivered.S += p.delivers.S || 0;
                     });
                 });
+                
+                // b35fix379 DEBUG: Log collected products
+                const nitrateProducts = Object.keys(productUsage).filter(id => 
+                    id.includes('SOL-') || id.includes('NO3') || 
+                    (productUsage[id].product && productUsage[id].product.name && 
+                     productUsage[id].product.name.toLowerCase().includes('nitrate'))
+                );
+                console.log('[NutritionAuFertiliserIntegration b35fix379] Product collection complete:', {
+                    totalProducts: Object.keys(productUsage).length,
+                    nitrateProducts: nitrateProducts,
+                    productIds: Object.keys(productUsage)
+                });
+                if (nitrateProducts.length > 0) {
+                    nitrateProducts.forEach(id => {
+                        const prod = productUsage[id];
+                        console.log('[NutritionAuFertiliserIntegration b35fix379] Nitrate product details:', {
+                            id: id,
+                            name: prod.product ? prod.product.name : 'unknown',
+                            totalKgHa: prod.totalKgHa,
+                            totalLHa: prod.totalLHa,
+                            totalDelivered: prod.totalDelivered,
+                            applications: prod.applications
+                        });
+                    });
+                }
                 
                 return {
                     meta: program.meta,
@@ -529,7 +634,15 @@
                 console.warn('[NutritionAuFertiliserIntegration] No container found for recommendations');
                 return;
             }
-            
+
+            // b35fix308: reset the hidden state on every render. hideRecommendations()
+            // sets display:none when isAustralia() returns false (e.g. during a brief
+            // region-toggle or site-cycle race). Once hidden, the container stayed
+            // hidden forever — even on subsequent renders where innerHTML was
+            // correctly rebuilt. Clear any prior inline hide here so the panel
+            // becomes visible whenever we render real content into it.
+            container.style.display = '';
+
             // Render
             container.innerHTML = this.buildRecommendationsHTML(program);
             

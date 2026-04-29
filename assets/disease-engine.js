@@ -2163,27 +2163,50 @@ function classifyRisk(e) {
 }
 
 function getNightTemp(e) {
-    if (!e?.hourlyData?.temperature_2m || !e?.hourlyData?.time)
-        return e?.temperature?.min || 15;
+    // b35fix351: null-passthrough mirroring the pure-engine fix.
+    // Pre-fix `|| 15` (twice) fabricated 15°C on every climate without min.
+    // Currently dead code in production (only the pure file's getNightTemp
+    // is wired to PythiumModel) but kept symmetric with the pure helper for
+    // the same reason b35fix345 mirrored getNightHumidity here: the legacy
+    // file loads BEFORE the pure file, and any future call site picking up
+    // this `getNightTemp` symbol from the legacy global scope must get the
+    // post-fix semantics. Strict numeric guard matches b35fix349 canonical.
+    if (!e?.hourlyData?.temperature_2m || !e?.hourlyData?.time) {
+        const minScalar = e?.temperature?.min;
+        return (typeof minScalar === 'number' && !isNaN(minScalar)) ? minScalar : null;
+    }
     const t = e.hourlyData.time
         .map((t, a) => {
             const r = new Date(t).getHours();
-            return r >= 20 || r <= 6 ? e.hourlyData.temperature_2m[a] : null;
+            if (r < 20 && r > 6) return null;
+            const v = e.hourlyData.temperature_2m[a];
+            return (typeof v === 'number' && !isNaN(v)) ? v : null;
         })
-        .filter((e) => null !== e);
-    return t.length > 0 ? Math.min(...t) : e?.temperature?.min || 15;
+        .filter((v) => null !== v);
+    if (t.length > 0) return Math.min(...t);
+    const minScalar = e?.temperature?.min;
+    return (typeof minScalar === 'number' && !isNaN(minScalar)) ? minScalar : null;
 }
 
 function getNightHumidity(e) {
+    // b35fix345: null-passthrough mirroring b35fix344 in disease-engine-pure.js.
+    // Pre-fix `|| 70` (twice) fabricated 70% night humidity on every site
+    // without hourly RH data — the legacy engine loads BEFORE disease-engine-pure.js
+    // and is what `gaip-disease-engine` registers, so this codepath was active
+    // alongside the pure engine. Behaviourally inert in production (downstream
+    // thresholds are >70 / >85 so 70 produces 0 contribution) but the diagnostic
+    // and consumer-side value reads were wrong. Now: real night avg from hourly
+    // when present, else climate.moisture.humidity.mean, else null. Consumers
+    // must null-guard.
     if (!e?.hourlyData?.relative_humidity_2m || !e?.hourlyData?.time)
-        return e?.moisture?.humidity?.mean || 70;
+        return e?.moisture?.humidity?.mean ?? null;
     const t = e.hourlyData.time
         .map((t, a) => {
             const r = new Date(t).getHours();
             return r >= 20 || r <= 6 ? e.hourlyData.relative_humidity_2m[a] : null;
         })
-        .filter((e) => null !== e);
-    return t.length > 0 ? t.reduce((e, t) => e + t, 0) / t.length : 70;
+        .filter((e) => null !== e && typeof e === 'number' && !isNaN(e));
+    return t.length > 0 ? t.reduce((e, t) => e + t, 0) / t.length : (e?.moisture?.humidity?.mean ?? null);
 }
 
 function getHighHumidityHours(e) {

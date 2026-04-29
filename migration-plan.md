@@ -95,96 +95,87 @@ Suggested permission split:
 
 ## Phase 3: Database Schema
 
-Replace WordPress `users`, `usermeta`, `options`, transients, and custom tables with explicit application tables.
+The latest plugin now has a clearer canonical backend model under `includes/data/`. The Laravel schema should pivot to match that model rather than the older WordPress meta/localStorage shape.
 
-Core identity tables:
+Canonical foundation tables to mirror first:
 
 ```text
-users
-roles
-permissions
-role_user
+accounts
+precinct_groups
+sites
+samples
+spray_logs
+site_summaries
+```
+
+Recommended Laravel mapping:
+
+```text
+users                         -> Laravel auth users
+accounts                      -> one logical customer/account, linked to owner user
+account_user                  -> optional later if one account can have multiple users
+precinct_groups               -> grouping layer above sites
+sites                         -> UUID primary key, can be precinct or child site
+site_user                     -> user membership within a site/account scope
+site_configs                  -> current GAIP per-site config JSON during transition
+samples                       -> unified soil/water/tissue/loi sample store
+spray_logs                    -> historical spray events
+site_summaries                -> derived trend/reporting snapshots
+media_uploads                 -> uploaded photos/documents
+stadium_venue_profiles        -> stadium-specific saved venue profile state
+```
+
+Important schema changes versus the current Laravel app:
+
+- `sites` should move from integer IDs to UUIDs to match the plugin's new canonical ID model.
+- `sites` should support hierarchy with `parent_site_id`.
+- `sites` should carry `account_id` and optional `precinct_group_id`.
+- methodology and soil texture should support inheritance:
+  - account default
+  - site override
+  - sample snapshot at write time
+- `samples` should become the main source of truth for imported lab data rather than ad hoc saved JSON blobs.
+- `site_summaries` should be stored as derived snapshots with ring-buffer trimming, not only recomputed client-side.
+- `spray_logs` should support fan-out fields like `applied_to_site_ids` and `applied_to_samples`.
+
+Secondary tables still likely needed in Laravel:
+
+```text
 password_reset_tokens
 sessions
-```
-
-Site/profile tables:
-
-```text
-sites
-site_users
-site_configs
-site_locations
-turf_profiles
-saved_samples
-user_preferences
-```
-
-Sensor/integration tables:
-
-```text
+cache
+cache_locks
 integration_credentials
 sensor_mappings
-sensor_cache
-```
-
-Agronomy tables:
-
-```text
-spray_logs
 predictions
 outcomes
 calibration_offsets
 field_observations
-soil_temp_logs
-```
-
-AI/reporting tables:
-
-```text
-lab_imports
-ai_interpretations
-report_logos
-export_jobs
-```
-
-Alert tables:
-
-```text
 alert_settings
 alert_rules
 alert_events
-alert_suppressions
-notification_logs
-```
-
-Stadium tables:
-
-```text
-stadiums
-stadium_obstruction_profiles
-custom_venues
-venue_profiles
-lighting_rigs
-effectiveness_records
-```
-
-System/cache tables:
-
-```text
-app_settings
-cache_entries
+report_logos
+export_jobs
 audit_logs
 ```
 
-Existing WordPress custom table mapping:
+Existing WordPress/custom storage mapping should now be treated like this:
 
 ```text
-wp_gilba_spray_log             -> spray_logs
-wp_gilba_predictions           -> predictions
-wp_gilba_outcomes              -> outcomes
-wp_gilba_calibration_offsets   -> calibration_offsets
+legacy localStorage site state        -> site_configs (temporary transition store)
+wp_gilba_data_accounts                -> accounts
+wp_gilba_data_precinct_groups         -> precinct_groups
+wp_gilba_data_sites                   -> sites
+wp_gilba_data_samples                 -> samples
+wp_gilba_data_spray_log               -> spray_logs
+wp_gilba_data_site_summaries          -> site_summaries
+wp_gilba_spray_log                    -> spray_logs (legacy precursor)
+wp_gilba_predictions                  -> predictions
+wp_gilba_outcomes                     -> outcomes
+wp_gilba_calibration_offsets          -> calibration_offsets
 ```
+
+Practical implication: stop designing the standalone DB around only `users + sites + site_configs`. That was enough for the first lift-out, but it is not the right final backbone anymore.
 
 ## Phase 4: Replace WordPress Storage
 

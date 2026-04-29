@@ -2,13 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
+use App\Models\Sample;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -19,13 +21,11 @@ class SiteApiTest extends TestCase
     public function test_authenticated_user_can_list_their_sites(): void
     {
         $user = User::factory()->create();
-        $site = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $site = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
             'timezone' => 'Australia/Sydney',
         ]);
-        $site->users()->attach($user->id, ['role' => 'owner']);
         SiteConfig::query()->create([
             'site_id' => $site->id,
             'namespace' => 'gaip',
@@ -61,18 +61,19 @@ class SiteApiTest extends TestCase
             ->assertJsonPath('data.name', 'Training Ground')
             ->assertJsonPath('data.configs.gaip.config', []);
 
-        $this->assertSame(
-            Site::query()->where('name', 'Training Ground')->value('id'),
-            $user->refresh()->last_active_site_id
-        );
+        $site = Site::query()->where('name', 'Training Ground')->firstOrFail();
 
+        $this->assertSame($site->id, $user->refresh()->last_active_site_id);
         $this->assertDatabaseHas('sites', [
-            'owner_user_id' => $user->id,
+            'id' => $site->id,
             'name' => 'Training Ground',
             'slug' => 'training-ground',
         ]);
-
+        $this->assertDatabaseHas('accounts', [
+            'owner_user_id' => $user->id,
+        ]);
         $this->assertDatabaseHas('site_user', [
+            'site_id' => $site->id,
             'user_id' => $user->id,
             'role' => 'owner',
         ]);
@@ -81,12 +82,10 @@ class SiteApiTest extends TestCase
     public function test_authenticated_user_can_update_site(): void
     {
         $user = User::factory()->create();
-        $site = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $site = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
-        $site->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -110,18 +109,8 @@ class SiteApiTest extends TestCase
     public function test_authenticated_user_can_set_active_site(): void
     {
         $user = User::factory()->create();
-        $siteA = Site::query()->create([
-            'owner_user_id' => $user->id,
-            'name' => 'Site A',
-            'slug' => 'site-a',
-        ]);
-        $siteB = Site::query()->create([
-            'owner_user_id' => $user->id,
-            'name' => 'Site B',
-            'slug' => 'site-b',
-        ]);
-        $siteA->users()->attach($user->id, ['role' => 'owner']);
-        $siteB->users()->attach($user->id, ['role' => 'owner']);
+        $siteA = $this->createSiteForUser($user, ['name' => 'Site A', 'slug' => 'site-a']);
+        $siteB = $this->createSiteForUser($user, ['name' => 'Site B', 'slug' => 'site-b']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -139,12 +128,10 @@ class SiteApiTest extends TestCase
     public function test_authenticated_user_can_update_site_config(): void
     {
         $user = User::factory()->create();
-        $site = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $site = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
-        $site->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -163,15 +150,133 @@ class SiteApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_store_and_list_samples(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'North Precinct',
+            'slug' => 'north-precinct',
+            'methodology_override' => 'ammonium-acetate',
+            'soil_texture_override' => 'sand',
+        ]);
+
+        $storeResponse = $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples', [
+                '_token' => 'test-token',
+                'site_id' => $site->id,
+                'sample_type' => 'soil',
+                'lab_name' => 'Hill Labs',
+                'lab_ref' => 'HL-123',
+                'sample_date' => '2026-04-20',
+                'lab_date' => '2026-04-24',
+                'depth_mm' => 75,
+                'notes' => 'Imported from latest report.',
+                'payload' => [
+                    'label' => 'Green 1',
+                    'zone' => 'green',
+                    'pH_water' => 6.1,
+                    'K' => 45,
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.site_id', $site->id)
+            ->assertJsonPath('data.sample_type', 'soil')
+            ->assertJsonPath('data.methodology_snapshot', 'ammonium-acetate')
+            ->assertJsonPath('data.soil_texture_snapshot', 'sand')
+            ->assertJsonPath('data.payload.label', 'Green 1');
+
+        $sampleId = $storeResponse->json('data.id');
+
+        $this->assertDatabaseHas('samples', [
+            'id' => $sampleId,
+            'site_id' => $site->id,
+            'sample_type' => 'soil',
+            'methodology_snapshot' => 'ammonium-acetate',
+            'soil_texture_snapshot' => 'sand',
+        ]);
+
+        $this->assertDatabaseHas('site_summaries', [
+            'site_id' => $site->id,
+            'sample_type' => 'soil',
+            'source_sample_id' => $sampleId,
+        ]);
+
+        $this->assertStringStartsWith(
+            '2026-04-24',
+            (string) DB::table('site_summaries')->where('source_sample_id', $sampleId)->value('lab_date')
+        );
+
+        $this->actingAs($user)
+            ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $sampleId)
+            ->assertJsonPath('data.0.payload.K', 45);
+
+        $this->actingAs($user)
+            ->getJson('/api/samples/'.$sampleId)
+            ->assertOk()
+            ->assertJsonPath('data.id', $sampleId)
+            ->assertJsonPath('data.payload.zone', 'green');
+    }
+
+    public function test_authenticated_user_can_list_site_summaries(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Summary Site',
+            'slug' => 'summary-site',
+        ]);
+
+        $sample = Sample::query()->create([
+            'account_id' => $site->account_id,
+            'site_id' => $site->id,
+            'sample_type' => 'water',
+            'lab_name' => 'SWEP',
+            'lab_ref' => 'W-1',
+            'sample_date' => '2026-04-01',
+            'lab_date' => '2026-04-02',
+            'methodology_snapshot' => 'mlsn',
+            'soil_texture_snapshot' => 'loam',
+            'payload' => ['label' => 'Dam 1', 'EC' => 0.82],
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ]);
+
+        DB::table('site_summaries')->insert([
+            'account_id' => $site->account_id,
+            'site_id' => $site->id,
+            'sample_type' => 'water',
+            'lab_date' => '2026-04-02',
+            'methodology_snapshot' => 'mlsn',
+            'summary' => json_encode([
+                'sample_id' => $sample->id,
+                'label' => 'Dam 1',
+                'payload' => ['EC' => 0.82],
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'source_sample_id' => $sample->id,
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/site-summaries?site_id='.$site->id.'&sample_type=water')
+            ->assertOk()
+            ->assertJsonPath('data.0.site_id', $site->id)
+            ->assertJsonPath('data.0.sample_type', 'water')
+            ->assertJsonPath('data.0.summary.label', 'Dam 1')
+            ->assertJsonPath('data.0.summary.payload.EC', 0.82);
+    }
+
     public function test_authenticated_user_can_create_spray_log_entry(): void
     {
         $user = User::factory()->create();
-        $site = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $site = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
-        $site->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -194,12 +299,11 @@ class SiteApiTest extends TestCase
             ->assertJsonPath('data.target', 'Dollar Spot');
 
         $this->assertSame(1, DB::table('spray_logs')->count());
-
         $this->assertDatabaseHas('spray_logs', [
             'site_id' => $site->id,
             'user_id' => $user->id,
             'product_name' => 'Banner Maxx',
-            'product_category' => 'fungicide',
+            'product_type' => 'fungicide',
             'zone' => 'greens',
         ]);
     }
@@ -259,18 +363,14 @@ class SiteApiTest extends TestCase
     public function test_authenticated_user_can_save_location_via_legacy_ajax(): void
     {
         $user = User::factory()->create();
-        $siteA = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $siteA = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
-        $siteB = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $siteB = $this->createSiteForUser($user, [
             'name' => 'Test Site',
             'slug' => 'test-site',
         ]);
-        $siteA->users()->attach($user->id, ['role' => 'owner']);
-        $siteB->users()->attach($user->id, ['role' => 'owner']);
         $user->forceFill(['last_active_site_id' => $siteA->id])->save();
 
         $this->actingAs($user)
@@ -376,24 +476,23 @@ class SiteApiTest extends TestCase
             'role' => 'owner',
         ]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
             ->postJson('/api/legacy/gilba-sites-load', ['_token' => 'test-token'])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.count', 1)
-            ->assertJsonPath('data.sites.'.$site->id.'.label', 'Training Ground');
+            ->assertJsonPath('data.count', 1);
+
+        $this->assertSame('Training Ground', $response->json('data.sites')[$site->id]['label'] ?? null);
     }
 
     public function test_legacy_site_config_endpoints_store_gaip_config_by_site(): void
     {
         $user = User::factory()->create();
-        $site = Site::query()->create([
-            'owner_user_id' => $user->id,
+        $site = $this->createSiteForUser($user, [
             'name' => 'Default Site',
             'slug' => 'default-site',
         ]);
-        $site->users()->attach($user->id, ['role' => 'owner']);
 
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
@@ -422,13 +521,45 @@ class SiteApiTest extends TestCase
             'timezone' => 'Australia/Sydney',
         ]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
             ->postJson('/api/legacy/gilba-site-configs-load', ['_token' => 'test-token'])
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.count', 1)
-            ->assertJsonPath('data.configs.'.$site->id.'.turf.species', 'couch')
-            ->assertJsonPath('data.configs.'.$site->id.'.location.name', 'Sydney, NSW');
+            ->assertJsonPath('data.count', 1);
+
+        $configs = $response->json('data.configs');
+        $this->assertSame('couch', $configs[$site->id]['turf']['species'] ?? null);
+        $this->assertSame('Sydney, NSW', $configs[$site->id]['location']['name'] ?? null);
+    }
+
+    private function createAccountForUser(User $user): Account
+    {
+        return Account::query()->firstOrCreate(
+            ['owner_user_id' => $user->id],
+            [
+                'display_name' => $user->name,
+                'created_by_user_id' => $user->id,
+                'modified_by_user_id' => $user->id,
+            ]
+        );
+    }
+
+    private function createSiteForUser(User $user, array $overrides = []): Site
+    {
+        $account = $this->createAccountForUser($user);
+
+        $site = Site::query()->create(array_merge([
+            'account_id' => $account->id,
+            'name' => 'Site '.substr((string) $user->id, -4),
+            'slug' => 'site-'.substr((string) $user->id, -4),
+            'site_type' => 'precinct',
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ], $overrides));
+
+        $site->users()->attach($user->id, ['role' => 'owner']);
+
+        return $site;
     }
 }

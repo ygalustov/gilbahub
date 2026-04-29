@@ -1103,21 +1103,6 @@
         var spElev = document.getElementById('gaip-sp-elev');
         if (spElev) setDomVal('.gaip-elev', spElev.value);
 
-        var cfg = window.GAIP_HUB_CONFIG || {};
-        if (cfg.ajaxUrl && spLat && spLon && isFinite(parseFloat(spLat.value)) && isFinite(parseFloat(spLon.value))) {
-            var saveFd = new FormData();
-            saveFd.append('action', 'gilba_save_location');
-            if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSiteId === 'function') {
-                saveFd.append('site_id', window.GAIP_SampleManager.getActiveSiteId());
-            }
-            saveFd.append('lat', spLat.value);
-            saveFd.append('lon', spLon.value);
-            saveFd.append('name', spLoc ? spLoc.value : '');
-            saveFd.append('nonce', cfg.nonce || cfg.csrfToken || '');
-            fetch(cfg.ajaxUrl, { method: 'POST', credentials: 'same-origin', body: saveFd })
-                .catch(function(err) { log('Location persist failed', err); });
-        }
-
         // Construction & Drainage
         var spCon = document.getElementById('gaip-sp-construction');
         if (spCon) setDomVal('.gaip-construction', spCon.value);
@@ -1359,9 +1344,6 @@
                                 if (realLoc) realLoc.value = name;
                                 var saveFd = new FormData();
                                 saveFd.append('action', 'gilba_save_location');
-                                if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSiteId === 'function') {
-                                    saveFd.append('site_id', window.GAIP_SampleManager.getActiveSiteId());
-                                }
                                 saveFd.append('lat', lat2);
                                 saveFd.append('lon', lon2);
                                 saveFd.append('name', name);

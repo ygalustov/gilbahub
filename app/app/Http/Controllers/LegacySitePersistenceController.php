@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use Illuminate\Http\JsonResponse;
@@ -36,6 +37,7 @@ class LegacySitePersistenceController extends Controller
     public function saveSites(Request $request): JsonResponse
     {
         $sites = $this->legacyArray($request, 'sites');
+        $account = $this->currentAccount($request);
         $saved = 0;
 
         foreach ($sites as $legacyId => $legacySite) {
@@ -51,15 +53,20 @@ class LegacySitePersistenceController extends Controller
 
             $site = $this->resolveSite($request, (string) $legacyId);
             $siteData = [
-                'owner_user_id' => $request->user()->id,
+                'account_id' => $account->id,
                 'name' => $label,
-                'slug' => $site?->slug ?? $this->uniqueSlug($label),
+                'slug' => $site?->slug ?? $this->uniqueSlug($account->id, $label),
+                'site_type' => $site?->site_type ?? 'precinct',
+                'modified_by_user_id' => $request->user()->id,
             ];
 
             if ($site) {
-                $site->update(Arr::except($siteData, ['owner_user_id']));
+                $site->update(Arr::except($siteData, ['account_id']));
             } else {
-                $site = Site::query()->create($siteData);
+                $site = Site::query()->create([
+                    ...$siteData,
+                    'created_by_user_id' => $request->user()->id,
+                ]);
             }
 
             $this->attachCurrentUser($request, $site);
@@ -99,6 +106,7 @@ class LegacySitePersistenceController extends Controller
     public function saveSiteConfigs(Request $request): JsonResponse
     {
         $configs = $this->legacyArray($request, 'configs');
+        $account = $this->currentAccount($request);
         $saved = 0;
 
         foreach ($configs as $legacyId => $config) {
@@ -110,13 +118,19 @@ class LegacySitePersistenceController extends Controller
 
             if (! $site) {
                 $site = Site::query()->create([
-                    'owner_user_id' => $request->user()->id,
+                    'account_id' => $account->id,
                     'name' => $this->siteNameFromConfig((string) $legacyId, $config),
-                    'slug' => $this->uniqueSlug((string) $legacyId),
+                    'slug' => $this->uniqueSlug($account->id, (string) $legacyId),
+                    'site_type' => 'precinct',
+                    'created_by_user_id' => $request->user()->id,
+                    'modified_by_user_id' => $request->user()->id,
                 ]);
             }
 
-            $site->fill($this->siteLocationData($config))->save();
+            $site->fill([
+                ...$this->siteLocationData($config),
+                'modified_by_user_id' => $request->user()->id,
+            ])->save();
             $this->attachCurrentUser($request, $site);
 
             $this->ensureConfig($site, $config);
@@ -126,6 +140,18 @@ class LegacySitePersistenceController extends Controller
         }
 
         return $this->success(['saved' => $saved]);
+    }
+
+    private function currentAccount(Request $request): Account
+    {
+        return Account::query()->firstOrCreate(
+            ['owner_user_id' => $request->user()->id],
+            [
+                'display_name' => $request->user()->name,
+                'created_by_user_id' => $request->user()->id,
+                'modified_by_user_id' => $request->user()->id,
+            ]
+        );
     }
 
     private function legacyArray(Request $request, string $field): array
@@ -144,8 +170,9 @@ class LegacySitePersistenceController extends Controller
     {
         $query = $request->user()->sites();
 
-        if (ctype_digit($legacyId)) {
-            return (clone $query)->where('sites.id', (int) $legacyId)->first();
+        $site = (clone $query)->where('sites.id', $legacyId)->first();
+        if ($site) {
+            return $site;
         }
 
         return (clone $query)->where('sites.slug', Str::slug($legacyId))->first();
@@ -210,13 +237,17 @@ class LegacySitePersistenceController extends Controller
         return Str::headline($legacyId);
     }
 
-    private function uniqueSlug(string $value): string
+    private function uniqueSlug(int $accountId, string $value, ?string $ignoreSiteId = null): string
     {
         $base = Str::slug($value) ?: 'site';
         $slug = $base;
         $index = 2;
 
-        while (Site::query()->where('slug', $slug)->exists()) {
+        while (Site::query()
+            ->where('account_id', $accountId)
+            ->when($ignoreSiteId, fn ($query) => $query->where('id', '!=', $ignoreSiteId))
+            ->where('slug', $slug)
+            ->exists()) {
             $slug = $base.'-'.$index;
             $index++;
         }

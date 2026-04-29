@@ -633,7 +633,7 @@ PROMPT;
             $ph <= 7.0 => 'optimal range',
             $ph <= 7.5 => 'slightly alkaline',
             $ph <= 8.0 => 'moderately alkaline',
-            default   => 'highly alkaline - micronutrient lockout risk',
+            default   => 'highly alkaline - trace element lockout risk',
         };
     }
     

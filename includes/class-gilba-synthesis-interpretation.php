@@ -322,7 +322,7 @@ PROMPT;
     private function get_known_patterns() {
         return <<<'PATTERNS'
 ## Soil ↔ Tissue patterns
-- Low tissue Fe/Mn despite adequate soil levels + high soil pH → pH-induced micronutrient unavailability
+- Low tissue Fe/Mn despite adequate soil levels + high soil pH → pH-induced trace element unavailability
 - Low tissue K + adequate soil K + low CEC/sandy rootzone → leaching losses, need split applications
 - High tissue Na + moderate soil Na → sodium uptake pathway active, check water source
 - Low tissue Ca despite adequate soil Ca + high soil K or Mg → cation competition
@@ -338,7 +338,7 @@ PROMPT;
 - High water B + elevated tissue B → boron accumulation (early toxicity warning)
 
 ## Three-way interactions
-- High pH soil + high HCO3 water + low tissue Fe/Mn = classic micronutrient lockup pattern
+- High pH soil + high HCO3 water + low tissue Fe/Mn = classic trace element lockup pattern
 - Sandy rootzone + saline water + low tissue K = leaching + salt stress compound
 - Low CEC + high Na water + rising tissue Na = rapid sodium pathway, urgent intervention
 PATTERNS;

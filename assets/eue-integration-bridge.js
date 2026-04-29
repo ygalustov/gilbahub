@@ -303,25 +303,33 @@
         // Irrigation advisory
         _lastEUE.irrigationAdvisory = buildIrrigationAdvisory(envConfig, _lastEUE);
 
-        // Session protocol — sinusoidal ramp advisory (Sawannarut et al. 2024)
-        // Gradual ramp-up and ramp-down over 20–30 min using existing dimmer controls
-        // prevents photooxidative shock and optimises stomatal opening ahead of peak PPFD.
+        // b35fix335: sessionProtocol advisory rewritten — pre-fix text cited a fabricated
+        // "Sawannarut et al. 2024" paper (Tier 1 provenance audit). Real sources for the
+        // gradual-ramping direction are Stamford et al. 2024 (rocket, full-photoperiod
+        // sinusoidal regimes) and Lawson & Vialet-Chabrand 2019 (stomatal kinetics
+        // outpacing rapid intensity steps). Neither paper specifies a 20–30 min onset/
+        // offset ramp duration — that figure is a Gilba practitioner heuristic and is
+        // labelled as such in the advisory text.
         _lastEUE.sessionProtocol = (function() {
             var compositeEUE = _lastEUE.compositeEUE || 0;
             // Recommend ramp only when conditions actually support useful photosynthesis
             var rampMinutes = compositeEUE >= 0.5 ? 20 : 30;
             return {
-                rampUpAdvisory: 'Ramp up intensity gradually over ' + rampMinutes + ' min using existing dimmer controls. ' +
-                    'Sinusoidal ramping allows stomata to open progressively ahead of peak PPFD delivery, ' +
-                    'reducing photooxidative shock and improving early-session CO\u2082 uptake ' +
-                    '(Sawannarut et al. 2024).',
-                rampDownAdvisory: 'Ramp down intensity over ' + rampMinutes + ' min before session end. ' +
-                    'Abrupt cutoff when stomata are fully open causes transient water stress and ' +
-                    'elevates tissue temperature without photosynthetic benefit. ' +
-                    'Gradual reduction maintains gas exchange balance and minimises post-session stress ' +
-                    '(Sawannarut et al. 2024).',
+                rampUpAdvisory: 'Ramp up intensity gradually over ~' + rampMinutes + ' min using ' +
+                    'existing dimmer controls. Gradual ramping allows stomata to open progressively ' +
+                    'ahead of peak PPFD delivery, reducing photooxidative shock and improving ' +
+                    'early-session CO\u2082 uptake (directional support: Stamford et al. 2024 ' +
+                    'on full-photoperiod sinusoidal regimes; Lawson & Vialet-Chabrand 2019 on ' +
+                    'stomatal kinetics). The ' + rampMinutes + ' min figure is a Gilba practitioner ' +
+                    'heuristic, not a published session-onset duration.',
+                rampDownAdvisory: 'Ramp down intensity over ~' + rampMinutes + ' min before ' +
+                    'session end. Abrupt cutoff when stomata are fully open causes transient ' +
+                    'water stress and elevates tissue temperature without photosynthetic benefit. ' +
+                    'Gradual reduction maintains gas exchange balance and minimises post-session ' +
+                    'stress (directional support: Stamford et al. 2024; Lawson & Vialet-Chabrand 2019).',
                 rampDurationMin: rampMinutes,
-                citation: 'Sawannarut et al. 2024'
+                rampDurationProvenance: 'Gilba practitioner heuristic (no published session-duration source)',
+                citation: 'Stamford et al. 2024 + Lawson & Vialet-Chabrand 2019 (directional only)'
             };
         })();
 

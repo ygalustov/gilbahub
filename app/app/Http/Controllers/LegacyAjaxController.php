@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use Illuminate\Http\JsonResponse;
@@ -115,7 +116,7 @@ class LegacyAjaxController extends Controller
         $lat = $request->input('lat');
         $lon = $request->input('lon');
         $name = trim((string) $request->input('name', ''));
-        $requestedSiteId = $request->input('site_id');
+        $requestedSiteId = trim((string) $request->input('site_id', ''));
 
         if (! is_numeric($lat) || ! is_numeric($lon)) {
             return $this->error('Invalid coordinates', 422);
@@ -124,22 +125,26 @@ class LegacyAjaxController extends Controller
         $user = $request->user();
         $site = null;
 
-        if (is_numeric($requestedSiteId)) {
-            $site = $user->sites()->where('sites.id', (int) $requestedSiteId)->first();
+        if ($requestedSiteId !== '') {
+            $site = $user->sites()->where('sites.id', $requestedSiteId)->first();
 
             if (! $site) {
                 return $this->error('Site not found', 404);
             }
         }
 
-        $site = $site ?: $user->activeSite ?: $user->sites()->orderBy('sites.id')->first();
+        $site = $site ?: $user->activeSite ?: $user->sites()->orderBy('sites.name')->first();
 
         if (! $site) {
+            $account = $this->currentAccount($request);
             $site = Site::query()->create([
-                'owner_user_id' => $user->id,
+                'account_id' => $account->id,
                 'name' => $name !== '' ? $name : 'Default Site',
-                'slug' => Str::slug($name !== '' ? $name : 'default-site'),
+                'slug' => $this->uniqueSlug($account->id, $name !== '' ? $name : 'default-site'),
+                'site_type' => 'precinct',
                 'timezone' => 'Australia/Sydney',
+                'created_by_user_id' => $user->id,
+                'modified_by_user_id' => $user->id,
             ]);
             $site->users()->syncWithoutDetaching([$user->id => ['role' => 'owner']]);
         }
@@ -152,6 +157,7 @@ class LegacyAjaxController extends Controller
             'location_name' => $name !== '' ? $name : $site->location_name,
             'latitude' => $lat,
             'longitude' => $lon,
+            'modified_by_user_id' => $user->id,
         ]);
 
         $config = SiteConfig::query()->firstOrNew([
@@ -268,6 +274,32 @@ class LegacyAjaxController extends Controller
             'venue_id' => $data['venue_id'],
             'profile' => $profile,
         ]);
+    }
+
+    private function currentAccount(Request $request): Account
+    {
+        return Account::query()->firstOrCreate(
+            ['owner_user_id' => $request->user()->id],
+            [
+                'display_name' => $request->user()->name,
+                'created_by_user_id' => $request->user()->id,
+                'modified_by_user_id' => $request->user()->id,
+            ]
+        );
+    }
+
+    private function uniqueSlug(int $accountId, string $value): string
+    {
+        $base = Str::slug($value) ?: 'site';
+        $slug = $base;
+        $index = 2;
+
+        while (Site::query()->where('account_id', $accountId)->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$index;
+            $index++;
+        }
+
+        return $slug;
     }
 
     private function hasValidNonce(Request $request): bool

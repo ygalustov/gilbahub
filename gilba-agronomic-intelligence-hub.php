@@ -1,8 +1,8 @@
 <?php
 /*
 Plugin Name: Gilba Agronomic Intelligence Hub
-Description: Single integrated interface for Gilba agronomic analysis using shared inputs and live/manual weather. Includes tissue testing with soil-tissue cross-validation. Climate Engine v1.0 integrated. Location Manager v1.0 added. Wear & Recovery Engine v1.1 added. Shade Engine v2.0 added (N/Mowing/PGR/Seasonal). Overseed Multiplier v1.0, Nitrogen Validator v1.0, Salinity Penalty v1.0 added. Variety Traits v1.0 (NTEP data). PGR Module v3.0 (species-specific GDD bases: C3=0°C, C4=10°C per Kreuser/Reasor). Irrigation Scheduler v1.0. Climate v2 (variety-aware stress). Disease Risk Engine v1.0 (Smith-Kerns, Fidanza, Vargas). Leaf Spot Models v2.1 (Bipolaris/Curvularia/Drechslera with co-infection synergy). Stress Trajectory v2.0 (DLI-integrated, 14-day projection, compound effects). State dispatch for modular integration. TURF PROFILE CONTROLLER v1.0 (adaptive layout, cascading context). WATER BLENDER v1.0 (multi-source irrigation water blending with SAR/RSC/LSI analysis). OVERSEED CLIMATE v1.0 (GDD germination, temp-dependent establishment). SALINITY CLIMATE v1.0 (temp-adjusted thresholds, compound stress). PHASE 1 EPISTEMIC INFRASTRUCTURE v1.0 (Citation Registry, Contradiction Detector, Export Metadata, Engine Confidence Wrapper). Tissue Layout Fix v1.0. DLI-RECOVERY BRIDGE v1.0 (species-specific DLI→recovery modifiers, Wherley/Trappe/Bunnell). SMITH-KERNS DOLLAR SPOT v1.0 (true 5-day rolling hourly model with 20% action threshold). HUB PERSISTENCE v1.0 (localStorage auto-save/restore for inputs, samples, preferences). DAILY DASHBOARD v1.0 (at-a-glance metrics: growth potential, disease risk, stress, weather, irrigation, action items). v10.0.2: Fixed variety disease traits not being passed to disease engine - now properly fetches disease resistance modifiers from GAIP_VarietyTraits. v10.0.3: Added Waitea Patch (Brown Ring Patch) model for NZ (BETA). Fixed hemisphere-aware soil temp estimation for Southern Hemisphere locations. v10.3.43: NZ FINE FESCUE SUPPORT - Chewings, Slender Creeping Red, Strong Creeping Red for NZ golf greens/fairways. NTEP 2014/2020 + BSPB 2025 data. Tiered confidence system. v10.3.48: AMMONIUM ACETATE METHODOLOGY - Hill Labs NZ method with Olsen P + NH₄OAc extraction. Conditionally available for NZ locations. Soil texture selector (sands/others) for K/Mg ranges. v10.4.0: AI INTERPRETATION v1.0 - Claude-powered soil analysis interpretation. Supports MLSN, SLAN, Ammonium Acetate methodologies. Contextual narratives for region, turf type, season. Word export integration. v10.5.0: LARGE PATCH MODEL v1.0 - Rhizoctonia solani AG 2-2 LP for warm-season (C4) turf. Soil temp-driven preventive timing (21-24°C at 50mm). Dormancy-aware risk. AU/NZ/US/JP regional fungicides. Display name update: Fusarium Patch (Microdochium). v10.6.0: COTULA BOWLING GREEN v1.0 - NZ-only surface type (Leptinella dioica/maniototo). Hill Labs S78 soil interpretation ranges. Empirical N program (50-120 kg N/ha/yr, temperature activity window 8-24°C). Cotula activity fraction replaces C3/C4 GP. MLSN explicitly excluded. Bowls button in turf type grid (NZ only). K/Mg antagonism alert engine.
-Version: 11.0.10
+Description: Gilba Agronomic Intelligence Platform — soil/water/tissue analysis, disease modelling (Smith-Kerns, Fidanza, Danneberger, Bipolaris/Curvularia, Waitea, Large Patch, Red Thread), irrigation scheduling, PGR/DMI tracking, growth potential, and Word/iCal export. Designed for golf, sports turf, and councils across AU/NZ/UK/EU. See CHANGELOG.md for build history.
+Version: 11.20.20
 Author: Gilba Solutions
 Author URI: https://gilbasolutions.com
 */
@@ -11,7 +11,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-if ( ! defined( 'GILBA_HUB_VERSION' ) ) { define( 'GILBA_HUB_VERSION', '11.1.0' ); }
+if ( ! defined( 'GILBA_HUB_VERSION' ) ) { define( 'GILBA_HUB_VERSION', '11.20.20' ); }
 if ( ! defined( 'GILBA_ASSET_VERSION' ) ) { define( 'GILBA_ASSET_VERSION', GILBA_HUB_VERSION ); }
 if ( ! defined( 'GILBA_REST_NAMESPACE' ) ) { define( 'GILBA_REST_NAMESPACE', 'gilba/v1' ); }
 if ( ! defined( 'GSSH_HUB_VERSION' ) )    { define( 'GSSH_HUB_VERSION',    '1.2.0' ); }
@@ -72,6 +72,36 @@ require_once plugin_dir_path(__FILE__) . 'includes/class-gilba-spray-log.php';
 // ============================================
 require_once plugin_dir_path(__FILE__) . 'includes/class-gilba-apvma-sync.php';
 Gilba_APVMA_Sync::init();
+
+// ============================================
+// b35fix299 — 2026-04-13
+// Report Style Humanisation — strip AI/software tells from exported reports
+//   word-export.js:
+//     - Mulder's interaction icons (⚡/⚠/ℹ) removed, 📖 citation prefix removed
+//     - Mulder's title changed from "X → Y" to "X suppresses Y"
+//     - Mulder's title/ratio colours flattened to dark grey (#374151)
+//     - → arrow prefixes removed from pH recommendations, trend status, sensor warnings
+//     - Heading1 colour changed from green (#059669) to near-black (#1F2937)
+//     - Pattern analysis sub-headers/bold changed from purple (#6D28D9) to black/dark grey
+//     - "micronutrient" → "trace element" in 2 narrative strings
+//   hub-tissue-v3.js:
+//     - "micronutrient" → "trace element" in 6 interpretation strings
+//     - ⚡ icon replaced with — in LED advisory
+//   mulders-interaction-checker.js:
+//     - Icons (⚡/⚠️/ℹ️) stripped from dashboard Mulder's panel
+//     - 📖 removed from citations, ⚡ removed from summary badge
+//   class-gilba-soil-interpretation.php:
+//     - "micronutrient" → "trace element" (1 instance)
+//   class-gilba-synthesis-interpretation.php:
+//     - "micronutrient" → "trace element" (2 instances in known patterns)
+//   recycled-water-nutrient-engine.js, mlsn-progressive-disclosure.js,
+//   salinity-penalty.js, salinity-engine-pure.js,
+//   water-progressive-disclosure-WITH-SOIL-INTERACTION.js,
+//   nutrient-demand-engine.js, prebbles-products.js:
+//     - "micronutrient" → "trace element" in all user-facing display strings
+//     - Variable/property names left unchanged (no breaking API changes)
+//   See docs/superpowers/REPORT-STYLE-GUIDE.md for full style reference
+// ============================================
 
 // ============================================
 // b35fix168 — 2026-03-24
@@ -153,6 +183,17 @@ register_activation_hook(__FILE__, array('Gilba_Spray_Log', 'activate'));
 
 // APVMA sync cleanup on deactivation
 register_deactivation_hook(__FILE__, array('Gilba_APVMA_Sync', 'deactivate'));
+
+// ============================================
+// b35fix301b2 — GILBA DATA LAYER FOUNDATION
+// Six foundation tables under the wp_gilba_data_* prefix. Renamed from
+// wp_gilba_* in 301b to avoid collision with the legacy
+// wp_gilba_spray_log table owned by class-gilba-spray-log.php.
+// Namespace: Gilba_Data_*, includes/data/, /wp-json/gilba-data/v1/.
+// Nothing in the JS calls these yet — 301c will migrate callers.
+// ============================================
+require_once plugin_dir_path(__FILE__) . 'includes/data/load.php';
+register_activation_hook(__FILE__, array('Gilba_Data_Schema', 'activate'));
 
 // ============================================
 // LOCATION MANAGER CLASS
@@ -1665,6 +1706,52 @@ function gaip_hub_enqueue_assets() {
         false             // Load in <head> so it's ready before v1 scripts
     );
 
+    // b35fix309: Version stamp moved to PHP via wp_add_inline_script.
+    // b35fix315: hardcoded fallback in gilba-hub-v2.js REMOVED so this
+    // inline injection is the TRUE single source of truth. Autoptimize's
+    // /cache/min/1/ was caching a pre-b35fix309 minified bundle that kept
+    // re-asserting "10.9.9" after the inline ran, silently stamping stale
+    // versions in docx exports. With the in-bundle fallback gone, a missing
+    // inline surfaces as 'unknown' in the docx footer (visible deploy issue)
+    // rather than a confidently-wrong hardcoded string.
+    wp_add_inline_script(
+        'gilba-hub-v2-core',
+        'window.GAIP_HUB_VERSION = ' . wp_json_encode( GILBA_HUB_VERSION ) . ';',
+        'after'
+    );
+
+    // ========================================
+    // GROWTH POTENTIAL ENGINE v1.0.0 (b35fix302a)
+    // Pure, tested canonical implementation of the PACE Turf GP model
+    // (Gelernter & Stowell 2005) and Kreuser & Soldat 2011 plateau variant.
+    // Loaded early — future consumers (climate, nutrition, event planner,
+    // word export) will be rewired onto it in b35fix302c. Inert until then.
+    // ========================================
+    wp_enqueue_script(
+        'gilba-growth-potential-engine',
+        $plugin_url . '/assets/growth-potential-engine.js',
+        array('gilba-hub-v2-core'),  // Only depends on v2 core
+        gilba_asset_version( 'assets/growth-potential-engine.js' ),
+        false  // Load in <head> so it's available before any consumer
+    );
+
+    // ========================================
+    // NUTRITION REQUIREMENT ENGINE v1.0.0 (b35fix302b)
+    // Pure, tested nutrition engine — per-sample P/K/S/Ca/Mg from soil
+    // chemistry (MLSN with Woods/Stowell/Gelernter 2016 thresholds) plus
+    // facility-level GP-weighted monthly N distribution. Delegates all GP
+    // math to growth-potential-engine (302a). Fixes Jerry's reported bug
+    // where every green got identical fert recs in combined export (stale
+    // GAIP_NUTRITION_SOIL_CACHE). Consumers rewired in subsequent sub-fixes.
+    // ========================================
+    wp_enqueue_script(
+        'gilba-nutrition-requirement-engine',
+        $plugin_url . '/assets/nutrition-requirement-engine.js',
+        array('gilba-growth-potential-engine'),  // Depends on GP engine
+        gilba_asset_version( 'assets/nutrition-requirement-engine.js' ),
+        false  // Load in <head> alongside GP engine
+    );
+
     // ========================================
     // CLIMATE ENGINE v2.0.0 (Phase 2 extraction)
     // Pure calculation engine registered with v2 EngineRegistry
@@ -2066,12 +2153,27 @@ function gaip_hub_enqueue_assets() {
     );
 
     // ========================================
+    // CLASSIFICATION CONSTANTS v1.0.0 (b35fix301a)
+    // Single source of truth for MLSN/SLAN/AA thresholds, pH adjustments,
+    // retest policy, and methodology resolver. Must load before any consumer
+    // that reads window.GilbaClassificationConstants.
+    // Source: Woods, Stowell, Gelernter 2016 (PeerJ Preprints 4:e2144v1).
+    // ========================================
+    wp_enqueue_script(
+        'gaip-classification-constants',
+        $plugin_url . '/assets/gaip-classification-constants.js',
+        array(),
+        gilba_asset_version( 'assets/gaip-classification-constants.js' ),
+        true
+    );
+
+    // ========================================
     // MAIN HUB (SSOT mode - routes through cascade orchestrator)
     // ========================================
     wp_enqueue_script(
     'gaip-hub-js',
     plugins_url('assets/hub-tissue-v3.js', __FILE__),
-    array('gaip-climate-engine', 'gaip-wear-recovery-integration', 'gaip-shade-engine', 'gaip-cascade-orchestrator'),
+    array('gaip-classification-constants', 'gaip-climate-engine', 'gaip-wear-recovery-integration', 'gaip-shade-engine', 'gaip-cascade-orchestrator'),
     gilba_asset_version( 'assets/hub-tissue-v3.js' ),
     true
     );
@@ -2138,6 +2240,15 @@ function gaip_hub_enqueue_assets() {
         gilba_asset_version( 'assets/mlsn-progressive-disclosure.css' )
     );
 
+    // b35fix311: bulk-area modal styling. Depends on the main hub CSS for design
+    // tokens (colours, radii, typography) so it adapts to dark/light reskin.
+    wp_enqueue_style(
+        'gaip-bulk-area-modal-css',
+        $plugin_url . '/assets/bulk-area-modal.css',
+        array('gaip-hub-css'),
+        gilba_asset_version( 'assets/bulk-area-modal.css' )
+    );
+
     // Ammonium Acetate Methodology (Hill Labs NZ)
     // Adds NZ-specific Olsen P + NH₄OAc interpretation ranges
     wp_enqueue_script(
@@ -2159,20 +2270,24 @@ function gaip_hub_enqueue_assets() {
     );
 
     // Nutrient Demand Engine (N-linked demand, Kussow et al. methodology)
+    // b35fix301a: de-minified, reads MLSN from gaip-classification-constants.
     wp_enqueue_script(
         'gaip-nutrient-demand',
         $plugin_url . '/assets/nutrient-demand-engine.js',
-        array('gaip-hub-js'),
+        array('gaip-classification-constants', 'gaip-hub-js'),
         gilba_asset_version( 'assets/nutrient-demand-engine.js' ),
         true
     );
 
     // Nutrition Summary Integration (MLSN deficits + GP-weighted N distribution)
     // v1.1.4: SpeciesController integration for consistent species identity
+    // b35fix301a: MLSN sourced from gaip-classification-constants (S=7 correction).
+    // b35fix302b: depends on gilba-nutrition-requirement-engine; Task 9 rewire
+    //             will move calculation logic into the engine.
     wp_enqueue_script(
         'gaip-nutrition-summary',
         $plugin_url . '/assets/nutrition-summary-integration.js',
-        array('gaip-mlsn-progressive', 'gaip-nutrient-demand', 'gaip-species-controller'),
+        array('gaip-classification-constants', 'gaip-mlsn-progressive', 'gaip-nutrient-demand', 'gaip-species-controller', 'gilba-nutrition-requirement-engine'),
         gilba_asset_version( 'assets/nutrition-summary-integration.js' ),
         true
     );
@@ -3086,10 +3201,11 @@ function gaip_hub_enqueue_assets() {
     
     // Scenario Presets v1.0.0
     // Pre-configured what-if scenarios: Gypsum, MLSN/SLAN, Water Blending
+    // b35fix301a: MLSN table sourced from gaip-classification-constants.
     wp_enqueue_script(
         'gaip-scenario-presets',
         $plugin_url . '/assets/scenario-presets.js',
-        array('gaip-cascade-orchestrator'),
+        array('gaip-classification-constants', 'gaip-cascade-orchestrator'),
         gilba_asset_version( 'assets/scenario-presets.js' ),
         true
     );
@@ -3235,11 +3351,23 @@ function gaip_hub_enqueue_assets() {
         true
     );
     
+    // b35fix311_1: single-source zone-key derivation. Enqueued BEFORE
+    // word-export-combined and nutrient-trend (both depend on it).
+    wp_enqueue_script(
+        'gaip-zone-key',
+        $plugin_url . '/assets/zone-key.js',
+        array(),
+        gilba_asset_version( 'assets/zone-key.js' ),
+        true
+    );
+
     // v1.0.0: Combined multi-site Word export (one document for all samples)
+    // b35fix302b: depends on gilba-nutrition-requirement-engine (Task 11 rewire
+    //             retires computeANRFromSoil in favour of per-sample engine calls).
     wp_enqueue_script(
         'gaip-word-export-combined',
         $plugin_url . '/assets/word-export-combined.js',
-        array('gaip-word-export', 'gaip-sample-manager'),
+        array('gaip-word-export', 'gaip-sample-manager', 'gilba-nutrition-requirement-engine', 'gaip-zone-key'),
         gilba_asset_version( 'assets/word-export-combined.js' ),
         true
     );
@@ -3258,6 +3386,50 @@ function gaip_hub_enqueue_assets() {
         $plugin_url . '/assets/sample-switcher-ui.js',
         array('gaip-sample-manager'),
         gilba_asset_version( 'assets/sample-switcher-ui.js' ),
+        true
+    );
+
+    // b35fix311: bulk-area modal. Depends on SampleManager for data access and
+    // loads after the switcher so the 📐 Set area… button wiring finds it.
+    wp_enqueue_script(
+        'gaip-bulk-area-modal',
+        $plugin_url . '/assets/bulk-area-modal.js',
+        array('gaip-sample-manager', 'gaip-sample-switcher-ui'),
+        gilba_asset_version( 'assets/bulk-area-modal.js' ),
+        true
+    );
+
+    // b35fix367: Per-sample turf profile modal. Surfaces only when multi-site
+    // turf mode is on for the active site. Depends on TurfProfile for the
+    // species-options helpers and SampleManager for the read/write API.
+    wp_enqueue_script(
+        'gaip-sample-turf-profile-modal',
+        $plugin_url . '/assets/sample-turf-profile-modal.js',
+        array('gaip-sample-manager', 'gaip-sample-switcher-ui'),
+        gilba_asset_version( 'assets/sample-turf-profile-modal.js' ),
+        true
+    );
+
+    // b35fix368: Bulk turf profile modal — set species + companion across many
+    // samples at once. Mirrors the bulk-area pattern. Visibility-gated by the
+    // multi-site turf toggle for the active site (handled in sample-switcher-ui).
+    wp_enqueue_script(
+        'gaip-sample-turf-profile-bulk-modal',
+        $plugin_url . '/assets/sample-turf-profile-bulk-modal.js',
+        array('gaip-sample-manager', 'gaip-sample-switcher-ui'),
+        gilba_asset_version( 'assets/sample-turf-profile-bulk-modal.js' ),
+        true
+    );
+
+    // b35fix367: Multi-site turf toggle injector. Adds the checkbox into the
+    // site selector row at runtime (no PHP template change). Depends on the
+    // sample switcher for the row to attach to and on site-config-persistence
+    // for the toggle storage.
+    wp_enqueue_script(
+        'gaip-multi-site-turf-toggle',
+        $plugin_url . '/assets/site-settings-multi-site-turf-toggle.js',
+        array('gaip-sample-switcher-ui'),
+        gilba_asset_version( 'assets/site-settings-multi-site-turf-toggle.js' ),
         true
     );
 
@@ -3397,10 +3569,11 @@ function gaip_hub_enqueue_assets() {
     // NUTRIENT TREND TRACKING v1.0
     // Temporal trend analysis per zone with MLSN threshold crossing alerts
     // ========================================
+    // Note: gaip-zone-key is already enqueued earlier (shared dep with word-export-combined)
     wp_enqueue_script(
         'gaip-nutrient-trend',
         $plugin_url . '/assets/nutrient-trend.js',
-        array('gaip-sample-manager', 'gaip-mlsn-progressive', 'gaip-nutrient-demand'),
+        array('gaip-classification-constants', 'gaip-sample-manager', 'gaip-mlsn-progressive', 'gaip-nutrient-demand', 'gaip-zone-key'),
         gilba_asset_version( 'assets/nutrient-trend.js' ),
         true
     );
@@ -3437,7 +3610,7 @@ function gaip_hub_enqueue_assets() {
     wp_enqueue_script(
         'gaip-word-export',
         $plugin_url . '/assets/word-export.js',
-        array('gaip-docx-lib', 'gaip-hub-js', 'gaip-jszip', 'gaip-fungicide-filter', 'gaip-nutrient-trend'),
+        array('gaip-docx-lib', 'gaip-hub-js', 'gaip-jszip', 'gaip-fungicide-filter', 'gaip-nutrient-trend', 'gilba-nutrition-requirement-engine'),
         gilba_asset_version( 'assets/word-export.js' ),
         true
     );
@@ -3686,13 +3859,27 @@ JSPATCH
     );
 
     // ========================================
+    // QUICK-JUMP NAV v1.0.0 (b35fix357)
+    // Floating bottom-left tab pill that appears when the main tab bar
+    // scrolls out of viewport. Mirrors floating-run-button.js placement
+    // (bottom-right) so the two FABs do not collide.
+    // ========================================
+    wp_enqueue_script(
+        'gaip-quick-jump-nav',
+        $plugin_url . '/assets/quick-jump-nav.js',
+        array('gaip-tab-navigation'),
+        gilba_asset_version( 'assets/quick-jump-nav.js' ),
+        true
+    );
+
+    // ========================================
     // NUTRITION CALENDAR MODULE v1.0.0
     // GP-weighted nutrient distribution calendar with MLSN/SLAN methodology
     // ========================================
     wp_enqueue_script(
         'gaip-nutrition-calendar',
         $plugin_url . '/assets/nutrition-calendar.js',
-        array('gaip-hub-js', 'gaip-nutrition-summary', 'gaip-climate-v2'),
+        array('gaip-classification-constants', 'gaip-hub-js', 'gaip-nutrition-summary', 'gaip-climate-v2'),
         gilba_asset_version( 'assets/nutrition-calendar.js' ),
         true
     );
@@ -3777,7 +3964,7 @@ JSPATCH
     wp_enqueue_script(
         'gaip-tissue-corrective-engine',
         $plugin_url . '/assets/tissue-corrective-engine-pure.js',
-        array('gaip-nutrition-calendar', 'gaip-tissue-engine', 'gaip-hub-js'),
+        array('gaip-classification-constants', 'gaip-nutrition-calendar', 'gaip-tissue-engine', 'gaip-hub-js'),
         gilba_asset_version( 'assets/tissue-corrective-engine-pure.js' ),
         true
     );
@@ -4611,12 +4798,40 @@ function gssh_hub_enqueue_stadium_assets() {
         true
     );
 
+    // ========================================
+    // GROWTH POTENTIAL ENGINE v1.0.0 (b35fix302a backfilled into GSSH in b35fix302b)
+    // Pure PACE Turf GP model + Kreuser & Soldat plateau. No GSSH-specific
+    // deps — engine is pure. Same handle as GAIP mode; only one fires per
+    // request since modes are mutually exclusive.
+    // ========================================
+    wp_enqueue_script(
+        'gilba-growth-potential-engine',
+        $plugin_url . '/assets/growth-potential-engine.js',
+        array(),  // Pure engine — no deps
+        gilba_asset_version( 'assets/growth-potential-engine.js' ),
+        false  // <head>
+    );
+
+    // ========================================
+    // NUTRITION REQUIREMENT ENGINE v1.0.0 (b35fix302b)
+    // Per-sample P/K/S/Ca/Mg + facility monthly N. Needed in GSSH because
+    // shade impact on nutritional programme is a core GSSH use case.
+    // ========================================
+    wp_enqueue_script(
+        'gilba-nutrition-requirement-engine',
+        $plugin_url . '/assets/nutrition-requirement-engine.js',
+        array('gilba-growth-potential-engine'),
+        gilba_asset_version( 'assets/nutrition-requirement-engine.js' ),
+        false  // <head>
+    );
+
     // Nutrition Summary Integration (MLSN deficits + GP-weighted N distribution)
     // v1.1.4: SpeciesController integration for consistent species identity
+    // b35fix302b: depends on gilba-nutrition-requirement-engine (Task 9 rewire).
     wp_enqueue_script(
         'gssh-nutrition-summary',
         $plugin_url . '/assets/nutrition-summary-integration.js',
-        array('gssh-mlsn-progressive', 'gssh-nutrient-demand', 'gssh-species-controller'),
+        array('gssh-mlsn-progressive', 'gssh-nutrient-demand', 'gssh-species-controller', 'gilba-nutrition-requirement-engine'),
         time(),
         true
     );
@@ -5605,10 +5820,11 @@ function gssh_hub_enqueue_stadium_assets() {
     );
     
     // v1.0.0: Combined multi-site Word export (one document for all samples)
+    // b35fix302b: depends on gilba-nutrition-requirement-engine (Task 11 rewire).
     wp_enqueue_script(
         'gssh-word-export-combined',
         $plugin_url . '/assets/word-export-combined.js',
-        array('gssh-word-export', 'gssh-sample-manager'),
+        array('gssh-word-export', 'gssh-sample-manager', 'gilba-nutrition-requirement-engine'),
         time(),
         true
     );
@@ -5737,7 +5953,7 @@ function gssh_hub_enqueue_stadium_assets() {
     wp_enqueue_script(
         'gssh-word-export',
         $plugin_url . '/assets/word-export.js',
-        array('gssh-docx-lib', 'gssh-hub-js', 'gssh-jszip', 'gssh-fungicide-filter', 'gssh-nutrient-trend'),
+        array('gssh-docx-lib', 'gssh-hub-js', 'gssh-jszip', 'gssh-fungicide-filter', 'gssh-nutrient-trend', 'gilba-nutrition-requirement-engine'),
         time(),
         true
     );
@@ -6290,6 +6506,9 @@ register_deactivation_hook(__FILE__, array('Gilba_Prediction_Logger', 'clear_cro
 
 // Spray log table creation
 register_activation_hook(__FILE__, array('Gilba_Spray_Log', 'activate'));
+
+// b35fix301b2 — Data layer foundation (stadium-mode activation symmetry)
+register_activation_hook(__FILE__, array('Gilba_Data_Schema', 'activate'));
 
 // ============================================
 // LOCATION MANAGER CLASS
@@ -7362,7 +7581,14 @@ function gaip_hub_render_shortcode( $atts ) {
                         </div>
                         <div>
                             <label>N Program (kg/ha/yr)</label>
-                            <input type="number" class="gaip-n-program" value="200" step="10" min="0" max="500">
+                            <!-- b35fix312 Fix 3: removed hardcoded value="200" default.
+                                 Turf profile controller populates this based on
+                                 species when a species is selected. Leaving it
+                                 blank makes the Nutrition Program panel input
+                                 (.gaip-nutrition-annual-n) the authoritative
+                                 user-facing entry point, which is what the
+                                 engine readers now prefer (Fix 2). -->
+                            <input type="number" class="gaip-n-program" placeholder="e.g. 160" step="10" min="0" max="500">
                         </div>
                     </div>
                     
@@ -7621,10 +7847,19 @@ function gaip_hub_render_shortcode( $atts ) {
                     <!-- ── SAMPLE IDENTITY ── -->
                     <div class="gaip-field-group">
                         <div class="gaip-field-group-title">Sample identity</div>
-                        <div class="gaip-field-row-3">
+                        <div class="gaip-field-row-4">
                             <div class="gaip-field">
                                 <label>Sample name</label>
                                 <input type="text" class="gaip-soil-sample-label" placeholder="e.g. Green 1, Fairway 7">
+                            </div>
+                            <div class="gaip-field">
+                                <label>Area (ha)</label>
+                                <input type="number" step="0.01" min="0" class="gaip-soil-area-ha"
+                                       placeholder="e.g. 0.06"
+                                       title="Area of the zone this sample represents, in hectares. Used for fertiliser purchasing totals. Optional — leave blank to report per-hectare rates only."
+                                       aria-label="Area in hectares">
+                                <div class="gaip-soil-area-warning"
+                                     style="display:none; color:#c96a5f; font-size:11px; margin-top:3px; line-height:1.3;"></div>
                             </div>
                             <div class="gaip-field">
                                 <label>Lab reference</label>

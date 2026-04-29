@@ -41,22 +41,34 @@
     const CONFIG = {
         debug: false,
         
-        // MLSN minimum thresholds (Michalski et al.)
-        mlsnThresholds: {
-            P: 21,      // ppm Mehlich-3
-            K: 37,      // ppm
-            Ca: 331,    // ppm
-            Mg: 47,     // ppm
-            S: 7        // ppm (some use 6)
-        },
+        // MLSN minimum thresholds.
+        // b35fix301a: sourced from gaip-classification-constants.js.
+        //             Attribution corrected: these are Woods, Stowell, Gelernter
+        //             (2016), PeerJ Preprints 4:e2144v1 — not Michalski.
+        //             S value is 7 ppm (published MLSN value, not 6).
+        mlsnThresholds:
+            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).MLSN_THRESHOLDS ||
+            {
+                P: 21,      // ppm Mehlich-3
+                K: 37,      // ppm
+                Ca: 331,    // ppm
+                Mg: 47,     // ppm
+                S: 7        // ppm sulfate-S
+            },
         
-        // SLAN sufficiency ranges (traditional soil testing)
+        // SLAN sufficiency ranges (Carrow et al. 2004 GCM 72(1):194-198,
+        // "other soils" / high-CEC values per b35fix333 Option 1).
+        // b35fix333a: pre-fix this was K 75-150, Ca 500-1000, Mg 60-120, S 15-30
+        // — values that didn't match the SLAN_RANGES SSOT in
+        // gaip-classification-constants.js. b35fix333 corrected the SSOT module
+        // but missed this scenario-presets file. Now aligned.
         slanRanges: {
-            P:  { low: 25,  high: 50,   unit: 'ppm' },
-            K:  { low: 75,  high: 150,  unit: 'ppm' },
-            Ca: { low: 500, high: 1000, unit: 'ppm' },
-            Mg: { low: 60,  high: 120,  unit: 'ppm' },
-            S:  { low: 15,  high: 30,   unit: 'ppm' }
+            P:  { low: 27,  high: 54,   unit: 'ppm' },
+            K:  { low: 75,  high: 176,  unit: 'ppm' },
+            Ca: { low: 500, high: 750,  unit: 'ppm' },
+            Mg: { low: 70,  high: 140,  unit: 'ppm' },
+            S:  { low: 15,  high: 40,   unit: 'ppm' }
         },
         
         // Gypsum defaults

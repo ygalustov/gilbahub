@@ -366,7 +366,6 @@
     var bgColor = hasHigh ? "var(--gaip-critical-bg)" : hasAdvisory ? "var(--gaip-info-bg)" : "var(--gaip-warning-bg)";
     var borderColor = hasHigh ? "#fca5a5" : hasAdvisory ? "var(--gaip-info-bg)" : "var(--gaip-warning-border)";
     var iconColor = hasHigh ? "#dc2626" : hasAdvisory ? "#3b82f6" : "#d97706";
-    var icon = hasHigh ? "⚠️" : hasAdvisory ? "ℹ️" : "⚡";
 
     var badgeId = "mulders-" + flags[0].suppressed + "-" + Date.now();
 
@@ -378,8 +377,6 @@
           '<div style="font-weight:600;font-size:11px;color:' +
           iconColor +
           ';margin-bottom:3px;">' +
-          icon +
-          " " +
           f.message +
           "</div>" +
           '<div style="font-size:10px;color:var(--gaip-text-secondary);margin-bottom:3px;">' +
@@ -388,7 +385,7 @@
           '<div style="font-size:10px;color:var(--gaip-text);line-height:1.4;">' +
           f.detail +
           "</div>" +
-          '<div style="font-size:9px;color:var(--gaip-text-muted);margin-top:3px;">📖 ' +
+          '<div style="font-size:9px;color:var(--gaip-text-muted);margin-top:3px;">' +
           f.citation +
           "</div>" +
           "</div>"
@@ -468,7 +465,7 @@
       '">' +
       '<span style="font-weight:700;color:' +
       titleColor +
-      ';">⚡ Mulder interactions detected: </span>' +
+      ';">Mulder interactions detected: </span>' +
       '<span style="color:var(--gaip-text);">' +
       items +
       "</span>" +

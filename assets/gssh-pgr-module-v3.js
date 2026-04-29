@@ -1,7 +1,94 @@
 ! function(e) {
     "use strict";
     const a = {
-        version: "3.6.0",  // v3.6.0: Forward-port from GAIP v3.6.0 — amplitude-dampened sinewave, PHC reapplication fix
+        version: "3.7.0",  // v3.7.0 (b35fix343): Tier 2 audit Finding 9 closed — Reasor 2018 paper-verified
+        // ====================================================================
+        // PROVENANCE — Reasor et al. 2018 (Tier 2 audit Finding 9, b35fix343)
+        // ====================================================================
+        // Paper: Reasor, E.H., Brosnan, J.T., Kerns, J.P., Hutchens, W.J.,
+        //        Taylor, D.R., McCurdy, J.D., Soldat, D.J., and Kreuser, W.C.
+        //        (2018). "Growing degree day models for plant growth regulator
+        //        applications on ultradwarf hybrid bermudagrass putting greens."
+        //        Crop Science 58(4):1801-1807. doi:10.2135/cropsci2018.01.0077
+        //
+        // Paper obtained: 2026-04-26
+        // Audit doc:      docs/provenance-audit-tier2.md (Finding 9)
+        //
+        // VERIFIED against paper (Tier 2 audit, Methodology Lessons A/B/C from
+        // b35fix338→b35fix339 reversal):
+        //
+        //   - Base temp 10°C for C4 (paper Methods, justified by Berry &
+        //     Bjorkman 1980 and McMaster & Wilhelm 1997).
+        //
+        //   - TE peak suppression 166-177 GDD10C across MiniVerde/Champion/
+        //     TifEagle (paper Table 3, Results page 3). Encoded reapplication
+        //     gdd=220 sits at the midpoint of the published 216-230 GDD10C
+        //     reapplication range.
+        //
+        //   - PH peak suppression 92-97 GDD10C; reapplication 120-126 GDD10C
+        //     (paper Table 3). Encoded reapplication gdd=123 sits at the
+        //     midpoint of the published range.
+        //
+        //   - 1.3× MSP reapplication multiplier: paper Discussion explicitly
+        //     attributes this rule to Kreuser & Soldat 2011 ("Kreuser and
+        //     Soldat (2011) suggested that PGRs are to be reapplied at 1.3×
+        //     the GDD value at peak suppression"). Paper notes for ultradwarf
+        //     specifically: "the 1.3× multiplier ... may be increased for
+        //     ultradwarf cultivars due to the lack of rebound growth, but
+        //     field confirmation of this is warranted." Encoded sinewave
+        //     hasRebound:false on ultradwarf_bermuda matches paper observation.
+        //
+        //   - mspRatio 0.75 vs paper-canonical 1/1.3 = 0.7692: 2.5% deviation,
+        //     within rounding noise of the published peak values (166-177 GDD).
+        //     Encoded MSP at mspRatio*220 = 165 GDD10 vs paper mean 170 GDD10.
+        //     Could be tightened to 0.77 if reports require paper-exact match;
+        //     deferred unless Jerry confirms.
+        //
+        // GILBA EXTRAPOLATION LAYERS (paper studied ultradwarf only —
+        // MiniVerde, Champion, TifEagle):
+        //
+        //   - bermudagrass (generic): confidence "MEDIUM", source string
+        //     explicitly says "adapted from ultradwarf"
+        //   - couch (Australian common bermuda C. dactylon): confidence
+        //     "MEDIUM", source string says "Same as bermudagrass"
+        //   - kikuyu: confidence (none stated for PHC), source "Extrapolated
+        //     from C4" on the base temp — labelled
+        //
+        // RISK CLASS: provenance documentation. NOT algorithm misattribution.
+        // Encoded numbers match the paper; this provenance block makes the
+        // verification visible to downstream consumers (reports, audit doc).
+        // ====================================================================
+        provenance: Object.freeze({
+            reasor2018: Object.freeze({
+                citation: "Reasor, Brosnan, Kerns, Hutchens, Taylor, McCurdy, Soldat & Kreuser (2018) Crop Sci 58:1801-1807",
+                doi: "10.2135/cropsci2018.01.0077",
+                paperObtained: "2026-04-26",
+                verified: Object.freeze({
+                    baseTempC4: "verified",                  // paper Methods, 10°C
+                    teReapplicationGdd: "verified",          // paper Table 3, 216-230 GDD10C
+                    phReapplicationGdd: "verified",          // paper Table 3, 120-126 GDD10C
+                    teMspRange: "verified",                  // 166-177 GDD10C
+                    phMspRange: "verified",                  // 92-97 GDD10C
+                    reapplicationMultiplier: "verified",     // 1.3× MSP per Kreuser & Soldat 2011 (cited in paper)
+                    rebound: "verified",                     // ultradwarf hasRebound:false matches paper observation
+                }),
+                paperScope: "ultradwarf hybrid bermudagrass: MiniVerde, Champion, TifEagle (C. dactylon × C. transvaalensis)",
+                gilbaExtrapolations: Object.freeze({
+                    bermudagrass: "MEDIUM confidence — generic bermuda extension labelled in source string",
+                    couch: "MEDIUM confidence — Australian C. dactylon, paper did not study; labelled 'Same as bermudagrass'",
+                    kikuyu: "Extrapolated from C4 base temp — paper did not study Pennisetum clandestinum",
+                }),
+                minorDeviation: "mspRatio 0.75 vs paper-canonical 1/1.3=0.7692 — 2.5% off, within rounding noise; could tighten to 0.77 if paper-exact match required",
+                auditDoc: "docs/provenance-audit-tier2.md (Finding 9)",
+                supersedes: "pre-b35fix343: same numerical values, no provenance field",
+            }),
+            kreuserSoldat2011: Object.freeze({
+                citation: "Kreuser & Soldat (2011) Crop Sci 51:2228-2236",
+                doi: "10.2135/cropsci2011.01.0034",
+                status: "citation real, encoded base temp 0°C for C3 + 1.3× MSP rule sourced from this paper. Coefficient-level audit deferred — own Tier 2 candidate.",
+                auditStatus: "deferred (own candidate, separate finding)",
+            }),
+        }),
         gddBaseTemperatures: {
             c3: {
                 value: 0,
@@ -11,7 +98,8 @@
             c4: {
                 value: 10,
                 label: "10°C (Reasor standard for C4)",
-                source: "Reasor et al. 2018"
+                source: "Reasor et al. 2018",
+                provenance: "verified b35fix343 — paper Methods, justified by Berry & Bjorkman 1980 and McMaster & Wilhelm 1997"
             },
             kikuyu: {
                 value: 10,
@@ -236,7 +324,7 @@
                     confidence: "HIGH",
                     greens: {
                         gdd: 220,
-                        source: "Reasor et al. 2018"
+                        source: "Reasor et al. 2018 Crop Sci 58:1801-1807 (paper-verified b35fix343): TE reapplication 216-230 GDD₁₀ across MiniVerde/Champion/TifEagle (paper Table 3); encoded 220 = midpoint"
                     },
                     tees: {
                         gdd: 275,
@@ -643,7 +731,7 @@
                     confidence: "HIGH",
                     greens: {
                         gdd: 123,
-                        source: "Reasor et al. 2018: MSP 92-97 GDD₁₀, reapplication 1.3×MSP = 120-126 GDD₁₀"
+                        source: "Reasor et al. 2018 Crop Sci 58:1801-1807 (paper-verified b35fix343): PH MSP 92-97 GDD₁₀ (paper Table 3), reapplication 1.3×MSP = 120-126 GDD₁₀; encoded 123 = midpoint"
                     },
                     tees: {
                         gdd: 160,
@@ -662,7 +750,7 @@
                     confidence: "MEDIUM",
                     greens: {
                         gdd: 123,
-                        source: "Reasor et al. 2018: reapplication 1.3×MSP, adapted from ultradwarf"
+                        source: "Reasor et al. 2018 Crop Sci 58:1801-1807 (paper-verified b35fix343, Gilba extrapolation): paper studied ultradwarf only — value adapted from PHC ultradwarf_bermuda greens"
                     },
                     tees: {
                         gdd: 160,
@@ -689,7 +777,7 @@
                     confidence: "MEDIUM",
                     greens: {
                         gdd: 123,
-                        source: "Same as bermudagrass (Reasor reapplication interval)"
+                        source: "Reasor et al. 2018 (paper-verified b35fix343, Gilba extrapolation): paper did not study couch (Cynodon dactylon, AU common bermuda); value extrapolated from PHC ultradwarf_bermuda greens"
                     },
                     tees: {
                         gdd: 160,
@@ -2016,7 +2104,8 @@
         },
         config: a,
         speciesThresholds: a.speciesThresholds,
-        gddBaseTemperatures: a.gddBaseTemperatures
+        gddBaseTemperatures: a.gddBaseTemperatures,
+        provenance: a.provenance     // b35fix343: Tier 2 audit Finding 9 — Reasor 2018 paper-verified
     };
-    e.GAIP_PGR = E, e.gaip_pgr_calculate = w, e.gaip_pgr_calculate_pure = w_pure, e.gaip_pgr_status = w, e.gaip_pgr_sinewave = m, e.gaip_pgr_chart_data = b, e.gaip_pgr_species_threshold = p, e.gaip_pgr_gdd_base = d, e.gaip_pgr_module = w, console.log("✅ GSSH PGR Module v3.6.0 loaded (forward-port: amplitude-dampened sinewave, PHC reapplication fix)")
+    e.GAIP_PGR = E, e.gaip_pgr_calculate = w, e.gaip_pgr_calculate_pure = w_pure, e.gaip_pgr_status = w, e.gaip_pgr_sinewave = m, e.gaip_pgr_chart_data = b, e.gaip_pgr_species_threshold = p, e.gaip_pgr_gdd_base = d, e.gaip_pgr_module = w, console.log("✅ GSSH PGR Module v3.7.0 loaded (b35fix343: Reasor 2018 paper-verified, Tier 2 audit Finding 9 closed)")
 }("undefined" != typeof window ? window : "undefined" != typeof global ? global : this);

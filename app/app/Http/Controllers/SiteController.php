@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Account;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use Illuminate\Http\JsonResponse;
@@ -33,12 +34,20 @@ class SiteController extends Controller
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['nullable', 'string', 'max:80'],
+            'site_type' => ['nullable', 'string', 'max:32'],
+            'precinct_group_id' => ['nullable', 'integer', 'exists:precinct_groups,id'],
+            'parent_site_id' => ['nullable', 'string', 'exists:sites,id'],
         ]);
+
+        $account = $this->currentAccount($request);
 
         $site = Site::query()->create([
             ...$data,
-            'owner_user_id' => $request->user()->id,
-            'slug' => Str::slug($data['name']),
+            'account_id' => $account->id,
+            'site_type' => $data['site_type'] ?? 'precinct',
+            'slug' => $this->uniqueSlug($account->id, $data['name']),
+            'created_by_user_id' => $request->user()->id,
+            'modified_by_user_id' => $request->user()->id,
         ]);
 
         $site->users()->attach($request->user()->id, ['role' => 'owner']);
@@ -78,12 +87,16 @@ class SiteController extends Controller
             'latitude' => ['nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['nullable', 'string', 'max:80'],
+            'site_type' => ['nullable', 'string', 'max:32'],
+            'precinct_group_id' => ['nullable', 'integer', 'exists:precinct_groups,id'],
+            'parent_site_id' => ['nullable', 'string', Rule::exists('sites', 'id')->whereNot('id', $site->id)],
         ]);
 
         if (isset($data['name'])) {
-            $data['slug'] = Str::slug($data['name']);
+            $data['slug'] = $this->uniqueSlug($site->account_id, $data['name'], $site->id);
         }
 
+        $data['modified_by_user_id'] = $request->user()->id;
         $site->update($data);
 
         return response()->json([
@@ -91,11 +104,10 @@ class SiteController extends Controller
         ]);
     }
 
-
     public function setActive(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'site_id' => ['required', 'integer', 'exists:sites,id'],
+            'site_id' => ['required', 'string', 'exists:sites,id'],
         ]);
 
         $site = Site::query()->findOrFail($data['site_id']);
@@ -143,6 +155,18 @@ class SiteController extends Controller
         ]);
     }
 
+    private function currentAccount(Request $request): Account
+    {
+        return Account::query()->firstOrCreate(
+            ['owner_user_id' => $request->user()->id],
+            [
+                'display_name' => $request->user()->name,
+                'created_by_user_id' => $request->user()->id,
+                'modified_by_user_id' => $request->user()->id,
+            ]
+        );
+    }
+
     private function abortUnlessMember(Request $request, Site $site): void
     {
         $isMember = $site->users()
@@ -152,12 +176,34 @@ class SiteController extends Controller
         abort_unless($isMember, 404);
     }
 
+    private function uniqueSlug(int $accountId, string $name, ?string $ignoreSiteId = null): string
+    {
+        $base = Str::slug($name) ?: 'site';
+        $slug = $base;
+        $index = 2;
+
+        while (Site::query()
+            ->where('account_id', $accountId)
+            ->when($ignoreSiteId, fn ($query) => $query->where('id', '!=', $ignoreSiteId))
+            ->where('slug', $slug)
+            ->exists()) {
+            $slug = $base.'-'.$index;
+            $index++;
+        }
+
+        return $slug;
+    }
+
     private function sitePayload(Site $site): array
     {
         return [
             'id' => $site->id,
+            'account_id' => $site->account_id,
+            'precinct_group_id' => $site->precinct_group_id,
+            'parent_site_id' => $site->parent_site_id,
             'name' => $site->name,
             'slug' => $site->slug,
+            'site_type' => $site->site_type,
             'location_name' => $site->location_name,
             'latitude' => $site->latitude,
             'longitude' => $site->longitude,

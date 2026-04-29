@@ -1,5 +1,7 @@
 "use strict";
-var GAIP_HUB_VERSION = "11.1.0";
+// b35fix309: GAIP_HUB_VERSION injected from PHP GILBA_HUB_VERSION via
+// wp_add_inline_script on 'gilba-hub-v2-core'. Do not reintroduce a hardcoded
+// literal here — it will silently drift from the plugin version.
 
 // =============================================================================
 // SPECIES pH TOLERANCE CONFIGURATION
@@ -298,7 +300,7 @@ function assessSpeciesPHTolerance(pH, species) {
                 tolMax.toFixed(1) +
                 ").";
             recommendation = tolerance.alkalineTolerant ?
-                "Species tolerates alkaline conditions. Focus on micronutrient management rather than aggressive acidification." :
+                "Species tolerates alkaline conditions. Focus on trace element management rather than aggressive acidification." :
                 "Monitor for chlorosis. Consider acidification if Fe deficiency symptoms appear.";
         }
     }
@@ -334,7 +336,7 @@ function assessSpeciesPHTolerance(pH, species) {
 
             if (tolerance.alkalineTolerant) {
                 recommendation =
-                    "Species has moderate alkaline tolerance. Prioritise chelated micronutrients (Fe-EDDHA) over aggressive acidification.";
+                    "Species has moderate alkaline tolerance. Prioritise chelated trace elements (Fe-EDDHA) over aggressive acidification.";
             } else {
                 recommendation =
                     "URGENT: Acidification strongly recommended. " +
@@ -771,7 +773,15 @@ function validateClimateMetrics(e) {
         ((r.moisture.humidity = e.moisture.humidity || {}),
             (r.moisture.rainfall = "number" == typeof e.moisture.rainfall ? e.moisture.rainfall : 0),
             (r.moisture.et0 = "number" == typeof e.moisture.et0 ? e.moisture.et0 : null),
-            (r.moisture.leafWetness = "number" == typeof e.moisture.leafWetness ? e.moisture.leafWetness : 0)),
+            (r.moisture.leafWetness = "number" == typeof e.moisture.leafWetness ? e.moisture.leafWetness : 0),
+            // b35fix356: preserve per-day humidity pattern populated by the
+            // P-builder (~line 6478) so disease-forecast.buildDailyClimate's
+            // moistureDaily[i].humidity 'per-day' rung can resolve. Pre-fix
+            // the validator silently dropped any key not in its hardcoded
+            // copy list; dailyPattern would have been lost in transit even
+            // if upstream had populated it. Strict array-shape guard prevents
+            // accidental scalar pollution.
+            (r.moisture.dailyPattern = Array.isArray(e.moisture.dailyPattern) ? e.moisture.dailyPattern : null)),
         (r.stress = e.stress || {}),
         t.length > 0 && console.warn("⚠️ Climate validation issues:", t),
         (r._issues = t),
@@ -788,7 +798,11 @@ function generateClimateStatusSummary(e, t, r) {
         };
     var n = e.temperature.mean,
         i = e.temperature.max,
-        a = e.moisture?.humidity?.mean || 50,
+        // b35fix345: null-passthrough on UI tile humidity. Pre-fix `|| 50`
+        // fabricated 50% on every no-data render — UI display only, but the
+        // tile read as if 50% were real data. Null lets downstream rendering
+        // suppress humidity-dependent labels instead of misleading.
+        a = e.moisture?.humidity?.mean ?? null,
         o = e.moisture?.rainfall || 0,
         s = ["couch", "bermuda", "kikuyu", "zoysia", "buffalo", "paspalum"].includes((t || "").toLowerCase()),
         l = r?.turf?.speciesFractions?.c3Fraction || r?.turf?.c3Fraction || 0,
@@ -896,8 +910,13 @@ function getClimateMetricsWithFallback(e, t) {
                 weighted: (calcC3GrowthPotential(o) + calcC4GrowthPotential(o)) / 2,
             },
             moisture: {
+                // b35fix345: null when manual humidity unset (was `|| 65`).
+                // Pre-fix planted 65 indistinguishably from real data on the
+                // climateMetrics shim used by gaip_get_climate_metrics. Now
+                // emits null + dataSource tag matching the b35fix342/344 pattern.
                 humidity: {
-                    mean: n.humidity || 65,
+                    mean: n.humidity != null ? n.humidity : null,
+                    dataSource: n.humidity != null ? 'manual' : 'no-data',
                 },
                 rainfall: n.rainfall || 0,
             },
@@ -917,9 +936,16 @@ function getClimateMetricsWithFallback(e, t) {
                 c4: 50,
                 weighted: 60,
             },
+            // b35fix345: humidity is null on the default-fallback path, not
+            // a fabricated 65. Temperature/growth defaults are kept because
+            // every C3/C4 GP-consuming engine handles those gracefully and
+            // some UI rendering depends on a temp value being present; humidity
+            // is the field whose literal default propagated to disease engines
+            // as fabricated MEANRH. With null, those engines correctly degrade.
             moisture: {
                 humidity: {
-                    mean: 65,
+                    mean: null,
+                    dataSource: 'no-data',
                 },
                 rainfall: 0,
             },
@@ -963,7 +989,14 @@ function gaip_build_state(e) {
                         soil: safeNum(e.querySelector(".gaip-manual-soil-temp")?.value, 0) || null,
                     },
                     moisture: {
-                        humidity: safeNum(e.querySelector(".gaip-manual-humidity")?.value, 0) || 65,
+                        // b35fix345: null when blank, not literal 65. The DOM
+                        // input value is "" → safeNum returns 0 → `|| 65` fired.
+                        // Now: blank input → null (no humidity entered); typed
+                        // 0 stays 0 (legitimate); typed value passes through.
+                        humidity: (function () {
+                            var raw = e.querySelector(".gaip-manual-humidity")?.value;
+                            return raw === "" || raw == null ? null : safeNum(raw, null);
+                        })(),
                         rainfall: safeNum(e.querySelector(".gaip-manual-rain")?.value, 0) || null,
                         rainyDays: safeNum(e.querySelector(".gaip-manual-rainy-days")?.value, 0) || null,
                         dewpoint: null,
@@ -1078,7 +1111,18 @@ function gaip_build_state(e) {
                 percentC3Cover: safeNum(e.querySelector(".gaip-c3-cover")?.value, 0),
                 hoc: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
                 heightOfCut: safeNum(e.querySelector(".gaip-hoc")?.value, 25),
-                nProgramKgHaYr: safeNum(e.querySelector(".gaip-n-program")?.value, 0),
+                // b35fix312 Fix 2: Nutrition Program panel input takes precedence
+                // over the legacy Site Settings input. Two separate fields exist
+                // (.gaip-nutrition-annual-n in the Nutrition Program section,
+                // .gaip-n-program in the Turf Profile section). If the user
+                // types a value into the Nutrition Program panel (the primary
+                // UX for this), it wins. Otherwise fall back to the Site
+                // Settings value.
+                nProgramKgHaYr: (function() {
+                    var nutritionVal = e.querySelector(".gaip-nutrition-annual-n")?.value;
+                    if (nutritionVal) return safeNum(nutritionVal, 0);
+                    return safeNum(e.querySelector(".gaip-n-program")?.value, 0);
+                })(),
                 construction: e.querySelector(".gaip-construction")?.value || "",
                 drainage: e.querySelector(".gaip-drainage")?.value || "",
                 cleggHammer: safeNum(e.querySelector(".gaip-clegg-hammer")?.value, 0),
@@ -1589,18 +1633,18 @@ function assessPHImpact(e) {
                 (n = "Maintain current pH. Excellent nutrient availability for all major and minor nutrients.")) :
             e < 7.5 ?
             ((t = "Slightly Alkaline"),
-                (r = "Fe/Mn availability declining. P beginning to tie up with Ca. Monitor micronutrients."),
+                (r = "Fe/Mn availability declining. P beginning to tie up with Ca. Monitor trace elements."),
                 (n =
                     "Monitor Fe status closely. Use chelated Fe (Fe-EDDHA) if chlorosis appears. Consider acidification for putting greens.")) :
             e < 8 ?
             ((t = "Alkaline"),
                 (r =
-                    "Fe/Mn/Zn lockup likely. P unavailable (Ca-phosphate precipitation). Micronutrient deficiency risk high."),
+                    "Fe/Mn/Zn lockup likely. P unavailable (Ca-phosphate precipitation). Trace element deficiency risk high."),
                 (n =
-                    "Apply chelated micronutrients (Fe-EDDHA, Mn-EDTA). Acidify with elemental sulphur or acidifying fertilisers. Target pH 6.5-7.0.")) :
+                    "Apply chelated trace elements (Fe-EDDHA, Mn-EDTA). Acidify with elemental sulphur or acidifying fertilisers. Target pH 6.5-7.0.")) :
             ((t = "Highly Alkaline"),
                 (r =
-                    "SEVERE micronutrient lockup. Fe/Mn/Zn/Cu unavailable. P completely tied up. Major deficiency risk."),
+                    "SEVERE trace element lockup. Fe/Mn/Zn/Cu unavailable. P completely tied up. Major deficiency risk."),
                 (n =
                     "URGENT: Aggressive acidification program with elemental sulphur (100-200 kg/ha). Weekly chelated Fe applications. May require rootzone modification if calcareous subsoil.")), {
                 pH: e,
@@ -1762,7 +1806,7 @@ function assessCEC(e) {
             ((t = "Moderate-High"),
                 (r = `CEC ${e.toFixed(1)} meq/100g - High nutrient retention. Lower fertilisation frequency possible.`),
                 (n =
-                    "Less frequent fertilisation needed (6-8 week intervals). Watch for micronutrient tie-up at high pH. May need higher K rates to compete with Ca/Mg on exchange sites.")) :
+                    "Less frequent fertilisation needed (6-8 week intervals). Watch for trace element tie-up at high pH. May need higher K rates to compete with Ca/Mg on exchange sites.")) :
             ((t = "High"),
                 (r = `CEC ${e.toFixed(1)} meq/100g - Very high buffering capacity (typical heavy clay - not ideal for high-performance sports turf).`),
                 (n =
@@ -2551,21 +2595,35 @@ function mlsnEngine(state, weather) {
         };
     } else {
         // MLSN methodology - fixed thresholds with pH adjustment for P
+        // b35fix301a: MLSN_THRESHOLDS sourced from gaip-classification-constants.js.
+        //             Fallback literal retained for Node-test contexts.
+        // NB: The inline pH-adjustment block below is NOT harmonised in 301a.
+        //     It uses strict-inequality boundaries (soilPH < 5.5, soilPH > 7.5, ...)
+        //     which differ at equality from the pH-adjust block in
+        //     nutrition-summary-integration.js (which uses ph <= adj.maxPh).
+        //     Harmonisation of pH-adjust semantics deferred to a later build.
+        const _gcc_ht = (typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+                        (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) ||
+                        null;
+        const _mlsnBase = _gcc_ht ? _gcc_ht.MLSN_THRESHOLDS : {
+            P: 21, K: 37, Ca: 331, Mg: 47, S: 7,
+            Fe: 2, Mn: 1, Zn: 1, Cu: 0.3, B: 0.3
+        };
         referenceThresholds = {
-            P: 21,
-            K: 37,
-            Ca: 331,
-            Mg: 47,
-            S: 7,
-            Fe: 2,
-            Mn: 1,
-            Zn: 1,
-            Cu: 0.3,
-            B: 0.3,
+            P: _mlsnBase.P,
+            K: _mlsnBase.K,
+            Ca: _mlsnBase.Ca,
+            Mg: _mlsnBase.Mg,
+            S: _mlsnBase.S,
+            Fe: _mlsnBase.Fe,
+            Mn: _mlsnBase.Mn,
+            Zn: _mlsnBase.Zn,
+            Cu: _mlsnBase.Cu,
+            B: _mlsnBase.B,
             _methodology: "MLSN",
         };
 
-        // pH-based P threshold adjustment
+        // pH-based P threshold adjustment (inline, unchanged in 301a)
         if (soilPH) {
             if (soilPH < 5.5) referenceThresholds.P = 35;
             else if (soilPH < 6) referenceThresholds.P = 28;
@@ -4918,7 +4976,7 @@ function generateRecoveryCalendar(e, t, r) {
             o.growth > 1.3 &&
             _ &&
             (P +=
-                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">⚡</div><div><div style="color: var(--gaip-text);"><strong>Deploy LED grow lights</strong> to boost effective GP during dormancy</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Target 15+ mol/m²/day supplemental DLI to halve recovery time</div></div></div>'),
+                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">—</div><div><div style="color: var(--gaip-text);"><strong>Deploy LED grow lights</strong> to boost effective GP during dormancy</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Target 15+ mol/m²/day supplemental DLI to halve recovery time</div></div></div>'),
             _ && n >= 2)
     ) {
         0;
@@ -5926,9 +5984,21 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                         weighted: (calcC3GrowthPotential(ft) + calcC4GrowthPotential(ft)) / 2,
                     },
                     moisture: {
+                        // b35fix345: null-passthrough when manual humidity not entered.
+                        // Pre-fix `It.humidity || 70` planted literal 70 into
+                        // window.climateMetrics.moisture.humidity.mean — picked up by
+                        // hub-orchestrator's getAuthoritativeClimate as if real data,
+                        // dispatched to disease-engine-pure where Smith-Kerns and
+                        // Fidanza Brown Patch logged `MEANRH 70.00 (period mean)`
+                        // and `meanRH 70.0% (period mean (fallback))` on every Kew
+                        // first-paint analysis after site-switch, before live weather
+                        // fetch returned. Production log gilbasolutions_com-1777182748764
+                        // 2026-04-26 lines 1798-1810, 1854-1866. Emit null with a
+                        // dataSource tag so downstream engines degrade explicitly.
                         humidity: {
-                            mean: It.humidity || 70,
-                            night: It.humidity || 70,
+                            mean: It.humidity != null ? It.humidity : null,
+                            night: It.humidity != null ? It.humidity : null,
+                            dataSource: It.humidity != null ? 'manual' : 'no-data',
                         },
                         rainfall: It.rainfall || 0,
                         et0: $t,
@@ -5948,17 +6018,26 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         }
         var Dt = document.querySelector(".gaip-sensor-body"),
             Gt = document.getElementById("gaip-sensor-results-section");
-        // Only show TDR results section for CSV/manual imports.
-        // Hydrosight live data is already surfaced in the irrigation section.
-        var _csvOnly = window.GAIP_SensorBridge ?
-            window.GAIP_SensorBridge.getSourceInfo().hasCSVData :
+        // b35fix297: Show sensor results for ANY source (CSV, Hydrosight live, SpecConnect).
+        // Previous _csvOnly guard excluded live Hydrosight data from this section entirely.
+        // Now uses SensorBridge.hasData() which checks all sources, falling back to
+        // GAIP_Sensor.hasData() if bridge is not loaded.
+        var _hasSensorData = window.GAIP_SensorBridge ?
+            window.GAIP_SensorBridge.hasData() :
             window.GAIP_Sensor && window.GAIP_Sensor.hasData();
-        if (Dt && _csvOnly) {
+        if (Dt && _hasSensorData) {
             try {
                 Gt && (Gt.style.display = "block");
-                var Lt = window.GAIP_Sensor.getZoneSummaries ? window.GAIP_Sensor.getZoneSummaries() : null,
-                    Ot = window.GAIP_Sensor.getData ? window.GAIP_Sensor.getData() : [],
-                    zt =
+                // b35fix297: Read zone summaries from bridge (normalised array from all sources)
+                // Falls back to GAIP_Sensor.getZoneSummaries() if bridge unavailable
+                var Lt = window.GAIP_SensorBridge && window.GAIP_SensorBridge.getZoneSummaries
+                    ? window.GAIP_SensorBridge.getZoneSummaries()
+                    : (window.GAIP_Sensor && window.GAIP_Sensor.getZoneSummaries ? window.GAIP_Sensor.getZoneSummaries() : null);
+                var _readingCount = window.GAIP_SensorBridge && window.GAIP_SensorBridge.getReadingCount
+                    ? window.GAIP_SensorBridge.getReadingCount()
+                    : 0;
+                var Ot = window.GAIP_Sensor && window.GAIP_Sensor.getData ? window.GAIP_Sensor.getData() : [];
+                var zt =
                     '<div style="padding: 16px; background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%); border-radius: 8px; border-left: 4px solid #10b981;">';
                 if (Lt && Array.isArray(Lt) && Lt.length > 0)
                     ((zt += '<div style="font-weight: 600; color: #166534; margin-bottom: 12px;">📊 Zone Summary</div>'),
@@ -6000,7 +6079,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                     (window.GAIP_STATE = window.GAIP_STATE || {}),
                     (window.GAIP_STATE.sensorData = {
                         zones: Lt,
-                        readings: Ot.readings ? Ot.readings.length : 0,
+                        readings: _readingCount || (Ot.readings ? Ot.readings.length : 0),
                     }));
             } catch (e) {
                 (console.error("Sensor rendering error:", e),
@@ -6376,6 +6455,35 @@ function initTurfTypeMode() {
                                 c = a && a.forecast && a.forecast.hourly && a.forecast.hourly.temperature_2m,
                                 p = a && a.historical && a.historical.hourly && a.historical.hourly.temperature_2m;
                             a && a.manual && t.climate && t.climate.manual;
+                            
+                            // b35fix374: Initialize fallback P object for failed weather fetch.
+                            // When gaip_fetch_weather() fails or returns unexpected structure,
+                            // c=null && p=null so the if(c||p) block never executes, leaving
+                            // P undefined. This causes validateClimateMetrics(P) to fail and
+                            // window.climateMetrics=null, breaking disease models.
+                            // Default P provides basic temperature structure from location-based
+                            // estimates, ensuring disease models always get valid temperature data.
+                            var _lat = Math.abs(t.climate?.lat || t.climate?.latitude || -33);
+                            var _fallbackTemp = _lat < 25 ? 22 : _lat < 35 ? 20 : 18; // Warmer closer to equator
+                            var P = {
+                                temperature: {
+                                    mean: _fallbackTemp,
+                                    max: _fallbackTemp + 5,
+                                    min: _fallbackTemp - 5,
+                                    todayMean: _fallbackTemp
+                                },
+                                moisture: { humidity: {}, dailyPattern: null },
+                                stress: {},
+                                growth: { c3: null, c4: null, weighted: null },
+                                _source: 'fallback_weather_fetch_failed'
+                            };
+                            
+                            if (c || p) {
+                                console.log('[b35fix374] Weather data available - processing temperature arrays');
+                            } else {
+                                console.warn('[b35fix374] Weather fetch failed or incomplete - using fallback climate metrics (temp=' + _fallbackTemp + '°C, lat=' + _lat + ')');
+                            }
+                            
                             if (c || p)
                                 try {
                                     var g = [],
@@ -6403,8 +6511,120 @@ function initTurfTypeMode() {
                                     for (var k = 0, A = 0; A < b.length; A++) k += b[A];
                                     var E = b.length > 0 ? k / b.length : 20,
                                         N = w.length > 0 ? Math.max.apply(null, w) : 25,
-                                        T = x.length > 0 ? Math.min.apply(null, x) : 10,
-                                        P = {
+                                        T = x.length > 0 ? Math.min.apply(null, x) : 10;
+                                    // ===========================================================
+                                    // b35fix356 Edit 1 — humidity extraction from raw weather hourly RH.
+                                    // ===========================================================
+                                    // Pre-fix this P-builder only populated P.temperature, P.stress,
+                                    // P.growth from a.forecast.hourly.temperature_2m. Humidity arrays
+                                    // present at a.forecast.hourly.relative_humidity_2m (and
+                                    // a.historical.hourly.relative_humidity_2m) were ignored entirely
+                                    // — zero references in this file pre-fix. Then validateClimateMetrics
+                                    // at line ~770 only writes r.moisture.humidity if e.moisture is
+                                    // truthy. P had no .moisture key, so the validated output emitted
+                                    // r.moisture = {} (empty), which then overwrote whatever the v2
+                                    // climate engine's legacy shim had previously written to
+                                    // window.climateMetrics. Net effect (production log
+                                    // gilbasolutions_com-1777253122159, 10/10 forecast invocations):
+                                    // moisture.humidity.mean=undefined | humidity.mean=undefined |
+                                    // hourly.humidity[len]=n/a | hourlyData.relative_humidity_2m[len]=
+                                    // sometimes 192 — every humidity field on state.climateMetrics
+                                    // came back undefined while the orchestrator's primary call (which
+                                    // routes through getAuthoritativeClimate's adapter) saw real
+                                    // hourly RH on the same run. The two writers to window.climateMetrics
+                                    // (the v2 shim and this P builder) were producing strictly different
+                                    // shapes, with the P builder's overwrite stripping humidity to nothing.
+                                    //
+                                    // Post-fix the P builder mirrors the temperature aggregation pattern
+                                    // for relative humidity:
+                                    //   - rhVals: concat historical + forecast hourly RH arrays
+                                    //   - rhTimes: matching time array (used for per-day grouping)
+                                    //   - rhCurrent: index by current hour (open-meteo arrays start at
+                                    //     hour 0 of start_date local time, so getHours() is the index)
+                                    //   - rhDailyPattern: per-day mean from the same time-bucket map
+                                    //     used for temperature, so disease-forecast.buildDailyClimate's
+                                    //     moistureDaily[i].humidity 'per-day' rung resolves on every
+                                    //     forecast day, not just the period mean fallback
+                                    // Strict numeric guard (typeof === 'number' && !isNaN) on every
+                                    // entry so synthetic null arrays don't fabricate; same guard pattern
+                                    // as get5DayMeanRH (b35fix335).
+                                    var _rhForecast = c && a.forecast.hourly.relative_humidity_2m,
+                                        _rhHistorical = p && a.historical.hourly.relative_humidity_2m,
+                                        _rhVals = [],
+                                        _rhTimes = [];
+                                    (_rhHistorical && Array.isArray(_rhHistorical) &&
+                                        ((_rhVals = _rhVals.concat(_rhHistorical)), (_rhTimes = _rhTimes.concat(a.historical.hourly.time))),
+                                        _rhForecast && Array.isArray(_rhForecast) &&
+                                        ((_rhVals = _rhVals.concat(_rhForecast)), (_rhTimes = _rhTimes.concat(a.forecast.hourly.time))));
+                                    var _rhSum = 0,
+                                        _rhCount = 0,
+                                        _rhMin = 100,
+                                        _rhMax = 0,
+                                        _rhMean = null,
+                                        _rhCurrent = null,
+                                        _rhMinOut = null,
+                                        _rhMaxOut = null,
+                                        _rhDailyPattern = null,
+                                        _rhDailyMap = {};
+                                    for (var _ri = 0; _ri < _rhVals.length; _ri++) {
+                                        var _rv = _rhVals[_ri];
+                                        if (typeof _rv === 'number' && !isNaN(_rv)) {
+                                            _rhSum += _rv;
+                                            _rhCount++;
+                                            if (_rv < _rhMin) _rhMin = _rv;
+                                            if (_rv > _rhMax) _rhMax = _rv;
+                                            var _rd = _rhTimes[_ri] ? _rhTimes[_ri].substring(0, 10) : "";
+                                            _rhDailyMap[_rd] || (_rhDailyMap[_rd] = { vals: [], min: 100, max: 0 });
+                                            _rhDailyMap[_rd].vals.push(_rv);
+                                            if (_rv < _rhDailyMap[_rd].min) _rhDailyMap[_rd].min = _rv;
+                                            if (_rv > _rhDailyMap[_rd].max) _rhDailyMap[_rd].max = _rv;
+                                        }
+                                    }
+                                    if (_rhCount > 0) {
+                                        _rhMean = Math.round(10 * (_rhSum / _rhCount)) / 10;
+                                        _rhMinOut = Math.round(10 * _rhMin) / 10;
+                                        _rhMaxOut = Math.round(10 * _rhMax) / 10;
+                                        // Current hour: index forecast array by getHours() (open-meteo
+                                        // forecast hourly starts at hour 0 of start_date local time).
+                                        // Falls back to the most recent numeric entry in the combined
+                                        // array if the current-hour index is missing or non-numeric.
+                                        if (_rhForecast && Array.isArray(_rhForecast)) {
+                                            var _rhHour = new Date().getHours();
+                                            if (_rhHour < _rhForecast.length &&
+                                                typeof _rhForecast[_rhHour] === 'number' && !isNaN(_rhForecast[_rhHour])) {
+                                                _rhCurrent = Math.round(10 * _rhForecast[_rhHour]) / 10;
+                                            }
+                                        }
+                                        if (_rhCurrent == null) {
+                                            for (var _rj = _rhVals.length - 1; _rj >= 0; _rj--) {
+                                                var _rvL = _rhVals[_rj];
+                                                if (typeof _rvL === 'number' && !isNaN(_rvL)) {
+                                                    _rhCurrent = Math.round(10 * _rvL) / 10;
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                        // Per-day pattern in date order — mirrors disease-forecast.js
+                                        // buildDailyClimate's moistureDaily[i].humidity 'per-day' rung.
+                                        var _rhDates = Object.keys(_rhDailyMap).sort();
+                                        if (_rhDates.length > 0) {
+                                            _rhDailyPattern = [];
+                                            for (var _rk = 0; _rk < _rhDates.length; _rk++) {
+                                                var _rdEntry = _rhDailyMap[_rhDates[_rk]];
+                                                if (_rdEntry.vals.length > 0) {
+                                                    var _rdSum = 0;
+                                                    for (var _rl = 0; _rl < _rdEntry.vals.length; _rl++) _rdSum += _rdEntry.vals[_rl];
+                                                    _rhDailyPattern.push({
+                                                        date: _rhDates[_rk],
+                                                        humidity: Math.round(10 * (_rdSum / _rdEntry.vals.length)) / 10,
+                                                        min: Math.round(10 * _rdEntry.min) / 10,
+                                                        max: Math.round(10 * _rdEntry.max) / 10,
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }
+                                    var P = {
                                             temperature: {
                                                 mean: Math.round(10 * E) / 10,
                                                 max: Math.round(10 * N) / 10,
@@ -6419,6 +6639,18 @@ function initTurfTypeMode() {
                                                     if (c && c.length > 0) return Math.round(10 * c[0]) / 10;
                                                     return Math.round(10 * E) / 10;
                                                 })(),
+                                            },
+                                            // b35fix356: moisture key always present so validateClimateMetrics
+                                            // executes its `e.moisture && ...` branch and propagates
+                                            // r.moisture.humidity. When _rhCount === 0 (no numeric RH
+                                            // entries in either forecast or historical hourly arrays),
+                                            // moisture.humidity is the empty object — same shape
+                                            // validateClimateMetrics emits today, but now reachable.
+                                            moisture: {
+                                                humidity: _rhCount > 0
+                                                    ? { mean: _rhMean, current: _rhCurrent, min: _rhMinOut, max: _rhMaxOut }
+                                                    : {},
+                                                dailyPattern: _rhDailyPattern,
                                             },
                                             stress: {},
                                             growth: {},
@@ -7246,5 +7478,95 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener("gaip:site-changed", function() {
         var existing = document.getElementById(BANNER_ID);
         if (existing) existing.parentNode.removeChild(existing);
+    });
+})();
+
+// ==========================================================================
+// b35fix298: Re-render sensor pane when Hydrosight (or any live source)
+// delivers data AFTER the initial hub-tissue render pass.
+// Without this, the sensor section shows "No sensor data available" until
+// page reload because fetchLiveData completes after hub-tissue renders.
+// ==========================================================================
+(function() {
+    'use strict';
+
+    function rerenderSensorPane() {
+        var Dt = document.querySelector('.gaip-sensor-body');
+        var Gt = document.getElementById('gaip-sensor-results-section');
+        if (!Dt) return; // DOM element not present
+
+        var _hasSensorData = window.GAIP_SensorBridge ?
+            window.GAIP_SensorBridge.hasData() :
+            window.GAIP_Sensor && window.GAIP_Sensor.hasData();
+
+        if (!_hasSensorData) return; // still no data — nothing to render
+
+        try {
+            Gt && (Gt.style.display = 'block');
+
+            var Lt = window.GAIP_SensorBridge && window.GAIP_SensorBridge.getZoneSummaries
+                ? window.GAIP_SensorBridge.getZoneSummaries()
+                : (window.GAIP_Sensor && window.GAIP_Sensor.getZoneSummaries ? window.GAIP_Sensor.getZoneSummaries() : null);
+            var _readingCount = window.GAIP_SensorBridge && window.GAIP_SensorBridge.getReadingCount
+                ? window.GAIP_SensorBridge.getReadingCount()
+                : 0;
+
+            var zt = '<div style="padding: 16px; background: linear-gradient(135deg, var(--gaip-good-bg) 0%, var(--gaip-good-bg) 100%); border-radius: 8px; border-left: 4px solid #10b981;">';
+
+            if (Lt && Array.isArray(Lt) && Lt.length > 0) {
+                zt += '<div style="font-weight: 600; color: #166534; margin-bottom: 12px;">📊 Zone Summary</div>';
+                zt += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px;">';
+                Lt.forEach(function(e) {
+                    if (e.name && 'Unlabelled' !== e.name) {
+                        var t = e.avg;
+                        if (null != t) {
+                            var r = t < 15 ? '#dc2626' : t < 20 ? '#f59e0b' : t > 35 ? '#3b82f6' : '#16a34a';
+                            var n = t < 15 ? 'Dry' : t < 20 ? 'Low' : t > 35 ? 'Wet' : 'Optimal';
+                            zt += '<div style="background: var(--gaip-surface); padding: 12px; border-radius: 6px; border: 1px solid var(--gaip-good-bg);">';
+                            zt += '<div style="font-weight: 600; color: #065f46; font-size: 13px;">' + e.name + '</div>';
+                            zt += '<div style="font-size: 24px; font-weight: 700; color: ' + r + ';">' + t.toFixed(1) + '%</div>';
+                            zt += '<div style="font-size: 11px; color: var(--gaip-text-muted, var(--gaip-text-secondary));">VWC (' + n + ')</div>';
+                            zt += '<div style="font-size: 11px; margin-top: 4px;">' + e.count + ' readings</div>';
+                            if (e._isLive) {
+                                zt += '<div style="font-size: 10px; color: #10b981; margin-top: 2px;">🛰️ Live</div>';
+                            }
+                            zt += '</div>';
+                        }
+                    }
+                });
+                zt += '</div>';
+            } else if (_readingCount > 0) {
+                zt += '<div style="font-weight: 600; color: #166534; margin-bottom: 8px;">📊 Sensor Overview</div>';
+                zt += '<div style="font-size: 14px;"><strong>' + _readingCount + '</strong> readings</div>';
+            }
+
+            zt += '</div>';
+            Dt.innerHTML = zt;
+
+            window.GAIP_STATE = window.GAIP_STATE || {};
+            window.GAIP_STATE.sensorData = {
+                zones: Lt,
+                readings: _readingCount
+            };
+
+            console.log('[SensorPane] Re-rendered after live data arrived —', 
+                Lt ? Lt.length + ' zones' : 'overview only');
+
+        } catch (err) {
+            console.error('[SensorPane] Re-render error:', err);
+        }
+    }
+
+    // Listen for the bridge's unified sensor update event
+    document.addEventListener('gaip:sensor:updated', function() {
+        rerenderSensorPane();
+    });
+
+    // Also listen for direct Hydrosight updates (in case bridge isn't loaded)
+    document.addEventListener('gaip:hydrosight:updated', function() {
+        if (!window.GAIP_SensorBridge) {
+            rerenderSensorPane();
+        }
+        // If bridge IS loaded, gaip:sensor:updated will fire — avoid double render
     });
 })();

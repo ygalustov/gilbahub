@@ -168,7 +168,7 @@ function renderRecycledWaterAdvisory(rwResult) {
     }
 
     html += renderItems(rwResult.nForm, 'N Form Advisory');
-    html += renderItems(rwResult.micronutrient, 'Micronutrient Availability');
+    html += renderItems(rwResult.micronutrient, 'Trace Element Availability');
     html += renderItems(rwResult.cationRatio, 'Cation Ratio Disturbance');
 
     html += '</div></div>';

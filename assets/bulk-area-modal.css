@@ -1,0 +1,238 @@
+/* =============================================================================
+   GILBA HUB — BULK AREA MODAL (b35fix311)
+   =============================================================================
+   Tokenised against the existing gaip-design-system variables so dark/light
+   reskin applies automatically. No hardcoded colours beyond subtle state tints.
+   ============================================================================= */
+
+.gaip-bulk-area-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    display: none;                /* toggled to flex via JS when opened */
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+}
+
+.gaip-bulk-dialog {
+    background: var(--gaip-bg-raised, #ffffff);
+    color: var(--gaip-text, #1a2b23);
+    border: 1px solid var(--gaip-border, #d0d7d4);
+    border-radius: var(--gaip-r-l, 12px);
+    width: 760px;
+    max-width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    font-family: var(--gaip-sans, -apple-system, BlinkMacSystemFont, sans-serif);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* ── header ── */
+.gaip-bulk-dialog-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--gaip-border, #d0d7d4);
+    flex-shrink: 0;
+}
+.gaip-bulk-dialog-title {
+    margin: 0;
+    font-family: var(--gaip-serif, Georgia, serif);
+    font-size: 20px;
+    font-weight: 600;
+}
+.gaip-bulk-close {
+    background: none;
+    border: none;
+    color: var(--gaip-text-secondary, #5a6b65);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0 6px;
+    line-height: 1;
+}
+.gaip-bulk-close:hover { color: var(--gaip-text, #1a2b23); }
+
+/* ── intro ── */
+.gaip-bulk-intro {
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--gaip-border-soft, #e5ebe8);
+    flex-shrink: 0;
+}
+.gaip-bulk-intro p {
+    margin: 0;
+    color: var(--gaip-text-secondary, #5a6b65);
+    font-size: 13px;
+}
+
+/* ── groups container (scrollable) ── */
+.gaip-bulk-groups {
+    overflow-y: auto;
+    padding: 14px 22px;
+    flex: 1;
+    min-height: 0;
+}
+
+.gaip-bulk-group {
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--gaip-border-soft, #e5ebe8);
+}
+.gaip-bulk-group:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+.gaip-bulk-group-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.gaip-bulk-group-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gaip-text, #1a2b23);
+}
+.gaip-bulk-group-count {
+    font-weight: 400;
+    color: var(--gaip-text-faint, #8a9691);
+    font-size: 13px;
+}
+.gaip-bulk-group-all {
+    font-size: 12px;
+    color: var(--gaip-text-secondary, #5a6b65);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.gaip-bulk-group-all input {
+    width: 90px;
+    padding: 4px 8px;
+    border: 1px solid var(--gaip-border, #d0d7d4);
+    background: var(--gaip-bg, #ffffff);
+    color: var(--gaip-text, #1a2b23);
+    border-radius: var(--gaip-r-s, 4px);
+    font-size: 13px;
+    font-family: var(--gaip-mono, monospace);
+}
+.gaip-bulk-group-hint {
+    font-size: 11px;
+    color: var(--gaip-text-faint, #8a9691);
+    font-style: italic;
+    margin-left: auto;
+}
+
+/* ── per-sample table ── */
+.gaip-bulk-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+}
+.gaip-bulk-table th {
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gaip-text-faint, #8a9691);
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--gaip-border-soft, #e5ebe8);
+}
+.gaip-bulk-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--gaip-border-soft, #e5ebe8);
+    font-size: 13px;
+    vertical-align: middle;
+}
+.gaip-bulk-sample-label {
+    color: var(--gaip-text, #1a2b23);
+    font-weight: 500;
+}
+.gaip-bulk-current {
+    font-family: var(--gaip-mono, monospace);
+    color: var(--gaip-text-secondary, #5a6b65);
+}
+.gaip-bulk-row-area {
+    width: 140px;
+    padding: 3px 7px;
+    border: 1px solid var(--gaip-border, #d0d7d4);
+    background: var(--gaip-bg, #ffffff);
+    color: var(--gaip-text, #1a2b23);
+    border-radius: var(--gaip-r-s, 4px);
+    font-size: 12px;
+    font-family: var(--gaip-mono, monospace);
+}
+
+/* ── status badges ── */
+.gaip-bulk-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+.gaip-bulk-badge-set {
+    background: rgba(79, 156, 115, 0.15);
+    color: #3a7a59;
+    border: 1px solid rgba(79, 156, 115, 0.3);
+}
+.gaip-bulk-badge-missing {
+    background: rgba(216, 160, 74, 0.15);
+    color: #a87a2a;
+    border: 1px solid rgba(216, 160, 74, 0.35);
+}
+
+/* ── footer ── */
+.gaip-bulk-dialog-foot {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 22px;
+    border-top: 1px solid var(--gaip-border, #d0d7d4);
+    flex-shrink: 0;
+}
+.gaip-bulk-status {
+    flex: 1;
+    font-size: 12px;
+    color: var(--gaip-text-secondary, #5a6b65);
+}
+.gaip-bulk-status-ok    { color: #3a7a59; font-weight: 500; }
+.gaip-bulk-status-warn  { color: #a87a2a; font-weight: 500; }
+.gaip-bulk-status-error { color: #c96a5f; font-weight: 500; }
+
+.gaip-bulk-cancel,
+.gaip-bulk-apply {
+    padding: 7px 14px;
+    border-radius: var(--gaip-r-s, 4px);
+    border: 1px solid var(--gaip-border, #d0d7d4);
+    background: var(--gaip-bg-raised, #ffffff);
+    color: var(--gaip-text, #1a2b23);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+}
+.gaip-bulk-cancel:hover { border-color: var(--gaip-text-secondary, #5a6b65); }
+.gaip-bulk-apply {
+    background: var(--gaip-green-soft, #3a7a59);
+    border-color: var(--gaip-green-soft, #3a7a59);
+    color: #fff;
+    font-weight: 600;
+}
+.gaip-bulk-apply:hover { background: var(--gaip-green, #4f9c73); }
+
+/* ── responsive ── */
+@media (max-width: 620px) {
+    .gaip-bulk-group-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .gaip-bulk-group-hint { margin-left: 0; }
+    .gaip-bulk-dialog { max-height: 95vh; }
+}

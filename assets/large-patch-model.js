@@ -73,10 +73,25 @@ const LargePatchModel = {
      * @returns {Object|null} Risk result or null if species not applicable
      */
     calculate(climate, nitrogen, variety, soil, dormancy, normalizedSpecies) {
-        const meanTemp = climate?.temperature?.mean || 20;
+        // b35fix345: null-passthrough on temperature and humidity. Pre-fix
+        // meanTemp `|| 20` and humidity `|| 70` planted fabricated values.
+        // Large patch is C4-only (Rhizoctonia solani AG 2-2 LP) and requires
+        // soil-temp signal to drive timing; without meanTemp we degrade.
+        const meanTemp = climate?.temperature?.mean ?? null;
+        const humidity = climate?.moisture?.humidity?.mean ?? null;
+        if (meanTemp == null) {
+            return {
+                disease: 'largePatch',
+                displayName: 'Large Patch',
+                riskScore: 0, rawRisk: 0, riskLevel: 'low',
+                confidence: 'low', confidenceScore: 30, degraded: true,
+                source: 'LargePatchModel — degraded: temperature missing (b35fix345)',
+                drivers: { temperature: { value: null, status: 'missing' },
+                           humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
+            };
+        }
         const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
         const maxTemp = climate?.temperature?.max ?? (meanTemp + 5);
-        const humidity = climate?.moisture?.humidity?.mean || 70;
         const precip = climate?.precipitation?.total || 0;
         const nStatus = nitrogen?.status || 'adequate';
         
@@ -219,13 +234,17 @@ const LargePatchModel = {
         let moistureRisk = 0;
         let moistureNote = null;
         
-        if (humidity > 90) {
-            moistureRisk = 30;
-            moistureNote = 'Very high humidity favouring disease';
-        } else if (humidity > 80) {
-            moistureRisk = 20;
-        } else if (humidity > 70) {
-            moistureRisk = 10;
+        // b35fix345: null-guard. When humidity null, moistureRisk is 0
+        // (no fabricated risk from default 70%).
+        if (humidity != null) {
+            if (humidity > 90) {
+                moistureRisk = 30;
+                moistureNote = 'Very high humidity favouring disease';
+            } else if (humidity > 80) {
+                moistureRisk = 20;
+            } else if (humidity > 70) {
+                moistureRisk = 10;
+            }
         }
         
         // Precipitation bonus

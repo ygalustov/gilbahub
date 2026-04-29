@@ -177,6 +177,37 @@
         var hour = hourData.hour;
         var precipitation = hourData.precipitation;
 
+        // b35fix345: degrade explicitly when temperature or humidity is null.
+        // Pre-fix the per-hour synth (line 320-321) papered nulls with literal
+        // 15°C and 70% RH, so this function never received null and never
+        // exercised any degraded path. Now the synth passes nulls through;
+        // calculateHourlyDewProbability returns a "no-data" result instead
+        // of computing dew probability against fabricated inputs.
+        if (temperature == null || humidity == null) {
+            return {
+                probability: null,
+                intensity: 'unknown',
+                intensityScore: 0,
+                factors: {
+                    dewPointDepression: null,
+                    surfaceDepression: null,
+                    surfaceTemp: null,
+                    dewPoint: null,
+                    cloudFactor: 0,
+                    windFactor: 0,
+                    timeFactor: 0,
+                    soilFactor: 0,
+                    precipitationMm: safeNum(precipitation, 0)
+                },
+                isNight: isNightHour(hour),
+                isPeakWindow: isPeakDewHour(hour),
+                degraded: true,
+                degradedReason: temperature == null && humidity == null
+                    ? 'no temperature or humidity data'
+                    : temperature == null ? 'no temperature data' : 'no humidity data'
+            };
+        }
+
         var physics = DEW_CONFIG.physics;
         var night = isNightHour(hour);
         var isPeak = isPeakDewHour(hour);
@@ -317,11 +348,18 @@
             }
 
             var result = calculateHourlyDewProbability({
-                temperature: safeNum(hourly.temperature_2m[i], 15),
-                humidity: safeNum(hourly.relative_humidity_2m ? hourly.relative_humidity_2m[i] : null, 70),
+                // b35fix345: null-passthrough on temperature, humidity, and
+                // cloud cover. Pre-fix planted literal 15°C, 70% RH, 50%
+                // cloud on every hour where the source array was missing —
+                // dew engine then computed dew probability against fabricated
+                // inputs and the disease engines downstream consumed that
+                // fabricated leaf-wetness signal. calculateHourlyDewProbability
+                // now degrades explicitly on null inputs (added in this build).
+                temperature: safeNum(hourly.temperature_2m[i], null),
+                humidity: safeNum(hourly.relative_humidity_2m ? hourly.relative_humidity_2m[i] : null, null),
                 dewpoint: hourly.dewpoint_2m ? safeNum(hourly.dewpoint_2m[i], null) : null,
                 windSpeed: wind,
-                cloudCover: safeNum(hourly.cloud_cover ? hourly.cloud_cover[i] : null, 50),
+                cloudCover: safeNum(hourly.cloud_cover ? hourly.cloud_cover[i] : null, null),
                 soilMoisture: soilMoist,
                 hour: hour,
                 precipitation: precip

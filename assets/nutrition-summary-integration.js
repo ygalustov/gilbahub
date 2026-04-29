@@ -1,8 +1,26 @@
 /**
  * =============================================================================
- * GILBA NUTRITION SUMMARY INTEGRATION v1.1.3
+ * GILBA NUTRITION SUMMARY INTEGRATION v1.2.0
  * =============================================================================
- * 
+ *
+ * v1.2.0 (b35fix302b): Delegate calculation to NutritionRequirementEngine_Pure.
+ *   - Fixes Jerry's reported combined-export bug where every green/sportsground
+ *     showed identical fertiliser recs (stale GAIP_NUTRITION_SOIL_CACHE across
+ *     site switches). Engine computes per-sample requirements from that
+ *     sample's soil chemistry directly.
+ *   - renderNutritionSummary now calls engine.compute() and reads perSample +
+ *     facility from the return object. Cache populated from engine output.
+ *   - Local calculation functions preserved as fallback path (marked deprecated)
+ *     and will be removed in b35fix31x once engine-load stability is confirmed
+ *     across GAIP + GSSH modes.
+ *   - Latent bugs silently fixed by engine: duplicate 'couch' key in
+ *     removalRates, 'zoysia'/'paspalum' alias typos (all silently fell to
+ *     mixedCool defaults). Zoysia + paspalum sites now get species-correct
+ *     removal rates.
+ *   - C3-on-C3 overseed misconfiguration guard added (engine-side).
+ *   - User N-override (turf.nProgramKgHaYr via orchestrator/DOM) preserved
+ *     through extractUserAnnualN() → engine's turf.nProgramKgHaYr input.
+ *
  * v1.1.3: Fixed straight C3 grass incorrectly showing as overseed
  *   - Added strict validation: baseIsC4 must be TRUE (verified by isC4Species)
  *   - Added check: base and overseed must be DIFFERENT species
@@ -44,9 +62,21 @@
         version: '1.1.3',
         debug: false,
         
-        mlsnThresholds: { P: 21, K: 37, Ca: 331, Mg: 47, S: 6 },
+        // b35fix301a: mlsnThresholds sourced from gaip-classification-constants.js.
+        //             MLSN S value changes from 6 to 7 — standardisation onto
+        //             the published MLSN guideline (Woods, Stowell, Gelernter 2016).
+        mlsnThresholds:
+            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
+             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).MLSN_THRESHOLDS ||
+            { P: 21, K: 37, Ca: 331, Mg: 47, S: 7 },
         targetMultiplier: 1.5,
-        
+
+        // pPhAdjustments retained inline in 301a. These use ph <= maxPh semantics
+        // (see getMLSNThreshold below), which differs from hub-tissue-v3.js's
+        // strict-inequality approach at exact boundary values (5.5, 6.0, 7.5, 8.0).
+        // Harmonisation is out of scope for 301a — a future build must decide
+        // which semantics are canonical before consolidating these into
+        // gaip-classification-constants.P_PH_ADJUSTMENTS.
         pPhAdjustments: [
             { maxPh: 5.5, threshold: 35 },
             { maxPh: 6.0, threshold: 28 },
@@ -311,6 +341,25 @@
         if (latInput && latInput.value) return parseFloat(latInput.value) || -33;
         return -33;
     }
+
+    // =========================================================================
+    // DEPRECATED LOCAL CALCULATIONS (b35fix302b)
+    //
+    // These functions are preserved for compatibility with any code path that
+    // may still call them directly, and as a fallback if the engine fails to
+    // load. Production rendering path now delegates to
+    // NutritionRequirementEngine_Pure.compute() (see renderNutritionSummary).
+    // Scheduled for removal in b35fix31x once no external callers remain and
+    // engine-load stability is confirmed across GAIP + GSSH modes.
+    //
+    // Known local bugs NOT fixed here (fixed in engine):
+    //   - NUTRITION_CONFIG.removalRates has duplicate 'couch' key
+    //   - normalizeSpecies('zoysia')   → 'zoysia' (no such removalRates key)
+    //   - normalizeSpecies('paspalum') → 'seashore_paspalum' (camelCase key is seashorePaspalum)
+    // Both silently fall back to mixedCool defaults. Engine returns species-
+    // correct values; deprecated path preserved with bugs so behaviour is
+    // bit-identical to pre-302b builds.
+    // =========================================================================
 
     // =========================================================================
     // MLSN CALCULATIONS
@@ -662,18 +711,54 @@
         }
     }
 
+    // b35fix312 Fix 2: Nutrition Program panel input takes precedence.
+    // The Nutrition Program section has its own Annual N Target field
+    // (.gaip-nutrition-annual-n, added b35fix~280) intended as the primary
+    // user-facing input for N programme planning. Previously the engine only
+    // read .gaip-n-program from the Turf Profile / Site Settings area, which
+    // had a sticky hardcoded default of 200 (fix 3 removes that). If both
+    // inputs have values, the Nutrition Program input wins.
+    function _readPrimaryNInput() {
+        const nutritionPanelInput = document.querySelector('.gaip-nutrition-annual-n');
+        if (nutritionPanelInput && nutritionPanelInput.value) return nutritionPanelInput;
+        // Fall back to legacy / secondary selectors
+        return document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
+    }
+
     function extractAnnualNRate(species) {
         if (global.GilbaHubOrchestrator) {
             const state = global.GilbaHubOrchestrator.getState();
             if (state?.turf?.nProgramKgHaYr) return state.turf.nProgramKgHaYr;
             if (state?.inputs?.turf?.nProgramKgHaYr) return state.inputs.turf.nProgramKgHaYr;
         }
-        
-        const nInput = document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
+
+        const nInput = _readPrimaryNInput();
         if (nInput && nInput.value) return parseFloat(nInput.value);
-        
+
         const normalized = normalizeSpecies(species);
         return NUTRITION_CONFIG.removalRates[normalized]?.N || 160;
+    }
+
+    // b35fix302b: returns ONLY user-specified N override (orchestrator/DOM),
+    // or null if no override. Engine applies species default internally.
+    // Prevents integration layer from resolving species default through the
+    // buggy local NUTRITION_CONFIG.removalRates (duplicate couch key, bad
+    // zoysia/paspalum aliases); engine uses the clean REMOVAL_RATES table.
+    //
+    // b35fix312 Fix 2: now uses _readPrimaryNInput helper so the Nutrition
+    // Program panel input takes precedence over the Site Settings input.
+    function extractUserAnnualN() {
+        if (global.GilbaHubOrchestrator) {
+            const state = global.GilbaHubOrchestrator.getState();
+            if (state?.turf?.nProgramKgHaYr) return state.turf.nProgramKgHaYr;
+            if (state?.inputs?.turf?.nProgramKgHaYr) return state.inputs.turf.nProgramKgHaYr;
+        }
+        const nInput = _readPrimaryNInput();
+        if (nInput && nInput.value) {
+            const parsed = parseFloat(nInput.value);
+            return isNaN(parsed) ? null : parsed;
+        }
+        return null;
     }
 
     // =========================================================================
@@ -899,44 +984,92 @@
         }
         
         const overseedConfig = detectOverseedScenario();
-        const monthlyC3Fractions = calculateMonthlyC3Fractions(overseedConfig, turfConfig.hemisphere);
-        
-        const requirements = calculateAllRequirements(soilValues, {
-            ph: soilValues.pH,
-            species: turfConfig.species,
-            clippingsCollected: turfConfig.clippingsCollected,
-            trafficIntensity: turfConfig.trafficIntensity
-        });
-        
-        const monthlyGP = calculateMonthlyGPWithOverseed(monthlyTemps, monthlyC3Fractions);
-        const annualN = extractAnnualNRate(turfConfig.species);
-        const nAllocations = distributeNGPWeighted(annualN, monthlyGP);
-        
-        // Populate export data
-        const monthlyNData = [];
-        let activeMonthCount = 0;
-        for (let month = 1; month <= 12; month++) {
-            const n = nAllocations[month] || 0;
-            const gp = monthlyGP[month] || 0;
-            const c3Frac = monthlyC3Fractions[month] || 1;
-            monthlyNData.push({ n, gp, c3Frac });
-            if (n > 0) activeMonthCount++;
+
+        // b35fix302b: delegate pure calculation to NutritionRequirementEngine_Pure.
+        // Integration layer keeps DOM/orchestrator reads (soil, turf, climate,
+        // overseed, user-N-override); engine handles all math with canonical
+        // MLSN thresholds, species-correct removal rates (zoysia/paspalum
+        // aliases fixed), PACE GP via GilbaGrowthPotentialEngine, and the
+        // C3-on-C3 overseed misconfiguration guard.
+        //
+        // Fallback: if engine not loaded (enqueue failure, legacy bundle),
+        // the deprecated local functions below still produce a valid result
+        // so the panel renders rather than throwing.
+        const Engine = global.NutritionRequirementEngine_Pure ||
+                       (typeof window !== 'undefined' && window.NutritionRequirementEngine_Pure);
+
+        let requirements, monthlyC3Fractions, monthlyGP, annualN, nAllocations, monthlyNData, activeMonthCount;
+
+        if (Engine && typeof Engine.compute === 'function') {
+            const userN = extractUserAnnualN();
+            const engineResult = Engine.compute({
+                soil: soilValues,
+                turf: {
+                    species: turfConfig.species,
+                    clippingsCollected: turfConfig.clippingsCollected,
+                    trafficIntensity: turfConfig.trafficIntensity,
+                    nProgramKgHaYr: userN  // null → engine uses species default
+                },
+                climate: {
+                    monthlyTemps: monthlyTemps,
+                    hemisphere: turfConfig.hemisphere
+                },
+                overseedConfig: overseedConfig
+            });
+
+            requirements = engineResult.perSample;
+            monthlyC3Fractions = engineResult.facility.monthlyC3Fractions;
+            monthlyGP = engineResult.facility.monthlyGP;
+            annualN = engineResult.facility.annualN;
+            monthlyNData = engineResult.facility.monthlyN;
+            activeMonthCount = engineResult.facility.activeMonths;
+
+            // Reconstruct {1..12: n} map for renderNDistributionTable
+            nAllocations = {};
+            for (let i = 0; i < 12; i++) nAllocations[i + 1] = monthlyNData[i].n;
+        } else {
+            // Deprecated local path — kept for fallback only. Remove once all
+            // production environments confirmed to have engine loaded.
+            monthlyC3Fractions = calculateMonthlyC3Fractions(overseedConfig, turfConfig.hemisphere);
+            requirements = calculateAllRequirements(soilValues, {
+                ph: soilValues.pH,
+                species: turfConfig.species,
+                clippingsCollected: turfConfig.clippingsCollected,
+                trafficIntensity: turfConfig.trafficIntensity
+            });
+            monthlyGP = calculateMonthlyGPWithOverseed(monthlyTemps, monthlyC3Fractions);
+            annualN = extractAnnualNRate(turfConfig.species);
+            nAllocations = distributeNGPWeighted(annualN, monthlyGP);
+
+            monthlyNData = [];
+            activeMonthCount = 0;
+            for (let month = 1; month <= 12; month++) {
+                const n = nAllocations[month] || 0;
+                const gp = monthlyGP[month] || 0;
+                const c3Frac = monthlyC3Fractions[month] != null ? monthlyC3Fractions[month] : 1;
+                monthlyNData.push({ n, gp, c3Frac });
+                if (n > 0) activeMonthCount++;
+            }
         }
-        
-        global.GAIP_NUTRITION_SOIL_CACHE = global.GAIP_NUTRITION_SOIL_CACHE || {};
-        Object.assign(global.GAIP_NUTRITION_SOIL_CACHE, {
-            annualP: requirements['P']?.annualRequirement || null,
-            annualK: requirements['K']?.annualRequirement || null,
-            annualS: requirements['S']?.annualRequirement || null,
-            pStatus: requirements['P']?.status || 'Unknown',
-            kStatus: requirements['K']?.status || 'Unknown',
-            sStatus: requirements['S']?.status || 'Unknown',
-            monthlyN: monthlyNData,
-            totalN: annualN,
-            activeMonths: activeMonthCount,
-            overseedConfig: overseedConfig
-        });
-        log('Populated export data:', global.GAIP_NUTRITION_SOIL_CACHE);
+
+        // b35fix329: engine output is no longer written to GAIP_NUTRITION_SOIL_CACHE.
+        // The export-side fallback that read from this cache (word-export.js
+        // pre-b35fix329) was the only consumer of these computed fields
+        // (annualP/annualK/annualS/totalN/monthlyN). Read removed → write is
+        // dead code. Removing keeps the global clean for its remaining
+        // legitimate purpose: caching raw soil from gaip:analysis-complete
+        // events for the on-page panel's soil-extraction fallback (lines
+        // 595 + 1189 — those still write/read the soil shape, not the
+        // engine output shape).
+        //
+        // Warn-once if any external integration still expects the engine
+        // output cache. The flag is module-scoped — fires at most once per
+        // page load, regardless of how many times the panel re-renders.
+        if (!moduleState._b35fix329WarnedLegacyCacheWrite) {
+            moduleState._b35fix329WarnedLegacyCacheWrite = true;
+            log('b35fix329: skipping legacy GAIP_NUTRITION_SOIL_CACHE engine-output write. ' +
+                'Word export consumes engine results directly (data.engineInputs path).');
+        }
         
         let html = renderDeficitSummary(requirements);
         html += renderNDistributionTable(annualN, monthlyGP, nAllocations, turfConfig, overseedConfig, monthlyC3Fractions);

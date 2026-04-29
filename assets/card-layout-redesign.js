@@ -1,6 +1,6 @@
 /**
  * =============================================================================
- * GILBA CARD LAYOUT REDESIGN v1.0.0
+ * GILBA CARD LAYOUT REDESIGN v1.3.0 (b35fix358)
  * =============================================================================
  *
  * Phase 3 of UI redesign: Progressive disclosure card layout.
@@ -11,6 +11,15 @@
  *   3. Wraps result blocks in collapsible cards grouped by category
  *   4. Adds "Inputs" accordion at bottom for editing lab data
  *
+ * b35fix358 changes:
+ *   - "Input Data" header renamed to "Inputs" (parallel to Run/Reports tab labels)
+ *   - 📝 emoji icon dropped (consistency with text-only top-bar nav)
+ *   - Dashed warning-coloured border on the header until inputs are entered
+ *   - "Setup required" badge shown until first input data lands; CSS-driven
+ *     toggle via .has-data class added by updateInputsSetupState()
+ *   - Setup state read from GAIP_STATE.soil.ppm / .water / .tissue / .pgr;
+ *     refreshed on gaip:analysis-complete, gaip:hub-state-update, gaip:site-changed
+ *
  * Architecture:
  *   - Pure DOM restructuring — no PHP changes needed
  *   - All existing module .gaip-result-body elements stay in place
@@ -18,14 +27,14 @@
  *   - CSS overlay on top of existing hub.css
  *
  * Dependencies: daily-dashboard.js, hub-persistence.js, auto-refresh.js
- * @version 1.0.0
+ * @version 1.3.0
  * =============================================================================
  */
 
 (function() {
     'use strict';
 
-    var VERSION = '1.2.0';
+    var VERSION = '1.3.0';
 
     function log(msg, data) {
         if (data !== undefined) {
@@ -270,6 +279,8 @@
             '',
             '/* ============================================ */',
             '/* INPUT CARDS: COLLAPSED BY DEFAULT            */',
+            '/* b35fix358: dashed border + Setup required    */',
+            '/* badge until inputs entered                   */',
             '/* ============================================ */',
             '',
             '/* Input section wrapper */',
@@ -280,36 +291,60 @@
             '.gaip-inputs-header {',
             '  display: flex;',
             '  align-items: center;',
-            '  gap: 10px;',
-            '  padding: 12px 16px;',
+            '  gap: 12px;',
+            '  padding: 16px 20px;',
             '  background: var(--gaip-surface-muted);',
-            '  border: 1px solid var(--gaip-border);',
+            '  border: 2px dashed var(--gaip-warning, #f59e0b);',
             '  border-radius: 10px;',
             '  cursor: pointer;',
             '  user-select: none;',
-            '  transition: background 0.15s;',
+            '  transition: background 0.15s, border 0.15s;',
             '}',
             '',
             '.gaip-inputs-header:hover {',
             '  background: var(--gaip-surface-hover);',
             '}',
             '',
+            '/* Once inputs have been entered, switch to solid border in neutral tone */',
+            '.gaip-inputs-section.has-data .gaip-inputs-header {',
+            '  border: 1px solid var(--gaip-border);',
+            '}',
+            '',
             '.gaip-inputs-title {',
-            '  font-size: 14px;',
+            '  font-size: 16px;',
             '  font-weight: 600;',
-            '  color: var(--gaip-text-secondary);',
-            '  flex: 1;',
+            '  color: var(--gaip-text);',
+            '  flex: 0 0 auto;',
+            '}',
+            '',
+            '.gaip-inputs-setup-badge {',
+            '  display: inline-flex;',
+            '  align-items: center;',
+            '  padding: 4px 10px;',
+            '  border-radius: 999px;',
+            '  background: var(--gaip-warning-bg, rgba(245, 158, 11, 0.15));',
+            '  color: var(--gaip-warning, #f59e0b);',
+            '  font-size: 11px;',
+            '  font-weight: 700;',
+            '  letter-spacing: 0.04em;',
+            '  text-transform: uppercase;',
+            '}',
+            '.gaip-inputs-section.has-data .gaip-inputs-setup-badge {',
+            '  display: none;',
             '}',
             '',
             '.gaip-inputs-hint {',
-            '  font-size: 11px;',
+            '  font-size: 12px;',
             '  color: var(--gaip-text-muted);',
+            '  flex: 1 1 auto;',
+            '  text-align: right;',
             '}',
             '',
             '.gaip-inputs-toggle {',
             '  font-size: 14px;',
             '  color: var(--gaip-text-muted);',
             '  transition: transform 0.2s;',
+            '  flex: 0 0 auto;',
             '}',
             '',
             '.gaip-inputs-section.collapsed .gaip-inputs-toggle {',
@@ -555,11 +590,13 @@
         wrapper.className = 'gaip-inputs-section collapsed';
 
         // Create header
+        // b35fix358: rename Input Data → Inputs; drop emoji icon; add Setup
+        // required badge that hides via CSS when wrapper has 'has-data' class.
         var header = document.createElement('div');
         header.className = 'gaip-inputs-header';
         header.innerHTML =
-            '<span style="font-size: 16px;">📝</span>' +
-            '<span class="gaip-inputs-title">Input Data</span>' +
+            '<span class="gaip-inputs-title">Inputs</span>' +
+            '<span class="gaip-inputs-setup-badge">Setup required</span>' +
             '<span class="gaip-inputs-hint">Soil, water, tissue, PGR, traffic settings</span>' +
             '<span class="gaip-inputs-toggle">▼</span>';
 
@@ -709,6 +746,68 @@
     }
 
     // =========================================================================
+    // INPUTS SETUP STATE — b35fix358
+    // =========================================================================
+
+    /**
+     * Toggle the .has-data class on the Inputs section wrapper.
+     * When present, the dashed warning border switches to the neutral
+     * solid border and the "Setup required" badge is hidden via CSS.
+     *
+     * Setup is considered complete when ANY of the following hold:
+     *   - state.soil.ppm has at least one positive numeric reading
+     *   - state.water has any positive numeric reading
+     *   - state.tissue has any positive numeric reading
+     *   - state.pgr has been entered (any non-falsy product field)
+     *
+     * Read-only — never mutates state.
+     */
+    function updateInputsSetupState() {
+        var section = document.querySelector('.gaip-inputs-section');
+        if (!section) return;
+
+        var hasData = false;
+        var state = window.GAIP_STATE;
+
+        if (state) {
+            // Soil ppm — primary signal, same check as updateCardStatuses
+            if (state.soil && state.soil.ppm) {
+                try {
+                    hasData = Object.values(state.soil.ppm).some(function(v) {
+                        return typeof v === 'number' && v > 0;
+                    });
+                } catch (e) { /* defensive */ }
+            }
+            // Water — any numeric reading
+            if (!hasData && state.water) {
+                try {
+                    hasData = Object.values(state.water).some(function(v) {
+                        return typeof v === 'number' && v > 0;
+                    });
+                } catch (e) { /* defensive */ }
+            }
+            // Tissue — any numeric reading
+            if (!hasData && state.tissue) {
+                try {
+                    hasData = Object.values(state.tissue).some(function(v) {
+                        return typeof v === 'number' && v > 0;
+                    });
+                } catch (e) { /* defensive */ }
+            }
+            // PGR — any product field set
+            if (!hasData && state.pgr) {
+                try {
+                    hasData = Object.values(state.pgr).some(function(v) {
+                        return v != null && v !== '' && v !== 0;
+                    });
+                } catch (e) { /* defensive */ }
+            }
+        }
+
+        section.classList.toggle('has-data', hasData);
+    }
+
+    // =========================================================================
     // INIT
     // =========================================================================
 
@@ -754,12 +853,23 @@
             // Always remove skeletons after analysis (uses document.querySelectorAll)
             removeSkeletons();
             setTimeout(updateCardStatuses, 400);
+            // b35fix358: refresh Inputs setup-required badge state
+            setTimeout(updateInputsSetupState, 400);
         });
 
         // Also watch for cascade completion (orchestrator)
         document.addEventListener('gaip:hub-state-update', function() {
             setTimeout(updateCardStatuses, 500);
+            setTimeout(updateInputsSetupState, 500);
         });
+
+        // b35fix358: site-switch resets input-data context
+        document.addEventListener('gaip:site-changed', function() {
+            setTimeout(updateInputsSetupState, 600);
+        });
+
+        // b35fix358: initial pass once any prior persisted state has restored
+        setTimeout(updateInputsSetupState, 800);
 
         log('Ready');
     }

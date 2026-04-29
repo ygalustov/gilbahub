@@ -43,8 +43,10 @@
                 'creepingBentgrass', 'colonialBentgrass', 'velvetBentgrass',
                 'bentgrass', 'browntopBent',
                 'couch', 'bermuda', 'kikuyu', 'zoysia', 'buffalo', 'seashore',
-                'paspalum', 'stAugustine', 'centipede', 'bahia',
-                'poa', 'poaAnnua', 'poaTrivialis'
+                'paspalum', 'seashore_paspalum',  // b35fix366: SpeciesController.normalize() emits 'seashore_paspalum' (with underscore). Pre-fix, the array had 'seashore' and 'paspalum' as separate strings — neither matched the canonical form, so paspalum selection produced TIER 0 VIOLATION at setIdentityKey line 297 (validValues.includes('seashore_paspalum') === false). Localised by b35fix365 [b35fix365 disease-inputs-species] diagnostic in production log gilbasolutions_com-1777268462018: SC_getBaseSpecies returned 'seashore_paspalum' correctly but canonical_speciesKey was null because populateCanonicalState early-returned on the TIER 0 fail before reaching its species resolution. Dead-string entries 'seashore' and 'paspalum' (and other never-emitted aliases like 'annualRyegrass', 'creepingBentgrass', 'velvetBentgrass', 'stAugustine', 'centipede', 'bahia') retained as-is — out of scope for this build. The wider asymmetry between IDENTITY_KEYS.speciesKey.validValues and SpeciesController's actual canonical output set is a known fragility (any new species addition must touch both files) — pinned by regression test in tests/identity-validvalues-vs-speciescontroller.test.js.
+                'stAugustine', 'centipede', 'bahia',
+                'poa', 'poaAnnua', 'poaTrivialis',
+                'cotula'  // b35fix389: same pattern as b35fix366 paspalum closure. SpeciesController.normalize('cotula') returns 'cotula' via the DICOT_BYPASS branch (species-controller.js:234); IDENTITY_KEYS.speciesKey.validValues was missing the entry, so setIdentityKey('speciesKey', 'cotula', ...) hit the validValues.includes() check at line 297, returned valid:false, and logged the TIER 0 VIOLATION at line 304. The cotula bypass at line 411 then rescued _identityState.quality.tier0Valid back to true, but setIdentityKey's own return value was still {valid:false} — so downstream identity-gated engines (wear-recovery at hub-orchestrator.js:1063) saw "Missing required identity: speciesKey" and refused to run. Production evidence: gilbasolutions_com-1777418778208.log lines 151/153/178 (X Cotula BC, NZ, AA methodology) — the TIER 0 VIOLATION + bypass + wear engine block triad. Pairs with b35fix388 to fully clear that triad — b35fix388 makes the four cotula state writes (turfType/surfaceType/speciesKey/cotula) actually persist, which lets the intent resolver find the bowls intent (clearing the unknownIntent default at line 154); b35fix389 makes setIdentityKey return valid for the persisted speciesKey (clearing the VIOLATION at line 151 and unblocking the wear engine at line 178).
             ],
             unknownValue: null,  // Not allowed - hard fail
             displayName: 'Grass Species',
@@ -713,6 +715,32 @@
             'sports_training': 'communityRecreation',
             'sports_': 'professionalSport',
             'lawns_': 'generalMaintenance',
+            // b35fix390: cotula bowls turfType mapping. Pre-fix, no entry for
+            // 'bowls' or 'bowls_*'; cotula sites with turfType='bowls' and
+            // subCategory=null produced a `combined` of 'bowls_' which mapped
+            // to nothing → returned null → triggered the unknownIntent default
+            // at the call site (-20% confidence penalty), which in turn blocked
+            // the wear engine at hub-orchestrator.js:1063 with "BLOCKED -
+            // recovery windows require defined intent" (post-b35fix389; pre-
+            // b35fix389 the wear engine had been blocked one rung earlier on
+            // missing speciesKey). eliteMatchPlay chosen as the closest
+            // existing intent: bowls is precision short-mown competition turf,
+            // agronomically equivalent intent profile to elite golf greens
+            // (eliteMatchPlay maps 'golf_greens' and 'sports_stadium' / 'sports_elite').
+            // Production evidence: gilbasolutions_com-1777421036591.log lines
+            // 196/252 (X Cotula BC, Christchurch, post-b35fix389 deploy at
+            // ?ver=1777420942). Pairs with b35fix388 (turfType durability)
+            // and b35fix389 (cotula speciesKey validValues) to close the
+            // cotula bowls log triad: TIER 0 VIOLATION (closed b35fix389),
+            // unknownIntent default (closed b35fix390), wear engine block
+            // on speciesKey (closed b35fix389), wear engine block on intent
+            // (closed b35fix390). Cotula dicot bypass log line stays — that's
+            // intended (grass engines are correctly suppressed for a dicot).
+            'bowls': 'eliteMatchPlay',
+            'bowls_': 'eliteMatchPlay',
+            'bowling': 'eliteMatchPlay',
+            'bowling_green': 'eliteMatchPlay',
+            'bowling_greens': 'eliteMatchPlay',
             // Legacy single-value mappings
             'greens': 'eliteMatchPlay',
             'fairway': 'professionalSport',

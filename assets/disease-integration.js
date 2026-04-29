@@ -784,8 +784,12 @@
             
             // Build inputs object for engine
             // b35fix92-humidity: Merge hourlyData from raw Open-Meteo forecast into climateMetrics
-            // so getSmithKernsConcurrentHours() gets real RH/temp arrays instead of hitting
-            // the mean-humidity fallback (which returns 0 for temperate climates).
+            // so the disease engine's Smith-Kerns calculation gets real hourly RH/temp arrays.
+            // b35fix335: pre-fix getSmithKernsConcurrentHours was replaced with
+            // getSmithKerns2018Probability (the actual published logistic). It reads
+            // the same hourlyData keys, but now computes a 5-day mean rather than
+            // counting "favourable hours". Without hourlyData, falls back to
+            // climate.moisture.humidity.mean.
             // b35fix98: rawWeatherData is structured as { forecast: { hourly: {...} } } not { hourly: {...} }
             // Previous fallback path window.rawWeatherData?.hourly was always undefined.
             const _rawHourly = state.climate?.forecast?.hourly

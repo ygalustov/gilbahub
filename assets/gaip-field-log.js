@@ -312,7 +312,7 @@
          * Returns Promise<Array<{id:string, label:string}>>
          */
         fetchAndInject: function () {
-            var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_sites_load', cfg) : (cfg.ajaxUrl || '/wp-admin/admin-ajax.php');
+            var ajaxUrl = cfg.ajaxUrl || '/wp-admin/admin-ajax.php';
             var nonce   = cfg.nonce   || cfg.restNonce || '';
 
             if (!ajaxUrl || !nonce) {
@@ -323,7 +323,6 @@
             var body = new URLSearchParams();
             body.append('action', 'gilba_sites_load');
             body.append('nonce',  nonce);
-            if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
 
             return fetch(ajaxUrl, {
                 method:  'POST',
@@ -439,8 +438,7 @@
 
             return fetch(WP_REST_URL + '/media', {
                 method:  'POST',
-                headers: { 'X-CSRF-TOKEN': (cfg.csrfToken || REST_NONCE), 'X-WP-Nonce': REST_NONCE },
-                credentials: 'same-origin',
+                headers: { 'X-WP-Nonce': REST_NONCE },
                 body:    formData
             }).then(function (res) {
                 if (!res.ok) { throw new Error('Media upload failed: ' + res.status); }

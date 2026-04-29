@@ -293,7 +293,20 @@
     // =========================================================================
 
     function getRecentSites(sites, max) {
-        return sites.slice(0, Math.min(sites.length, max));
+        var withTime = [];
+        for (var i = 0; i < sites.length; i++) {
+            var config = StorageAdapter.getSiteConfig(sites[i].id);
+            var savedAt = config ? config.savedAt : sites[i].createdAt;
+            withTime.push({ site: sites[i], savedAt: savedAt || '' });
+        }
+        withTime.sort(function(a, b) {
+            return new Date(b.savedAt || 0) - new Date(a.savedAt || 0);
+        });
+        var result = [];
+        for (var j = 0; j < Math.min(withTime.length, max); j++) {
+            result.push(withTime[j].site);
+        }
+        return result;
     }
 
     // =========================================================================
@@ -910,23 +923,11 @@
         }, 250);
     }
 
-    function updateActiveCardState(activeId) {
-        var cards = document.querySelectorAll('.gaip-sd-card');
-        for (var i = 0; i < cards.length; i++) {
-            cards[i].classList.toggle('gaip-sd-active', cards[i].dataset.siteId === String(activeId));
-        }
-    }
-
     function bindGlobalEvents() {
-        var siteEvents = ['gaip:site-added', 'gaip:site-removed', 'gaip:site-renamed'];
+        var siteEvents = ['gaip:site-changed', 'gaip:site-added', 'gaip:site-removed', 'gaip:site-renamed'];
         for (var i = 0; i < siteEvents.length; i++) {
             document.addEventListener(siteEvents[i], function() { debouncedRefresh(); });
         }
-
-        document.addEventListener('gaip:site-changed', function(e) {
-            var siteId = e && e.detail ? e.detail.siteId : StorageAdapter.getActiveSiteId();
-            updateActiveCardState(siteId);
-        });
 
         document.addEventListener('gaip:state-saved', function() {
             updateSaveStatus();
@@ -952,12 +953,13 @@
             });
         }
 
-        var configEvents = ['gaip:site-save-requested', 'gaip:config-save-requested'];
-        for (var k = 0; k < configEvents.length; k++) {
-            document.addEventListener(configEvents[k], function() {
-                debouncedRefresh();
-            });
-        }
+        document.addEventListener('gaip:turf-profile-change', function() {
+            debouncedRefresh();
+        });
+
+        document.addEventListener('gaip:site-config-applied', function() {
+            debouncedRefresh();
+        });
 
         log('Global events bound');
     }

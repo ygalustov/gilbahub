@@ -406,7 +406,7 @@
             status = 'avoid';
             canFertilise = false;
             message = 'Soil EC high - do not fertilise';
-            recommendation = 'Do not apply fertiliser until EC reduced through leaching. Foliar iron/micronutrients only if essential.';
+            recommendation = 'Do not apply fertiliser until EC reduced through leaching. Foliar iron/trace elements only if essential.';
         }
         
         return {

@@ -140,8 +140,13 @@
     // -------------------------------------------------------------------------
     // SPECIES CLASSIFICATION
     // -------------------------------------------------------------------------
-    function classifySpecies(species) {
+    function classifySpecies(turfObj) {
+        // Accept either a turf config object (preferred) or a plain species string (legacy).
+        var turf = (typeof turfObj === 'object' && turfObj) ? turfObj : {};
+        var species = (typeof turfObj === 'string') ? turfObj
+            : (turf.grassSpecies || turf.species || '');
         if (!species) { return { key: 'perennialRyegrass', isC4: false, c3: 1, c4: 0 }; }
+
         var s = species.toLowerCase();
         var isC4 = /couch|bermuda|kikuyu|zoysia|buffalo|paspalum|seashore/.test(s);
         var key = isC4 ? 'couch' : 'perennialRyegrass';
@@ -150,7 +155,30 @@
         if (/fescue/.test(s))   { key = 'tallFescue'; }
         if (/rye/.test(s))      { key = 'perennialRyegrass'; }
         if (/blue|kbg/.test(s)) { key = 'kentuckyBluegrass'; }
-        return { key: key, isC4: isC4, c3: isC4 ? 0 : 1, c4: isC4 ? 1 : 0 };
+
+        // b35fix300a: Read actual C3/C4 fractions from turf config.
+        // Only applies to C4 base species with a cool-season overseed.
+        // For pure C3 species, c3Cover=0 means "no overseed configured"
+        // not "0% C3", so we must not read it.
+        var c3 = isC4 ? 0 : 1;
+        var c4 = isC4 ? 1 : 0;
+
+        if (isC4) {
+            // C4 base — check for overseed fractions
+            var c3Cover = turf.c3Cover != null ? parseFloat(turf.c3Cover) : null;
+            if (c3Cover != null && !isNaN(c3Cover) && c3Cover > 0 && c3Cover <= 100) {
+                c3 = c3Cover / 100;
+                c4 = 1 - c3;
+            } else if (turf.c3Fraction != null && parseFloat(turf.c3Fraction) > 0) {
+                c3 = parseFloat(turf.c3Fraction);
+                c4 = parseFloat(turf.c4Fraction) || (1 - c3);
+            } else if (turf.percentC3Cover != null && parseFloat(turf.percentC3Cover) > 0) {
+                c3 = parseFloat(turf.percentC3Cover) / 100;
+                c4 = 1 - c3;
+            }
+        }
+
+        return { key: key, isC4: isC4, c3: c3, c4: c4 };
     }
 
     // -------------------------------------------------------------------------
@@ -203,7 +231,7 @@
             + '&hourly='    + hourly
             + '&daily='     + daily
             + '&timezone=auto'
-            + '&forecast_days=3';
+            + '&forecast_days=5';
 
         return fetch(url).then(function (res) {
             if (!res.ok) { throw new Error('Open-Meteo HTTP ' + res.status); }
@@ -256,25 +284,53 @@
             ? nightRHArr.reduce(function (a, b) { return a + b; }, 0) / nightRHArr.length
             : rhCurrent;
 
+        // b35fix297: today's 24hr RH average, not single-hour snapshot.
+        // Disease engine Fusarium moistureFactor expects a representative daily
+        // value, not current-hour which swings wildly day vs night.
+        var todayRH = rhArr.slice(0, 24);
+        var rhMean = todayRH.length
+            ? todayRH.reduce(function (a, b) { return a + b; }, 0) / todayRH.length
+            : rhCurrent;
+
+        // b35fix297: build dailyPattern from daily endpoint so disease engine's
+        // get5DayAvgTemp() has real data instead of falling back to single-day mean.
+        var dailyDates = d.time || [];
+        var dailyMeans = d.temperature_2m_mean || [];
+        var dailyMins  = d.temperature_2m_min  || [];
+        var dailyMaxs  = d.temperature_2m_max  || [];
+        var dailyPattern = [];
+        for (var dp_i = 0; dp_i < dailyDates.length; dp_i++) {
+            dailyPattern.push({
+                date: dailyDates[dp_i],
+                mean: dailyMeans[dp_i],
+                min:  dailyMins[dp_i],
+                max:  dailyMaxs[dp_i]
+            });
+        }
+
         return {
             temperature: {
                 current: tempCurrent,
                 mean:    tempMean,
                 min:     tempMin,
-                max:     tempMax
+                max:     tempMax,
+                dailyPattern: dailyPattern  // b35fix297
             },
             moisture: {
                 humidity: {
-                    mean:  rhCurrent,
+                    mean:  rhMean,  // b35fix297: was rhCurrent (single hour)
                     night: nightRH
                 },
                 precipitation: { total: precip }
             },
             dewpoint: { current: dpCurrent },
-            // b35fix92-mobile: key names must match disease-engine-pure.js
-            // getSmithKernsConcurrentHours() reads hourlyData.relative_humidity_2m
-            // and hourlyData.temperature_2m — wrong keys meant it always hit the
-            // fallback and returned 0, so the humidity risk driver never changed.
+            // b35fix92-mobile: key names must match disease-engine-pure.js.
+            // b35fix335: getSmithKernsConcurrentHours was retired in favour of
+            // getSmithKerns2018Probability which uses the same hourlyData keys
+            // (relative_humidity_2m and temperature_2m) but computes the
+            // published Smith-Kerns 2018 logistic probability from 5-day means
+            // rather than counting "favourable hours". Same input keys, correct
+            // model, different output shape.
             hourlyData: {
                 temperature_2m:       h.temperature_2m       || [],
                 relative_humidity_2m: h.relative_humidity_2m || []
@@ -495,7 +551,7 @@
      */
     function fetchConfigsFromServer(onComplete) {
         var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = global.GilbaLegacyAjax ? global.GilbaLegacyAjax.endpoint('gilba_site_configs_load', cfg) : (cfg.ajaxUrl || '');
+        var ajaxUrl = cfg.ajaxUrl || '';
         var nonce   = cfg.nonce   || '';
         if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
             onComplete(false); return;
@@ -503,7 +559,6 @@
         var body = new URLSearchParams();
         body.append('action', 'gilba_site_configs_load');
         body.append('nonce',  nonce);
-        if (global.GilbaLegacyAjax) global.GilbaLegacyAjax.appendToken(body, cfg);
         fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
             .then(function(r) { return r.json(); })
             .then(function(data) {
@@ -633,10 +688,11 @@
         var lat    = parseFloat(location.lat);
         var lon    = parseFloat(location.lon);
         var turf   = (siteConfig && siteConfig.turf) || {};
-        var species = classifySpecies(turf.grassSpecies || turf.species || '');
+        var species = classifySpecies(turf);
         var region  = detectRegion(lat, lon);
 
-        log('Running for', location.name || (lat + ',' + lon), '— species:', species.key, '— region:', region);
+        log('Running for', location.name || (lat + ',' + lon), '— species:', species.key,
+            '(c3:', species.c3, 'c4:', species.c4 + ')', '— region:', region);
 
         // b35fix92-mobile-sync: If the hub has already run a full disease analysis
         // (with shade coupling, nitrogen, tissue modifiers etc), use that result

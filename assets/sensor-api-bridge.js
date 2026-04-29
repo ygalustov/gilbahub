@@ -134,6 +134,79 @@
         return zones;
     }
 
+    // b35fix297: Unified zone summaries in the array format hub-tissue-v3 renderer expects.
+    // Normalises both CSV (via GAIP_Sensor.getZoneSummaries()) and Hydrosight
+    // (via GAIP_Hydrosight.getZones()) into [{name, count, avg, min, max, ec, soilTemp, ...}].
+    function getZoneSummaries() {
+        var summaries = [];
+        var seenNames = {};
+
+        // 1. CSV zone summaries (already in the right shape)
+        if (csvHasData()) {
+            var csvSummaries = global.GAIP_Sensor.getZoneSummaries
+                ? global.GAIP_Sensor.getZoneSummaries()
+                : null;
+            if (csvSummaries && Array.isArray(csvSummaries)) {
+                csvSummaries.forEach(function(z) {
+                    seenNames[z.name] = true;
+                    z._source = 'csv';
+                    summaries.push(z);
+                });
+            }
+        }
+
+        // 2. Hydrosight live zones — convert {zoneName: {stats: {vwc: {mean,min,max}, ...}}} to array
+        if (hydrosightHasData()) {
+            var apiZones = global.GAIP_Hydrosight.getZones();
+            for (var key in apiZones) {
+                if (!apiZones.hasOwnProperty(key)) continue;
+                // Skip if CSV already has this zone (CSV is user-labelled, takes priority)
+                if (seenNames[key]) continue;
+                var z = apiZones[key];
+                var stats = z.stats || {};
+                summaries.push({
+                    name: z.name || key,
+                    count: stats.count || (z.readings ? z.readings.length : 1),
+                    avg: stats.vwc ? stats.vwc.mean : null,
+                    min: stats.vwc ? stats.vwc.min : null,
+                    max: stats.vwc ? stats.vwc.max : null,
+                    ec: stats.ec ? stats.ec.mean : null,
+                    soilTemp: stats.soilTemp ? stats.soilTemp.mean : null,
+                    surfaceTemp: null,
+                    salinityIndex: stats.ec ? stats.ec.mean : null,
+                    irrigation: null,
+                    _source: 'hydrosight',
+                    _isLive: true
+                });
+            }
+        }
+
+        // Sort: labelled first, Unlabelled last
+        summaries.sort(function(a, b) {
+            if (a.name === 'Unlabelled') return 1;
+            if (b.name === 'Unlabelled') return -1;
+            return a.name.localeCompare(b.name);
+        });
+
+        return summaries;
+    }
+
+    // b35fix297: Unified reading count for the overview fallback in hub-tissue
+    function getReadingCount() {
+        var count = 0;
+        if (csvHasData()) {
+            var data = global.GAIP_Sensor.getData ? global.GAIP_Sensor.getData() : null;
+            if (data && data.readings) count += data.readings.length;
+        }
+        if (hydrosightHasData()) {
+            var readings = global.GAIP_Hydrosight.getReadings
+                ? global.GAIP_Hydrosight.getReadings()
+                : [];
+            count += readings.length;
+        }
+        return count;
+    }
+
     function hasData() {
         return hydrosightHasData() || csvHasData();
     }
@@ -240,6 +313,8 @@
         getWaterQualityData: getWaterQualityData,
         getSummary: getSummary,
         getZones: getZones,
+        getZoneSummaries: getZoneSummaries,       // b35fix297
+        getReadingCount: getReadingCount,           // b35fix297
         getSourceInfo: getSourceInfo,
         renderStatusBadge: renderStatusBadge,
         renderCombinedSettingsPanel: renderCombinedSettingsPanel,

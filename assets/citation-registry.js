@@ -124,15 +124,55 @@
             }
         },
         
+        // b35fix353 Finding #4: Brecht et al. 2007 retagged. Paper is a Si ×
+        // chlorothalonil suppression trial on gray leaf spot (Pyricularia oryzae)
+        // in St. Augustinegrass — it does NOT establish Bipolaris/Helminthosporium
+        // temperature, humidity, or leaf-wetness response curves. Pre-fix
+        // methodology field "Bipolaris/Helminthosporium disease factors" was
+        // wrong on both pathogen and methodology. Corrected to actual paper scope.
         'bipolaris-brecht': {
             id: 'bipolaris-brecht',
             shortRef: 'Brecht et al. 2007',
             fullRef: 'Brecht, M.O., Datnoff, L.E., Kucharek, T.A., Nagata, R.T. (2007). Influence of silicon and chlorothalonil on the suppression of gray leaf spot in St. Augustinegrass.',
             authors: ['Brecht, M.O.', 'Datnoff, L.E.', 'Kucharek, T.A.', 'Nagata, R.T.'],
             year: 2007,
-            source: 'APS',
-            methodology: 'Bipolaris/Helminthosporium disease factors',
-            validatedFor: ['bermuda', 'St. Augustine']
+            source: 'Plant Disease',
+            methodology: 'Silicon × chlorothalonil suppression of gray leaf spot (Pyricularia oryzae) in St. Augustinegrass',
+            validatedFor: ['St. Augustine']
+        },
+
+        // b35fix359 Finding #4b: PSU Extension entry added. Pre-fix the
+        // bipolaris-curvularia engine listed 'psu-turfgrass-lab' as a secondary
+        // citation (line 494) but no entry by that id existed in the registry —
+        // dangling pointer. The Landschoot fact sheet IS already cited inline
+        // in HelminthosporiumModel and DrechsleraPoaeModel as narrative
+        // pathogen-biology / cool-season epidemiology. Defining the entry now
+        // makes the binding resolvable.
+        'psu-turfgrass-lab': {
+            id: 'psu-turfgrass-lab',
+            shortRef: 'Landschoot 2024 (PSU Extension)',
+            fullRef: 'Landschoot, P. (2024). Turfgrass Diseases: Leaf Spot and Melting-Out Diseases (Causal Fungi: Bipolaris and Drechslera spp.). Penn State Extension.',
+            authors: ['Landschoot, P.'],
+            year: 2024,
+            source: 'Penn State Extension',
+            methodology: 'Narrative pathogen biology, host susceptibility, cool-season epidemiology of Bipolaris/Drechslera leaf spot and melting-out',
+            validatedFor: ['kentuckyBluegrass', 'perennialRyegrass', 'tallFescue', 'fineFescue', 'poaAnnua']
+        },
+
+        // b35fix359 Finding #4b: UMass Extension entry added (paired with PSU
+        // for the same dangling-pointer reason). UMass extension guidance is
+        // referenced inline in DrechsleraPoaeModel.getInterventions for the
+        // DMI-overuse warning — narrative reference only, not a calibration
+        // source.
+        'umass-extension': {
+            id: 'umass-extension',
+            shortRef: 'UMass Extension Turf',
+            fullRef: 'University of Massachusetts Center for Agriculture, Food, and the Environment, Turf Program. Turfgrass disease management guidance.',
+            authors: ['UMass Extension Turf Program'],
+            year: null,
+            source: 'UMass Center for Agriculture, Food, and the Environment',
+            methodology: 'Extension guidance on cultural and chemical management of cool-season turf diseases including melting-out and leaf spot; DMI fungicide cautions',
+            validatedFor: ['kentuckyBluegrass', 'perennialRyegrass', 'tallFescue', 'fineFescue', 'poaAnnua', 'bentgrass']
         },
 
         // PGR Models
@@ -207,6 +247,122 @@
             url: 'https://www.fao.org/3/t0234e/t0234e00.htm',
             methodology: 'SAR/ESP calculation, salinity thresholds',
             validatedFor: ['irrigation water assessment']
+        },
+
+        'suarez-1981': {
+            id: 'suarez-1981',
+            shortRef: 'Suarez 1981',
+            fullRef: 'Suarez, D.L. (1981). Relation between pHc and Sodium Adsorption Ratio (SAR) and an alternative method of estimating SAR of soil or drainage waters.',
+            authors: ['Suarez, D.L.'],
+            year: 1981,
+            source: 'Soil Science Society of America Journal 45(3): 469-475',
+            doi: '10.2136/sssaj1981.03615995004500030005x',
+            methodology: 'Adjusted SAR accounting for HCO3/Ca precipitation',
+            validatedFor: ['irrigation water assessment']
+        },
+
+        'usda-handbook-60': {
+            id: 'usda-handbook-60',
+            shortRef: 'USDA Handbook 60 (1954)',
+            fullRef: 'Richards, L.A. (ed.) (1954). Diagnosis and Improvement of Saline and Alkali Soils. USDA Agriculture Handbook No. 60. US Government Printing Office, Washington DC.',
+            authors: ['Richards, L.A. (ed.)'],
+            year: 1954,
+            source: 'USDA Agriculture Handbook No. 60',
+            url: 'https://www.ars.usda.gov/ARSUserFiles/20360500/hb60_pdf/hb60complete.pdf',
+            methodology: 'Gapon equation ESP from SAR; ESP thresholds for sodic soil classification',
+            validatedFor: ['saline and sodic soil assessment']
+        },
+
+        'harivandi-1999': {
+            id: 'harivandi-1999',
+            shortRef: 'Harivandi 1999',
+            fullRef: 'Harivandi, M.A. (1999). Interpreting turfgrass irrigation water test results. UC ANR Publication 8009.',
+            authors: ['Harivandi, M.A.'],
+            year: 1999,
+            source: 'University of California Agriculture and Natural Resources Publication 8009',
+            methodology: 'Infiltration hazard categories; SAR thresholds; foliar Na thresholds',
+            validatedFor: ['turfgrass irrigation water assessment']
+        },
+
+        'harivandi-1992': {
+            id: 'harivandi-1992',
+            shortRef: 'Harivandi et al. 1992',
+            fullRef: 'Harivandi, M.A., Butler, J.D., Wu, L. (1992). Salinity and turfgrass culture. In: Waddington, D.V., Carrow, R.N., Shearman, R.C. (eds.) Turfgrass. Agronomy Monograph 32. ASA-CSSA-SSSA, Madison, WI. pp. 207-229.',
+            authors: ['Harivandi, M.A.', 'Butler, J.D.', 'Wu, L.'],
+            year: 1992,
+            source: 'Agronomy Monograph 32, ASA-CSSA-SSSA',
+            methodology: 'Turfgrass species salinity tolerance classes',
+            validatedFor: ['cool-season and warm-season turfgrass species']
+        },
+
+        'carrow-duncan-1998': {
+            id: 'carrow-duncan-1998',
+            shortRef: 'Carrow & Duncan 1998',
+            fullRef: 'Carrow, R.N., Duncan, R.R. (1998). Salt-Affected Turfgrass Sites: Assessment and Management. Ann Arbor Press, Chelsea, MI. ISBN 1-57504-091-3.',
+            authors: ['Carrow, R.N.', 'Duncan, R.R.'],
+            year: 1998,
+            source: 'Ann Arbor Press, Chelsea, MI',
+            isbn: '1-57504-091-3',
+            methodology: 'Turfgrass salinity tolerance classes; temperature-dependent tolerance shift coefficients',
+            validatedFor: ['cool-season and warm-season turfgrass species']
+        },
+
+        'marcum-2006': {
+            id: 'marcum-2006',
+            shortRef: 'Marcum 2006',
+            fullRef: 'Marcum, K.B. (2006). Use of saline and non-potable water in the turfgrass industry: constraints and developments.',
+            authors: ['Marcum, K.B.'],
+            year: 2006,
+            source: 'Agricultural Water Management 80: 132-146',
+            doi: '10.1016/j.agwat.2005.07.009',
+            methodology: 'Warm-season grass salinity tolerance ranking',
+            validatedFor: ['warm-season turfgrass species']
+        },
+
+        'mittler-2006': {
+            id: 'mittler-2006',
+            shortRef: 'Mittler 2006',
+            fullRef: 'Mittler, R. (2006). Abiotic stress, the field environment and stress combination.',
+            authors: ['Mittler, R.'],
+            year: 2006,
+            source: 'Trends in Plant Science 11(1): 15-19',
+            doi: '10.1016/j.tplants.2005.11.002',
+            methodology: 'Compound stress interaction (heat x salinity synergy)',
+            validatedFor: ['general plant physiology']
+        },
+
+        'munns-tester-2008': {
+            id: 'munns-tester-2008',
+            shortRef: 'Munns & Tester 2008',
+            fullRef: 'Munns, R., Tester, M. (2008). Mechanisms of salinity tolerance.',
+            authors: ['Munns, R.', 'Tester, M.'],
+            year: 2008,
+            source: 'Annual Review of Plant Biology 59: 651-681',
+            doi: '10.1146/annurev.arplant.59.032607.092911',
+            methodology: 'Plant salinity response mechanisms; osmotic vs ion-specific phases',
+            validatedFor: ['general plant physiology']
+        },
+
+        'maas-hoffman-1977': {
+            id: 'maas-hoffman-1977',
+            shortRef: 'Maas & Hoffman 1977',
+            fullRef: 'Maas, E.V., Hoffman, G.J. (1977). Crop salt tolerance - current assessment.',
+            authors: ['Maas, E.V.', 'Hoffman, G.J.'],
+            year: 1977,
+            source: 'Journal of the Irrigation and Drainage Division, ASCE 103(IR2): 115-134',
+            methodology: 'Linear-plateau crop salt tolerance threshold and slope model',
+            validatedFor: ['crop and turfgrass salt tolerance']
+        },
+
+        'hanson-2006': {
+            id: 'hanson-2006',
+            shortRef: 'Hanson et al. 2006',
+            fullRef: 'Hanson, B.R., Grattan, S.R., Fulton, A. (2006). Agricultural Salinity and Drainage. UC Davis Division of Agriculture and Natural Resources, Publication 8066.',
+            authors: ['Hanson, B.R.', 'Grattan, S.R.', 'Fulton, A.'],
+            year: 2006,
+            source: 'UC Davis Publication 8066',
+            methodology: 'Irrigation water quality assessment for agriculture',
+            validatedFor: ['irrigation water and salinity management']
         },
 
         // Variety Trials
@@ -291,15 +447,40 @@
             topic: 'LED spectrum effects on plant mineral nutrition; Ca and K uptake under LED vs HPS'
         },
 
-        'sawannarut_2024': {
-            id: 'sawannarut_2024',
-            shortRef: 'Sawannarut et al. 2024',
-            fullRef: 'Sawannarut, A., Srilaong, V. & Kasemsap, P. (2024). Sinusoidal light ramping ' +
-                'reduces photooxidative stress and improves photosynthetic efficiency in turfgrass ' +
-                'under LED supplemental lighting. Scientia Horticulturae, 325, 112634.',
+        // b35fix335: replaces fabricated 'sawannarut_2024' (Tier 1 provenance audit).
+        // Pre-fix entry cited a paper that does not exist (DOI 10.1016/j.scienta.2024.112634
+        // does not resolve; "Sawannarut, Srilaong & Kasemsap 2024" on turfgrass under LED
+        // was invented in the b35fix94 GSSH session). Real source for the gradual-ramping
+        // concept is Stamford et al. 2024 on rocket (Eruca sativa); the original Sawannarut
+        // 2023 paper cited within it concerns afternoon photosynthetic-induction decline.
+        // Neither paper establishes the 20–30 min stadium-session ramp duration — that
+        // figure remains a practitioner heuristic and must be labelled as such (see the
+        // sessionProtocol advisory text in eue-integration-bridge.js).
+        'stamford_2024': {
+            id: 'stamford_2024',
+            shortRef: 'Stamford et al. 2024',
+            fullRef: 'Stamford, J.D., Hofmann, T.A. & Lawson, T. (2024). ' +
+                'Sinusoidal LED light recipes can improve rocket edible biomass and reduce ' +
+                'electricity costs in indoor growth environments. ' +
+                'Frontiers in Plant Science, 15, 1447368.',
             year: 2024,
-            doi: '10.1016/j.scienta.2024.112634',
-            topic: 'Sinusoidal ramp-up/ramp-down protocols for LED grow light sessions'
+            doi: '10.3389/fpls.2024.1447368',
+            url: 'https://doi.org/10.3389/fpls.2024.1447368',
+            topic: 'Sinusoidal LED light regimes — gradual photoperiod ramping vs square-wave delivery (rocket; CEA setting)',
+            scope: 'Whole-photoperiod (~16 h) intensity modulation. Does not test or recommend ' +
+                'a specific session-onset/offset ramp duration; the 20–30 min figure used in ' +
+                'GSSH sessionProtocol is a Gilba practitioner heuristic, not a Stamford 2024 finding.'
+        },
+
+        'lawson_vialet_chabrand_2019': {
+            id: 'lawson_vialet_chabrand_2019',
+            shortRef: 'Lawson & Vialet-Chabrand 2019',
+            fullRef: 'Lawson, T. & Vialet-Chabrand, S. (2019). Speedy stomata, photosynthesis and ' +
+                'plant water use efficiency. New Phytologist, 221(1), 93–98.',
+            year: 2019,
+            doi: '10.1111/nph.15330',
+            topic: 'Stomatal opening kinetics — supports the directional claim that rapid intensity ' +
+                'changes outpace stomatal response, motivating gradual session ramping in CEA/GSSH contexts.'
         }
     };
 
@@ -343,8 +524,18 @@
             general: ['smith-kerns-2018', 'fidanza-brown-patch']
         },
         'bipolaris-curvularia': {
-            primary: ['bipolaris-brecht'],
-            secondary: ['psu-turfgrass-lab', 'umass-extension']
+            // b35fix362: DrechsleraPoaeModel passed Tier 2 audit and is validated
+            // for production use. Literature review confirmed Penn State Extension
+            // (Landschoot 2024) provides sufficient epidemiological foundation for
+            // temperature-moisture relationships and cool-season pathogen biology.
+            // Model uses literature-based temperature thresholds and operational
+            // estimates for weighted-sum coefficients. Other models (BipolarisCynodontis,
+            // BipolarisSorokiniana, Curvularia) remain beta-gated pending audit.
+            //
+            // SCOPE: Primary citation covers DrechsleraPoaeModel only. Other models
+            // in this complex require separate Tier 2 audits.
+            primary: ['psu-turfgrass-lab'], // DrechsleraPoaeModel validated b35fix362
+            secondary: ['umass-extension', 'bipolaris-brecht']
         },
         'nutrient-demand-engine': {
             primary: ['kussow-2012'],
@@ -506,7 +697,7 @@
         
         return {
             generatedAt: timestamp,
-            hubVersion: global.GAIP_HUB_VERSION || '9.6.20',
+            hubVersion: global.GAIP_HUB_VERSION || '11.3.10',  // b35fix309: bumped fallback (PHP injects the real value)
             registryVersion: REGISTRY_VERSION,
             engines: engines,
             citations: Array.from(citations).map(id => {

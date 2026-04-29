@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
 use App\Http\Controllers\MediaUploadController;
+use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -47,6 +48,12 @@ Route::middleware('auth')->group(function () {
         Route::patch('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
         Route::patch('/active-site', [SiteController::class, 'setActive'])->name('sites.active.update');
         Route::put('/sites/{site}/config/{namespace?}', [SiteController::class, 'updateConfig'])->name('sites.config.update');
+
+        Route::get('/samples', [SampleController::class, 'index'])->name('samples.index');
+        Route::post('/samples', [SampleController::class, 'store'])->name('samples.store');
+        Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
+        Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
+
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
