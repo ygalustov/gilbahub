@@ -5379,38 +5379,49 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                     ["IMMEDIATE: Apply fertiliser to correct deficiencies", "30-90 DAYS: Retest to confirm improvement"] :
                     [],
                 );
-            var $e =
-                (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
-                "IMMINENT_FAILURE" :
-                Me.indexOf("High") > -1 ?
-                "HIGH_RISK" :
-                Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
-                "MONITOR" :
-                "ACCEPTABLE";
-            Ee = generateDecisionBlock(
-                "Irrigation Water Quality",
-                $e,
-                "Water chemistry analysed for salinity, sodium hazard, and toxicity risks",
-                "Poor water quality causes soil sodicity, reduced infiltration, and direct turf damage",
-                "IMMINENT_FAILURE" === $e ?
-                "Severe water quality issues will cause rapid turf decline and unplayable conditions" :
-                "HIGH_RISK" === $e ?
-                "Continued use without treatment will progressively damage soil structure" :
-                "Water quality is manageable with standard practices",
-                "IMMINENT_FAILURE" === $e ?
-                "Implement water treatment system immediately or source alternative water" :
-                "HIGH_RISK" === $e ?
-                "Apply gypsum and increase leaching fraction" :
-                "Monitor and maintain current practices",
-                "IMMINENT_FAILURE" === $e ?
-                [
-                    "IMMEDIATE: Install treatment system or find alternative water source",
-                    "IMMEDIATE: Heavy gypsum application",
-                ] :
-                "HIGH_RISK" === $e ?
-                ["30-90 DAYS: Begin gypsum program", "30-90 DAYS: Increase irrigation frequency for leaching"] :
-                [],
-            );
+            var hasWaterData =
+                e.water &&
+                ((e.water.ions &&
+                    Object.keys(e.water.ions).some(function(k) {
+                        return safeNum(e.water.ions[k], 0) > 0;
+                    })) ||
+                    safeNum(e.water.ecw || e.water.ECw, 0) > 0);
+            if (hasWaterData) {
+                var $e =
+                    (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
+                    "IMMINENT_FAILURE" :
+                    Me.indexOf("High") > -1 ?
+                    "HIGH_RISK" :
+                    Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
+                    "MONITOR" :
+                    "ACCEPTABLE";
+                Ee = generateDecisionBlock(
+                    "Irrigation Water Quality",
+                    $e,
+                    "Water chemistry analysed for salinity, sodium hazard, and toxicity risks",
+                    "Poor water quality causes soil sodicity, reduced infiltration, and direct turf damage",
+                    "IMMINENT_FAILURE" === $e ?
+                    "Severe water quality issues will cause rapid turf decline and unplayable conditions" :
+                    "HIGH_RISK" === $e ?
+                    "Continued use without treatment will progressively damage soil structure" :
+                    "Water quality is manageable with standard practices",
+                    "IMMINENT_FAILURE" === $e ?
+                    "Implement water treatment system immediately or source alternative water" :
+                    "HIGH_RISK" === $e ?
+                    "Apply gypsum and increase leaching fraction" :
+                    "Monitor and maintain current practices",
+                    "IMMINENT_FAILURE" === $e ?
+                    [
+                        "IMMEDIATE: Install treatment system or find alternative water source",
+                        "IMMEDIATE: Heavy gypsum application",
+                    ] :
+                    "HIGH_RISK" === $e ?
+                    ["30-90 DAYS: Begin gypsum program", "30-90 DAYS: Increase irrigation frequency for leaching"] :
+                    [],
+                );
+            } else {
+                Ee = "";
+            }
         }
         if (p) {
             var Fe = (function(e) {
@@ -5495,7 +5506,9 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         }
         if (c) {
             var De = window.convertMLSNToProgressive ? window.convertMLSNToProgressive(e, t) : Ae + r;
-            u.innerHTML = Ae + De;
+            // The progressive soil renderer replaces the legacy soil block.
+            // Prepending Ae again duplicates the top-level soil decision card.
+            u.innerHTML = window.convertMLSNToProgressive ? De : Ae + De;
             var Ge = document.querySelector(".gaip-nutrient-demand-body"),
                 Le = document.querySelector('[data-section="nutrient-demand"]');
             if (Ge && window.GilbaNutrientDemandEngine)
