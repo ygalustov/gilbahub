@@ -823,11 +823,17 @@
      * v1.1.0: Enhanced N distribution table with overseed intent indicator
      */
     function renderNDistributionTable(annualN, monthlyGP, nAllocations, config, overseedConfig, monthlyC3Fractions) {
+        monthlyGP = monthlyGP || {};
+        nAllocations = nAllocations || {};
+        monthlyC3Fractions = monthlyC3Fractions || {};
+        config = config || {};
+        overseedConfig = overseedConfig || { isOverseed: false };
+
         const monthNames = getMonthNames();
         
         let maxN = 0, activeMonths = [];
         for (let month = 1; month <= 12; month++) {
-            if (nAllocations[month] > 0) {
+            if ((nAllocations[month] || 0) > 0) {
                 activeMonths.push(month);
                 maxN = Math.max(maxN, nAllocations[month]);
             }
@@ -951,7 +957,7 @@
                 </div>
                 ${legend}
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--gaip-text); padding-top: 8px; border-top: 1px solid #86efac;">
-                    <span>Total: <strong>${annualN} kg N/ha/yr</strong></span>
+                    <span>Total: <strong>${annualN || 0} kg N/ha/yr</strong></span>
                     <span>Active months: <strong>${activeMonths.length}</strong></span>
                 </div>
             </div>

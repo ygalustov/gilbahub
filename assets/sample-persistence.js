@@ -121,12 +121,26 @@
         }
         return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
             .then(function(r) {
-                return r.json().then(function(data) {
-                    if (!r.ok) {
-                        var msg = (data && data.message) || (data && data.data && data.data.message) || ('HTTP ' + r.status);
-                        throw new Error(msg);
+                return r.text().then(function(text) {
+                    var data = null;
+                    if (text) {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (_e) {
+                            data = null;
+                        }
                     }
-                    return data;
+                    if (!r.ok) {
+                        var msg = (data && data.message)
+                            || (data && data.data && data.data.message)
+                            || (text && text.trim().slice(0, 160))
+                            || ('HTTP ' + r.status);
+                        var err = new Error(msg);
+                        err.status = r.status;
+                        err.responseText = text;
+                        throw err;
+                    }
+                    return data || {};
                 });
             });
     }

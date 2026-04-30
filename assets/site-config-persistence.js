@@ -72,13 +72,88 @@
 
         return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
             .then(function(r) {
-                return r.json().then(function(data) {
-                    if (!r.ok) {
-                        throw new Error((data && data.message) || ('HTTP ' + r.status));
+                return r.text().then(function(text) {
+                    var data = null;
+                    if (text) {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (_e) {
+                            data = null;
+                        }
                     }
-                    return data;
+                    if (!r.ok) {
+                        var err = new Error((data && data.message) || (text && text.trim().slice(0, 160)) || ('HTTP ' + r.status));
+                        err.status = r.status;
+                        err.responseText = text;
+                        throw err;
+                    }
+                    return data || {};
                 });
             });
+    }
+
+    function getLiveSiteIdMap() {
+        var live = { 'default': true };
+        var SM = global.GAIP_SampleManager;
+        var siteList = SM && typeof SM.getSiteList === 'function' ? SM.getSiteList() : [];
+        for (var i = 0; i < siteList.length; i++) {
+            if (siteList[i] && siteList[i].id) {
+                live[siteList[i].id] = true;
+            }
+        }
+        return live;
+    }
+
+    function pruneConfigKeys(liveSiteIds) {
+        if (!liveSiteIds) return 0;
+        var pruned = 0;
+        Object.keys(_configs).forEach(function(siteId) {
+            if (siteId !== 'default' && !liveSiteIds[siteId]) {
+                delete _configs[siteId];
+                pruned++;
+            }
+        });
+        if (pruned > 0) {
+            saveToStorage();
+            log('Pruned stale site config key(s):', pruned);
+        }
+        return pruned;
+    }
+
+    function syncSiteRegistryToServer(siteIds) {
+        var base = getApiBaseUrl();
+        var SM = global.GAIP_SampleManager;
+        if (!base || typeof fetch === 'undefined' || !SM || !siteIds || !siteIds.length) {
+            return Promise.resolve(false);
+        }
+
+        var siteList = typeof SM.getSiteList === 'function' ? SM.getSiteList() : [];
+        var byId = {};
+        for (var i = 0; i < siteList.length; i++) {
+            if (siteList[i] && siteList[i].id) byId[siteList[i].id] = siteList[i];
+        }
+
+        var payloadSites = {};
+        siteIds.forEach(function(siteId) {
+            if (siteId === 'default') return;
+            var site = byId[siteId];
+            if (!site) return;
+            payloadSites[siteId] = {
+                label: site.label || site.name || siteId
+            };
+        });
+
+        if (Object.keys(payloadSites).length === 0) {
+            return Promise.resolve(false);
+        }
+
+        return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sites: payloadSites })
+        }).then(function() {
+            return true;
+        });
     }
 
     function saveLocationToServer(siteId, location) {
@@ -192,18 +267,26 @@
 
         clearTimeout(_serverSyncTimer);
         _serverSyncTimer = setTimeout(function() {
+            var liveSiteIds = getLiveSiteIdMap();
+            pruneConfigKeys(liveSiteIds);
+
             var keys = Object.keys(_configs).filter(function(siteId) {
                 return siteId && siteId !== 'default' && _configs[siteId];
+            }).filter(function(siteId) {
+                return !!liveSiteIds[siteId];
             });
             if (keys.length === 0) return;
 
-            Promise.all(keys.map(function(siteId) {
-                return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ config: _configs[siteId] })
-                });
-            }))
+            syncSiteRegistryToServer(keys)
+            .then(function() {
+                return Promise.all(keys.map(function(siteId) {
+                    return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ config: _configs[siteId] })
+                    });
+                }));
+            })
                 .then(function() {
                     log('Site configs synced to MySQL (' + keys.length + ' sites)');
                 })
@@ -871,24 +954,7 @@
         // in SampleManager. Prevents ProfileBridge regenerating orphan profiles on
         // every load from stale gilba_hub_site_configs entries.
         (function pruneStaleConfigs() {
-            var siteList = SM.getSiteList ? SM.getSiteList() : [];
-            var liveSiteIds = {};
-            for (var i = 0; i < siteList.length; i++) {
-                liveSiteIds[siteList[i].id] = true;
-            }
-            var pruned = 0;
-            for (var siteId in _configs) {
-                if (_configs.hasOwnProperty(siteId) && siteId !== 'default') {
-                    if (!liveSiteIds[siteId]) {
-                        delete _configs[siteId];
-                        pruned++;
-                    }
-                }
-            }
-            if (pruned > 0) {
-                saveToStorage();
-                log('Pruned', pruned, 'stale site config(s) with no matching site');
-            }
+            pruneConfigKeys(getLiveSiteIdMap());
         })();
 
         // One-time migration: if 'default' site has a real label (was renamed rather
