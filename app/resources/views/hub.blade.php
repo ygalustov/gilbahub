@@ -2,6 +2,13 @@
 
 @section('head')
     @php
+        $legacyAssetUrl = function (string $asset): string {
+            $path = base_path('../assets/'.$asset);
+            $version = is_file($path) ? '?v='.filemtime($path) : '';
+
+            return url('/legacy-assets/'.$asset).$version;
+        };
+
         $hubStyles = [
             'hub.css',
             'sample-manager.css',
@@ -14,7 +21,7 @@
         ];
     @endphp
     @foreach ($hubStyles as $style)
-        <link rel="stylesheet" href="{{ url('/legacy-assets/'.$style) }}">
+        <link rel="stylesheet" href="{{ $legacyAssetUrl($style) }}">
     @endforeach
 @endsection
 
@@ -74,6 +81,6 @@
     @php($headLikeScripts = ['gilba-hub-v2.js', 'climate-engine-v2.js'])
 
     @foreach ($hubScripts as $script)
-        <script src="{{ url('/legacy-assets/'.$script) }}" @if (! in_array($script, $headLikeScripts, true)) defer @endif></script>
+        <script src="{{ $legacyAssetUrl($script) }}" @if (! in_array($script, $headLikeScripts, true)) defer @endif></script>
     @endforeach
 @endsection

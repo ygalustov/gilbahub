@@ -597,8 +597,7 @@
         header.innerHTML =
             '<span class="gaip-inputs-title">Inputs</span>' +
             '<span class="gaip-inputs-setup-badge">Setup required</span>' +
-            '<span class="gaip-inputs-hint">Soil, water, tissue, PGR, traffic settings</span>' +
-            '<span class="gaip-inputs-toggle">▼</span>';
+            '<span class="gaip-inputs-spacer" aria-hidden="true"></span>';
 
         header.addEventListener('click', function() {
             wrapper.classList.toggle('collapsed');
