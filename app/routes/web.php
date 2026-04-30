@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AlertController;
+use App\Http\Controllers\BenchmarkController;
 use App\Http\Controllers\FieldLogEntryController;
 use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
@@ -61,6 +62,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/samples/sync', [SampleController::class, 'sync'])->name('samples.sync');
         Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
         Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
+        Route::get('/benchmark/{siteIdentifier}', [BenchmarkController::class, 'show'])->name('benchmark.show');
 
         Route::get('/field-log/entries', [FieldLogEntryController::class, 'index'])->name('field-log-entries.index');
         Route::post('/field-log/entries', [FieldLogEntryController::class, 'store'])->name('field-log-entries.store');

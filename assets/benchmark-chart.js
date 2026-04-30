@@ -329,16 +329,23 @@
         var root = document.getElementById(cfg.rootId);
         if (!root) { console.warn('[BenchmarkChart] Root not found:', cfg.rootId); return; }
 
-        var restUrl = cfg.restUrl || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/wp-json/gilba/v1/';
-        var nonce   = cfg.nonce   || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restNonce) || '';
+        var hubCfg = window.GAIP_HUB_CONFIG || {};
+        var restUrl = (cfg.restUrl || hubCfg.restUrl || '/api/').replace(/\/+$/, '');
+        var csrfToken = cfg.csrfToken || cfg.nonce || hubCfg.csrfToken || hubCfg.restNonce || hubCfg.nonce || '';
         var siteId  = getSiteId(cfg);
-        var url     = restUrl + 'benchmark/' + encodeURIComponent(siteId) +
+        var url     = restUrl + '/benchmark/' + encodeURIComponent(siteId) +
                       '?module=' + cfg.module + '&limit=' + cfg.limit + '&days=' + cfg.days;
 
         // Show site ID in footer
         var sidEl = document.getElementById(cfg.rootId + '-site-id');
 
-        fetch(url, { headers: { 'X-WP-Nonce': nonce } })
+        fetch(url, {
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            }
+        })
             .then(function(r) { return r.json(); })
             .then(function(json) {
                 var data, isMock = false;

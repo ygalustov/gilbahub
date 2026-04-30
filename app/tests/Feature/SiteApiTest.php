@@ -1021,6 +1021,76 @@ class SiteApiTest extends TestCase
             ->assertStatus(422);
     }
 
+    public function test_authenticated_user_can_fetch_benchmark_payload_via_laravel_api(): void
+    {
+        $user = User::factory()->create();
+
+        $predictionA = DB::table('predictions')->insertGetId([
+            'user_id' => $user->id,
+            'site_identifier' => 'site-bench',
+            'cascade_id' => 'cascade-1',
+            'module' => 'disease',
+            'sub_key' => 'dollar_spot_risk',
+            'predicted_label' => 'Dollar Spot Risk',
+            'prediction_type' => 'probability',
+            'predicted_value' => json_encode(0.74),
+            'predicted_category' => 'high',
+            'confidence' => 0.84,
+            'predicted_at' => now()->subDays(4),
+            'outcome_window_start' => now()->subDays(2),
+            'outcome_window_end' => now()->addDay(),
+            'input_snapshot' => json_encode(['x' => 1], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'resolved',
+            'resolved_at' => now()->subDay(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('prediction_outcomes')->insert([
+            'prediction_id' => $predictionA,
+            'user_id' => $user->id,
+            'qualitative' => 'as_expected',
+            'action_taken' => 'followed',
+            'action_notes' => 'As planned.',
+            'observed_at' => now()->subDay(),
+            'payload' => json_encode(['qualitative' => 'as_expected'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('predictions')->insert([
+            'user_id' => $user->id,
+            'site_identifier' => 'site-bench',
+            'cascade_id' => 'cascade-2',
+            'module' => 'disease',
+            'sub_key' => 'dollar_spot_risk',
+            'predicted_label' => 'Dollar Spot Risk',
+            'prediction_type' => 'probability',
+            'predicted_value' => json_encode(0.81),
+            'predicted_category' => 'high',
+            'confidence' => 0.79,
+            'predicted_at' => now()->subDays(1),
+            'outcome_window_start' => now(),
+            'outcome_window_end' => now()->addDays(3),
+            'input_snapshot' => json_encode(['x' => 2], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/benchmark/site-bench?module=disease&limit=50&days=90')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('counts.outcomes', 1)
+            ->assertJsonPath('counts.pending', 1)
+            ->assertJsonPath('outcomes.0.sub_key', 'dollar_spot_risk')
+            ->assertJsonPath('outcomes.0.qualitative', 'as_expected')
+            ->assertJsonPath('pending.0.status', 'pending')
+            ->assertJsonPath('accuracy.dollar_spot_risk.total', 1)
+            ->assertJsonPath('accuracy.dollar_spot_risk.accuracy_pct', 100);
+    }
+
 
     public function test_authenticated_user_can_store_field_log_entry(): void
     {
