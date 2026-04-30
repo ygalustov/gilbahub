@@ -53,6 +53,53 @@
         console.warn.apply(console, args);
     }
 
+    function getApiBaseUrl() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.restUrl || '/api/';
+    }
+
+    function getCsrfToken() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.csrfToken || cfg.restNonce || cfg.nonce || '';
+    }
+
+    function apiFetchJson(url, options) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, (options && options.headers) || {});
+        var token = getCsrfToken();
+        if (token) headers['X-CSRF-TOKEN'] = token;
+
+        return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
+            .then(function(r) {
+                return r.json().then(function(data) {
+                    if (!r.ok) {
+                        throw new Error((data && data.message) || ('HTTP ' + r.status));
+                    }
+                    return data;
+                });
+            });
+    }
+
+    function saveLocationToServer(siteId, location) {
+        var base = getApiBaseUrl();
+        if (!base || !siteId || siteId === 'default' || !location || !location.lat || !location.lon || typeof fetch === 'undefined') {
+            return;
+        }
+
+        apiFetchJson(base.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                location_name: location.name || '',
+                latitude: location.lat,
+                longitude: location.lon
+            })
+        }).catch(function(err) {
+            warn('Location sync failed:', err.message);
+        });
+    }
+
     // =========================================================================
     // STORAGE
     // =========================================================================
@@ -121,7 +168,7 @@
     }
 
     // =========================================================================
-    // SERVER SYNC — push/pull full site configs to/from WP user meta
+    // SERVER SYNC — push/pull full site configs to/from Laravel/MySQL
     // Enables cross-device species and profile consistency.
     // Push: called after every saveToStorage().
     // Pull: called once on init when localStorage is empty or stale.
@@ -139,29 +186,30 @@
      * Push current _configs to server (debounced 2s to batch rapid switches).
      */
     function pushConfigsToServer() {
-        var cfg = global.GAIP_HUB_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
-        var nonce   = cfg.nonce   || '';
-        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') return;
         if (Object.keys(_configs).length === 0) return;
 
         clearTimeout(_serverSyncTimer);
         _serverSyncTimer = setTimeout(function() {
-            var body = new URLSearchParams();
-            body.append('action',  'gilba_site_configs_save');
-            body.append('nonce',   nonce);
-            body.append('configs', JSON.stringify(_configs));
+            var keys = Object.keys(_configs).filter(function(siteId) {
+                return siteId && siteId !== 'default' && _configs[siteId];
+            });
+            if (keys.length === 0) return;
 
-            fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (data && data.success) {
-                        log('Site configs synced to server (' + data.data.saved + ' sites)');
-                    } else {
-                        warn('Server config sync failed:', (data && data.data && data.data.message) || 'unknown');
-                    }
+            Promise.all(keys.map(function(siteId) {
+                return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ config: _configs[siteId] })
+                });
+            }))
+                .then(function() {
+                    log('Site configs synced to MySQL (' + keys.length + ' sites)');
                 })
-                .catch(function() { /* offline — silently ignore */ });
+                .catch(function(err) {
+                    warn('Server config sync failed:', err.message);
+                });
         }, 2000);
     }
 
@@ -172,26 +220,26 @@
      * @param {function} onComplete  called when done
      */
     function pullConfigsFromServer(onComplete) {
-        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
-        var nonce   = cfg.nonce   || '';
-        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') {
             if (onComplete) onComplete(false);
             return;
         }
 
-        var body = new URLSearchParams();
-        body.append('action', 'gilba_site_configs_load');
-        body.append('nonce',  nonce);
-
-        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
-            .then(function(r) { return r.json(); })
+        apiFetchJson(base.replace(/\/?$/, '/') + 'sites')
             .then(function(data) {
-                if (!data || !data.success || !data.data || !data.data.configs) {
+                var rows = (data && data.data) || [];
+                if (!rows.length) {
                     if (onComplete) onComplete(false);
                     return;
                 }
-                var serverConfigs = data.data.configs;
+
+                var serverConfigs = {};
+                rows.forEach(function(site) {
+                    var config = site && site.configs && site.configs.gaip && site.configs.gaip.config;
+                    if (site && site.id && config) serverConfigs[site.id] = config;
+                });
+
                 var count = Object.keys(serverConfigs).length;
                 if (count === 0) {
                     if (onComplete) onComplete(false);
@@ -562,20 +610,11 @@
                 detail: { lat: location.lat, lon: location.lon, name: location.name || '' }
             }));
             
-            // Also update WP user_meta so PHP-injected location matches on next page load
-            if (typeof jQuery !== 'undefined' && global.GAIP_HUB_CONFIG) {
-                jQuery.ajax({
-                    url: global.GAIP_HUB_CONFIG.ajaxUrl,
-                    type: 'POST',
-                    data: {
-                        action: 'gilba_save_location',
-                        lat: location.lat,
-                        lon: location.lon,
-                        name: location.name || '',
-                        nonce: global.GAIP_HUB_CONFIG.nonce
-                    }
-                });
-            }
+            // Also update the site row so server-rendered location matches on next page load.
+            var activeSiteId = global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId
+                ? global.GAIP_SampleManager.getActiveSiteId()
+                : null;
+            saveLocationToServer(activeSiteId, location);
         }
 
         // Fire state change so engines pick up the new config
@@ -1055,21 +1094,9 @@
             saveToStorage();
             log('Explicit save for', siteId, ':', JSON.stringify(_configs[siteId].turf.species), _configs[siteId].location.name);
             
-            // Also persist location to WP user meta so it survives localStorage clears
+            // Also persist location to MySQL so it survives localStorage clears.
             var loc = _configs[siteId].location;
-            if (loc.lat && loc.lon && typeof jQuery !== 'undefined' && global.GAIP_HUB_CONFIG) {
-                jQuery.ajax({
-                    url: global.GAIP_HUB_CONFIG.ajaxUrl,
-                    type: 'POST',
-                    data: {
-                        action: 'gilba_save_location',
-                        lat: loc.lat,
-                        lon: loc.lon,
-                        name: loc.name || '',
-                        nonce: global.GAIP_HUB_CONFIG.nonce
-                    }
-                });
-            }
+            saveLocationToServer(siteId, loc);
         });
 
         // b35fix110: gaip:config-save-requested — fired by daily-dashboard.js when

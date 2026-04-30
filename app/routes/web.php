@@ -8,6 +8,7 @@ use App\Http\Controllers\MediaUploadController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
+use App\Http\Controllers\StadiumVenueProfileController;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
@@ -44,6 +45,7 @@ Route::middleware('auth')->group(function () {
             ->name('legacy.ajax');
 
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
+        Route::post('/sites/sync', [SiteController::class, 'syncRegistry'])->name('sites.sync');
         Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
         Route::get('/sites/{site}', [SiteController::class, 'show'])->name('sites.show');
         Route::patch('/sites/{site}', [SiteController::class, 'update'])->name('sites.update');
@@ -61,6 +63,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
+        Route::get('/stadium/venue-profiles', [StadiumVenueProfileController::class, 'index'])->name('stadium.venue-profiles.index');
+        Route::put('/stadium/venue-profiles/{venueId}', [StadiumVenueProfileController::class, 'upsert'])->name('stadium.venue-profiles.upsert');
 
         Route::post('/legacy/gilba-sites-load', [LegacySitePersistenceController::class, 'loadSites'])->name('legacy.sites.load');
         Route::post('/legacy/gilba-sites-save', [LegacySitePersistenceController::class, 'saveSites'])->name('legacy.sites.save');

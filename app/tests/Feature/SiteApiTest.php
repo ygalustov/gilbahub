@@ -106,6 +106,38 @@ class SiteApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_sync_legacy_site_registry_ids(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/sites/sync', [
+                '_token' => 'test-token',
+                'sites' => [
+                    'federal_golf_club_greens' => [
+                        'label' => 'Federal Golf Club',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.saved', 1);
+
+        $this->assertDatabaseHas('sites', [
+            'id' => 'federal_golf_club_greens',
+            'name' => 'Federal Golf Club',
+        ]);
+        $this->assertDatabaseHas('site_user', [
+            'site_id' => 'federal_golf_club_greens',
+            'user_id' => $user->id,
+            'role' => 'owner',
+        ]);
+        $this->assertDatabaseHas('site_configs', [
+            'site_id' => 'federal_golf_club_greens',
+            'namespace' => 'gaip',
+        ]);
+    }
+
     public function test_authenticated_user_can_set_active_site(): void
     {
         $user = User::factory()->create();
@@ -823,6 +855,39 @@ class SiteApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('success', true)
+            ->assertJsonPath('data.allianz_stadium.species', 'Couch')
+            ->assertJsonPath('data.allianz_stadium.variety', 'TifTuf')
+            ->assertJsonPath('data.allianz_stadium.venueEnv.enclosureType', 'open');
+    }
+
+    public function test_authenticated_user_can_save_and_load_stadium_venue_profiles_via_api(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->putJson('/api/stadium/venue-profiles/allianz_stadium', [
+                '_token' => 'test-token',
+                'turfType' => 'sports',
+                'subCategory' => 'football',
+                'species' => 'Couch',
+                'variety' => 'TifTuf',
+                'construction' => 'sand_carpet',
+                'overseedSpecies' => 'Perennial Ryegrass',
+                'overseedVariety' => 'RPR',
+                'percentC3Cover' => 35,
+                'venueEnv' => [
+                    'enclosureType' => 'open',
+                    'drainageRating' => 0.8,
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.venue_id', 'allianz_stadium')
+            ->assertJsonPath('data.profile.species', 'Couch');
+
+        $this->actingAs($user)
+            ->getJson('/api/stadium/venue-profiles')
+            ->assertOk()
             ->assertJsonPath('data.allianz_stadium.species', 'Couch')
             ->assertJsonPath('data.allianz_stadium.variety', 'TifTuf')
             ->assertJsonPath('data.allianz_stadium.venueEnv.enclosureType', 'open');

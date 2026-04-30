@@ -46,6 +46,32 @@
     function log()  { var a = Array.prototype.slice.call(arguments); a.unshift('[FieldAnalysis]'); console.log.apply(console, a); }
     function warn() { var a = Array.prototype.slice.call(arguments); a.unshift('[FieldAnalysis WARN]'); console.warn.apply(console, a); }
 
+    function getApiBaseUrl() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.restUrl || '/api/';
+    }
+
+    function getCsrfToken() {
+        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
+        return cfg.csrfToken || cfg.restNonce || cfg.nonce || '';
+    }
+
+    function apiFetchJson(url, options) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, (options && options.headers) || {});
+        var token = getCsrfToken();
+        if (token) headers['X-CSRF-TOKEN'] = token;
+
+        return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
+                    return data;
+                });
+            });
+    }
+
     // -------------------------------------------------------------------------
     // GP CURVE (inline — no climate-engine-v2.js needed)
     // -------------------------------------------------------------------------
@@ -550,22 +576,21 @@
      * @param {function} onComplete  called when done (merged: true/false)
      */
     function fetchConfigsFromServer(onComplete) {
-        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
-        var nonce   = cfg.nonce   || '';
-        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') {
             onComplete(false); return;
         }
-        var body = new URLSearchParams();
-        body.append('action', 'gilba_site_configs_load');
-        body.append('nonce',  nonce);
-        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
-            .then(function(r) { return r.json(); })
+        apiFetchJson(base.replace(/\/?$/, '/') + 'sites')
             .then(function(data) {
-                if (!data || !data.success || !data.data || !data.data.configs) {
+                var rows = (data && data.data) || [];
+                if (!rows.length) {
                     onComplete(false); return;
                 }
-                var serverConfigs = data.data.configs;
+                var serverConfigs = {};
+                rows.forEach(function(site) {
+                    var config = site && site.configs && site.configs.gaip && site.configs.gaip.config;
+                    if (site && site.id && config) serverConfigs[site.id] = config;
+                });
                 if (Object.keys(serverConfigs).length === 0) {
                     onComplete(false); return;
                 }

@@ -117,7 +117,6 @@
         }, (options && options.headers) || {});
         var token = getCsrfToken();
         if (token) {
-            headers['X-WP-Nonce'] = token;
             headers['X-CSRF-TOKEN'] = token;
         }
         return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
@@ -274,11 +273,11 @@
                 log('Auto-saved (' + reason + '): ' + count + ' samples across ' + 
                     siteKeys.length + ' sites [batch #' + batchId + ']');
 
-                // Sync site registry opportunistically, but require sample data
-                // to reach MySQL before reporting this save as complete.
-                syncSiteListToServer(snapshot.sites || {});
-
-                return syncSamplesToServer(snapshot).then(function() {
+                // Sync site registry before samples so imported/restored site IDs
+                // exist in MySQL before sample rows reference them.
+                return syncSiteListToServer(snapshot.sites || {}).then(function() {
+                    return syncSamplesToServer(snapshot);
+                }).then(function() {
                     document.dispatchEvent(new CustomEvent('gaip:samples-persistence-saved', {
                         detail: {
                             sampleCount: count,
@@ -391,15 +390,13 @@
     }
 
     /**
-     * Sync the site registry (id + label only) to WP user meta.
+     * Sync the site registry (id + label only) to MySQL.
      * Fire-and-forget — never blocks the save path, never retries.
      * @param {object} sites  { siteId: { label, createdAt } }
      */
     function syncSiteListToServer(sites) {
-        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
-        var nonce   = cfg.nonce   || '';
-        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') return;
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') return Promise.resolve(false);
 
         // Only sync non-default sites — 'default' always exists client-side
         var toSync = {};
@@ -407,52 +404,53 @@
             if (id !== 'default') toSync[id] = sites[id];
         });
 
-        var body = new URLSearchParams();
-        body.append('action', 'gilba_sites_save');
-        body.append('nonce',  nonce);
-        body.append('sites',  JSON.stringify(toSync));
+        if (Object.keys(toSync).length === 0) return Promise.resolve(false);
 
-        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
-            .then(function(r) { return r.json(); })
+        return apiFetchJson(base.replace(/\/?$/, '/') + 'sites/sync', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sites: toSync })
+        })
             .then(function(data) {
-                if (data && data.success) {
-                    log('Site list synced to server (' + Object.keys(toSync).length + ' sites)');
-                } else {
-                    warn('Server site sync failed:', (data && data.data && data.data.message) || 'unknown error');
-                }
+                log('Site list synced to MySQL (' + ((data && data.data && data.data.saved) || 0) + ' sites)');
+                return true;
             })
-            .catch(function() {
-                // Offline or server unavailable — silently ignore
+            .catch(function(err) {
+                warn('Server site sync failed:', err.message);
+                throw err;
             });
     }
 
     /**
-     * Fetch site list from WP user meta and merge into SampleManager.
+     * Fetch site list from MySQL and merge into SampleManager.
      * Called when localStorage has no data (fresh device / cleared storage).
      * @param {function} onComplete  called when done (with or without server data)
      */
     function fetchSiteListFromServer(onComplete) {
-        var cfg = global.GAIP_HUB_CONFIG || global.GAIP_FIELD_LOG_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '';
-        var nonce   = cfg.nonce   || '';
-        if (!ajaxUrl || !nonce || typeof fetch === 'undefined') {
+        var base = getApiBaseUrl();
+        if (!base || typeof fetch === 'undefined') {
             onComplete(false);
             return;
         }
 
-        var body = new URLSearchParams();
-        body.append('action', 'gilba_sites_load');
-        body.append('nonce',  nonce);
-
-        fetch(ajaxUrl, { method: 'POST', credentials: 'same-origin', body: body })
-            .then(function(r) { return r.json(); })
+        apiFetchJson(base.replace(/\/?$/, '/') + 'sites')
             .then(function(data) {
-                if (!data || !data.success || !data.data || !data.data.sites) {
+                var rows = (data && data.data) || [];
+                if (!rows.length) {
                     onComplete(false);
                     return;
                 }
-                var sites = data.data.sites;
-                var keys  = Object.keys(sites);
+
+                var sites = {};
+                rows.forEach(function(site) {
+                    if (!site || !site.id) return;
+                    sites[site.id] = {
+                        label: site.name || site.id,
+                        createdAt: site.created_at || ''
+                    };
+                });
+
+                var keys = Object.keys(sites);
                 if (keys.length === 0) {
                     onComplete(false);
                     return;
@@ -471,7 +469,7 @@
                 });
 
                 if (added > 0) {
-                    log('SERVER SYNC: Imported ' + added + ' sites from user meta');
+                    log('SERVER SYNC: Imported ' + added + ' sites from MySQL');
                     // Persist the reconstructed site list locally so next load is instant
                     try {
                         var snap = SM.getAllSamples();

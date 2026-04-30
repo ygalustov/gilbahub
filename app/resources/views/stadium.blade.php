@@ -2,6 +2,13 @@
 
 @section('head')
     @php
+        $legacyAssetUrl = function (string $asset): string {
+            $path = base_path('../assets/'.$asset);
+            $version = is_file($path) ? '?v='.filemtime($path) : '';
+
+            return url('/legacy-assets/'.$asset).$version;
+        };
+
         $stadiumStyles = [
             'hub.css',
             'sample-manager.css',
@@ -51,7 +58,7 @@
     @endphp
 
     @foreach ($stadiumStyles as $style)
-        <link rel="stylesheet" href="{{ url('/legacy-assets/'.$style) }}">
+        <link rel="stylesheet" href="{{ $legacyAssetUrl($style) }}">
     @endforeach
 
     <script>
@@ -59,8 +66,8 @@
         window.GSSH_CONTEXT = window.GSSH_CONTEXT || {};
         window.GSSH_HUB_CONFIG = Object.assign({}, window.GSSH_HUB_CONFIG || {}, {
             openMeteoUrl: 'https://api.open-meteo.com/v1/forecast',
-            ajaxUrl: '{{ url('/api/ajax') }}',
             restUrl: '{{ url('/api') }}/',
+            csrfToken: '{{ csrf_token() }}',
             savedLocation: window.GAIP_HUB_CONFIG ? window.GAIP_HUB_CONFIG.savedLocation : {},
             nonce: '{{ csrf_token() }}',
             restNonce: '{{ csrf_token() }}',
@@ -72,7 +79,6 @@
         });
         window.GSSH_STADIUM_CONFIG = Object.assign({}, window.GSSH_STADIUM_CONFIG || {}, {
             venues: @json($stadiums),
-            ajaxUrl: '{{ url('/api/ajax') }}',
             nonce: '{{ csrf_token() }}'
         });
         window.GilbaStadiumData = Object.assign({}, window.GilbaStadiumData || {}, {
@@ -133,6 +139,6 @@
     @php($headLikeScripts = ['gilba-storage-ns.js', 'gaip-site-context.js', 'gilba-storage-migrate.js', 'gilba-hub-v2.js', 'climate-engine-v2.js'])
 
     @foreach ($stadiumScripts as $script)
-        <script src="{{ url('/legacy-assets/'.$script) }}" @if (! in_array($script, $headLikeScripts, true)) defer @endif></script>
+        <script src="{{ $legacyAssetUrl($script) }}" @if (! in_array($script, $headLikeScripts, true)) defer @endif></script>
     @endforeach
 @endsection

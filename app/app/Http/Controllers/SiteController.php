@@ -68,6 +68,66 @@ class SiteController extends Controller
         ], 201);
     }
 
+    public function syncRegistry(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'sites' => ['required', 'array'],
+        ]);
+
+        $account = $this->currentAccount($request);
+        $saved = 0;
+
+        foreach ($data['sites'] as $siteId => $siteData) {
+            if (! is_string($siteId) || trim($siteId) === '' || ! is_array($siteData)) {
+                continue;
+            }
+
+            $name = trim((string) ($siteData['label'] ?? $siteData['name'] ?? $siteId));
+            $site = Site::query()->find($siteId);
+
+            if ($site) {
+                $this->abortUnlessMember($request, $site);
+                $site->update([
+                    'name' => $name !== '' ? $name : $site->name,
+                    'modified_by_user_id' => $request->user()->id,
+                ]);
+            } else {
+                $site = new Site();
+                $site->forceFill([
+                    'id' => $siteId,
+                    'account_id' => $account->id,
+                    'name' => $name !== '' ? $name : $siteId,
+                    'slug' => $this->uniqueSlug($account->id, $name !== '' ? $name : $siteId),
+                    'site_type' => 'precinct',
+                    'timezone' => 'Australia/Sydney',
+                    'created_by_user_id' => $request->user()->id,
+                    'modified_by_user_id' => $request->user()->id,
+                ])->save();
+
+                $site->users()->attach($request->user()->id, ['role' => 'owner']);
+            }
+
+            SiteConfig::query()->firstOrCreate(
+                [
+                    'site_id' => $site->id,
+                    'namespace' => 'gaip',
+                ],
+                [
+                    'config' => [],
+                    'synced_at' => now(),
+                ]
+            );
+
+            $saved++;
+        }
+
+        return response()->json([
+            'data' => [
+                'saved' => $saved,
+            ],
+        ]);
+    }
+
     public function show(Request $request, Site $site): JsonResponse
     {
         $this->abortUnlessMember($request, $site);

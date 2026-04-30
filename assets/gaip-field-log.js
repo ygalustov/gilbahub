@@ -3,7 +3,7 @@
  * GAIP FIELD LOG v1.0.0
  * ============================================================================
  *
- * Mobile-first field data capture for the [gaip_field_log] shortcode page.
+ * Mobile-first field data capture for the Laravel field log page.
  *
  * OBSERVATION TYPES:
  *   spray       — log a product application
@@ -29,13 +29,12 @@
  *
  * PHOTO UPLOAD:
  *   Uses browser native <input type="file" accept="image/*" capture="environment">
- *   which triggers camera on mobile. On save, uploads to WP media library via
- *   POST /wp/v2/media (core REST, no plugin needed). Attachment ID is stored
- *   with the MySQL-backed observation payload.
+ *   which triggers camera on mobile. On save, uploads to Laravel's media
+ *   endpoint and stores the returned media ID with the observation payload.
  *
  * CONFIG:
- *   Reads window.GAIP_HUB_CONFIG for restUrl, restNonce, ajaxUrl, userId.
- *   Falls back to window.GAIP_FIELD_LOG_CONFIG if shortcode passes separate config.
+ *   Reads window.GAIP_HUB_CONFIG for restUrl, csrfToken/restNonce, and userId.
+ *   Falls back to window.GAIP_FIELD_LOG_CONFIG if the page passes separate config.
  *
  * ============================================================================
  */
@@ -53,10 +52,18 @@
     var _ls = (window.GilbaStorageNS && window.GilbaStorageNS.get) ? window.GilbaStorageNS.get() : localStorage;
 
     var cfg = global.GAIP_FIELD_LOG_CONFIG || global.GAIP_HUB_CONFIG || {};
-    var REST_URL    = (cfg.restUrl    || '/wp-json/gilba/v1/').replace(/\/$/, '');
-    var WP_REST_URL = (cfg.wpRestUrl  || '/wp-json/wp/v2');
-    var REST_NONCE  = cfg.restNonce   || '';
+    var REST_URL    = (cfg.restUrl || '/api/').replace(/\/$/, '');
+    var MEDIA_URL   = REST_URL + '/media';
+    var CSRF_TOKEN  = cfg.csrfToken || cfg.restNonce || cfg.nonce || '';
     var USER_ID     = cfg.userId      || 0;
+
+    function apiHeaders(extra) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, extra || {});
+        if (CSRF_TOKEN) headers['X-CSRF-TOKEN'] = CSRF_TOKEN;
+        return headers;
+    }
 
     // =========================================================================
     // LOGGING
@@ -105,9 +112,7 @@
 
             return fetch(REST_URL + '/field-log/entries?' + qs.toString(), {
                 method: 'GET',
-                headers: {
-                    'X-WP-Nonce': REST_NONCE
-                }
+                headers: apiHeaders()
             }).then(function (res) {
                 if (!res.ok) { return parseApiError(res); }
                 return res.json();
@@ -119,10 +124,7 @@
         post: function (payload) {
             return fetch(REST_URL + '/field-log/entries', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-WP-Nonce': REST_NONCE
-                },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(payload)
             }).then(function (res) {
                 if (!res.ok) { return parseApiError(res); }
@@ -140,10 +142,7 @@
         post: function (payload) {
             return fetch(REST_URL + '/spray-log', {
                 method:  'POST',
-                headers: {
-                    'Content-Type':    'application/json',
-                    'X-WP-Nonce':      REST_NONCE
-                },
+                headers: apiHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify(payload)
             }).then(function (res) {
                 if (!res.ok) { return parseApiError(res); }
@@ -156,7 +155,7 @@
     // SITE LOADER  (b35fix97)
     // =========================================================================
     //
-    // Fetches the canonical site list from the server (wp_ajax_gilba_sites_load)
+    // Fetches the canonical site list from the Laravel API
     // and injects it into the _ls 'gilba_samples' blob so that all Hub modules
     // — including gaip-field-log — read the same data source.
     //
@@ -174,33 +173,33 @@
          * Returns Promise<Array<{id:string, label:string}>>
          */
         fetchAndInject: function () {
-            var ajaxUrl = cfg.ajaxUrl || '/wp-admin/admin-ajax.php';
-            var nonce   = cfg.nonce   || cfg.restNonce || '';
-
-            if (!ajaxUrl || !nonce) {
-                warn('SiteLoader: no ajaxUrl/nonce — skipping server fetch');
+            if (!REST_URL || typeof fetch === 'undefined') {
+                warn('SiteLoader: REST API unavailable — skipping server fetch');
                 return Promise.resolve(SiteLoader._fromStorage());
             }
 
-            var body = new URLSearchParams();
-            body.append('action', 'gilba_sites_load');
-            body.append('nonce',  nonce);
-
-            return fetch(ajaxUrl, {
-                method:  'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body:    body.toString()
+            return fetch(REST_URL + '/sites', {
+                method:  'GET',
+                headers: apiHeaders()
             })
             .then(function (res) {
                 if (!res.ok) { throw new Error('HTTP ' + res.status); }
                 return res.json();
             })
             .then(function (json) {
-                if (!json.success || !json.data || !json.data.sites) {
-                    throw new Error(json.data && json.data.message ? json.data.message : 'Bad response');
+                var rows = (json && json.data) || [];
+                if (!Array.isArray(rows)) {
+                    throw new Error('Bad response');
                 }
 
-                var serverSites = json.data.sites; // { siteId: { label, createdAt } }
+                var serverSites = {};
+                rows.forEach(function(site) {
+                    if (!site || !site.id) return;
+                    serverSites[site.id] = {
+                        label: site.name || site.id,
+                        createdAt: site.created_at || ''
+                    };
+                });
                 SiteLoader._injectIntoStorage(serverSites);
 
                 var list = Object.keys(serverSites).map(function (id) {
@@ -298,9 +297,9 @@
             formData.append('file', file, file.name);
             if (title) { formData.append('title', title); }
 
-            return fetch(WP_REST_URL + '/media', {
+            return fetch(MEDIA_URL, {
                 method:  'POST',
-                headers: { 'X-WP-Nonce': REST_NONCE },
+                headers: apiHeaders(),
                 body:    formData
             }).then(function (res) {
                 if (!res.ok) { throw new Error('Media upload failed: ' + res.status); }

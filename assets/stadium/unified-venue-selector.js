@@ -359,35 +359,15 @@
         },
 
         deleteCustomVenue: function(venueId) {
-            const nonce = (window.GSSH_STADIUM_CONFIG && window.GSSH_STADIUM_CONFIG.nonce) || '';
-            const ajaxUrl = (window.GSSH_STADIUM_CONFIG && window.GSSH_STADIUM_CONFIG.ajaxUrl) || '/wp-admin/admin-ajax.php';
+            const venue = ALL_STADIUMS[venueId];
+            if (!venue || !venue._custom) return;
 
-            fetch(ajaxUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    action: 'gssh_delete_custom_venue',
-                    nonce: nonce,
-                    venue_id: venueId
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    // Remove from ALL_STADIUMS and rebuild dropdown
-                    delete ALL_STADIUMS[venueId];
-                    this.populateStadiumDropdown();
-                    this.updateDeleteButton('');
-                    console.log('[UnifiedVenue] Deleted custom venue:', venueId);
-                    document.dispatchEvent(new CustomEvent('gssh:venueDeleted', { detail: { venue_id: venueId } }));
-                } else {
-                    alert('Could not delete venue: ' + (data.data && data.data.message || 'Unknown error'));
-                }
-            })
-            .catch(err => {
-                console.error('[UnifiedVenue] Delete failed:', err);
-                alert('Delete request failed. Check your connection.');
-            });
+            delete ALL_STADIUMS[venueId];
+            this.currentVenue = null;
+            this.populateStadiumDropdown();
+            this.updateDeleteButton('');
+            console.log('[UnifiedVenue] Deleted custom venue:', venueId);
+            document.dispatchEvent(new CustomEvent('gssh:venueDeleted', { detail: { venue_id: venueId } }));
         },
         
         selectVenue: function(venueId) {

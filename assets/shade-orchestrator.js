@@ -13,13 +13,13 @@
  * plugins. This orchestrator:
  * 
  * 1. Listens for venue selection (from unified venue selector)
- * 2. Triggers server-side shade analysis (PHP obstruction profile engine)
+ * 2. Runs local shade analysis using the hub shade engine/fallback
  * 3. Injects shade results into the hub's cascade orchestrator state
  * 4. Notifies downstream engines (disease, stress, wear, irrigation, PGR, nutrition)
  * 
  * DATA FLOW:
  *   Venue selector → gssh:venueSelected
- *   → AJAX gssh_shade_analysis (server-side obstruction profile calc)
+ *   → local shade analysis
  *   → shade result injected into _hubState.computed.shade
  *   → gssh:shadeOrchestratorComplete dispatched
  *   → cascade orchestrator picks up shade for downstream engines
@@ -146,10 +146,10 @@
             // and gaip:climate-metrics-ready — NOT gssh:climateFetchComplete.
             // The old listener never fired, so runAnalysis() was only ever called
             // once (on venue select) before climateMetrics.solar was populated,
-            // leaving hub_dli absent from the POST and all zone DLIs null.
+            // leaving live DLI unavailable for the first shade pass.
             // Listen to both real event names; guard against double-fire with a
-            // 200 ms debounce so rapid back-to-back climate events don't hammer
-            // the shade AJAX twice.
+            // 200 ms debounce so rapid back-to-back climate events don't rerun
+            // shade twice.
             var _climateRerunTimer = null;
             function _onClimateReady() {
                 if (!self.currentVenue) return;
@@ -170,7 +170,7 @@
             // The hub sets climateMetrics.solar.dli at analysis time, then dispatches
             // gssh:analysis-complete. Listen here instead — DLI is guaranteed
             // available. Only re-run if zones came back with null DLI on the first
-            // pass (hub_dli was missing when the shade AJAX fired at venue select time).
+            // pass (live DLI was missing when venue selection first ran).
             document.addEventListener('gaip:analysis-complete', function() {
                 if (!self.currentVenue) return;
                 var hasZones = self.currentShade && self.currentShade.zones &&
@@ -188,13 +188,13 @@
             // before gaip:analysis-complete and carries the DLI value in detail.current.
             // This is the most reliable trigger — fires immediately when AmbientDLIEngine
             // computes the value, before validateClimateMetrics() strips solar from
-            // climateMetrics. Cache the DLI on the orchestrator so runAnalysis() IIFE
-            // can use it even after climateMetrics.solar is stripped.
+            // climateMetrics. Cache the DLI on the orchestrator so later shade
+            // passes can use it even after climateMetrics.solar is stripped.
             document.addEventListener('gaip:ambient-dli-ready', function(e) {
                 if (!self.currentVenue) return;
                 var dli = e.detail && e.detail.current;
                 if (!dli || dli <= 0) return;
-                // Cache so Priority 0 in runAnalysis() IIFE can read it
+                // Cache so later shade passes can read it.
                 self._cachedAmbientDLI = dli;
                 var hasZones = self.currentShade && self.currentShade.zones &&
                                self.currentShade.zones.length > 0 &&
@@ -214,7 +214,7 @@
             // b35fix249: Re-run shade analysis when roof state changes.
             // venue-readiness-ui.js dispatches this when user toggles open/closed
             // on a retractable roof venue (e.g. Marvel Stadium). The new roof_state
-            // is read in getRoofStateParam() from GSSH_EUE_Bridge at AJAX time.
+            // is read from GSSH_EUE_Bridge during analysis.
             var _roofRerunTimer = null;
             document.addEventListener('gssh:venueEnvConfigChanged', function(e) {
                 var enclosure = (e.detail && e.detail.enclosureType) || '';
@@ -235,18 +235,17 @@
         onVenueSelected: function(venueData) {
             this.log('venue', 'Venue selected:', venueData.name || venueData.venue_id || venueData.id);
 
-            // b35fix176 G7d: normalise id → venue_id. The unified venue selector
-            // returns objects keyed as 'id' but the orchestrator and PHP handler
-            // both expect 'venue_id'. Without this, all database venues fall
-            // through as source:'custom', skip the radial profile AJAX, and
-            // return zones:[].
+            // b35fix176 G7d: normalise id to venue_id. The unified venue selector
+            // returns objects keyed as 'id' but the orchestrator expects
+            // 'venue_id'. Without this, all database venues fall through as
+            // source:'custom' and lose their venue metadata.
             var venueId = venueData.venue_id || venueData.id || null;
 
             // b35fix176 G7f: normalise nested lat/lng. getCurrentVenue() spreads
             // ALL_STADIUMS[id] which stores coordinates inside a 'location' object
             // ({ location: { lat, lng } }). Direct venueData.lat is undefined in
-            // that case, causing the AJAX to post lat=0 and PHP to reject with
-            // "No venue or coordinates provided" even when venue_id is valid.
+            // that case, causing analysis to run with invalid coordinates even
+            // when venue_id is valid.
             var lat = venueData.lat || (venueData.location && venueData.location.lat) || null;
             var lng = venueData.lng || (venueData.location && venueData.location.lng) ||
                       (venueData.location && venueData.location.lon) || null;
@@ -309,7 +308,7 @@
 
         /**
          * b35fix249: Read roof state from EUE bridge config and return
-         * the POST param value ('open' | 'closed') for the shade AJAX.
+         * the analysis value ('open' | 'closed').
          * Retractable venues (e.g. Marvel Stadium) toggle this via
          * venue-readiness-ui.js setRoofState() → GSSH_EUE_Bridge.setVenueEnvConfig().
          */
@@ -327,7 +326,10 @@
         },
 
         /**
-         * Run full shade analysis via AJAX (venue with obstruction profile)
+         * Run shade analysis locally.
+         *
+         * The old server-side obstruction renderer is not present in Laravel
+         * yet, so use the existing client-side shade engine/fallback directly.
          */
         runAnalysis: function(venue) {
             const self = this;
@@ -338,136 +340,20 @@
                 detail: { venue: venue.name }
             }));
 
-            const data = new FormData();
-            data.append('action', 'gssh_shade_analysis');
-            data.append('nonce', (global.GSSH_HUB_CONFIG || {}).nonce || '');
-            data.append('venue_id', venue.venue_id || '');
-            data.append('lat', venue.lat);
-            data.append('lng', venue.lng);
-            data.append('date', this.getCurrentDate());
-            // b35fix249: roof state for retractable-roof venues
-            data.append('roof_state', this.getRoofStateParam());
-
-            // b35fix176 G7a: forward live DLI + temperature so PHP analyse()
-            // can compute per-zone DLI as ambient_dli × (1 − shade_factor).
-            // Without hub_dli the PHP fallback has no ambient figure and all
-            // zone.dli values come back null — the JS zone EUE breakdown never
-            // renders. Priority chain mirrors StadiumTabUI.appendHubClimateData().
-            (function() {
-                var hubDLI = null;
-                var hubGHI = null;
-
-                // Priority 0: DLI cached from gaip:ambient-dli-ready event.
-                // AmbientDLIEngine fires this before validateClimateMetrics() strips
-                // solar from climateMetrics. Most reliable source on re-run.
-                if (self._cachedAmbientDLI && self._cachedAmbientDLI > 0) {
-                    hubDLI = self._cachedAmbientDLI;
-                }
-
-                // Priority 1: climateMetrics.solar (pre-integrated by hub)
-                if (global.climateMetrics && global.climateMetrics.solar) {
-                    var sol = global.climateMetrics.solar;
-                    if (sol.dli  != null) hubDLI = sol.dli;
-                    if (sol.avgMJ != null) hubGHI = sol.avgMJ;
-                }
-
-                // Priority 2: rawWeatherData hourly shortwave_radiation
-                if (hubDLI === null && global.rawWeatherData) {
-                    var raw     = global.rawWeatherData;
-                    var hourly  = (raw.forecast && raw.forecast.hourly)
-                        ? raw.forecast.hourly : raw.hourly;
-                    if (hourly && hourly.shortwave_radiation && hourly.time) {
-                        var todayStr = new Date().toISOString().slice(0, 10);
-                        var swSum = 0, swCount = 0;
-                        for (var i = 0; i < hourly.time.length; i++) {
-                            if (hourly.time[i].slice(0, 10) === todayStr &&
-                                hourly.shortwave_radiation[i] != null) {
-                                swSum  += hourly.shortwave_radiation[i];
-                                swCount++;
-                            }
-                        }
-                        if (swCount > 0) {
-                            var ghiMJ = swSum * 3600 / 1e6;
-                            hubDLI = Math.round(ghiMJ * 4.6 * 0.45 * 10) / 10;
-                            hubGHI = Math.round(ghiMJ * 10) / 10;
-                        }
-                    }
-                }
-
-                // Priority 3: GSSH_CANONICAL_STATE.climate.solar (populated earlier
-                // than climateMetrics.solar in some orchestrator paths)
-                if (hubDLI === null && global.GSSH_CANONICAL_STATE &&
-                    global.GSSH_CANONICAL_STATE.climate &&
-                    global.GSSH_CANONICAL_STATE.climate.solar) {
-                    var cSol = global.GSSH_CANONICAL_STATE.climate.solar;
-                    if (cSol.dli  != null) hubDLI = cSol.dli;
-                    if (cSol.avgMJ != null) hubGHI = cSol.avgMJ;
-                }
-
-                if (hubDLI !== null) data.append('hub_dli', hubDLI);
-                if (hubGHI !== null) data.append('hub_ghi', hubGHI);
-
-                // Temperature — same priority chain used by the rig calc
-                var hubTemp = null;
-                if (global.rawWeatherData) {
-                    var rw     = global.rawWeatherData;
-                    var rh     = (rw.forecast && rw.forecast.hourly)
-                        ? rw.forecast.hourly : rw.hourly;
-                    if (rh && rh.temperature_2m && rh.time) {
-                        var nowStr = new Date().toISOString().slice(0, 13);
-                        for (var j = rh.time.length - 1; j >= 0; j--) {
-                            if (rh.time[j].slice(0, 13) <= nowStr) {
-                                hubTemp = rh.temperature_2m[j];
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (hubTemp === null && global.climateMetrics &&
-                    global.climateMetrics.temperature) {
-                    var cm = global.climateMetrics.temperature;
-                    hubTemp = cm.todayMean != null ? cm.todayMean
-                            : cm.mean     != null ? cm.mean : null;
-                }
-                if (hubTemp !== null) data.append('hub_temperature', hubTemp);
-            }());
-
-            const ajaxUrl = (global.GSSH_HUB_CONFIG || {}).ajaxUrl || '/wp-admin/admin-ajax.php';
-
             // b35fix251: stale-result guard.
             // Multiple triggers (climate-ready, roof-toggle, ambient-dli-ready) can
-            // fire runAnalysis() in quick succession, sending concurrent AJAXes.
-            // Without this guard the slower open-roof request resolves AFTER the
-            // correct closed-roof result and overwrites it. Stamp each request with
-            // a monotonic ID; discard any response that isn't the most recent.
+            // fire runAnalysis() in quick succession. Stamp each request with a
+            // monotonic ID; discard any deferred response that isn't most recent.
             this._lastRequestId = (this._lastRequestId || 0) + 1;
             var requestId = this._lastRequestId;
-            self.log('analysis', 'Shade AJAX dispatched — request #' + requestId);
 
-            fetch(ajaxUrl, {
-                method: 'POST',
-                body: data,
-                credentials: 'same-origin'
-            })
-            .then(function(response) { return response.json(); })
-            .then(function(result) {
-                // b35fix251: discard if a newer request has already been dispatched
+            setTimeout(function() {
                 if (requestId !== self._lastRequestId) {
                     self.log('analysis', 'Discarding stale shade result (request #' + requestId + ' superseded by #' + self._lastRequestId + ')');
                     return;
                 }
-                if (result.success && result.data) {
-                    self.processShadeResult(result.data, venue);
-                } else {
-                    self.log('error', 'Shade analysis failed:', result.data?.message || 'Unknown error');
-                    // Fall back to basic analysis
-                    self.runBasicShadeAnalysis(venue);
-                }
-            })
-            .catch(function(err) {
-                self.log('error', 'AJAX error:', err.message);
                 self.runBasicShadeAnalysis(venue);
-            });
+            }, 0);
         },
 
         /**
@@ -520,14 +406,14 @@
                 fungal_risk: shadeData.fungal_risk || shadeData.fungalRisk || null,
                 leaf_wetness_modifier: this.calculateLeafWetnessModifier(shadeData),
 
-                // b35fix250: roof state — passed through from PHP AJAX result.
+                // b35fix250: roof state from shade data or local default.
                 // Consumed by hub-orchestrator.js buildDiseaseInputs() to apply
                 // enclosed-canopy humidity and leaf wetness modifiers.
                 roof_state:        shadeData.roof_state        || 'open',
                 roof_transmission: shadeData.roof_transmission != null ? shadeData.roof_transmission : 1.0,
 
                 // Source metadata
-                source: venue.source === 'database' ? 'obstruction_profile' : 'estimated',
+                source: shadeData.source || ((shadeData.zones && shadeData.zones.length) ? 'obstruction_profile' : 'estimated'),
                 venue_id: venue.venue_id,
                 venue_name: venue.name,
                 timestamp: Date.now()

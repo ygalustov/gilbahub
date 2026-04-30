@@ -4,7 +4,7 @@
  * Saves and restores turf profile (type/species/variety/construction) per venue.
  * Operates on the GSSH shade hub only — does not touch GAIP SiteConfig.
  *
- * Storage: wp_options key gssh_venue_profiles (server-side via AJAX).
+ * Storage: MySQL via Laravel stadium venue profile API.
  * Local cache: window.GSSH_VENUE_PROFILES (loaded once on init).
  *
  * Triggers:
@@ -15,8 +15,6 @@
     'use strict';
 
     var VERSION = '1.0.0';
-    var OPTION_KEY = 'gssh_venue_profiles';
-
     // In-memory cache of all venue profiles { venue_id: { turfType, subCategory, species, variety, construction } }
     var _profiles = {};
     var _currentVenueId = null;
@@ -30,12 +28,30 @@
         console.log.apply(console, args);
     }
 
-    function getAjaxConfig() {
-        var cfg = global.GSSH_STADIUM_CONFIG || {};
-        return {
-            ajaxUrl: cfg.ajaxUrl || '/wp-admin/admin-ajax.php',
-            nonce:   cfg.nonce   || ''
-        };
+    function getApiBaseUrl() {
+        var cfg = global.GSSH_HUB_CONFIG || global.GAIP_HUB_CONFIG || {};
+        return cfg.restUrl || '/api/';
+    }
+
+    function getCsrfToken() {
+        var cfg = global.GSSH_HUB_CONFIG || global.GAIP_HUB_CONFIG || {};
+        return cfg.csrfToken || cfg.restNonce || cfg.nonce || '';
+    }
+
+    function apiFetchJson(url, options) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, (options && options.headers) || {});
+        var token = getCsrfToken();
+        if (token) headers['X-CSRF-TOKEN'] = token;
+
+        return fetch(url, Object.assign({ credentials: 'same-origin', headers: headers }, options || {}))
+            .then(function(res) {
+                return res.json().then(function(data) {
+                    if (!res.ok) throw new Error((data && data.message) || ('HTTP ' + res.status));
+                    return data;
+                });
+            });
     }
 
     // =========================================================================
@@ -44,18 +60,10 @@
     function loadProfiles(callback) {
         if (_loaded) { if (callback) callback(); return; }
 
-        var cfg = getAjaxConfig();
-        fetch(cfg.ajaxUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                action: 'gssh_get_venue_profiles',
-                nonce:  cfg.nonce
-            })
-        })
-        .then(function(r) { return r.json(); })
+        var base = getApiBaseUrl();
+        apiFetchJson(base.replace(/\/?$/, '/') + 'stadium/venue-profiles')
         .then(function(data) {
-            if (data.success && data.data) {
+            if (data && data.data) {
                 _profiles = data.data;
                 log('Loaded', Object.keys(_profiles).length, 'venue profiles');
             }
@@ -101,12 +109,7 @@
             _profiles[venueId].venueEnv = venueEnvData;
         }
 
-        // Persist to server (debounced — caller handles debounce)
-        var cfg = getAjaxConfig();
-        var body = new URLSearchParams({
-            action:          'gssh_save_venue_profile',
-            nonce:           cfg.nonce,
-            venue_id:        venueId,
+        var payload = {
             turfType:        profile.turfType,
             subCategory:     profile.subCategory,
             species:         profile.species,
@@ -114,21 +117,21 @@
             construction:    profile.construction,
             overseedSpecies: profile.overseedSpecies,
             overseedVariety: profile.overseedVariety,
-            percentC3Cover:  profile.percentC3Cover,
-        });
+            percentC3Cover:  profile.percentC3Cover
+        };
 
         if (venueEnvData) {
-            body.append('venueEnv', JSON.stringify(venueEnvData));
+            payload.venueEnv = venueEnvData;
         }
 
-        fetch(cfg.ajaxUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: body
+        var base = getApiBaseUrl();
+        apiFetchJson(base.replace(/\/?$/, '/') + 'stadium/venue-profiles/' + encodeURIComponent(venueId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
         })
-        .then(function(r) { return r.json(); })
         .then(function(data) {
-            if (data.success) {
+            if (data && data.data) {
                 log('Saved profile for', venueId, '—', profile.species, profile.variety);
             } else {
                 console.warn('[VenueProfile] Save failed:', data);
