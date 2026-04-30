@@ -13389,6 +13389,10 @@
         export: exportToWord,
         collectData: collectData,
         buildSections: buildSections,  // Exposed for scenario patch integration
+        generateSoilNarrative: generateSoilNarrative,
+        generateWaterNarrative: generateWaterNarrative,
+        generateTissueNarrative: generateTissueNarrative,
+        generatePerformanceImpactAnalysis: generatePerformanceImpactAnalysis,
 
         // b35fix322: expose pure decision/conversion helpers so combined-export
         // can compute amendment products per-sample (during the loop iteration

@@ -131,33 +131,71 @@
         setLoading(true);
         
         try {
-            // Build form data
-            const formData = new FormData();
-            formData.append('action', 'gilba_interpret_water');
-            formData.append('nonce', window.GAIP_HUB_CONFIG?.nonce || '');
-            formData.append('water_output', JSON.stringify(waterOutput));
-            
-            const response = await fetch(window.GAIP_HUB_CONFIG?.ajaxUrl || '/wp-admin/admin-ajax.php', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Store globally for Word export
-                window.GAIP_WATER_INTERPRETATION = data.data;
-                renderInterpretation(data.data);
-            } else {
-                showError(data.data?.message || 'Interpretation failed');
-            }
-            
+            const result = generateLocalInterpretation(waterOutput);
+            window.GAIP_WATER_INTERPRETATION = result;
+            renderInterpretation(result);
         } catch (err) {
             console.error('[WaterInterpretation] Error:', err);
-            showError('Network error — please try again');
+            showError('Interpretation failed — local engine unavailable');
         } finally {
             setLoading(false);
         }
+    }
+
+    function generateLocalInterpretation(waterOutput) {
+        const engine = window.GAIP_WordExport;
+        if (!engine || typeof engine.generateWaterNarrative !== 'function') {
+            throw new Error('GAIP_WordExport.generateWaterNarrative unavailable');
+        }
+
+        const turfState = window.GAIP_STATE?.turf || window.GAIP_CANONICAL_STATE?.turf || {};
+        const waterData = normalizeWaterOutput(waterOutput);
+        const turfData = {
+            overseedDominant: !!turfState.overseedDominant,
+            effectiveSpecies: turfState.effectiveSpecies || turfState.species || turfState.grassSpecies || null,
+            species: turfState.species || turfState.grassSpecies || null
+        };
+        const analysis = engine.generateWaterNarrative(waterData, turfData) || {};
+
+        return {
+            narrative: formatInterpretationNarrative(analysis.narrative, analysis.recommendations),
+            concerns: analysis.concerns || [],
+            recommendations: analysis.recommendations || [],
+            cached: false,
+            citations: {}
+        };
+    }
+
+    function normalizeWaterOutput(waterOutput) {
+        const ions = waterOutput.ions || {};
+        const state = window.GAIP_STATE || window.GAIP_CANONICAL_STATE || {};
+        const waterState = state.water || window.__GAIP_WATER_STATE__ || {};
+        return {
+            EC: waterOutput.ecw != null ? parseFloat(waterOutput.ecw) : null,
+            pH: ions.pH != null ? parseFloat(ions.pH) : null,
+            SAR: waterOutput.SAR != null ? parseFloat(waterOutput.SAR) : null,
+            adjSAR: waterOutput.SARadj != null ? parseFloat(waterOutput.SARadj) : null,
+            Cl: ions.Cl != null ? parseFloat(ions.Cl) : null,
+            HCO3: ions.HCO3 != null ? parseFloat(ions.HCO3) : null,
+            Na: ions.Na != null ? parseFloat(ions.Na) : null,
+            Ca: ions.Ca != null ? parseFloat(ions.Ca) : null,
+            Mg: ions.Mg != null ? parseFloat(ions.Mg) : null,
+            RSC: waterState.RSC != null ? parseFloat(waterState.RSC) : null
+        };
+    }
+
+    function formatInterpretationNarrative(narrativeParts, recommendations) {
+        const blocks = [];
+        if (Array.isArray(narrativeParts)) {
+            narrativeParts.filter(Boolean).forEach(part => blocks.push(String(part).trim()));
+        } else if (narrativeParts) {
+            blocks.push(String(narrativeParts).trim());
+        }
+        if (Array.isArray(recommendations) && recommendations.length) {
+            blocks.push('## Recommendations');
+            recommendations.forEach(rec => blocks.push('1. ' + rec));
+        }
+        return blocks.join('\n\n');
     }
     
     /**

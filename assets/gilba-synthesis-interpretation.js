@@ -298,32 +298,62 @@
         setLoading(true);
         
         try {
-            const formData = new FormData();
-            formData.append('action', 'gilba_interpret_synthesis');
-            formData.append('nonce', window.GAIP_HUB_CONFIG?.nonce || '');
-            formData.append('synthesis_data', JSON.stringify(synthesisData));
-            
-            const response = await fetch(window.GAIP_HUB_CONFIG?.ajaxUrl || '/wp-admin/admin-ajax.php', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                // Store globally for Word export
-                window.GAIP_SYNTHESIS_INTERPRETATION = data.data;
-                renderInterpretation(data.data);
-            } else {
-                showError(data.data?.message || 'Analysis failed');
-            }
-            
+            const result = generateLocalSynthesisInterpretation(synthesisData);
+            window.GAIP_SYNTHESIS_INTERPRETATION = result;
+            renderInterpretation(result);
         } catch (err) {
             console.error('[Synthesis] Error:', err);
-            showError('Network error — please try again');
+            showError('Analysis failed — local synthesis engine unavailable');
         } finally {
             setLoading(false);
         }
+    }
+
+    function generateLocalSynthesisInterpretation(synthesisData) {
+        const engine = window.GAIP_WordExport;
+        if (!engine || typeof engine.generatePerformanceImpactAnalysis !== 'function') {
+            throw new Error('GAIP_WordExport.generatePerformanceImpactAnalysis unavailable');
+        }
+
+        const analysis = engine.generatePerformanceImpactAnalysis(synthesisData) || {};
+        return {
+            narrative: formatSynthesisNarrative(analysis),
+            relationships: analysis.relationships || [],
+            recommendations: analysis.recommendations || [],
+            cached: false
+        };
+    }
+
+    function formatSynthesisNarrative(analysis) {
+        const sections = [];
+        const narrative = Array.isArray(analysis.narrative) ? analysis.narrative.filter(Boolean) : [];
+        const relationships = Array.isArray(analysis.relationships) ? analysis.relationships : [];
+        const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : [];
+
+        if (narrative.length) {
+            sections.push('## Cross-module synthesis');
+            narrative.forEach(item => sections.push(item));
+        }
+
+        if (relationships.length) {
+            sections.push('## Key interactions');
+            relationships.forEach(function(rel) {
+                sections.push('- ' + rel.text);
+            });
+        }
+
+        if (recommendations.length) {
+            sections.push('## Priority actions');
+            recommendations.forEach(function(rec) {
+                sections.push('- ' + rec);
+            });
+        }
+
+        if (!sections.length) {
+            sections.push('No significant cross-module interactions were detected from the currently available data.');
+        }
+
+        return sections.join('\n\n');
     }
 
     /**

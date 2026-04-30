@@ -201,34 +201,68 @@
             this.setLoading(true);
             
             try {
-                const formData = new FormData();
-                formData.append('action', 'gilba_interpret_soil');
-                formData.append('nonce', window.GAIP_HUB_CONFIG?.nonce || '');
-                formData.append('soil_output', JSON.stringify(soilOutput));
-                
-                const response = await fetch(window.GAIP_HUB_CONFIG?.ajaxUrl || '/wp-admin/admin-ajax.php', {
-                    method: 'POST',
-                    body: formData,
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.renderInterpretation(data.data);
-                    
-                    // Cache for Word export
-                    this.lastInterpretation = data.data;
-                    window.GAIP_SOIL_INTERPRETATION = data.data;
-                } else {
-                    this.showError(data.data?.message || 'Interpretation failed');
-                }
-                
+                const result = this.generateLocalInterpretation(soilOutput);
+                this.renderInterpretation(result);
+
+                this.lastInterpretation = result;
+                window.GAIP_SOIL_INTERPRETATION = result;
             } catch (err) {
                 console.error('[SoilInterpretation] Request failed:', err);
-                this.showError('Network error — please try again');
+                this.showError('Interpretation failed — local engine unavailable');
             } finally {
                 this.setLoading(false);
             }
+        }
+
+        generateLocalInterpretation(soilOutput) {
+            const engine = window.GAIP_WordExport;
+            if (!engine || typeof engine.generateSoilNarrative !== 'function') {
+                throw new Error('GAIP_WordExport.generateSoilNarrative unavailable');
+            }
+
+            const flat = this.normalizeSoilOutput(soilOutput);
+            const analysis = engine.generateSoilNarrative(flat, null, flat.context || {}) || {};
+            return {
+                narrative: this.formatInterpretationNarrative(analysis.narrative, analysis.recommendations),
+                deficiencies: analysis.deficiencies || [],
+                recommendations: analysis.recommendations || [],
+                cached: false,
+                citations: {}
+            };
+        }
+
+        normalizeSoilOutput(output) {
+            const ppm = output.ppm || {};
+            const context = output.context || {};
+            const turf = window.GAIP_STATE?.turf || window.GAIP_CANONICAL_STATE?.turf || {};
+            const speciesName = turf.effectiveSpecies || turf.species || turf.grassSpecies || context.turfType || 'turf';
+            const isC3 = /bent|rye|fescue|bluegrass|poa/i.test(String(speciesName || ''));
+
+            return Object.assign({}, ppm, {
+                methodology: output.methodology,
+                aaSoilTexture: output.soilType,
+                surfaceType: context.surfaceType || turf.surfaceType || turf.turfType || '',
+                thresholds: output.thresholds || {},
+                pH: output.pH != null ? parseFloat(output.pH) : null,
+                CEC: output.CEC != null ? parseFloat(output.CEC) : null,
+                isC3Species: isC3,
+                speciesName: speciesName,
+                context: context
+            });
+        }
+
+        formatInterpretationNarrative(narrativeParts, recommendations) {
+            const blocks = [];
+            if (Array.isArray(narrativeParts)) {
+                narrativeParts.filter(Boolean).forEach(part => blocks.push(String(part).trim()));
+            } else if (narrativeParts) {
+                blocks.push(String(narrativeParts).trim());
+            }
+            if (Array.isArray(recommendations) && recommendations.length) {
+                blocks.push('## Recommendations');
+                recommendations.forEach(rec => blocks.push('1. ' + rec));
+            }
+            return blocks.join('\n\n');
         }
         
         /**
