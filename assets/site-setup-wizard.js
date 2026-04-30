@@ -7,12 +7,11 @@
  * On completion:
  *   1. Programmatically sets DOM inputs (lat, lon, turf type, species, methodology)
  *   2. Calls GaipTurfProfile.dispatchStateChange() so all engines respond
- *   3. Triggers location save via existing AJAX handler
- *   4. Marks wizard complete via user_meta so it doesn't show again
- *   5. Fires 'gaip:wizard-complete' custom event for any listeners
+ *   3. Persists location + wizard state through the Laravel site APIs
+ *   4. Fires 'gaip:wizard-complete' custom event for any listeners
  * 
  * Dependencies: turf-profile-controller.js, regional-profiles.js
- * Requires: GAIP_WIZARD_CONFIG (from wp_localize_script)
+ * Optional bootstrap: GAIP_WIZARD_CONFIG
  */
 !(function() {
     'use strict';
@@ -22,6 +21,54 @@
 
     const WIZARD_VERSION = '1.0.0';
     const WIZARD_STORAGE_KEY = 'gilba_wizard_complete';
+
+    function getWizardConfig() {
+        return window.GAIP_WIZARD_CONFIG || {};
+    }
+
+    function getHubConfig() {
+        return window.GAIP_HUB_CONFIG || {};
+    }
+
+    function getApiBaseUrl() {
+        var wizardCfg = getWizardConfig();
+        var hubCfg = getHubConfig();
+        return wizardCfg.restUrl || hubCfg.restUrl || '/api/';
+    }
+
+    function getCsrfToken() {
+        var wizardCfg = getWizardConfig();
+        var hubCfg = getHubConfig();
+        return wizardCfg.csrfToken || wizardCfg.nonce || hubCfg.csrfToken || hubCfg.restNonce || hubCfg.nonce || '';
+    }
+
+    function apiFetchJson(url, options) {
+        var headers = Object.assign({
+            'Accept': 'application/json'
+        }, (options && options.headers) || {});
+        var token = getCsrfToken();
+        if (token) {
+            headers['X-CSRF-TOKEN'] = token;
+        }
+
+        return fetch(url, Object.assign({
+            credentials: 'same-origin',
+            headers: headers
+        }, options || {})).then(function(response) {
+            return response.json().catch(function() {
+                return {};
+            }).then(function(payload) {
+                if (!response.ok) {
+                    throw new Error(
+                        (payload && payload.message) ||
+                        (payload && payload.data && payload.data.message) ||
+                        ('HTTP ' + response.status)
+                    );
+                }
+                return payload;
+            });
+        });
+    }
 
     window.GaipSetupWizard = {
 
@@ -74,7 +121,7 @@
                 return;
             }
 
-            // Check server-side flag first (from wp_localize_script)
+            // Check server-side flag first.
             if (typeof GAIP_WIZARD_CONFIG !== 'undefined') {
                 if (GAIP_WIZARD_CONFIG.wizardComplete) {
                     return;
@@ -475,54 +522,6 @@
                 })
                 .catch(function(err) {
                     console.warn('[SetupWizard] Geocode error:', err);
-                    // Fallback: try existing Hub AJAX if available
-                    if (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.ajaxUrl) {
-                        self.geocodeViaAjax(query, resultsEl);
-                    }
-                });
-        },
-
-        geocodeViaAjax: function(query, resultsEl) {
-            const self = this;
-            const formData = new FormData();
-            formData.append('action', 'gilba_geocode_search');
-            formData.append('query', query);
-
-            fetch(GAIP_HUB_CONFIG.ajaxUrl, { method: 'POST', body: formData })
-                .then(function(r) { return r.json(); })
-                .then(function(response) {
-                    if (!response.success || !response.data || !response.data.length) {
-                        resultsEl.innerHTML = '<div style="padding: 10px; color: var(--gaip-text-muted); font-size: 13px;">No results found</div>';
-                        resultsEl.style.display = 'block';
-                        return;
-                    }
-                    resultsEl.innerHTML = '';
-                    response.data.forEach(function(place) {
-                        const item = document.createElement('div');
-                        item.innerHTML = `<div style="font-size: 14px; color: var(--gaip-text);">${self.escHtml(place.name)}</div>`;
-                        Object.assign(item.style, {
-                            padding: '10px 12px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid var(--gaip-surface-hover)'
-                        });
-                        item.addEventListener('mouseenter', function() { this.style.background = 'var(--gaip-good-bg)'; });
-                        item.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
-                        item.addEventListener('click', function() {
-                            self.data.location = {
-                                lat: parseFloat(place.lat),
-                                lon: parseFloat(place.lon),
-                                name: place.name
-                            };
-                            self.syncLocationToDOM();
-                            resultsEl.style.display = 'none';
-                            self.renderStep();
-                        });
-                        resultsEl.appendChild(item);
-                    });
-                    resultsEl.style.display = 'block';
-                })
-                .catch(function(err) {
-                    console.warn('[SetupWizard] AJAX geocode error:', err);
                 });
         },
 
@@ -1064,8 +1063,7 @@
                     searchInput.value = this.data.location.name;
                 }
 
-                // Save location via AJAX (reuse existing handler)
-                this.saveLocationViaAjax();
+                this.saveLocationToApi();
             }
 
             // 2. Set turf type via GaipTurfProfile
@@ -1160,89 +1158,189 @@
             }));
         },
 
-        saveLocationViaAjax: function() {
+        getActiveSiteId: function() {
+            if (window.GAIP_SiteContext && typeof window.GAIP_SiteContext.getSiteId === 'function') {
+                return window.GAIP_SiteContext.getSiteId();
+            }
+            if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSiteId === 'function') {
+                return window.GAIP_SampleManager.getActiveSiteId();
+            }
+            var hubCfg = getHubConfig();
+            return hubCfg.activeSiteId || null;
+        },
+
+        ensurePersistedSite: function() {
+            var self = this;
+            var activeSiteId = this.getActiveSiteId();
+            if (activeSiteId && activeSiteId !== 'default') {
+                return Promise.resolve(activeSiteId);
+            }
+
+            var location = this.data.location || {};
+            var siteName = (location.name && String(location.name).trim()) || 'My Site';
+            var apiBase = getApiBaseUrl().replace(/\/?$/, '/');
+
+            return apiFetchJson(apiBase + 'sites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: siteName,
+                    location_name: location.name || '',
+                    latitude: location.lat || null,
+                    longitude: location.lon || null,
+                    timezone: 'Australia/Sydney'
+                })
+            }).then(function(payload) {
+                var site = payload && payload.data ? payload.data : null;
+                if (!site || !site.id) {
+                    throw new Error('Failed to create site for wizard state');
+                }
+
+                if (window.GAIP_SampleManager) {
+                    if (typeof window.GAIP_SampleManager.addSiteWithId === 'function') {
+                        window.GAIP_SampleManager.addSiteWithId(site.id, site.name || siteName);
+                    }
+                    if (typeof window.GAIP_SampleManager.setActiveSite === 'function') {
+                        window.GAIP_SampleManager.setActiveSite(site.id);
+                    }
+                }
+
+                if (window.GAIP_HUB_CONFIG) {
+                    window.GAIP_HUB_CONFIG.activeSiteId = site.id;
+                }
+                if (window.GAIP_WIZARD_CONFIG) {
+                    window.GAIP_WIZARD_CONFIG.activeSiteId = site.id;
+                }
+
+                return apiFetchJson(apiBase + 'active-site', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ site_id: site.id })
+                }).catch(function(err) {
+                    console.warn('[SetupWizard] Failed to mark new site active:', err);
+                }).then(function() {
+                    return site.id;
+                });
+            });
+        },
+
+        buildMergedSiteConfig: function(siteId, wizardState) {
+            var existing = (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function')
+                ? (window.GAIP_SiteConfig.getConfig(siteId) || {})
+                : {};
+            var next = JSON.parse(JSON.stringify(existing || {}));
+
+            if (!next.turf) next.turf = {};
+            if (!next.location) next.location = {};
+
+            if (this.data.location) {
+                next.location = Object.assign({}, next.location, {
+                    name: this.data.location.name || next.location.name || '',
+                    lat: this.data.location.lat,
+                    lon: this.data.location.lon
+                });
+            }
+
+            next.turf = Object.assign({}, next.turf, {
+                turfType: this.data.turfType || next.turf.turfType || '',
+                subCategory: this.data.subCategory || next.turf.subCategory || '',
+                species: this.data.species || next.turf.species || '',
+                variety: this.data.variety || next.turf.variety || '',
+                methodology: this.data.methodology || next.turf.methodology || ''
+            });
+
+            next.wizard = Object.assign({}, next.wizard || {}, wizardState || {});
+            next.savedAt = new Date().toISOString();
+
+            return next;
+        },
+
+        persistWizardState: function(wizardState) {
+            var self = this;
+            var location = this.data.location;
+            var apiBase = getApiBaseUrl().replace(/\/?$/, '/');
+
+            return this.ensurePersistedSite().then(function(siteId) {
+                var tasks = [];
+
+                if (location && typeof location.lat === 'number' && typeof location.lon === 'number') {
+                    tasks.push(apiFetchJson(apiBase + 'sites/' + encodeURIComponent(siteId), {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            location_name: location.name || '',
+                            latitude: location.lat,
+                            longitude: location.lon
+                        })
+                    }));
+                }
+
+                tasks.push(apiFetchJson(apiBase + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        config: self.buildMergedSiteConfig(siteId, wizardState)
+                    })
+                }));
+
+                return Promise.all(tasks).then(function() {
+                    if (window.GAIP_HUB_CONFIG && location) {
+                        window.GAIP_HUB_CONFIG.savedLocation = {
+                            name: location.name || '',
+                            lat: location.lat,
+                            lon: location.lon
+                        };
+                    }
+
+                    window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
+                        activeSiteId: siteId,
+                        savedLocation: location ? {
+                            name: location.name || '',
+                            lat: location.lat,
+                            lon: location.lon
+                        } : (window.GAIP_WIZARD_CONFIG && window.GAIP_WIZARD_CONFIG.savedLocation) || {},
+                        wizardComplete: !!(wizardState && (wizardState.complete || wizardState.skipped)),
+                        wizardState: Object.assign({}, (window.GAIP_WIZARD_CONFIG && window.GAIP_WIZARD_CONFIG.wizardState) || {}, wizardState || {})
+                    });
+
+                    return siteId;
+                });
+            }).catch(function(err) {
+                console.warn('[SetupWizard] Wizard state sync failed:', err);
+                return null;
+            });
+        },
+
+        saveLocationToApi: function() {
             if (!this.data.location) return;
 
-            const ajaxUrl = (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.ajaxUrl) 
-                ? GAIP_HUB_CONFIG.ajaxUrl 
-                : '/wp-admin/admin-ajax.php';
-
-            const nonce = (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.nonce)
-                ? GAIP_HUB_CONFIG.nonce
-                : (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG.nonce)
-                    ? GAIP_WIZARD_CONFIG.nonce
-                    : '';
-
-            const formData = new FormData();
-            formData.append('action', 'gilba_save_location');
-            formData.append('nonce', nonce);
-            formData.append('lat', this.data.location.lat);
-            formData.append('lon', this.data.location.lon);
-            formData.append('name', this.data.location.name);
-
-            fetch(ajaxUrl, { method: 'POST', body: formData })
-                .then(function(r) { return r.json(); })
-                .then(function(response) {
-                    if (response.success) {
-                    } else {
-                        console.warn('[SetupWizard] Location save failed:', response);
-                    }
-                })
-                .catch(function(err) {
-                    console.warn('[SetupWizard] Location save error:', err);
-                });
+            this.persistWizardState({
+                complete: !!(window.GAIP_WIZARD_CONFIG && window.GAIP_WIZARD_CONFIG.wizardComplete),
+                skipped: !!(window.GAIP_WIZARD_CONFIG && window.GAIP_WIZARD_CONFIG.wizardState && window.GAIP_WIZARD_CONFIG.wizardState.skipped),
+                version: WIZARD_VERSION
+            });
         },
 
         markComplete: function() {
             // localStorage for immediate client-side check
-            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify({
+            var completionState = {
                 completedAt: new Date().toISOString(),
                 version: WIZARD_VERSION
-            }));
+            };
 
-            // Server-side: save to user_meta via AJAX
-            const ajaxUrl = (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG.ajaxUrl) 
-                ? GAIP_WIZARD_CONFIG.ajaxUrl 
-                : (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.ajaxUrl)
-                    ? GAIP_HUB_CONFIG.ajaxUrl
-                    : '/wp-admin/admin-ajax.php';
-
-            const nonce = (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG.nonce)
-                ? GAIP_WIZARD_CONFIG.nonce
-                : (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.nonce)
-                    ? GAIP_HUB_CONFIG.nonce
-                    : '';
-
-            const formData = new FormData();
-            formData.append('action', 'gilba_wizard_complete');
-            formData.append('nonce', nonce);
-            formData.append('version', WIZARD_VERSION);
-            formData.append('turf_type', this.data.turfType || '');
-            formData.append('species', this.data.species || '');
-            formData.append('variety', this.data.variety || '');
-            formData.append('methodology', this.data.methodology || '');
-
-            fetch(ajaxUrl, { method: 'POST', body: formData })
-                .then(function(r) { return r.json(); })
-                .then(function(response) {
-                    if (response.success) {
-                    } else {
-                        console.warn('[SetupWizard] user_meta save failed:', response);
-                    }
-                })
-                .catch(function(err) {
-                    // Non-critical — localStorage fallback is already set
-                    console.warn('[SetupWizard] user_meta save error:', err);
-                });
+            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify(completionState));
+            this.persistWizardState(Object.assign({ complete: true, skipped: false }, completionState));
         },
 
         skipWizard: function() {
             // Still mark as seen so it doesn't show again
-            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify({
+            var skippedState = {
                 completedAt: new Date().toISOString(),
                 version: WIZARD_VERSION,
                 skipped: true
-            }));
+            };
+            _ls.setItem(WIZARD_STORAGE_KEY, JSON.stringify(skippedState));
+            this.persistWizardState(Object.assign({ complete: false }, skippedState));
             this.close();
         },
 

@@ -17,12 +17,12 @@
  * - Debounced reload to prevent duplicate fetches from near-simultaneous events
  * 
  * WORKFLOW:
- * 1. Fetches GET /gilba/v1/predictions/pending/{site_id}
+ * 1. Fetches GET /api/predictions/pending/{site_id}
  * 2. Groups by module, shows count per module
  * 3. Quick path: "All as expected" captures everything in one click
  * 4. Module path: qualitative buttons on each module group header
  * 5. Override path: expand individual predictions to record different outcomes
- * 6. POST /gilba/v1/outcomes for each prediction (batched sequentially)
+ * 6. POST /api/outcomes for each prediction (batched sequentially)
  * 
  * @author  Gilba Solutions
  * @version 1.2.0
@@ -95,7 +95,21 @@
     // =========================================================================
 
     function getSiteIdentifier() {
+        try {
+            if (global.GAIP_SiteContext && typeof global.GAIP_SiteContext.getSiteId === 'function') {
+                const siteId = global.GAIP_SiteContext.getSiteId();
+                if (siteId && siteId !== 'default') return siteId;
+            }
+            if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getActiveSiteId === 'function') {
+                const siteId = global.GAIP_SampleManager.getActiveSiteId();
+                if (siteId && siteId !== 'default') return siteId;
+            }
+        } catch (_e) { /* ignore and fall back */ }
+
         const config = global.GAIP_HUB_CONFIG || {};
+        if (config.activeSiteId && config.activeSiteId !== 'default') {
+            return config.activeSiteId;
+        }
         const location = config.savedLocation || {};
         const lat = location.lat ? Math.round(location.lat * 1000) / 1000 : 0;
         const lon = location.lon ? Math.round(location.lon * 1000) / 1000 : 0;
@@ -120,8 +134,8 @@
     function getRestConfig() {
         const config = global.GAIP_HUB_CONFIG || {};
         return {
-            baseUrl: config.restUrl || '/wp-json/gilba/v1/',
-            nonce: config.restNonce || config.nonce || ''
+            baseUrl: config.restUrl || '/api/',
+            csrfToken: config.csrfToken || config.restNonce || config.nonce || ''
         };
     }
 
@@ -134,7 +148,11 @@
 
         try {
             const response = await fetch(url, {
-                headers: { 'X-WP-Nonce': rest.nonce }
+                credentials: 'same-origin',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': rest.csrfToken
+                }
             });
             if (!response.ok) throw new Error('HTTP ' + response.status);
             const data = await response.json();
@@ -156,9 +174,11 @@
         try {
             const response = await fetch(rest.baseUrl + 'outcomes', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-WP-Nonce': rest.nonce
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': rest.csrfToken
                 },
                 body: JSON.stringify(payload)
             });

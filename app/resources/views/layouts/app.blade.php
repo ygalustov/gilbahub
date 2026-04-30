@@ -12,6 +12,12 @@
             'lat' => $activeSite?->latitude ?? '',
             'lon' => $activeSite?->longitude ?? '',
         ];
+        $activeGaipConfig = [];
+        if ($activeSite) {
+            $activeGaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
+            $activeGaipConfig = is_array($activeGaipRecord?->config) ? $activeGaipRecord->config : [];
+        }
+        $wizardState = is_array($activeGaipConfig['wizard'] ?? null) ? $activeGaipConfig['wizard'] : [];
     @endphp
     <script>
         window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
@@ -22,6 +28,7 @@
             wpRestUrl: "{{ url('/api') }}",
             restNonce: "{{ csrf_token() }}",
             userId: {{ auth()->id() ?? 0 }},
+            activeSiteId: @json($activeSite?->id),
             siteUrl: "{{ url('/') }}",
             hubUrl: "{{ route('hub') }}",
             hubMode: "agronomic",
@@ -49,6 +56,15 @@
                 return body;
             }
         };
+        window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
+            nonce: "{{ csrf_token() }}",
+            csrfToken: "{{ csrf_token() }}",
+            restUrl: "{{ url('/api') }}/",
+            activeSiteId: @json($activeSite?->id),
+            savedLocation: @json($savedLocation),
+            wizardComplete: @json((bool) ($wizardState['complete'] ?? false)),
+            wizardState: @json($wizardState)
+        });
     </script>
     @yield('head')
     <style>

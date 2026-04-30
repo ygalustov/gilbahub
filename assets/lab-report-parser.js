@@ -24,10 +24,10 @@
     // =========================================================================
 
     const CONFIG = {
-        ajaxUrl: (typeof ajaxurl !== 'undefined') ? ajaxurl : '/wp-admin/admin-ajax.php',
-        nonce: null,  // Set from wp_localize_script
+        apiUrl: '/api/lab-reports/parse',
+        nonce: null,
         maxFileSize: 10 * 1024 * 1024,  // 10MB
-        allowedExtensions: ['pdf', 'docx', 'txt', 'csv'],
+        allowedExtensions: ['pdf', 'docx', 'doc', 'txt', 'csv', 'xlsx', 'xls'],
         confidenceThresholds: {
             high: 85,
             medium: 60
@@ -37,11 +37,14 @@
     // Try to get nonce from localized data
     if (global.gaipLabParser) {
         CONFIG.nonce = global.gaipLabParser.nonce;
-        CONFIG.ajaxUrl = global.gaipLabParser.ajaxUrl || CONFIG.ajaxUrl;
+        CONFIG.apiUrl = global.gaipLabParser.apiUrl || CONFIG.apiUrl;
     }
     // Fallback: get from existing hub nonce
     if (!CONFIG.nonce && global.gaipAjax) {
         CONFIG.nonce = global.gaipAjax.nonce;
+    }
+    if (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) {
+        CONFIG.apiUrl = global.GAIP_HUB_CONFIG.restUrl.replace(/\/+$/, '') + '/lab-reports/parse';
     }
 
     // =========================================================================
@@ -68,7 +71,7 @@
     function openFilePicker(contextDataType) {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.pdf,.docx,.doc,.txt,.csv';
+        input.accept = '.pdf,.docx,.doc,.txt,.csv,.xlsx,.xls';
         input.style.display = 'none';
         
         input.addEventListener('change', function() {
@@ -117,10 +120,10 @@
         // failure is intentional only for files without dataType context;
         // a known-soil CSV that the local importer rejects should error,
         // not silently retry against the AI validator that already failed.
-        if (ext === 'csv' && contextDataType) {
+        if ((ext === 'csv' || ext === 'xlsx' || ext === 'xls') && contextDataType) {
             const SM = global.GAIP_SampleManager || global.SampleManager || global.GilbaSampleManager;
             if (SM && typeof SM.importFile === 'function') {
-                console.log('[LabParser b35fix376] Routing CSV to local importer (dataType=' +
+                console.log('[LabParser] Routing spreadsheet to local importer (dataType=' +
                     contextDataType + ', file=' + file.name + ')');
                 _state.parsing = true;
                 showParsingUI(file.name);
@@ -131,15 +134,15 @@
                     return;
                 } catch (err) {
                     _state.parsing = false;
-                    console.error('[LabParser b35fix376] Local CSV import failed:', err);
-                    showError('CSV import failed: ' + (err && err.message ? err.message : err) +
+                    console.error('[LabParser] Local spreadsheet import failed:', err);
+                    showError('Spreadsheet import failed: ' + (err && err.message ? err.message : err) +
                               ' — check column headers match the template.');
                     return;
                 }
             }
             // SampleManager not available — fall through to AI path with a warning
-            console.warn('[LabParser b35fix376] SampleManager.importFile unavailable; ' +
-                'falling back to AI path for CSV');
+            console.warn('[LabParser] SampleManager.importFile unavailable; ' +
+                'falling back to document parser path for spreadsheet');
         }
 
         console.log('[LabParser] Uploading:', file.name, '(' + (file.size / 1024).toFixed(1) + ' KB)');
@@ -158,21 +161,19 @@
             (global.gaipAjax?.nonce ? 'gaipAjax' : 'NONE')),
             'value:', nonce ? nonce.substring(0, 6) + '...' : 'EMPTY');
         
-        const ajaxUrl = CONFIG.ajaxUrl || 
-                       (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.ajaxUrl) ||
-                       '/wp-admin/admin-ajax.php';
+        const apiUrl = CONFIG.apiUrl || '/api/lab-reports/parse';
         
         try {
             const formData = new FormData();
-            formData.append('action', 'gilba_parse_lab_report');
-            formData.append('nonce', nonce);
             formData.append('lab_report', file);
+            if (nonce) formData.append('_token', nonce);
             
-            console.log('[LabParser] Sending to:', ajaxUrl);
+            console.log('[LabParser] Sending to:', apiUrl);
             
-            const response = await fetch(ajaxUrl, {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                headers: nonce ? { 'X-CSRF-TOKEN': nonce } : {}
             });
             
             console.log('[LabParser] Response status:', response.status);
@@ -184,7 +185,7 @@
             
             _state.parsing = false;
             
-            if (result.success) {
+            if (response.ok && result.success) {
                 _state.lastResult = result.data;
                 showConfirmationUI(result.data);
             } else {

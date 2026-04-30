@@ -102,6 +102,11 @@
         return {
             turfType: state.turfType || '',
             subCategory: state.subCategory || '',
+            locationName: (document.getElementById('gaip-location-search') || {}).value || '',
+            latitude: domVal('.gaip-lat'),
+            longitude: domVal('.gaip-lon'),
+            hemisphere: domVal('.gaip-hemi'),
+            elevation: domVal('.gaip-elev'),
             species: domVal('.gaip-species'),
             variety: domVal('.gaip-variety'),
             construction: domVal('.gaip-construction'),
@@ -144,6 +149,12 @@
 
         setDomVal('.gaip-construction', snap.construction);
         setDomVal('.gaip-drainage', snap.drainage);
+        var locInput = document.getElementById('gaip-location-search');
+        if (locInput) locInput.value = snap.locationName || '';
+        setDomVal('.gaip-lat', snap.latitude);
+        setDomVal('.gaip-lon', snap.longitude);
+        setDomVal('.gaip-hemi', snap.hemisphere);
+        setDomVal('.gaip-elev', snap.elevation);
         setDomVal('.gaip-hoc', snap.hoc);
         setDomVal('.gaip-n-program', snap.nProgram);
         setDomVal('.gaip-soil-methodology', snap.methodology);
@@ -1118,6 +1129,9 @@
         // Location & Climate
         var spLoc = document.getElementById('gaip-sp-location');
         var realLoc = document.getElementById('gaip-location-search');
+        var previousLocName = realLoc ? (realLoc.value || '') : '';
+        var previousLat = domVal('.gaip-lat');
+        var previousLon = domVal('.gaip-lon');
         if (spLoc && realLoc && spLoc.value !== realLoc.value) {
             realLoc.value = spLoc.value;
         }
@@ -1129,6 +1143,15 @@
         if (spHemi) { var realHemi = document.querySelector('.gaip-hemi'); if (realHemi && spHemi.value !== realHemi.value) setDomVal('.gaip-hemi', spHemi.value); }
         var spElev = document.getElementById('gaip-sp-elev');
         if (spElev) setDomVal('.gaip-elev', spElev.value);
+        if (spLoc && (spLoc.value !== previousLocName || (spLat && spLat.value !== previousLat) || (spLon && spLon.value !== previousLon))) {
+            document.dispatchEvent(new CustomEvent('gaip:locationChange', {
+                detail: {
+                    name: spLoc.value || '',
+                    lat: spLat && spLat.value !== '' ? parseFloat(spLat.value) : null,
+                    lon: spLon && spLon.value !== '' ? parseFloat(spLon.value) : null
+                }
+            }));
+        }
 
         // Construction & Drainage
         var spCon = document.getElementById('gaip-sp-construction');
@@ -1322,19 +1345,6 @@
                     resultsDiv.innerHTML = '<div style="padding:10px; color:var(--gaip-text-secondary); font-size:13px;">Searching...</div>';
                     resultsDiv.style.display = 'block';
 
-                    // Use same AJAX endpoint as the main location search
-                    var cfg = window.GAIP_HUB_CONFIG || {};
-                    if (!cfg.ajaxUrl) {
-                        resultsDiv.innerHTML = '<div style="padding:10px; color:#c41e3a;">AJAX not configured</div>';
-                        return;
-                    }
-
-                    var fd = new FormData();
-                    fd.append('action', 'gilba_geocode_search');
-                    fd.append('address', query);
-                    fd.append('nonce', cfg.nonce || '');
-
-                    // Try WordPress AJAX first, fall back to Open-Meteo geocoding if session/nonce issue
                     function renderLocResults(locations) {
                         var html = '';
                         locations.forEach(function(loc, idx2) {
@@ -1364,25 +1374,13 @@
                                 if (spLat) spLat.value = lat2;
                                 if (spLon) spLon.value = lon2;
                                 if (spHemi) spHemi.value = parseFloat(lat2) < 0 ? 'southern' : 'northern';
-                                setDomVal('.gaip-lat', lat2);
-                                setDomVal('.gaip-lon', lon2);
-                                setDomVal('.gaip-hemi', parseFloat(lat2) < 0 ? 'southern' : 'northern');
-                                var realLoc = document.getElementById('gaip-location-search');
-                                if (realLoc) realLoc.value = name;
-                                var saveFd = new FormData();
-                                saveFd.append('action', 'gilba_save_location');
-                                saveFd.append('lat', lat2);
-                                saveFd.append('lon', lon2);
-                                saveFd.append('name', name);
-                                saveFd.append('nonce', cfg.nonce || '');
-                                if (cfg.ajaxUrl) fetch(cfg.ajaxUrl, { method: 'POST', body: saveFd });
                                 resultsDiv.style.display = 'none';
                                 log('Location selected: ' + name + ' (' + lat2 + ', ' + lon2 + ')');
                             });
                         });
                     }
 
-                    function openMeteoFallback(q) {
+                    function searchOpenMeteo(q) {
                         var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json';
                         fetch(url)
                             .then(function(r) { return r.json(); })
@@ -1405,28 +1403,7 @@
                                 resultsDiv.innerHTML = '<div style="padding:10px; color:#c41e3a; font-size:13px;">Search unavailable — check internet connection</div>';
                             });
                     }
-
-                    if (!cfg.ajaxUrl) {
-                        openMeteoFallback(query);
-                    } else {
-                        fetch(cfg.ajaxUrl, { method: 'POST', body: fd })
-                            .then(function(r) { return r.json(); })
-                            .then(function(resp) {
-                                if (resp.success && resp.data && resp.data.length > 0) {
-                                    renderLocResults(resp.data);
-                                } else if (resp.data && resp.data.code === 'nonce_expired') {
-                                    // Nonce expired — fall back to Open-Meteo directly
-                                    openMeteoFallback(query);
-                                } else {
-                                    // AJAX returned no results — try Open-Meteo
-                                    openMeteoFallback(query);
-                                }
-                            })
-                            .catch(function() {
-                                // AJAX failed entirely (network, auth, non-JSON) — fall back
-                                openMeteoFallback(query);
-                            });
-                    }
+                    searchOpenMeteo(query);
                 }, 500);
             });
 

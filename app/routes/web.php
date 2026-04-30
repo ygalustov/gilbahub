@@ -4,8 +4,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\FieldLogEntryController;
 use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
+use App\Http\Controllers\LabReportParseController;
 use App\Http\Controllers\MediaUploadController;
+use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\SampleController;
+use App\Http\Controllers\SensorProxyController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use App\Http\Controllers\StadiumVenueProfileController;
@@ -63,6 +66,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
+        Route::post('/predictions', [PredictionController::class, 'store'])->name('predictions.store');
+        Route::get('/predictions/pending/{siteIdentifier}', [PredictionController::class, 'pending'])->name('predictions.pending');
+        Route::post('/outcomes', [PredictionController::class, 'storeOutcome'])->name('outcomes.store');
+        Route::post('/lab-reports/parse', [LabReportParseController::class, 'store'])->name('lab-reports.parse');
+        Route::post('/sensors/hydrosight/proxy', [SensorProxyController::class, 'hydrosight'])->name('sensors.hydrosight.proxy');
+        Route::post('/sensors/specconnect/proxy', [SensorProxyController::class, 'specconnect'])->name('sensors.specconnect.proxy');
         Route::get('/stadium/venue-profiles', [StadiumVenueProfileController::class, 'index'])->name('stadium.venue-profiles.index');
         Route::put('/stadium/venue-profiles/{venueId}', [StadiumVenueProfileController::class, 'upsert'])->name('stadium.venue-profiles.upsert');
 

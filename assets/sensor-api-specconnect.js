@@ -7,7 +7,7 @@
  *           (activate in v1.1.0 when WatchDog instruments are added).
  *
  * API base: https://api.specconnect.net:6703
- * Auth:     customerApiKey query parameter (kept server-side via WP-Ajax proxy)
+ * Auth:     customerApiKey query parameter (forwarded through Laravel proxy)
  * Format:   JSON
  *
  * Integration points (mirrors sensor-api-hydrosight.js):
@@ -29,8 +29,7 @@
 
   var CONFIG = {
     version: "1.0.0",
-    proxyUrl: typeof ajaxurl !== "undefined" ? ajaxurl : "/wp-admin/admin-ajax.php",
-    proxyAction: "gilba_specconnect_proxy",
+    proxyUrl: getRestBaseUrl() + "/sensors/specconnect/proxy",
     apiBase: "https://api.specconnect.net:6703",
     // TDR device type string used in GetFSDataInDateRange
     tdrDeviceType: "TDR350",
@@ -116,9 +115,23 @@
   // HELPERS
   // =========================================================================
 
-  function _getNonce() {
-    if (typeof GAIP_HUB_CONFIG !== "undefined" && GAIP_HUB_CONFIG.nonce) return GAIP_HUB_CONFIG.nonce;
-    if (typeof GAIP_WIZARD_CONFIG !== "undefined" && GAIP_WIZARD_CONFIG.nonce) return GAIP_WIZARD_CONFIG.nonce;
+  function getRestBaseUrl() {
+    var cfg =
+      (typeof GAIP_HUB_CONFIG !== "undefined" && GAIP_HUB_CONFIG) ||
+      (typeof GAIP_WIZARD_CONFIG !== "undefined" && GAIP_WIZARD_CONFIG) ||
+      {};
+    return (cfg.restUrl || "/api/").replace(/\/+$/, "");
+  }
+
+  function _getCsrfToken() {
+    if (typeof GAIP_HUB_CONFIG !== "undefined" && (GAIP_HUB_CONFIG.csrfToken || GAIP_HUB_CONFIG.nonce)) {
+      return GAIP_HUB_CONFIG.csrfToken || GAIP_HUB_CONFIG.nonce;
+    }
+    if (typeof GAIP_WIZARD_CONFIG !== "undefined" && (GAIP_WIZARD_CONFIG.csrfToken || GAIP_WIZARD_CONFIG.nonce)) {
+      return GAIP_WIZARD_CONFIG.csrfToken || GAIP_WIZARD_CONFIG.nonce;
+    }
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
     var el = document.querySelector('input[name="gilba_hub_nonce"]');
     return el ? el.value : null;
   }
@@ -150,24 +163,28 @@
   }
 
   // =========================================================================
-  // WP-AJAX PROXY CALLS
+  // Laravel proxy calls
   // =========================================================================
 
-  async function _proxyGet(endpoint) {
-    var nonce = _getNonce();
-    if (!nonce) throw new Error("Security nonce not found — please refresh the page");
+  async function _proxyGet(endpoint, apiKeyOverride) {
+    var csrfToken = _getCsrfToken();
+    if (!csrfToken) throw new Error("Security token not found — please refresh the page");
 
-    var formData = new FormData();
-    formData.append("action", CONFIG.proxyAction);
-    formData.append("nonce", nonce);
-    formData.append("endpoint", endpoint);
-    // Send key in body so test-before-save works; PHP falls back to WP options if empty
-    if (_state.apiKey) formData.append("api_key", _state.apiKey);
+    var apiKey = apiKeyOverride || _state.apiKey;
+    if (!apiKey) throw new Error("SpecConnect API key not configured");
 
     var response = await fetch(CONFIG.proxyUrl, {
       method: "POST",
       credentials: "same-origin",
-      body: formData,
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-CSRF-TOKEN": csrfToken,
+      },
+      body: JSON.stringify({
+        endpoint: endpoint,
+        api_key: apiKey,
+      }),
     });
 
     if (!response.ok) {
@@ -595,12 +612,9 @@
       }
       try {
         // Test with GetCustomerEquipment — lightweight call
-        var tempKey = _state.apiKey;
-        _state.apiKey = testKey;
-        var equipment = await fetchEquipment();
-        _state.apiKey = tempKey;
+        var equipment = await _proxyGet("/api/Customer/GetCustomerEquipment?customerApiKey={key}&optUnits=1", testKey);
         status.style.color = "#059669";
-        status.textContent = "✓ Connected — " + equipment.length + " device(s) found";
+        status.textContent = "✓ Connected — " + (Array.isArray(equipment) ? equipment.length : 0) + " device(s) found";
       } catch (e) {
         status.style.color = "#dc2626";
         status.textContent = "✗ " + e.message;
@@ -679,14 +693,10 @@
     },
     // Test entry point for settings panel test button
     _vendorTest: async function (testKey) {
-      var saved = _state.apiKey;
-      _state.apiKey = testKey;
       try {
-        var eq = await fetchEquipment();
-        _state.apiKey = saved;
+        var eq = await _proxyGet("/api/Customer/GetCustomerEquipment?customerApiKey={key}&optUnits=1", testKey);
         return { success: true, deviceCount: eq.length };
       } catch (e) {
-        _state.apiKey = saved;
         return { success: false, error: e.message };
       }
     },

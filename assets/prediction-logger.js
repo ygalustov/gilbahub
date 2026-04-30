@@ -11,7 +11,7 @@
  * ARCHITECTURE:
  * - Listens for 'gaip:cascade-complete' custom events (dispatched by cascade-orchestrator)
  * - Extracts actionable predictions from each module's computed output
- * - Writes prediction records via REST API to wp_gilba_predictions table
+ * - Writes prediction records via the Laravel API
  * - Generates input_snapshot JSON for future ML training
  * 
  * PREDICTIONS LOGGED:
@@ -23,8 +23,8 @@
  * - Climate: monthly estimates (ET₀, precipitation)
  * 
  * SITE IDENTIFICATION:
- * Uses composite key: user_id + location hash (lat/lon rounded to 3 decimal places)
- * This provides stable per-site tracking without requiring a formal sites table.
+ * Prefer the active Laravel site ID when available. Fall back to the legacy
+ * location hash only when the hub is not yet bound to a persisted site.
  * 
  * @author Gilba Solutions
  * @version 1.0.0
@@ -42,8 +42,8 @@
         version: '1.0.0',
         debug: false,
         
-        // REST endpoint for prediction writes
-        endpoint: '/wp-json/gilba/v1/predictions',
+        // API endpoint for prediction writes
+        endpoint: 'predictions',
         
         // Outcome windows by module (days)
         outcomeWindows: {
@@ -116,11 +116,26 @@
     }
 
     /**
-     * Generate site identifier from user context + location
-     * Returns a stable hash for the current user/location combination
+     * Generate site identifier for persistence.
+     * Prefer the active site ID; fall back to a stable location hash for
+     * legacy/default-site sessions.
      */
     function getSiteIdentifier() {
+        try {
+            if (global.GAIP_SiteContext && typeof global.GAIP_SiteContext.getSiteId === 'function') {
+                const siteId = global.GAIP_SiteContext.getSiteId();
+                if (siteId && siteId !== 'default') return siteId;
+            }
+            if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getActiveSiteId === 'function') {
+                const siteId = global.GAIP_SampleManager.getActiveSiteId();
+                if (siteId && siteId !== 'default') return siteId;
+            }
+        } catch (_e) { /* ignore and fall back */ }
+
         const config = global.GAIP_HUB_CONFIG || {};
+        if (config.activeSiteId && config.activeSiteId !== 'default') {
+            return config.activeSiteId;
+        }
         const location = config.savedLocation || {};
         
         // Round coordinates to 3 decimal places (~111m precision)
@@ -128,8 +143,6 @@
         const lon = location.lon ? Math.round(location.lon * 1000) / 1000 : 0;
         const locationName = location.name || 'unknown';
         
-        // Create composite identifier
-        // Format: lat_lon_hash (simple string for now; backend can normalize)
         return `${lat}_${lon}_${hashString(locationName)}`;
     }
 
@@ -616,11 +629,11 @@
     }
 
     // =========================================================================
-    // PERSISTENCE (REST API)
+    // PERSISTENCE (API)
     // =========================================================================
 
     /**
-     * Write predictions to database via REST API
+     * Write predictions to database via Laravel API
      */
     async function writePredictions(predictions) {
         if (!predictions || predictions.length === 0) {
@@ -629,25 +642,19 @@
         
         const config = global.GAIP_HUB_CONFIG || {};
         
-        // Use restUrl if available, otherwise construct from ajaxUrl
-        let endpoint;
-        if (config.restUrl) {
-            endpoint = config.restUrl + 'predictions';
-        } else {
-            const baseUrl = config.ajaxUrl ? config.ajaxUrl.replace('/admin-ajax.php', '') : '';
-            endpoint = baseUrl + CONFIG.endpoint;
-        }
-        
-        // Use REST nonce if available, fall back to regular nonce
-        const nonce = config.restNonce || config.nonce || '';
+        const baseUrl = config.restUrl || '/api/';
+        const endpoint = baseUrl.replace(/\/?$/, '/') + CONFIG.endpoint;
+        const csrfToken = config.csrfToken || config.restNonce || config.nonce || '';
         
         try {
             const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-WP-Nonce': nonce
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
                 },
+                credentials: 'same-origin',
                 body: JSON.stringify({
                     predictions: predictions
                 })

@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\Account;
+use App\Models\Site;
+use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -25,6 +28,50 @@ class ExampleTest extends TestCase
             ->assertSee('id="gaip-hub"', false)
             ->assertSee('/legacy-assets/hub.css', false)
             ->assertSee('/legacy-assets/hub-tissue-v3.js', false);
+    }
+
+    public function test_hub_page_bootstraps_wizard_config_from_active_site(): void
+    {
+        $user = User::factory()->create();
+        $account = Account::query()->create([
+            'owner_user_id' => $user->id,
+            'display_name' => $user->name,
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ]);
+        $site = Site::query()->create([
+            'account_id' => $account->id,
+            'name' => 'Federal Golf Club',
+            'slug' => 'federal-golf-club',
+            'site_type' => 'precinct',
+            'location_name' => 'Canberra, ACT',
+            'latitude' => -35.3075,
+            'longitude' => 149.1244,
+            'timezone' => 'Australia/Sydney',
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ]);
+        $site->users()->attach($user->id, ['role' => 'owner']);
+        SiteConfig::query()->create([
+            'site_id' => $site->id,
+            'namespace' => 'gaip',
+            'config' => [
+                'wizard' => [
+                    'complete' => true,
+                    'completedAt' => '2026-04-30T09:00:00Z',
+                    'version' => '1.0.0',
+                ],
+            ],
+            'synced_at' => now(),
+        ]);
+        $user->forceFill(['last_active_site_id' => $site->id])->save();
+
+        $this->actingAs($user)
+            ->get('/hub')
+            ->assertOk()
+            ->assertSee('window.GAIP_WIZARD_CONFIG', false)
+            ->assertSee('wizardComplete: true', false)
+            ->assertSee('"name":"Canberra, ACT"', false);
     }
 
     public function test_authenticated_user_can_open_field_log_page(): void

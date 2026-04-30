@@ -5,12 +5,12 @@
  * Connects to Hydrosight API for live sensor data from Hydrosight wireless
  * soil monitors (Australian company - gethydrosight.com.au).
  * 
- * v1.1.0: Uses WP-Ajax proxy to bypass CORS restrictions
+ * v1.1.0: Uses a same-origin Laravel proxy to bypass CORS restrictions
  * 
  * Data feeds into existing GAIP_Sensor interface for seamless integration
  * with Climate Engine, Irrigation Scheduler, and Disease modules.
  * 
- * API: https://api.hydrosight.au/v1 (via WordPress proxy)
+ * API: https://api.hydrosight.au/v1 (via same-origin Laravel proxy)
  * Auth: x-api-key header (passed through proxy)
  * 
  * Endpoints:
@@ -38,9 +38,7 @@
     // ============================================
     
     var CONFIG = {
-        // Use WordPress AJAX proxy to bypass CORS
-        proxyUrl: (typeof ajaxurl !== 'undefined') ? ajaxurl : '/wp-admin/admin-ajax.php',
-        proxyAction: 'gilba_hydrosight_proxy',
+        proxyUrl: getRestBaseUrl() + '/sensors/hydrosight/proxy',
         storageKeyBase: 'gaip_hydrosight_config',
         cacheKeyBase: 'gaip_hydrosight_cache',
         cacheDurationMs: 15 * 60 * 1000,
@@ -207,57 +205,66 @@
     }
 
     // ============================================
-    // API CALLS (via WP-Ajax Proxy)
+    // API CALLS (via same-origin proxy)
     // ============================================
     
     /**
-     * Get the nonce for AJAX requests
+     * Get the CSRF token for proxy requests
      */
-    function getNonce() {
-        // Try GAIP_HUB_CONFIG (main hub config)
-        if (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.nonce) {
-            return GAIP_HUB_CONFIG.nonce;
+    function getCsrfToken() {
+        if (typeof GAIP_HUB_CONFIG !== 'undefined' && (GAIP_HUB_CONFIG.csrfToken || GAIP_HUB_CONFIG.nonce)) {
+            return GAIP_HUB_CONFIG.csrfToken || GAIP_HUB_CONFIG.nonce;
         }
-        // Try GAIP_WIZARD_CONFIG (wizard config)
-        if (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG.nonce) {
-            return GAIP_WIZARD_CONFIG.nonce;
+        if (typeof GAIP_WIZARD_CONFIG !== 'undefined' && (GAIP_WIZARD_CONFIG.csrfToken || GAIP_WIZARD_CONFIG.nonce)) {
+            return GAIP_WIZARD_CONFIG.csrfToken || GAIP_WIZARD_CONFIG.nonce;
         }
-        // Fallback: look for nonce in hidden input
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) {
+            return meta.content;
+        }
+
         var nonceInput = document.querySelector('input[name="gilba_hub_nonce"]');
-        if (nonceInput) {
-            return nonceInput.value;
-        }
+        if (nonceInput) return nonceInput.value;
+
         return '';
     }
 
-    async function apiRequest(endpoint, options) {
-        if (!state.keyConfigured) {
+    function getRestBaseUrl() {
+        var cfg = (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG) ||
+            (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG) || {};
+
+        return (cfg.restUrl || '/api/').replace(/\/+$/, '');
+    }
+
+    async function proxyRequest(endpoint, apiKey) {
+        if (!apiKey) {
             throw new Error('Hydrosight API key not configured');
         }
 
-        var nonce = getNonce();
-        if (!nonce) {
-            throw new Error('Security nonce not found - please refresh the page');
+        var csrfToken = getCsrfToken();
+        if (!csrfToken) {
+            throw new Error('Security token not found - please refresh the page');
         }
-
-        var formData = new FormData();
-        formData.append('action', CONFIG.proxyAction);
-        formData.append('nonce', nonce);
-        // Security fix b35fix292: api_key no longer sent from JS.
-        // Server retrieves key from user meta in the proxy handler.
-        formData.append('endpoint', endpoint);
 
         var retries = 0;
         while (retries < CONFIG.maxRetries) {
             try {
                 var response = await fetch(CONFIG.proxyUrl, {
                     method: 'POST',
-                    body: formData,
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({
+                        endpoint: endpoint,
+                        api_key: apiKey
+                    })
                 });
-                
+
                 var result = await response.json();
-                
+
                 if (result.success) {
                     return result.data;
                 } else {
@@ -274,7 +281,7 @@
             } catch (e) {
                 retries++;
                 // Don't retry auth or config errors
-                if (e.message.indexOf('API key') >= 0 || e.message.indexOf('nonce') >= 0 || 
+                if (e.message.indexOf('API key') >= 0 || e.message.indexOf('token') >= 0 ||
                     e.message.indexOf('Invalid') >= 0 || e.message.indexOf('expired') >= 0) {
                     throw e;
                 }
@@ -282,6 +289,10 @@
                 await new Promise(function(r) { setTimeout(r, CONFIG.retryDelayMs * retries); });
             }
         }
+    }
+
+    async function apiRequest(endpoint) {
+        return proxyRequest(endpoint, state.apiKey);
     }
 
     async function fetchLocations() {
@@ -653,31 +664,13 @@
     }
 
     async function testConnection(apiKey) {
-        // Uses dedicated test endpoint that accepts raw key — main proxy never receives key from JS.
-        var nonce = getNonce();
-        if (!nonce) throw new Error('Security nonce not found');
-
-        var formData = new FormData();
-        formData.append('action', 'gilba_hydrosight_test_connection');
-        formData.append('nonce', nonce);
-        formData.append('api_key', apiKey);
-        formData.append('endpoint', '/locations');
-
         try {
-            var response = await fetch(CONFIG.proxyUrl, { method: 'POST', body: formData, credentials: 'same-origin' });
-            var result = await response.json();
-            if (!result.success) throw new Error(result.data && result.data.message ? result.data.message : 'Connection failed');
-            // Also fetch sensors
-            var formData2 = new FormData();
-            formData2.append('action', 'gilba_hydrosight_test_connection');
-            formData2.append('nonce', nonce);
-            formData2.append('api_key', apiKey);
-            formData2.append('endpoint', '/sensors');
-            var response2 = await fetch(CONFIG.proxyUrl, { method: 'POST', body: formData2, credentials: 'same-origin' });
-            var result2 = await response2.json();
-            var sensors = (result2.success && Array.isArray(result2.data)) ? result2.data : [];
+            var locationsResponse = await proxyRequest('/locations', apiKey);
+            var sensorsResponse = await proxyRequest('/sensors', apiKey);
+            var locations = Array.isArray(locationsResponse && locationsResponse.items) ? locationsResponse.items : [];
+            var sensors = Array.isArray(sensorsResponse && sensorsResponse.items) ? sensorsResponse.items : [];
             state.connectionTested = true;
-            return { success: true, locations: (result.data || []).length, sensors: sensors.length, sensorList: sensors };
+            return { success: true, locations: locations.length, sensors: sensors.length, sensorList: sensors };
         } catch (e) {
             return { success: false, error: e.message };
         }
@@ -1080,6 +1073,6 @@
     // Try to register immediately, or wait for manager
     setTimeout(registerWithManager, 50);
     
-    console.log('[Hydrosight] Gilba Hub Hydrosight Adapter v1.2.0 loaded (WP-Ajax proxy + Manager interface)');
+    console.log('[Hydrosight] Gilba Hub Hydrosight Adapter v1.2.0 loaded (Laravel proxy + Manager interface)');
 
 })(window);

@@ -605,6 +605,206 @@ class SiteApiTest extends TestCase
         Storage::disk('local')->assertExists($path);
     }
 
+    public function test_authenticated_user_gets_explicit_lab_parser_message_for_spreadsheets(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/lab-reports/parse', [
+                '_token' => 'test-token',
+                'lab_report' => UploadedFile::fake()->create('results.csv', 8, 'text/csv'),
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('data.code', 'local_spreadsheet_import');
+    }
+
+    public function test_authenticated_user_gets_explicit_lab_parser_message_for_documents(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->post('/api/lab-reports/parse', [
+                '_token' => 'test-token',
+                'lab_report' => UploadedFile::fake()->create('results.pdf', 24, 'application/pdf'),
+            ])
+            ->assertStatus(501)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('data.code', 'lab_report_parser_unavailable');
+    }
+
+    public function test_authenticated_user_can_store_and_list_pending_predictions(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Prediction Site',
+            'slug' => 'prediction-site',
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/predictions', [
+                '_token' => 'test-token',
+                'predictions' => [[
+                    'site_id' => $site->id,
+                    'cascade_id' => 'cascade-123',
+                    'module' => 'disease',
+                    'sub_key' => 'dollar_spot_risk',
+                    'predicted_label' => 'Dollar Spot Risk',
+                    'prediction_type' => 'probability',
+                    'predicted_value' => 0.72,
+                    'predicted_category' => 'high',
+                    'confidence' => 0.84,
+                    'predicted_at' => '2026-04-30T09:00:00Z',
+                    'outcome_window_start' => '2026-05-03T00:00:00Z',
+                    'outcome_window_end' => '2026-05-07T00:00:00Z',
+                    'input_snapshot' => [
+                        'location' => ['lat' => -35.3, 'lon' => 149.1],
+                    ],
+                ]],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('written', 1);
+
+        $predictionId = DB::table('predictions')->value('id');
+
+        $this->assertDatabaseHas('predictions', [
+            'id' => $predictionId,
+            'user_id' => $user->id,
+            'site_identifier' => $site->id,
+            'module' => 'disease',
+            'sub_key' => 'dollar_spot_risk',
+            'status' => 'pending',
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/predictions/pending/'.$site->id)
+            ->assertOk()
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('pending.0.id', $predictionId)
+            ->assertJsonPath('pending.0.module', 'disease')
+            ->assertJsonPath('pending.0.sub_key', 'dollar_spot_risk')
+            ->assertJsonPath('pending.0.predicted_label', 'Dollar Spot Risk');
+    }
+
+    public function test_authenticated_user_can_capture_prediction_outcome(): void
+    {
+        $user = User::factory()->create();
+
+        $predictionId = DB::table('predictions')->insertGetId([
+            'user_id' => $user->id,
+            'site_identifier' => 'site-abc',
+            'cascade_id' => 'cascade-456',
+            'module' => 'soil',
+            'sub_key' => 'k_rate',
+            'predicted_label' => 'Potassium Rate',
+            'prediction_type' => 'numeric',
+            'predicted_value' => json_encode(35),
+            'predicted_category' => null,
+            'confidence' => 0.91,
+            'predicted_at' => now(),
+            'outcome_window_start' => now()->addDays(28),
+            'outcome_window_end' => now()->addDays(42),
+            'input_snapshot' => json_encode(['soil' => ['K' => 45]], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+            'status' => 'pending',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/outcomes', [
+                '_token' => 'test-token',
+                'prediction_id' => $predictionId,
+                'qualitative' => 'as_expected',
+                'action_taken' => 'followed',
+                'action_notes' => 'Applied as planned.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('prediction_outcomes', [
+            'prediction_id' => $predictionId,
+            'user_id' => $user->id,
+            'qualitative' => 'as_expected',
+            'action_taken' => 'followed',
+        ]);
+
+        $this->assertDatabaseHas('predictions', [
+            'id' => $predictionId,
+            'status' => 'resolved',
+        ]);
+
+        $this->actingAs($user)
+            ->postJson('/api/outcomes', [
+                '_token' => 'test-token',
+                'prediction_id' => $predictionId,
+                'qualitative' => 'worse_than_expected',
+            ])
+            ->assertStatus(409);
+    }
+
+    public function test_authenticated_user_can_proxy_hydrosight_requests_via_laravel_api(): void
+    {
+        Http::fake([
+            'https://api.hydrosight.au/*' => function ($request) {
+                $this->assertSame('hydro-key', $request->header('x-api-key')[0] ?? null);
+                $this->assertSame('https://api.hydrosight.au/v1/sensors?locationId=abc123', (string) $request->url());
+
+                return Http::response([
+                    'items' => [
+                        ['sensorId' => 'sensor-1', 'name' => 'Green 1'],
+                    ],
+                ]);
+            },
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/sensors/hydrosight/proxy', [
+                '_token' => 'test-token',
+                'endpoint' => '/sensors?locationId=abc123',
+                'api_key' => 'hydro-key',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.items.0.sensorId', 'sensor-1');
+    }
+
+    public function test_authenticated_user_can_proxy_specconnect_requests_via_laravel_api(): void
+    {
+        Http::fake([
+            'https://api.specconnect.net:6703/*' => function ($request) {
+                $this->assertSame(
+                    'https://api.specconnect.net:6703/api/Customer/GetFSCollections?customerApiKey=spec-key',
+                    (string) $request->url()
+                );
+
+                return Http::response([
+                    ['CollectionId' => 'greens', 'Name' => 'Greens'],
+                ]);
+            },
+        ]);
+
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/sensors/specconnect/proxy', [
+                '_token' => 'test-token',
+                'endpoint' => '/api/Customer/GetFSCollections?customerApiKey={key}',
+                'api_key' => 'spec-key',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.0.CollectionId', 'greens');
+    }
+
 
     public function test_authenticated_user_can_store_field_log_entry(): void
     {

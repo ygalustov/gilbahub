@@ -5,21 +5,19 @@
  *
  * Central manager for live soil sensor integrations. Handles:
  * - Multi-vendor support (Hydrosight, future: Soil Scout, SpecConnect)
- * - Per-user API credentials (stored in WordPress user meta)
+ * - Per-user API credentials (stored locally in this Laravel build)
  * - Site-to-sensor mapping (which sensors belong to which site)
  * - "All Sites" aggregation view
  * - Data transformation to GAIP_Sensor interface
  *
  * Architecture:
- *   User logs in → Load credentials from WP user meta
+ *   User logs in → Load credentials from local cache
  *   User selects site → Filter sensors for that site
  *   "All Sites" selected → Aggregate all sensors
  *   Data feeds into existing GAIP_Sensor interface (VWC, EC, SoilTemp)
  *
  * Storage:
- *   WP User Meta: { hydrosight_api_key, soilscout_api_key, ... }
- *   LocalStorage: sensor_site_mappings (backup + offline)
- *   WP Options (future): site-sensor mappings for persistence
+ *   localStorage: credentials + site-sensor mappings
  *
  * Dependencies:
  *   - sensor-api-hydrosight.js (vendor adapter)
@@ -78,7 +76,7 @@
     // =========================================================================
 
     var _state = {
-        // Credentials loaded from WP user meta (cached locally)
+        // Credentials loaded from local storage
         credentials: {},  // { vendorId: apiKey }
         credentialsLoaded: false,
         _lastActiveTs: Date.now(),  // tracks last visible timestamp for wake detection
@@ -160,161 +158,23 @@
     }
 
     // =========================================================================
-    // CREDENTIALS MANAGEMENT (WP User Meta)
+    // CREDENTIALS MANAGEMENT
     // =========================================================================
 
-    function getNonce() {
-        if (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.nonce) {
-            return GAIP_HUB_CONFIG.nonce;
-        }
-        if (typeof GAIP_WIZARD_CONFIG !== 'undefined' && GAIP_WIZARD_CONFIG.nonce) {
-            return GAIP_WIZARD_CONFIG.nonce;
-        }
-        return '';
-    }
-
-    /**
-     * Refresh the WP nonce when it has expired (> 12 hours since page load).
-     * Updates GAIP_HUB_CONFIG.nonce in-memory so all subsequent calls use the fresh token.
-     */
-    async function refreshNonce() {
-        try {
-            var formData = new FormData();
-            formData.append('action', 'gilba_refresh_nonce');
-            var response = await fetch(getAjaxUrl(), {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            });
-            var result = await response.json();
-            if (result.success && result.data && result.data.nonce) {
-                if (typeof GAIP_HUB_CONFIG !== 'undefined') {
-                    GAIP_HUB_CONFIG.nonce = result.data.nonce;
-                }
-                log('Nonce refreshed successfully');
-                return result.data.nonce;
-            }
-        } catch (e) {
-            warn('Nonce refresh failed:', e);
-        }
-        return null;
-    }
-
-    function getAjaxUrl() {
-        if (typeof GAIP_HUB_CONFIG !== 'undefined' && GAIP_HUB_CONFIG.ajaxUrl) {
-            return GAIP_HUB_CONFIG.ajaxUrl;
-        }
-        return '/wp-admin/admin-ajax.php';
-    }
-
-    /**
-     * Load credentials from WordPress user meta
-     */
     async function loadCredentials() {
-        var nonce = getNonce();
-        if (!nonce) {
-            warn('No nonce available, using cached credentials');
-            loadCredentialsFromCache();
-            return;
+        loadCredentialsFromCache();
+        if (!_state.credentialsLoaded) {
+            _state.credentials = {};
+            _state.credentialsLoaded = true;
         }
-
-        try {
-            var formData = new FormData();
-            formData.append('action', 'gilba_sensor_load_credentials');
-            formData.append('nonce', nonce);
-
-            var response = await fetch(getAjaxUrl(), {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            });
-
-            var result = await response.json();
-
-            if (result.success && result.data) {
-                _state.credentials = result.data.credentials || {};
-                
-                // b35fix298: localStorage is the primary mapping store.
-                // WP is a best-effort backup — merge WP entries INTO localStorage
-                // mappings, never overwrite. This ensures mappings survive admin-ajax
-                // failures (500s, nonce expiry, hosting issues).
-                var wpMappings = result.data.siteMappings || {};
-                // Guard: PHP empty array serializes as [] not {}. Coerce to object.
-                if (Array.isArray(wpMappings)) wpMappings = {};
-                // Also guard localStorage-loaded mappings
-                if (Array.isArray(_state.siteMappings)) _state.siteMappings = {};
-                var hasWpMappings = Object.keys(wpMappings).length > 0;
-                var hasLocalMappings = Object.keys(_state.siteMappings).length > 0;
-                log('Mapping merge: WP has ' + Object.keys(wpMappings).length + ' sites, localStorage has ' + Object.keys(_state.siteMappings).length + ' sites');
-
-                if (hasWpMappings) {
-                    // Merge WP into localStorage — WP entries fill gaps but don't overwrite
-                    Object.keys(wpMappings).forEach(function(siteId) {
-                        if (!_state.siteMappings[siteId]) {
-                            _state.siteMappings[siteId] = wpMappings[siteId];
-                        } else {
-                            // Merge vendor arrays within existing site
-                            var wpSite = wpMappings[siteId];
-                            var localSite = _state.siteMappings[siteId];
-                            Object.keys(wpSite).forEach(function(vendorId) {
-                                if (!localSite[vendorId] || localSite[vendorId].length === 0) {
-                                    localSite[vendorId] = wpSite[vendorId];
-                                }
-                            });
-                        }
-                    });
-                    saveMappingsToLocalStorage();
-                    log('Merged WP mappings into localStorage (localStorage is primary)');
-                }
-                if (hasLocalMappings && !hasWpMappings) {
-                    // localStorage has mappings but WP is empty — sync to WP as backup
-                    log('WP mappings empty, syncing localStorage mappings to WP as backup');
-                    setTimeout(function() { saveSiteMappings(); }, 2000);
-                }
-                
-                _state.credentialsLoaded = true;
-                _state._credentialRetried = false;  // reset so future failures can retry
-
-                // Cache locally for offline/faster access
-                saveCredentialsToCache();
-
-                // Apply credentials to vendors
-                applyCredentialsToVendors();
-
-                log('Loaded credentials from WP user meta');
-            } else {
-                var errCode = result.data ? result.data.code : null;
-                warn('Failed to load credentials:', result.data ? result.data.message : 'Unknown error');
-                // Retry with fresh nonce on any auth failure — covers nonce_expired,
-                // plugin reinstall regenerating nonce, and generic 403s
-                if (!_state._credentialRetried) {
-                    _state._credentialRetried = true;
-                    log('Auth failure loading credentials — refreshing nonce and retrying once...');
-                    var fresh = await refreshNonce();
-                    if (fresh) {
-                        await loadCredentials();
-                        return;
-                    }
-                }
-                loadCredentialsFromCache();
-            }
-        } catch (e) {
-            error('Error loading credentials:', e);
-            loadCredentialsFromCache();
-        }
+        applyCredentialsToVendors();
+        log('Loaded credentials from local storage');
     }
 
     /**
-     * Save credentials to WordPress user meta
+     * Save credentials to local storage
      */
     async function saveCredentials(vendorId, apiKey) {
-        var nonce = getNonce();
-        if (!nonce) {
-            error('Cannot save credentials - no nonce');
-            return { success: false, error: 'Security token not found' };
-        }
-
-        // Update local state
         if (apiKey) {
             _state.credentials[vendorId] = apiKey;
         } else {
@@ -322,35 +182,10 @@
         }
 
         try {
-            var formData = new FormData();
-            formData.append('action', 'gilba_sensor_save_credentials');
-            formData.append('nonce', nonce);
-            formData.append('vendor_id', vendorId);
-            formData.append('api_key', apiKey || '');
-
-            var response = await fetch(getAjaxUrl(), {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            });
-
-            var result = await response.json();
-
-            if (result.success) {
-                saveCredentialsToCache();
-                applyCredentialsToVendors();
-                log('Saved credentials for', vendorId);
-                return { success: true };
-            } else {
-                var errMsg = result.data ? result.data.message : 'Save failed';
-                error('Failed to save credentials:', errMsg);
-                // Surface to user — silent failures cause re-entry on every hard reset
-                if (typeof result.status === 'number' && result.status === 403) {
-                    errMsg = 'Session expired — please reload the page and re-enter your API key';
-                }
-                alert('[Sensor Settings] API key could not be saved: ' + errMsg + '\nTry reloading the page first.');
-                return { success: false, error: errMsg };
-            }
+            saveCredentialsToCache();
+            applyCredentialsToVendors();
+            log('Saved credentials for', vendorId);
+            return { success: true };
         } catch (e) {
             error('Error saving credentials:', e);
             return { success: false, error: e.message };
@@ -361,57 +196,20 @@
     var _saveMappingsTimer = null;
 
     /**
-     * Save site-sensor mappings to WordPress (debounced — 800ms)
+     * Save site-sensor mappings locally (debounced — 800ms)
      */
     async function saveSiteMappings() {
         // Always save to localStorage immediately (synchronous, reliable)
         saveMappingsToLocalStorage();
 
-        // Debounce the WP AJAX save — coalesce rapid successive calls
+        // Debounce resolution so callers keep the async contract without a server roundtrip
         if (_saveMappingsTimer) clearTimeout(_saveMappingsTimer);
-        _saveMappingsTimer = setTimeout(async function() {
-            _saveMappingsTimer = null;
-            await _saveSiteMappingsToWP();
-        }, 800);
-        return { success: true, deferred: true };
-    }
-
-    async function _saveSiteMappingsToWP() {
-        // v10.9.9: Always save to localStorage first (synchronous, reliable)
-        
-        var nonce = getNonce();
-        if (!nonce) {
-            error('Cannot save mappings to WP - no nonce. Saved to localStorage only.');
-            return { success: false, error: 'Security token not found' };
-        }
-
-        try {
-            log('Saving site mappings to WP:', JSON.stringify(_state.siteMappings));
-            
-            var formData = new FormData();
-            formData.append('action', 'gilba_sensor_save_mappings');
-            formData.append('nonce', nonce);
-            formData.append('mappings', JSON.stringify(_state.siteMappings));
-
-            var response = await fetch(getAjaxUrl(), {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin'
-            });
-
-            var result = await response.json();
-
-            if (result.success) {
-                log('Saved site mappings to WP and localStorage');
-                return { success: true };
-            } else {
-                warn('Failed to save mappings to WP:', result.data ? result.data.message : 'unknown');
-                return { success: false, error: result.data ? result.data.message : 'Save failed' };
-            }
-        } catch (e) {
-            error('Error saving mappings to WP:', e);
-            return { success: false, error: e.message };
-        }
+        return new Promise(function(resolve) {
+            _saveMappingsTimer = setTimeout(function() {
+                _saveMappingsTimer = null;
+                resolve({ success: true });
+            }, 800);
+        });
     }
 
     function loadCredentialsFromCache() {
@@ -431,8 +229,6 @@
 
     function saveCredentialsToCache() {
         try {
-            // Don't cache actual API keys in localStorage for security
-            // Just cache that we have credentials for vendors
             var cacheData = {
                 credentials: _state.credentials,
                 cachedAt: Date.now()
@@ -473,14 +269,21 @@
         Object.keys(_vendors).forEach(function(vendorId) {
             var vendor = _vendors[vendorId];
             var cred = _state.credentials[vendorId];
-            if (!cred || !vendor.setCredentials) return;
-            // Security fix b35fix292: server no longer returns raw API key.
-            // credential is now { key_set: true } — signal to vendor that
-            // a key is configured server-side. Vendor uses proxy, not key directly.
-            var keyConfigured = (typeof cred === 'object') ? !!cred.key_set : !!cred;
-            if (keyConfigured) {
-                vendor.setCredentials(true); // signal: key exists server-side
+            if (!vendor.setCredentials) return;
+            if (!cred) {
+                vendor.setCredentials(null);
+                return;
             }
+            // Backwards compatibility: older caches may still store { key_set: true }.
+            if (typeof cred === 'object' && cred !== null && !Array.isArray(cred)) {
+                if (cred.api_key) {
+                    vendor.setCredentials(cred.api_key);
+                } else if (cred.key_set) {
+                    vendor.setCredentials(true);
+                }
+                return;
+            }
+            vendor.setCredentials(cred);
         });
     }
 
@@ -966,7 +769,7 @@
         // Load mappings from localStorage first (fast)
         loadMappingsFromLocalStorage();
 
-        // Load credentials from WP (may be async)
+        // Load credentials from local storage
         await loadCredentials();
 
         // Discover sensors if we have any credentials
@@ -992,11 +795,8 @@
         log('Initialized with', _state.allSensors.length, 'sensors');
 
         // ── Wake-from-sleep / tab-restore recovery ──────────────────────────
-        // When the PC sleeps and wakes, the WP nonce (12hr default lifetime)
-        // may have expired. The hydrosight adapter bails on 403 without retry,
-        // so sensor data goes dark until the user manually re-enters their key.
-        // This listener detects visibility restore after > 5 min hidden,
-        // refreshes the nonce, and re-discovers sensors so recovery is silent.
+        // After sleep or network restore, re-apply locally stored credentials
+        // and re-discover sensors so adapters recover cleanly.
         document.addEventListener('visibilitychange', async function() {
             if (document.visibilityState === 'visible') {
                 var now = Date.now();
@@ -1005,9 +805,8 @@
 
                 // Only act if hidden for > 5 minutes (avoids tab-switching noise)
                 if (hiddenDuration > 5 * 60 * 1000) {
-                    log('Woke from sleep/background (' + Math.round(hiddenDuration / 60000) + ' min hidden) — refreshing nonce and re-discovering sensors');
+                    log('Woke from sleep/background (' + Math.round(hiddenDuration / 60000) + ' min hidden) — reloading credentials and re-discovering sensors');
                     try {
-                        await refreshNonce();
                         await loadCredentials();
                         if (Object.keys(_state.credentials).length > 0) {
                             await discoverAllSensors();
@@ -1027,9 +826,8 @@
 
         // Network restore (e.g. laptop reconnects to wifi after wake)
         window.addEventListener('online', async function() {
-            log('Network restored — refreshing nonce and re-discovering sensors');
+            log('Network restored — reloading credentials and re-discovering sensors');
             try {
-                await refreshNonce();
                 await loadCredentials();
                 if (Object.keys(_state.credentials).length > 0) {
                     await discoverAllSensors();
@@ -1111,9 +909,6 @@
         startPolling: startPolling,
         stopPolling: stopPolling,
         isPolling: function() { return _state.isPolling; },
-
-        // Nonce refresh (exposed for adapters to call after 403)
-        refreshNonce: refreshNonce,
 
         // State access (for debugging)
         getState: function() { return _state; }

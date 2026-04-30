@@ -13202,24 +13202,34 @@
     var _logoCache = [];
     // Currently active logo object (null = none)
     var _selectedLogo = null;
+    var _logoStorage = window.GilbaStorageNS ? window.GilbaStorageNS.get() : localStorage;
+    var _logoStorageKey = 'gaip_report_logos';
+    var _logoSelectionKey = 'gaip_selected_logo_id';
 
-    function _ajaxLogo(action, data, cb) {
-        var cfg = window.GAIP_HUB_CONFIG || {};
-        var ajaxUrl = cfg.ajaxUrl || '/wp-admin/admin-ajax.php';
-        var nonce   = cfg.nonce   || '';
-        var payload = 'action=' + action + '&nonce=' + encodeURIComponent(nonce);
-        Object.keys(data).forEach(function(k) {
-            payload += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(data[k]);
-        });
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', ajaxUrl, true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.onload = function() {
-            try { cb(null, JSON.parse(xhr.responseText)); }
-            catch(e) { cb(e); }
-        };
-        xhr.onerror = function() { cb(new Error('Network error')); };
-        xhr.send(payload);
+    function _saveLogoCache() {
+        try {
+            _logoStorage.setItem(_logoStorageKey, JSON.stringify(_logoCache));
+            return true;
+        } catch (e) {
+            console.warn('[WordExport] Failed to save logos:', e);
+            return false;
+        }
+    }
+
+    function _loadLogoCache() {
+        try {
+            var raw = _logoStorage.getItem(_logoStorageKey);
+            if (!raw) return [];
+            var parsed = JSON.parse(raw);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+            console.warn('[WordExport] Failed to load logos:', e);
+            return [];
+        }
+    }
+
+    function _buildLogoId() {
+        return 'logo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     }
 
     function _populateDropdown(logos, selectedId) {
@@ -13247,19 +13257,14 @@
     }
 
     function _loadLogos() {
-        _ajaxLogo('gilba_logo_get', {}, function(err, res) {
-            if (err || !res || !res.success) return;
-            _logoCache = res.data.logos || [];
+        _logoCache = _loadLogoCache();
 
-            // Determine persisted selection from localStorage (fast, no extra ajax)
-            var savedId = localStorage.getItem('gaip_selected_logo_id') || '';
-            // Fall back to first logo if saved id no longer exists
-            var ids = _logoCache.map(function(l) { return l.id; });
-            if (savedId && ids.indexOf(savedId) === -1) savedId = '';
-            if (!savedId && _logoCache.length) savedId = _logoCache[0].id;
+        var savedId = _logoStorage.getItem(_logoSelectionKey) || '';
+        var ids = _logoCache.map(function(l) { return l.id; });
+        if (savedId && ids.indexOf(savedId) === -1) savedId = '';
+        if (!savedId && _logoCache.length) savedId = _logoCache[0].id;
 
-            _populateDropdown(_logoCache, savedId);
-        });
+        _populateDropdown(_logoCache, savedId);
     }
 
     function initLogoUpload() {
@@ -13279,7 +13284,7 @@
             addBtn.addEventListener('click', function() { uploadInput.click(); });
         }
 
-        // File chosen — upload to server
+        // File chosen — persist locally
         if (uploadInput) {
             uploadInput.addEventListener('change', function(e) {
                 var file = e.target.files[0];
@@ -13300,27 +13305,24 @@
                     var img = new Image();
                     img.onload = function() {
                         var name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-                        _ajaxLogo('gilba_logo_save', {
+                        var newLogo = {
+                            id: _buildLogoId(),
                             name:   name,
                             base64: base64,
                             width:  img.width,
                             height: img.height,
                             type:   file.type
-                        }, function(err2, res2) {
-                            uploadInput.value = '';
-                            if (err2 || !res2 || !res2.success) {
-                                if (status) status.textContent = '❌ Save failed';
-                                return;
-                            }
-                            // Add to cache and re-populate, selecting new logo
-                            _logoCache.push({
-                                id: res2.data.id, name: res2.data.name,
-                                base64: base64, width: img.width,
-                                height: img.height, type: file.type
-                            });
-                            localStorage.setItem('gaip_selected_logo_id', res2.data.id);
-                            _populateDropdown(_logoCache, res2.data.id);
-                        });
+                        };
+
+                        uploadInput.value = '';
+                        _logoCache.push(newLogo);
+                        if (!_saveLogoCache()) {
+                            _logoCache.pop();
+                            if (status) status.textContent = '❌ Save failed';
+                            return;
+                        }
+                        _logoStorage.setItem(_logoSelectionKey, newLogo.id);
+                        _populateDropdown(_logoCache, newLogo.id);
                     };
                     img.src = base64;
                 };
@@ -13333,7 +13335,7 @@
             sel.addEventListener('change', function() {
                 var id = sel.value;
                 _selectedLogo = _logoCache.find(function(l) { return l.id === id; }) || null;
-                localStorage.setItem('gaip_selected_logo_id', id || '');
+                _logoStorage.setItem(_logoSelectionKey, id || '');
                 if (delBtn) delBtn.style.display = (id && id !== '') ? 'inline-block' : 'none';
                 if (status) status.textContent = _selectedLogo ? ('✓ ' + _selectedLogo.name) : '';
             });
@@ -13346,20 +13348,18 @@
                 if (!id) return;
                 var logo = _logoCache.find(function(l) { return l.id === id; });
                 if (!confirm('Delete logo "' + (logo ? logo.name : id) + '"?')) return;
-                _ajaxLogo('gilba_logo_delete', {id: id}, function(err3, res3) {
-                    if (err3 || !res3 || !res3.success) {
-                        if (status) status.textContent = '❌ Delete failed';
-                        return;
-                    }
-                    _logoCache = _logoCache.filter(function(l) { return l.id !== id; });
-                    localStorage.removeItem('gaip_selected_logo_id');
-                    _selectedLogo = null;
-                    _populateDropdown(_logoCache, '');
-                });
+                _logoCache = _logoCache.filter(function(l) { return l.id !== id; });
+                if (!_saveLogoCache()) {
+                    if (status) status.textContent = '❌ Delete failed';
+                    return;
+                }
+                _logoStorage.removeItem(_logoSelectionKey);
+                _selectedLogo = null;
+                _populateDropdown(_logoCache, '');
             });
         }
 
-        // Load logos from server
+        // Load logos from local storage
         _loadLogos();
     }
 
