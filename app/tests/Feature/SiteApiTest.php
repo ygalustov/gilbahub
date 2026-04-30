@@ -583,6 +583,59 @@ class SiteApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_list_spray_log_entries(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+
+        DB::table('spray_logs')->insert([
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'event_date' => '2026-04-28',
+                'zone' => 'greens',
+                'product_name' => 'Banner Maxx',
+                'product_type' => 'fungicide',
+                'rate_value' => 2.5,
+                'rate_unit' => 'L/ha',
+                'target' => 'Dollar Spot',
+                'notes' => 'Evening application.',
+                'source' => 'manual',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'event_date' => '2026-04-12',
+                'zone' => 'tees',
+                'product_name' => 'Primo Maxx',
+                'product_type' => 'pgr',
+                'rate_value' => 0.8,
+                'rate_unit' => 'L/ha',
+                'target' => null,
+                'notes' => null,
+                'source' => 'manual',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/spray-log?site_id='.$site->id.'&date_from=2026-04-20&date_to=2026-04-30&limit=50')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonCount(1, 'entries')
+            ->assertJsonPath('entries.0.product_name', 'Banner Maxx')
+            ->assertJsonPath('entries.0.product_category', 'fungicide')
+            ->assertJsonPath('entries.0.application_date', '2026-04-28');
+    }
+
     public function test_authenticated_user_can_upload_media(): void
     {
         Storage::fake('local');
@@ -803,6 +856,68 @@ class SiteApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.0.CollectionId', 'greens');
+    }
+
+    public function test_authenticated_user_can_check_alerts_via_laravel_api(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/alerts/check', [
+                '_token' => 'test-token',
+                'site_id' => 'site-123',
+                'site_name' => 'North Green',
+                'quiet_hours' => false,
+                'contacts' => [
+                    ['type' => 'email', 'value' => 'super@example.com', 'alerts' => ['disease', 'stress']],
+                ],
+                'results' => [
+                    'disease' => [
+                        'overallScore' => 82,
+                        'topThreats' => [
+                            ['displayName' => 'Dollar Spot', 'riskScore' => 84],
+                        ],
+                    ],
+                    'stress' => [
+                        'summary' => [
+                            'currentScore' => 76,
+                            'stressLevel' => 'high',
+                        ],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('fired.0.type', 'disease')
+            ->assertJsonPath('fired.0.channel', 'email');
+
+        $this->assertCount(2, $response->json('fired'));
+    }
+
+    public function test_authenticated_user_can_request_alert_test_via_laravel_api(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/alerts/test', [
+                '_token' => 'test-token',
+                'type' => 'email',
+                'value' => 'super@example.com',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('mode', 'logged');
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/alerts/test', [
+                '_token' => 'test-token',
+                'type' => 'sms',
+                'value' => 'bad-number',
+            ])
+            ->assertStatus(422);
     }
 
 

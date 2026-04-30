@@ -12,7 +12,7 @@
  * word-export-combined.js.
  *
  * Dependencies (all already loaded by gaip_hub shortcode):
- *   - GAIP_HUB_CONFIG    (restUrl, restNonce, userId)
+ *   - GAIP_HUB_CONFIG    (restUrl, csrfToken/restNonce, userId)
  *   - GAIP_SampleManager (getActiveSiteId, getCurrentSiteLabel)
  *   - GAIP_PGR_RESULT    (global, set by hub-orchestrator after PGR run)
  *   - GAIP_PRE_EMERGENT_RESULT (global, set by hub-orchestrator)
@@ -39,11 +39,15 @@
     }
 
     function getRestUrl() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/wp-json/gilba/v1/';
+        return ((global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/').replace(/\/+$/, '');
     }
 
-    function getRestNonce() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restNonce) || '';
+    function getCsrfToken() {
+        if (global.GAIP_HUB_CONFIG && (global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce)) {
+            return global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce;
+        }
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta && meta.content ? meta.content : '';
     }
 
     function getActiveSiteId() {
@@ -193,14 +197,15 @@
             limit:     500
         });
 
-        var url = getRestUrl() + 'spray-log?' + qs.toString();
+        var url = getRestUrl() + '/spray-log?' + qs.toString();
 
         try {
             var resp = await fetch(url, {
                 method: 'GET',
+                credentials: 'same-origin',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'X-WP-Nonce':   getRestNonce()
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': getCsrfToken()
                 }
             });
             var data = await resp.json();

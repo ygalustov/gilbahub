@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AlertController;
 use App\Http\Controllers\FieldLogEntryController;
 use App\Http\Controllers\LegacyAjaxController;
 use App\Http\Controllers\LegacySitePersistenceController;
@@ -63,9 +64,12 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/field-log/entries', [FieldLogEntryController::class, 'index'])->name('field-log-entries.index');
         Route::post('/field-log/entries', [FieldLogEntryController::class, 'store'])->name('field-log-entries.store');
+        Route::get('/spray-log', [SprayLogController::class, 'index'])->name('spray-log.index');
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
+        Route::post('/alerts/check', [AlertController::class, 'check'])->name('alerts.check');
+        Route::post('/alerts/test', [AlertController::class, 'test'])->name('alerts.test');
         Route::post('/predictions', [PredictionController::class, 'store'])->name('predictions.store');
         Route::get('/predictions/pending/{siteIdentifier}', [PredictionController::class, 'pending'])->name('predictions.pending');
         Route::post('/outcomes', [PredictionController::class, 'storeOutcome'])->name('outcomes.store');

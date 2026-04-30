@@ -4,9 +4,9 @@
  * =============================================================================
  *
  * Reads orchestrator outputs after each gaip:orchestrator-complete event,
- * extracts threshold-relevant data, and POSTs to /gilba/v1/alert-check.
+ * extracts threshold-relevant data, and POSTs to /api/alerts/check.
  *
- * The PHP class handles threshold evaluation, suppression, and delivery.
+ * The Laravel controller handles threshold evaluation and suppression.
  * This module only packages and ships the results — no threshold logic here.
  *
  * CONTACT CONFIG:
@@ -38,11 +38,28 @@
     // =========================================================================
 
     function getRestUrl() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/wp-json/gilba/v1/';
+        return ((global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/').replace(/\/+$/, '');
     }
 
-    function getNonce() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restNonce) || '';
+    function getCsrfToken() {
+        if (global.GAIP_HUB_CONFIG && (global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce)) {
+            return global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce;
+        }
+
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        return meta && meta.content ? meta.content : '';
+    }
+
+    function apiFetch(path, options) {
+        const headers = Object.assign({
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': getCsrfToken(),
+        }, options && options.headers ? options.headers : {});
+
+        return fetch(getRestUrl() + path, Object.assign({
+            credentials: 'same-origin',
+            headers: headers,
+        }, options || {}));
     }
 
     function getActiveSiteId() {
@@ -148,11 +165,10 @@
             results:     results,
         };
 
-        fetch(getRestUrl() + 'alert-check', {
+        apiFetch('/alerts/check', {
             method:  'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-WP-Nonce':   getNonce(),
             },
             body: JSON.stringify(payload),
         })
@@ -176,20 +192,18 @@
      * Called from site-settings-panel.js alert settings section.
      */
     function saveSettings(settings) {
-        return fetch(getRestUrl() + 'alert-settings', {
-            method:  'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-WP-Nonce':   getNonce(),
-            },
-            body: JSON.stringify(settings),
-        }).then(function(res) { return res.json(); });
+        return Promise.resolve({
+            success: false,
+            message: 'Global alert transport settings are not implemented in this Laravel build.',
+            settings: settings || {},
+        });
     }
 
     function getSettings() {
-        return fetch(getRestUrl() + 'alert-settings', {
-            headers: { 'X-WP-Nonce': getNonce() },
-        }).then(function(res) { return res.json(); });
+        return Promise.resolve({
+            success: false,
+            settings: {},
+        });
     }
 
     /**
@@ -198,11 +212,10 @@
      * @param {string} value  Phone number or email address
      */
     function sendTest(type, value) {
-        return fetch(getRestUrl() + 'alert-test', {
+        return apiFetch('/alerts/test', {
             method:  'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-WP-Nonce':   getNonce(),
             },
             body: JSON.stringify({ type: type, value: value }),
         }).then(function(res) {

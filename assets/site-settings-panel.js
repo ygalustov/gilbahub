@@ -1296,7 +1296,7 @@
                 if (!window.GAIP_Alerts) { setStatus('Alerts module not loaded.', true); return; }
                 setStatus('Sending test SMS…', false);
                 window.GAIP_Alerts.sendTest('sms', val.trim())
-                    .then(function() { setStatus('Test SMS sent to ' + val.trim(), false); })
+                    .then(function(response) { setStatus((response && response.message) || ('Test SMS sent to ' + val.trim()), false); })
                     .catch(function(e) { setStatus('SMS failed: ' + (e.message || e), true); });
             });
         }
@@ -1308,7 +1308,7 @@
                 if (!window.GAIP_Alerts) { setStatus('Alerts module not loaded.', true); return; }
                 setStatus('Sending test email…', false);
                 window.GAIP_Alerts.sendTest('email', val.trim())
-                    .then(function() { setStatus('Test email sent to ' + val.trim(), false); })
+                    .then(function(response) { setStatus((response && response.message) || ('Test email sent to ' + val.trim()), false); })
                     .catch(function(e) { setStatus('Email failed: ' + (e.message || e), true); });
             });
         }
