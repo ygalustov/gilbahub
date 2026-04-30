@@ -49,6 +49,7 @@
             'sample-manager.js',
             'sample-switcher-ui.js',
             'site-selector-ui.js',
+            'site-data-transfer.js',
             'site-config-persistence.js',
             'site-profile-bridge.js',
             'site-switch-cleanup.js',

@@ -255,6 +255,9 @@
                     }
 
                     SM.restoreFromPersistence(existing);
+                    document.dispatchEvent(new CustomEvent('gaip:samples-imported', {
+                        detail: { siteId: incomingSiteId, source: 'site-data-transfer' }
+                    }));
                     log('Samples merged for site:', incomingSiteId);
                 } catch (err) {
                     warn('Sample merge failed:', err);
@@ -331,6 +334,7 @@
         // Don't inject twice
         if (document.getElementById('gaip-site-export-btn')) return;
 
+        var saveBtn = document.getElementById('gaip-site-save-top');
         var statusSpan = document.getElementById('gaip-site-status-top');
 
         // Export button
@@ -382,8 +386,12 @@
 
         importBtn.addEventListener('click', function () { fileInput.click(); });
 
-        // Insert before the status span (or at end of bar)
-        if (statusSpan && statusSpan.parentNode === bar) {
+        // Keep transfer controls in the main action cluster, before Save Site.
+        if (saveBtn && saveBtn.parentNode === bar) {
+            bar.insertBefore(exportBtn, saveBtn);
+            bar.insertBefore(importBtn, saveBtn);
+            bar.insertBefore(fileInput, saveBtn);
+        } else if (statusSpan && statusSpan.parentNode === bar) {
             bar.insertBefore(exportBtn, statusSpan);
             bar.insertBefore(importBtn, statusSpan);
             bar.insertBefore(fileInput, statusSpan);

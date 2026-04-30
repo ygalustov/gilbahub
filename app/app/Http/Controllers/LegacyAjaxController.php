@@ -23,6 +23,10 @@ class LegacyAjaxController extends Controller
             'gilba_geocode_search' => $this->geocodeSearch($request),
             'gilba_reverse_geocode' => $this->reverseGeocode($request),
             'gilba_save_location' => $this->saveLocation($request),
+            'gilba_sites_load' => $this->loadLegacySites($request),
+            'gilba_sites_save' => $this->saveLegacySites($request),
+            'gilba_site_configs_load' => $this->loadLegacySiteConfigs($request),
+            'gilba_site_configs_save' => $this->saveLegacySiteConfigs($request),
             'gssh_get_venue_profiles' => $this->getVenueProfiles($request),
             'gssh_save_venue_profile' => $this->saveVenueProfile($request),
             default => $this->error('Unknown action', 400),
@@ -274,6 +278,171 @@ class LegacyAjaxController extends Controller
             'venue_id' => $data['venue_id'],
             'profile' => $profile,
         ]);
+    }
+
+    private function loadLegacySites(Request $request): JsonResponse
+    {
+        $sites = $request->user()
+            ->sites()
+            ->orderBy('sites.name')
+            ->get()
+            ->mapWithKeys(fn (Site $site) => [
+                $site->id => [
+                    'label' => $site->name,
+                    'createdAt' => $site->created_at?->toISOString(),
+                ],
+            ])
+            ->all();
+
+        return $this->success(['sites' => $sites]);
+    }
+
+    private function saveLegacySites(Request $request): JsonResponse
+    {
+        $sites = $this->decodeJsonObject($request->input('sites'));
+        $saved = 0;
+
+        foreach ($sites as $siteId => $siteData) {
+            $siteId = trim((string) $siteId);
+            if ($siteId === '') {
+                continue;
+            }
+
+            $label = is_array($siteData) && isset($siteData['label'])
+                ? trim((string) $siteData['label'])
+                : $siteId;
+
+            if ($this->ensureLegacySite($request, $siteId, $label ?: $siteId)) {
+                $saved++;
+            }
+        }
+
+        return $this->success(['saved' => $saved]);
+    }
+
+    private function loadLegacySiteConfigs(Request $request): JsonResponse
+    {
+        $configs = SiteConfig::query()
+            ->where('namespace', 'gaip')
+            ->whereIn('site_id', $request->user()->sites()->pluck('sites.id'))
+            ->get()
+            ->mapWithKeys(fn (SiteConfig $config) => [
+                $config->site_id => $config->config ?? [],
+            ])
+            ->all();
+
+        return $this->success(['configs' => $configs]);
+    }
+
+    private function saveLegacySiteConfigs(Request $request): JsonResponse
+    {
+        $configs = $this->decodeJsonObject($request->input('configs'));
+        $saved = 0;
+
+        foreach ($configs as $siteId => $config) {
+            $siteId = trim((string) $siteId);
+            if ($siteId === '' || ! is_array($config)) {
+                continue;
+            }
+
+            $label = $this->labelFromLegacyConfig($siteId, $config);
+            $site = $this->ensureLegacySite($request, $siteId, $label);
+            if (! $site) {
+                continue;
+            }
+
+            SiteConfig::query()->updateOrCreate(
+                [
+                    'site_id' => $site->id,
+                    'namespace' => 'gaip',
+                ],
+                [
+                    'config' => $config,
+                    'synced_at' => now(),
+                ]
+            );
+
+            $saved++;
+        }
+
+        return $this->success(['saved' => $saved]);
+    }
+
+    private function ensureLegacySite(Request $request, string $siteId, string $label): ?Site
+    {
+        $user = $request->user();
+        $site = Site::query()->find($siteId);
+
+        if ($site) {
+            $isMember = $site->users()->where('users.id', $user->id)->exists();
+            if (! $isMember) {
+                return null;
+            }
+
+            if ($label !== '' && $site->name !== $label) {
+                $site->update([
+                    'name' => $label,
+                    'modified_by_user_id' => $user->id,
+                ]);
+            }
+
+            return $site;
+        }
+
+        $account = $this->currentAccount($request);
+        $site = new Site();
+        $site->forceFill([
+            'id' => $siteId,
+            'account_id' => $account->id,
+            'name' => $label !== '' ? $label : $siteId,
+            'slug' => $this->uniqueSlug($account->id, $label !== '' ? $label : $siteId),
+            'site_type' => 'precinct',
+            'timezone' => 'Australia/Sydney',
+            'created_by_user_id' => $user->id,
+            'modified_by_user_id' => $user->id,
+        ])->save();
+
+        $site->users()->syncWithoutDetaching([$user->id => ['role' => 'owner']]);
+
+        if ($user->last_active_site_id === null) {
+            $user->forceFill(['last_active_site_id' => $site->id])->save();
+        }
+
+        return $site;
+    }
+
+    private function labelFromLegacyConfig(string $siteId, array $config): string
+    {
+        $location = $config['location'] ?? [];
+        if (is_array($location) && ! empty($location['name'])) {
+            return (string) $location['name'];
+        }
+
+        $turf = $config['turf'] ?? [];
+        if (is_array($turf)) {
+            foreach (['siteName', 'name', 'species', 'turfType'] as $key) {
+                if (! empty($turf[$key])) {
+                    return (string) $turf[$key];
+                }
+            }
+        }
+
+        return Str::headline(str_replace('_', ' ', $siteId));
+    }
+
+    private function decodeJsonObject(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     private function currentAccount(Request $request): Account
