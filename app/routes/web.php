@@ -4,8 +4,6 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\BenchmarkController;
 use App\Http\Controllers\FieldLogEntryController;
-use App\Http\Controllers\LegacyAjaxController;
-use App\Http\Controllers\LegacySitePersistenceController;
 use App\Http\Controllers\LabReportParseController;
 use App\Http\Controllers\MediaUploadController;
 use App\Http\Controllers\PredictionController;
@@ -14,7 +12,6 @@ use App\Http\Controllers\SensorProxyController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use App\Http\Controllers\StadiumVenueProfileController;
-use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/hub');
@@ -45,10 +42,6 @@ Route::middleware('auth')->group(function () {
     Route::view('/settings', 'placeholder', ['title' => 'Settings'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {
-        Route::post('/ajax', [LegacyAjaxController::class, 'handle'])
-            ->withoutMiddleware(VerifyCsrfToken::class)
-            ->name('legacy.ajax');
-
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
         Route::post('/sites/sync', [SiteController::class, 'syncRegistry'])->name('sites.sync');
         Route::post('/sites', [SiteController::class, 'store'])->name('sites.store');
@@ -84,10 +77,5 @@ Route::middleware('auth')->group(function () {
         Route::post('/sensors/specconnect/proxy', [SensorProxyController::class, 'specconnect'])->name('sensors.specconnect.proxy');
         Route::get('/stadium/venue-profiles', [StadiumVenueProfileController::class, 'index'])->name('stadium.venue-profiles.index');
         Route::put('/stadium/venue-profiles/{venueId}', [StadiumVenueProfileController::class, 'upsert'])->name('stadium.venue-profiles.upsert');
-
-        Route::post('/legacy/gilba-sites-load', [LegacySitePersistenceController::class, 'loadSites'])->name('legacy.sites.load');
-        Route::post('/legacy/gilba-sites-save', [LegacySitePersistenceController::class, 'saveSites'])->name('legacy.sites.save');
-        Route::post('/legacy/gilba-site-configs-load', [LegacySitePersistenceController::class, 'loadSiteConfigs'])->name('legacy.site-configs.load');
-        Route::post('/legacy/gilba-site-configs-save', [LegacySitePersistenceController::class, 'saveSiteConfigs'])->name('legacy.site-configs.save');
     });
 });

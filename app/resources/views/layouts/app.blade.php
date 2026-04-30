@@ -21,41 +21,18 @@
     @endphp
     <script>
         window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
-            ajaxUrl: "{{ url('/api/ajax') }}",
             nonce: "{{ csrf_token() }}",
             csrfToken: "{{ csrf_token() }}",
             restUrl: "{{ url('/api') }}/",
-            wpRestUrl: "{{ url('/api') }}",
             restNonce: "{{ csrf_token() }}",
             userId: {{ auth()->id() ?? 0 }},
             activeSiteId: @json($activeSite?->id),
             siteUrl: "{{ url('/') }}",
             hubUrl: "{{ route('hub') }}",
             hubMode: "agronomic",
-            savedLocation: @json($savedLocation),
-            legacyAjaxEndpoints: {
-                gilba_sites_load: "{{ url('/api/legacy/gilba-sites-load') }}",
-                gilba_sites_save: "{{ url('/api/legacy/gilba-sites-save') }}",
-                gilba_site_configs_load: "{{ url('/api/legacy/gilba-site-configs-load') }}",
-                gilba_site_configs_save: "{{ url('/api/legacy/gilba-site-configs-save') }}"
-            }
+            savedLocation: @json($savedLocation)
         });
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
-        window.GilbaLegacyAjax = {
-            endpoint: function (action, config) {
-                var cfg = config || window.GAIP_HUB_CONFIG || {};
-                var endpoints = cfg.legacyAjaxEndpoints || {};
-                return endpoints[action] || cfg.ajaxUrl || "";
-            },
-            appendToken: function (body, config) {
-                var cfg = config || window.GAIP_HUB_CONFIG || {};
-                var token = cfg.csrfToken || cfg.nonce || "";
-                if (token && body && typeof body.append === "function") {
-                    body.append("_token", token);
-                }
-                return body;
-            }
-        };
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {
             nonce: "{{ csrf_token() }}",
             csrfToken: "{{ csrf_token() }}",
