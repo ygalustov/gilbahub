@@ -636,6 +636,107 @@ class SiteApiTest extends TestCase
             ->assertJsonPath('entries.0.application_date', '2026-04-28');
     }
 
+    public function test_authenticated_user_can_fetch_spray_log_context_and_summary(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+
+        DB::table('spray_logs')->insert([
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'event_date' => now()->subDays(7)->toDateString(),
+                'zone' => 'greens',
+                'product_name' => 'Primo Maxx',
+                'product_type' => 'pgr',
+                'active_ingredient' => 'trinexapac-ethyl',
+                'rate_value' => 0.8,
+                'rate_unit' => 'L/ha',
+                'target' => null,
+                'notes' => null,
+                'source' => 'manual',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $site->account_id,
+                'site_id' => $site->id,
+                'user_id' => $user->id,
+                'event_date' => now()->subDays(3)->toDateString(),
+                'zone' => 'greens',
+                'product_name' => 'Banner Maxx',
+                'product_type' => 'fungicide',
+                'active_ingredient' => 'propiconazole',
+                'rate_value' => 1.2,
+                'rate_unit' => 'L/ha',
+                'target' => 'Dollar Spot',
+                'notes' => 'Main green.',
+                'source' => 'manual',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/spray-log/context?site_id='.$site->id.'&zone=greens&days=90')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('lastPGR.product_name', 'Primo Maxx')
+            ->assertJsonPath('lastFungicide.product_name', 'Banner Maxx')
+            ->assertJsonPath('dmiApplications.0.frac_group', '3')
+            ->assertJsonPath('recentApplications.0.product_name', 'Banner Maxx');
+
+        $this->actingAs($user)
+            ->getJson('/api/spray-log/summary?site_id='.$site->id.'&zone=greens&months=12')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('fracCounts.3', 1)
+            ->assertJsonPath('totalEntries', 2);
+    }
+
+    public function test_authenticated_user_can_delete_spray_log_entry(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, [
+            'name' => 'Default Site',
+            'slug' => 'default-site',
+        ]);
+
+        $logId = DB::table('spray_logs')->insertGetId([
+            'account_id' => $site->account_id,
+            'site_id' => $site->id,
+            'user_id' => $user->id,
+            'event_date' => '2026-04-28',
+            'zone' => 'greens',
+            'product_name' => 'Banner Maxx',
+            'product_type' => 'fungicide',
+            'active_ingredient' => 'propiconazole',
+            'rate_value' => 2.5,
+            'rate_unit' => 'L/ha',
+            'target' => 'Dollar Spot',
+            'notes' => 'Evening application.',
+            'source' => 'manual',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->deleteJson('/api/spray-log/'.$logId, [
+                '_token' => 'test-token',
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseMissing('spray_logs', [
+            'id' => $logId,
+        ]);
+    }
+
     public function test_authenticated_user_can_upload_media(): void
     {
         Storage::fake('local');

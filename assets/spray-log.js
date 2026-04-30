@@ -4,14 +4,14 @@
  * =============================================================================
  * 
  * JavaScript client for the spray log REST API. Provides:
- * - CRUD operations against /gilba/v1/spray-log
+ * - CRUD operations against /api/spray-log
  * - Engine context loading for cascade stage 0.5
  * - Product dropdown builders from existing JS product databases
  * - Rate unit conversion helpers
  * - Local cache to avoid redundant API calls within a session
  * 
  * DEPENDENCIES:
- *   - GAIP_HUB_CONFIG (restUrl, restNonce) — from wp_localize_script
+ *   - GAIP_HUB_CONFIG (restUrl, csrfToken/restNonce)
  *   - GAIP_SampleManager.getActiveSiteId() — for site context
  *   - Product databases (optional): GAIP_DMI.products, window.AU_FUNGICIDE_DB, etc.
  * 
@@ -33,11 +33,15 @@
     // =========================================================================
 
     function getRestUrl() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/wp-json/gilba/v1/';
+        return ((global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/').replace(/\/+$/, '');
     }
 
-    function getRestNonce() {
-        return (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restNonce) || '';
+    function getCsrfToken() {
+        if (global.GAIP_HUB_CONFIG && (global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce)) {
+            return global.GAIP_HUB_CONFIG.csrfToken || global.GAIP_HUB_CONFIG.restNonce || global.GAIP_HUB_CONFIG.nonce;
+        }
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta && meta.content ? meta.content : '';
     }
 
     function getActiveSiteId() {
@@ -122,7 +126,7 @@
     // =========================================================================
 
     async function apiRequest(method, endpoint, body = null, params = null) {
-        let url = getRestUrl() + endpoint;
+        let url = getRestUrl() + '/' + String(endpoint || '').replace(/^\/+/, '');
 
         // Append query params for GET requests
         if (params) {
@@ -140,13 +144,15 @@
 
         const options = {
             method,
+            credentials: 'same-origin',
             headers: {
-                'Content-Type': 'application/json',
-                'X-WP-Nonce': getRestNonce()
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': getCsrfToken()
             }
         };
 
-        if (body && (method === 'POST' || method === 'PUT')) {
+        if (body && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
+            options.headers['Content-Type'] = 'application/json';
             options.body = JSON.stringify(body);
         }
 

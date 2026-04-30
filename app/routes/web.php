@@ -65,7 +65,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/field-log/entries', [FieldLogEntryController::class, 'index'])->name('field-log-entries.index');
         Route::post('/field-log/entries', [FieldLogEntryController::class, 'store'])->name('field-log-entries.store');
         Route::get('/spray-log', [SprayLogController::class, 'index'])->name('spray-log.index');
+        Route::get('/spray-log/context', [SprayLogController::class, 'context'])->name('spray-log.context');
+        Route::get('/spray-log/summary', [SprayLogController::class, 'summary'])->name('spray-log.summary');
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
+        Route::put('/spray-log/{logId}', [SprayLogController::class, 'update'])->name('spray-log.update');
+        Route::delete('/spray-log/{logId}', [SprayLogController::class, 'destroy'])->name('spray-log.destroy');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
         Route::post('/alerts/check', [AlertController::class, 'check'])->name('alerts.check');
