@@ -14,12 +14,10 @@ class GilbaRuntimeBootstrap
             return;
         }
 
-        $base = app_path('Support/Interpretation');
-
-        require_once $base.'/class-gilba-interpretation.php';
-        require_once $base.'/class-gilba-soil-interpretation.php';
-        require_once $base.'/class-gilba-water-interpretation.php';
-        require_once $base.'/class-gilba-synthesis-interpretation.php';
+        class_exists(\Gilba_Interpretation::class);
+        class_exists(\Gilba_Soil_Interpretation::class);
+        class_exists(\Gilba_Water_Interpretation::class);
+        class_exists(\Gilba_Synthesis_Interpretation::class);
 
         self::$interpretationLoaded = true;
     }
@@ -30,22 +28,20 @@ class GilbaRuntimeBootstrap
             return;
         }
 
-        $base = app_path('Support/Stadium');
-
-        require_once $base.'/interface-shade-engine.php';
-        require_once $base.'/class-geometry-utils.php';
-        require_once $base.'/class-shade-engine.php';
-        require_once $base.'/class-radial-obstruction-profile.php';
-        require_once $base.'/class-shade-visualiser.php';
-        require_once $base.'/class-rig-placement-calculator.php';
-        require_once $base.'/class-rig-placement-visualiser.php';
-        require_once $base.'/class-schedule-optimiser.php';
-        require_once $base.'/class-dli-gap-calculator.php';
-        require_once $base.'/class-eue-calculator.php';
-        require_once $base.'/class-supplemental-light-module.php';
-        require_once $base.'/class-stadium-database.php';
-        require_once $base.'/class-ambient-dli-estimator.php';
-        require_once $base.'/class-radial-profile-generator.php';
+        class_exists(\Gssh_Shade_Engine_Interface::class);
+        class_exists(\Gssh_Geometry_Utils::class);
+        class_exists(\Gssh_Shade_Engine::class);
+        class_exists(\Gssh_Radial_Obstruction_Profile::class);
+        class_exists(\Gssh_Shade_Visualiser::class);
+        class_exists(\Gssh_Rig_Placement_Calculator::class);
+        class_exists(\Gssh_Rig_Placement_Visualiser::class);
+        class_exists(\Gssh_Schedule_Optimiser::class);
+        class_exists(\Gssh_DLI_Gap_Calculator::class);
+        class_exists(\Gssh_EUE_Calculator::class);
+        class_exists(\Gssh_Supplemental_Light_Module::class);
+        class_exists(\Gssh_Stadium_Database::class);
+        class_exists(\Gssh_Ambient_DLI_Estimator::class);
+        class_exists(\Gssh_Radial_Profile_Generator::class);
 
         $profileFiles = [
             base_path('../data/stadiums/stadium_obstruction_profiles_sample.json'),
