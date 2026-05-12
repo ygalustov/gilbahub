@@ -5,10 +5,6 @@
  * Simple database wrapper.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Data_Store {
     
     /**

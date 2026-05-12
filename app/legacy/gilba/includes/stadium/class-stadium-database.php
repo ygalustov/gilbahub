@@ -24,9 +24,7 @@
  * @version 1.0.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+use Illuminate\Support\Facades\Cache;
 
 class Gssh_Stadium_Database {
     
@@ -319,7 +317,7 @@ class Gssh_Stadium_Database {
         }
         
         // Sanitise venue_id
-        $venue_id = sanitize_key( $venue_id );
+        $venue_id = self::sanitize_key( $venue_id );
         
         // Mark all structures as user-entered quality
         if ( ! empty( $config['structures'] ) ) {
@@ -332,12 +330,12 @@ class Gssh_Stadium_Database {
         
         // Store with metadata
         $config['_custom']     = true;
-        $config['_created']    = self::$custom_stadiums[ $venue_id ]['_created'] ?? current_time( 'mysql' );
-        $config['_modified']   = current_time( 'mysql' );
+        $config['_created']    = self::$custom_stadiums[ $venue_id ]['_created'] ?? self::current_time_mysql();
+        $config['_modified']   = self::current_time_mysql();
         
         self::$custom_stadiums[ $venue_id ] = $config;
         
-        return update_option( self::CUSTOM_STADIUMS_OPTION, self::$custom_stadiums );
+        return self::persist_custom_stadiums();
     }
     
     /**
@@ -355,7 +353,7 @@ class Gssh_Stadium_Database {
         
         unset( self::$custom_stadiums[ $venue_id ] );
         
-        return update_option( self::CUSTOM_STADIUMS_OPTION, self::$custom_stadiums );
+        return self::persist_custom_stadiums();
     }
     
     /**
@@ -380,14 +378,31 @@ class Gssh_Stadium_Database {
     }
     
     /**
-     * Load custom stadiums from WordPress options
+     * Load custom stadiums from application cache
      */
     private static function load_custom_stadiums(): void {
         if ( ! empty( self::$custom_stadiums ) ) {
             return;
         }
         
-        self::$custom_stadiums = get_option( self::CUSTOM_STADIUMS_OPTION, [] );
+        $stored = Cache::get( self::CUSTOM_STADIUMS_OPTION, [] );
+        self::$custom_stadiums = is_array( $stored ) ? $stored : [];
+    }
+
+    private static function persist_custom_stadiums(): bool {
+        Cache::forever( self::CUSTOM_STADIUMS_OPTION, self::$custom_stadiums );
+
+        return true;
+    }
+
+    private static function sanitize_key( $value ): string {
+        $value = strtolower( (string) $value );
+
+        return preg_replace( '/[^a-z0-9_\-]/', '', $value ) ?? '';
+    }
+
+    private static function current_time_mysql(): string {
+        return date( 'Y-m-d H:i:s' );
     }
     
     /**

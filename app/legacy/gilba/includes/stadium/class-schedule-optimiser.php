@@ -3,10 +3,6 @@
  * Light Schedule Optimiser (PHP 5.6 Compatible)
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Schedule_Optimiser {
     
     const EFFECTIVENESS_DAWN_EXTENSION = 1.0;
@@ -100,7 +96,7 @@ class Gssh_Schedule_Optimiser {
         
         return array(
             'date'              => $date,
-            'generated_at'      => current_time( 'c' ),
+            'generated_at'      => $this->current_time_iso8601(),
             'sun_times'         => $sun_times,
             'sessions'          => $sessions,
             'total_hours'       => round( $total_hours, 2 ),
@@ -203,7 +199,7 @@ class Gssh_Schedule_Optimiser {
     private function empty_schedule( $date, $sun_times ) {
         return array(
             'date'              => $date,
-            'generated_at'      => current_time( 'c' ),
+            'generated_at'      => $this->current_time_iso8601(),
             'sun_times'         => $sun_times,
             'sessions'          => array(),
             'total_hours'       => 0,
@@ -216,5 +212,9 @@ class Gssh_Schedule_Optimiser {
             'warnings'          => array(),
             'message'           => 'No supplemental light required',
         );
+    }
+
+    private function current_time_iso8601() {
+        return date( DATE_ATOM );
     }
 }

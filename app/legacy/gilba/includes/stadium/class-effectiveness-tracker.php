@@ -5,10 +5,6 @@
  * Logs delivery and quality data for calibration.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Effectiveness_Tracker {
     
     private $venue_id;
@@ -45,7 +41,7 @@ class Gssh_Effectiveness_Tracker {
             'energy_cost'        => $actual['cost'] ?? $session['cost'] ?? 0,
             'status'             => $actual['status'] ?? 'completed',
             'notes'              => $actual['notes'] ?? '',
-            'logged_at'          => current_time( 'mysql' ),
+            'logged_at'          => $this->current_time_mysql(),
         ];
         
         $wpdb->insert( $wpdb->prefix . 'gssh_light_delivery_log', $data );
@@ -61,8 +57,8 @@ class Gssh_Effectiveness_Tracker {
         
         $data = [
             'venue_id'           => $this->venue_id,
-            'zone_id'            => sanitize_text_field( $observation['zone_id'] ),
-            'date'               => sanitize_text_field( $observation['date'] ),
+            'zone_id'            => $this->sanitize_text( $observation['zone_id'] ?? '' ),
+            'date'               => $this->sanitize_text( $observation['date'] ?? '' ),
             'time'               => $observation['time'] ?? null,
             'visual_rating'      => intval( $observation['visual_rating'] ),
             'density_rating'     => isset( $observation['density_rating'] ) ? intval( $observation['density_rating'] ) : null,
@@ -76,12 +72,12 @@ class Gssh_Effectiveness_Tracker {
             'disease_presence'   => ! empty( $observation['disease_presence'] ) ? 1 : 0,
             'disease_type'       => $observation['disease_type'] ?? null,
             'disease_severity'   => $observation['disease_severity'] ?? null,
-            'stress_symptoms'    => isset( $observation['stress_symptoms'] ) ? maybe_serialize( $observation['stress_symptoms'] ) : null,
+            'stress_symptoms'    => isset( $observation['stress_symptoms'] ) ? $this->serialise_value( $observation['stress_symptoms'] ) : null,
             'observer'           => $observation['observer'] ?? null,
             'method'             => $observation['method'] ?? 'visual',
             'weather_conditions' => $observation['weather_conditions'] ?? null,
-            'notes'              => sanitize_textarea_field( $observation['notes'] ?? '' ),
-            'logged_at'          => current_time( 'mysql' ),
+            'notes'              => $this->sanitize_textarea( $observation['notes'] ?? '' ),
+            'logged_at'          => $this->current_time_mysql(),
         ];
         
         $wpdb->insert( $wpdb->prefix . 'gssh_light_quality_log', $data );
@@ -221,5 +217,35 @@ class Gssh_Effectiveness_Tracker {
             $this->venue_id,
             $zone_id
         ), ARRAY_A );
+    }
+
+    private function sanitize_text( $value ): string {
+        if ( is_array( $value ) || is_object( $value ) ) {
+            return '';
+        }
+
+        $value = strip_tags( (string) $value );
+        $value = preg_replace( '/[\r\n\t ]+/', ' ', $value ) ?? $value;
+
+        return trim( $value );
+    }
+
+    private function sanitize_textarea( $value ): string {
+        if ( is_array( $value ) || is_object( $value ) ) {
+            return '';
+        }
+
+        $value = strip_tags( (string) $value );
+        $value = preg_replace( "/\r\n|\r/", "\n", $value ) ?? $value;
+
+        return trim( $value );
+    }
+
+    private function serialise_value( $value ): string {
+        return json_encode( $value );
+    }
+
+    private function current_time_mysql(): string {
+        return date( 'Y-m-d H:i:s' );
     }
 }
