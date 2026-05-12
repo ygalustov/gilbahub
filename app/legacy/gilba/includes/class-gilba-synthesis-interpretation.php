@@ -10,10 +10,6 @@
  * @since 10.5.11
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gilba_Synthesis_Interpretation extends Gilba_Interpretation {
     
     /**

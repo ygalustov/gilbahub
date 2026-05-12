@@ -1,18 +1,17 @@
 <?php
 /**
  * Gilba AI Interpretation Service
- * 
+ *
  * Base class for Claude API integration.
  * Handles API calls, caching, and citation linking.
- * 
+ *
  * @package Gilba_Hub
  * @version 1.0.0
  * @since 10.4.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class Gilba_Interpretation {
     
@@ -29,8 +28,11 @@ class Gilba_Interpretation {
      * Constructor
      */
     public function __construct() {
-        // API key must be defined in wp-config.php: define('GILBA_CLAUDE_API_KEY', 'sk-ant-...');
-        $this->api_key = defined( 'GILBA_CLAUDE_API_KEY' ) ? GILBA_CLAUDE_API_KEY : '';
+        $this->api_key = (string) config( 'services.gilba.claude_api_key', '' );
+
+        if ( $this->api_key === '' && defined( 'GILBA_CLAUDE_API_KEY' ) ) {
+            $this->api_key = (string) GILBA_CLAUDE_API_KEY;
+        }
     }
     
     /**
@@ -55,30 +57,28 @@ class Gilba_Interpretation {
         if ( ! $this->is_configured() ) {
             return [
                 'success' => false,
-                'error'   => 'Claude API key not configured. Add GILBA_CLAUDE_API_KEY to wp-config.php',
+                'error'   => 'Claude API key not configured. Set GILBA_CLAUDE_API_KEY in the application environment.',
             ];
         }
-        
-        // Check cache
+
         $cache_key = 'gilba_interp_' . md5( $prompt . $depth );
-        $cached = get_transient( $cache_key );
+        $cached = Cache::get( $cache_key );
         
-        if ( $cached !== false ) {
+        if ( is_array( $cached ) ) {
             return array_merge( $cached, [ 'cached' => true ] );
         }
-        
-        // Call Claude API
-        $response = $this->call_claude( $prompt, $depth );
-        
-        if ( is_wp_error( $response ) ) {
+
+        try {
+            $response = $this->call_claude( $prompt, $depth );
+        } catch ( RuntimeException $e ) {
             return [
                 'success' => false,
-                'error'   => $response->get_error_message(),
+                'error'   => $e->getMessage(),
             ];
         }
-        
+
         $narrative = $response['content'][0]['text'] ?? '';
-        
+
         $result = [
             'success'   => true,
             'narrative' => $narrative,
@@ -86,9 +86,8 @@ class Gilba_Interpretation {
             'model'     => $response['model'] ?? 'unknown',
             'cached'    => false,
         ];
-        
-        // Cache successful results
-        set_transient( $cache_key, $result, $this->cache_ttl );
+
+        Cache::put( $cache_key, $result, now()->addSeconds( $this->cache_ttl ) );
         
         return $result;
     }
@@ -98,52 +97,47 @@ class Gilba_Interpretation {
      * 
      * @param string $prompt The prompt to send
      * @param string $depth  'summary' or 'detailed'
-     * @return array|WP_Error API response or error
+     * @return array API response
      */
     private function call_claude( $prompt, $depth ) {
-        
-        // Use Haiku for speed/cost, Sonnet for detailed
+
         $model = $depth === 'summary' 
             ? 'claude-haiku-4-5-20251001' 
             : 'claude-sonnet-4-5-20250929';
-        
-        // 1000 tokens for summary, 1500 for detailed (water interpretations need more space)
+
         $max_tokens = $depth === 'summary' ? 1000 : 1500;
-        
-        $response = wp_remote_post( $this->api_url, [
-            'timeout' => 30,
-            'headers' => [
-                'Content-Type'      => 'application/json',
-                'x-api-key'         => $this->api_key,
-                'anthropic-version' => '2023-06-01',
-            ],
-            'body' => wp_json_encode( [
-                'model'      => $model,
-                'max_tokens' => $max_tokens,
-                'messages'   => [
-                    [ 'role' => 'user', 'content' => $prompt ]
-                ],
-            ] ),
-        ] );
-        
-        if ( is_wp_error( $response ) ) {
-            error_log( '[Gilba Interpretation] API error: ' . $response->get_error_message() );
-            return $response;
+
+        try {
+            $response = Http::timeout( 30 )
+                ->withHeaders( [
+                    'anthropic-version' => '2023-06-01',
+                    'x-api-key'         => $this->api_key,
+                ] )
+                ->asJson()
+                ->post( $this->api_url, [
+                    'model'      => $model,
+                    'max_tokens' => $max_tokens,
+                    'messages'   => [
+                        [ 'role' => 'user', 'content' => $prompt ],
+                    ],
+                ] );
+        } catch ( Throwable $e ) {
+            error_log( '[Gilba Interpretation] API error: ' . $e->getMessage() );
+            throw new RuntimeException( $e->getMessage(), 0, $e );
         }
-        
-        $code = wp_remote_retrieve_response_code( $response );
-        $body = json_decode( wp_remote_retrieve_body( $response ), true );
-        
-        if ( $code !== 200 ) {
-            $error_msg = $body['error']['message'] ?? "API returned status {$code}";
+
+        $body = $response->json();
+
+        if ( ! $response->successful() ) {
+            $error_msg = $body['error']['message'] ?? "API returned status {$response->status()}";
             error_log( '[Gilba Interpretation] API error: ' . $error_msg );
-            return new WP_Error( 'claude_api_error', $error_msg );
+            throw new RuntimeException( $error_msg );
         }
-        
+
         if ( isset( $body['error'] ) ) {
-            return new WP_Error( 'claude_api_error', $body['error']['message'] );
+            throw new RuntimeException( (string) $body['error']['message'] );
         }
-        
+
         return $body;
     }
     
@@ -184,7 +178,7 @@ class Gilba_Interpretation {
      */
     public function clear_cache($prompt, $depth = 'summary' ) {
         $cache_key = 'gilba_interp_' . md5( $prompt . $depth );
-        return delete_transient( $cache_key );
+        return Cache::forget( $cache_key );
     }
 
     // =========================================================================

@@ -10,11 +10,6 @@
  * @since 10.4.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
-// Include base interpreter
 require_once __DIR__ . '/class-gilba-interpretation.php';
 
 class Gilba_Soil_Interpretation {

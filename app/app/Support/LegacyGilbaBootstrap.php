@@ -32,8 +32,6 @@ class LegacyGilbaBootstrap
             return;
         }
 
-        self::loadWordPressShim();
-
         $base = base_path('legacy/gilba/includes');
 
         require_once $base.'/class-gilba-interpretation.php';
