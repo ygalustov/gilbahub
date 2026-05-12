@@ -4,27 +4,9 @@ namespace App\Support;
 
 class LegacyGilbaBootstrap
 {
-    private static bool $shimLoaded = false;
-
     private static bool $interpretationLoaded = false;
 
     private static bool $stadiumLoaded = false;
-
-    public static function loadWordPressShim(): void
-    {
-        if (self::$shimLoaded) {
-            return;
-        }
-
-        require_once app_path('Support/legacy_wordpress.php');
-
-        $apiKey = (string) config('services.gilba.claude_api_key', '');
-        if ($apiKey !== '' && ! defined('GILBA_CLAUDE_API_KEY')) {
-            define('GILBA_CLAUDE_API_KEY', $apiKey);
-        }
-
-        self::$shimLoaded = true;
-    }
 
     public static function loadInterpretationClasses(): void
     {
