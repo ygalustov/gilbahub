@@ -45,12 +45,6 @@ class LegacyGilbaBootstrap
         require_once $base.'/class-supplemental-light-module.php';
         require_once $base.'/class-stadium-database.php';
         require_once $base.'/class-ambient-dli-estimator.php';
-        require_once $base.'/class-hub-climate-adapter.php';
-        require_once $base.'/class-hub-variety-adapter.php';
-        require_once $base.'/class-data-store.php';
-        require_once $base.'/class-currency-formatter.php';
-        require_once $base.'/class-effectiveness-tracker.php';
-        require_once $base.'/class-roof-par-filter.php';
         require_once $base.'/class-radial-profile-generator.php';
 
         $profileFiles = [
