@@ -74,8 +74,8 @@
     function getActiveSiteConfig() {
         const siteId = getActiveSiteId();
         if (!siteId) return null;
-        if (global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getSiteConfig === 'function') {
-            return global.GAIP_SampleManager.getSiteConfig(siteId);
+        if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function') {
+            return global.GAIP_SiteConfig.getConfig(siteId);
         }
         return null;
     }
@@ -228,50 +228,40 @@
     // SITE CONTACT CONFIG HELPERS
     // =========================================================================
 
-    /**
-     * Save alert contacts and quiet-hours preference to site config.
-     * b35fix228: Replaced GAIP_SampleManager.updateSiteConfig (never existed)
-     * with GilbaStorageNS site-scoped localStorage — same pattern as DSM.
-     */
-    function _alertStorageKey() { return 'alert_config'; }
-
-    function _getStorageAdapter() {
-        return global.GilbaStorageAdapter || global.StorageAdapter || null;
-    }
-
     function saveSiteAlertConfig(siteId, contacts, quietHours) {
-        var sa = _getStorageAdapter();
-        if (!sa || typeof sa.setItem !== 'function') {
-            console.warn(LOG_PREFIX, 'StorageAdapter not available — alert config not saved');
+        if (!siteId) {
+            console.warn(LOG_PREFIX, 'No siteId provided — alert config not saved');
             return false;
         }
-        try {
-            sa.setItem(_alertStorageKey(), JSON.stringify({
-                alertContacts:   contacts || [],
+
+        if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.mergeConfig === 'function') {
+            return global.GAIP_SiteConfig.mergeConfig(siteId, {
+                alertContacts: contacts || [],
                 alertQuietHours: !!quietHours,
-            }), siteId);
-            return true;
-        } catch (e) {
-            console.warn(LOG_PREFIX, 'Failed to save alert config:', e);
-            return false;
+            });
         }
+
+        console.warn(LOG_PREFIX, 'GAIP_SiteConfig not available — alert config not saved');
+        return false;
     }
 
     function getSiteAlertConfig(siteId) {
-        var sa = _getStorageAdapter();
-        if (!sa || typeof sa.getItem !== 'function') {
+        if (!siteId) {
             return { contacts: [], quietHours: true };
         }
-        try {
-            var raw = sa.getItem(_alertStorageKey(), siteId);
-            var config = raw ? JSON.parse(raw) : {};
-            return {
-                contacts:   config.alertContacts   || [],
-                quietHours: config.alertQuietHours !== false,
-            };
-        } catch (e) {
+
+        var config = global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.getConfig === 'function'
+            ? global.GAIP_SiteConfig.getConfig(siteId)
+            : null;
+
+        if (!config) {
             return { contacts: [], quietHours: true };
         }
+
+        return {
+            contacts: config.alertContacts || [],
+            quietHours: config.alertQuietHours !== false,
+        };
     }
 
     // =========================================================================

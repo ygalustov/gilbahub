@@ -1258,6 +1258,31 @@
         isRestoring: function() { return _isRestoring; },
         getConfig: function(siteId) { return _configs[siteId] || null; },
         getAllConfigs: function() { return JSON.parse(JSON.stringify(_configs)); },
+        mergeConfig: function(siteId, patch) {
+            if (!siteId || !patch || typeof patch !== 'object') return false;
+            var existing = _configs[siteId] || { turf: {}, location: {} };
+            var next = JSON.parse(JSON.stringify(existing));
+
+            Object.keys(patch).forEach(function(key) {
+                var value = patch[key];
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    var existingValue = next[key];
+                    if (!existingValue || typeof existingValue !== 'object' || Array.isArray(existingValue)) {
+                        existingValue = {};
+                    }
+                    next[key] = Object.assign({}, existingValue, value);
+                } else {
+                    next[key] = value;
+                }
+            });
+
+            next.savedAt = new Date().toISOString();
+            _configs[siteId] = next;
+            saveToStorage();
+            pushConfigsToServer();
+            log('Merged config for', siteId, 'keys:', Object.keys(patch).join(', '));
+            return true;
+        },
         removeConfig: function(siteId) {
             if (!siteId || !_configs[siteId]) return false;
             delete _configs[siteId];
