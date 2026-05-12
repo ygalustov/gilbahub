@@ -1050,7 +1050,6 @@
             }
 
             const data = new FormData();
-            data.append('action', 'gssh_shade_render');
             data.append('nonce', nonce);
             data.append('venue_id', venueId);
             data.append('date', date);
@@ -1060,10 +1059,13 @@
             // Forward real climate data from Hub's Open-Meteo fetch
             this.appendHubClimateData(data);
 
-            fetch(config.ajaxUrl || '/wp-admin/admin-ajax.php', {
+            fetch((config.restUrl || '/api/').replace(/\/+$/, '') + '/stadium/shade-render', {
                 method: 'POST',
                 body: data,
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': config.csrfToken || config.restNonce || config.nonce || ''
+                }
             })
             .then(function(r) { return r.json(); })
             .then(function(result) {
@@ -1122,7 +1124,6 @@
             }
 
             const data = new FormData();
-            data.append('action', 'gssh_rig_calculate');
             data.append('nonce', nonce);
             data.append('venue_id', this.currentVenue.venue_id);
             data.append('rig_model', rigModel ? rigModel.value : 'SGL_MU460');
@@ -1187,10 +1188,13 @@
                 }
             }
 
-            fetch(config.ajaxUrl || '/wp-admin/admin-ajax.php', {
+            fetch((config.restUrl || '/api/').replace(/\/+$/, '') + '/stadium/rig-calculate', {
                 method: 'POST',
                 body: data,
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': config.csrfToken || config.restNonce || config.nonce || ''
+                }
             })
             .then(function(r) { return r.json(); })
             .then(function(result) {
@@ -1265,7 +1269,6 @@
             const rigModel = document.getElementById('gssh-rig-model');
 
             const data = new FormData();
-            data.append('action', 'gssh_seasonal_plan');
             data.append('nonce', config.nonce || '');
             data.append('venue_id', this.currentVenue.venue_id);
             data.append('rig_model', rigModel ? rigModel.value : 'SGL_MU460');
@@ -1283,10 +1286,13 @@
             // Forward real climate data (GHI, DLI, temperature) from Hub's Open-Meteo fetch
             this.appendHubClimateData(data);
 
-            fetch(config.ajaxUrl || '/wp-admin/admin-ajax.php', {
+            fetch((config.restUrl || '/api/').replace(/\/+$/, '') + '/stadium/seasonal-plan', {
                 method: 'POST',
                 body: data,
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                headers: {
+                    'X-CSRF-TOKEN': config.csrfToken || config.restNonce || config.nonce || ''
+                }
             })
             .then(function(r) { return r.json(); })
             .then(function(result) {

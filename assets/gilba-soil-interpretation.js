@@ -201,14 +201,16 @@
             this.setLoading(true);
             
             try {
-                const formData = new FormData();
-                formData.append('action', 'gilba_interpret_soil');
-                formData.append('nonce', window.GAIP_HUB_CONFIG?.nonce || '');
-                formData.append('soil_output', JSON.stringify(soilOutput));
-                
-                const response = await fetch(window.GAIP_HUB_CONFIG?.ajaxUrl || '/wp-admin/admin-ajax.php', {
+                const config = window.GAIP_HUB_CONFIG || {};
+                const response = await fetch((config.restUrl || '/api/').replace(/\/+$/, '') + '/interpretations/soil', {
                     method: 'POST',
-                    body: formData,
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': config.csrfToken || config.restNonce || config.nonce || ''
+                    },
+                    body: JSON.stringify({ soil_output: soilOutput }),
                 });
                 
                 const data = await response.json();

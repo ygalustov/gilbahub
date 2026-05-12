@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'gilba' => [
+        'claude_api_key' => env('GILBA_CLAUDE_API_KEY'),
+    ],
+
 ];
