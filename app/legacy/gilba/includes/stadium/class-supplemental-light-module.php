@@ -10,10 +10,6 @@
  *   effective (EUE-adjusted) hours, and environmental advisory.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Supplemental_Light_Module {
     
     private $shade_engine;
@@ -139,7 +135,7 @@ class Gssh_Supplemental_Light_Module {
         return array(
             'venue_id'                => $venue_id,
             'date'                    => $date,
-            'generated_at'            => current_time( 'c' ),
+            'generated_at'            => date( DATE_ATOM ),
             'ambient_dli'             => $ambient_dli_data,
             'venue_analysis'          => $venue_analysis,
             'prescriptions'           => $prescriptions,

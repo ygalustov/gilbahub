@@ -25,10 +25,6 @@
  * @since 1.2.14
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Radial_Obstruction_Profile {
 
     /**

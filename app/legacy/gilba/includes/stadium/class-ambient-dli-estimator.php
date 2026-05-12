@@ -6,10 +6,6 @@
  * and calculates daily light integral (DLI) for turf management.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Ambient_DLI_Estimator {
     
     const PAR_FRACTION_CLEAR = 0.45;
@@ -258,7 +254,7 @@ class Gssh_Ambient_DLI_Estimator {
         
         return [
             'location'        => $location,
-            'generated_at'    => current_time( 'c' ),
+            'generated_at'    => date( DATE_ATOM ),
             'forecast_days'   => 14,
             'daily_dli'       => $forecast,
             'period_average'  => round( array_sum( $dli_values ) / 14, 1 ),

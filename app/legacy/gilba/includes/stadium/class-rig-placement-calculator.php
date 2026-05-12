@@ -15,10 +15,6 @@
  * @package Gssh_Stadium
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Rig_Placement_Calculator {
     
     /**
@@ -398,7 +394,7 @@ class Gssh_Rig_Placement_Calculator {
      * @return array Rig placement analysis
      */
     public function calculate_rig_requirements( string $venue_id, array $options = [] ): array {
-        $options = wp_parse_args( $options, [
+        $options = self::parse_args( $options, [
             'date'              => date( 'Y-m-d' ),
             'month'             => null,
             'variety'           => null,         // Will resolve from stadium DB if not provided
@@ -3022,7 +3018,7 @@ class Gssh_Rig_Placement_Calculator {
      * @return array Complete seasonal analysis
      */
     public function calculate_seasonal_requirements( string $venue_id, array $options = [] ): array {
-        $options = wp_parse_args( $options, [
+        $options = self::parse_args( $options, [
             'variety'       => null,   // Will resolve per-month from stadium DB
             'rig_type'      => 'standard',
             'rotation_days' => 5,
@@ -3238,7 +3234,7 @@ class Gssh_Rig_Placement_Calculator {
         $positions_needed = ceil( $total_deficit_area / $rig_coverage );
         
         // Days in month
-        $days_in_month = cal_days_in_month( CAL_GREGORIAN, $month, $year );
+        $days_in_month = self::days_in_month( $month, $year );
         $rotations_per_month = ceil( $days_in_month / $rotation_days );
         
         // Determine severity
@@ -3475,7 +3471,7 @@ class Gssh_Rig_Placement_Calculator {
             $rotations = [];
             
             // Calculate rotations for the month
-            $days_in_month = cal_days_in_month( CAL_GREGORIAN, $month, date( 'Y' ) );
+            $days_in_month = self::days_in_month( $month, date( 'Y' ) );
             $num_rotations = ceil( $days_in_month / $rotation_days );
             
             for ( $r = 0; $r < $num_rotations; $r++ ) {
@@ -3542,7 +3538,7 @@ class Gssh_Rig_Placement_Calculator {
             
             if ( $rigs > 0 ) {
                 $months_needing_rigs[] = $analysis['month_name'];
-                $days_in_month = cal_days_in_month( CAL_GREGORIAN, $month, date( 'Y' ) );
+                $days_in_month = self::days_in_month( $month, date( 'Y' ) );
                 $total_rig_days += $rigs * $days_in_month;
             }
             
@@ -3559,7 +3555,7 @@ class Gssh_Rig_Placement_Calculator {
         // Calculate average requirements
         $avg_rigs = count( $months_needing_rigs ) > 0 
             ? round( $total_rig_days / array_sum( array_map( function( $m ) {
-                return cal_days_in_month( CAL_GREGORIAN, $m, date( 'Y' ) );
+                return self::days_in_month( $m, date( 'Y' ) );
             }, array_keys( array_filter( $monthly_analysis, function( $a ) {
                 return ( $a['rigs_required'] ?? 0 ) > 0;
             } ) ) ) ), 1 )
@@ -3699,7 +3695,7 @@ class Gssh_Rig_Placement_Calculator {
         foreach ( $monthly_analysis as $month => $data ) {
             $rigs = $data['rigs_required'] ?? 0;
             $hours_per_day = $data['rig_hours_per_day'] ?? 0;
-            $days_in_month = cal_days_in_month( CAL_GREGORIAN, $month, date( 'Y' ) );
+            $days_in_month = self::days_in_month( $month, date( 'Y' ) );
             
             if ( $rigs > 0 && $hours_per_day > 0 ) {
                 $month_kwh = $rigs * $hours_per_day * $days_in_month * $power_kw;
@@ -3721,7 +3717,7 @@ class Gssh_Rig_Placement_Calculator {
         $deployment_days = 0;
         foreach ( $monthly_analysis as $month => $data ) {
             if ( ( $data['rigs_required'] ?? 0 ) > 0 ) {
-                $deployment_days += cal_days_in_month( CAL_GREGORIAN, $month, date( 'Y' ) );
+                $deployment_days += self::days_in_month( $month, date( 'Y' ) );
             }
         }
         $avg_daily_cost = $deployment_days > 0 ? $total_cost / $deployment_days : 0;
@@ -3739,5 +3735,13 @@ class Gssh_Rig_Placement_Calculator {
             'monthly_costs'      => $monthly_costs,
             'deployment_days'    => $deployment_days,
         ];
+    }
+
+    private static function parse_args( array $args, array $defaults ): array {
+        return array_merge( $defaults, $args );
+    }
+
+    private static function days_in_month( $month, $year ): int {
+        return (int) date( 't', strtotime( sprintf( '%04d-%02d-01', (int) $year, (int) $month ) ) );
     }
 }

@@ -242,17 +242,29 @@ class StadiumAnalysisController extends Controller
         $sanitized = [];
 
         foreach ($raw as $key => $value) {
-            $key = sanitize_text_field($key);
+            $key = $this->sanitizeText($key);
             $normalized = $keyMap[$key] ?? $key;
 
             if (! in_array($normalized, $allowed, true) && ! array_key_exists($normalized, $keyMap)) {
                 continue;
             }
 
-            $sanitized[$normalized] = sanitize_text_field($value);
+            $sanitized[$normalized] = $this->sanitizeText($value);
         }
 
         return $sanitized;
+    }
+
+    private function sanitizeText(mixed $value): string
+    {
+        if (is_array($value) || is_object($value)) {
+            return '';
+        }
+
+        $value = strip_tags((string) $value);
+        $value = preg_replace('/[\r\n\t ]+/', ' ', $value) ?? $value;
+
+        return trim($value);
     }
 
     private function legacySuccess(array $data): JsonResponse

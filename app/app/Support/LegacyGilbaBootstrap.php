@@ -48,8 +48,6 @@ class LegacyGilbaBootstrap
             return;
         }
 
-        self::loadWordPressShim();
-
         $base = base_path('legacy/gilba/includes/stadium');
 
         require_once $base.'/interface-shade-engine.php';

@@ -8,10 +8,6 @@
  * @package Gssh_Stadium
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Rig_Placement_Visualiser {
     
     /**
@@ -52,7 +48,7 @@ class Gssh_Rig_Placement_Visualiser {
      * @return string SVG markup
      */
     public function generate_placement_visualisation( array $analysis, array $options = [] ): string {
-        $options = wp_parse_args( $options, [
+        $options = self::parse_args( $options, [
             'width'           => 800,
             'height'          => 600,
             'show_deficit'    => true,
@@ -120,13 +116,13 @@ class Gssh_Rig_Placement_Visualiser {
             <!-- Title -->
             <text x="<?php echo $options['width'] / 2; ?>" y="25" 
                   text-anchor="middle" fill="#111827" font-size="16" font-weight="bold">
-                <?php echo esc_html( $analysis['venue_name'] ); ?> - Rig Placement Analysis
+                <?php echo self::esc_html( $analysis['venue_name'] ); ?> - Rig Placement Analysis
             </text>
             <text x="<?php echo $options['width'] / 2; ?>" y="42" 
                   text-anchor="middle" fill="#6b7280" font-size="11">
-                <?php echo esc_html( $analysis['rig_type'] ); ?> rigs | 
+                <?php echo self::esc_html( $analysis['rig_type'] ); ?> rigs | 
                 Target DLI: <?php echo $analysis['target_dli']; ?> mol/m²/day | 
-                <?php echo esc_html( $analysis['analysis_period'] ); ?> analysis
+                <?php echo self::esc_html( $analysis['analysis_period'] ); ?> analysis
             </text>
             
             <!-- Field -->
@@ -305,8 +301,8 @@ class Gssh_Rig_Placement_Visualiser {
                 $rx = $cx - $rig_width / 2;
                 $ry = $cy - $rig_height / 2;
                 ?>
-                <!-- Ghost Rig <?php echo esc_attr( $rig['rig_id'] ); ?> - recommended position -->
-                <g class="ghost-rig-group" data-rig-id="<?php echo esc_attr( $rig['rig_id'] ); ?>" opacity="0.7">
+                <!-- Ghost Rig <?php echo self::esc_attr( $rig['rig_id'] ); ?> - recommended position -->
+                <g class="ghost-rig-group" data-rig-id="<?php echo self::esc_attr( $rig['rig_id'] ); ?>" opacity="0.7">
                     <!-- Ghost coverage area - dashed border, more visible -->
                     <rect x="<?php echo $rx; ?>" y="<?php echo $ry; ?>" 
                           width="<?php echo $rig_width; ?>" height="<?php echo $rig_height; ?>" 
@@ -350,8 +346,8 @@ class Gssh_Rig_Placement_Visualiser {
             
             $class = $animate ? 'rig-coverage' : '';
             ?>
-            <!-- Rig <?php echo esc_attr( $rig['rig_id'] ); ?> coverage -->
-            <g class="rig-group" data-rig-id="<?php echo esc_attr( $rig['rig_id'] ); ?>">
+            <!-- Rig <?php echo self::esc_attr( $rig['rig_id'] ); ?> coverage -->
+            <g class="rig-group" data-rig-id="<?php echo self::esc_attr( $rig['rig_id'] ); ?>">
                 <!-- Outer glow for visibility -->
                 <rect x="<?php echo $rx - 2; ?>" y="<?php echo $ry - 2; ?>" 
                       width="<?php echo $rig_width + 4; ?>" height="<?php echo $rig_height + 4; ?>" 
@@ -410,7 +406,7 @@ class Gssh_Rig_Placement_Visualiser {
                 <text x="<?php echo $cx; ?>" y="<?php echo $cy + 25; ?>" 
                       text-anchor="middle" fill="#fff" font-size="11" font-weight="bold"
                       style="text-shadow: 0 1px 3px rgba(0,0,0,0.8);">
-                    <?php echo esc_html( strtoupper( str_replace( '_', ' ', $rig['rig_id'] ) ) ); ?>
+                    <?php echo self::esc_html( strtoupper( str_replace( '_', ' ', $rig['rig_id'] ) ) ); ?>
                 </text>
                 
                 <!-- Priority badge -->
@@ -537,7 +533,7 @@ class Gssh_Rig_Placement_Visualiser {
             $x = 10;
             
             foreach ( $stats as $stat ) :
-                $stat_id = 'gssh-svg-' . sanitize_title( $stat['label'] );
+                $stat_id = 'gssh-svg-' . self::sanitize_title( $stat['label'] );
             ?>
                 <g transform="translate(<?php echo $x; ?>, 10)">
                     <text x="<?php echo $box_width / 2; ?>" y="15" 
@@ -593,7 +589,7 @@ class Gssh_Rig_Placement_Visualiser {
      * @return string SVG markup
      */
     public function generate_health_trajectory_chart( array $health_projection, array $options = [] ): string {
-        $options = wp_parse_args( $options, [
+        $options = self::parse_args( $options, [
             'width'  => 600,
             'height' => 300,
         ]);
@@ -835,11 +831,11 @@ class Gssh_Rig_Placement_Visualiser {
             <!-- Summary header -->
             <div class="gssh-analysis-summary" style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
                 <h3 style="color: #111827; margin: 0 0 10px;">
-                    <?php echo esc_html( $analysis['venue_name'] ); ?> - Supplemental Light Requirements
-                    <span style="color: #60a5fa; font-weight: normal; font-size: 16px;">(<?php echo esc_html( $analysis_month_name ); ?>)</span>
+                    <?php echo self::esc_html( $analysis['venue_name'] ); ?> - Supplemental Light Requirements
+                    <span style="color: #60a5fa; font-weight: normal; font-size: 16px;">(<?php echo self::esc_html( $analysis_month_name ); ?>)</span>
                 </h3>
                 <p style="color: #6b7280; margin: 0 0 15px; font-size: 14px;">
-                    <?php echo esc_html( $analysis['summary']['recommendation'] ); ?>
+                    <?php echo self::esc_html( $analysis['summary']['recommendation'] ); ?>
                 </p>
                 
                 <?php if ( $strategy === 'not_required' ) : ?>
@@ -879,15 +875,15 @@ class Gssh_Rig_Placement_Visualiser {
                 <div style="display: flex; gap: 30px; flex-wrap: wrap; padding: 15px; background: #f1f5f9; border-radius: 6px;">
                     <div>
                         <span style="color: #4b5563; font-size: 11px; text-transform: uppercase;">Analysis Month</span>
-                        <div style="color: #60a5fa; font-weight: bold; font-size: 16px;"><?php echo esc_html( $analysis_month_name ); ?></div>
+                        <div style="color: #60a5fa; font-weight: bold; font-size: 16px;"><?php echo self::esc_html( $analysis_month_name ); ?></div>
                     </div>
                     <div>
                         <span style="color: #4b5563; font-size: 11px; text-transform: uppercase;">Turf Variety</span>
-                        <div style="color: #22c55e; font-weight: bold; font-size: 16px;"><?php echo esc_html( $variety_display ); ?></div>
+                        <div style="color: #22c55e; font-weight: bold; font-size: 16px;"><?php echo self::esc_html( $variety_display ); ?></div>
                     </div>
                     <div>
                         <span style="color: #4b5563; font-size: 11px; text-transform: uppercase;">Target DLI (minimum)</span>
-                        <div style="color: #eab308; font-weight: bold; font-size: 16px;"><?php echo esc_html( $analysis['target_dli'] ); ?> mol/m²/day</div>
+                        <div style="color: #eab308; font-weight: bold; font-size: 16px;"><?php echo self::esc_html( $analysis['target_dli'] ); ?> mol/m²/day</div>
                     </div>
                     <div>
                         <span style="color: #4b5563; font-size: 11px; text-transform: uppercase;">Ambient DLI</span>
@@ -896,11 +892,11 @@ class Gssh_Rig_Placement_Visualiser {
                         $target = $analysis['target_dli'] ?? 18;
                         $ambient_color = $ambient >= $target ? '#22c55e' : ( $ambient >= $target * 0.5 ? '#eab308' : '#ef4444' );
                         ?>
-                        <div style="color: <?php echo $ambient_color; ?>; font-weight: bold; font-size: 16px;"><?php echo esc_html( $ambient ); ?> mol/m²/day</div>
+                        <div style="color: <?php echo $ambient_color; ?>; font-weight: bold; font-size: 16px;"><?php echo self::esc_html( $ambient ); ?> mol/m²/day</div>
                     </div>
                     <div>
                         <span style="color: #4b5563; font-size: 11px; text-transform: uppercase;">Max Deficit</span>
-                        <div style="color: #f87171; font-weight: bold; font-size: 16px;"><?php echo esc_html( $analysis['deficit_zones']['max_deficit'] ?? '—' ); ?> mol/m²/day</div>
+                        <div style="color: #f87171; font-weight: bold; font-size: 16px;"><?php echo self::esc_html( $analysis['deficit_zones']['max_deficit'] ?? '—' ); ?> mol/m²/day</div>
                     </div>
                     <?php if ( $strategy !== 'not_required' ) : ?>
                     <div>
@@ -936,7 +932,7 @@ class Gssh_Rig_Placement_Visualiser {
                     <div style="color: #b91c1c; margin-top: 8px; font-size: 13px;">
                         <?php foreach ( $analysis['placements']['capacity_warnings'] as $warning ) : ?>
                         <div style="margin-bottom: 4px;">
-                            • <?php echo esc_html( $warning['message'] ); ?>
+                            • <?php echo self::esc_html( $warning['message'] ); ?>
                         </div>
                         <?php endforeach; ?>
                     </div>
@@ -1005,11 +1001,11 @@ class Gssh_Rig_Placement_Visualiser {
                  data-current-rigs="<?php echo (int) $current_rigs; ?>"
                  data-ghost-rigs="<?php echo (int) count( $analysis['placements']['ghost_rigs'] ?? [] ); ?>"
                  data-total-deficit-points="<?php echo (int) ($analysis['placements']['priority_zones'] ?? 0); ?>"
-                 data-zones="<?php echo esc_attr( json_encode( $all_zones ) ); ?>"
-                 data-month-name="<?php echo esc_attr( $analysis['month_name'] ?? date('F') ); ?>"
+                 data-zones="<?php echo self::esc_attr( json_encode( $all_zones ) ); ?>"
+                 data-month-name="<?php echo self::esc_attr( $analysis['month_name'] ?? date('F') ); ?>"
                  data-rotation-days="5"
-                 data-health-projection="<?php echo esc_attr( json_encode( $variety_params ) ); ?>"
-                 data-supplement-dli="<?php echo esc_attr( round( $supplement_dli, 1 ) ); ?>"
+                 data-health-projection="<?php echo self::esc_attr( json_encode( $variety_params ) ); ?>"
+                 data-supplement-dli="<?php echo self::esc_attr( round( $supplement_dli, 1 ) ); ?>"
                  style="display:none;"></div>
             
             <!-- Coverage Control Slider -->
@@ -1135,7 +1131,7 @@ class Gssh_Rig_Placement_Visualiser {
                                     </span>
                                 </td>
                                 <td style="padding: 8px; color: #9333ea; font-weight: bold;">
-                                    <?php echo esc_html( strtoupper( $rig['rig_id'] ) ); ?>
+                                    <?php echo self::esc_html( strtoupper( $rig['rig_id'] ) ); ?>
                                 </td>
                                 <td style="padding: 8px; text-align: center;">
                                     (<?php echo round( $rig['position']['x'] ); ?>m, <?php echo round( $rig['position']['y'] ); ?>m)
@@ -1265,25 +1261,25 @@ class Gssh_Rig_Placement_Visualiser {
             <!-- Seasonal Summary -->
             <div class="gssh-seasonal-summary" style="background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%); border: 1px solid #bae6fd; padding: 24px; border-radius: 12px; margin-bottom: 24px;">
                 <h3 style="color: #111827; margin: 0 0 8px; font-size: 20px;">
-                    <?php echo esc_html( $analysis['venue_name'] ); ?> — Seasonal Plan
+                    <?php echo self::esc_html( $analysis['venue_name'] ); ?> — Seasonal Plan
                 </h3>
                 <p style="color: #22c55e; font-size: 18px; font-weight: 600; margin: 0 0 20px;">
-                    <?php echo esc_html( $summary['summary_text'] ); ?>
+                    <?php echo self::esc_html( $summary['summary_text'] ); ?>
                 </p>
                 
                 <!-- Key metrics -->
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px;">
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Deployment Period</div>
-                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo esc_html( $summary['deployment_period'] ); ?></div>
+                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo self::esc_html( $summary['deployment_period'] ); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Peak Rigs Required</div>
-                        <div style="color: #f59e0b; font-size: 24px; font-weight: bold;"><?php echo esc_html( $summary['peak_rigs_required'] ); ?></div>
+                        <div style="color: #f59e0b; font-size: 24px; font-weight: bold;"><?php echo self::esc_html( $summary['peak_rigs_required'] ); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Rotation Frequency</div>
-                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo esc_html( $summary['rotation_frequency'] ); ?></div>
+                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo self::esc_html( $summary['rotation_frequency'] ); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Total Rig-Days</div>
@@ -1291,11 +1287,11 @@ class Gssh_Rig_Placement_Visualiser {
                     </div>
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Turf Variety</div>
-                        <div style="color: #22c55e; font-size: 14px; font-weight: bold;"><?php echo esc_html( $variety_display ); ?></div>
+                        <div style="color: #22c55e; font-size: 14px; font-weight: bold;"><?php echo self::esc_html( $variety_display ); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.1); padding: 16px; border-radius: 8px; text-align: center;">
                         <div style="color: #4b5563; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Target DLI</div>
-                        <div style="color: #60a5fa; font-size: 18px; font-weight: bold;"><?php echo esc_html( $analysis['target_dli'] ); ?> mol</div>
+                        <div style="color: #60a5fa; font-size: 18px; font-weight: bold;"><?php echo self::esc_html( $analysis['target_dli'] ); ?> mol</div>
                     </div>
                 </div>
                 
@@ -1308,15 +1304,15 @@ class Gssh_Rig_Placement_Visualiser {
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #60a5fa; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">💰 Season Cost</div>
-                        <div style="color: #22c55e; font-size: 24px; font-weight: bold;"><?php echo esc_html( $cost_analysis['total_formatted'] ); ?></div>
+                        <div style="color: #22c55e; font-size: 24px; font-weight: bold;"><?php echo self::esc_html( $cost_analysis['total_formatted'] ); ?></div>
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #60a5fa; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">📅 Avg Daily Cost</div>
-                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo esc_html( $cost_analysis['avg_daily_formatted'] ); ?></div>
+                        <div style="color: #111827; font-size: 18px; font-weight: bold;"><?php echo self::esc_html( $cost_analysis['avg_daily_formatted'] ); ?></div>
                     </div>
                     <div style="text-align: center;">
                         <div style="color: #60a5fa; font-size: 11px; text-transform: uppercase; margin-bottom: 4px;">Rate Used</div>
-                        <div style="color: #6b7280; font-size: 14px;"><?php echo esc_html( $cost_analysis['symbol'] . $cost_analysis['elec_rate'] ); ?>/kWh</div>
+                        <div style="color: #6b7280; font-size: 14px;"><?php echo self::esc_html( $cost_analysis['symbol'] . $cost_analysis['elec_rate'] ); ?>/kWh</div>
                     </div>
                 </div>
                 <?php endif; ?>
@@ -1324,7 +1320,7 @@ class Gssh_Rig_Placement_Visualiser {
                 <?php if ( ! empty( $summary['critical_months'] ) ) : ?>
                 <div style="margin-top: 16px; padding: 12px 16px; background: rgba(239, 68, 68, 0.2); border-left: 4px solid #ef4444; border-radius: 4px;">
                     <strong style="color: #991b1b;">⚠️ Critical attention needed:</strong>
-                    <span style="color: #b91c1c;"><?php echo esc_html( implode( ', ', $summary['critical_months'] ) ); ?></span>
+                    <span style="color: #b91c1c;"><?php echo self::esc_html( implode( ', ', $summary['critical_months'] ) ); ?></span>
                 </div>
                 <?php endif; ?>
             </div>
@@ -1420,16 +1416,16 @@ class Gssh_Rig_Placement_Visualiser {
                                 ];
                             ?>
                             <tr style="border-bottom: 1px solid #404040;">
-                                <td style="padding: 12px 8px; color: #111827; font-weight: 500;"><?php echo esc_html( $data['month_name'] ); ?></td>
-                                <td style="padding: 12px 8px; text-align: center; color: #60a5fa;"><?php echo esc_html( $data['ambient_dli'] ); ?></td>
+                                <td style="padding: 12px 8px; color: #111827; font-weight: 500;"><?php echo self::esc_html( $data['month_name'] ); ?></td>
+                                <td style="padding: 12px 8px; text-align: center; color: #60a5fa;"><?php echo self::esc_html( $data['ambient_dli'] ); ?></td>
                                 <td style="padding: 12px 8px; text-align: center; color: <?php echo $data['dli_gap'] > 0 ? '#f87171' : '#22c55e'; ?>;">
                                     <?php echo $data['dli_gap'] > 0 ? '-' . $data['dli_gap'] : '—'; ?>
                                 </td>
                                 <td style="padding: 12px 8px; text-align: center;"><?php echo $severity_badges[ $data['severity'] ] ?? ''; ?></td>
-                                <td style="padding: 12px 8px; text-align: center; color: #111827; font-weight: bold;"><?php echo esc_html( $data['rigs_required'] ); ?></td>
+                                <td style="padding: 12px 8px; text-align: center; color: #111827; font-weight: bold;"><?php echo self::esc_html( $data['rigs_required'] ); ?></td>
                                 <td style="padding: 12px 8px; text-align: center; color: #6b7280;"><?php echo $data['rig_hours_per_day'] > 0 ? round( $data['rig_hours_per_day'], 1 ) . 'h' : '—'; ?></td>
-                                <td style="padding: 12px 8px; text-align: center; color: #6b7280;"><?php echo esc_html( $data['rotations_in_month'] ); ?></td>
-                                <td style="padding: 12px 8px; color: #6b7280; font-size: 12px;"><?php echo esc_html( $data['recommendation'] ); ?></td>
+                                <td style="padding: 12px 8px; text-align: center; color: #6b7280;"><?php echo self::esc_html( $data['rotations_in_month'] ); ?></td>
+                                <td style="padding: 12px 8px; color: #6b7280; font-size: 12px;"><?php echo self::esc_html( $data['recommendation'] ); ?></td>
                             </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1460,7 +1456,7 @@ class Gssh_Rig_Placement_Visualiser {
                     ?>
                     <div style="background: #f1f5f9; border-radius: 8px; padding: 16px;">
                         <h5 style="color: #22c55e; margin: 0 0 12px; font-size: 14px;">
-                            <?php echo esc_html( $month_schedule['month_name'] ); ?>
+                            <?php echo self::esc_html( $month_schedule['month_name'] ); ?>
                             <?php if ( $positions_vary ) : ?>
                             <span style="color: #4b5563; font-weight: normal;">(<?php echo $month_schedule['total_rotations']; ?> rotations)</span>
                             <?php endif; ?>
@@ -1485,7 +1481,7 @@ class Gssh_Rig_Placement_Visualiser {
                             <div style="background: #f8fafc; padding: 10px 12px; border-radius: 6px; font-size: 12px;">
                                 <div style="color: #6b7280; margin-bottom: 6px;">
                                     <strong style="color: #111827;">Rotation <?php echo $rotation['rotation_number']; ?></strong> — 
-                                    <?php echo esc_html( $rotation['days'] ); ?>
+                                    <?php echo self::esc_html( $rotation['days'] ); ?>
                                 </div>
                                 <div style="display: flex; flex-wrap: wrap; gap: 6px;">
                                     <?php foreach ( $rotation['placements'] as $placement ) : ?>
@@ -1507,7 +1503,7 @@ class Gssh_Rig_Placement_Visualiser {
             <div class="gssh-equipment-rec" style="background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%); border: 1px solid #86efac; padding: 24px; border-radius: 12px;">
                 <h4 style="color: #111827; margin: 0 0 12px; font-size: 16px;">💡 Equipment Recommendation</h4>
                 <p style="color: #6b7280; margin: 0 0 16px; font-size: 14px;">
-                    <?php echo esc_html( $summary['equipment_recommendation']['recommendation'] ); ?>
+                    <?php echo self::esc_html( $summary['equipment_recommendation']['recommendation'] ); ?>
                 </p>
                 
                 <div style="display: flex; gap: 20px;">
@@ -1530,5 +1526,24 @@ class Gssh_Rig_Placement_Visualiser {
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    private static function parse_args( array $args, array $defaults ): array {
+        return array_merge( $defaults, $args );
+    }
+
+    private static function esc_html( $value ): string {
+        return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+    }
+
+    private static function esc_attr( $value ): string {
+        return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+    }
+
+    private static function sanitize_title( $value ): string {
+        $value = strtolower( trim( strip_tags( (string) $value ) ) );
+        $value = preg_replace( '/[^a-z0-9]+/', '-', $value ) ?? $value;
+
+        return trim( $value, '-' );
     }
 }

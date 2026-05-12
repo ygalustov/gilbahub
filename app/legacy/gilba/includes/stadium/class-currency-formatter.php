@@ -5,10 +5,6 @@
  * Handles currency display formatting across different locales
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Currency_Formatter {
     
     private static $currencies;

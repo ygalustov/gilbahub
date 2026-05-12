@@ -10,10 +10,6 @@
  * @package Gssh_Stadium
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 interface Gssh_Shade_Engine_Interface {
     
     /**

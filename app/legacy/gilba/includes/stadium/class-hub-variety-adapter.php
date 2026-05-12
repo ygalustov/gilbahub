@@ -6,10 +6,6 @@
  * Uses Hub data when available, falls back to built-in data otherwise.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Hub_Variety_Adapter {
     
     private $varieties;

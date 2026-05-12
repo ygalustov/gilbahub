@@ -9,10 +9,6 @@
  * @package Gssh_Stadium
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 require_once __DIR__ . '/interface-shade-engine.php';
 require_once __DIR__ . '/class-geometry-utils.php';
 require_once __DIR__ . '/class-radial-obstruction-profile.php';

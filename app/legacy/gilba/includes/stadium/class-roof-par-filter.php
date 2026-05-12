@@ -36,10 +36,6 @@
  * @since 1.0.1
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Roof_PAR_Filter {
 
     /**

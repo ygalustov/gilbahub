@@ -9,10 +9,6 @@
  * @version 1.0.0
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 require_once __DIR__ . '/class-geometry-utils.php';
 
 class Gssh_Shade_Visualiser {
@@ -169,7 +165,7 @@ class Gssh_Shade_Visualiser {
         }
         
         $html = '<div class="gssh-shade-series">';
-        $html .= '<h3 style="color: #111; margin: 0 0 12px; font-size: 15px;">' . esc_html( $stadium['name'] ) . ' - ' . esc_html( date( 'j F Y', strtotime( $date ) ) ) . '</h3>';
+        $html .= '<h3 style="color: #111; margin: 0 0 12px; font-size: 15px;">' . self::esc_html( $stadium['name'] ) . ' - ' . self::esc_html( date( 'j F Y', strtotime( $date ) ) ) . '</h3>';
         $html .= '<div class="gssh-shade-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:8px;">';
         
         foreach ( $times as $time ) {
@@ -217,7 +213,7 @@ class Gssh_Shade_Visualiser {
         }
         
         $html = '<div class="gssh-shade-seasonal">';
-        $html .= '<h3 style="margin:0 0 12px;font-size:15px;">' . esc_html( $stadium['name'] ) . ' - Seasonal Shadow Comparison at ' . esc_html( $time ) . '</h3>';
+        $html .= '<h3 style="margin:0 0 12px;font-size:15px;">' . self::esc_html( $stadium['name'] ) . ' - Seasonal Shadow Comparison at ' . self::esc_html( $time ) . '</h3>';
         $html .= '<div class="gssh-shade-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">';
         
         foreach ( $dates as $label => $date ) {
@@ -315,13 +311,13 @@ class Gssh_Shade_Visualiser {
             $svg .= '<text x="' . $cx . '" y="' . ( $compact ? 15 : 25 ) . '" ';
             $svg .= 'text-anchor="middle" fill="' . self::COLOURS['text'] . '" ';
             $svg .= 'font-family="Arial, sans-serif" font-size="' . ( $compact ? 12 : 16 ) . '" font-weight="bold">';
-            $svg .= esc_html( $title ) . '</text>';
+            $svg .= self::esc_html( $title ) . '</text>';
             
             if ( ! empty( $options['subtitle'] ) ) {
                 $svg .= '<text x="' . $cx . '" y="' . ( $compact ? 28 : 42 ) . '" ';
                 $svg .= 'text-anchor="middle" fill="' . self::COLOURS['text'] . '" ';
                 $svg .= 'font-family="Arial, sans-serif" font-size="' . ( $compact ? 10 : 12 ) . '" opacity="0.7">';
-                $svg .= esc_html( $options['subtitle'] ) . '</text>';
+                $svg .= self::esc_html( $options['subtitle'] ) . '</text>';
             }
         }
         
@@ -506,7 +502,7 @@ class Gssh_Shade_Visualiser {
         // Stadium name
         $svg .= '<text x="10" y="' . $y . '" fill="' . self::COLOURS['text'] . '" ';
         $svg .= 'font-family="Arial, sans-serif" font-size="11" opacity="0.8">';
-        $svg .= esc_html( $stadium['name'] );
+        $svg .= self::esc_html( $stadium['name'] );
         $svg .= '</text>';
         
         // Time and sun info
@@ -517,7 +513,7 @@ class Gssh_Shade_Visualiser {
         
         $svg .= '<text x="' . ( $width - 10 ) . '" y="' . $y . '" text-anchor="end" ';
         $svg .= 'fill="' . self::COLOURS['text'] . '" font-family="Arial, sans-serif" font-size="11" opacity="0.8">';
-        $svg .= esc_html( $time_str . ' | ' . $sun_str );
+        $svg .= self::esc_html( $time_str . ' | ' . $sun_str );
         $svg .= '</text>';
         
         $svg .= '</g>';
@@ -560,11 +556,11 @@ class Gssh_Shade_Visualiser {
             return '<div class="gssh-shade-error" style="padding:40px;text-align:center;color:#f87171;">No shadow frames generated for this date/location.</div>';
         }
         
-        $html = '<div id="' . esc_attr( $instance_id ) . '-container" class="gssh-shade-animation-container" style="position:relative;">';
+        $html = '<div id="' . self::esc_attr( $instance_id ) . '-container" class="gssh-shade-animation-container" style="position:relative;">';
         
         // SVG
         $html .= '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' . $width . ' ' . $height . '" ';
-        $html .= 'width="' . $width . '" height="' . $height . '" style="max-width:100%;height:auto;" class="gssh-shade-animated" id="' . esc_attr( $instance_id ) . '">';
+        $html .= 'width="' . $width . '" height="' . $height . '" style="max-width:100%;height:auto;" class="gssh-shade-animated" id="' . self::esc_attr( $instance_id ) . '">';
         
         // Styles
         $html .= '<style>';
@@ -577,13 +573,13 @@ class Gssh_Shade_Visualiser {
         // Title
         $html .= '<text x="' . $cx . '" y="30" text-anchor="middle" fill="' . self::COLOURS['text'] . '" ';
         $html .= 'font-family="Arial, sans-serif" font-size="16" font-weight="bold">';
-        $html .= esc_html( $stadium['name'] ) . ' - ' . esc_html( date( 'j F Y', strtotime( $date ) ) );
+        $html .= self::esc_html( $stadium['name'] ) . ' - ' . self::esc_html( date( 'j F Y', strtotime( $date ) ) );
         $html .= '</text>';
         
         // Time display (updated by JS)
-        $html .= '<text id="' . esc_attr( $instance_id ) . '-time" x="' . $cx . '" y="50" text-anchor="middle" fill="#fbbf24" ';
+        $html .= '<text id="' . self::esc_attr( $instance_id ) . '-time" x="' . $cx . '" y="50" text-anchor="middle" fill="#fbbf24" ';
         $html .= 'font-family="Arial, sans-serif" font-size="18" font-weight="bold">';
-        $html .= esc_html( $frames[0]['time'] ?? '12:00' );
+        $html .= self::esc_html( $frames[0]['time'] ?? '12:00' );
         $html .= '</text>';
         
         // Field
@@ -592,7 +588,7 @@ class Gssh_Shade_Visualiser {
         // Shadow frames (all rendered, JS controls visibility)
         foreach ( $frames as $i => $frame ) {
             $opacity = ( $i === 0 ) ? '1' : '0';
-            $html .= '<g class="shadow-group" id="' . esc_attr( $instance_id ) . '-frame-' . $i . '" style="opacity:' . $opacity . ';" data-time="' . esc_attr( $frame['time'] ) . '">';
+            $html .= '<g class="shadow-group" id="' . self::esc_attr( $instance_id ) . '-frame-' . $i . '" style="opacity:' . $opacity . ';" data-time="' . self::esc_attr( $frame['time'] ) . '">';
             
             foreach ( $frame['shadows'] as $shadow_data ) {
                 if ( ! empty( $shadow_data['shadow']['shadow_polygon'] ) ) {
@@ -612,19 +608,19 @@ class Gssh_Shade_Visualiser {
         // Day info
         $html .= '<text x="' . $cx . '" y="' . ( $height - 15 ) . '" text-anchor="middle" ';
         $html .= 'fill="' . self::COLOURS['text'] . '" font-family="Arial, sans-serif" font-size="11" opacity="0.7">';
-        $html .= 'Sunrise: ' . esc_html( $sun_path['sunrise'] ?? 'N/A' ) . ' | ';
-        $html .= 'Sunset: ' . esc_html( $sun_path['sunset'] ?? 'N/A' ) . ' | ';
-        $html .= 'Day length: ' . esc_html( round( $sun_path['day_length'] ?? 0, 1 ) ) . 'h';
+        $html .= 'Sunrise: ' . self::esc_html( $sun_path['sunrise'] ?? 'N/A' ) . ' | ';
+        $html .= 'Sunset: ' . self::esc_html( $sun_path['sunset'] ?? 'N/A' ) . ' | ';
+        $html .= 'Day length: ' . self::esc_html( round( $sun_path['day_length'] ?? 0, 1 ) ) . 'h';
         $html .= '</text>';
         
         $html .= '</svg>';
         
         // Playback controls
         $html .= '<div style="display:flex;align-items:center;justify-content:center;gap:15px;padding:15px;background:#27272a;border-radius:0 0 8px 8px;">';
-        $html .= '<button type="button" id="' . esc_attr( $instance_id ) . '-play" style="padding:8px 20px;background:#22c55e;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:600;">▶ Play</button>';
-        $html .= '<button type="button" id="' . esc_attr( $instance_id ) . '-pause" style="padding:8px 20px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;display:none;">⏸ Pause</button>';
-        $html .= '<input type="range" id="' . esc_attr( $instance_id ) . '-slider" min="0" max="' . ( $frame_count - 1 ) . '" value="0" style="flex:1;max-width:300px;">';
-        $html .= '<span id="' . esc_attr( $instance_id ) . '-frame-label" style="color:#a1a1aa;font-size:13px;min-width:80px;">Frame 1/' . $frame_count . '</span>';
+        $html .= '<button type="button" id="' . self::esc_attr( $instance_id ) . '-play" style="padding:8px 20px;background:#22c55e;color:#000;border:none;border-radius:4px;cursor:pointer;font-weight:600;">▶ Play</button>';
+        $html .= '<button type="button" id="' . self::esc_attr( $instance_id ) . '-pause" style="padding:8px 20px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:600;display:none;">⏸ Pause</button>';
+        $html .= '<input type="range" id="' . self::esc_attr( $instance_id ) . '-slider" min="0" max="' . ( $frame_count - 1 ) . '" value="0" style="flex:1;max-width:300px;">';
+        $html .= '<span id="' . self::esc_attr( $instance_id ) . '-frame-label" style="color:#a1a1aa;font-size:13px;min-width:80px;">Frame 1/' . $frame_count . '</span>';
         $html .= '</div>';
         
         $html .= '</div>';
@@ -822,11 +818,11 @@ class Gssh_Shade_Visualiser {
         // Title
         $svg .= '<text x="' . $cx . '" y="25" text-anchor="middle" fill="' . self::COLOURS['text'] . '" ';
         $svg .= 'font-family="Arial, sans-serif" font-size="16" font-weight="bold">';
-        $svg .= esc_html( $stadium['name'] ) . ' - Daily Shade Accumulation';
+        $svg .= self::esc_html( $stadium['name'] ) . ' - Daily Shade Accumulation';
         $svg .= '</text>';
         $svg .= '<text x="' . $cx . '" y="42" text-anchor="middle" fill="' . self::COLOURS['text'] . '" ';
         $svg .= 'font-family="Arial, sans-serif" font-size="12" opacity="0.7">';
-        $svg .= esc_html( date( 'j F Y', strtotime( $date ) ) );
+        $svg .= self::esc_html( date( 'j F Y', strtotime( $date ) ) );
         $svg .= '</text>';
         
         // Field outline
@@ -968,6 +964,14 @@ class Gssh_Shade_Visualiser {
         return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">' .
                '<rect width="100%" height="100%" fill="#2a2a2a"/>' .
                '<text x="200" y="100" text-anchor="middle" fill="#ff6666" font-family="Arial" font-size="14">' .
-               esc_html( $message ) . '</text></svg>';
+               self::esc_html( $message ) . '</text></svg>';
+    }
+
+    private static function esc_html( $value ): string {
+        return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
+    }
+
+    private static function esc_attr( $value ): string {
+        return htmlspecialchars( (string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8' );
     }
 }

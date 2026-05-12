@@ -13,10 +13,6 @@
  * @since 1.2.12
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Geometry_Utils {
     
     /**

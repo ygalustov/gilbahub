@@ -6,10 +6,6 @@
  * Falls back to estimated data if Hub is not available.
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Hub_Climate_Adapter {
     
     /**

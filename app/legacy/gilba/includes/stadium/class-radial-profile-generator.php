@@ -23,10 +23,6 @@
  * @since 1.0.1
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_Radial_Profile_Generator {
 
     /**

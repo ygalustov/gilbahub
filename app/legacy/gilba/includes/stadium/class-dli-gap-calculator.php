@@ -11,10 +11,6 @@
  *   - Venue environment context in deficit calculation
  */
 
-if ( ! defined( 'ABSPATH' ) ) {
-    exit;
-}
-
 class Gssh_DLI_Gap_Calculator {
     
     private $variety_database;
@@ -369,7 +365,7 @@ class Gssh_DLI_Gap_Calculator {
         });
         
         return [
-            'date'           => current_time( 'Y-m-d' ),
+            'date'           => date( 'Y-m-d' ),
             'ambient_dli'    => $ambient_dli,
             'zones'          => $zone_analyses,
             'priority_zones' => $priority_zones,
