@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\LegacyGilbaBootstrap;
+use App\Support\GilbaRuntimeBootstrap;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -10,7 +10,7 @@ class StadiumAnalysisController extends Controller
 {
     public function shadeRender(Request $request): JsonResponse
     {
-        LegacyGilbaBootstrap::loadStadiumClasses();
+        GilbaRuntimeBootstrap::loadStadiumClasses();
 
         $venueId = trim((string) $request->input('venue_id', ''));
         $date = trim((string) $request->input('date', date('Y-m-d')));
@@ -64,7 +64,7 @@ class StadiumAnalysisController extends Controller
 
     public function rigCalculate(Request $request): JsonResponse
     {
-        LegacyGilbaBootstrap::loadStadiumClasses();
+        GilbaRuntimeBootstrap::loadStadiumClasses();
 
         $venueId = trim((string) $request->input('venue_id', ''));
         $rigModel = trim((string) $request->input('rig_model', 'SGL_MU460'));
@@ -136,7 +136,7 @@ class StadiumAnalysisController extends Controller
 
     public function seasonalPlan(Request $request): JsonResponse
     {
-        LegacyGilbaBootstrap::loadStadiumClasses();
+        GilbaRuntimeBootstrap::loadStadiumClasses();
 
         $venueId = trim((string) $request->input('venue_id', ''));
         $rigModel = trim((string) $request->input('rig_model', 'SGL_MU460'));

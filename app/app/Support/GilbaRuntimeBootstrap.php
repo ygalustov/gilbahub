@@ -2,7 +2,7 @@
 
 namespace App\Support;
 
-class LegacyGilbaBootstrap
+class GilbaRuntimeBootstrap
 {
     private static bool $interpretationLoaded = false;
 
@@ -14,7 +14,7 @@ class LegacyGilbaBootstrap
             return;
         }
 
-        $base = base_path('legacy/gilba/includes');
+        $base = app_path('Support/Interpretation');
 
         require_once $base.'/class-gilba-interpretation.php';
         require_once $base.'/class-gilba-soil-interpretation.php';
@@ -30,7 +30,7 @@ class LegacyGilbaBootstrap
             return;
         }
 
-        $base = base_path('legacy/gilba/includes/stadium');
+        $base = app_path('Support/Stadium');
 
         require_once $base.'/interface-shade-engine.php';
         require_once $base.'/class-geometry-utils.php';

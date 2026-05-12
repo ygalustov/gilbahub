@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\LegacyGilbaBootstrap;
+use App\Support\GilbaRuntimeBootstrap;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -14,7 +14,7 @@ class InterpretationController extends Controller
             'soil_output' => ['required', 'array'],
         ]);
 
-        LegacyGilbaBootstrap::loadInterpretationClasses();
+        GilbaRuntimeBootstrap::loadInterpretationClasses();
 
         $interpreter = new \Gilba_Soil_Interpretation();
         $result = $interpreter->interpret($payload['soil_output']);
@@ -28,7 +28,7 @@ class InterpretationController extends Controller
             'water_output' => ['required', 'array'],
         ]);
 
-        LegacyGilbaBootstrap::loadInterpretationClasses();
+        GilbaRuntimeBootstrap::loadInterpretationClasses();
 
         $interpreter = new \Gilba_Water_Interpretation();
         $result = $interpreter->interpret($payload['water_output']);
@@ -42,7 +42,7 @@ class InterpretationController extends Controller
             'synthesis_data' => ['required', 'array'],
         ]);
 
-        LegacyGilbaBootstrap::loadInterpretationClasses();
+        GilbaRuntimeBootstrap::loadInterpretationClasses();
 
         $interpreter = new \Gilba_Synthesis_Interpretation();
         $result = $interpreter->interpret($payload['synthesis_data']);
