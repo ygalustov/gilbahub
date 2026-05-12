@@ -150,21 +150,21 @@
         <div class="gaip-form-row gaip-form-row-grid gaip-prior-weeks">
             <div>
                 <label>Week -1 (hrs)</label>
-                <input type="number" class="gaip-prior-week-1" value="" min="0" max="50" step="0.5" placeholder="—">
+                <input type="number" class="gaip-prior-week-1" value="" min="0" max="50" step="0.5" placeholder=",">
             </div>
             <div>
                 <label>Week -2 (hrs)</label>
-                <input type="number" class="gaip-prior-week-2" value="" min="0" max="50" step="0.5" placeholder="—">
+                <input type="number" class="gaip-prior-week-2" value="" min="0" max="50" step="0.5" placeholder=",">
             </div>
         </div>
         <div class="gaip-form-row gaip-form-row-grid gaip-prior-weeks">
             <div>
                 <label>Week -3 (hrs)</label>
-                <input type="number" class="gaip-prior-week-3" value="" min="0" max="50" step="0.5" placeholder="—">
+                <input type="number" class="gaip-prior-week-3" value="" min="0" max="50" step="0.5" placeholder=",">
             </div>
             <div>
                 <label>Week -4 (hrs)</label>
-                <input type="number" class="gaip-prior-week-4" value="" min="0" max="50" step="0.5" placeholder="—">
+                <input type="number" class="gaip-prior-week-4" value="" min="0" max="50" step="0.5" placeholder=",">
             </div>
         </div>
 

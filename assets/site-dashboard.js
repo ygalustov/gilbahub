@@ -760,7 +760,7 @@
 
         // Overflow indicator
         if (hiddenCount > 0 && !addFormVisible) {
-            html += '<div class="gaip-sd-overflow" id="gaip-sd-overflow">+' + hiddenCount + ' more \u2014 search to find</div>';
+            html += '<div class="gaip-sd-overflow" id="gaip-sd-overflow">+' + hiddenCount + ' more, search to find</div>';
         }
 
         cardsContainer.innerHTML = html;

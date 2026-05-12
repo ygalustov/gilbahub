@@ -237,7 +237,7 @@
                         existingDisplay += ' / ' + _esc(existing.companionSpecies);
                     }
                 } else {
-                    existingDisplay = '\u2014'; // em-dash
+                    existingDisplay = '-'; // em-dash
                 }
                 return '<tr data-sample-id="' + _esc(s.id) + '" data-zone-type="' + _esc(zt) + '">' +
                     '<td><input type="checkbox" class="gaip-btp-row-check" checked aria-label="Include this sample"></td>' +
@@ -367,7 +367,7 @@
             var collected = _collectFromDom(modal);
             var assignments = _buildAssignments(collected.rows, collected.groups);
             if (assignments.length === 0) {
-                status.textContent = 'Nothing to apply — set a group species or per-row override.';
+                status.textContent = 'Nothing to apply, set a group species or per-row override.';
                 status.className = 'gaip-bulk-status gaip-bulk-status-warn';
                 return;
             }

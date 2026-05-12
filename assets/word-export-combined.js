@@ -83,7 +83,7 @@
                 if (!resolved) {
                     resolved = true;
                     document.removeEventListener('gaip:analysis-complete', onComplete);
-                    warn('Analysis timed out after', timeoutMs, 'ms — collecting what we have');
+                    warn('Analysis timed out after', timeoutMs, 'ms, collecting what we have');
                     resolve();
                 }
             }, timeoutMs || TIMEOUT_MS);
@@ -210,7 +210,7 @@
                         var winner = soilZones[zk];
                         console.info(
                             '[CombinedExport] Zone "' + zk + '" on site "' + siteId +
-                            '" has ' + cands.length + ' soil samples — latest drives recommendations, ' +
+                            '" has ' + cands.length + ' soil samples, latest drives recommendations, ' +
                             'all samples feed trend analysis.',
                             { winner: { sampleId: winner.sampleId, date: winner.date }, candidates: cands }
                         );
@@ -314,7 +314,7 @@
         }
 
         log('enumerateSamples(' + scope + '): ' + result.length + ' zones across ' +
-            new Set(result.map(function(r) { return r.siteId; })).size + ' sites — ' +
+            new Set(result.map(function(r) { return r.siteId; })).size + ' sites, ' +
             result.map(function(r) { return r.siteLabel + '/' + (r.sampleLabel || r.sampleId); }).join(', '));
         return result;
     }
@@ -351,7 +351,7 @@
                 var status = document.getElementById('combined-export-status');
                 var count = document.getElementById('combined-export-count');
                 if (bar) bar.style.width = pct + '%';
-                if (status) status.textContent = 'Analysing: ' + siteLabel + ' — ' + sampleId;
+                if (status) status.textContent = 'Analysing: ' + siteLabel + ', ' + sampleId;
                 if (count) count.textContent = current + ' / ' + totalSamples + ' samples';
             },
             finish: function(msg) {
@@ -513,6 +513,70 @@
                 if (data.soil) data.soil.sampleLabel = resolvedLabel;
 
                 // ──────────────────────────────────────────────────────────────
+                // b35fix436 / C45 (revised), per-sample spray-log filter.
+                //
+                // Problem: collectData() at word-export.js:9230 writes the
+                // unfiltered slUI.getEntries() cache into data.sprayLog. The
+                // per-sample loop here doesn't call SampleManager.setActiveSample
+                // per iteration, so collectData reads the same DOM/active-sample
+                // values across every iteration. Filtering at collectData scope
+                // (b35fix435 attempt) was a no-op in this loop because
+                // data.turf.subCategory is constant across the iterations.
+                //
+                // Correct scope: HERE, where entry.sampleLabel is per-iteration
+                // and carries the surface noun ("Green 1", "Fairway 3", "Tee 7").
+                // Derive the spray-log zone from the label prefix and filter
+                // data.sprayLog.entries against it. Untagged entries (zone
+                // empty/null) emit on every surface; tagged entries emit only
+                // when zone matches the derived sample zone.
+                //
+                // Vocabulary mirrors spray-log-cascade.js:1044-1052 getCurrentZone
+                // (canonical SSOT). Inline duplicate tracked as OQ17 for SaaS-port
+                // consolidation.
+                // ──────────────────────────────────────────────────────────────
+                try {
+                    if (data.sprayLog && data.sprayLog.entries && data.sprayLog.entries.length > 0) {
+                        // Map sample label prefix → spray-log zone vocabulary.
+                        // Label format observed: "Green 1 Q3 2025", "Fairway 3 Q3 2025",
+                        // "Tee 7", "Surround 12", "Pitch 1" (sports).
+                        var labelLower = (resolvedLabel || '').toLowerCase();
+                        var sampleZone = '';
+                        if (/^green\b/.test(labelLower) || /^putting\s*green/.test(labelLower)) {
+                            sampleZone = 'greens';
+                        } else if (/^tee\b/.test(labelLower)) {
+                            sampleZone = 'tees';
+                        } else if (/^fairway\b/.test(labelLower)) {
+                            sampleZone = 'fairways';
+                        } else if (/^surround\b/.test(labelLower)) {
+                            sampleZone = 'surrounds';
+                        } else if (/^(pitch|oval|field|sports|sportsground|athletic)\b/.test(labelLower)) {
+                            sampleZone = 'sportsground';
+                        }
+                        // Unrecognised label leaves sampleZone empty; tagged
+                        // entries get rejected (safer default than emitting).
+
+                        var filtered = data.sprayLog.entries.filter(function(e) {
+                            var entryZone = ((e && e.zone) || '').toLowerCase();
+                            // Untagged entry: emit on every surface (site-wide policy).
+                            if (!entryZone) return true;
+                            // Tagged entry: emit only when zone matches.
+                            return sampleZone && entryZone === sampleZone;
+                        });
+
+                        if (filtered.length > 0) {
+                            data.sprayLog.entries = filtered;
+                            data.sprayLog.hasData = true;
+                        } else {
+                            // No matching entries for this surface: clear the section.
+                            data.sprayLog.entries = [];
+                            data.sprayLog.hasData = false;
+                        }
+                    }
+                } catch (_slfErr) {
+                    console.warn('[CombinedExport] spray-log filter error:', _slfErr && _slfErr.message);
+                }
+
+                // ──────────────────────────────────────────────────────────────
                 // b35fix313 — Per-sample engine context bake
                 //
                 // Problem (Item 7 from handoff doc): the post-loop ANR engine call
@@ -569,16 +633,16 @@
                             userN:              _userN,
                             siteId:             entry.siteId  // self-check marker
                         };
-                        log('Baked ctx for', entry.siteLabel, '—',
+                        log('Baked ctx for', entry.siteLabel, '-',
                             'species=' + data._combinedCtx.species,
                             'hem=' + data._combinedCtx.hemisphere,
                             'overseed=' + !!data._combinedCtx.overseedConfig.isOverseed,
                             'base=' + (data._combinedCtx.overseedConfig.baseSpecies || '(none)'));
                     } else {
-                        warn('GilbaNutritionSummary not loaded — _combinedCtx skipped for', entry.sampleId);
+                        warn('GilbaNutritionSummary not loaded, _combinedCtx skipped for', entry.sampleId);
                     }
                 } catch (_ctxErr) {
-                    warn('_combinedCtx bake failed for', entry.sampleId, '—', _ctxErr.message);
+                    warn('_combinedCtx bake failed for', entry.sampleId, '-', _ctxErr.message);
                 }
 
                 // Capture charts
@@ -588,7 +652,7 @@
                 } else {
                     // Fallback: try the internal captureCharts via re-export
                     // Charts may not be available if not exposed
-                    log('Chart capture not exposed — report will be text-only for:', entry.sampleId);
+                    log('Chart capture not exposed, report will be text-only for:', entry.sampleId);
                 }
 
                 collectedReports.push({
@@ -602,7 +666,7 @@
                     zoneProvenance: entry.zoneProvenance || null
                 });
 
-                log('Collected report', (i + 1), '/', samples.length, ':', entry.siteLabel, '—', entry.sampleId);
+                log('Collected report', (i + 1), '/', samples.length, ':', entry.siteLabel, '-', entry.sampleId);
             }
 
             // Build the combined document — flag stays true since buildSections runs inside here
@@ -704,24 +768,30 @@
                 return 'Site Information';
             }
             // Site-level sections — same for all greens at a site, skip after first
-            if (str.indexOf('Disease Risk Assessment') >= 0) return 'Disease Risk Assessment';
-            if (str.indexOf('Disease Details') >= 0) return 'Disease Details';
-            if (str.indexOf('Risk Drivers') >= 0) return 'Risk Drivers';
-            if (str.indexOf('7-Day Forecast') >= 0) return '7-Day Forecast';
+            // b35fix429 (C30): Disease Risk Assessment, Moisture Management, and
+            // Pre-Emergent Herbicide Timing section emits removed from word-export.js;
+            // their classifier entries (and dead H2 subsections — Disease Details,
+            // Risk Drivers, 7-Day Forecast, Water Balance, Water Balance Parameters,
+            // Water Balance Chart) removed in lockstep.
             if (str.indexOf('Active DMI Fungicide') >= 0) return 'Active DMI Fungicide';
             if (str.indexOf('Treatment Options') >= 0) return 'Treatment Options';
-            if (str.indexOf('Moisture Management') >= 0) return 'Moisture Management';
             if (str.indexOf('Soil Moisture Zones') >= 0) return 'Soil Moisture Zones';
             if (str.indexOf('Zone-Specific Recommendations') >= 0) return 'Zone-Specific Recommendations';
             if (str.indexOf('14-Day Stress Trajectory') >= 0) return '14-Day Stress Trajectory';
-            if (str.indexOf('Dew Forecast') >= 0) return 'Dew Forecast & Match Conditions';
+            // b35fix433 (C42): Dew Forecast classifier entry removed in lockstep with section emit prune.
             if (str.indexOf('Traffic & Wear Analysis') >= 0) return 'Traffic & Wear Analysis';
             if (str.indexOf('Phytotoxicity Risk') >= 0) return 'Phytotoxicity Risk';
+            // b35fix449 / C11x: Soil × Water Interactions classifier branch.
+            // Pre-fix this heading fell through to the '__heading__' sentinel,
+            // which made the deny-list test at line ~2470 a no-op for this
+            // section (sentinel is not in siteLevelHeadings). Section then
+            // re-emitted in full on every per-sample iteration. Surfaced
+            // during C11a emit-site walk 2026-05-08; same defect class as
+            // Phytotoxicity Risk (water-chemistry-driven, site-wide), which
+            // already has the classifier + deny-list pairing.
+            if (str.indexOf('Soil × Water') >= 0) return 'Soil × Water Interactions';
             if (str.indexOf('Environmental Stress Factors') >= 0) return 'Environmental Stress Factors Affecting Recovery';
             if (str.indexOf('Evapotranspiration') >= 0) return 'Evapotranspiration & Species Selection';
-            if (str.indexOf('Water Balance Chart') >= 0) return 'Water Balance Chart';
-            if (str.indexOf('Water Balance Parameters') >= 0) return 'Water Balance Parameters';
-            if (str.indexOf('Water Balance') >= 0) return 'Water Balance';
             if (str.indexOf('Leaching Requirement') >= 0) return 'Leaching Requirement';
             if (str.indexOf('Annual Nutrient Requirements') >= 0) return 'Annual Nutrient Requirements';
             if (str.indexOf('PGR Program Status') >= 0) return 'PGR Program Status';
@@ -733,8 +803,7 @@
             if (str.indexOf('Tissue Analysis Trends') >= 0) return 'Tissue Analysis Trends';
             if (str.indexOf('Water Quality Trends') >= 0) return 'Water Quality Trends';
             if (str.indexOf('Water Quality') >= 0) return 'Water Quality';
-            if (str.indexOf('Fairway/Tee') >= 0 && str.indexOf('Disease Assessment') >= 0) return 'Fairway/Tee — Disease Assessment';
-            if (str.indexOf('Pre-Emergent Herbicide Timing') >= 0) return 'Pre-Emergent Herbicide Timing';
+            if (str.indexOf('Fairway/Tee') >= 0 && str.indexOf('Disease Assessment') >= 0) return 'Fairway/Tee, Disease Assessment';
             if (str.indexOf('Active Alerts') >= 0) return 'Active Alerts';
             if (str.indexOf('Soil Amendment Recommendations') >= 0) return 'Soil Amendment Recommendations';
             if (str.indexOf('Performance Impact Analysis') >= 0) return 'Performance Impact Analysis';
@@ -767,18 +836,82 @@
     }
 
     /**
-     * Check if a Paragraph is a page break or effectively empty.
+     * Check if a Paragraph is a page break.
+     *
+     * b35fix402b: rewritten to use structural signature instead of the
+     * old length+substring heuristic. The old detector had two bugs that
+     * made it return false for every real PageBreak paragraph since
+     * the docx library upgrade increased per-paragraph JSON size:
+     *   1. `if (str.length > 500) return false` rejected real PageBreak
+     *      paragraphs (which serialise to ~700 bytes in current docx lib).
+     *   2. `str.indexOf('break')` and `str.indexOf('Break')` both returned
+     *      -1 because the docx library renders the break element as
+     *      `"rootKey":"w:br"` — neither substring appears.
+     *
+     * Production evidence (gilbasolutions.com Combined Export, header
+     * stamp Hub v11.21.1): document.xml had 25 page-break paragraphs
+     * with 7 adjacent pairs creating blank pages. The b35fix402 dedup
+     * pass and the existing trims at lines 2290/2309 both no-op'd
+     * because isPageBreak returned false for every input.
+     *
+     * New detector keys on the unambiguous structural signature:
+     *   - `"rootKey":"w:br"` element present
+     *   - `"type":"page"` attribute present (vs line break or column break)
+     *   - paragraph total under 2000 bytes (a content paragraph wrapping
+     *     a page break would be far larger; bare PageBreak para is ~700)
+     *
+     * Structural rather than heuristic so it doesn't break again when
+     * the docx library bumps version and changes serialisation size.
      */
     function isPageBreak(para) {
         if (!para) return false;
         try {
             var str = JSON.stringify(para);
-            // Page breaks are small paragraphs containing break type=page
-            if (str.length > 500) return false;
-            return str.indexOf('page') >= 0 && (str.indexOf('break') >= 0 || str.indexOf('Break') >= 0);
+            // Defensive cap — a content paragraph wrapping a page break would
+            // be much larger. Bare PageBreak paragraph is ~700 bytes; leave
+            // generous headroom for future docx library size changes.
+            if (str.length > 2000) return false;
+            return str.indexOf('"rootKey":"w:br"') >= 0
+                && str.indexOf('"type":"page"') >= 0;
         } catch (e) {
             return false;
         }
+    }
+
+    /**
+     * Collapse runs of consecutive page-break paragraphs to a single break.
+     *
+     * b35fix402 (C18). Defensive last-pass dedup before Document construction.
+     *
+     * The renderer pushes page-break paragraphs at multiple emission sites
+     * (line ~1277, ~1341, ~2168 per-zone, ~2409 site-wide ANR, ~3186, ~3218
+     * site-wide Purchasing). Sections returned by we.buildSections() may
+     * also begin or end with their own breaks. The existing trim at lines
+     * ~2254 and ~2273 catches end-of-zone breaks at the cut-point boundary
+     * but does not catch start-of-spliced-section breaks or post-zone-loop
+     * site-wide-section breaks landing immediately after a zone's own.
+     *
+     * Doubled-break adjacency produces visible blank pages in the rendered
+     * docx. Production evidence: page 26 of GAIP_Rockingham_Report_2026-05-01
+     * (pre-streamlined v3) was a blank page from this bug class. v3 fixed
+     * it surgically; this dedup pass removes the bug class.
+     *
+     * Walks the array once, mutates in place, returns the same array for
+     * caller convenience.
+     */
+    function dedupConsecutivePageBreaks(allChildren) {
+        if (!allChildren || allChildren.length < 2) return allChildren;
+        var collapsed = 0;
+        for (var i = allChildren.length - 1; i > 0; i--) {
+            if (isPageBreak(allChildren[i]) && isPageBreak(allChildren[i - 1])) {
+                allChildren.splice(i, 1);
+                collapsed++;
+            }
+        }
+        if (collapsed > 0) {
+            log('[CombinedExport b35fix402] Collapsed', collapsed, 'redundant page break(s)');
+        }
+        return allChildren;
     }
 
     // =========================================================================
@@ -819,6 +952,7 @@
             { label: 'Area (ha)',     key: 'areaHa', unit: 'ha',  isArea: true },
             { label: 'pH',            key: 'pH',   unit: '' },
             { label: 'EC (dS/m)',     key: 'EC',   unit: 'dS/m' },
+            { label: 'OM (%)',        key: 'OM',   unit: '%' },
             { label: 'P (ppm)',       key: 'P',    unit: 'ppm' },
             { label: 'K (ppm)',       key: 'K',    unit: 'ppm' },
             { label: 'Ca (ppm)',      key: 'Ca',   unit: 'ppm' },
@@ -892,6 +1026,7 @@
             var zoneLabel = rep.sampleLabel || rep.sampleId || ('Zone ' + (ri + 1));
             var rowCells = [makeZoneLabelCell(zoneLabel)];
 
+
             for (var ni2 = 0; ni2 < nutrients.length; ni2++) {
                 var nut = nutrients[ni2];
                 var val, fill, displayText;
@@ -918,7 +1053,7 @@
                     val = d.soil ? d.soil[nut.key] : null;
                     if (val !== null && val !== undefined) {
                         var thresh = d.soil && d.soil.thresholds && d.soil.thresholds[nut.key];
-                        if (nut.key === 'pH' || nut.key === 'CEC' || nut.key === 'Na' || nut.key === 'EC') {
+                        if (nut.key === 'pH' || nut.key === 'CEC' || nut.key === 'Na' || nut.key === 'EC' || nut.key === 'OM') {
                             fill = 'F9FAFB';
                         } else if (thresh && thresh.min !== undefined) {
                             fill = (parseFloat(val) < thresh.min) ? 'FEE2E2' : 'D1FAE5';
@@ -926,13 +1061,13 @@
                             fill = 'F9FAFB';
                         }
                         displayText = typeof val === 'number'
-                            ? (nut.key === 'EC' ? val.toFixed(2) : val.toFixed(val >= 10 ? 0 : 1))
+                            ? (nut.key === 'EC' ? val.toFixed(2) : (nut.key === 'OM' ? val.toFixed(1) : val.toFixed(val >= 10 ? 0 : 1)))
                             : String(val);
                     }
                 }
 
                 if (val === null || val === undefined) {
-                    rowCells.push(makeDataCell('—', 'F9FAFB', nutColW));
+                    rowCells.push(makeDataCell('-', 'F9FAFB', nutColW));
                 } else {
                     rowCells.push(makeDataCell(displayText, fill, nutColW));
                 }
@@ -1038,7 +1173,7 @@
                 if (defNutrients.length > 0) {
                     issues.push(defNutrients.join(', ') + ' below ' +
                         (soil.methodology === 'SLAN' ? 'SLAN' : 'MLSN') + ' minimum');
-                    actions.push('Correct ' + defNutrients.join(', ') + ' deficits — see per-zone recommendations');
+                    actions.push('Correct ' + defNutrients.join(', ') + ' deficits, see per-zone recommendations');
                 }
             }
 
@@ -1090,26 +1225,26 @@
             var pH = soil.pH != null ? parseFloat(soil.pH) : null;
             if (pH !== null) {
                 if (pH < 5.5) {
-                    issues.push('pH ' + pH.toFixed(1) + ' — strongly acidic');
+                    issues.push('pH ' + pH.toFixed(1) + ', strongly acidic');
                     actions.push('Lime to raise pH into 5.8\u20136.5 range');
                 } else if (pH > 8.0) {
-                    issues.push('pH ' + pH.toFixed(1) + ' — alkaline, trace element lockup risk');
+                    issues.push('pH ' + pH.toFixed(1) + ', alkaline, trace element lockup risk');
                     actions.push('Acidify or use chelated trace element foliar applications');
                 } else if (pH > 7.5) {
-                    issues.push('pH ' + pH.toFixed(1) + ' — elevated, monitor trace element availability');
+                    issues.push('pH ' + pH.toFixed(1) + ', elevated, monitor trace element availability');
                 }
             }
 
             // 4. Low EC (rootzone salinity or very low fertility indicator)
             var ec = soil.EC != null ? parseFloat(soil.EC) : null;
             if (ec !== null && ec < 0.3) {
-                issues.push('EC ' + ec.toFixed(2) + ' dS/m — very low');
+                issues.push('EC ' + ec.toFixed(2) + ' dS/m, very low');
             }
 
             // 5. Low CEC (sand-based rootzone, limited nutrient holding capacity)
             var cec = soil.CEC != null ? parseFloat(soil.CEC) : null;
             if (cec !== null && cec < 5) {
-                issues.push('CEC ' + cec.toFixed(1) + ' — low holding capacity (spoon-feeding required)');
+                issues.push('CEC ' + cec.toFixed(1) + ', low holding capacity (spoon-feeding required)');
                 actions.push('Spoon-feed nutrients; increase organic matter over time');
             }
 
@@ -1509,7 +1644,7 @@
             }
 
             if (!_engineReadyCombined) {
-                console.warn('[CombinedExport] engine not loaded — skipping ANR for', r.siteLabel || '?', r.sampleId || '?');
+                console.warn('[CombinedExport] engine not loaded, skipping ANR for', r.siteLabel || '?', r.sampleId || '?');
                 r._anr = null;
                 _failedCount++;
                 return;
@@ -1526,7 +1661,7 @@
             if (!_ei || !_ei.turf || !_ei.turf.species) {
                 console.warn('[CombinedExport] engineInputs missing or species unset for',
                              r.siteLabel || '?', r.sampleId || '?',
-                             '— skipping ANR (no silent species fallback). Check collectData ran during loop.');
+                             ', skipping ANR (no silent species fallback). Check collectData ran during loop.');
                 r._anr = null;
                 _failedCount++;
                 return;
@@ -1571,7 +1706,7 @@
                 };
                 _engineCount++;
             } catch (_err) {
-                console.warn('[CombinedExport] engine failed for', r.siteLabel || '?', r.sampleId || '?', '—', _err.message);
+                console.warn('[CombinedExport] engine failed for', r.siteLabel || '?', r.sampleId || '?', '-', _err.message);
                 r._anr = null;
                 _failedCount++;
             }
@@ -1620,7 +1755,7 @@
             var _useAU = !_usePrebble && !!(window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram);
 
             if (_isNZ && !_usePrebble) {
-                console.warn('[CombinedExport] b35fix305: NZ site detected but PrebbleRecommender unavailable — falling back to AU recommender.');
+                console.warn('[CombinedExport] b35fix305: NZ site detected but PrebbleRecommender unavailable, falling back to AU recommender.');
             }
             console.log('[CombinedExport] b35fix305 recommender branch: isNZ=' + _isNZ + ' usePrebble=' + _usePrebble + ' useAU=' + _useAU);
 
@@ -1912,9 +2047,10 @@
                                 if (v === undefined || v === null || !th) return;
                                 if (!(v < th.min)) return;
                                 var deficit = th.min - v;
+                                // b35fix424 (C20): hemisphere threaded through.
                                 var d = _wx._computeAmendmentDecision(
                                     n, deficit, _soilForAmend, _surfaceType,
-                                    r.data.nutritionProgram, _amendCtx
+                                    r.data.nutritionProgram, _amendCtx, _hem
                                 );
                                 if (d) _amendDecisions.push(d);
                             });
@@ -2172,7 +2308,7 @@
                 spacing: { after: 100 },
                 children: [
                     new TextRun({ text: report.siteLabel, bold: true, size: 28, color: '1F2937' }),
-                    new TextRun({ text: '  \u2014  ', size: 28, color: '9CA3AF' }),
+                    new TextRun({ text: ' ,  ', size: 28, color: '9CA3AF' }),
                     new TextRun({ text: report.sampleLabel || report.sampleId, bold: true, size: 28, color: '374151' })
                 ]
             }));
@@ -2210,7 +2346,7 @@
                 } else {
                     provenanceRuns.push(new TextRun({
                         text: 'Recommendations based on sample: ' + zp.winnerLabel + winnerDate +
-                              ' (single sample for this zone — no trend history available).',
+                              ' (single sample for this zone, no trend history available).',
                         italics: true, size: 18, color: '6B7280'
                     }));
                 }
@@ -2306,26 +2442,51 @@
                         var siteLevelHeadings = [
                             'Site Information',
                             'Climate & Growth Conditions',
-                            'Disease Risk Assessment',
-                            'Disease Details',
-                            'Risk Drivers',
-                            '7-Day Forecast',
+                            // b35fix429 (C30): Disease Risk Assessment, Moisture Management,
+                            // Pre-Emergent Herbicide Timing entries removed (sections pruned
+                            // from word-export.js); dead H2 subsections (Disease Details,
+                            // Risk Drivers, 7-Day Forecast, Water Balance, Water Balance
+                            // Parameters, Water Balance Chart) removed in lockstep.
                             'Active DMI Fungicide',
                             'Treatment Options',
-                            'Moisture Management',
                             'Soil Moisture Zones',
                             'Zone-Specific Recommendations',
                             '14-Day Stress Trajectory',
-                            'Dew Forecast & Match Conditions',
+                            // b35fix433 (C42): Dew Forecast & Match Conditions deny-list entry removed in lockstep with section emit prune.
                             'Traffic & Wear Analysis',
                             'Phytotoxicity Risk',
-                            'Salinity Stress Impact',
-                            'Salinity & Stress Interactions',
+                            // b35fix449 / C11x: Soil × Water Interactions paired
+                            // with Phytotoxicity Risk above; both water-chemistry-driven,
+                            // both architecturally site-wide. Pre-fix this entry was
+                            // missing from the deny-list AND its classifier branch
+                            // was missing at line ~785; either gap alone would have
+                            // produced the bleed. Both gaps closed in lockstep.
+                            'Soil × Water Interactions',
+                            // b35fix450 / C11y: two dead deny-list entries
+                            // pruned (Salinity Stress Impact, and the Salinity
+                            // ampersand Stress Interactions category label).
+                            // The first defended against a section the producer
+                            // at word-export.js:~12363 explicitly suppresses in
+                            // combined export via !window.GAIP_COMBINED_EXPORT_ACTIVE
+                            // (water source is site-level so the per-sample
+                            // emit is wrong by construction). The second is not
+                            // an H1 heading at all, it is a category label
+                            // inside the References and Methodology array at
+                            // word-export.js:~13544 (small bold TextRun, no
+                            // outlineLvl, classifier returns null for it).
+                            // Neither entry was reachable through the
+                            // per-sample classifier round-trip; both were
+                            // misleading code that suggested a defence
+                            // mechanism existed where none was needed.
+                            // Surfaced 2026-05-08 during the post-b35fix429
+                            // dead-heading audit (banked lesson #44, deny-list
+                            // audit walks symmetric-difference both directions).
+                            // Per banked lesson #29, the retired literals are
+                            // described rather than quoted to avoid breaking
+                            // the deny-list-extractor regex used by the C11y
+                            // regression test.
                             'Environmental Stress Factors Affecting Recovery',
                             'Evapotranspiration & Species Selection',
-                            'Water Balance',
-                            'Water Balance Parameters',
-                            'Water Balance Chart',
                             'Leaching Requirement',
                             'Annual Nutrient Requirements',
                             'PGR Program Status',
@@ -2337,8 +2498,7 @@
                             'Tissue Analysis Trends',
                             'Water Quality Trends',
                             'Water Quality',
-                            'Fairway/Tee — Disease Assessment',
-                            'Pre-Emergent Herbicide Timing',
+                            'Fairway/Tee, Disease Assessment',
                             'Active Alerts',
                             'Soil Amendment Recommendations',
                             'Performance Impact Analysis',
@@ -2577,7 +2737,7 @@
             if (methodStr === 'MLSN') {
                 subtitleText = 'MLSN methodology (Woods et al. 2016): K/P/S req figures are removal-rate ' +
                                '(replacement target). Below the MLSN floor, req = removal + deficit ' +
-                               'correction; at or above the floor, req = removal only — soil reserves ' +
+                               'correction; at or above the floor, req = removal only, soil reserves ' +
                                'are agronomically sufficient, the figure indicates the rate at which ' +
                                'clippings are removing the nutrient, not a per-year application target.' +
                                _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
@@ -2590,9 +2750,60 @@
                                'Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001).' +
                                _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
             } else if (methodStr === 'AA') {
-                subtitleText = 'Ammonium acetate extraction — removal-only estimate (MLSN/SLAN thresholds not applicable). All rates kg/ha/yr.';
+                // ────────────────────────────────────────────────────────
+                // b35fix441b / C47: AA caption reanchor (combined-export
+                // sibling of the b35fix441 / C47 fix in word-export.js
+                // line ~10850). Same evidence chain: pre-fix copy claimed
+                // MLSN/SLAN thresholds were inapplicable, but Hill Labs
+                // sample-type-specific sufficiency thresholds (S277, S81,
+                // S78) ARE applied — they drive the Soil Amendment table
+                // and the trend-column threshold comparisons elsewhere on
+                // the same page. The disclaimer was a parallel emission
+                // site that the b35fix441 / C47 fix missed because the
+                // downstream-reader audit only grepped word-export.js,
+                // not word-export-combined.js. Surfaced by Hagley Combined
+                // Report 2026-05-05 production verification post-b35fix441
+                // deploy: single-export rendered the new C47 copy
+                // correctly, combined-export rendered the old copy.
+                // Lesson #32 banked: when fixing a string in word-
+                // export.js, grep word-export-combined.js for the same
+                // pattern before declaring the fix complete.
+                //
+                // Scope note: at this point in the combined-export pipeline
+                // we are outside the anrReports.forEach loop, so the per-
+                // sample data shape is not directly in scope. Pull the
+                // aaSampleType from the first AA-methodology report (when
+                // multiple AA samples are mixed in one export, they're all
+                // S277 or all S81 in practice — Hill Labs samples of
+                // different types in the same combined export is an edge
+                // case that would emit the first report's code; that's
+                // acceptable because the disclaimer is informational and
+                // the actual threshold-applied math is per-sample correct).
+                // ────────────────────────────────────────────────────────
+                var _b35fix441b_aaReport = null;
+                for (var _b441bi = 0; _b441bi < anrReports.length; _b441bi++) {
+                    var _b441br = anrReports[_b441bi];
+                    var _b441brm = _b441br.data && _b441br.data.soil && _b441br.data.soil.methodology;
+                    if (_b441brm === 'AMMONIUM_ACETATE' || _b441brm === 'AMMONIUM ACETATE') {
+                        _b35fix441b_aaReport = _b441br;
+                        break;
+                    }
+                }
+                var _b35fix441b_aaCode = (_b35fix441b_aaReport && _b35fix441b_aaReport.data &&
+                                          _b35fix441b_aaReport.data.soil &&
+                                          _b35fix441b_aaReport.data.soil.aaSampleType) || 'S277';
+                var _b35fix441b_aaLabel = (_b35fix441b_aaReport && _b35fix441b_aaReport.data &&
+                                           _b35fix441b_aaReport.data.soil &&
+                                           _b35fix441b_aaReport.data.soil.aaSampleTypeLabel) ||
+                                          'TURF Ryegrass, Sand (S277)';
+                subtitleText = 'Hill Labs ' + _b35fix441b_aaCode + ' sample-type sufficiency thresholds applied (' +
+                               _b35fix441b_aaLabel + '). Cation values converted from cert-native ' +
+                               'me/100g to ppm for amendment-math comparison; cation deficit-correction ' +
+                               'recommendations appear in the Soil Amendment table above. The figures ' +
+                               'below are annual removal-replacement estimates (clipping uptake), not ' +
+                               'deficit-closure rates.' + _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
             } else if (methodStr === 'S78') {
-                subtitleText = 'Hill Labs S78 — Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
+                subtitleText = 'Hill Labs S78, Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
             } else {
                 subtitleText = 'Requirements based on ' + methodStr + ' methodology.' + _reconSuffix + ' All rates kg/ha/yr.';
             }
@@ -2693,7 +2904,7 @@
                                   : '16A34A';
                         var displayVal = raw != null
                             ? parseFloat(raw).toFixed(2).replace(/\.?0+$/, '')
-                            : '—';
+                            : '-';
                         cells.push(_mkCell(displayVal, {
                             fill: rowFill, bold: true, size: 16, color: color,
                             align: AlignmentType.CENTER, width: col.width
@@ -2766,7 +2977,7 @@
                     var ns = r.data.nutritionSummary;
                     var soil = r.data.soil || {};
 
-                    var nVal = ns && ns.totalN ? parseFloat(ns.totalN).toFixed(0) : '—';
+                    var nVal = ns && ns.totalN ? parseFloat(ns.totalN).toFixed(0) : '-';
 
                     var cells = [
                         // Sample label — bold, left-aligned
@@ -2783,10 +2994,10 @@
                     // P / K / S — each gets a (ppm, req) pair
                     ['P', 'K', 'S'].forEach(function(nut) {
                         var anrResult = r._anr && r._anr[nut];
-                        var ppmVal = soil[nut] != null ? soil[nut].toFixed(0) : '—';
+                        var ppmVal = soil[nut] != null ? soil[nut].toFixed(0) : '-';
                         var reqVal = anrResult && anrResult.val != null
                             ? parseFloat(anrResult.val).toFixed(1)
-                            : '—';
+                            : '-';
 
                         // b35fix331: append † on K req cells where the K-recon
                         // classifier returned 'trend' state (programme short of
@@ -2797,7 +3008,7 @@
                         // follow-up if superintendents request it.
                         if (nut === 'K' && r._b35fix331KReconState
                                         && r._b35fix331KReconState.state === 'trend'
-                                        && reqVal !== '—') {
+                                        && reqVal !== '-') {
                             reqVal = reqVal + ' †';
                         }
 
@@ -2828,7 +3039,7 @@
                     allChildren.push(new Paragraph({
                         spacing: { before: 240, after: 60 },
                         children: [new TextRun({
-                            text: 'K Reconciliation — Programme Delivery vs Requirement',
+                            text: 'K Reconciliation, Programme Delivery vs Requirement',
                             bold: true, size: 20, color: '111827'
                         })]
                     }));
@@ -2901,7 +3112,7 @@
                         var _isZeroReq = (req === 0 || req == null);
                         var balance = (_isZeroReq) ? null : (kDel - req);
 
-                        var balText = balance == null ? '—'
+                        var balText = balance == null ? '-'
                                     : (balance >= 0 ? '+' : '') + balance.toFixed(1);
                         var balColor = balance == null ? '6B7280'
                                      : balance > 20 ? '16A34A'
@@ -2941,10 +3152,10 @@
                                         balance: balance
                                     });
                                 } catch (e) {
-                                    _state = { state: 'unknown', text: '—', color: '6B7280' };
+                                    _state = { state: 'unknown', text: '-', color: '6B7280' };
                                 }
                             } else {
-                                _state = { state: 'unknown', text: '—', color: '6B7280' };
+                                _state = { state: 'unknown', text: '-', color: '6B7280' };
                             }
                         }
                         var rec      = _state.text;
@@ -2954,7 +3165,7 @@
                             _mkCell(r.sampleLabel || r.sampleId, {
                                 fill: rowFill, bold: true, size: 16, width: 2200
                             }),
-                            _mkCell(req != null ? req.toFixed(1) : '—', {
+                            _mkCell(req != null ? req.toFixed(1) : '-', {
                                 fill: rowFill, size: 16, align: AlignmentType.CENTER, width: 1200
                             }),
                             _mkCell(String(kDel), {
@@ -2982,7 +3193,7 @@
                 allChildren.push(new Paragraph({
                     spacing: { before: 120, after: 100 },
                     children: [new TextRun({
-                        text: 'Note: K reconciliation omitted — no fertiliser programme found for this site. Add an N programme to enable per-sample K balance reporting.',
+                        text: 'Note: K reconciliation omitted, no fertiliser programme found for this site. Add an N programme to enable per-sample K balance reporting.',
                         size: 17, italics: true, color: '9CA3AF'
                     })]
                 }));
@@ -3186,12 +3397,12 @@
                     allChildren.push(new Paragraph({ children: [new PageBreak()] }));
                     allChildren.push(new Paragraph({
                         heading: HeadingLevel.HEADING_1, keepNext: true,
-                        children: [new TextRun(siteLabel + ' — Fertiliser Purchasing Summary')]
+                        children: [new TextRun(siteLabel + ', Fertiliser Purchasing Summary')]
                     }));
                     allChildren.push(new Paragraph({
                         spacing: { before: 120, after: 120 },
                         children: [new TextRun({
-                            text: 'Procurement planning suppressed — no current soil data.',
+                            text: 'Procurement planning suppressed, no current soil data.',
                             bold: true, size: 22, color: 'C96A5F'
                         })]
                     }));
@@ -3218,7 +3429,7 @@
                 allChildren.push(new Paragraph({ children: [new PageBreak()] }));
                 allChildren.push(new Paragraph({
                     heading: HeadingLevel.HEADING_1, keepNext: true,
-                    children: [new TextRun(siteLabel + ' — Fertiliser Purchasing Summary')]
+                    children: [new TextRun(siteLabel + ', Fertiliser Purchasing Summary')]
                 }));
 
                 // b35fix311: opt-out warning banner — stale data being used
@@ -3249,7 +3460,7 @@
                 } else {
                     subText = 'Aggregate across ' + freshReports.length + ' fresh sample' +
                               (freshReports.length === 1 ? '' : 's') + '. ' +
-                              'Per-ha rates only — area data not entered on any sample. ' +
+                              'Per-ha rates only, area data not entered on any sample. ' +
                               'Enter sample area (ha) to enable absolute kg totals for procurement.';
                 }
                 allChildren.push(new Paragraph({
@@ -3454,6 +3665,13 @@
                 allChildren.push(trailingSections[ti]);
             }
         }
+
+        // b35fix402 (C18): final pass to collapse any consecutive page-break
+        // paragraphs left behind by zone-boundary emission, splicing of
+        // sections that begin/end with breaks, or trailing-sections push.
+        // Defensive last step: runs after all pushes complete and before
+        // Document construction so no later push can re-introduce the bug.
+        dedupConsecutivePageBreaks(allChildren);
 
         // Create document
         var doc = new Document({

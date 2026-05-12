@@ -3658,10 +3658,10 @@ const VARIETY_TRAITS = {
           traits: {
             heat: { toleranceMultiplier: 0.95, droughtMultiplier: 0.95, confidence: 'medium', source: 'NTEP 2014 drought trials', notes: 'Good heat tolerance, intermediate drought tolerance. Adapted through transition zone.' },
             cold: { winterHardiness: 1.00, winterkillRisk: 1.00, dormancyThresholdModifier: 1.00, confidence: 'medium', source: 'NTEP cold regions', notes: 'Average cold tolerance for creeping bentgrass' },
-            wear: { multiplier: 1.00, recoveryMultiplier: 1.05, confidence: 'medium', source: 'NTEP fairway/tee trials (Penn State)', notes: 'Intermediate wear tolerance. Upright growth, not excessively dense — less scalping risk than Declaration/Proclamation.' },
-            waterUse: { multiplier: 1.00, confidence: 'low', source: 'NTEP — no dedicated water use data', notes: 'No specific water use efficiency data. Average for creeping bentgrass.' },
+            wear: { multiplier: 1.00, recoveryMultiplier: 1.05, confidence: 'medium', source: 'NTEP fairway/tee trials (Penn State)', notes: 'Intermediate wear tolerance. Upright growth, not excessively dense, less scalping risk than Declaration/Proclamation.' },
+            waterUse: { multiplier: 1.00, confidence: 'low', source: 'NTEP, no dedicated water use data', notes: 'No specific water use efficiency data. Average for creeping bentgrass.' },
             shade: { thresholdModifier: 1.00, confidence: 'low', source: 'Species baseline', notes: 'No specific shade data. Creeping bentgrass generally moderate shade tolerance.' },
-            establishment: { germinationSpeed: 1.15, confidence: 'high', source: 'NTEP 2008 Penn State — greatest seedling vigor', notes: 'Excellent establishment vigor — tied highest in NTEP trials' },
+            establishment: { germinationSpeed: 1.15, confidence: 'high', source: 'NTEP 2008 Penn State, greatest seedling vigor', notes: 'Excellent establishment vigor, tied highest in NTEP trials' },
             disease: {
               // b35fix239: dollarSpot 1.05→0.82. Prior value was incorrect — source note
               // acknowledged "intermediate tolerance" but numeric entry reflected susceptibility.
@@ -3675,28 +3675,28 @@ const VARIETY_TRAITS = {
               // newer cultivars (Declaration 0.75, 007 0.75) now outperform it.
               dollarSpot: { riskMultiplier: 0.82, confidence: 'high', source: 'Abernathy et al. 2001 Crop Sci (most resistant of 5 cultivars); NTEP Penn State 2008-2013 (intermediate-good tolerance); Koch et al. 2009 multi-state' },
               brownPatch: { riskMultiplier: 0.90, confidence: 'medium', source: 'NTEP', notes: 'Good brown patch tolerance' },
-              fusarium: { riskMultiplier: 0.90, confidence: 'medium', source: 'Jacklin/NTEP — exceptional Microdochium resistance' },
+              fusarium: { riskMultiplier: 0.90, confidence: 'medium', source: 'Jacklin/NTEP, exceptional Microdochium resistance' },
               anthracnose: { riskMultiplier: 1.00, confidence: 'low', source: 'No specific data' }
             },
             poaCompetition: {
               aggression: 0.80,
               confidence: 'high',
-              source: 'NTEP 2008-2013 Penn State — greatest Poa encroachment alongside Penncross',
+              source: 'NTEP 2008-2013 Penn State, greatest Poa encroachment alongside Penncross',
               notes: 'POOR Poa annua competition. Requires aggressive cultural management to maintain bentgrass purity.'
             }
           },
-          notes: 'Excellent establishment, good heat/disease tolerance, but poor Poa competition. Intermediate quality in recent trials — newer cultivars (Declaration, Proclamation, 007) now outperform.'
+          notes: 'Excellent establishment, good heat/disease tolerance, but poor Poa competition. Intermediate quality in recent trials, newer cultivars (Declaration, Proclamation, 007) now outperform.'
         },
         
         cold_ntep: {
           qualityRating: 6.3,
-          qualitySource: 'NTEP — Purdue/Penn State',
+          qualitySource: 'NTEP, Purdue/Penn State',
           climateEquivalent: 'Canberra, Southern Highlands',
           
           traits: {
             cold: { winterHardiness: 1.00, winterkillRisk: 1.00, confidence: 'medium', source: 'NTEP cold regions' },
             disease: {
-              dollarSpot: { riskMultiplier: 0.82, confidence: 'high', source: 'Abernathy et al. 2001 Crop Sci; NTEP 2008-2013 — b35fix239' },
+              dollarSpot: { riskMultiplier: 0.82, confidence: 'high', source: 'Abernathy et al. 2001 Crop Sci; NTEP 2008-2013, b35fix239' },
               brownPatch: { riskMultiplier: 0.90, confidence: 'medium', source: 'NTEP' }
             }
           }
@@ -5571,7 +5571,7 @@ const VARIETY_TRAITS = {
             riskMultiplier: 1.12,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: overall disease resistance 5.8/9; dense sward (density 7.0) increases canopy moisture retention and fusarium risk',
-            notes: 'Microdochium nivale — primary browntop disease in NZ/AU. Dense canopy elevates risk vs open-habit varieties.',
+            notes: 'Microdochium nivale, primary browntop disease in NZ/AU. Dense canopy elevates risk vs open-habit varieties.',
           },
           dollarSpot: {
             riskMultiplier: 1.00,
@@ -5581,8 +5581,8 @@ const VARIETY_TRAITS = {
           takeAllPatch: {
             riskMultiplier: 1.00,
             confidence: 'low',
-            source: 'No variety-specific take-all data; soil pH and site history are primary drivers — variety modifier assumed neutral',
-            notes: 'Gaeumannomyces graminis — chronic on low-pH sandy greens regardless of variety',
+            source: 'No variety-specific take-all data; soil pH and site history are primary drivers, variety modifier assumed neutral',
+            notes: 'Gaeumannomyces graminis, chronic on low-pH sandy greens regardless of variety',
           },
           anthracnose: {
             riskMultiplier: 0.95,
@@ -5629,7 +5629,7 @@ const VARIETY_TRAITS = {
           winterkillRisk: 0.82,
           confidence: 'high',
           source: 'Bred from plants collected at Arrowtown Golf Club NZ (480m elevation, winters to -10°C); PGG Wrightson/DLF superior cold hardiness documentation',
-          notes: 'Elite cold hardiness — bred at one of NZ highest-altitude golf courses; suits Canberra, Southern Highlands, elevated NZ sites',
+          notes: 'Elite cold hardiness, bred at one of NZ highest-altitude golf courses; suits Canberra, Southern Highlands, elevated NZ sites',
         },
       }
     },
@@ -5695,7 +5695,7 @@ const VARIETY_TRAITS = {
           fusariumPatch: {
             riskMultiplier: 1.08,
             confidence: 'medium',
-            source: 'BSPB 2025 Table G1: overall disease resistance 5.6/9; moderate density (6.7) — slightly elevated fusarium risk',
+            source: 'BSPB 2025 Table G1: overall disease resistance 5.6/9; moderate density (6.7), slightly elevated fusarium risk',
             notes: 'Microdochium nivale primary browntop disease; moderate density implies moderate moisture retention risk',
           },
           dollarSpot: {
@@ -5707,7 +5707,7 @@ const VARIETY_TRAITS = {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH primary driver',
-            notes: 'Gaeumannomyces graminis — site-driven not variety-driven',
+            notes: 'Gaeumannomyces graminis, site-driven not variety-driven',
           },
           anthracnose: {
             riskMultiplier: 0.95,
@@ -5795,8 +5795,8 @@ const VARIETY_TRAITS = {
           fusariumPatch: {
             riskMultiplier: 0.88,
             confidence: 'medium',
-            source: 'BSPB 2025 Table G1: best overall disease resistance of browntops (6.2/9); slowest regrowth (6.7) implies drier surface between mowings — lower fusarium risk',
-            notes: 'Microdochium nivale — Egmont best disease resistance among standard browntops; slow regrowth reduces canopy moisture',
+            source: 'BSPB 2025 Table G1: best overall disease resistance of browntops (6.2/9); slowest regrowth (6.7) implies drier surface between mowings, lower fusarium risk',
+            notes: 'Microdochium nivale, Egmont best disease resistance among standard browntops; slow regrowth reduces canopy moisture',
           },
           dollarSpot: {
             riskMultiplier: 0.90,
@@ -5894,8 +5894,8 @@ const VARIETY_TRAITS = {
           fusariumPatch: {
             riskMultiplier: 1.00,
             confidence: 'medium',
-            source: 'BSPB 2025 Table G1: overall disease resistance 6.0/9 — near browntop average; density 6.3 implies standard moisture retention',
-            notes: 'Microdochium nivale — average fusarium risk for browntop bent',
+            source: 'BSPB 2025 Table G1: overall disease resistance 6.0/9, near browntop average; density 6.3 implies standard moisture retention',
+            notes: 'Microdochium nivale, average fusarium risk for browntop bent',
           },
           dollarSpot: {
             riskMultiplier: 1.00,
@@ -5927,7 +5927,7 @@ const VARIETY_TRAITS = {
           winterkillRisk: 0.95,
           confidence: 'medium',
           source: 'DLF Seeds BSPB 2025: standard browntop cold performance; no specific cold claim in DLF documentation',
-          notes: 'Solid but undifferentiated cold hardiness — suits temperate AU/NZ sites',
+          notes: 'Solid but undifferentiated cold hardiness, suits temperate AU/NZ sites',
         },
       }
     },
@@ -5965,12 +5965,12 @@ const VARIETY_TRAITS = {
             riskMultiplier: 1.15,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: lowest disease resistance of browntops (5.0/9); shade-tolerant variety with dense shade canopy increases moisture retention and fusarium risk',
-            notes: 'Microdochium nivale — highest fusarium risk among browntop varieties; shade adaptation increases humidity at turf surface',
+            notes: 'Microdochium nivale, highest fusarium risk among browntop varieties; shade adaptation increases humidity at turf surface',
           },
           dollarSpot: {
             riskMultiplier: 1.05,
             confidence: 'medium',
-            source: 'BSPB 2025: lowest disease resistance rating — slightly elevated dollar spot susceptibility',
+            source: 'BSPB 2025: lowest disease resistance rating, slightly elevated dollar spot susceptibility',
           },
           takeAllPatch: {
             riskMultiplier: 1.00,
@@ -7942,7 +7942,7 @@ const VARIETY_TRAITS = {
       // Sea Isle 2000 entry on TurfFinder explicitly notes "Fewer seed heads
       // than older varieties e.g. 'Adalayd' and Saltene™" (DAF Technical note).
       qualityRating: 5.5,
-      qualitySource: 'Industry observation — Loch & Roche 2003 PVJ 16(2):65; Australian commercial use 1990s–present. NOT NTEP-trialled.',
+      qualitySource: 'Industry observation, Loch & Roche 2003 PVJ 16(2):65; Australian commercial use 1990s–present. NOT NTEP-trialled.',
 
       testedRegions: ['au_subtropical', 'au_temperate'],
 
@@ -7955,14 +7955,14 @@ const VARIETY_TRAITS = {
           confidence: 'low',
           source: 'Trenholm, Carrow & Duncan 2000 Crop Sci 40:1350-1357 (species-level mechanism: greater shoot density, leaf moisture, K-driven turgor); Saltene-specific data not published',
           recoveryMultiplier: 0.95,
-          notes: 'Species-level — paspalum reverts to rhizome rebuild on injury (Duncan & Carrow 2002). Saltene cultivar-specific wear data unavailable.'
+          notes: 'Species-level, paspalum reverts to rhizome rebuild on injury (Duncan & Carrow 2002). Saltene cultivar-specific wear data unavailable.'
         },
 
         // SHADE ANALYSIS MODULE
         shade: {
           thresholdModifier: 0.95, // 5% lower DLI tolerable than couch baseline
           confidence: 'medium',
-          source: 'Jiang, Duncan & Carrow 2004 Crop Sci 44(2):587-594 — paspalum maintains photosynthetic efficiency under reduced light intensity (cloud, smog) better than bermudagrass; tree-shade quality reduction equivalent to bermuda',
+          source: 'Jiang, Duncan & Carrow 2004 Crop Sci 44(2):587-594, paspalum maintains photosynthetic efficiency under reduced light intensity (cloud, smog) better than bermudagrass; tree-shade quality reduction equivalent to bermuda',
           notes: 'Better than couch under low-intensity / diffuse light; equivalent to couch under quality-altered tree shade'
         },
 
@@ -7971,7 +7971,7 @@ const VARIETY_TRAITS = {
           multiplier: 0.55, // 45% better than baseline — halophyte
           confidence: 'high',
           source: 'Duncan & Carrow 2000 Seashore Paspalum (Ann Arbor Press); Lee, Carrow & Duncan 2004 HortScience 39:1143-1147; Carrow & Duncan 1998 Salt-Affected Turfgrass Sites (Ann Arbor Press); Uddin & Juraimi 2013 Sci World J 2013:409413 (>10 dS/m tolerant class)',
-          notes: 'Halophyte — tolerates EC up to ~54 dS/m (seawater class) under proper management. Saltene is older Australian genotype; salinity ceiling likely below newer cultivars (Sea Isle 2000, Platinum TE) but well above all couches. Conservative multiplier — refine with cultivar-specific test.'
+          notes: 'Halophyte, tolerates EC up to ~54 dS/m (seawater class) under proper management. Saltene is older Australian genotype; salinity ceiling likely below newer cultivars (Sea Isle 2000, Platinum TE) but well above all couches. Conservative multiplier, refine with cultivar-specific test.'
         },
 
         // IRRIGATION MODULE
@@ -7979,7 +7979,7 @@ const VARIETY_TRAITS = {
           multiplier: 0.90, // 10% lower than couch baseline
           confidence: 'low',
           source: 'Huang, Duncan & Carrow 1997 Crop Sci 37:1858-1869 (drought-resistance, root aspects); Jespersen et al. 2019 Crop Sci 59:778-786 (paspalum vs bermuda drought response)',
-          notes: 'Species-level — deep-infrequent irrigation regime trains rhizomes downward. Cultivar-specific ET data not published for Saltene.'
+          notes: 'Species-level, deep-infrequent irrigation regime trains rhizomes downward. Cultivar-specific ET data not published for Saltene.'
         },
 
         // CLIMATE MODULE — Cold tolerance (frost-sensitive)
@@ -7987,8 +7987,8 @@ const VARIETY_TRAITS = {
           dormancyThresholdModifier: 1.10, // Goes dormant at warmer temps
           winterkillRisk: 1.20, // 20% higher winterkill risk than couch baseline
           confidence: 'medium',
-          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; McKays Grass Seeds (Sea Spray cultivar fact sheet) — "doesn\'t cope well with frosts, one chilly morning can severely affect health"; species-level frost-sensitivity well documented',
-          notes: 'Frost-sensitive. Bowral NSW Southern Highlands sits at the cool-edge of paspalum suitability — expect winter dormancy and elevated winterkill risk on frost-prone sites. Saltene cold tolerance specifically not characterised; use conservative penalty.'
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; McKays Grass Seeds (Sea Spray cultivar fact sheet), "doesn\'t cope well with frosts, one chilly morning can severely affect health"; species-level frost-sensitivity well documented',
+          notes: 'Frost-sensitive. Bowral NSW Southern Highlands sits at the cool-edge of paspalum suitability, expect winter dormancy and elevated winterkill risk on frost-prone sites. Saltene cold tolerance specifically not characterised; use conservative penalty.'
         },
 
         // CLIMATE MODULE — Spring greenup
@@ -8010,7 +8010,7 @@ const VARIETY_TRAITS = {
           springDeadSpot: {
             riskMultiplier: 1.05,
             confidence: 'low',
-            source: 'TurfFinder Sea Isle 2000 entry — Queensland field reports of spring dead patch on paspalum',
+            source: 'TurfFinder Sea Isle 2000 entry, Queensland field reports of spring dead patch on paspalum',
             notes: 'Species-level concern in subtropical AU; not specifically calibrated for Saltene'
           },
           takeAllPatch: {
@@ -8028,7 +8028,7 @@ const VARIETY_TRAITS = {
           helminthosporium: {
             riskMultiplier: 1.10,
             confidence: 'low',
-            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 — leaf spot diseases (Helminthosporium spp., Bipolaris spp., Drechslera spp.) observed in Hawaii',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1, leaf spot diseases (Helminthosporium spp., Bipolaris spp., Drechslera spp.) observed in Hawaii',
             notes: 'Species-level susceptibility documented in Hawaii; Saltene-specific incidence not characterised'
           }
         },
@@ -8039,7 +8039,7 @@ const VARIETY_TRAITS = {
           optimal: '12-25',   // mm — fairway/sportsfield range
           greensRange: null,  // Saltene NOT recommended for greens HOC
           confidence: 'medium',
-          source: 'TurfFinder Seashore Paspalum species page (Globe Australia distributor data); Loch & Roche 2003 PVJ 16(2):65 — Saltene texture observations',
+          source: 'TurfFinder Seashore Paspalum species page (Globe Australia distributor data); Loch & Roche 2003 PVJ 16(2):65, Saltene texture observations',
           notes: 'For greens HOC (3–6 mm) use a dwarf paspalum cultivar (Sea Isle 2000, SeaDwarf, Salam). Saltene at greens HOC is non-standard.'
         },
 
@@ -8048,7 +8048,7 @@ const VARIETY_TRAITS = {
           nitrogenMultiplier: 0.55, // 45% lower N than couch baseline
           nitrogenForm: 'nitrate-preferred',
           confidence: 'high',
-          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (paspalum uses 40-50% less N than hybrid bermudagrass); Waltz UGA Paspalum Agronomy (greens 3-6 lb N/1000 ft²/yr in winter-dormant zones, 5-8 lb in humid tropics); Duncan & Carrow 2005 GCM Feb (nitrate-only uptake — Nitrosomonas conversion required for urea/ammonium, soil temps >12.8°C)',
+          source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (paspalum uses 40-50% less N than hybrid bermudagrass); Waltz UGA Paspalum Agronomy (greens 3-6 lb N/1000 ft²/yr in winter-dormant zones, 5-8 lb in humid tropics); Duncan & Carrow 2005 GCM Feb (nitrate-only uptake, Nitrosomonas conversion required for urea/ammonium, soil temps >12.8°C)',
           notes: 'Nitrate-N preferred. Ammonium/urea conversion requires soil >12.8°C and pH >5.5. Greens N rate 30–50% below typical hybrid bermudagrass programme. Excessive N → puffiness, thatch, scalping.'
         }
       }
@@ -8076,7 +8076,7 @@ const VARIETY_TRAITS = {
       displayName: 'Velvetene',
 
       qualityRating: 6.0,
-      qualitySource: 'Loch & Roche 2003 PVJ 16(2):65 — TFWA02 selection notes; Australian PBR application + commercial deployment WA/east-coast 2001-present. NOT NTEP-trialled.',
+      qualitySource: 'Loch & Roche 2003 PVJ 16(2):65, TFWA02 selection notes; Australian PBR application + commercial deployment WA/east-coast 2001-present. NOT NTEP-trialled.',
 
       testedRegions: ['au_subtropical', 'au_temperate'],
 
@@ -8086,7 +8086,7 @@ const VARIETY_TRAITS = {
         wear: {
           multiplier: 0.93,
           confidence: 'low',
-          source: 'Trenholm, Carrow & Duncan 2000 Crop Sci 40:1350-1357 (species-level); Loch & Roche 2003 — WA harsh-conditions selection implies modestly better stress recovery than parent',
+          source: 'Trenholm, Carrow & Duncan 2000 Crop Sci 40:1350-1357 (species-level); Loch & Roche 2003, WA harsh-conditions selection implies modestly better stress recovery than parent',
           recoveryMultiplier: 0.93,
           notes: 'Slightly better than Saltene on dominance-under-stress evidence from the WA selection process. Cultivar-specific wear data not published.'
         },
@@ -8108,7 +8108,7 @@ const VARIETY_TRAITS = {
         waterUse: {
           multiplier: 0.90,
           confidence: 'low',
-          source: 'Huang, Duncan & Carrow 1997 Crop Sci 37:1858-1869 (species-level drought response); Loch & Roche 2003 — WA dominance selection',
+          source: 'Huang, Duncan & Carrow 1997 Crop Sci 37:1858-1869 (species-level drought response); Loch & Roche 2003, WA dominance selection',
           notes: 'Species-level drought tolerance; cultivar-specific ET data unavailable'
         },
 
@@ -8117,7 +8117,7 @@ const VARIETY_TRAITS = {
           winterkillRisk: 1.20,
           confidence: 'medium',
           source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; species-level frost sensitivity well documented',
-          notes: 'Same frost-sensitivity profile as Saltene. Bowral NSW Southern Highlands at the cool-edge of paspalum suitability — winter dormancy and frost-related winterkill expected on exposed sites.'
+          notes: 'Same frost-sensitivity profile as Saltene. Bowral NSW Southern Highlands at the cool-edge of paspalum suitability, winter dormancy and frost-related winterkill expected on exposed sites.'
         },
 
         springGreenup: {
@@ -8131,13 +8131,13 @@ const VARIETY_TRAITS = {
           dollarSpot: {
             riskMultiplier: 1.10,
             confidence: 'medium',
-            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (cultivar variation in dollar-spot susceptibility — Sea Isle 1 elevated, Salam elevated, Sea Isle 2000 reduced); TurfFinder Sea Isle 2000 entry: Queensland field reports of dollar spot on paspalum',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 (cultivar variation in dollar-spot susceptibility, Sea Isle 1 elevated, Salam elevated, Sea Isle 2000 reduced); TurfFinder Sea Isle 2000 entry: Queensland field reports of dollar spot on paspalum',
             notes: 'No published Velvetene-specific dollar-spot data. Conservative slightly-elevated multiplier inherited from species baseline. Refine with field observation.'
           },
           springDeadSpot: {
             riskMultiplier: 1.05,
             confidence: 'low',
-            source: 'TurfFinder Sea Isle 2000 — Queensland field reports of spring dead patch on paspalum',
+            source: 'TurfFinder Sea Isle 2000, Queensland field reports of spring dead patch on paspalum',
             notes: 'Species-level concern; Velvetene-specific incidence not characterised'
           },
           takeAllPatch: {
@@ -8155,7 +8155,7 @@ const VARIETY_TRAITS = {
           helminthosporium: {
             riskMultiplier: 1.10,
             confidence: 'low',
-            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1 — leaf spot diseases (Helminthosporium/Bipolaris/Drechslera) observed on paspalum in Hawaii',
+            source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1, leaf spot diseases (Helminthosporium/Bipolaris/Drechslera) observed on paspalum in Hawaii',
             notes: 'Species-level susceptibility; cultivar incidence not characterised'
           }
         },
@@ -8174,7 +8174,7 @@ const VARIETY_TRAITS = {
           nitrogenForm: 'nitrate-preferred',
           confidence: 'high',
           source: 'Brosnan & Deputy 2008 UH-CTAHR TM-1; Waltz UGA Paspalum Agronomy; Duncan & Carrow 2005 GCM Feb',
-          notes: 'Nitrate-N preferred. Same paspalum-specific N programme as Saltene — 30–50% below hybrid bermudagrass rate. Excessive N → puffiness, thatch.'
+          notes: 'Nitrate-N preferred. Same paspalum-specific N programme as Saltene, 30–50% below hybrid bermudagrass rate. Excessive N → puffiness, thatch.'
         }
       }
     }

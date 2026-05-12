@@ -6,7 +6,7 @@
  *
  * @version 1.0.0
  */
-(function ($) {
+(function () {
     'use strict';
 
     var GSSH_MapInit = {
@@ -94,8 +94,12 @@
         }
     };
 
-    $(document).ready(function () {
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () {
+            GSSH_MapInit.init();
+        });
+    } else {
         GSSH_MapInit.init();
-    });
+    }
 
-}(jQuery));
+}());

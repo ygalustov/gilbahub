@@ -755,7 +755,7 @@
       (i &&
         i.addEventListener("change", function () {
           if (e._isLoadingProfile) {
-            console.log("[TurfProfile] Location changed during profile load — skipping species rebuild");
+            console.log("[TurfProfile] Location changed during profile load, skipping species rebuild");
             return;
           }
           (console.log(
@@ -1101,7 +1101,7 @@
           (e.id = "gaip-stale-results-warning"),
           (e.className = "gaip-stale-warning"),
           (e.innerHTML =
-            '\n                    <span class="gaip-stale-icon">⚠️</span>\n                    <span class="gaip-stale-text">Turf profile changed. Results may be stale — re-run analysis to update.</span>\n                    <button class="gaip-stale-dismiss" onclick="GaipTurfProfile.hideStaleWarning()">✕</button>\n                '));
+            '\n                    <span class="gaip-stale-icon">⚠️</span>\n                    <span class="gaip-stale-text">Turf profile changed. Results may be stale, re-run analysis to update.</span>\n                    <button class="gaip-stale-dismiss" onclick="GaipTurfProfile.hideStaleWarning()">✕</button>\n                '));
         const t = document.querySelector(".gaip-results");
         t && t.insertBefore(e, t.firstChild);
       }
@@ -1303,7 +1303,7 @@
             // is the active site). site-config-persistence will set the right species.
             var siteConfigPending = window.GAIP_SITE_CONFIG_PENDING === true;
             if (siteConfigPending) {
-              console.log('[TurfProfile] Skipping profile identity cascade — site-config restore pending');
+              console.log('[TurfProfile] Skipping profile identity cascade, site-config restore pending');
               self._isLoadingProfile = false;
               return;
             }
@@ -1392,7 +1392,7 @@
           console.log("[TurfProfile] Switching to site:", siteId, "for profile:", profileName);
           sm.setActiveSite(siteId);
         } else {
-          console.log("[TurfProfile] Skipping site switch to", siteId, "— persistence not ready (init auto-load)");
+          console.log("[TurfProfile] Skipping site switch to", siteId, ", persistence not ready (init auto-load)");
         }
       }
 
@@ -1440,7 +1440,7 @@
         (window.location && window.location.search.indexOf('gssh_venue') !== -1)
       );
       if (_isGSSHPage) {
-        console.log('[TurfProfile] GSSH page detected — skipping last-profile restore (venue selector is species authority)');
+        console.log('[TurfProfile] GSSH page detected, skipping last-profile restore (venue selector is species authority)');
         return;
       }
       const e = localStorage.getItem(this.STORAGE_KEY + "_last");

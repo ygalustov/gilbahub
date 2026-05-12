@@ -277,7 +277,7 @@
                 }
             } catch (e) { /* sample manager unavailable; carry on with null */ }
             console.warn(
-                '[NutritionCalendar] Species missing in state and DOM — defaulted to creepingBentgrass.',
+                '[NutritionCalendar] Species missing in state and DOM, defaulted to creepingBentgrass.',
                 'sampleId:', _activeSampleId,
                 'rawSpecies:', rawSpecies,
                 'domValue:', _speciesFallbackDomValue
@@ -509,10 +509,36 @@
         });
 
         // Read remaining soil fields into soilState BEFORE write-back
+        // b35fix409 (C3+C5): three fixes here.
+        //   1. CEC writeback was `soilState.cec = ...` (lowercase). Renderers
+        //      and downstream readers all consult uppercase `soilState.CEC`,
+        //      so the lowercase write was silently dropped. Now writes the
+        //      canonical uppercase key.
+        //   2. EC had no DOM fallback at all. The single-export path at
+        //      `word-export.js:6505` reads it directly from DOM, but the
+        //      combined-export path relies on `soilState.EC` from this
+        //      function. Without it, every per-zone iteration in combined
+        //      export saw EC=null. Now reads `.gaip-soil-ec` and writes
+        //      `soilState.EC`.
+        //   3. OM had no DOM fallback either. Same reasoning. Reads
+        //      `.gaip-loi` (the actual UI selector — confirmed against
+        //      sample-manager.js SOIL_FIELD_MAP) and writes `soilState.OM`.
         const cecInput = document.querySelector('.gaip-cec');
         if (cecInput && cecInput.value) {
             const cec = parseFloat(cecInput.value);
-            if (!isNaN(cec)) soilState.cec = cec;
+            if (!isNaN(cec)) soilState.CEC = cec;
+        }
+
+        const ecInput = document.querySelector('.gaip-soil-ec');
+        if (ecInput && ecInput.value) {
+            const ec = parseFloat(ecInput.value);
+            if (!isNaN(ec)) soilState.EC = ec;
+        }
+
+        const omInput = document.querySelector('.gaip-loi');
+        if (omInput && omInput.value) {
+            const om = parseFloat(omInput.value);
+            if (!isNaN(om)) soilState.OM = om;
         }
 
         const bdInput = document.querySelector('.gaip-bulk-density, [name="bulk-density"]');
@@ -1129,7 +1155,7 @@
         this.showResults();
 
         // Dispatch event for Prebble integration
-        console.log('[NutritionCalendar] Dispatching gaip:nutrition-calendar-generated — program keys:', Object.keys(this.program || {}));
+        console.log('[NutritionCalendar] Dispatching gaip:nutrition-calendar-generated, program keys:', Object.keys(this.program || {}));
         document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated', {
             detail: { program: this.program }
         }));

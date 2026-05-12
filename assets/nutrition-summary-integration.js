@@ -1,7 +1,32 @@
 /**
  * =============================================================================
- * GILBA NUTRITION SUMMARY INTEGRATION v1.2.0
+ * GILBA NUTRITION SUMMARY INTEGRATION v1.3.0
  * =============================================================================
+ *
+ * v1.3.0 (b35fix423, C29 close): Amendment efficiency factor lookup.
+ *   - New NUTRITION_CONFIG.amendmentEfficiency table — per-amendment ×
+ *     delivery-method × soil-condition multipliers (gypsum saline 0.40, MAP
+ *     alkaline 0.55, lime acid 0.80, sulphate of ammonia 0.75, elemental S
+ *     alkaline 0.50, etc.). Mid-range AU/NZ practice values; pin per-site as
+ *     needed. References: Hopkins & Ellsworth 2005 calcareous P fixation;
+ *     Sample/Soper/Racz 1980 SSSAJ 44; Carrow & Duncan saline amendment work;
+ *     STRI / R&A turf practice notes.
+ *   - New public API getAmendmentEfficiency(amendmentKey, deliveryMethod,
+ *     soilData) — returns { efficiency, condition, source }. Soil-condition
+ *     resolution priority: saline (ESP > 6 or ECe > 4) → alkaline (pH ≥ 7.5)
+ *     → acid (pH < 6.0) → neutral (6.0 ≤ pH < 7.5) → 'normal' / 'any' fallback.
+ *   - Default 0.60 returned with source='default-...' when lookup misses, so
+ *     missed entries surface in audit copy rather than silently failing.
+ *   - C29 ships with deliveryMethod='granular' default; C20 will populate
+ *     'foliar' for greens/bowls/croquet on P/K/S branches. Foliar branches
+ *     for MAP and Potassium sulphate are pre-wired in the table now so the
+ *     C20 activation is a parameter change, not a table change.
+ *   - calculateNutrientRequirement signature unchanged. C29's effect on the
+ *     Annual Soil Amendments table render is delegated to word-export.js
+ *     _computeAmendmentDecision (which reads getAmendmentEfficiency from
+ *     this module's public API). The HTML preview rendered by this module's
+ *     renderDeficitSummary continues to show the SLAN/MLSN annualRequirement
+ *     unchanged — dual-rate display is docx-only per C29 scope.
  *
  * v1.2.0 (b35fix302b): Delegate calculation to NutritionRequirementEngine_Pure.
  *   - Fixes Jerry's reported combined-export bug where every green/sportsground
@@ -88,6 +113,76 @@
         yearsToCorrect: { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 },
         defaultSoilDepth: 10,
         defaultBulkDensity: 1.4,
+
+        // ====================================================================
+        // b35fix423 (C29) — Amendment efficiency factor table
+        // ====================================================================
+        //
+        // Each amendment delivers only a fraction of its applied nutrient to
+        // the plant-available pool over the correction window. The remainder
+        // is lost to fixation, leaching, biological-oxidation lag, or volatile
+        // loss. The pre-C29 engine assumed efficiency = 1.0, producing rates
+        // that under-prescribed for amendment loss and presented theoretical
+        // figures as practical recommendations.
+        //
+        // Lookup is keyed by (amendmentKey, deliveryMethod, condition) where
+        // condition is derived from soil chemistry (pH, ESP, ECe).
+        //
+        // Reference values (mid-range, AU/NZ practice; pin per-site as needed):
+        //
+        //   Gypsum granular         saline (ESP > 6 or ECe > 4 dS/m)   0.40
+        //                           normal                              0.60
+        //   MAP granular            alkaline (pH ≥ 7.5)                 0.55
+        //                           neutral                             0.70
+        //   MAP foliar (Tech soluble foliar P)  any pH                  0.65
+        //   Lime / dolomite granular  acid (pH < 6.0)                   0.80
+        //   Sulphate of ammonia granular  any pH                        0.75
+        //   Elemental S granular      alkaline (acidification target)   0.50
+        //   Potassium sulphate granular  any                            0.70
+        //   Kieserite / Epsom granular   any                            0.70
+        //   Foliar (any nutrient)     any                               0.65
+        //
+        // Sources: Hopkins & Ellsworth (2005) calcareous P fixation review;
+        //   Sample, Soper & Racz (1980) SSSAJ 44; Carrow & Duncan body of
+        //   work on saline soil amendment; STRI / R&A turf practice notes.
+        //   AU/NZ paspalum on coastal alkaline sand sits at the higher end
+        //   of the alkaline-MAP range (low free-Ca carbonate fraction).
+        //
+        // C29 ships with deliveryMethod hardcoded to 'granular' as default;
+        // C20 (b35fix424) populates deliveryMethod based on per-nutrient × surface
+        // selection ('foliar' on greens/bowls/croquet for P/K/S; foliar everywhere
+        // for Mg via Epsom — Epsom is sold as soluble in AU/NZ practice).
+        //
+        // b35fix424 (C20) foliar entries added:
+        //   sulphateOfAmmonia.foliar = 0.65   (SOL-AS Tech soluble for S Rule 3 on close-cut)
+        //   gypsum.foliar           = 0.55   (defensive only — Ca foliar rare; entry for completeness)
+        //   epsom.foliar            = 0.65   (Mg Rule "else" path — Epsom always foliar)
+        // epsom.granular kept as defensive fallback so non-greens sites that drop into
+        // the Mg branch via a future code path don't fall through to defaultAmendmentEfficiency
+        // (would otherwise emit 'default-no-delivery' source on every Mg site).
+        amendmentEfficiency: {
+            gypsum:               { granular: { saline: 0.40, normal: 0.60 },
+                                    foliar:   { any: 0.55 } },
+            map:                  { granular: { alkaline: 0.55, neutral: 0.70 },
+                                    foliar:   { any: 0.65 } },
+            lime:                 { granular: { any: 0.80 } },
+            dolomite:             { granular: { any: 0.80 } },
+            sulphateOfAmmonia:    { granular: { any: 0.75 },
+                                    foliar:   { any: 0.65 } },
+            elementalSulphur:     { granular: { any: 0.50 } },
+            potassiumSulphate:    { granular: { any: 0.70 },
+                                    foliar:   { any: 0.65 } },
+            kieserite:            { granular: { any: 0.70 } },
+            epsom:                { granular: { any: 0.70 },
+                                    foliar:   { any: 0.65 } },
+            foliarDefault:        { foliar:   { any: 0.65 } }
+        },
+
+        // Default amendment fallback when product-key isn't matched. Set to
+        // 0.60 (mid-range across the table). Logged via console.warn so
+        // misses surface during development.
+        defaultAmendmentEfficiency: 0.60,
+
         
         gpParams: {
             c3: { optimalTemp: 20, sigma: 5.5 },
@@ -382,6 +477,72 @@
         const normalized = normalizeSpecies(species);
         return NUTRITION_CONFIG.removalRates[normalized]?.[nutrient] || 
                NUTRITION_CONFIG.removalRates.mixedCool[nutrient];
+    }
+
+    /**
+     * b35fix423 (C29) — Amendment efficiency lookup.
+     *
+     * Returns the efficiency multiplier (0.0 - 1.0) for an amendment under the
+     * specified delivery method and soil condition. Used by the recommendation
+     * engine to convert a theoretical kg/ha rate (1:1 deficit-to-product) into
+     * a practical applied rate (deficit / efficiency / yearsToCorrect).
+     *
+     * @param {string} amendmentKey  Amendment table key (e.g. 'gypsum', 'map',
+     *                               'lime', 'sulphateOfAmmonia'). See
+     *                               NUTRITION_CONFIG.amendmentEfficiency.
+     * @param {string} deliveryMethod  'granular' | 'foliar'. C29 ships with
+     *                                 'granular' default; C20 will populate
+     *                                 'foliar' for greens/bowls/croquet.
+     * @param {Object} soilData  { pH, ESP, ECe, ... } — used to derive the
+     *                            soil condition (saline / alkaline / neutral
+     *                            / acid / any) for the lookup.
+     * @returns {Object} { efficiency: Number, condition: String, source: String }
+     *
+     * Returns defaultAmendmentEfficiency (0.60) when the lookup misses, with
+     * source='default' so the caller can flag the miss in audit copy.
+     */
+    function getAmendmentEfficiency(amendmentKey, deliveryMethod, soilData) {
+        const table = NUTRITION_CONFIG.amendmentEfficiency;
+        const dflt = NUTRITION_CONFIG.defaultAmendmentEfficiency;
+        if (!amendmentKey || !table[amendmentKey]) {
+            return { efficiency: dflt, condition: 'unknown', source: 'default-no-key' };
+        }
+        const delivery = deliveryMethod || 'granular';
+        const deliveryTable = table[amendmentKey][delivery];
+        if (!deliveryTable) {
+            return { efficiency: dflt, condition: 'unknown', source: 'default-no-delivery' };
+        }
+
+        // Derive soil condition from soilData. Order matters — saline takes
+        // precedence over alkaline (Rockingham-class case: pH 8.5 + ESP 8 =
+        // saline branch, not alkaline branch).
+        const pH = soilData && soilData.pH != null ? parseFloat(soilData.pH) : null;
+        const ESP = soilData && soilData.ESP != null ? parseFloat(soilData.ESP) : null;
+        const ECe = soilData && soilData.ECe != null ? parseFloat(soilData.ECe) : null;
+
+        const isSaline = (ESP !== null && ESP > 6) || (ECe !== null && ECe > 4);
+        const isAlkaline = pH !== null && pH >= 7.5;
+        const isAcid = pH !== null && pH < 6.0;
+        const isNeutral = pH !== null && pH >= 6.0 && pH < 7.5;
+
+        // Try condition keys in priority order, fall through to 'any' if no
+        // soil-condition-specific entry exists for this amendment.
+        let condition = null;
+        if (isSaline && deliveryTable.saline != null) condition = 'saline';
+        else if (isAlkaline && deliveryTable.alkaline != null) condition = 'alkaline';
+        else if (isAcid && deliveryTable.acid != null) condition = 'acid';
+        else if (isNeutral && deliveryTable.neutral != null) condition = 'neutral';
+        else if (deliveryTable.normal != null) condition = 'normal';
+        else if (deliveryTable.any != null) condition = 'any';
+
+        if (condition === null) {
+            return { efficiency: dflt, condition: 'unknown', source: 'default-no-condition' };
+        }
+        return {
+            efficiency: deliveryTable[condition],
+            condition: condition,
+            source: amendmentKey + '/' + delivery + '/' + condition
+        };
     }
 
     function calculateNutrientRequirement(nutrient, currentLevel, config) {
@@ -810,7 +971,7 @@
                     <div style="font-size: 10px; color: ${statusColor}; margin-top: 4px;">
                         ${req.status}
                     </div>
-                    ${req.annualRequirement === 0 ? '<div style="font-size: 9px; color: var(--gaip-text-secondary); margin-top: 4px; line-height: 1.3;">Soil level exceeds MLSN target — no application required this season. Monitor annually.</div>' : ''}
+                    ${req.annualRequirement === 0 ? '<div style="font-size: 9px; color: var(--gaip-text-secondary); margin-top: 4px; line-height: 1.3;">Soil level exceeds MLSN target, no application required this season. Monitor annually.</div>' : ''}
                 </div>
             `;
         }
@@ -823,17 +984,11 @@
      * v1.1.0: Enhanced N distribution table with overseed intent indicator
      */
     function renderNDistributionTable(annualN, monthlyGP, nAllocations, config, overseedConfig, monthlyC3Fractions) {
-        monthlyGP = monthlyGP || {};
-        nAllocations = nAllocations || {};
-        monthlyC3Fractions = monthlyC3Fractions || {};
-        config = config || {};
-        overseedConfig = overseedConfig || { isOverseed: false };
-
         const monthNames = getMonthNames();
         
         let maxN = 0, activeMonths = [];
         for (let month = 1; month <= 12; month++) {
-            if ((nAllocations[month] || 0) > 0) {
+            if (nAllocations[month] > 0) {
                 activeMonths.push(month);
                 maxN = Math.max(maxN, nAllocations[month]);
             }
@@ -936,7 +1091,7 @@
                         "></div>
                     </div>
                     <div style="font-size: 11px; font-weight: 600; color: ${isActive ? '#166534' : 'var(--gaip-text-muted)'}; margin-top: 4px;">
-                        ${n > 0 ? n.toFixed(0) : '—'}
+                        ${n > 0 ? n.toFixed(0) : '-'}
                     </div>
                 </div>
             `;
@@ -957,7 +1112,7 @@
                 </div>
                 ${legend}
                 <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--gaip-text); padding-top: 8px; border-top: 1px solid #86efac;">
-                    <span>Total: <strong>${annualN || 0} kg N/ha/yr</strong></span>
+                    <span>Total: <strong>${annualN} kg N/ha/yr</strong></span>
                     <span>Active months: <strong>${activeMonths.length}</strong></span>
                 </div>
             </div>
@@ -1266,6 +1421,7 @@
     const NutritionSummary = {
         calculateNutrientRequirement, 
         calculateAllRequirements,
+        getAmendmentEfficiency,  // b35fix423 (C29) — efficiency lookup for word-export rate calc
         calculateGPForTemp, 
         calculateMonthlyGP, 
         calculateMonthlyGPWithOverseed,

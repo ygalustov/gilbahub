@@ -702,7 +702,7 @@
         if (avgSoilTemp >= greenupThreshold + 5) {
             if (actualSeason === 'autumn' || actualSeason === 'winter') {
                 status = 'transitional';
-                statusDetail = 'Heading toward dormancy — soil temperatures still warm';
+                statusDetail = 'Heading toward dormancy, soil temperatures still warm';
             } else {
                 status = 'active';
                 statusDetail = 'Full growth - soil temperatures optimal';
@@ -717,29 +717,72 @@
                 statusDetail = 'Spring greenup in progress';
             } else if (actualSeason === 'autumn') {
                 status = 'transitional';
-                statusDetail = 'Heading toward dormancy — monitor soil temperature trend';
+                statusDetail = 'Heading toward dormancy, monitor soil temperature trend';
             } else {
                 status = 'greening';
                 statusDetail = 'Late winter warmth - early greenup possible';
             }
         } else if (avgSoilTemp >= dormancyThreshold) {
             status = 'transitional';
-            
-            // Season-aware transitional detail — b35fix138
-            const trend = temps.length > 3 ?
-                (temps[temps.length - 1].mean - temps[0].mean) / temps.length : 0;
+
+            // b35fix463 (C67): trend formula and unit grounding fixed.
+            //
+            // Pre-fix formula was (last.mean - first.mean) / temps.length, which
+            // is wrong on three counts:
+            //   1. Dimensionally incoherent. N daily samples define N-1 intervals,
+            //      so per-day change is delta / (N-1), not / N. Off-by-N error
+            //      shrinks trend by a factor of N then inflates day-count by N.
+            //   2. Trends on air temp (temps[i].mean) but extrapolates soil temp
+            //      distance to threshold. Soil temperature tracks air temperature
+            //      with attenuated amplitude and a lag; daily soil-temp change is
+            //      typically 0.5-0.7x daily air-temp change at 0-10 cm depth
+            //      (Hillel 1998, Environmental Soil Physics, p.318-322; Carson 1961,
+            //      Soil temperature and weather conditions, ANL-6470).
+            //   3. No bound on extrapolation horizon. A near-flat short-window
+            //      trend (e.g. 13.7 to 13.5 deg C over 7 days) produced absurd
+            //      projections (~240 days) that crossed seasons and ignored the
+            //      seasonal cycle dominating beyond a few weeks.
+            //
+            // Production evidence: Santa Ana couch, Bowral SH autumn, sensor soil
+            // temp 14 deg C, flat 7-day air-temp forecast, rendered "dormancy
+            // expected in ~240 days". Correct projection at this latitude and
+            // season is in the order of 10-30 days.
+            //
+            // Fix shape:
+            //   - Prefer soil-temp daily series when populated (forecast API
+            //     surfaces hourly soil_temperature_0_to_7cm which aggregateHourlyTemps
+            //     rolls into temps[i].soilTemp). Use it directly.
+            //   - Fall back to air-temp series scaled by AIR_TO_SOIL_COUPLING
+            //     when soilTemp is absent (sensor-only or daily-API without soil).
+            //   - Divide by (N-1) intervals not N samples.
+            //   - Require minimum trend magnitude 0.1 deg C/day before reporting
+            //     a number; below that the short-window forecast cannot
+            //     reliably project a transition direction.
+            //   - Cap at 60 days. Beyond two months the seasonal cycle (annual
+            //     soil-temp wave with amplitude 5-12 deg C at 10 cm in
+            //     temperate zones, Hillel 1998 p.319) dominates over the
+            //     short-window linear trend; reporting a longer projection
+            //     implies precision the model does not have.
+            //
+            // C67 in turn fed into adjacent C-entries logged in the ledger;
+            // the C67 close is the dimensional and bounds fix only. A multi-week
+            // climate-normal blend that respects full seasonality is logged
+            // separately for future engine refinement.
+            daysToTransition = _projectDaysToSoilTempThreshold(temps, avgSoilTemp,
+                actualSeason === 'autumn' || actualSeason === 'winter'
+                    ? dormancyThreshold : greenupThreshold,
+                actualSeason === 'autumn' || actualSeason === 'winter'
+                    ? 'cooling' : 'warming');
 
             if (actualSeason === 'autumn' || actualSeason === 'winter') {
                 statusDetail = 'Heading toward dormancy';
-                if (trend < 0) {
-                    daysToTransition = Math.ceil((avgSoilTemp - dormancyThreshold) / Math.abs(trend));
-                    statusDetail += ` — dormancy expected in ~${daysToTransition} days`;
+                if (daysToTransition !== null) {
+                    statusDetail += `, dormancy expected in ~${daysToTransition} days`;
                 }
             } else {
                 statusDetail = 'Between dormancy and active growth';
-                if (trend > 0) {
-                    daysToTransition = Math.ceil((greenupThreshold - avgSoilTemp) / trend);
-                    statusDetail += ` — greenup expected in ~${daysToTransition} days`;
+                if (daysToTransition !== null) {
+                    statusDetail += `, greenup expected in ~${daysToTransition} days`;
                 }
             }
         } else {
@@ -1121,6 +1164,91 @@
         return null;
     }
 
+    // b35fix463 (C67): dimensional-grounded projection of days from current
+    // soil temperature to a transition threshold (dormancy or greenup).
+    //
+    // Inputs:
+    //   temps:           daily array from extractTemperatureData; each entry
+    //                    carries .mean (air mean) and optionally .soilTemp
+    //   currentSoilTemp: resolved sensor-or-orchestrator-or-api soil temp value
+    //   threshold:       target soil temperature
+    //   direction:       'cooling' (autumn/winter dormancy) or 'warming'
+    //                    (spring greenup); sets sign expectation on trend
+    //
+    // Returns: integer days (1..PROJECTION_HORIZON_DAYS) when projection is
+    //          reliable; null when trend too weak, wrong direction, or
+    //          horizon exceeded.
+    //
+    // Why a helper rather than inline math: the dimensional-grounding +
+    // bounds + air-to-soil fallback collectively are non-trivial; inlining
+    // them at two near-identical call sites in calculateDormancyStatus is
+    // the read-shelf-asymmetry bug class (lessons #33 and #45 banked).
+    function _projectDaysToSoilTempThreshold(temps, currentSoilTemp, threshold, direction) {
+        // Need at least 4 daily samples for a usable short-window trend.
+        // Below this the slope is dominated by single-day noise.
+        if (!temps || temps.length < 4) {
+            return null;
+        }
+
+        // Prefer soil-temp daily series when populated. aggregateHourlyTemps
+        // pushes soilTemp values from forecast hourly soil_temperature_0_to_7cm
+        // when present; absent on manual entry, daily-API-only paths, and
+        // some sensor-fed runs where only the current reading exists.
+        const soilDaily = temps.filter(t =>
+            t && typeof t.soilTemp === 'number' && t.soilTemp > 0);
+
+        let dailyChange;
+        let trendSource;
+        if (soilDaily.length >= 4) {
+            // (last - first) / (N-1) intervals. Direct soil-temp trend, no
+            // coupling assumption needed.
+            const span = soilDaily.length - 1;
+            dailyChange = (soilDaily[soilDaily.length - 1].soilTemp - soilDaily[0].soilTemp) / span;
+            trendSource = 'soil-direct';
+        } else {
+            // Air-temp fallback. Scale by AIR_TO_SOIL_COUPLING (0.6, conservative;
+            // see comment in calculateDormancyStatus). Same (N-1) denominator.
+            const span = temps.length - 1;
+            const airChange = (temps[temps.length - 1].mean - temps[0].mean) / span;
+            const AIR_TO_SOIL_COUPLING = 0.6;
+            dailyChange = airChange * AIR_TO_SOIL_COUPLING;
+            trendSource = 'air-scaled';
+        }
+
+        // Minimum trend magnitude. Below 0.1 deg C/day the short-window
+        // forecast cannot reliably project direction; report no number
+        // rather than an inflated one.
+        const MIN_TREND_MAGNITUDE = 0.1;
+        if (Math.abs(dailyChange) < MIN_TREND_MAGNITUDE) {
+            return null;
+        }
+
+        // Direction gate. In autumn/winter we want a cooling trend; in
+        // spring we want a warming trend. Wrong-direction trend means the
+        // forecast contradicts the season's expected trajectory; suppress
+        // the day-count rather than report a negative or absurd projection.
+        if (direction === 'cooling' && dailyChange >= 0) return null;
+        if (direction === 'warming' && dailyChange <= 0) return null;
+
+        // Distance to threshold along the expected direction.
+        const distance = direction === 'cooling'
+            ? currentSoilTemp - threshold
+            : threshold - currentSoilTemp;
+        if (distance <= 0) return null;
+
+        const rawDays = Math.ceil(distance / Math.abs(dailyChange));
+
+        // Horizon cap. Beyond 60 days the annual soil-temperature wave
+        // (Hillel 1998 p.319) dominates over the short-window linear trend.
+        const PROJECTION_HORIZON_DAYS = 60;
+        if (rawDays > PROJECTION_HORIZON_DAYS) return null;
+        if (rawDays < 1) return 1;
+        // trendSource intentionally not surfaced on return value to keep
+        // the public shape unchanged; available for future UI annotation.
+        void trendSource;
+        return rawDays;
+    }
+
     function extractTemperatureData(climateData) {
         // Handle different data formats from climateData first
         if (climateData) {
@@ -1367,7 +1495,12 @@
         // Utilities
         isC4: isC4,
         isC3: isC3,
-        getSpeciesKey: getSpeciesKey
+        getSpeciesKey: getSpeciesKey,
+
+        // b35fix463 (C67): expose dormancy/greenup day-count projection helper
+        // for regression test grip without re-orchestrating full state +
+        // climateData fixtures.
+        _projectDaysToSoilTempThreshold: _projectDaysToSoilTempThreshold
     };
 
     // Export

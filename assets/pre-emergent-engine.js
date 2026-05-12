@@ -144,7 +144,7 @@
             confidenceRating: 'L',
             confidenceScore: 42,
             depthMm: 25,
-            notes: 'Limited primary data. Industry extension only. Informational note only — no hard alerts.',
+            notes: 'Limited primary data. Industry extension only. Informational note only, no hard alerts.',
             regions: ['au'],
             springOnly: true
         },
@@ -169,7 +169,7 @@
             notes: 'Threshold revised to 26°C for AU conditions. Taylor et al. (2021) max ~28°C; AU practitioner threshold 26°C (Dernoeden 2013). Directionally reversed: alert on DECLINING autumn soil temp.',
             regions: ['all'],
             reversedLogic: true,       // Flag for engine to invert comparisons
-            cdd21c: { base_C: 21, description: 'CDD base 21°C (Patton et al. 2021, Tennessee). SECONDARY indicator only — ' +
+            cdd21c: { base_C: 21, description: 'CDD base 21°C (Patton et al. 2021, Tennessee). SECONDARY indicator only, ' +
                       'not AU primary trigger. Use as corroborating signal when AU 26°C trigger is borderline.' }
         },
 
@@ -188,7 +188,7 @@
             confidenceRating: 'H',
             confidenceScore: 86,
             depthMm: 25,
-            notes: 'Grundy et al. (2000); Hill et al. (2014). Winter annual — apply in early autumn.',
+            notes: 'Grundy et al. (2000); Hill et al. (2014). Winter annual, apply in early autumn.',
             regions: ['all'],
             reversedLogic: true,
             broadleafNote: 'Standard dinitroaniline pre-emergents (prodiamine, pendimethalin) have limited activity on broadleaves. Isoxaben (Gallery) is the main broadleaf pre-emergent option.'
@@ -229,7 +229,7 @@
             notes: 'Cardina et al. (1997); Letchamo & Gosselin (1996). AU autumn flush Feb–Apr. Threshold revised to declining 22°C for AU conditions.',
             regions: ['all'],
             reversedLogic: true,
-            perennialWarning: 'Perennial — pre-emergent suppresses seedlings only. Vegetative spread from established plants continues. Post-emergent strategy preferred.'
+            perennialWarning: 'Perennial, pre-emergent suppresses seedlings only. Vegetative spread from established plants continues. Post-emergent strategy preferred.'
         },
         oxalis_corniculata: {
             name: 'Oxalis corniculata',
@@ -272,7 +272,7 @@
                    'Secondary flush July–September. Wide range (5–28°C lab) reduces pre-emergent reliability.',
             regions: ['au', 'nz', 'uk', 'eu', 'scandinavia'],
             reversedLogic: true,
-            perennialWarning: 'Perennial stoloniferous weed. Pre-emergent suppresses seedling recruitment only — ' +
+            perennialWarning: 'Perennial stoloniferous weed. Pre-emergent suppresses seedling recruitment only, ' +
                               'established patches are unaffected. Post-emergent (dicamba, clopyralid, fluroxypyr) ' +
                               'is the primary strategy for established plants.',
             broadleafNote: 'AU ALERT: Isoxaben (most effective pre-emergent for clover) is NOT registered for turf ' +
@@ -313,7 +313,7 @@
             confidenceRating: 'L',
             confidenceScore: 38,
             depthMm: 25,
-            notes: 'Limited primary AU data. Threshold 20°C declining based on practitioner observation. Informational only — no RED alerts.',
+            notes: 'Limited primary AU data. Threshold 20°C declining based on practitioner observation. Informational only, no RED alerts.',
             regions: ['au', 'nz'],
             reversedLogic: true,
             perennialWarning: 'Perennial. Post-emergent preferred. Pre-emergent efficacy data limited.'
@@ -365,7 +365,7 @@
             confidenceRating: 'H',
             confidenceScore: 88,
             depthMm: 20,
-            notes: 'Teuton et al. (2004). Dominant Digitaria in tropical AU and SE Asia. Threshold 15°C minimum; optimal 20–25°C. In tropical zones soil temp is persistently above threshold — programme-based timing recommended.',
+            notes: 'Teuton et al. (2004). Dominant Digitaria in tropical AU and SE Asia. Threshold 15°C minimum; optimal 20–25°C. In tropical zones soil temp is persistently above threshold, programme-based timing recommended.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical'],
             tropicalNote: 'Year-round germination pressure in full-tropical zones. Apply pre-emergent 8–12 weeks before wet-season onset and repeat at residual activity interval (typically 10–14 weeks depending on product).',
             springOnly: false
@@ -385,7 +385,7 @@
             confidenceRating: 'H',
             confidenceScore: 85,
             depthMm: 20,
-            notes: 'Rao et al. (1996) Weed Research 36:341–350. Minimum germination temp 18°C, optimal 28–35°C. Very fast germinator under warm wet conditions — high urgency at wet-season onset.',
+            notes: 'Rao et al. (1996) Weed Research 36:341–350. Minimum germination temp 18°C, optimal 28–35°C. Very fast germinator under warm wet conditions, high urgency at wet-season onset.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical'],
             tropicalNote: 'Germinates explosively at wet-season onset when soil temps exceed 28°C. Critical timing: apply before first sustained rain event of wet season.',
             springOnly: false
@@ -405,10 +405,10 @@
             confidenceRating: 'M',
             confidenceScore: 72,
             depthMm: 25,
-            notes: 'Chauhan & Johnson (2008) Weed Biol. Manag. 8:32–39. Minimum ~17°C. Compaction-associated — extremely common on high-traffic tropical courses. Dinitroaniline resistance emerging in SE Asia.',
+            notes: 'Chauhan & Johnson (2008) Weed Biol. Manag. 8:32–39. Minimum ~17°C. Compaction-associated, extremely common on high-traffic tropical courses. Dinitroaniline resistance emerging in SE Asia.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
             resistanceWarning: 'Dinitroaniline resistance (prodiamine, pendimethalin, oryzalin) documented in SE Asia. Rotate MOA if repeated pre-emergent failures are observed.',
-            tropicalNote: 'Associated with soil compaction — cultural control (aeration) is as important as chemical. Pre-emergent timing at wet-season onset.',
+            tropicalNote: 'Associated with soil compaction, cultural control (aeration) is as important as chemical. Pre-emergent timing at wet-season onset.',
             springOnly: false
         },
 
@@ -446,9 +446,9 @@
             confidenceRating: 'M',
             confidenceScore: 60,
             depthMm: 25,
-            notes: 'Patterson (1985) Weed Sci. 33:316–323. Germination range 15–35°C. Perennial — spreads vegetatively via rhizomes/stolons. Pre-emergent suppresses seedlings only; vegetative spread continues.',
+            notes: 'Patterson (1985) Weed Sci. 33:316–323. Germination range 15–35°C. Perennial, spreads vegetatively via rhizomes/stolons. Pre-emergent suppresses seedlings only; vegetative spread continues.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
-            perennialWarning: 'Perennial with rhizomatous spread. Pre-emergent controls seedling establishment only — not effective against established stands. Post-emergent + renovation programme required for couch greens invasion.',
+            perennialWarning: 'Perennial with rhizomatous spread. Pre-emergent controls seedling establishment only, not effective against established stands. Post-emergent + renovation programme required for couch greens invasion.',
             tropicalNote: 'Wet conditions accelerate spread. Drainage management is the primary cultural control.',
             springOnly: false
         },
@@ -511,8 +511,8 @@
             depthMm: 25,
             notes: 'Sellers et al. (2003) Int. Turfgrass Soc. Res. J. Limited germination threshold data. Threshold 20°C estimated from SE Asia practitioner experience. Often misidentified as grass on greens/tees.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical'],
-            sedgeNote: 'MSMA (where registered), halosulfuron, or imazosulfuron are primary post-emergent controls in SE Asia. Most dinitroaniline pre-emergents have poor sedge activity. Halosulfuron has some pre-emergent activity on Kyllinga at high rates — check label.',
-            tropicalNote: 'Frequently misidentified as grass — check ligule, triangular stem cross-section. Correct ID is essential before selecting chemistry.',
+            sedgeNote: 'MSMA (where registered), halosulfuron, or imazosulfuron are primary post-emergent controls in SE Asia. Most dinitroaniline pre-emergents have poor sedge activity. Halosulfuron has some pre-emergent activity on Kyllinga at high rates, check label.',
+            tropicalNote: 'Frequently misidentified as grass, check ligule, triangular stem cross-section. Correct ID is essential before selecting chemistry.',
             springOnly: false
         },
 
@@ -551,10 +551,10 @@
             confidenceRating: 'H',
             confidenceScore: 90,
             depthMm: 25,
-            notes: 'Chauhan (2013) Crop Prot. 46:93–102. Tuber sprouting minimum ~20°C, optimal 30–35°C. Pre-emergent herbicides are NOT effective against tuber-driven spread — this is a post-emergent + cultural programme only.',
+            notes: 'Chauhan (2013) Crop Prot. 46:93–102. Tuber sprouting minimum ~20°C, optimal 30–35°C. Pre-emergent herbicides are NOT effective against tuber-driven spread, this is a post-emergent + cultural programme only.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au'],
             preEmergentIneffective: true,  // Engine flag: pre-emergent NOT recommended
-            sedgeNote: 'Halosulfuron, imazosulfuron, and MSMA (where registered) are post-emergent options. Repeat applications required. No pre-emergent provides reliable tuber suppression — do not rely on dinitroanilines for this species.',
+            sedgeNote: 'Halosulfuron, imazosulfuron, and MSMA (where registered) are post-emergent options. Repeat applications required. No pre-emergent provides reliable tuber suppression, do not rely on dinitroanilines for this species.',
             perennialWarning: 'Spreads almost entirely by tubers. Pre-emergent herbicide will NOT provide meaningful control. Post-emergent strategy only.',
             tropicalNote: 'Arguably the most economically damaging weed on tropical golf courses globally. Integrated programme: halosulfuron POST at 3–4 week intervals during active growth + avoid scalping/soil disturbance which exposes tubers.',
             springOnly: false
@@ -619,10 +619,10 @@
             confidenceRating: 'L',
             confidenceScore: 38,
             depthMm: 25,
-            notes: 'Threshold 20°C estimated. Increasingly problematic on SE Asia and tropical QLD golf courses. Highly tolerant of many post-emergent herbicides — limited chemistry options available.',
+            notes: 'Threshold 20°C estimated. Increasingly problematic on SE Asia and tropical QLD golf courses. Highly tolerant of many post-emergent herbicides, limited chemistry options available.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical'],
-            broadleafNote: 'Extremely tolerant of many herbicide chemistries. Halosulfuron has shown some activity at high rates (off-label reference only — check current registration). Topramezone has some activity. Carfentrazone effective. Cultural control (reduce moisture, aerate) is primary strategy.',
-            tropicalNote: 'Thrives under excess moisture — reducing irrigation frequency is a meaningful agronomic intervention.',
+            broadleafNote: 'Extremely tolerant of many herbicide chemistries. Halosulfuron has shown some activity at high rates (off-label reference only, check current registration). Topramezone has some activity. Carfentrazone effective. Cultural control (reduce moisture, aerate) is primary strategy.',
+            tropicalNote: 'Thrives under excess moisture, reducing irrigation frequency is a meaningful agronomic intervention.',
             springOnly: false
         },
 
@@ -642,7 +642,7 @@
             depthMm: 20,
             notes: 'Threshold 22°C estimated from tropical distribution and growth habit data. No reliable primary threshold study. Very common in Vietnam and tropical Asia; less studied than other species.',
             regions: ['southeast_asia', 'australia_tropical'],
-            broadleafNote: 'Isoxaben activity reported. Post-emergent options limited on warm-season turf — check current registrations carefully.',
+            broadleafNote: 'Isoxaben activity reported. Post-emergent options limited on warm-season turf, check current registrations carefully.',
             springOnly: false
         },
 
@@ -682,7 +682,7 @@
             depthMm: 25,
             notes: 'Wide germination range (10–30°C). Included in both temperate and tropical suites. AU tropical/subtropical sites have year-round germination pressure.',
             regions: ['southeast_asia', 'australia_tropical', 'australia_subtropical', 'au', 'nz'],
-            perennialWarning: 'Perennial/annual. Year-round germination in tropical zones. Pre-emergent timing less reliable due to broad germination range — programme-based application recommended.',
+            perennialWarning: 'Perennial/annual. Year-round germination in tropical zones. Pre-emergent timing less reliable due to broad germination range, programme-based application recommended.',
             springOnly: false
         }
     };
@@ -959,10 +959,10 @@
                 return 'Pre-emergent application window open. Apply and irrigate within 48–72 hours.' + moistureNote;
 
             case 'RED_EARLY':
-                return 'Window closing — apply immediately if pre-emergent not yet applied. Residual protection still possible if product is incorporated now.' + moistureNote;
+                return 'Window closing, apply immediately if pre-emergent not yet applied. Residual protection still possible if product is incorporated now.' + moistureNote;
 
             case 'RED_MISSED':
-                return 'Pre-emergent timing has passed — germination threshold exceeded. Switch to post-emergent strategy for ' + species.commonName + '.';
+                return 'Pre-emergent timing has passed, germination threshold exceeded. Switch to post-emergent strategy for ' + species.commonName + '.';
 
             default:
                 return 'Monitor soil temperature.';
@@ -977,7 +977,7 @@
     function buildTropicalProgrammeAction(species, moistureMm) {
         var lowMoisture = moistureMm == null || moistureMm < 6;
         var moistureNote = lowMoisture ? ' Ensure 6–13 mm irrigation within 48 hours of application.' : '';
-        var base = 'Persistent germination pressure — soil temperature consistently above threshold for ' + species.commonName + '. ';
+        var base = 'Persistent germination pressure, soil temperature consistently above threshold for ' + species.commonName + '. ';
         if (species.tropicalNote) {
             return base + species.tropicalNote + moistureNote;
         }
@@ -1089,7 +1089,7 @@
                     alertStatus: 'ADVISORY_ONLY',
                     preEmergentIneffective: true,
                     residualRisk: 'HIGH',
-                    recommendedAction: 'Pre-emergent herbicides are NOT effective for ' + species.commonName + ' — this species spreads primarily by tubers/rhizomes. Apply post-emergent halosulfuron or imazosulfuron programme. See sedgeNote for details.',
+                    recommendedAction: 'Pre-emergent herbicides are NOT effective for ' + species.commonName + ', this species spreads primarily by tubers/rhizomes. Apply post-emergent halosulfuron or imazosulfuron programme. See sedgeNote for details.',
                     sedgeNote: species.sedgeNote || null,
                     perennialWarning: species.perennialWarning || null,
                     tropicalNote: species.tropicalNote || null,

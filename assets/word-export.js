@@ -257,7 +257,7 @@
     // Safe toFixed helper - prevents "Cannot read properties of undefined (reading 'toFixed')"
     function safeToFixed(value, decimals, fallback) {
         if (value === undefined || value === null || isNaN(value)) {
-            return fallback !== undefined ? fallback : '—';
+            return fallback !== undefined ? fallback : '-';
         }
         return Number(value).toFixed(decimals);
     }
@@ -636,7 +636,7 @@
         var ranges = TRACE_RANGES[key];
         if (!ranges) return null;
         var r = ranges[extractant] || ranges['mehlich3'];
-        if (!r) return { status: 'No data', color: '9CA3AF', badge: '\u2014', note: null };
+        if (!r) return { status: 'No data', color: '9CA3AF', badge: '-', note: null };
 
         var status, color, badge, note = null;
         if (value < r.deficient) {
@@ -660,7 +660,7 @@
                 status = 'Toxicity risk'; color = 'DC2626'; badge = '\u2717 TOXIC';
                 note = 'pH ' + pH + ' + ' + value + ' ppm Mn: phytotoxicity risk. Lime required.';
             } else if (value > r.adequate * 0.6) {
-                note = 'pH ' + pH + ': Mn solubility elevated \u2014 monitor as pH falls.';
+                note = 'pH ' + pH + ': Mn solubility elevated, monitor as pH falls.';
             }
         }
         return { status: status, color: color, badge: badge, note: note };
@@ -766,12 +766,12 @@
         if (pH && pH > 7.0) {
             paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({
                 text: 'Soil pH ' + pH + ' reduces plant availability of iron, manganese, zinc, and copper regardless of soil ppm. ' +
-                      'Foliar applications are more effective than soil applications at this pH. Use chelated iron (Fe-EDDHA or Fe-EDTA) — sulphate forms precipitate rapidly above pH 6.5.',
+                      'Foliar applications are more effective than soil applications at this pH. Use chelated iron (Fe-EDDHA or Fe-EDTA), sulphate forms precipitate rapidly above pH 6.5.',
                 size: 18, color: '374151' })]}));
         } else if (pH && pH < 5.5) {
             var lowMsg = 'Soil pH ' + pH + ' increases manganese and aluminium solubility. ';
             if (soilData.Mn && parseFloat(soilData.Mn) > 100) {
-                lowMsg += 'Manganese at ' + soilData.Mn + ' ppm with pH ' + pH + ' presents phytotoxicity risk — lime to pH 5.8–6.0 is the priority intervention. ';
+                lowMsg += 'Manganese at ' + soilData.Mn + ' ppm with pH ' + pH + ' presents phytotoxicity risk, lime to pH 5.8–6.0 is the priority intervention. ';
             }
             lowMsg += 'Aluminium toxicity (Al³⁺) is not routinely measured but becomes phytotoxic below pH 5.0, disrupting root elongation and P uptake. Tissue testing recommended.';
             paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: lowMsg, size: 18, color: '374151' })]}));
@@ -782,11 +782,11 @@
             var ratio = fe / mn;
             if (ratio > 50) {
                 paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
-                    text: 'Fe:Mn ratio ' + ratio.toFixed(0) + ':1 — elevated iron relative to manganese may suppress Mn uptake through competitive inhibition.',
+                    text: 'Fe:Mn ratio ' + ratio.toFixed(0) + ':1, elevated iron relative to manganese may suppress Mn uptake through competitive inhibition.',
                     size: 18, color: '374151' })]}));
             } else if (ratio < 1.5) {
                 paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
-                    text: 'Fe:Mn ratio ' + ratio.toFixed(1) + ':1 — high manganese relative to iron may suppress Fe uptake.',
+                    text: 'Fe:Mn ratio ' + ratio.toFixed(1) + ':1, high manganese relative to iron may suppress Fe uptake.',
                     size: 18, color: '374151' })]}));
             }
         }
@@ -800,7 +800,7 @@
                               extractant === 'aa' ? 'ammonium acetate' : 'Mehlich-3';
         paragraphs.push(new Paragraph({ spacing: { before: 80, after: 120 }, children: [new TextRun({
             text: 'Sufficiency ranges based on ' + extractantLabel + ' extraction (Turner & Hummel 1992; Carrow et al. 2001). ' +
-                  'Soil ppm alone does not determine plant availability — pH, organic matter, and redox conditions all modify uptake.',
+                  'Soil ppm alone does not determine plant availability, pH, organic matter, and redox conditions all modify uptake.',
             size: 16, italics: true, color: '6B7280' })]}));
 
         return paragraphs;
@@ -1094,7 +1094,8 @@
         var isRangeBased = isSLAN || isAA;  // Both use min-max ranges
         var narrative = [];
         var recommendations = [];
-        var deficiencies = [];
+        var deficiencies = [];     // Moderate + Severe — "require attention"
+        var marginalDeficits = []; // Marginal-band — "monitor"
         var adequate = [];
         
         // Methodology display name
@@ -1108,6 +1109,23 @@
             { key: 'Mg', name: 'Magnesium', unit: 'ppm' },
             { key: 'S', name: 'Sulphur', unit: 'ppm' }
         ];
+        
+        // b35fix426 (C31): mirror the band logic in _computeAmendmentDecision
+        // so the narrative matches the Annual Soil Amendments table. A
+        // nutrient that the table flagged 'monitor' must NOT show up in the
+        // "below guidelines and require attention" list — that produces the
+        // internal inconsistency reported in b35fix425 production verification
+        // (Rockingham 16th green: narrative said "Phosphorus, Calcium ... require
+        // attention" while the table showed Ca as Monitor).
+        // Constants kept in sync with _severityBand (kg/ha floor 15,
+        // depth × bd × 0.1 = 1.4 conversion).
+        var _MARGINAL_KG_FLOOR = 15;
+        function _isMarginalDeficit(deficitPpm, refPpm) {
+            if (!refPpm || refPpm <= 0) return false;
+            var fraction = deficitPpm / refPpm;
+            var kgPerHa = deficitPpm * 1.4;
+            return fraction < 0.25 && kgPerHa < _MARGINAL_KG_FLOOR;
+        }
         
         nutrients.forEach(function(n) {
             var value = soilData[n.key];
@@ -1124,20 +1142,48 @@
             }
             
             if (status === 'deficient') {
-                deficiencies.push(n.name);
                 var deficit = thresh.min - value;
-                var rec = generateFertiliserRecommendation(n.key, deficit, soilData, soilData.surfaceType || '', nutritionProgram, context);
-                if (rec) recommendations.push(rec);
+                if (_isMarginalDeficit(deficit, thresh.min)) {
+                    marginalDeficits.push(n.name);
+                    // Marginal-band nutrients do NOT generate a fertiliser
+                    // recommendation here either — _computeAmendmentDecision
+                    // would short-circuit them to status='monitor' anyway, so
+                    // calling generateFertiliserRecommendation would produce
+                    // an Apply-row recommendation that the table already
+                    // suppressed. Skip it.
+                } else {
+                    deficiencies.push(n.name);
+                    // b35fix424 (C20): hemisphere read from context for elem-S Rule 4
+                    // suppression copy and dolomite spring-placement override.
+                    var rec = generateFertiliserRecommendation(n.key, deficit, soilData, soilData.surfaceType || '', nutritionProgram, context, context.hemisphere);
+                    if (rec) recommendations.push(rec);
+                }
             } else if (status === 'adequate') {
                 adequate.push(n.name);
             }
         });
         
         // Build narrative
-        if (deficiencies.length === 0) {
+        if (deficiencies.length === 0 && marginalDeficits.length === 0) {
             narrative.push('All measured nutrients are at or above ' + methodDisplayName + ' guideline levels. The soil fertility status is adequate for healthy turfgrass growth.');
         } else {
-            narrative.push(deficiencies.join(', ') + (deficiencies.length === 1 ? ' is' : ' are') + ' below ' + methodDisplayName + ' guidelines and require attention.');
+            // b35fix408 (C6): subject-verb agreement for single vs multi deficiency.
+            // 'Phosphorus is below SLAN guidelines and requires attention.' (1 nutrient)
+            // 'Phosphorus, Calcium are below SLAN guidelines and require attention.' (2+)
+            if (deficiencies.length > 0) {
+                var _slanIs = deficiencies.length === 1 ? ' is' : ' are';
+                var _slanRequire = deficiencies.length === 1 ? ' requires' : ' require';
+                narrative.push(deficiencies.join(', ') + _slanIs + ' below ' + methodDisplayName + ' guidelines and' + _slanRequire + ' attention.');
+            }
+            // b35fix426 (C31): Marginal-band nutrients get their own sentence
+            // matching the Monitor row in the Annual Soil Amendments table. The
+            // copy intentionally NOT framed as "require attention" — that
+            // contradicts the table's monitor recommendation.
+            if (marginalDeficits.length > 0) {
+                var _margIs = marginalDeficits.length === 1 ? ' is' : ' are';
+                var _margAreNarrow = marginalDeficits.length === 1 ? ' is narrow' : ' are narrow';
+                narrative.push(marginalDeficits.join(', ') + _margIs + ' marginally below ' + methodDisplayName + ' guidelines but the gap' + _margAreNarrow + ' (within measurement noise and seasonal uptake variation). Monitor at next routine soil test rather than amending now; see the Annual Soil Amendments table.');
+            }
             if (adequate.length > 0) {
                 narrative.push(adequate.join(', ') + ' levels are adequate.');
             }
@@ -1171,9 +1217,34 @@
             }
             
             var rangeStr = optLo + '-' + optHi;
-            
+
+            // b35fix418 (C17): species-aware pH recommendations.
+            // Resolve species pH tolerance from the SPECIES_PH_TOLERANCE map
+            // (loaded from hub-tissue-v3.js as a global). Defaults preserve
+            // pre-fix behaviour for the C3/C4 fallback path: cool-season is
+            // not alkaline-tolerant, warm-season is. The map provides per-
+            // species overrides for alkaline-tolerant species (Seashore
+            // Paspalum, Couch / Bermuda, Kikuyu, Buffalo, KBG, Tall Fescue).
+            // When map data is available, optimal range is also pulled from
+            // the map so branch boundaries (optHi+0.5, toleranceMax) stay
+            // coherent with the species ceiling. Without this, isC3=false +
+            // Zoysia (which has tightly-restricted optimal 6.0-6.5) would use
+            // the C4 fallback optHi=7.0 and miss its actual optimal ceiling.
+            var _phTol = null;
+            if (typeof SPECIES_PH_TOLERANCE !== 'undefined' && typeof normaliseSpeciesForPH === 'function') {
+                var _phKey = normaliseSpeciesForPH(speciesName);
+                _phTol = SPECIES_PH_TOLERANCE[_phKey] || null;
+            }
+            if (_phTol && _phTol.optimal) {
+                optLo = _phTol.optimal[0];
+                optHi = _phTol.optimal[1];
+                rangeStr = optLo + '-' + optHi;
+            }
+            var alkalineTolerant = _phTol ? !!_phTol.alkalineTolerant : !isC3;
+            var toleranceMax = _phTol && _phTol.tolerance ? _phTol.tolerance[1] : (isC3 ? 7.5 : 8.0);
+
             // dolomiticCorrection: true when Mg deficit + low pH -> dolomite already recommended
-            // In that case dolomite handles pH correction — suppress standalone lime recommendation
+            // In that case dolomite handles pH correction, suppress standalone lime recommendation
             // b35fix322 Bug 2: simplified to lowpH && mgDeficit (matches updated
             // _dolomiteWillBeRecommended in _computeAmendmentDecision). Also
             // suppresses the "Light lime application" hint at slightly-acidic pH
@@ -1184,7 +1255,7 @@
             var dolomiticCorrection = lowpH && mgDeficit;
 
             // hasSpeciesPhBlock: if species tolerance data is present, the species-specific pH
-            // block (further in the report) will also fire — suppress duplicate dolomite sentence here
+            // block (further in the report) will also fire, suppress duplicate dolomite sentence here
             var hasSpeciesPhBlock = !!(soilData.speciesPhTolerance || soilData.speciesKey || soilData.speciesName);
 
             if (pH < 5.5) {
@@ -1211,13 +1282,25 @@
                 if (!isC3 && !dolomiticCorrection) {
                     recommendations.push('Light lime application may be beneficial to raise pH toward ' + optLo + '.');
                 }
-            } else if (pH > 8.0) {
-                narrative.push('Soil pH is alkaline (' + pH + '). Iron and manganese availability may be reduced. Consider acidifying fertilisers.');
-                recommendations.push('Use ammonium-based nitrogen sources to help lower pH. Consider foliar iron applications if chlorosis appears.');
+            } else if (pH > toleranceMax) {
+                // b35fix418 (C17): pH exceeds species tolerance ceiling.
+                // Even alkaline-tolerant species are out of range here; aggressive
+                // acidification or species change is the realistic option.
+                narrative.push('Soil pH (' + pH + ') exceeds tolerance for ' + speciesName + ' (ceiling ' + toleranceMax + '). Iron, manganese, zinc, and copper availability is severely restricted at this pH.');
+                recommendations.push('Aggressive acidification required: elemental sulphur post-aeration in autumn, or species change. Use Fe-EDDHA chelate for iron applications. Evaluate irrigation water alkalinity contribution.');
             } else if (pH > optHi + 0.5) {
-                // More than 0.5 above optimal high
-                narrative.push('Soil pH is moderately alkaline (' + pH + '). Above optimal range (' + rangeStr + ') for ' + speciesName + '. Monitor trace element availability.');
-                recommendations.push('Use ammonium-based nitrogen sources. Monitor for iron chlorosis.');
+                // b35fix418 (C17): moderately alkaline but within species tolerance.
+                // Branch on species alkaline tolerance. Alkaline-tolerant species
+                // (Couch, Bermuda, Kikuyu, Paspalum, KBG, Buffalo, Tall Fescue)
+                // get supportive copy; acid-preferring species get the existing
+                // acidifying-N recommendation.
+                if (alkalineTolerant) {
+                    narrative.push('Soil pH (' + pH + ') is moderately alkaline, above optimal range (' + rangeStr + ') for ' + speciesName + '. ' + speciesName + ' tolerates alkaline conditions; monitor trace element availability.');
+                    recommendations.push(speciesName + ' tolerates alkaline pH well, no acidification needed. Monitor for iron chlorosis and apply foliar Fe-EDDHA if symptoms appear.');
+                } else {
+                    narrative.push('Soil pH is moderately alkaline (' + pH + '). Above optimal range (' + rangeStr + ') for ' + speciesName + '. Iron and manganese availability may be reduced.');
+                    recommendations.push('Use ammonium-based nitrogen sources to help lower pH. Consider foliar iron applications if chlorosis appears.');
+                }
             } else if (pH > optHi) {
                 // Slightly above optimal
                 narrative.push('Soil pH (' + pH + ') is slightly above optimal range (' + rangeStr + ') for ' + speciesName + ' but generally acceptable.');
@@ -1269,7 +1352,15 @@
      *   correct (matches AU catalogue SOL-SOP at K=41.5%); only the display
      *   string was wrong.
      *
-     * Rates expressed as elemental kg/ha (AU/NZ/UK convention).
+     * b35fix400 (Shirley GC NZ regression): the b35fix319 fix retained the
+     * UK-style oxide leading triple ("0-0-50") for AU/NZ users. AU/NZ
+     * convention is elemental (0-0-41.5); UK/EU/Scandinavia is oxide (0-0-50
+     * (as K₂O)). Display label is now region-aware via _potassiumDisplayLabel.
+     * Math is unchanged: residual / 0.415 operates on elemental K regardless
+     * of which leading triple shows.
+     *
+     * Rates expressed as elemental kg/ha (Gilba calculation convention,
+     * region-invariant).
      * nutritionProgram shape: data.nutritionProgram.annualSummary.products keyed by product
      * id with { product: { analysis: {N,P,K,S,...} }, applications, totalKgHa }.
      *
@@ -1280,8 +1371,33 @@
      * juvenile seedlings (Bremner & Krogmeier 1989). Same logic also drives
      * a urea-volatilisation warning at pH > 7.5 in S Rule 4.
      */
-    function generateFertiliserRecommendation(nutrient, deficit, soilData, surfaceType, nutritionProgram, context) {
-        var d = _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context);
+
+    /**
+     * b35fix403: strip terminal sentence punctuation from a clause before
+     * joining a continuation tail. Used by generateFertiliserRecommendation
+     * to glue "...rate text..." onto " to address <nutrient> deficiency.".
+     *
+     * Bug class (C9 from migration ledger): d.rate is composed at multiple
+     * sites in _computeAmendmentDecision. Several branches end the rate with
+     * a sentence-final '.', for example the alkaline-P branch (line ~1635)
+     * ends '...banded placement improves recovery.'. The sentence builder
+     * appends ' to address P deficiency.' verbatim, producing the visible
+     * fragment artefact: '...recovery. to address P deficiency.'.
+     *
+     * This helper sits at the join site (the "assembly point") rather than
+     * patching every leaf rate-composition branch. d.rate is left intact for
+     * its other consumer (d.reason composition at lines 1647/1672/1717/1741/
+     * 1836) where the trailing period is a legitimate sentence terminator.
+     */
+    function _joinRateTail(rate, tail) {
+        var prefix = (rate == null) ? '' : String(rate);
+        // Strip one or more trailing '.', ',' or ';' (with optional whitespace).
+        prefix = prefix.replace(/[.,;]+\s*$/, '');
+        return prefix + tail;
+    }
+
+    function generateFertiliserRecommendation(nutrient, deficit, soilData, surfaceType, nutritionProgram, context, hemisphere) {
+        var d = _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context, hemisphere);
         if (!d) return null;
 
         // Suppression cases — return the human-readable suppression message
@@ -1292,9 +1408,11 @@
         }
 
         // Apply case — format as "Apply <product> (<analysis>) at approximately <rate> ..."
+        // b35fix403: route through _joinRateTail so any trailing '.' / ';' / ','
+        // in d.rate is stripped before the continuation clause is appended.
         if (d.status === 'apply') {
-            return 'Apply ' + d.product + ' (' + d.analysis + ') at approximately ' + d.rate +
-                   ' to address ' + nutrient + ' deficiency.';
+            return 'Apply ' + d.product + ' (' + d.analysis + ') at approximately ' +
+                   _joinRateTail(d.rate, ' to address ' + nutrient + ' deficiency.');
         }
 
         return null;
@@ -1323,9 +1441,103 @@
      *     contributing:   [{ name, kgProduct, kgNutrient, pct }]  // programme contributors
      *   }
      */
-    function _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context) {
+
+    // ========================================================================
+    // b35fix400 — Region-aware K product display label
+    // ========================================================================
+    // Potassium product analysis labels follow regional fertiliser convention:
+    //   - AU / NZ:        elemental K   →  "0-0-41.5"  (matches Prebbles
+    //                                       SOL-SOP, AU SOL-K2SO4 catalogue
+    //                                       entries, b35fix397).
+    //   - UK / EU /
+    //     Scandinavia:    K₂O (oxide)   →  "0-0-50 (as K₂O)"  (matches UK
+    //                                       fertiliser catalogue convention,
+    //                                       see uk-fertiliser-products.js
+    //                                       npk_label fields).
+    //
+    // The chemistry is the same product (Potassium sulphate, K₂SO₄). 41.5% K
+    // elemental = 50% K₂O × 0.8302 (stoichiometric conversion). The math in
+    // _synthesiseKReconDecision and _computeAmendmentDecision is invariant
+    // to display: rate is computed from the elemental percentage (residual /
+    // 0.415) regardless of which leading NPK triple shows on the label.
+    //
+    // The parenthesised analysis ALWAYS lists elemental percentages
+    // ("(41.5% K, 18% S)") for two reasons:
+    //   1. parseAnalysisLabel in _amendmentDecisionsToProducts reads ONLY the
+    //      parenthesised pct list to build totalDelivered. If we wrote
+    //      "(50% K2O, 18% S)" the regex would match K=50 and double-count K
+    //      delivery (oxide-as-elemental error). Keeping elemental in the
+    //      parens avoids any parser change and any rounding drift.
+    //   2. Agronomically, the elemental percentage is the value used for
+    //      tissue-K calculations, soil targets, and mass balance. Showing
+    //      both lets a UK reader cross-check the bag label (oxide) against
+    //      the agronomic chemistry (elemental).
+    //
+    // Pre-b35fix400 history: b35fix319 hardcoded "0-0-50 (41.5% K, 18% S)"
+    // assuming AU/NZ/UK all used a single convention. They don't — UK uses
+    // oxide while AU/NZ use elemental. NZ users running Prebbles saw an
+    // oxide label on what should be an elemental-display product (Shirley
+    // GC Christchurch reproduction). b35fix400 makes the label region-aware.
+    // ========================================================================
+    function _potassiumDisplayLabel(opts) {
+        opts = opts || {};
+        var includeS = (opts.includeS !== false); // default true (SOP delivers S)
+        var region = _detectKDisplayRegion(opts.region);
+
+        // Always include elemental percentage in parens for parser safety
+        // and agronomic clarity. The leading NPK triple varies by region.
+        var elementalPctText = includeS
+            ? '(41.5% K, 18% S)'
+            : '(41.5% K)';
+
+        if (region === 'oxide') {
+            // UK / EU / Scandinavia convention: leading triple is K₂O.
+            // "(as K₂O)" annotation makes the convention explicit so the
+            // reader doesn't confuse the leading 50 with elemental.
+            return '0-0-50 (as K₂O) ' + elementalPctText;
+        }
+        // AU / NZ / default: elemental.
+        return '0-0-41.5 ' + elementalPctText;
+    }
+
+    // Returns 'oxide' for UK / EU / Scandinavia, 'elemental' otherwise.
+    // Region resolution order:
+    //   1. explicit override passed to caller (opts.region)
+    //   2. window.GAIP_STATE.location.region (canonical hub state path)
+    //   3. window.GAIP_STATE.location.country (older field, sometimes present)
+    //   4. fallback: 'elemental' (Gilba's primary AU/NZ territory)
+    function _detectKDisplayRegion(explicit) {
+        var raw = null;
+        if (typeof explicit === 'string' && explicit) {
+            raw = explicit;
+        } else if (typeof window !== 'undefined' && window.GAIP_STATE
+                && window.GAIP_STATE.location) {
+            raw = window.GAIP_STATE.location.region
+                  || window.GAIP_STATE.location.country
+                  || null;
+        }
+        if (!raw) return 'elemental';
+        var s = String(raw).toLowerCase();
+        // Match common UK / EU / Scandinavia tokens. Inclusive on purpose —
+        // any oxide-convention region falls through to oxide; everything
+        // else gets elemental.
+        if (s === 'uk' || s === 'gb' || s === 'united_kingdom' || s === 'britain'
+                || s === 'eu' || s === 'europe'
+                || s === 'scandinavia' || s === 'nordic'
+                || s === 'ireland' || s === 'ie') {
+            return 'oxide';
+        }
+        return 'elemental';
+    }
+
+    function _computeAmendmentDecision(nutrient, deficit, soilData, surfaceType, nutritionProgram, context, hemisphere) {
         if (['P','K','Ca','Mg','S'].indexOf(nutrient) === -1) return null;
         if (!soilData) return null;
+
+        // b35fix424 (C20): hemisphere defaults to 'south' (Gilba's primary
+        // territory). Used by the elemental S Rule 4 summer-suppression copy
+        // and the dolomite/lime spring-placement override on close-cut surfaces.
+        hemisphere = hemisphere || 'south';
 
         // b35fix320: context carries non-soil signals affecting product choice.
         // Default to {} for backward compat; treat seedingActive as the
@@ -1339,10 +1551,144 @@
         //   3. soilData.seedingActive (direct stamp from upstream)
         var seedingActive = !!(context.seedingActive || context.isOverseed || soilData.seedingActive);
 
+        // ────────────────────────────────────────────────────────────────────
+        // b35fix425 (C19): deficit-magnitude banding (Marginal/Moderate/Severe)
+        // ────────────────────────────────────────────────────────────────────
+        // Brief: today every "below threshold" deficit emits the same
+        // recommendation copy regardless of severity. A 1 ppm gap and a 30 ppm
+        // gap both produce "Apply X at Y kg/ha". Production evidence:
+        // Rockingham 4th green P 20 vs MLSN 21 (1 ppm gap) → "Apply MAP at
+        // 98 kg product/ha" — overprescribing for a measurement-noise-level gap.
+        //
+        // Resolution: three-tier band keyed off deficit fraction:
+        //   Marginal  fraction < 0.25  → light-touch monitor copy, status='monitor',
+        //                                product/rate suppressed (the (b) extension —
+        //                                Severe-vs-Apply copy alone wasn't enough,
+        //                                user still sees "Apply at low rate" copy
+        //                                under Marginal otherwise)
+        //   Moderate  0.25 ≤ fraction < 0.50  → standard copy (existing baseline,
+        //                                       no behaviour change)
+        //   Severe    fraction ≥ 0.50  → aggressive copy + warnings.push(severe_deficit_attention)
+        //
+        // Reference value differs by methodology:
+        //   MLSN: thresh.min (the floor below which deficit was computed)
+        //   SLAN: rangeFloor (Carrow 2004 published floor) or pH-adjusted P floor.
+        // The reference is resolved per branch (different SLAN_RANGES entries
+        // per nutrient) and passed into _severityBand. The helper is methodology-
+        // agnostic — it just computes deficit/reference.
+        //
+        // Note: status field on calculateNutrientRequirement (Very Low/Low/
+        // Adequate for MLSN; Deficient/Sufficient/Excessive for SLAN) is NOT
+        // plumbed through to _computeAmendmentDecision. Banding is engine-
+        // local and recoverable from data the function already has (deficit
+        // is the first arg; threshold object is on soilData).
+        //
+        // b35fix426 (C31): Marginal band requires BOTH conditions to hold:
+        //   (a) deficit/reference < 0.25 (the original % rule)
+        //   (b) kgPerHa < MARGINAL_KG_FLOOR (absolute kg/ha gate)
+        //
+        // Background — the b35fix425 production verification on Rockingham
+        // 16th green surfaced a category error in the % rule alone. SLAN
+        // base-cation thresholds are an order of magnitude larger than P/K/S
+        // thresholds (Ca floor 500 ppm vs P floor 27 ppm). A 16% gap on Ca
+        // = 81 ppm = 113 kg/ha — a substantial real-world deficit that the
+        // % rule incorrectly classified Marginal. The kg/ha floor is the
+        // agronomic test: is this deficit small enough to be ignorable? For
+        // elemental nutrients, ~15 kg/ha is the practical noise floor below
+        // which any single application is hard to distinguish from soil-test
+        // measurement variance and seasonal uptake noise.
+        //
+        // Sources for the 15 kg/ha calibration:
+        //   - Spencer 2008 Nutrition of Sports Turf in Australia, p.143:
+        //     elemental S minimum-meaningful-application 25 kg S/ha; smaller
+        //     deficits are within noise.
+        //   - Carrow & Duncan (2011) Best Management Practices for Saline and
+        //     Sodic Turfgrass Soils ch. 7: Ca/Mg amendment rates < 50 kg/ha
+        //     described as "fine-tuning, not deficit correction".
+        //   - Spencer (Gilba Solutions internal practice 2026): elemental P
+        //     applications below 5 kg/ha rarely produce measurable response
+        //     on soils with P-fixation activity; below 10 kg/ha on inert sands.
+        //   - Net floor 15 kg/ha is conservative across nutrients (catches
+        //     Rockingham 1-ppm-P at 1.4 kg/ha as Marginal; releases 113 kg/ha
+        //     Ca to its actual band on the % test).
+        //
+        // The Severe band stays % only — at large-threshold nutrients a 50%
+        // gap is enormous (Ca 50% = 250 ppm = 350 kg/ha) and the "investigate
+        // underlying cause" copy is right regardless of absolute scale.
+        var MARGINAL_KG_FLOOR = 15;
+        function _severityBand(deficitPpm, referencePpm, kgPerHa) {
+            if (!referencePpm || referencePpm <= 0) return 'moderate';  // defensive
+            var fraction = deficitPpm / referencePpm;
+            // Severe stays % only.
+            if (fraction >= 0.50) return 'severe';
+            // Marginal needs BOTH the % gate AND the kg/ha gate. Either a
+            // wide-fraction deficit (≥ 25%) OR a large-absolute deficit
+            // (≥ 15 kg/ha) elevates from Marginal to Moderate.
+            if (fraction < 0.25 && (kgPerHa == null || kgPerHa < MARGINAL_KG_FLOOR)) {
+                return 'marginal';
+            }
+            return 'moderate';
+        }
+
+        // Compute the deficit-fraction reference for the current nutrient.
+        // The caller (_buildAmendmentDecisions) computed `deficit` as
+        // (thresh.min - value) — i.e. ppm gap below threshold. For MLSN this
+        // threshold IS the reference. For SLAN sites the threshold object is
+        // built from SLAN_RANGES floor (see calculateAllRequirements in
+        // nutrition-requirement-engine.js); same value.
+        var _bandReference = (soilData.thresholds && soilData.thresholds[nutrient] &&
+                              soilData.thresholds[nutrient].min) || 0;
+        // _kgPerHa for band computation is computed below the helper (`kgPerHa`
+        // var at the start of the math block) — but we need it BEFORE that
+        // for the band call. Compute inline here using the same constants.
+        var _kgPerHaForBand = deficit * 10 * 1.4 * 0.1;
+        var _band = _severityBand(deficit, _bandReference, _kgPerHaForBand);
+
+        // Severe-band copy + warning emission. Called from inside each per-
+        // nutrient branch (P/K/Ca/Mg/S) once `d` is fully populated and just
+        // before the d.reason line is assembled. Mutates d.warnings[] and
+        // returns a copy fragment to be concatenated onto d.rate or d.reason.
+        // The fragment is empty for non-Severe bands so callers can append
+        // unconditionally.
+        function _emitSevereContext(decision, nutLabelLong) {
+            if (_band !== 'severe') return '';
+            var gapPpm = deficit;
+            var refPpm = _bandReference;
+            var gapPct = (refPpm > 0) ? Math.round((gapPpm / refPpm) * 100) : null;
+            decision.warnings = decision.warnings || [];
+            decision.warnings.push({
+                code: 'severe_deficit_attention',
+                severity: 'high',
+                text: nutLabelLong + ' deficit is severe' +
+                      (gapPct != null ? ' (' + gapPct + '% gap below threshold)' : '') +
+                      '. Site attention recommended. The amendment rate addresses the ' +
+                      'numerical deficit but a deficit this large typically reflects an ' +
+                      'underlying cause (drainage, leaching, prior management, parent material) ' +
+                      'that should be investigated before assuming amendment alone restores ' +
+                      'the system.',
+                source: 'Gilba Solutions internal practice'
+            });
+            // b35fix427 (P3a cosmetic): rate-text fragments end variably (")",
+            // ".", or no punctuation depending on whether pNote / kRouteNote /
+            // mgExtra suffixes fired). Pre-fix this helper returned a string
+            // that LED with ". " producing concatenations like ").. Site
+            // attention" or "..  Site attention" depending on which suffix
+            // fired upstream. Lead with " " and let the rendered output
+            // produce a single sentence break (the existing rate text already
+            // ends most paths with "." anyway).
+            return ' Site attention: deficit is severe' +
+                   (gapPct != null ? ' (' + gapPct + '% below threshold)' : '') +
+                   '; investigate underlying cause (drainage, leaching, prior management) ' +
+                   'in parallel with amendment; a single amendment cycle is unlikely to ' +
+                   'restore a deficit this large without addressing the system driver';
+        }
+
         var depth = 10; // cm sampling depth
         var bd = 1.4;   // bulk density g/cm³
 
         // kg elemental nutrient/ha needed (deficit in ppm × depth × BD × 0.1)
+        // This is the THEORETICAL full-closure-in-1-year rate at 100% efficiency.
+        // C29 (b35fix423) introduces the practical rate alongside it.
         var kgPerHa = deficit * depth * bd * 0.1;
 
         var pH = soilData.pH ? parseFloat(soilData.pH) : 7.0;
@@ -1357,11 +1703,198 @@
         var isFineTurf = surfaceType && /green|tee|bowl|croquet/i.test(surfaceType);
         var FINE_TURF_CAP = 400;
 
-        function formatRate(kgNutrient, kgProduct, unit) {
+        // ────────────────────────────────────────────────────────────────────
+        // b35fix424 (C20) — Per-nutrient × surface × delivery rate caps
+        // ────────────────────────────────────────────────────────────────────
+        // Surface buckets (canonical strings from au-fertiliser-products.js):
+        //   greens   = greens / golf_greens / bowling_greens / cotula_bowling_green
+        //              / croquet / croquet_lawn / bowls (any close-cut <8 mm HOC)
+        //   tees     = tees / low_cut / cricket_wickets
+        //   fairways = fairways / sports / sportsturf / athletic / sportsfield
+        //
+        // Caps are kg PRODUCT/ha per single application. When the practical
+        // product rate exceeds the cap, formatRate emits the existing
+        // "apply in N split dressings" copy.
+        //
+        // Sources (per-row):
+        //   greens.foliar.P  15  — STRI / R&A spoonfeed; matches SOL-MAP catalogue
+        //   greens.foliar.K  20  — Pinned per Spencer (b35fix424); SOP scorch envelope
+        //   greens.foliar.S  20  — Pinned per Spencer (b35fix424); SOA scorch envelope
+        //   greens.foliar.Mg 15  — Pinned per Spencer (b35fix424); Epsom soluble
+        //   greens.granular.dolomite  200  — STRI / R&A practice; lime-class smother bound
+        //   greens.granular.gypsum-Ca 250  — STRI / R&A practice; bulk amendment
+        //   greens.granular.gypsum-S  250  — same as Ca path
+        //   greens.granular.kieserite 300  — Spencer pin; gated post-aeration only (reason text)
+        //   greens.granular.elementalSulphur 28
+        //                     — Spencer (2008) Nutrition of Sports Turf in Australia, p.143:
+        //                       "Sulphur should not be applied in any one application at a
+        //                       rate greater than 250 g/100 m²"; 25 kg S/ha ÷ 0.90 (90% S
+        //                       elemental product) ≈ 28 kg product/ha. Annual ceiling
+        //                       500 kg S/ha; 3-4 week split intervals.
+        //   tees.granular     400 — existing FINE_TURF_CAP, unchanged
+        //   fairways.granular none — historically uncapped; surface tolerates >1000 kg/ha
+        //
+        // Reading: SURFACE_RATE_CAPS[bucket][delivery][amendmentKey] → kg/ha cap, or
+        //          null/undefined if uncapped.
+        var SURFACE_RATE_CAPS = {
+            greens: {
+                foliar: {
+                    map: 15,
+                    potassiumSulphate: 20,
+                    sulphateOfAmmonia: 20,
+                    epsom: 15,
+                    gypsum: 20  // defensive — Ca foliar rare, follows S envelope
+                },
+                granular: {
+                    dolomite: 200,
+                    gypsum: 250,
+                    kieserite: 300,
+                    elementalSulphur: 28,
+                    lime: 200,
+                    map: 50,
+                    potassiumSulphate: 50,
+                    sulphateOfAmmonia: 50,
+                    epsom: 50  // defensive fallback only — Mg flips foliar by default
+                }
+            },
+            tees: {
+                granular: { _default: 400 },  // existing FINE_TURF_CAP
+                foliar: { _default: 25 }       // tees foliar uncommon; mirror greens.S envelope
+            },
+            fairways: {
+                granular: { _default: null },  // uncapped (smother only at >1000 kg/ha)
+                foliar: { _default: null }
+            }
+        };
+
+        // Bucket the surfaceType string into one of greens/tees/fairways.
+        // Returns 'fairways' as the default for unknown surfaces (historically
+        // the unconstrained path; matches pre-C20 behaviour for unrecognised
+        // surface keys).
+        function _surfaceBucket(st) {
+            var s = (st || '').toLowerCase();
+            if (!s) return 'fairways';
+            if (/green|bowl|croquet/.test(s)) return 'greens';
+            if (/^tees$|low_cut|cricket_wicket/.test(s)) return 'tees';
+            if (/fairway|sport|athletic/.test(s)) return 'fairways';
+            return 'fairways';
+        }
+        var surfaceBucket = _surfaceBucket(surfaceType);
+
+        // Resolve the cap for a given (amendmentKey, deliveryMethod) tuple,
+        // falling through to the bucket's _default and finally to the legacy
+        // FINE_TURF_CAP for fine-turf surfaces or null for unconstrained.
+        function _rateCap(amendmentKey, deliveryMethod) {
+            var bucket = SURFACE_RATE_CAPS[surfaceBucket];
+            if (!bucket) return isFineTurf ? FINE_TURF_CAP : null;
+            var deliveryTbl = bucket[deliveryMethod || 'granular'];
+            if (!deliveryTbl) return isFineTurf ? FINE_TURF_CAP : null;
+            if (deliveryTbl[amendmentKey] != null) return deliveryTbl[amendmentKey];
+            if (deliveryTbl._default !== undefined) return deliveryTbl._default;
+            return isFineTurf ? FINE_TURF_CAP : null;
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // b35fix424 (C20) — Per-nutrient × surface delivery method
+        // ────────────────────────────────────────────────────────────────────
+        // Default delivery method per nutrient × surface bucket.
+        // - greens / bowls / croquet: P, K, S (Rule 3 SOA only), Mg → foliar
+        //   - Ca stays granular (gypsum bulk; foliar Ca rare in AU practice)
+        //   - S Rules 2/4/5 stay granular (gypsum is granular; elemental S
+        //     can ONLY be granular — no foliar form)
+        //   - Mg dolomite / kieserite stay granular
+        // - tees / fairways / sportsfield: all granular
+        function _resolveDelivery(amendmentKey, surfaceBkt) {
+            if (surfaceBkt !== 'greens') return 'granular';
+            // Greens-bucket nutrient routing
+            switch (amendmentKey) {
+                case 'map':
+                case 'potassiumSulphate':
+                case 'sulphateOfAmmonia':
+                case 'epsom':
+                    return 'foliar';
+                case 'gypsum':
+                case 'kieserite':
+                case 'dolomite':
+                case 'lime':
+                case 'elementalSulphur':
+                    return 'granular';
+                default:
+                    return 'granular';
+            }
+        }
+        // Epsom is sold soluble in AU/NZ practice (Spencer pin b35fix424).
+        // Scope expansion beyond greens — Epsom defaults to foliar on ALL
+        // surfaces. The _resolveDelivery() path above only flips greens,
+        // so override Epsom specifically here.
+        function _resolveDeliveryWithEpsomExpansion(amendmentKey, surfaceBkt) {
+            if (amendmentKey === 'epsom') return 'foliar';
+            return _resolveDelivery(amendmentKey, surfaceBkt);
+        }
+
+        // ────────────────────────────────────────────────────────────────────
+        // b35fix423 (C29) — Amendment efficiency + yearsToCorrect
+        // ────────────────────────────────────────────────────────────────────
+        // Practical rate = (theoretical / efficiency) / yearsToCorrect.
+        // Each branch sets its amendmentKey (e.g. 'gypsum', 'map', 'lime',
+        // 'sulphateOfAmmonia') and deliveryMethod. b35fix424 (C20) flips
+        // deliveryMethod from 'granular' default to per-nutrient × surface.
+        // The efficiency lookup runs against NutritionSummary.amendmentEfficiency
+        // table; falls back to 0.60 with logged source on miss.
+        // The yearsToCorrect map mirrors NUTRITION_CONFIG.yearsToCorrect.
+        var YEARS_TO_CORRECT = { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 };
+
+        function _lookupAmendmentEfficiency(amendmentKey, deliveryMethod) {
+            // Resolve via the public NutritionSummary API when present.
+            var ns = (typeof window !== 'undefined' && window.GilbaNutritionSummary) ||
+                     (typeof Gilba !== 'undefined' && Gilba.NutritionSummaryIntegration) ||
+                     (typeof Gilba !== 'undefined' && Gilba.NutritionSummary) ||
+                     null;
+            if (ns && typeof ns.getAmendmentEfficiency === 'function') {
+                try {
+                    return ns.getAmendmentEfficiency(amendmentKey, deliveryMethod || 'granular', soilData);
+                } catch (e) {
+                    if (typeof console !== 'undefined' && console.warn) {
+                        console.warn('[WordExport] getAmendmentEfficiency failed:', e && e.message);
+                    }
+                }
+            }
+            // Fallback when public API is unavailable (test harness without
+            // module loaded, etc.). Returns the same default as the table.
+            return { efficiency: 0.60, condition: 'unknown', source: 'default-no-api' };
+        }
+
+        function _computePracticalKg(theoreticalKg, nutrientKey, amendmentKey, deliveryMethod) {
+            var eff = _lookupAmendmentEfficiency(amendmentKey, deliveryMethod);
+            var years = YEARS_TO_CORRECT[nutrientKey] || 2;
+            var practicalKg = (theoreticalKg / Math.max(0.01, eff.efficiency)) / years;
+            return {
+                practicalKg: practicalKg,
+                efficiency: eff.efficiency,
+                condition: eff.condition,
+                source: eff.source,
+                years: years
+            };
+        }
+
+        // b35fix424 (C20): formatRate now consults SURFACE_RATE_CAPS via
+        // _rateCap(amendmentKey, deliveryMethod). Backward-compat: if capKey
+        // is omitted (legacy callers) it falls through to FINE_TURF_CAP for
+        // fine turf surfaces and unconstrained otherwise — preserving
+        // pre-C20 behaviour. The split-dressings copy is unchanged.
+        function formatRate(kgNutrient, kgProduct, unit, amendmentKey, deliveryMethod) {
             var base = kgNutrient.toFixed(0) + ' kg ' + unit + '/ha (' + kgProduct.toFixed(0) + ' kg product/ha)';
-            if (isFineTurf && kgProduct > FINE_TURF_CAP) {
-                var apps = Math.ceil(kgProduct / FINE_TURF_CAP);
-                base += ' — apply in ' + apps + ' split dressings of ' + Math.round(kgProduct / apps) +
+            var cap;
+            if (amendmentKey) {
+                cap = _rateCap(amendmentKey, deliveryMethod);
+            } else {
+                // Legacy path — preserve pre-C20 behaviour for any caller that
+                // didn't pass amendmentKey.
+                cap = isFineTurf ? FINE_TURF_CAP : null;
+            }
+            if (cap != null && kgProduct > cap) {
+                var apps = Math.ceil(kgProduct / cap);
+                base += ', apply in ' + apps + ' split dressings of ' + Math.round(kgProduct / apps) +
                         ' kg product/ha; water in after each application';
             }
             return base;
@@ -1435,7 +1968,18 @@
             analysis: null,
             rate: null,
             reason: null,
-            contributing: []
+            contributing: [],
+            // b35fix423 (C29) — efficiency / theoretical-vs-practical fields.
+            // Apply branches populate these. Suppression / no-deficit branches
+            // leave them null (table renderer treats null as "—").
+            kgTheoretical: null,
+            kgPractical: null,
+            efficiency: null,
+            efficiencyCondition: null,
+            efficiencySource: null,
+            yearsToCorrect: null,
+            amendmentKey: null,
+            deliveryMethod: null
         };
 
         // No deficit case — defensive (callers guard, but include for robustness).
@@ -1467,10 +2011,59 @@
                          : nutrient === 'Mg' ? 'Magnesium'
                          : 'Sulphur');
             d.reason = nutLabel + ' deficit (' + kgPerHa.toFixed(1) + ' kg ' + unit +
-                       '/ha) is fully met by the fertiliser programme — no standalone ' +
+                       '/ha) is fully met by the fertiliser programme, no standalone ' +
                        nutrient + ' amendment required. Programme ' + nutrient + ' sources: ' +
                        programmeBlurb(prog, unit) + ' delivering ' + progKg.toFixed(0) +
                        ' kg ' + unit + '/ha/yr total.';
+            return d;
+        }
+
+        // ─────────────────────────────────────────────────────────────────────
+        // b35fix425 (C19) — Rule 1.5 (universal): MARGINAL-band short-circuit.
+        // Status flips to 'monitor' and product/rate are suppressed. Reason
+        // text directs the user to monitor and re-test rather than apply.
+        //
+        // Order: this runs AFTER programme-suppression (a programme delivering
+        // the residual is more informative than "monitor") but BEFORE per-
+        // nutrient product selection (otherwise the engine emits a low rate
+        // that contradicts the monitor message).
+        //
+        // The dolomite-suppression Ca path runs inside the Ca branch, so a
+        // Ca-Marginal site that's also Mg-deficient will still hit dolomite
+        // suppression because we suppress the standalone Ca rec to monitor
+        // here, but the Mg branch (further down) builds dolomite if its own
+        // band is Moderate/Severe. The Mg branch reads soilData.Ca for the
+        // dolomite Ca-rate calculation (not the Ca decision object), so the
+        // Ca decision being 'monitor' doesn't break the dolomite path.
+        // ─────────────────────────────────────────────────────────────────────
+        if (_band === 'marginal') {
+            var _unitMarg = (nutrient === 'P' ? 'P' : nutrient === 'K' ? 'K'
+                          : nutrient === 'Ca' ? 'Ca' : nutrient === 'Mg' ? 'Mg' : 'S');
+            var _nutLabelMarg = (nutrient === 'P' ? 'Phosphorus'
+                              : nutrient === 'K' ? 'Potassium'
+                              : nutrient === 'Ca' ? 'Calcium'
+                              : nutrient === 'Mg' ? 'Magnesium'
+                              : 'Sulphur');
+            var _gapPpm = deficit;
+            var _refPpm = _bandReference;
+            var _gapPct = (_refPpm > 0) ? Math.round((_gapPpm / _refPpm) * 100) : null;
+            d.status = 'monitor';
+            d.product = null;
+            d.analysis = null;
+            d.kgTheoretical = null;
+            d.kgPractical = null;
+            d.rate = null;
+            d.amendmentKey = null;
+            d.deliveryMethod = null;
+            d.reason = _nutLabelMarg + ' is ' + _gapPpm.toFixed(1) + ' ppm below the soil threshold' +
+                       (_gapPct != null ? ' (' + _gapPct + '% gap)' : '') +
+                       '. Why this matters: a gap this size is within measurement noise for soil ' +
+                       'testing and within seasonal variation in plant uptake. Applying amendment ' +
+                       'on this signal alone risks oversupply without measurable agronomic benefit. ' +
+                       'Action: monitor at next routine soil test (3-6 months) and re-evaluate. ' +
+                       'If turf shows ' + _nutLabelMarg.toLowerCase() + ' deficiency symptoms before ' +
+                       'then, retest sooner and consider tissue analysis to confirm the soil reading ' +
+                       'is reflected in plant uptake.';
             return d;
         }
 
@@ -1512,41 +2105,86 @@
             // The product output is identical across all branches (MAP, 10% P,
             // 11% N) — the value of the branching is the *reason text* the
             // user reads, which differs materially across pH bands.
-            var pName = 'MAP (Mono-ammonium phosphate)';
-            var pAnalysis = '10% P, 11% N';
-            var pPct = 0.10;
+            // b35fix424 (C20): surface-aware product selection.
+            // On greens / bowls / croquet, MAP Tech soluble (foliar) replaces
+            // granular MAP. SOL-MAP catalogue: 12% N, 22% P (richer in P than
+            // granular MAP); pPct flips 0.10 → 0.22 to match. Reason text
+            // suffix names the foliar route.
+            var pDelivery = _resolveDeliveryWithEpsomExpansion('map', surfaceBucket);
+            var pName, pAnalysis, pPct;
+            if (pDelivery === 'foliar') {
+                pName = 'MAP Tech (soluble foliar)';
+                pAnalysis = '12% N, 22% P';
+                pPct = 0.22;
+            } else {
+                pName = 'MAP (Mono-ammonium phosphate)';
+                pAnalysis = '10% P, 11% N';
+                pPct = 0.10;
+            }
             var pNote;
 
             if (seedingActive) {
-                pNote = ' — selected for seedling safety (overseed/establishment context). ' +
+                pNote = ', selected for seedling safety (overseed/establishment context). ' +
                         'Avoid DAP near germinating seed: at pH ' + pH.toFixed(1) +
                         (pH > 7.0 ? ' (alkaline)' : '') +
                         ', DAP\'s alkaline granule microsite (pH ~8.0) generates free NH₃ which is ' +
                         'phytotoxic to emerging radicles. MAP\'s acidic microsite (~pH 4) keeps ' +
                         'ammonium as NH₄⁺. Source: Bremner & Krogmeier (1989) PNAS 86:8185.';
             } else if (pH < 5.5) {
-                pNote = ' — at pH ' + pH.toFixed(1) + ', the priority intervention is lime/dolomite ' +
+                pNote = ', at pH ' + pH.toFixed(1) + ', the priority intervention is lime/dolomite ' +
                         'to address underlying pH; without that, P uptake remains inefficient ' +
                         '(Fe/Al fixation continues until pH > 5.8). MAP is the appropriate P source ' +
                         'once pH correction is underway. See sequencing note for lime ↔ ammoniacal ' +
                         'fertiliser timing requirements.';
             } else if (pH > 7.5) {
-                pNote = ' — MAP preferred over DAP at pH ' + pH.toFixed(1) + '. DAP\'s alkaline ' +
+                pNote = ', MAP preferred over DAP at pH ' + pH.toFixed(1) + '. DAP\'s alkaline ' +
                         'granule microsite combined with alkaline bulk soil drives NH₃ volatilisation ' +
                         '(20-30% N loss reported on calcareous soils, Hofman & Van Cleemput 2004); ' +
                         'MAP avoids this loss pathway. Secondary benefit: less Ca-P fixation. ' +
-                        'Apply in autumn/spring when uptake is active; banded placement improves recovery.';
+                        'Apply in autumn/spring when turf is actively growing';
+                // b35fix445 (C20b): rate-guidance phrasing gated on surfaceBucket so
+                // greens sites do not see fairway copy and vice versa. Greens/foliar
+                // detail is covered by the pDelivery === 'foliar' suffix below.
+                // Tees take granular MAP at moderate rates with water-in, distinct
+                // from greens (foliar Tech-grade) and fairways (programme-integrated).
+                if (surfaceBucket === 'greens') {
+                    pNote += '; apply at low rates and water in if making a soil application.';
+                } else if (surfaceBucket === 'tees') {
+                    pNote += '; apply at moderate rates and water in.';
+                } else {
+                    pNote += ' with your regular fertiliser programme.';
+                }
             } else {
                 pNote = '';
+            }
+            // b35fix424 (C20): foliar delivery suffix appended to all reason
+            // text on greens/bowls/croquet so the user sees the route choice.
+            if (pDelivery === 'foliar') {
+                pNote += (pNote ? ' ' : ', ') +
+                         'Foliar route selected for close-cut surface (per-application cap ' +
+                         '15 kg product/ha; soluble in 400-600 L water/ha).';
             }
 
             d.status = 'apply';
             d.product = pName;
             d.analysis = pAnalysis;
-            d.rate = formatRate(residual, residual / pPct, 'P') +
+            // b35fix423 (C29): theoretical = full deficit closure in 1yr; practical = (theoretical / efficiency) / yearsToCorrect.
+            // b35fix424 (C20): deliveryMethod resolved per-surface. Foliar MAP efficiency 0.65 (vs granular alkaline 0.55 / neutral 0.70).
+            var pEff = _computePracticalKg(residual, 'P', 'map', pDelivery);
+            var pProductPractical = (residual / pPct / Math.max(0.01, pEff.efficiency)) / pEff.years;
+            d.kgTheoretical = +residual.toFixed(1);
+            d.kgPractical = +(residual / Math.max(0.01, pEff.efficiency) / pEff.years).toFixed(1);
+            d.efficiency = pEff.efficiency;
+            d.efficiencyCondition = pEff.condition;
+            d.efficiencySource = pEff.source;
+            d.yearsToCorrect = pEff.years;
+            d.amendmentKey = 'map';
+            d.deliveryMethod = pDelivery;
+            d.rate = formatRate(d.kgPractical, pProductPractical, 'P', 'map', pDelivery) +
                      (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
                       ' kg P/ha; this addresses the residual ' + residual.toFixed(1) + ' kg P/ha' : '') +
-                     pNote;
+                     pNote +
+                     _emitSevereContext(d, 'Phosphorus');
             d.reason = 'Apply ' + pName + ' (' + pAnalysis + ') at ' + d.rate;
             return d;
         }
@@ -1554,22 +2192,82 @@
         if (nutrient === 'K') {
             // Potassium sulphate (chloride-free, also delivers S). 41.5% elemental K
             // (= 50% K₂O). The catalogue SOL-SOP uses K=41.5 — this matches.
-            // Side-fix b35fix319: analysis label was wrong ("0-0-42 (17% K)") despite
-            // the math (/ 0.415) being correct. Corrected to "0-0-50 (41.5% K)".
+            // b35fix400: analysis label is now region-aware. AU/NZ shows
+            // "0-0-41.5 (41.5% K, 18% S)"; UK/EU shows "0-0-50 (as K₂O)
+            // (41.5% K, 18% S)". The /0.415 divisor stays correct (operates
+            // on elemental K regardless of display).
             //
             // High-Mg flag: when soil Mg is very high relative to K, K uptake is
             // antagonised. Note this in the reason text but don't change the product —
             // the soil-level K deficit still needs filling.
             var kHighMg = soilData.Mg && soilData.K && (soilData.Mg / Math.max(1, soilData.K)) > 4;
 
+            // b35fix424 (C20): surface-aware product / delivery selection.
+            // On greens/bowls/croquet, Soluble SOP (Tech grade) replaces granular
+            // SOP. Same elemental K (41.5%) and S (18%) — analysis label is
+            // unchanged (region-aware via _potassiumDisplayLabel). Reason text
+            // adds the foliar route note.
+            var kDelivery = _resolveDeliveryWithEpsomExpansion('potassiumSulphate', surfaceBucket);
+            var kName = (kDelivery === 'foliar')
+                ? 'Soluble SOP (Potassium Sulphate, Tech)'
+                : 'Potassium sulphate';
+
             d.status = 'apply';
-            d.product = 'Potassium sulphate';
-            d.analysis = '0-0-50 (41.5% K, 18% S)';
-            d.rate = formatRate(residual, residual / 0.415, 'K') +
+            d.product = kName;
+            d.analysis = _potassiumDisplayLabel();
+            // b35fix423 (C29): efficiency-adjusted practical rate.
+            // b35fix424 (C20): foliar delivery on close-cut surfaces (efficiency 0.65).
+            var kEff = _computePracticalKg(residual, 'K', 'potassiumSulphate', kDelivery);
+            var kProductPractical = (residual / 0.415 / Math.max(0.01, kEff.efficiency)) / kEff.years;
+            d.kgTheoretical = +residual.toFixed(1);
+            d.kgPractical = +(residual / Math.max(0.01, kEff.efficiency) / kEff.years).toFixed(1);
+            d.efficiency = kEff.efficiency;
+            d.efficiencyCondition = kEff.condition;
+            d.efficiencySource = kEff.source;
+            d.yearsToCorrect = kEff.years;
+            d.amendmentKey = 'potassiumSulphate';
+            d.deliveryMethod = kDelivery;
+            var kRouteNote = (kDelivery === 'foliar')
+                ? ', foliar route selected for close-cut surface (per-application cap 20 kg product/ha; soluble in 400-600 L water/ha)'
+                : '';
+            // b35fix425 (C19): pH-band uptake context for K. Three bands matching
+            // the P branch's pH-band structure but with the K-specific antagonist
+            // physiology (cation competition for root uptake sites, not Fe/Al
+            // fixation as for P).
+            //   pH < 6.0  — acidic soils favour Mg over K at root uptake sites
+            //               via cation competition (Mengel & Kirkby 2001 ch. 11).
+            //               Combined with the Mg:K wide-ratio flag (kHighMg)
+            //               this is the dominant K-uptake suppressor on
+            //               low-pH high-Mg sites.
+            //   pH > 7.5  — alkaline soils favour Ca over K at uptake sites,
+            //               same competition mechanism but with Ca as the
+            //               dominant antagonist. Calcareous parent material
+            //               sites typically show this.
+            //   pH 6.0-7.5 — no pH-driven antagonist, default uptake.
+            // Source: Mengel K. & Kirkby E.A. (2001) Principles of Plant
+            //         Nutrition, 5th ed., Kluwer ch. 11 (potassium); Marschner
+            //         (2012) Mineral Nutrition of Higher Plants ch. 6.
+            var kPhNote = '';
+            if (pH < 6.0) {
+                kPhNote = ', at pH ' + pH.toFixed(1) + ' (acidic) Mg competes with K for ' +
+                          'root uptake sites; cation competition continues until pH rises ' +
+                          'above ~6.0. Soil K addition is correct but uptake will be partly ' +
+                          'limited by the Mg antagonist; pH correction (lime/dolomite) addresses ' +
+                          'the underlying limitation';
+            } else if (pH > 7.5) {
+                kPhNote = ', at pH ' + pH.toFixed(1) + ' (alkaline) Ca competes with K for ' +
+                          'root uptake sites; cation competition is the dominant K-uptake ' +
+                          'limiter on calcareous and lime-induced alkaline soils. Foliar K ' +
+                          'bypasses the soil cation competition and is preferred at this pH';
+            }
+            d.rate = formatRate(d.kgPractical, kProductPractical, 'K', 'potassiumSulphate', kDelivery) +
                      (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
                       ' kg K/ha; this addresses the residual ' + residual.toFixed(1) + ' kg K/ha' : '') +
-                     (kHighMg ? ' — Mg:K ratio is wide; expect competitive uptake antagonism, ' +
-                      'split applications recommended' : '');
+                     (kHighMg ? ', Mg:K ratio is wide; expect competitive uptake antagonism, ' +
+                      'split applications recommended' : '') +
+                     kRouteNote +
+                     kPhNote +
+                     _emitSevereContext(d, 'Potassium');
             d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
             return d;
         }
@@ -1583,7 +2281,23 @@
             // outer Mg branch already implies mgDeficit). Previously also
             // gated on (caDeficit || pH < 5.5); see _dolomiteWillBeRecommended
             // comment above for rationale.
+            //
+            // b35fix423 (C29): each sub-branch carries its own amendmentKey —
+            // dolomite (acid pH < 6.0), kieserite (alkaline pH ≥ 7.0), epsom (else).
+            //
+            // b35fix424 (C20):
+            //   - Epsom flips to FOLIAR everywhere (Spencer pin: Epsom is sold
+            //     as soluble in AU/NZ practice; never granular). Cap 15 kg/ha.
+            //   - Kieserite stays granular but reason text gates on hollow-tine
+            //     aeration: 300 kg/ha cap is post-aeration only, not routine.
+            //   - Dolomite stays granular; on greens/bowls/croquet the
+            //     placement month flips from autumn to spring (Sep south /
+            //     Mar north) to weather through before autumn disease pressure.
+            //     Placement override is applied in _amendmentDecisionsToProducts
+            //     via the d._springPlacement flag set here.
             var mgName, mgAnalysis, mgPct, mgRate, mgExtra = '';
+            var mgAmendmentKey, mgEff, mgKgTheoretical, mgKgPractical, mgProductPractical;
+            var mgDelivery = 'granular';
             if (lowpH) {
                 // Dolomite — rate driven by max(Mg need, Ca need)
                 var dolRateMg = residual / 0.12;
@@ -1592,29 +2306,101 @@
                 var dolRateCa = caDef_kg > 0 ? caDef_kg / 0.22 : 0;
                 var dolProduct = Math.max(dolRateMg, dolRateCa);
                 var dolMgKg = dolProduct * 0.12;
+                mgAmendmentKey = 'dolomite';
+                mgEff = _computePracticalKg(dolMgKg, 'Mg', mgAmendmentKey, 'granular');
+                mgKgTheoretical = +dolMgKg.toFixed(1);
+                mgKgPractical = +(dolMgKg / Math.max(0.01, mgEff.efficiency) / mgEff.years).toFixed(1);
+                mgProductPractical = (dolProduct / Math.max(0.01, mgEff.efficiency)) / mgEff.years;
                 mgName = 'Dolomite (CaMg(CO₃)₂)';
                 mgAnalysis = '12% Mg, 22% Ca';
-                mgRate = formatRate(dolMgKg, dolProduct, 'Mg');
+                mgRate = formatRate(mgKgPractical, mgProductPractical, 'Mg', 'dolomite', 'granular');
                 mgExtra = (dolRateCa > dolRateMg ? ' (rate driven by Ca deficit; also corrects Mg and raises pH)'
                                                   : ' (rate driven by Mg deficit; also supplies Ca and raises pH)');
+                // b35fix424 (C20) spring placement override on close-cut surfaces.
+                // Late-summer / early-autumn lime applications carry residual surface
+                // alkalinity into the cool-wet pressure window, raising autumn Fusarium
+                // pressure. Spring placement so the amendment weathers through before
+                // disease pressure.
+                if (surfaceBucket === 'greens') {
+                    d._springPlacement = true;
+                    mgExtra += '. Spring placement on close-cut surface: late-summer/early-autumn lime ' +
+                               'applications carry residual surface alkalinity into the cool-wet pressure ' +
+                               'window, raising autumn Fusarium pressure. Apply in spring (Sep-Oct south / ' +
+                               'Mar-Apr north) so the amendment weathers through before autumn disease pressure.';
+                }
             } else if (pH >= 7.0) {
+                mgAmendmentKey = 'kieserite';
+                mgEff = _computePracticalKg(residual, 'Mg', mgAmendmentKey, 'granular');
                 mgName = 'Kieserite (MgSO₄·H₂O)';
                 mgAnalysis = '16% Mg, 22% S';
                 mgPct = 0.16;
-                mgRate = formatRate(residual, residual / mgPct, 'Mg');
+                mgKgTheoretical = +residual.toFixed(1);
+                mgKgPractical = +(residual / Math.max(0.01, mgEff.efficiency) / mgEff.years).toFixed(1);
+                mgProductPractical = (residual / mgPct / Math.max(0.01, mgEff.efficiency)) / mgEff.years;
+                mgRate = formatRate(mgKgPractical, mgProductPractical, 'Mg', 'kieserite', 'granular');
+                // b35fix424 (C20) post-aeration gate on close-cut surfaces.
+                // 300 kg/ha cap is post-hollow-tine only — not routine surface dressing.
+                if (surfaceBucket === 'greens') {
+                    mgExtra = ' (apply ONLY immediately following hollow-tine aeration, worked into the holes; ' +
+                              'do not apply as routine surface dressing on close-cut turf: kieserite is bulk granular ' +
+                              'and the per-application cap of 300 kg/ha is conditional on aeration event)';
+                }
             } else {
-                mgName = 'Magnesium sulphate (Epsom salts)';
+                // b35fix424 (C20): Epsom flips to FOLIAR. Spencer pin —
+                // Epsom is sold as soluble in AU/NZ practice; the granular
+                // path is retained in the table only as defensive fallback.
+                mgAmendmentKey = 'epsom';
+                mgDelivery = 'foliar';
+                mgEff = _computePracticalKg(residual, 'Mg', mgAmendmentKey, mgDelivery);
+                mgName = 'Magnesium sulphate (Epsom salts), soluble foliar';
                 mgAnalysis = '10% Mg, 13% S';
                 mgPct = 0.10;
-                mgRate = formatRate(residual, residual / mgPct, 'Mg');
+                mgKgTheoretical = +residual.toFixed(1);
+                mgKgPractical = +(residual / Math.max(0.01, mgEff.efficiency) / mgEff.years).toFixed(1);
+                mgProductPractical = (residual / mgPct / Math.max(0.01, mgEff.efficiency)) / mgEff.years;
+                mgRate = formatRate(mgKgPractical, mgProductPractical, 'Mg', 'epsom', 'foliar');
+                mgExtra = ' (foliar route; Epsom is sold as soluble in AU/NZ practice: dissolve fully in ' +
+                          '400-600 L water/ha; per-application cap 15 kg product/ha)';
+            }
+            // b35fix425 (C19): name the pH band explicitly in user copy so the
+            // user sees WHY the engine picked dolomite vs kieserite vs Epsom.
+            // The branching itself is unchanged (lowpH→dolomite, ≥7.0→kieserite,
+            // else→Epsom) — this just labels each band in the output. Inserted
+            // ahead of the existing mgExtra copy so it reads as
+            // "[band reason]. [existing mgExtra]".
+            var mgPhBandLabel = '';
+            if (lowpH) {
+                mgPhBandLabel = ' Band: acid pH (' + pH.toFixed(1) + ' < 6.0). Dolomite chosen ' +
+                                'because it corrects Mg, supplies Ca, and raises pH together; ' +
+                                'three benefits from one amendment when soil is acidic';
+            } else if (pH >= 7.0) {
+                mgPhBandLabel = ' Band: alkaline pH (' + pH.toFixed(1) + ' ≥ 7.0). Kieserite chosen ' +
+                                'because it supplies Mg without further alkalising the soil ' +
+                                '(unlike dolomite); Mg-sulphate chemistry is pH-neutral on ' +
+                                'application';
+            } else {
+                mgPhBandLabel = ' Band: near-neutral pH (' + pH.toFixed(1) + ', 6.0-7.0). ' +
+                                'Epsom (foliar) chosen because soil chemistry is balanced and ' +
+                                'foliar Mg gives faster correction than soil-applied granular ' +
+                                'on close-cut surfaces';
             }
             d.status = 'apply';
             d.product = mgName;
             d.analysis = mgAnalysis;
+            d.kgTheoretical = mgKgTheoretical;
+            d.kgPractical = mgKgPractical;
+            d.efficiency = mgEff.efficiency;
+            d.efficiencyCondition = mgEff.condition;
+            d.efficiencySource = mgEff.source;
+            d.yearsToCorrect = mgEff.years;
+            d.amendmentKey = mgAmendmentKey;
+            d.deliveryMethod = mgDelivery;
             d.rate = mgRate +
                      (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
                       ' kg Mg/ha; this addresses the residual ' + residual.toFixed(1) + ' kg Mg/ha' : '') +
-                     mgExtra;
+                     mgExtra +
+                     '.' + mgPhBandLabel +
+                     _emitSevereContext(d, 'Magnesium');
             d.reason = 'Apply ' + mgName + ' (' + mgAnalysis + ') at ' + d.rate;
             return d;
         }
@@ -1632,13 +2418,55 @@
             // co-deficit, lime (CaCO3) would address pH too — but the standard
             // recommendation here is the Ca-specific product; pH-correction lime
             // is handled in the pH narrative section, not here.
+            //
+            // b35fix423 (C29): efficiency lookup picks 'gypsum' / 'granular'.
+            // The gypsum table branches on saline (ESP > 6 or ECe > 4) → 0.40,
+            // else 'normal' → 0.60. Soil ESP/ECe come from soilData when present;
+            // pH-only sites without ESP/ECe fall through to 'normal'.
+            // b35fix424 (C20): Ca stays granular on all surfaces — foliar Ca on
+            // greens is rare in AU practice and rates are too high to justify
+            // Tech-grade pricing. Cap gates split-application copy via
+            // SURFACE_RATE_CAPS[greens].granular.gypsum = 250.
+            var caEff = _computePracticalKg(residual, 'Ca', 'gypsum', 'granular');
+            var caProductPractical = (residual / 0.23 / Math.max(0.01, caEff.efficiency)) / caEff.years;
             d.status = 'apply';
             d.product = 'Gypsum (CaSO₄·2H₂O)';
             d.analysis = '23% Ca, 18.6% S';
-            d.rate = formatRate(residual, residual / 0.23, 'Ca') +
+            d.kgTheoretical = +residual.toFixed(1);
+            d.kgPractical = +(residual / Math.max(0.01, caEff.efficiency) / caEff.years).toFixed(1);
+            d.efficiency = caEff.efficiency;
+            d.efficiencyCondition = caEff.condition;
+            d.efficiencySource = caEff.source;
+            d.yearsToCorrect = caEff.years;
+            d.amendmentKey = 'gypsum';
+            d.deliveryMethod = 'granular';
+            // b35fix425 (C19): pH-band uptake context for Ca. Gypsum is pH-
+            // neutral so the product choice doesn't change with pH, but the
+            // user benefits from knowing WHY gypsum was chosen over lime even
+            // at low pH (where lime would also raise pH). The answer: this
+            // branch only fires when there is no Mg co-deficit (dolomite path
+            // would have suppressed the Ca rec). At low pH without Mg need,
+            // lime would over-correct pH; gypsum delivers Ca without the
+            // alkalising effect, leaving pH management to the dedicated
+            // pH-narrative section.
+            var caPhNote = '';
+            if (pH < 6.0) {
+                caPhNote = ', at pH ' + pH.toFixed(1) + ' (acidic) lime would also raise pH ' +
+                           'but is NOT chosen here because the Ca branch only fires when there ' +
+                           'is no Mg co-deficit. Use lime when pH correction is the goal; use ' +
+                           'gypsum when Ca supply alone is required without pH change';
+            } else if (pH > 7.5) {
+                caPhNote = ', at pH ' + pH.toFixed(1) + ' (alkaline) gypsum is doubly correct: ' +
+                           'pH-neutral Ca delivery without further alkalising the soil, plus ' +
+                           'the sulphate has a small acidifying effect through SO₄²⁻ exchange ' +
+                           'with bicarbonate';
+            }
+            d.rate = formatRate(d.kgPractical, caProductPractical, 'Ca', 'gypsum', 'granular') +
                      (progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
                       ' kg Ca/ha; this addresses the residual ' + residual.toFixed(1) + ' kg Ca/ha' : '') +
-                     ' — pH-neutral; gypsum also delivers S';
+                     ', pH-neutral; gypsum also delivers S' +
+                     caPhNote +
+                     _emitSevereContext(d, 'Calcium');
             d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
             return d;
         }
@@ -1653,9 +2481,26 @@
             // Rule 3 — pH < 6.5 → sulphate of ammonia (NOT elemental S).
             // Rule 4 — pH > 7.5 → elemental S IS correct (acidification wanted).
             // Rule 5 — pH 6.5-7.5 default → gypsum (pH-neutral S delivery).
+            //
+            // b35fix424 (C20):
+            //   - Rule 3 on greens/bowls/croquet flips to FOLIAR (SOL-AS Tech).
+            //     Cap 20 kg product/ha. Rules 2 / 5 stay granular gypsum.
+            //   - Rule 4 elem-S stays granular regardless of surface (no foliar
+            //     form exists). Cap 28 kg product/ha = 25 kg S/ha (Spencer 2008
+            //     Nutrition of Sports Turf in Australia, p.143). Hemisphere-aware
+            //     summer suppression — Thiobacillus oxidation accelerates above
+            //     ~25-32°C generating sulphuric acid during heat stress.
             d.status = 'apply';
+            // b35fix423 (C29): each sub-rule has its own amendmentKey:
+            //   Rule 2 → 'gypsum'
+            //   Rule 3 → 'sulphateOfAmmonia'
+            //   Rule 4 → 'elementalSulphur'
+            //   Rule 5 → 'gypsum'
+            // Efficiency / yearsToCorrect / practical kg figures populated per branch.
+            var sAmendmentKey, sEff, sProductPct, sProductPractical;
+            var sDelivery = 'granular';
             if (_dolomiteWillBeRecommended) {
-                // Rule 2
+                // Rule 2 — gypsum granular regardless of surface
                 if (residual <= 0) {
                     // Programme + dolomite covers everything — suppress.
                     d.status = 'suppressed_combined';
@@ -1663,26 +2508,59 @@
                                'with dolomite (being recommended for Mg/pH). No standalone S amendment required.';
                     return d;
                 }
+                sAmendmentKey = 'gypsum';
+                sProductPct = 0.186;
+                sEff = _computePracticalKg(residual, 'S', sAmendmentKey, 'granular');
+                sProductPractical = (residual / sProductPct / Math.max(0.01, sEff.efficiency)) / sEff.years;
                 d.product = 'Gypsum (CaSO₄·2H₂O)';
                 d.analysis = '18.6% S, 23% Ca';
-                d.rate = formatRate(residual, residual / 0.186, 'S') +
-                         ' — pH-neutral, avoids undoing dolomite\'s liming effect' +
+                d.kgTheoretical = +residual.toFixed(1);
+                d.kgPractical = +(residual / Math.max(0.01, sEff.efficiency) / sEff.years).toFixed(1);
+                d.rate = formatRate(d.kgPractical, sProductPractical, 'S', 'gypsum', 'granular') +
+                         ', pH-neutral, avoids undoing dolomite\'s liming effect' +
                          (prog ? '. Programme already delivers ' + progKg.toFixed(0) +
                           ' kg S/ha; this addresses the residual ' + residual.toFixed(1) + ' kg/ha' : '');
             } else if (pH < 6.5) {
-                // Rule 3
-                d.product = 'Sulphate of ammonia ((NH₄)₂SO₄)';
+                // Rule 3 — SOA. b35fix424 (C20): foliar Tech soluble on close-cut.
+                sAmendmentKey = 'sulphateOfAmmonia';
+                sProductPct = 0.24;
+                sDelivery = _resolveDeliveryWithEpsomExpansion('sulphateOfAmmonia', surfaceBucket);
+                sEff = _computePracticalKg(residual, 'S', sAmendmentKey, sDelivery);
+                sProductPractical = (residual / sProductPct / Math.max(0.01, sEff.efficiency)) / sEff.years;
+                d.product = (sDelivery === 'foliar')
+                    ? 'Ammonium Sulphate Tech (soluble foliar)'
+                    : 'Sulphate of ammonia ((NH₄)₂SO₄)';
                 d.analysis = '21% N, 24% S';
-                d.rate = formatRate(residual, residual / 0.24, 'S') +
-                         ' — DO NOT use elemental sulphur at pH ' + pH.toFixed(1) +
+                d.kgTheoretical = +residual.toFixed(1);
+                d.kgPractical = +(residual / Math.max(0.01, sEff.efficiency) / sEff.years).toFixed(1);
+                var soaRouteNote = (sDelivery === 'foliar')
+                    ? ' Foliar route selected for close-cut surface (per-application cap 20 kg product/ha; ' +
+                      'soluble in 400-600 L water/ha).'
+                    : '';
+                d.rate = formatRate(d.kgPractical, sProductPractical, 'S', 'sulphateOfAmmonia', sDelivery) +
+                         ', DO NOT use elemental sulphur at pH ' + pH.toFixed(1) +
                          ' (would further acidify). Sulphate of ammonia delivers S and is the preferred ' +
-                         'N source at low pH' +
-                         (prog && progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
-                          ' kg S/ha; this addresses residual ' + residual.toFixed(1) + ' kg/ha' : '');
+                         'N source at low pH.' + soaRouteNote +
+                         ' Mechanism: at pH ' + pH.toFixed(1) + ' Thiobacillus oxidation of elemental S ' +
+                         'is suppressed (the bacteria need pH > 5.5 for active oxidation); the elemental-S ' +
+                         'pathway is therefore slow AND would drive pH lower still as it eventually oxidises. ' +
+                         'Sulphate of ammonia delivers the S as already-available SO₄²⁻ (no oxidation step ' +
+                         'required) and the NH₄⁺ contributes nitrogen. Source: Janzen & Bettany (1987) ' +
+                         'Soil Sci Soc Am J 51:1471 (Thiobacillus pH dependence).' +
+                         (prog && progKg > 0 ? ' Programme already delivers ' + progKg.toFixed(0) +
+                          ' kg S/ha; this addresses residual ' + residual.toFixed(1) + ' kg/ha.' : '');
             } else if (pH > 7.5) {
-                // Rule 4
+                // Rule 4 — elemental S. Granular only (no foliar form). Spencer 2008
+                // Nutrition of Sports Turf in Australia, p.143 cited for cap and
+                // application rules.
+                sAmendmentKey = 'elementalSulphur';
+                sProductPct = 0.90;
+                sEff = _computePracticalKg(residual, 'S', sAmendmentKey, 'granular');
+                sProductPractical = (residual / sProductPct / Math.max(0.01, sEff.efficiency)) / sEff.years;
                 d.product = 'Elemental sulphur';
                 d.analysis = '90% S';
+                d.kgTheoretical = +residual.toFixed(1);
+                d.kgPractical = +(residual / Math.max(0.01, sEff.efficiency) / sEff.years).toFixed(1);
 
                 // b35fix320: flag urea/DAP in the programme — at pH > 7.5 these
                 // N sources lose 20-40% of N to NH₃ volatilisation unless
@@ -1715,26 +2593,67 @@
                         alkalineLossSources.join(', ') + ' which will lose 20-40% of applied N ' +
                         'to NH₃ volatilisation at pH ' + pH.toFixed(1) + ' unless immediately ' +
                         'irrigated in (>5 mm within 4 hours). Strongly consider substituting ' +
-                        'ammonium sulphate (21-0-0 + 24% S) — acidifying, no volatilisation loss, ' +
+                        'ammonium sulphate (21-0-0 + 24% S), acidifying, no volatilisation loss, ' +
                         'and contributes to the S deficit. Source: Hofman & Van Cleemput (2004) ' +
                         'Soil and Plant Nitrogen, IFA.';
                 }
 
-                d.rate = formatRate(residual, residual / 0.90, 'S') +
-                         ' — correct at pH ' + pH.toFixed(1) + ' (acidifying effect is desired). ' +
-                         'Apply ONLY after hollow-tine aeration, worked into the holes, heading into ' +
-                         'autumn — do NOT apply over turf surface or into summer.' +
+                // b35fix424 (C20) hemisphere-aware summer suppression.
+                // Thiobacillus oxidation accelerates above 25-32°C generating
+                // sulphuric acid; applying during heat stress drives turf damage.
+                // South: suppress Nov-Mar; North: suppress May-Sep.
+                // The autumn-application windows are universal: Mar-Aug south
+                // and Sep-Feb north. Both labels appear in the copy so users
+                // in either hemisphere see the rule for both. The copy below
+                // doesn't switch on hemisphere — placement (handled in
+                // _amendmentDecisionsToProducts) targets the correct autumn
+                // month for the user's hemisphere by design.
+                // b35fix424b: prior conditional ternary produced "Sep-Feb south"
+                // on south-hem reports — corrected to static labels.
+                var sulphurApplicationCopy =
+                    'Apply ONLY after hollow-tine aeration, worked into the holes, heading into autumn ' +
+                    '(preferred timing per Spencer 2008, Nutrition of Sports Turf in Australia, p.143). ' +
+                    'Per-application cap 28 kg product/ha (= 25 kg S/ha = 250 g S/100 m², Spencer 2008 p.143); ' +
+                    'if higher rates are required, split applications at 3-4 week intervals with annual total ' +
+                    'not exceeding 500 kg S/ha. Use the finest product available, water in immediately to ' +
+                    'remove from the surface and prevent burning. ' +
+                    'DO NOT apply when soil temp >= 32 deg C: Thiobacillus oxidation accelerates and the ' +
+                    'sulphuric-acid intermediate causes excessive turf damage during heat stress. ' +
+                    'Defer to autumn (Mar-Aug south / Sep-Feb north), apply after hollow-tine aeration.';
+
+                d.rate = formatRate(d.kgPractical, sProductPractical, 'S', 'elementalSulphur', 'granular') +
+                         ', correct at pH ' + pH.toFixed(1) + ' (acidifying effect is desired). ' +
+                         sulphurApplicationCopy +
                          volatilisationWarning;
             } else {
-                // Rule 5
+                // Rule 5 — gypsum granular regardless of surface
+                sAmendmentKey = 'gypsum';
+                sProductPct = 0.186;
+                sEff = _computePracticalKg(residual, 'S', sAmendmentKey, 'granular');
+                sProductPractical = (residual / sProductPct / Math.max(0.01, sEff.efficiency)) / sEff.years;
                 d.product = 'Gypsum (CaSO₄·2H₂O)';
                 d.analysis = '18.6% S, 23% Ca';
-                d.rate = formatRate(residual, residual / 0.186, 'S') +
-                         ' — pH-neutral S delivery at pH ' + pH.toFixed(1) +
-                         (prog && progKg > 0 ? '. Programme already delivers ' + progKg.toFixed(0) +
+                d.kgTheoretical = +residual.toFixed(1);
+                d.kgPractical = +(residual / Math.max(0.01, sEff.efficiency) / sEff.years).toFixed(1);
+                d.rate = formatRate(d.kgPractical, sProductPractical, 'S', 'gypsum', 'granular') +
+                         ', pH-neutral S delivery at pH ' + pH.toFixed(1) +
+                         '. Mechanism: in the 6.5-7.5 pH band Thiobacillus oxidation of elemental S ' +
+                         'IS active (pH > 5.5 threshold met) but elemental S would slowly acidify the ' +
+                         'soil out of the optimal band over 6-18 months, so it is not the preferred ' +
+                         'product. Gypsum delivers SO₄²⁻ directly (no oxidation step) and is pH-neutral, ' +
+                         'preserving the optimal-band chemistry. Source: Janzen & Bettany (1987) ' +
+                         'Soil Sci Soc Am J 51:1471.' +
+                         (prog && progKg > 0 ? ' Programme already delivers ' + progKg.toFixed(0) +
                           ' kg S/ha; this addresses residual ' + residual.toFixed(1) + ' kg/ha' : '');
             }
-            d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate;
+            d.efficiency = sEff.efficiency;
+            d.efficiencyCondition = sEff.condition;
+            d.efficiencySource = sEff.source;
+            d.yearsToCorrect = sEff.years;
+            d.amendmentKey = sAmendmentKey;
+            d.deliveryMethod = sDelivery;
+            d.reason = 'Apply ' + d.product + ' (' + d.analysis + ') at ' + d.rate +
+                       _emitSevereContext(d, 'Sulphur');
             return d;
         }
 
@@ -2013,14 +2932,18 @@
             nutrient: 'K',
             status: 'apply',
             product: 'Potassium sulphate',
-            analysis: '0-0-50 (41.5% K, 18% S)',
+            // b35fix400: region-aware analysis label. AU/NZ shows elemental
+            // (0-0-41.5), UK/EU shows oxide (0-0-50 (as K₂O)). Both include
+            // "(41.5% K, 18% S)" parenthesised for parser stability and
+            // agronomic clarity.
+            analysis: _potassiumDisplayLabel({ region: opts.region }),
             rate: spotKgKHa.toFixed(0) + ' kg K/ha (' + kgProductHa +
-                  ' kg product/ha) — split across 3 peak K-uptake months. ' +
+                  ' kg product/ha), split across 3 peak K-uptake months. ' +
                   'Programme delivers ' + kDelivered.toFixed(0) +
                   ' kg K/ha against ' + kRequired.toFixed(0) +
                   ' kg K/ha annual requirement (balance ' +
                   (balance >= 0 ? '+' : '') + balance.toFixed(0) + ').',
-            reason: 'Spot K supplement — N programme delivers ' +
+            reason: 'Spot K supplement, N programme delivers ' +
                     kDelivered.toFixed(0) + ' kg K/ha against K requirement ' +
                     kRequired.toFixed(0) + ' kg K/ha (balance ' + balance.toFixed(0) +
                     '). Soil K (' + soilK.toFixed(0) + ' ppm) below floor (' +
@@ -2087,7 +3010,7 @@
 
         // 1. Engine missing → unknown.
         if (!anrK || (kReq == null && balance == null)) {
-            return { state: 'unknown', text: '—', color: '6B7280' };
+            return { state: 'unknown', text: '-', color: '6B7280' };
         }
 
         // 2. Spot-K applied → applied state.
@@ -2097,7 +3020,7 @@
             var amount = m ? m[1] : '?';
             return {
                 state: 'applied',
-                text: 'Applied (' + amount + ' kg K/ha, split 3) — see programme',
+                text: 'Applied (' + amount + ' kg K/ha, split 3), see programme',
                 color: '16A34A'
             };
         }
@@ -2130,7 +3053,7 @@
             // know they're mining reserves but no spot intervention warranted.
             return {
                 state: 'trend',
-                text: 'Trend (~' + shortfallKg + ' kg/ha shortfall vs removal) — ' +
+                text: 'Trend (~' + shortfallKg + ' kg/ha shortfall vs removal), ' +
                       'soil sufficient, programme replenishment recommended',
                 color: 'F59E0B'  // amber
             };
@@ -2141,7 +3064,7 @@
         //    user investigates.
         return {
             state: 'advisory',
-            text: 'Advisory (~' + shortfallKg + ' kg/ha) — review N programme',
+            text: 'Advisory (~' + shortfallKg + ' kg/ha), review N programme',
             color: 'DC2626'  // red
         };
     }
@@ -2273,6 +3196,26 @@
 
             var isKRecon = !!d._isKReconciliation;
 
+            // b35fix424 (C20): per-decision spring placement override for
+            // dolomite/lime on close-cut surfaces. Computed once here so both
+            // out.products[id]._appliedMonth AND the granular schedule entry
+            // see the same month. d._springPlacement is set by the Mg branch
+            // in _computeAmendmentDecision (lowpH dolomite path on greens
+            // bucket only). Spring months — South hem September (idx 8),
+            // North hem March (idx 2) — sit outside the autumn Fusarium
+            // pressure window.
+            var perDecisionMonthSlot  = monthSlot;
+            var perDecisionMonthIndex = monthIndex;
+            if (d._springPlacement) {
+                if (hemisphere === 'north') {
+                    perDecisionMonthSlot  = 'March';
+                    perDecisionMonthIndex = 2;
+                } else {
+                    perDecisionMonthSlot  = 'September';
+                    perDecisionMonthIndex = 8;
+                }
+            }
+
             // Build totalDelivered from the analysis (kg product × % / 100).
             // Canonical for amendment products (no release-timing discount —
             // either single-autumn placement or split application; the full
@@ -2317,9 +3260,10 @@
                 totalKgHa: +totalKgHa.toFixed(1),
                 totalDelivered: totalDelivered,
                 _isAmendment: true,
-                _appliedMonth: monthSlot,
+                _appliedMonth: perDecisionMonthSlot,
                 _nutrient: d.nutrient,
-                _isKReconciliation: isKRecon || undefined
+                _isKReconciliation: isKRecon || undefined,
+                _springPlacement: d._springPlacement || undefined
             };
 
             // ── b35fix324: K-recon split path ─────────────────────────────
@@ -2351,7 +3295,11 @@
                         id: id + ':s' + (s + 1),
                         name: d.product,
                         brand: d.product,
-                        npk: '0-0-50',  // SOP NPK label for display
+                        // b35fix400: NPK label region-aware. AU/NZ shows
+                        // elemental "0-0-41.5", UK/EU shows oxide "0-0-50".
+                        // The leading-triple regex in parseAnalysisLabel
+                        // strips this whole token so it's display-only.
+                        npk: (_detectKDisplayRegion() === 'oxide') ? '0-0-50' : '0-0-41.5',
                         analysis: pcts,
                         rateKgHa: thisRate,
                         rateGM2: (thisRate / 10).toFixed(1),
@@ -2363,7 +3311,7 @@
                         // is to make up programme K shortfall.
                         delivers: { N: 0, P: 0, K: thisDelK, S: thisDelS },
                         notes: 'Spot K supplement (split ' + (s + 1) + '/' +
-                               K_RECON_SPLIT_COUNT + ' — programme reconciliation)',
+                               K_RECON_SPLIT_COUNT + ', programme reconciliation)',
                         _isAmendment: true,
                         _isKReconciliation: true,
                         _nutrient: d.nutrient,
@@ -2391,6 +3339,11 @@
             // the rate string emitted by formatRate() (the " — apply in N split
             // dressings of MM kg" suffix). Setting splitCount > 1 would double-cite
             // the splits in the schedule cell.
+            //
+            // b35fix424 (C20): perDecisionMonthSlot / perDecisionMonthIndex
+            // hoisted to top of forEach iteration above (lines ~2887). Spring
+            // placement applies to dolomite/lime on close-cut surfaces only.
+
             out.granularEntries.push({
                 id: id,
                 name: d.product,
@@ -2403,11 +3356,13 @@
                 weeks: 1,
                 splitCount: 1,
                 delivers: { N: 0, P: 0, K: 0 },
-                notes: 'Amendment (single autumn application)',
+                notes: d._springPlacement
+                    ? 'Amendment (single spring application: close-cut surface, weather through before autumn disease pressure)'
+                    : 'Amendment (single autumn application)',
                 _isAmendment: true,
                 _nutrient: d.nutrient,
-                _monthIndex: monthIndex,
-                _appliedMonth: monthSlot
+                _monthIndex: perDecisionMonthIndex,
+                _appliedMonth: perDecisionMonthSlot
             });
         });
 
@@ -2549,12 +3504,21 @@
 
         // ── Warning 1: lime/dolomite ↔ ammoniacal sequencing ───────────────
         //
-        // Fires when dolomite is being recommended (Mg decision with status
-        // 'apply' and product containing "Dolomite") AND any ammoniacal
-        // product is in the rec set or in the programme. Co-application drives
-        // 25-50% NH₃ volatilisation losses.
+        // Fires when dolomite OR lime is being recommended (Mg/Ca decision with
+        // status 'apply' and product containing "Dolomite", "Lime", or
+        // "Calcium carbonate" / "CaCO") AND any ammoniacal product is in the
+        // rec set or in the programme. Co-application drives 25-50% NH₃
+        // volatilisation losses.
+        //
+        // b35fix424 (C20) latent-gap fix: regex expanded from /Dolomite/i to
+        // catch lime products too. Pre-fix the warning silently skipped lime
+        // recommendations because no engine path emitted lime today, but the
+        // gap was a hazard for future code paths (e.g. Ca branch could pick
+        // CaCO3 over gypsum at strongly acid pH). Trigger names match common
+        // product strings: "Dolomite", "Lime", "Agricultural Lime",
+        // "Calcium carbonate", "CaCO3", "CaCO₃".
         var dolomiteRec = decisions.find(function(d) {
-            return d.status === 'apply' && d.product && /Dolomite/i.test(d.product);
+            return d.status === 'apply' && d.product && /Dolomite|\bLime\b|Calcium carbonate|CaCO/i.test(d.product);
         });
         if (dolomiteRec) {
             var ammoniacalRecs = decisions.filter(recIsAmmoniacal).map(function(d) { return d.product; });
@@ -2614,7 +3578,7 @@
                 text: 'Fertigation incompatibility flag: calcium nitrate (' + caNitrateProg.join(', ') +
                       ') and phosphate sources (' + allPhosphate.join(', ') + ') form calcium phosphate ' +
                       'precipitate when tank-mixed. Apply as separate granular drops or through separate ' +
-                      'fertigation events — never co-mixed. This is a standard fertigation rule.',
+                      'fertigation events, never co-mixed. This is a standard fertigation rule.',
                 source: 'Standard fertigation chemistry; AU/NZ industry consensus'
             };
             // Attach to P decision (the most relevant) and any decision whose
@@ -2688,9 +3652,11 @@
      * Pure function: depends only on soilData + nutritionProgram + surfaceType.
      * Safe to call per-iteration in combined exports.
      */
-    function buildAnnualSoilAmendmentsTable(soilData, nutritionProgram, surfaceType, context) {
+    function buildAnnualSoilAmendmentsTable(soilData, nutritionProgram, surfaceType, context, hemisphere) {
         if (!soilData || !soilData.thresholds) return [];
         context = context || {};
+        // b35fix424 (C20): hemisphere defaults to 'south' for backward compat.
+        hemisphere = hemisphere || 'south';
 
         var methodology = soilData.methodology || 'MLSN';
         var isSLAN = methodology === 'SLAN';
@@ -2721,8 +3687,76 @@
             }
             if (!isDeficient) return;
 
+            // ────────────────────────────────────────────────────────────
+            // b35fix437 (C46/C47): axis-aware deficit conversion
+            // ────────────────────────────────────────────────────────────
+            // Pre-fix: deficit always treated as ppm (existing MLSN/SLAN/legacy AA paths).
+            // Post-fix: Hill Labs sample-type SSOT introduces two threshold axes:
+            //   'absolute'   — me/100g, mg/L, mg/kg (S277 cations, Olsen P, S81 P/S)
+            //   'proportion' — %BS (S81 cations: K, Ca, Mg, Na as %BS of CEC)
+            // _computeAmendmentDecision expects deficit in ppm for its kg/ha math
+            // (kgPerHa = deficit_ppm × depth × bd × 0.1). For proportion axis,
+            // convert deficit_%BS → deficit_me/100g → deficit_ppm via CEC.
+            // For absolute me/100g axis (S277 cations), convert via the same
+            // me/100g × factor table (Mg×122, K×391, Ca×200, Na×230).
+            // For absolute mg/L or mg/kg axis (P, S), pass through unchanged.
+            //
+            // CEC source: soilData.CEC populated by collectData from Hill Labs
+            // certificate. If missing on a proportion-axis sample, conversion
+            // returns null and the nutrient falls through (no amendment row;
+            // defensive degradation).
             var deficit = thresh.min - value;
-            var d = _computeAmendmentDecision(n.key, deficit, soilData, surfaceType, nutritionProgram, context);
+            var unit = thresh.unit;
+            var axis = thresh.axis;
+
+            if (axis === 'proportion' && unit === '%BS') {
+                // ────────────────────────────────────────────────────────────
+                // b35fix438 (C49): %BS amendment math rollback
+                // ────────────────────────────────────────────────────────────
+                // Pre-fix (b35fix437): %BS deficit converted via CEC to ppm
+                // and passed to _computeAmendmentDecision, emitting an
+                // amendment row keyed against the BCSR/%BS reference.
+                //
+                // Post-fix: refuse to compute amendments from %BS values.
+                // The Basic Cation Saturation Ratio (BCSR) framework lacks
+                // scientific support for predicting plant response in turf:
+                //   - Kopittke & Menzies (2007) SSSAJ 71:259-265: BCSR review
+                //     finds Ca:Mg:K ratio targets do not correlate with yield.
+                //   - Carrow, Waddington & Rieke (2001) Turfgrass Soil
+                //     Fertility & Chemical Problems: explicitly recommends
+                //     SLAN/MLSN over BCSR for turf.
+                //   - Stowell & Gelernter (PACE Turf): MLSN was developed
+                //     because BCSR/%BS thresholds produced over-fertilisation
+                //     recommendations on turf without yield response.
+                //
+                // The SSOT keeps the %BS thresholds because the Framework
+                // Comparison block discloses what Hill Labs printed on the
+                // certificate (informational fidelity), but no amendment
+                // recommendations are derived from %BS. Customers needing
+                // S81 cation amendment guidance should use tissue analysis
+                // (PACE Turf tissue ranges already in the hub) or arrange
+                // Mehlich-3 testing for MLSN/SLAN comparison.
+                if (typeof console !== 'undefined' && console.info) {
+                    console.info('[WordExport b35fix438] Skipping amendment for', n.key,
+                        '(%BS axis): BCSR not validated for turf per Kopittke & Menzies 2007, Carrow et al. 2001.');
+                }
+                return;
+            } else if (axis === 'absolute' && unit === 'me/100g') {
+                // me/100g → ppm via cation conversion factor
+                var hlSSOT2 = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
+                var ppmDeficit2 = hlSSOT2 && typeof hlSSOT2.meq100gToPpm === 'function'
+                    ? hlSSOT2.meq100gToPpm(deficit, n.key)
+                    : null;
+                if (ppmDeficit2 == null || isNaN(ppmDeficit2) || ppmDeficit2 <= 0) {
+                    return;
+                }
+                deficit = ppmDeficit2;
+            }
+            // axis === 'absolute' && unit === 'mg/L' (Olsen P) or 'mg/kg' (sulphate-S):
+            // deficit is already in the engine's native unit, pass through unchanged.
+            // axis === undefined (MLSN/SLAN paths): legacy ppm assumption holds.
+
+            var d = _computeAmendmentDecision(n.key, deficit, soilData, surfaceType, nutritionProgram, context, hemisphere);
             if (!d) return;
             d._displayName = n.name;
             decisions.push(d);
@@ -2754,7 +3788,7 @@
             sectionPieces.push(new Paragraph({
                 spacing: { after: 120 },
                 children: [new TextRun({
-                    text: 'No standalone soil amendments required — all measured nutrients are at or ' +
+                    text: 'No standalone soil amendments required, all measured nutrients are at or ' +
                           'above ' + (isAA ? 'Ammonium Acetate (Hill Labs)' : methodology) +
                           ' guideline levels.',
                     size: 20, italics: true, color: '6B7280'
@@ -2798,7 +3832,7 @@
                 children: [new Paragraph({
                     alignment: opts.align || AlignmentType.LEFT,
                     children: [new TextRun({
-                        text: String(text == null ? '—' : text),
+                        text: String(text == null ? '-' : text),
                         size: 16,
                         bold: !!opts.bold,
                         color: opts.color || '1F2937'
@@ -2807,28 +3841,34 @@
             });
         }
 
-        // Column widths (DXA ≈ twentieths of a point; total ~9000-9200 to fit page)
+        // Column widths (DXA ≈ twentieths of a point; total ~10,000 to fit page)
+        // b35fix423 (C29): "Rate" column dropped (the verbose split-application
+        // copy lives in the per-zone bullets via d.reason); Theoretical and
+        // Practical kg/ha columns added so the user sees the efficiency-adjusted
+        // figure alongside the deficit number it derives from.
         var colW = {
-            nutrient:  1300,
-            deficit:   1100,
-            delivers:  1300,
-            residual:  1100,
-            product:   1900,
-            rate:      1800,
-            status:    1500
+            nutrient:    1200,
+            deficit:     1000,
+            delivers:    1200,
+            residual:    1000,
+            product:     2000,
+            theoretical: 1100,
+            practical:   1100,
+            status:      1400
         };
 
         var headerRow = new TableRow({
             tableHeader: true,
             cantSplit: true,
             children: [
-                headerCell('Nutrient',           colW.nutrient),
-                headerCell('Soil deficit\n(kg/ha)', colW.deficit),
-                headerCell('Programme delivers\n(kg/ha)', colW.delivers, 'EFF6FF'),
-                headerCell('Residual\n(kg/ha)',   colW.residual, 'EFF6FF'),
-                headerCell('Product',             colW.product),
-                headerCell('Rate',                colW.rate),
-                headerCell('Status',              colW.status)
+                headerCell('Nutrient',                       colW.nutrient),
+                headerCell('Soil deficit\n(kg/ha)',          colW.deficit),
+                headerCell('Programme delivers\n(kg/ha)',    colW.delivers,    'EFF6FF'),
+                headerCell('Residual\n(kg/ha)',              colW.residual,    'EFF6FF'),
+                headerCell('Product',                        colW.product),
+                headerCell('Theoretical\n(kg/ha)',           colW.theoretical, 'FEF3C7'),
+                headerCell('Practical\n(kg/ha/yr)',          colW.practical,   'DCFCE7'),
+                headerCell('Status',                         colW.status)
             ]
         });
 
@@ -2862,15 +3902,27 @@
                     statusColor = '6B7280';
                     statusBg = 'F9FAFB';
                     break;
+                case 'monitor':
+                    // b35fix425 (C19): Marginal-band rows (deficit < 25% of
+                    // threshold) show as "Monitor" in info-blue rather than the
+                    // amber "Apply" colour. Product / theoretical / practical
+                    // cells render as '-' (the d.kgTheoretical/kgPractical zero
+                    // condition catches the practical/theoretical cells via the
+                    // existing `apply` guard below).
+                    statusLabel = 'Monitor';
+                    statusColor = '1D4ED8';
+                    statusBg = 'DBEAFE';
+                    break;
                 default:
-                    statusLabel = String(d.status || '—');
+                    statusLabel = String(d.status || '-');
                     statusColor = '1F2937';
                     statusBg = null;
             }
 
-            // For suppression rows, blank out product/rate cells (status carries the meaning).
-            var productText = d.status === 'apply' ? d.product : '—';
-            var rateText    = d.status === 'apply' ? d.rate    : '—';
+            // For suppression rows, blank out product / theoretical / practical cells (status carries the meaning).
+            var productText     = d.status === 'apply' ? d.product : '-';
+            var theoreticalText = d.status === 'apply' && d.kgTheoretical != null ? d.kgTheoretical.toFixed(1) : '-';
+            var practicalText   = d.status === 'apply' && d.kgPractical != null   ? d.kgPractical.toFixed(1)   : '-';
 
             rows.push(new TableRow({
                 cantSplit: true,
@@ -2880,16 +3932,34 @@
                     bodyCell(d.kgProgramme.toFixed(1), colW.delivers, { align: AlignmentType.CENTER, shading: 'F8FAFC' }),
                     bodyCell(d.kgResidual.toFixed(1), colW.residual, { align: AlignmentType.CENTER, shading: 'F8FAFC' }),
                     bodyCell(productText, colW.product),
-                    bodyCell(rateText, colW.rate),
+                    bodyCell(theoreticalText, colW.theoretical, { align: AlignmentType.CENTER, shading: 'FEF3C7' }),
+                    bodyCell(practicalText,   colW.practical,   { align: AlignmentType.CENTER, shading: 'DCFCE7', bold: true }),
                     bodyCell(statusLabel, colW.status, { bold: true, color: statusColor, shading: statusBg, align: AlignmentType.CENTER })
                 ]
             }));
         });
 
         sectionPieces.push(new Table({
-            columnWidths: [colW.nutrient, colW.deficit, colW.delivers, colW.residual, colW.product, colW.rate, colW.status],
+            columnWidths: [colW.nutrient, colW.deficit, colW.delivers, colW.residual, colW.product, colW.theoretical, colW.practical, colW.status],
             rows: rows
         }));
+
+        // b35fix423 (C29): explainer footnote for the Theoretical / Practical
+        // column pair. Always rendered when at least one apply row exists,
+        // since the user needs to know what the two columns mean.
+        var anyApplyRow = decisions.some(function(d) { return d.status === 'apply'; });
+        if (anyApplyRow) {
+            sectionPieces.push(new Paragraph({
+                spacing: { before: 80, after: 60 },
+                children: [new TextRun({
+                    text: 'Theoretical = full deficit closure in 1 year at 100% efficiency. ' +
+                          'Practical = (theoretical / amendment efficiency) / years to correct. ' +
+                          'Practical figures account for fixation, leaching, and amendment-loss pathways; ' +
+                          'apply the Practical column figure as the annual programme rate.',
+                    size: 14, italics: true, color: '6B7280'
+                })]
+            }));
+        }
 
         // Footnote — flag any rows where programme contributors exist so the
         // user can trace the programme reference.
@@ -3203,6 +4273,53 @@
      * Generate Performance Impact Analysis - discusses relationships between
      * soil, water, tissue, climate, cultivar selection, and other factors affecting turf
      */
+    // -------------------------------------------------------------------------
+    // b35fix448 / C25 - Performance Impact narrative module-presence gating.
+    //
+    // Function predates the canonical `data.{module}.hasData` flag rollout
+    // (introduced for soil / tissue / water / disease in the v2.0.x series;
+    // changelog L17, L155, L204; data writes at L7732, L7812 soil; L8176,
+    // L8207 tissue; L8344, L8376, L8403 water; L8508 disease). The four
+    // local proxies declared below were the pre-canonical idiom and have
+    // since fallen behind: each tests an arbitrary subset of fields and
+    // misses valid module-present cases (soil pH-only, tissue Mg-only,
+    // water HCO3-only, etc.). The proxies are upgraded to consume the
+    // canonical flags where one exists; `hasClimateData` is retained as
+    // a field-truthiness proxy because the climate module never exports
+    // a hasData flag (no canonical to consume).
+    //
+    // Three branches were also over-gated by composing two module proxies
+    // where the agronomic content of the branch only requires one:
+    //   - Branch at L4326 (high-SAR water copy): water-only sufficient,
+    //     was nested under hasSoilData && hasWaterData.
+    //   - Branch at L4346 (high-EC water copy): water-only sufficient,
+    //     was nested under hasSoilData && hasWaterData. Inner Ca:Mg /
+    //     soil-K compound effects retain their soil gates.
+    //   - Branch at L4399 (pH × P availability): soil-only sufficient
+    //     for the relationships push, was nested under hasTissueData &&
+    //     hasSoilData. The inner "tissue confirms" recommendations push
+    //     retains its tissue gate.
+    //
+    // Compound-stress aggregator at L4602-L4604 reads raw `data.tissue.N`
+    // / `data.tissue.K` numerics where the canonical flag exists and is
+    // strictly safer; gated on `data.tissue.hasData` to prevent the
+    // numeric-truthiness fallthrough on tissue-absent fixtures.
+    //
+    // Single call site: buildSections() at L13264, fed by collectData()
+    // which sets all canonical flags before buildSections runs. Combined
+    // export skips this section entirely (word-export-combined.js L2467
+    // siteLevelHeadings deny-list). Flag propagation verified in
+    // pre-estimate audit; no scope-mismatch risk per b35fix435 lesson #26.
+    //
+    // C25 ledger entry's source pointer was wrong (said cross-module-
+    // pattern.js, actual is this function) and bug-class characterisation
+    // was wrong (said config-aware-copy framework rebuild, actual is
+    // mechanical proxy upgrade). The "cool-season overseed" copy noted
+    // in the C25 production-evidence claim does NOT originate here; this
+    // function emits no such literal. That copy lives in generatePriorityActions
+    // L4647 fallback and the soil.speciesName fallback at L8125/8129, and
+    // is logged as adjacent C-entries (C25a, C25b) for follow-up.
+    // -------------------------------------------------------------------------
     function generatePerformanceImpactAnalysis(data) {
         if (!data) return null;
         
@@ -3218,10 +4335,12 @@
         var speciesName = data.turf ? (data.turf.effectiveSpecies || data.turf.speciesDisplay || data.turf.species || 'turf') : 'turf';
         var isOverseedFocused = data.turf && data.turf.overseedDominant;
         
-        // Helper to check if soil has data
-        var hasSoilData = data.soil && (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg);
-        var hasTissueData = data.tissue && (data.tissue.N || data.tissue.K || data.tissue.P);
-        var hasWaterData = data.water && (data.water.EC !== undefined || data.water.SAR !== undefined);
+        // b35fix448 / C25: module-presence proxies upgraded to canonical hasData
+        // flags where one is published by the producing module. Climate has no
+        // canonical flag (no producer write), retains field-truthiness proxy.
+        var hasSoilData = !!(data.soil && data.soil.hasData);
+        var hasTissueData = !!(data.tissue && data.tissue.hasData);
+        var hasWaterData = !!(data.water && data.water.hasData);
         var hasClimateData = data.climate && (data.climate.growthPotential !== undefined || data.climate.temperature !== undefined);
         
         // Add overseed context to narrative if applicable
@@ -3230,6 +4349,12 @@
         }
         
         // ========== SOIL × WATER INTERACTIONS ==========
+        // b35fix448 / C25: Bicarbonate × Ca branch genuinely requires both soil
+        // and water (Ca status comparison is core to the message). SAR and EC
+        // branches split out below into water-only siblings; their primary
+        // claim is about water chemistry, with soil-state compounds gated
+        // inline. Pre-fix the nested structure silenced the SAR / EC narrative
+        // entirely on water-only fixtures.
         if (hasSoilData && hasWaterData) {
             // High bicarbonate water affecting soil calcium availability
             if (data.water.HCO3 && data.water.HCO3 > 180 && data.soil.Ca) {
@@ -3251,44 +4376,54 @@
                     hasImpacts = true;
                 }
             }
+        }
+        
+        // High SAR water affecting soil structure and nutrient availability.
+        // b35fix448 / C25: water-only sufficient for the primary SAR claim;
+        // soil-state Ca:Mg compound effect gated inline on hasSoilData.
+        if (hasWaterData && data.water.SAR && data.water.SAR > 6) {
+            relationships.push({
+                type: 'concern',
+                text: 'The elevated sodium adsorption ratio (SAR ' + data.water.SAR.toFixed(1) + ') of the irrigation water promotes sodium accumulation in the soil profile. Over time, sodium displaces calcium and magnesium from soil exchange sites, degrading soil structure and reducing both infiltration rates and root penetration capacity.'
+            });
             
-            // High SAR water affecting soil structure and nutrient availability
-            if (data.water.SAR && data.water.SAR > 6) {
-                relationships.push({
-                    type: 'concern',
-                    text: 'The elevated sodium adsorption ratio (SAR ' + data.water.SAR.toFixed(1) + ') of the irrigation water promotes sodium accumulation in the soil profile. Over time, sodium displaces calcium and magnesium from soil exchange sites, degrading soil structure and reducing both infiltration rates and root penetration capacity.'
-                });
-                
-                if (data.soil.Ca && data.soil.Mg) {
-                    var caMgRatio = data.soil.Ca / data.soil.Mg;
-                    if (caMgRatio < 3) {
-                        relationships.push({
-                            type: 'compound',
-                            text: 'This situation is exacerbated by the current Ca:Mg ratio (' + caMgRatio.toFixed(1) + ':1), which is already below optimal. Continued irrigation with high-SAR water will further displace calcium, worsening soil physical properties and potentially inducing magnesium-induced calcium deficiency in the turf.'
-                        });
-                    }
+            if (hasSoilData && data.soil.Ca && data.soil.Mg) {
+                var caMgRatio = data.soil.Ca / data.soil.Mg;
+                if (caMgRatio < 3) {
+                    relationships.push({
+                        type: 'compound',
+                        text: 'This situation is exacerbated by the current Ca:Mg ratio (' + caMgRatio.toFixed(1) + ':1), which is already below optimal. Continued irrigation with high-SAR water will further displace calcium, worsening soil physical properties and potentially inducing magnesium-induced calcium deficiency in the turf.'
+                    });
                 }
-                recommendations.push('Apply gypsum at 1-2 t/ha annually to maintain calcium dominance on exchange sites. Monitor soil ESP (exchangeable sodium percentage) and infiltration rates.');
-                hasImpacts = true;
             }
+            recommendations.push('Apply gypsum at 1-2 t/ha annually to maintain calcium dominance on exchange sites. Monitor soil ESP (exchangeable sodium percentage) and infiltration rates.');
+            hasImpacts = true;
+        }
+        
+        // Saline water affecting nutrient uptake.
+        // b35fix448 / C25: water-only sufficient for the primary EC claim;
+        // soil-K compensation recommendation gated inline on hasSoilData.
+        if (hasWaterData && data.water.EC && data.water.EC > 1.5) {
+            relationships.push({
+                type: 'interaction',
+                text: 'The elevated salinity of the irrigation water (EC ' + data.water.EC.toFixed(2) + ' dS/m) reduces nutrient uptake efficiency across all elements. Plants must expend metabolic energy on osmotic adjustment rather than growth, and the high sodium and chloride concentrations compete directly with potassium and nitrate uptake at root membrane transport sites.'
+            });
             
-            // Saline water affecting nutrient uptake
-            if (data.water.EC && data.water.EC > 1.5) {
-                relationships.push({
-                    type: 'interaction',
-                    text: 'The elevated salinity of the irrigation water (EC ' + data.water.EC.toFixed(2) + ' dS/m) reduces nutrient uptake efficiency across all elements. Plants must expend metabolic energy on osmotic adjustment rather than growth, and the high sodium and chloride concentrations compete directly with potassium and nitrate uptake at root membrane transport sites.'
-                });
-                
-                if (data.soil.K && data.soil.thresholds && data.soil.thresholds.K) {
-                    if (data.soil.K < data.soil.thresholds.K.min * 1.5) {
-                        recommendations.push('Maintain soil potassium at 150% of normal MLSN target to compensate for sodium competition at uptake sites. Apply potassium sulphate rather than potassium chloride to avoid adding additional chloride load.');
-                    }
+            if (hasSoilData && data.soil.K && data.soil.thresholds && data.soil.thresholds.K) {
+                if (data.soil.K < data.soil.thresholds.K.min * 1.5) {
+                    recommendations.push('Maintain soil potassium at 150% of normal MLSN target to compensate for sodium competition at uptake sites. Apply potassium sulphate rather than potassium chloride to avoid adding additional chloride load.');
                 }
-                hasImpacts = true;
             }
+            hasImpacts = true;
         }
         
         // ========== TISSUE × SOIL RELATIONSHIPS ==========
+        // b35fix448 / C25: K-uptake-restriction and K-induced-Mg-deficiency
+        // branches genuinely require both tissue and soil (the diagnostic
+        // claim is "tissue X despite soil Y"). pH × P availability split
+        // out below; its primary claim is about soil pH effects on P
+        // availability, with tissue confirmation gated inline on the
+        // recommendation push only.
         if (hasTissueData && hasSoilData) {
             // Tissue deficiency despite adequate soil levels - suggests uptake problem
             if (data.tissue.K && data.soil.K && data.tissue.ranges && data.tissue.ranges.K) {
@@ -3324,28 +4459,32 @@
                     }
                 }
             }
+        }
+        
+        // Phosphorus availability vs pH.
+        // b35fix448 / C25: soil-only sufficient for the primary pH × P
+        // availability claim; tissue P confirmation gated inline on the
+        // recommendation push only. Pre-fix this branch was silenced
+        // entirely on tissue-absent fixtures (e.g. soil-only quick reviews).
+        if (hasSoilData && data.soil.pH && data.soil.P) {
+            var pH = data.soil.pH;
+            var P = data.soil.P;
             
-            // Phosphorus availability vs pH
-            if (data.soil.pH && data.soil.P) {
-                var pH = data.soil.pH;
-                var P = data.soil.P;
+            if ((pH < 5.5 || pH > 7.5) && P < 30) {
+                var pIssue = pH < 5.5 ? 
+                    'The low soil pH (' + pH + ') causes phosphorus to bind with aluminium and iron oxides' : 
+                    'The elevated soil pH (' + pH + ') causes phosphorus to precipitate with calcium';
+                relationships.push({
+                    type: 'interaction',
+                    text: pIssue + ', reducing the proportion that remains plant-available. The soil test P value (' + P + ' ppm) likely overestimates actual phosphorus availability under these pH conditions.'
+                });
                 
-                if ((pH < 5.5 || pH > 7.5) && P < 30) {
-                    var pIssue = pH < 5.5 ? 
-                        'The low soil pH (' + pH + ') causes phosphorus to bind with aluminium and iron oxides' : 
-                        'The elevated soil pH (' + pH + ') causes phosphorus to precipitate with calcium';
-                    relationships.push({
-                        type: 'interaction',
-                        text: pIssue + ', reducing the proportion that remains plant-available. The soil test P value (' + P + ' ppm) likely overestimates actual phosphorus availability under these pH conditions.'
-                    });
-                    
-                    if (data.tissue && data.tissue.P && data.tissue.ranges && data.tissue.ranges.P) {
-                        if (data.tissue.P < data.tissue.ranges.P.lo) {
-                            recommendations.push('Tissue P confirms limited availability despite soil reserves. Apply phosphorus as foliar MAP or MKP for rapid uptake, and address soil pH to improve long-term phosphorus availability.');
-                        }
+                if (hasTissueData && data.tissue.P && data.tissue.ranges && data.tissue.ranges.P) {
+                    if (data.tissue.P < data.tissue.ranges.P.lo) {
+                        recommendations.push('Tissue P confirms limited availability despite soil reserves. Apply phosphorus as foliar MAP or MKP for rapid uptake, and address soil pH to improve long-term phosphorus availability.');
                     }
-                    hasImpacts = true;
                 }
+                hasImpacts = true;
             }
         }
         
@@ -3753,34 +4892,108 @@
         var issues = [];
         var recommendations = [];
         
-        // Ca:Mg ratio assessment (target 3:1 to 10:1 depending on philosophy)
+        // b35fix440 / C51: Ca:Mg ratio assessment grounded in independent Mg
+        // measurement, not BCSR ratio targeting. Pre-fix this branch emitted
+        // a "Ca-limits-Mg-availability" claim on Ca:Mg > 10 alone with a
+        // recommendation to apply Mg sources, a BCSR-derived rule that Kopittke & Menzies (2007) SSSAJ 71:259-265 reviewed and
+        // found unsupported by yield data. Same evidence chain as the
+        // b35fix439 OQ-Mulder closure and the C49 BCSR rollback. The Mg < 50
+        // ppm gate is a conservative Mehlich-3 sufficiency-floor proxy
+        // (Woods, Stowell & Soldat 2014, MLSN); when Mg sits above the
+        // floor, ratio alone is not a deficit signal regardless of how high
+        // Ca:Mg climbs. The amendment recommendation is suppressed in that
+        // case and the issue text instead notes that the ratio is high but
+        // Mg is adequate by sufficiency interpretation.
+        var isMgLow_b35fix440 = Mg < 50;
         var CaMgStatus = 'Optimal';
         if (CaMg < 3) {
             CaMgStatus = 'Low';
             issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is below optimal. Magnesium may be antagonising calcium uptake.');
             recommendations.push('Apply gypsum or calcium nitrate to improve Ca:Mg balance.');
-        } else if (CaMg > 10) {
+        } else if (CaMg > 10 && isMgLow_b35fix440) {
             CaMgStatus = 'High';
-            issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is elevated. Calcium may be limiting magnesium availability.');
-            recommendations.push('Apply magnesium source — dolomite at 1-2 t/ha if pH < 6.0 (raises pH and supplies Mg + Ca), or kieserite at 200-400 kg/ha Mg if pH adequate.');
+            issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is elevated and Mg sits below the sufficiency floor. Address the Mg shortfall directly.');
+            recommendations.push('Apply magnesium source: dolomite at 1-2 t/ha if pH < 6.0 (raises pH and supplies Mg + Ca), or kieserite at 200-400 kg/ha Mg if pH adequate.');
+        } else if (CaMg > 10) {
+            CaMgStatus = 'Optimal';
+            issues.push('Ca:Mg ratio (' + CaMg.toFixed(1) + ':1) is elevated but Mg is above the sufficiency floor. Ratio alone is not a deficit signal (Kopittke & Menzies 2007); no Mg amendment indicated on this evidence.');
         }
         
-        // K:Mg ratio assessment (target 0.2-0.5 meq:meq)
+        // ────────────────────────────────────────────────────────────────
+        // b35fix441 / C52: K:Mg ratio gated on independent K-low evidence
+        // ────────────────────────────────────────────────────────────────
+        // Pre-fix the K:Mg branch returned 'High K' on KMg > 0.7 and 'Low K'
+        // on KMg < 0.15 with no reference to whether K was independently
+        // above or below the sufficiency floor. Same evidentiary class as
+        // C50 / C51 (the b35fix440 closure of Ca:Mg display-side BCSR
+        // remnants): a ratio is diagnostic only when paired with absolute
+        // sufficiency evidence; ratio alone is not a deficit signal
+        // (Kopittke & Menzies 2007 SSSAJ 71:259-265). Post-fix the 'Low K'
+        // branch only fires when K is independently below the threshold
+        // sufficiency floor; otherwise the ratio stays Optimal because the
+        // K supply is adequate. The 'High K' branch is retained because
+        // K-induced Mg suppression is a documented uptake-carrier
+        // antagonism (Marschner 2012 *Mineral Nutrition of Higher Plants*
+        // ch. 8); but an isKLow gate is added there too because if K is
+        // already below floor, the ratio reading high suggests Mg is even
+        // lower in absolute terms, in which case the recommendation must
+        // address the Mg shortfall not reduce K applications.
+        // ────────────────────────────────────────────────────────────────
+        var isKLow_b35fix441 = false;
+        if (data && data.soil && data.soil.thresholds && data.soil.thresholds.K &&
+            data.soil.thresholds.K.axis === 'absolute' && data.soil.thresholds.K.min != null) {
+            // Both K (data.soil.K) and threshold.K.min are now in ppm post
+            // b35fix441 / C46; this comparison is unit-consistent.
+            isKLow_b35fix441 = (data.soil.K != null && data.soil.K < data.soil.thresholds.K.min);
+        }
+
         var KMgStatus = 'Optimal';
-        if (KMg > 0.7) {
+        if (KMg > 0.7 && !isKLow_b35fix441) {
             KMgStatus = 'High K';
             issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') indicates potential K-induced Mg deficiency.');
             recommendations.push('Reduce potassium applications and supplement with foliar magnesium.');
-        } else if (KMg < 0.15) {
+        } else if (KMg > 0.7 && isKLow_b35fix441) {
+            // Ratio is high but K is below floor → Mg must be even lower.
+            // Address the absolute Mg shortfall rather than reducing K.
+            KMgStatus = 'High K';
+            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') is elevated and K is below the sufficiency floor; Mg supply is the limiting axis.');
+            recommendations.push('Apply magnesium source (kieserite or epsom salts) to lift Mg above sufficiency floor; recheck K:Mg after correction.');
+        } else if (KMg < 0.15 && isKLow_b35fix441) {
             KMgStatus = 'Low K';
-            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') suggests potassium may be limiting relative to magnesium.');
+            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') is low and K is below the sufficiency floor; address K supply directly.');
+            recommendations.push('Apply potassium source (potassium sulphate preferred for chloride-sensitive turf) to lift K above sufficiency floor.');
+        } else if (KMg < 0.15 && !isKLow_b35fix441) {
+            // Low ratio but K is adequate — Mg is high in absolute terms,
+            // which is not itself a deficit signal. Ratio alone is not
+            // diagnostic (Kopittke & Menzies 2007).
+            KMgStatus = 'Optimal';
+            issues.push('K:Mg ratio (' + KMg.toFixed(2) + ') is low but K is above the sufficiency floor; ratio alone is not a deficit signal (Kopittke & Menzies 2007). No K amendment indicated on this evidence.');
         }
-        
-        // Base saturation assessment
-        if (Ca_sat < 50) {
-            issues.push('Calcium base saturation (' + Ca_sat.toFixed(0) + '%) is low. Target is 60-70%.');
-            recommendations.push('Apply lime or gypsum to increase calcium saturation.');
-        }
+
+        // ────────────────────────────────────────────────────────────────
+        // b35fix441 / C52b: Ca-base-saturation BCSR rule retired
+        // ────────────────────────────────────────────────────────────────
+        // Pre-fix this block fired "Calcium base saturation (X%) is low.
+        // Target is 60-70%." plus a lime/gypsum recommendation when
+        // Ca_sat < 50%. The 60-70% target is BCSR — Bear et al. 1945
+        // ratio-balancing dogma — which Kopittke & Menzies (2007) SSSAJ
+        // 71:259-265 reviewed and found unsupported by yield data, and
+        // which the b35fix439 OQ-Mulder closure plus b35fix440 C50/C51
+        // already retired across mulders-interaction-checker.js and the
+        // Ca:Mg display-side surfaces. Carrow, Waddington & Rieke (2001)
+        // explicitly recommends sufficiency-level (SLAN/MLSN) over BCSR
+        // for turf. PACE Turf developed MLSN specifically because BCSR
+        // saturation targets produced over-fertilisation recommendations
+        // on turf without yield response. Post-fix this branch is gone;
+        // the Cation Balance Analysis section's Base Saturation block is
+        // already suppressed on AA samples by b35fix438 / C49, and on
+        // MLSN/SLAN samples the saturation values render as informational
+        // disclosure only (no amendment recommendation, no caution copy).
+        // The Na-saturation rule below is preserved because the 5%
+        // threshold is a sodicity proxy (Rengasamy & Olsson 1991, ESP > 6
+        // = sodic), grounded in soil-physics not BCSR.
+        // ────────────────────────────────────────────────────────────────
+        // (former Ca-base-saturation block intentionally removed in b35fix441)
         if (Na_sat > 5) {
             issues.push('Sodium saturation (' + Na_sat.toFixed(1) + '%) exceeds 5% threshold - sodicity risk.');
             recommendations.push('Apply gypsum and implement leaching program to reduce sodium.');
@@ -4165,6 +5378,20 @@
         // inline table — clients saw "75-150" in the SLAN Range column despite
         // the K-Reconciliation table caption reading "75-176" on the same export.
         // Fallback below is the Carrow 2004 "other soils" set, matching SSOT.
+        //
+        // b35fix427 (C33): pH-adjust the P floor here to match the b35fix426 /
+        // C32 fix to the Annual Soil Amendments threshold builder. Pre-fix
+        // this renderer used the static `_gccSlan.P.floor = 27` while the
+        // amendments-table renderer used the pH-adjusted floor (51 at pH > 8.0
+        // via `getSlanTargetP`). Same site, two SLAN range values surfaced in
+        // the same export — internal inconsistency that surfaced during b35fix426
+        // Rockingham 16th green production verification. Same SSOT call here
+        // closes the second instance of this asymmetric-engines bug.
+        // Lesson #13 from sprint summary applied: when fixing an asymmetric-
+        // engines bug, grep for ALL consumers of the source-of-truth value,
+        // not just the one that surfaced the bug. The C32 fix found the
+        // amendments-table consumer; b35fix426 production verification found
+        // the Dual Interpretation table consumer; this fix closes it.
         var _gccSlan = (typeof window !== 'undefined' &&
                         window.GilbaClassificationConstants &&
                         window.GilbaClassificationConstants.SLAN_RANGES) || null;
@@ -4185,6 +5412,16 @@
                 Mg: { min: 70,  max: 140 },
                 S:  { min: 15,  max: 40  }
             };
+        }
+        // pH-adjust the P floor via the public SSOT API. Defensive — if the
+        // requirements engine isn't loaded or pH isn't available, the static
+        // floor (already populated above) is preserved.
+        var _pHForDual = (soilData && (soilData.pH || soilData.pH_water)) || null;
+        if (typeof window !== 'undefined' &&
+                window.NutritionRequirementEngine_Pure &&
+                typeof window.NutritionRequirementEngine_Pure._getSlanTargetP === 'function' &&
+                _pHForDual != null && !isNaN(_pHForDual)) {
+            slanRanges.P.min = window.NutritionRequirementEngine_Pure._getSlanTargetP(parseFloat(_pHForDual));
         }
         
         var nutrients = [
@@ -4386,7 +5623,7 @@
                     ((soilData.Ca && soilData.thresholds.Ca && soilData.Ca < soilData.thresholds.Ca.min) || soilData.pH < 5.5);
                 if (dolomiticCorrection2) {
                     // Merge toxic-metals warning with dolomite correction into one sentence — avoids duplication
-                    narrative.push('Soil pH (' + pH + ') is below the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). At this level, aluminium and manganese can become toxic to roots and phosphorus availability is severely restricted. Dolomite application (see Soil Nutrition recommendations) will correct pH while addressing Mg and Ca deficits simultaneously — retest in 6 months.');
+                    narrative.push('Soil pH (' + pH + ') is below the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). At this level, aluminium and manganese can become toxic to roots and phosphorus availability is severely restricted. Dolomite application (see Soil Nutrition recommendations) will correct pH while addressing Mg and Ca deficits simultaneously, retest in 6 months.');
                 } else {
                     narrative.push('Soil pH (' + pH + ') is below the tolerance range for ' + speciesName + ' (' + tolRangeStr + '). At this level, aluminium and manganese can become toxic to roots, while phosphorus availability is severely restricted. This species will experience significant stress.');
                     recommendations.push('URGENT: Apply agricultural lime to raise pH toward ' + optLo + '. Retest in 6 months to assess response.');
@@ -4395,7 +5632,7 @@
                 // Below optimal but within tolerance
                 narrative.push('Soil pH (' + pH + ') is below the optimal range (' + optRangeStr + ') for ' + speciesName + ', but within tolerance (' + tolRangeStr + '). Phosphorus and molybdenum availability may be reduced.');
                 if (acidTolerant) {
-                    narrative.push(speciesName + ' has good acid tolerance — monitoring is sufficient unless deficiency symptoms appear.');
+                    narrative.push(speciesName + ' has good acid tolerance, monitoring is sufficient unless deficiency symptoms appear.');
                 } else {
                     recommendations.push('Consider lime application to raise pH toward ' + optLo + ' for optimal nutrient availability.');
                 }
@@ -4405,13 +5642,17 @@
                 if (alkalineTolerant) {
                     narrative.push('Although ' + speciesName + ' has some alkaline tolerance, this pH still exceeds safe limits.');
                 }
-                recommendations.push('URGENT: Apply elemental sulphur or ammonium sulphate to acidify the rootzone. Elemental sulphur should only be applied after hollow-tine aeration, worked into the holes, and timed heading into autumn — do NOT apply over the turf surface or heading into summer. Use Fe-EDDHA chelate for iron applications. Evaluate irrigation water for alkalinity contribution.');
+                recommendations.push('URGENT: Apply elemental sulphur or ammonium sulphate to acidify the rootzone. Elemental sulphur should only be applied after hollow-tine aeration, worked into the holes, and timed heading into autumn, do NOT apply over the turf surface or heading into summer. Use Fe-EDDHA chelate for iron applications. Evaluate irrigation water for alkalinity contribution.');
             } else if (pH > optHi) {
                 // Above optimal but within tolerance
                 narrative.push('Soil pH (' + pH + ') is above the optimal range (' + optRangeStr + ') for ' + speciesName + ', but within tolerance (' + tolRangeStr + '). Monitor for iron chlorosis.');
                 if (alkalineTolerant) {
-                    narrative.push(speciesName + ' tolerates alkaline conditions — focus on trace element management rather than aggressive acidification.');
-                    recommendations.push('Use chelated iron (Fe-EDDHA) if chlorosis appears. Prefer ammonium-based nitrogen sources.');
+                    narrative.push(speciesName + ' tolerates alkaline conditions, focus on trace element management rather than aggressive acidification.');
+                    // b35fix418 (C17): stripped contradictory "Prefer ammonium-based nitrogen sources" clause.
+                    // Recommending acidifying-N for an alkaline-tolerant species contradicts the
+                    // "tolerates alkaline" sentence above. Chelated iron stays as it is purely a
+                    // symptomatic response to chlorosis, not pH management.
+                    recommendations.push('Use chelated iron (Fe-EDDHA) if chlorosis appears.');
                 } else {
                     recommendations.push('Consider acidification to bring pH into the optimal range. Use ammonium sulphate for nitrogen applications.');
                 }
@@ -4491,7 +5732,7 @@
                 spacing: { before: 150, after: 100 },
                 shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
                 border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'F59E0B' } },
-                children: [new TextRun({ text: 'SAR vs SARadj — Important Distinction', bold: true, size: 22, color: '92400E' })]
+                children: [new TextRun({ text: 'SAR vs SARadj, Important Distinction', bold: true, size: 22, color: '92400E' })]
             }));
             
             var explanationText = 'Standard SAR (' + SAR.toFixed(1) + ') assumes all measured calcium remains available to counteract sodium. However, your water contains elevated bicarbonate (' + HCO3 + ' mg/L), which causes calcium to precipitate as lime when the water enters the soil. ';
@@ -5137,7 +6378,12 @@
         var diseaseTraits = traits.disease || {};
         var diseaseCards = [];
 
-        var diseaseLabels = {
+        // b35fix419 (C4): use the species-aware disease label resolver from
+        // disease-engine-pure.js. Falls back to a local dict if the resolver
+        // isn't loaded (test contexts, race-condition load orders). Keeps the
+        // canonical "Take-all Patch" label for cool-season species and swaps
+        // to "Take-all Root Rot" for paspalum (var. graminis pathology).
+        var _diseaseLabelFallback = {
             dollarSpot: 'Dollar Spot',
             brownPatch: 'Brown Patch',
             pythium: 'Pythium',
@@ -5148,17 +6394,24 @@
             springDeadSpot: 'Spring Dead Spot',
             redThread: 'Red Thread',
             fusarium: 'Fusarium (Microdochium)',
-            takeAll: 'Take-All Patch',
-            takeAllPatch: 'Take-All Patch'
+            takeAll: 'Take-all Patch',
+            takeAllPatch: 'Take-all Patch'
         };
-        
+        var _resolveLabel = (typeof window !== 'undefined' &&
+                             window.DiseaseEnginePure &&
+                             window.DiseaseEnginePure.utils &&
+                             typeof window.DiseaseEnginePure.utils.resolveDiseaseDisplayName === 'function')
+            ? window.DiseaseEnginePure.utils.resolveDiseaseDisplayName
+            : function(key) { return _diseaseLabelFallback[key] || key; };
+        var _profileSpecies = turf.effectiveSpecies || turf.species || varietyData.species || null;
+
         Object.keys(diseaseTraits).forEach(function(disease) {
             var d = diseaseTraits[disease];
             if (d && d.riskMultiplier !== undefined) {
                 var mult = d.riskMultiplier;
                 var pct = Math.round((1 - mult) * 100);
                 diseaseCards.push({
-                    disease: diseaseLabels[disease] || disease,
+                    disease: _resolveLabel(disease, _profileSpecies),
                     multiplier: mult,
                     rating: mult < 0.80 ? 'Resistant' : mult < 0.95 ? 'Moderate Resistance' : mult < 1.10 ? 'Average' : mult < 1.30 ? 'Susceptible' : 'Highly Susceptible',
                     modifier: pct > 0 ? pct + '% lower risk' : Math.abs(pct) + '% higher risk',
@@ -5306,7 +6559,7 @@
                     children: [
                         new TextRun({ text: card.category + ': ', bold: true, size: 20, color: '1F2937' }),
                         new TextRun({ text: card.rating, size: 20, color: card.color, bold: true }),
-                        new TextRun({ text: ' — ' + card.modifier, size: 20, color: '4B5563' })
+                        new TextRun({ text: ', ' + card.modifier, size: 20, color: '4B5563' })
                     ]
                 }));
                 
@@ -5485,7 +6738,7 @@
             // path. The combined-export ANR pass will log a warning and skip
             // that report's ANR. Neither silently substitutes a species.
             console.warn('[WordExport] _buildEngineInputs: species unresolved ' +
-                         '(canonical, state, and DOM all empty) — ' +
+                         '(canonical, state, and DOM all empty), ' +
                          'setting data.engineInputs=null. ' +
                          'Caller will fall back or hard-fail.');
             data.engineInputs = null;
@@ -5858,7 +7111,7 @@
         // Single-export omits it — only one sample, no asymmetry to explain.
         if (opts.siteUniformCaption) {
             var captionText = opts.siteUniformText
-                || 'Distribution is site-uniform — annual N target, monthly growth potential, and distribution strategy are all site-level inputs. Per-sample differentiation appears in P/K/S requirements above.';
+                || 'Distribution is site-uniform, annual N target, monthly growth potential, and distribution strategy are all site-level inputs. Per-sample differentiation appears in P/K/S requirements above.';
             nodes.push(new Paragraph({
                 spacing: { before: 80, after: 120 },
                 children: [new TextRun({
@@ -5953,9 +7206,69 @@
             }
         }
         
-        // Turf info - try state first, then DOM
-        if (window.GAIP_STATE && window.GAIP_STATE.turf) {
-            var turf = window.GAIP_STATE.turf;
+        // ────────────────────────────────────────────────────────────────
+        // b35fix442: turf shelf read prefers GAIP_STATE.inputs.turf.
+        // ────────────────────────────────────────────────────────────────
+        // Pre-fix this block read window.GAIP_STATE.turf only (the flat
+        // post-analysis shelf written by hub-tissue-v3.js:6966 at
+        // analysis-end). On a fresh site or any state where analysis has
+        // not yet run, GAIP_STATE.turf is undefined, the entire block
+        // skipped, and the b35fix438 fallback chain at line ~7236 had to
+        // fire to recover turfType from the canonical controller. Worse,
+        // when a user activates cotula bowls AFTER having previously run
+        // analysis on a non-bowls site:
+        //   1. Prior site analysis: hub-tissue-v3.js:6966 sets
+        //      GAIP_STATE = { turf: {turfType:'sports'}, soil:..., ... }.
+        //   2. User clicks the cotula tile. cotula-bowling-green.js:571
+        //      replaces window.GAIP_STATE wholesale with
+        //      { inputs: { turf: { turfType:'bowls', cotula:true, ... } } }.
+        //   3. User exports docx WITHOUT re-running analysis. Pre-fix
+        //      this block saw GAIP_STATE.turf as undefined and fell
+        //      through to the controller (correct outcome by accident).
+        //   4. User re-runs analysis. b35fix391 merge writes fresh
+        //      inputs.turf onto t.turf, so GAIP_STATE.turf gets the
+        //      cotula keys merged in. Correct outcome (since b35fix391).
+        //   5. BUT: if anything between steps 2 and 4 partially writes
+        //      to GAIP_STATE.turf (e.g. a stale snapshot from a prior
+        //      run), this block reads stale 'sports' while inputs.turf
+        //      carries the fresh 'bowls'. That is the held-after-b35fix390
+        //      regression: live UI chips/SiteSelector/Prebble preview all
+        //      read TPC.state and show 'bowls' correctly, only word-export
+        //      collectData reads GAIP_STATE.turf and gets the stale value.
+        //
+        // The canonical writers in this codebase route through
+        // GAIP_STATE.inputs.turf:
+        //   - cotula-bowling-green.js:571 (b35fix388 routed write)
+        //   - hub-orchestrator.js:457 (orchestrator mirror)
+        //   - hub-tissue-v3.js:6960 (b35fix391 fresh-merge source)
+        //   - site-switch-cleanup.js:144 (b35fix401 identity clear)
+        // The flat GAIP_STATE.turf shelf is only populated by
+        // hub-tissue-v3.js:6966 at analysis-end.
+        //
+        // Fix: read priority becomes
+        //   (1) GAIP_STATE.inputs.turf, canonical, all routed writers land here
+        //   (2) GAIP_STATE.turf,         flat post-analysis shelf, retained
+        //                                 as fallback for any read path where
+        //                                 inputs.turf is unpopulated but the
+        //                                 flat shelf carries data
+        // matching the same fallback shape used by cotula-bowling-green.js:568-569.
+        // Downstream behaviour is identical when both shelves agree (the
+        // post-b35fix391 normal case). Diverges from pre-fix only when the
+        // inputs.turf shelf carries fresher data than the flat shelf,
+        // which is the regression class this fix closes.
+        //
+        // The b35fix438 (C48) fallback chain at line ~7236 stays in place
+        // as defensive third-tier fallback for the case where neither
+        // inputs.turf NOR the flat shelf has turfType (e.g. controller
+        // populated but no analysis run AND no cotula activation, DOM-only
+        // turf-type select on a fresh site).
+        //
+        // Turf info - try inputs.turf first, then flat .turf shelf, then DOM
+        var _b35fix442_turf = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.turf)
+            || (window.GAIP_STATE && window.GAIP_STATE.turf)
+            || null;
+        if (_b35fix442_turf) {
+            var turf = _b35fix442_turf;
             data.turf.type = turf.turfType || '';
             data.turf.rawTurfType = turf.turfType || '';  // Keep raw value for internal checks
             data.turf.subCategory = turf.subCategory || '';  // golf: greens/fairways/tees
@@ -6017,7 +7330,7 @@
             var c3FormValue = c3FormInput ? (parseFloat(c3FormInput.value) || 0) / 100 : null;
             if (c3FormValue !== null && Math.abs(c3FormValue - data.turf.c3Fraction) > 0.1) {
                 // Form and state disagree by more than 10% — trust the form
-                console.warn('[WordExport] c3Fraction state/form mismatch — state:', data.turf.c3Fraction, 'form:', c3FormValue, '— using form value');
+                console.warn('[WordExport] c3Fraction state/form mismatch, state:', data.turf.c3Fraction, 'form:', c3FormValue, ', using form value');
                 data.turf.c3Fraction = c3FormValue;
                 data.turf.c4Fraction = 1 - c3FormValue;
             }
@@ -6025,12 +7338,63 @@
         
         // Fallback to DOM if state missing turf type
         if (!data.turf.type) {
-            // Try active turf type button first
-            var activeTurfBtn = document.querySelector('.gaip-turf-type-option.active');
-            if (activeTurfBtn && activeTurfBtn.dataset.type) {
-                data.turf.type = activeTurfBtn.dataset.type;
+            // ────────────────────────────────────────────────────────────────
+            // b35fix438 (C48): turf identity read from canonical controller
+            // ────────────────────────────────────────────────────────────────
+            // Pre-fix: GAIP_STATE.turf.turfType was the primary read at
+            // line ~7045 above, but that shelf is never written to by the
+            // site-settings panel or turf-profile-controller. The canonical
+            // writer is window.GaipTurfProfile.state.turfType (set by
+            // TurfProfileController.selectTurfType). Live UI top chip
+            // (hub-header-bar.js:188) reads from the same canonical
+            // controller path, which is why the chip displays "Sports
+            // Field" while the docx renders "Not specified" — two read
+            // paths, one writer, only one consumer wired correctly.
+            //
+            // Fallback DOM selectors below were ALSO stale:
+            //   - .gaip-turf-type-option.active: retired class name, no
+            //     element on page emits this in current production HTML
+            //   - .gaip-turf-type: legacy select element, also retired
+            // Current Site Settings panel emits .gaip-sp-turf-btn.active
+            // with data-type attribute (assets/site-settings-panel.js:678).
+            //
+            // Post-fix priority chain (most-canonical first):
+            //   1. window.GaipTurfProfile.state.turfType (controller state)
+            //   2. .gaip-sp-turf-btn.active data-type (current panel DOM)
+            //   3. .gaip-turf-type-option.active data-type (legacy DOM,
+            //      retained as defensive fallback for older skin builds)
+            //   4. .gaip-turf-type select (legacy select, retained as
+            //      defensive fallback)
+            //
+            // Also write turf.subCategory from same controller state because
+            // the docx uses turfType + subCategory together for the
+            // golf-class display label (line ~7172 below). Pre-fix the
+            // subCategory had its own state-read path that was likely
+            // also empty for non-golf surfaces; the controller is
+            // authoritative for both slots.
+            var tp = (typeof window !== 'undefined') ? window.GaipTurfProfile : null;
+            if (tp && tp.state && tp.state.turfType) {
+                data.turf.type = tp.state.turfType;
+                data.turf.rawTurfType = tp.state.turfType;
+                if (tp.state.subCategory && !data.turf.subCategory) {
+                    data.turf.subCategory = tp.state.subCategory;
+                }
             }
-            // Fallback to select element
+            // Try current panel button (b35fix438)
+            if (!data.turf.type) {
+                var activeSpBtn = document.querySelector('.gaip-sp-turf-btn.active');
+                if (activeSpBtn && activeSpBtn.dataset.type) {
+                    data.turf.type = activeSpBtn.dataset.type;
+                }
+            }
+            // Legacy panel button (defensive, older skins)
+            if (!data.turf.type) {
+                var activeTurfBtn = document.querySelector('.gaip-turf-type-option.active');
+                if (activeTurfBtn && activeTurfBtn.dataset.type) {
+                    data.turf.type = activeTurfBtn.dataset.type;
+                }
+            }
+            // Legacy select element
             if (!data.turf.type) {
                 var turfTypeEl = document.querySelector('.gaip-turf-type');
                 if (turfTypeEl) {
@@ -6357,14 +7721,81 @@
                 data.soil.Mg = soilInput.ppm.Mg;
                 data.soil.S = soilInput.ppm.S;
                 data.soil.pH = soilInput.pH_water;
-                data.soil.OM = soilInput.OM;
-                data.soil.CEC = soilInput.CEC;
-                data.soil.Na = soilInput.ppm.Na;  // For soil×water interactions
-                // Soil EC — read from DOM (1:5 extract, dS/m)
-                var ecEl = document.querySelector('.gaip-soil-ec');
-                if (ecEl && ecEl.value && !isNaN(parseFloat(ecEl.value))) {
-                    data.soil.EC = parseFloat(ecEl.value);
+                data.soil.Na = soilInput.ppm.Na;
+
+                // b35fix415: clean read of CEC/EC/OM from active sample's
+                // rawData. Six builds (b35fix409-414) chasing this through
+                // helpers, migrations, and proxy reads all failed in
+                // production despite passing unit tests. Console probe of
+                // every active sample confirms rawData carries canonical
+                // CEC/EC/OM. Read directly from there with no intermediary.
+                //
+                // PHP parser writes both canonical short keys (CEC, EC, OM)
+                // and verbose synonyms (CEC_meq100g, EC1_5, OM_Percent). Try
+                // canonical first, fall back to synonyms.
+                var _activeSample = (window.GAIP_SampleManager && typeof GAIP_SampleManager.getActiveSample === 'function')
+                    ? GAIP_SampleManager.getActiveSample('soil') : null;
+                var _raw = (_activeSample && _activeSample.rawData) || null;
+                if (_raw) {
+                    var _cec = _raw.CEC != null ? parseFloat(_raw.CEC)
+                             : _raw.CEC_meq100g != null ? parseFloat(_raw.CEC_meq100g)
+                             : null;
+                    if (_cec != null && !isNaN(_cec)) data.soil.CEC = _cec;
+
+                    var _ec = _raw.EC != null ? parseFloat(_raw.EC)
+                            : _raw.EC1_5 != null ? parseFloat(_raw.EC1_5)
+                            : null;
+                    if (_ec != null && !isNaN(_ec)) data.soil.EC = _ec;
+
+                    var _om = _raw.OM != null ? parseFloat(_raw.OM)
+                            : _raw.OM_Percent != null ? parseFloat(_raw.OM_Percent)
+                            : null;
+                    if (_om != null && !isNaN(_om)) data.soil.OM = _om;
+
+                    // b35fix427 (C34): measured ESP read from rawData if the
+                    // lab returned one. Estimation from Na+CEC happens AFTER
+                    // both DOM-fallback and canonical-state paths have run
+                    // (see post-DOM-fallback block below) so it works on
+                    // either path. Pre-fix this whole block was inside the
+                    // `if (_raw)` gate which never fired on Rockingham
+                    // production export — the export went through the DOM
+                    // fallback path. Moved out to ensure ESP is always
+                    // attempted regardless of which population path ran.
+                    if (_raw.ESP != null) {
+                        var _measuredESP = parseFloat(_raw.ESP);
+                        if (!isNaN(_measuredESP)) {
+                            data.soil.ESP = +_measuredESP.toFixed(1);
+                            data.soil._espSource = 'measured';
+                        }
+                    }
                 }
+
+                // Final fallback: DOM input values, in case the active sample
+                // has no rawData (e.g. user typed values manually without
+                // saving to a sample). Only fires when rawData read above
+                // didn't populate.
+                if (data.soil.CEC == null) {
+                    var _cecEl = document.querySelector('.gaip-cec');
+                    if (_cecEl && _cecEl.value) {
+                        var _cd = parseFloat(_cecEl.value);
+                        if (!isNaN(_cd)) data.soil.CEC = _cd;
+                    }
+                }
+                if (data.soil.EC == null) {
+                    var _ecEl = document.querySelector('.gaip-soil-ec');
+                    if (_ecEl && _ecEl.value) {
+                        var _ed = parseFloat(_ecEl.value);
+                        if (!isNaN(_ed)) data.soil.EC = _ed;
+                    }
+                }
+                if (data.soil.OM == null) {
+                    var _omEl = document.querySelector('.gaip-loi');
+                    if (_omEl && _omEl.value) {
+                        var _od = parseFloat(_omEl.value);
+                        if (!isNaN(_od)) data.soil.OM = _od;
+                    }
+                }
+
                 // Set hasData flag if we have any nutrient values
                 if (data.soil.P || data.soil.K || data.soil.Ca || data.soil.Mg) {
                     data.soil.hasData = true;
@@ -6408,8 +7839,28 @@
                     ['Cu', ['[data-mlsn="Cu"]', '#gaip_soil_Cu', '#soil_Cu', '[name="soil_Cu"]', '.gaip-soil-Cu', '#Cu_ppm', '[data-nutrient="Cu"]']],
                     ['Zn', ['[data-mlsn="Zn"]', '#gaip_soil_Zn', '#soil_Zn', '[name="soil_Zn"]', '.gaip-soil-Zn', '#Zn_ppm', '[data-nutrient="Zn"]']],
                     ['pH', ['.gaip-soil-ph', '#gaip_soil_pH', '#soil_pH', '[name="soil_pH"]', '.gaip-soil-pH', '#pH_water']],
-                    ['OM', ['#gaip_soil_OM', '#soil_OM', '[name="soil_OM"]', '.gaip-soil-OM', '#organic_matter']],
-                    ['CEC', ['#gaip_soil_CEC', '#soil_CEC', '[name="soil_CEC"]', '.gaip-soil-CEC']],
+                    // b35fix409 (C3+C5): added `.gaip-loi` (the actual UI
+                    // selector per sample-manager.js SOIL_FIELD_MAP). The
+                    // pre-fix list of `#gaip_soil_OM`, `#soil_OM`,
+                    // `[name="soil_OM"]`, `.gaip-soil-OM`, `#organic_matter`
+                    // does not match any element rendered by the plugin's
+                    // own UI, so this DOM fallback never produced a value.
+                    ['OM', ['.gaip-loi', '#gaip_soil_OM', '#soil_OM', '[name="soil_OM"]', '.gaip-soil-OM', '#organic_matter']],
+                    // b35fix416: added `.gaip-cec` and `.gaip-soil-ec` to the
+                    // CEC and EC entries. The pre-fix CEC list never matched
+                    // the actual UI element (`.gaip-cec`); EC had no entry
+                    // at all in soilFieldMappings, so the DOM fallback
+                    // never produced CEC or EC values for combined export
+                    // per-zone iteration. This was the root cause of the
+                    // b35fix409-415 saga: `soilInput.ppm` is null during
+                    // per-zone iteration in combined export (loadSample
+                    // doesn't fully populate the proxy chain), so the
+                    // entire `if (soilInput && soilInput.ppm)` block at
+                    // line 6494 is skipped, and the DOM fallback below is
+                    // the actual code path that runs. CEC and EC fields
+                    // weren't covered by the right selectors.
+                    ['CEC', ['.gaip-cec', '#gaip_soil_CEC', '#soil_CEC', '[name="soil_CEC"]', '.gaip-soil-CEC']],
+                    ['EC', ['.gaip-soil-ec', '#gaip_soil_EC', '#soil_EC', '[name="soil_EC"]', '.gaip-soil-EC']],
                     ['Na', ['[data-mlsn="Na"]', '#gaip_soil_Na', '#soil_Na', '[name="soil_Na"]', '.gaip-soil-Na', '#Na_ppm', '[data-nutrient="Na"]']]
                 ];
                 
@@ -6430,7 +7881,53 @@
                     data.soil.hasData = true;
                 }
             }
-            
+
+            // ────────────────────────────────────────────────────────────────
+            // b35fix427b (C34 follow-up): path-independent ESP estimation.
+            // ────────────────────────────────────────────────────────────────
+            // Pre-b35fix427b this block lived inside the `if (_raw)` gate which
+            // depends on GAIP_SampleManager.getActiveSample('soil') returning
+            // a sample with rawData. On Rockingham 16th green production
+            // verification (b35fix427 first deploy) the ESP block didn't fire
+            // because the export went through the DOM-fallback path, not the
+            // canonical-state path — `_raw` was null, the inner block was
+            // skipped, `data.soil.ESP` stayed undefined, and Ca gypsum
+            // practical rendered at 63 kg/ha (normal-soil 0.60) instead of
+            // 94.5 kg/ha (saline 0.40). Same b35fix427 same day saw two
+            // production verifications in sequence; this is the second.
+            //
+            // Moved out of the gate so it runs after both population paths
+            // complete. Reads `data.soil.Na` and `data.soil.CEC` whichever
+            // way they got there. Measured ESP from rawData (if present) was
+            // already attached above and takes precedence — only estimates
+            // when ESP is still null at this point.
+            //
+            // ESP% = (Na meq/100g) / (CEC meq/100g) × 100
+            //      = (Na_ppm / 230) / CEC × 100
+            //      = Na_ppm / (CEC × 2.3)
+            // Sources: USDA Handbook 60 (Salinity Laboratory),
+            //          Carrow & Duncan 2011 ch. 7.
+            //
+            // Mathematical equivalence note: this is the same value the
+            // Cation Balance section computes as Na_sat (Na base saturation),
+            // because ESP and Na base saturation on the CEC are the same
+            // metric expressed two ways. Confirmed at Rockingham: report
+            // showed Na_sat 18.8% from Cation Balance; ESP from this block
+            // would compute Na_ppm / (CEC × 2.3) = same number. Both
+            // displays now consistent.
+            if (data.soil.ESP == null || isNaN(data.soil.ESP)) {
+                var _naForESP = parseFloat(data.soil.Na);
+                if (data.soil.CEC != null && !isNaN(data.soil.CEC) &&
+                        _naForESP != null && !isNaN(_naForESP) && data.soil.CEC > 0) {
+                    var _esp = _naForESP / (data.soil.CEC * 2.3);
+                    // Clamp to physical range [0, 100].
+                    if (_esp < 0) _esp = 0;
+                    if (_esp > 100) _esp = 100;
+                    data.soil.ESP = +_esp.toFixed(1);
+                    data.soil._espSource = 'estimated-Na-CEC';
+                }
+            }
+
             // Add MLSN/SLAN/Ammonium Acetate thresholds for charting
             if (data.soil.methodology === 'SLAN') {
                 // b35fix325: SLAN ranges sourced from GilbaClassificationConstants
@@ -6455,9 +7952,49 @@
                     Mg: { floor: 70,  ceiling: 140 },
                     S:  { floor: 15,  ceiling: 40  }
                 };
+                // ────────────────────────────────────────────────────────────
+                // b35fix426 (C32): P pH-adjusted SLAN floor SSOT
+                // ────────────────────────────────────────────────────────────
+                // Pre-fix: P SLAN threshold here was the static Carrow 2004
+                // floor (27 ppm). The requirements engine
+                // (`nutrition-requirement-engine.js calculateNutrientRequirement`)
+                // applies a pH-adjustment via `getSlanTargetP(pH)` per the
+                // b35fix334 ladder (45/36/27/41/51 at pH bands), but that
+                // adjustment was NOT propagated to `data.soil.thresholds.P.min`
+                // here — so the amendments-table renderer and
+                // `_computeAmendmentDecision` saw an unadjusted floor while
+                // the requirements engine saw the pH-adjusted one. Asymmetric
+                // engines.
+                //
+                // Production evidence (Rockingham 16th green b35fix425 verification):
+                //   pH 8.5, P measured 20 ppm.
+                //   Requirements engine: floor = getSlanTargetP(8.5) = 51 ppm
+                //                        → status = Deficient, deficit = 31 ppm
+                //   Amendments table:    floor = 27 (static)
+                //                        → deficit = 7 ppm = 9.8 kg/ha → 25.9% Moderate Apply
+                //   Two engines reading different P deficits at the same site.
+                //   Post-fix: amendments table sees floor 51 → deficit 31 ppm =
+                //   43.4 kg/ha → 60.8% Severe Apply with site-attention warning.
+                //
+                // Source: same b35fix334 ladder used by the requirements engine
+                // (`getSlanTargetP`). The function is exposed at
+                // `window.NutritionRequirementEngine_Pure._getSlanTargetP` —
+                // call it if available, fall through to the static floor as
+                // defensive degradation.
+                var _pFloor = _slanRanges.P.floor;
+                var _pHForSlanP = (soilInput && soilInput.pH_water) ||
+                                  (data.soil && data.soil.pH) ||
+                                  null;
+                if (typeof window !== 'undefined' &&
+                        window.NutritionRequirementEngine_Pure &&
+                        typeof window.NutritionRequirementEngine_Pure._getSlanTargetP === 'function' &&
+                        _pHForSlanP != null && !isNaN(_pHForSlanP)) {
+                    _pFloor = window.NutritionRequirementEngine_Pure._getSlanTargetP(parseFloat(_pHForSlanP));
+                }
                 data.soil.thresholds = {
-                    P:  { min: _slanRanges.P.floor,  max: _slanRanges.P.ceiling,
-                          label: _slanRanges.P.floor + '-' + _slanRanges.P.ceiling },
+                    P:  { min: _pFloor,              max: _slanRanges.P.ceiling,
+                          label: _pFloor + '-' + _slanRanges.P.ceiling +
+                                 (_pFloor !== _slanRanges.P.floor ? ' (pH-adjusted)' : '') },
                     K:  { min: _slanRanges.K.floor,  max: _slanRanges.K.ceiling,
                           label: _slanRanges.K.floor + '-' + _slanRanges.K.ceiling },
                     Ca: { min: _slanRanges.Ca.floor, max: _slanRanges.Ca.ceiling,
@@ -6468,8 +8005,70 @@
                           label: _slanRanges.S.floor + '-' + _slanRanges.S.ceiling }
                 };
             } else if (data.soil.methodology === 'AMMONIUM_ACETATE' || data.soil.methodology === 'AMMONIUM ACETATE') {
-                // Ammonium Acetate / Hill Labs NZ ranges
-                // Check soil texture for K and Mg ranges
+                // ────────────────────────────────────────────────────────────
+                // b35fix437 (C46/C47): Hill Labs sample-type-conditional thresholds
+                // ────────────────────────────────────────────────────────────
+                // Pre-fix: texture-conditional ranges (sands/others) sourced from
+                // legacy `assets/ammonium-acetate-methodology.js AMMONIUM_ACETATE_RANGES`.
+                // Those ranges (e.g. Mg sands 100-200 / others 140-250 ppm) do NOT
+                // match what Hill Labs prints on turf certificates. Verified against
+                // Hagley Oval cert 4169173 (S277, Mg medium 0.30-0.70 me/100g =
+                // 37-85 ppm, ~3× narrower than the legacy "sands" range) and Luke
+                // Greenlees cert 3793159 (S81, Mg medium 4.0-15.0 %BS, different axis).
+                //
+                // Post-fix: read from the sample-type SSOT (`assets/hill-labs-sample-types.js`)
+                // keyed on the certificate's printed sample type code. Threshold
+                // schema extended with `unit` and `axis` fields per nutrient to
+                // support the dual-axis reality: S277 reports cations in absolute
+                // me/100g; S81 reports cations in proportion %BS. Amendment math
+                // in `_computeAmendmentDecision` routes by axis (see b35fix437
+                // C47 changes there for the proportion-axis CEC plumbing).
+                //
+                // Sample type code source priority:
+                //   1. soilInput.aaSampleType (caller-provided, canonical)
+                //   2. DOM .gaip-aa-sample-type input value
+                //   3. Default to S277 (most-common turf code; matches sand-rootzone
+                //      perennial ryegrass which dominates the GAIP NZ client base)
+                //
+                // Citation: each S-code entry in HillLabsSampleTypes.SAMPLE_TYPES
+                // carries its sourceCitation field (certificate lab number + date).
+
+                var aaSampleType = null;
+                if (soilInput && soilInput.aaSampleType) {
+                    aaSampleType = String(soilInput.aaSampleType).toUpperCase();
+                } else {
+                    var aaCodeEl = document.querySelector('.gaip-aa-sample-type');
+                    if (aaCodeEl && aaCodeEl.value) {
+                        aaSampleType = String(aaCodeEl.value).toUpperCase();
+                    }
+                }
+                if (!aaSampleType) aaSampleType = 'S277';
+
+                var hlSSOT = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
+                var aaRanges = hlSSOT && typeof hlSSOT.getRanges === 'function'
+                    ? hlSSOT.getRanges(aaSampleType)
+                    : null;
+
+                // Defensive fallback for cotula (S78 delegates to cotula module)
+                // and unknown codes (warn and fall back to S277).
+                if (!aaRanges || !aaRanges.thresholds) {
+                    if (aaRanges && aaRanges.delegatedTo) {
+                        // S78 cotula path: cotula module owns thresholds for v1.
+                        // Don't overwrite — cotula-bowling-green.js sets them.
+                    } else {
+                        if (typeof console !== 'undefined' && console.warn) {
+                            console.warn('[WordExport b35fix437] Unknown Hill Labs sample type:',
+                                aaSampleType, ', falling back to S277. Add code to assets/hill-labs-sample-types.js.');
+                        }
+                        aaRanges = hlSSOT ? hlSSOT.getRanges('S277') : null;
+                        aaSampleType = 'S277';
+                    }
+                }
+
+                // Preserve legacy aaSoilTexture metadata for backward compat
+                // (downstream readers may still consult it; the SSOT supersedes
+                // it as the threshold-selection axis but the texture hint is
+                // still useful diagnostic info).
                 var aaSoilTexture = 'others';
                 var aaTextureEl = document.querySelector('.gaip-aa-soil-texture');
                 if (aaTextureEl && aaTextureEl.value) {
@@ -6477,28 +8076,87 @@
                 } else if (soilInput && soilInput.aaSoilTexture) {
                     aaSoilTexture = soilInput.aaSoilTexture;
                 }
-                
+
                 data.soil.extractant = 'Olsen P + NH₄OAc (pH 8.1)';
                 data.soil.extractantLabel = 'Hill Labs NZ Method';
                 data.soil.aaSoilTexture = aaSoilTexture;
-                
-                if (aaSoilTexture === 'sands') {
-                    data.soil.thresholds = {
-                        P: { min: 12, max: 28, label: '12-28', unit: 'mg/L' },
-                        K: { min: 75, max: 175, label: '75-175' },
-                        Ca: { min: 500, max: 750, label: '500-750' },
-                        Mg: { min: 100, max: 200, label: '100-200' },
-                        S: { min: 30, max: 60, label: '30-60' }
-                    };
-                } else {
-                    data.soil.thresholds = {
-                        P: { min: 12, max: 28, label: '12-28', unit: 'mg/L' },
-                        K: { min: 100, max: 235, label: '100-235' },
-                        Ca: { min: 500, max: 750, label: '500-750' },
-                        Mg: { min: 140, max: 250, label: '140-250' },
-                        S: { min: 30, max: 60, label: '30-60' }
-                    };
+                data.soil.aaSampleType = aaSampleType;
+                data.soil.aaSampleTypeLabel = aaRanges ? aaRanges.label : aaSampleType;
+
+                if (aaRanges && aaRanges.thresholds) {
+                    // Shallow-clone the SSOT thresholds into data.soil.thresholds.
+                    // Renderer + amendment math read from this object; SSOT is the
+                    // authority but we don't want downstream mutation to leak back.
+                    //
+                    // ────────────────────────────────────────────────────────────
+                    // b35fix441 / C46: cation threshold unit normalization
+                    // ────────────────────────────────────────────────────────────
+                    // Pre-fix the SSOT thresholds were cloned verbatim. K, Ca, Mg
+                    // (and Na where present) ship with unit='me/100g' on the
+                    // S277 axis (Hill Labs cert-native units). Downstream
+                    // amendment math at _buildAmendmentDecisions / _computeDeficits
+                    // / buildAnnualSoilAmendmentsTable reads `data.soil.K` etc.
+                    // which are stored in PPM (see line ~7521, soilInput.ppm.K
+                    // → data.soil.K). The comparison `value < thresh.min` was
+                    // therefore `58.7 < 0.20` and silently returned false, so
+                    // the K-deficit branch never fired even when K sat below
+                    // the S277 sufficiency floor. Production verification at
+                    // Hagley Oval (sample 1 "Oval", S277, K=0.15 me/100g →
+                    // 58.7 ppm, below 0.20 me/100g floor → 78.2 ppm floor,
+                    // genuinely deficient) shipped a docx with no K-deficit
+                    // callout, while Hill Labs' own bench correctly flagged
+                    // K below medium range.
+                    //
+                    // Fix: convert me/100g cation thresholds to ppm at clone-
+                    // time using the SSOT meq100gToPpm helper so the amendment
+                    // math sees matching units. Preserve the original me/100g
+                    // label as labelMeq for any future trend-column display
+                    // surface that wants to show cert-native units.
+                    //
+                    // Proportion-axis (%BS) thresholds (S81 K/Ca/Mg/Na) stay
+                    // unchanged: the b35fix438 C49 BCSR rollback already added
+                    // an early-return at the proportion-axis branch in
+                    // _computeDeficits, so amendment math never sees those
+                    // values. Physical-axis (CEC, TBS, VW, OM) and pH/ratio
+                    // thresholds are not consumed by cation amendment math
+                    // and stay unchanged.
+                    // ────────────────────────────────────────────────────────────
+                    data.soil.thresholds = {};
+                    var nutrientKeys = Object.keys(aaRanges.thresholds);
+                    for (var nki = 0; nki < nutrientKeys.length; nki++) {
+                        var nk = nutrientKeys[nki];
+                        var src = aaRanges.thresholds[nk];
+                        var cloned = {
+                            min: src.min,
+                            max: src.max,
+                            unit: src.unit,
+                            axis: src.axis,
+                            label: src.label
+                        };
+                        if (src.extractant) cloned.extractant = src.extractant;
+
+                        // C46: cation me/100g → ppm conversion for absolute-axis
+                        // thresholds where the soil value is stored in ppm.
+                        var isCation_b35fix441 = (nk === 'K' || nk === 'Ca' || nk === 'Mg' || nk === 'Na');
+                        if (isCation_b35fix441 && src.axis === 'absolute' && src.unit === 'me/100g') {
+                            var minPpm = hlSSOT.meq100gToPpm(src.min, nk);
+                            var maxPpm = hlSSOT.meq100gToPpm(src.max, nk);
+                            if (minPpm != null && maxPpm != null) {
+                                cloned.labelMeq = src.label;       // preserve cert-native label
+                                cloned.minMeq = src.min;            // preserve cert-native min
+                                cloned.maxMeq = src.max;            // preserve cert-native max
+                                cloned.min = Math.round(minPpm * 10) / 10;  // 1 dp ppm
+                                cloned.max = Math.round(maxPpm * 10) / 10;
+                                cloned.unit = 'ppm';
+                                cloned.label = cloned.min + '-' + cloned.max + ' ppm';
+                                cloned.unitConvertedB35fix441 = true;  // diagnostic flag
+                            }
+                        }
+                        data.soil.thresholds[nk] = cloned;
+                    }
                 }
+                // If aaRanges missing entirely (no SSOT loaded, S78 path), leave
+                // thresholds null/preserved for the cotula module to populate.
             } else {
                 // MLSN minimums
                 var pThreshold = 21;
@@ -6530,6 +8188,43 @@
             // When overseed is dominant (>50%), treat as C3 surface
             // For mixed stands with significant C3 (>20%), use C3 targets
             // Pure C4 stands: use C4 targets
+            //
+            // b35fix451 / C25b: chain-completion close. Pre-fix the isC4
+            // and pure-C3 branches fell through to literal defaults
+            // (warm-season default and cool-season default respectively)
+            // when both warmBase and grassSpecies were empty. Both fields
+            // are unreliably populated: warmBase is only set at L7493 when
+            // hasOverseed fires, and grassSpecies is not written by
+            // collectData at L7275 (only data.turf.species is, sourced
+            // from turf.grassSpecies in the input state). Result: any
+            // pure-C4 no-overseed site emitted the warm-season literal
+            // default in generateSoilNarrative pH-interpretation copy
+            // regardless of declared species, while generatepHCECContext
+            // at L5569 read directly from turfData.species and emitted
+            // the correct declared species. Read-shelf asymmetry: same
+            // logical state, two consumers, two divergent answers.
+            //
+            // Surgical fix: insert data.turf.species as penultimate
+            // fallback in the isC4 and pure-C3 chains. The overseed
+            // branches (overseedDominant, useC3Targets) intentionally
+            // retain their existing literal default because for an
+            // overseed-dominant site data.turf.species is the warm-season
+            // base, which is wrong narrative for a cover-dominant scenario.
+            // Mirrors generatepHCECContext at L5569 priority chain:
+            // effectiveSpecies, grassSpecies, species, warmBase, turf.
+            //
+            // Production evidence: Rockingham GC Combined Report
+            // 2026-05-08 declared species Seashore Paspalum but emitted
+            // warm-season literal default in generateSoilNarrative pH
+            // copy on multiple zones (4th Green, 5th Green pH-interpretation
+            // emitted incorrect species). generatepHCECContext on the
+            // same docx correctly emitted Seashore Paspalum.
+            //
+            // NOT closed in this build: structural read-shelf asymmetry
+            // closure that would route generateSoilNarrative through
+            // turfData directly. Logged as C25c candidate, scheduled
+            // when the bug class recurs or a 4-arg signature change is
+            // worth the broader test surface.
             if (data.turf.overseedDominant) {
                 // Overseed dominant - full focus on C3 overseed species
                 data.soil.isC3Species = true;
@@ -6540,11 +8235,11 @@
                 data.soil.speciesName = data.turf.coolOverseed || data.turf.effectiveSpecies || 'cool-season overseed';
             } else if (isC4) {
                 data.soil.isC3Species = false;
-                data.soil.speciesName = data.turf.warmBase || data.turf.grassSpecies || 'Couch';
+                data.soil.speciesName = data.turf.warmBase || data.turf.grassSpecies || data.turf.species || 'Couch';
             } else {
                 // Pure C3 (bent, ryegrass, fescue, bluegrass)
                 data.soil.isC3Species = true;
-                data.soil.speciesName = data.turf.grassSpecies || 'cool-season grass';
+                data.soil.speciesName = data.turf.grassSpecies || data.turf.species || 'cool-season grass';
             }
             
         }
@@ -6720,7 +8415,14 @@
 
             if (waterInput) {
                 data.water.EC = waterInput.ecw;
-                data.water.pH = waterInput.pH;
+                // b35fix434 / C43: pH writer is conditional. Pre-fix, pH=7 (or any other
+                // stale value retained in the bleed-through hub-store inputs.water slot)
+                // leaked into renderers as partial state. The C43 hub-orchestrator
+                // site-clear hook + clearWaterForm metadata clear close the bleed paths
+                // upstream; this gate is the renderer-side belt-and-braces.
+                if (waterInput.pH && waterInput.pH > 0) {
+                    data.water.pH = waterInput.pH;
+                }
                 // Check if this is blended water
                 data.water.isBlended = waterInput.isBlended || false;
                 data.water.sourceCount = waterInput.sourceCount || 1;
@@ -6851,17 +8553,22 @@
                 data.water.RSC = (HCO3_meq + CO3_meq) - (Ca_meq + Mg_meq);
             }
             
-            // Final fallback: GAIP_STATE.waterResults is not aliased in the v2 legacy shim,
-            // so it is always undefined. Use the properly-aliased engine globals instead —
-            // GAIP_PHYTOTOXICITY_RESULT and GAIP_SALINITY_RESULT are both populated whenever
-            // the water engine ran, making them a reliable proxy for water data presence.
-            if (!data.water.hasData) {
-                if (window.GAIP_PHYTOTOXICITY_RESULT || window.GAIP_SALINITY_RESULT) {
-                    data.water.hasData = true;
-                }
+            // b35fix434 / C43: phytotox/salinity last-resort hasData fallback REMOVED.
+            // The original fallback claimed GAIP_PHYTOTOXICITY_RESULT / GAIP_SALINITY_RESULT
+            // were a "reliable proxy for water data presence". They are not. Both globals
+            // are populated by ANY site's water engine run and have no clear hook on
+            // gaip:site-changed (now addressed by hub-orchestrator.js b35fix434 site-clear),
+            // so they bleed across site-switch and flipped data.water.hasData true on
+            // sites with zero water samples. Symptom: Shirley_Combined_Report_2026-05-04.docx
+            // rendered a Water Quality section sourced from prior-site (Rockingham) data.
+            // The proper writers at 7953/7985/8012 are reliable; this belt-and-braces
+            // fallback was hiding the bleed-through.
+            //
+            // Banked pattern: "Belt-and-braces fallback outliving its purpose"
+            // (bug-patterns.md). Same disposition as b35fix329 GAIP_NUTRITION_SOIL_CACHE
+            // engine-output fallback removal.
+
             }
-            
-        }
         
         // =====================================================================
         // SALINITY PENALTY DATA (v2.0.8)
@@ -6908,7 +8615,44 @@
             data.disease.overallRisk = dr.overallRisk;
             data.disease.overallScore = dr.overallScore;
             data.disease.diseases = dr.diseases || [];
-            
+            // b35fix420 (C23): pass through species-applicability metadata so
+            // the Disease Risk Assessment renderer can emit the
+            // "Showing N of M, suppressed: X, Y" footnote. The engine computes
+            // these from SPECIES_SUSCEPTIBILITY at the dispatcher gate, so
+            // copying them here is a no-op contract; the engine is the SSOT.
+            data.disease.suppressedDiseases = Array.isArray(dr.suppressedDiseases) ? dr.suppressedDiseases : [];
+            data.disease.applicableDiseaseCount = (typeof dr.applicableDiseaseCount === 'number')
+                ? dr.applicableDiseaseCount
+                : (data.disease.diseases.length);
+            data.disease.species = dr.species || null;
+
+            // b35fix419 (C4): apply species-aware displayName resolver to every
+            // disease object before downstream rendering. The disease engine
+            // returns canonical "Take-all Patch" for the takeAll model
+            // regardless of species; for paspalum this is taxonomically wrong
+            // (the pathogen is var. graminis, the disease is "Take-all Root
+            // Rot"). The resolver swaps the label per effective species. Other
+            // diseases pass through unchanged.
+            var _diseaseSpecies = (data.turf && (data.turf.effectiveSpecies || data.turf.species || data.turf.grassSpecies))
+                || (data.soil && data.soil.speciesName)
+                || null;
+            var _resolveDiseaseLabel = (window.DiseaseEnginePure &&
+                                        window.DiseaseEnginePure.utils &&
+                                        typeof window.DiseaseEnginePure.utils.resolveDiseaseDisplayName === 'function')
+                ? window.DiseaseEnginePure.utils.resolveDiseaseDisplayName
+                : null;
+            if (_resolveDiseaseLabel && Array.isArray(data.disease.diseases)) {
+                data.disease.diseases.forEach(function(d) {
+                    if (d && d.disease) {
+                        var resolved = _resolveDiseaseLabel(d.disease, _diseaseSpecies);
+                        // Only overwrite if resolver returns a non-empty result.
+                        // Preserves any pre-set displayName for diseases the
+                        // resolver doesn't know about.
+                        if (resolved) d.displayName = resolved;
+                    }
+                });
+            }
+
             // Find primary threat - prefer validated diseases over beta
             if (dr.diseases && dr.diseases.length > 0) {
                 var sorted = dr.diseases.slice().sort(function(a, b) {
@@ -6916,12 +8660,17 @@
                 });
                 
                 // Check if disease is beta (by validationStatus or name matching)
+                // b35fix462 (C59g): Drechslera Melting-Out removed from name array
+                // following promotion to validated. Model emits
+                // validationStatus: 'validated' from DRECHSLERA_POAE_VALIDATION_STATUS
+                // (bipolaris-curvularia-models.js:176) after b35fix362 Tier 2 audit
+                // and b35fix461 CABI 2024 Box 7.7 curve lock. The validationStatus
+                // check on line below is sufficient if reverted.
                 function isBetaDisease(d) {
                     if (d.validationStatus === 'beta') return true;
                     var name = (d.displayName || d.name || '').toLowerCase();
                     return name.indexOf('bipolaris') !== -1 || 
                            name.indexOf('curvularia') !== -1 || 
-                           name.indexOf('drechslera') !== -1 ||
                            name.indexOf('waitea') !== -1 ||
                            name.indexOf('helminthosporium') !== -1;
                 }
@@ -7027,43 +8776,6 @@
             };
         }
 
-        // Pre-emergent timing from window (hub-orchestrator Step 8b)
-        if (window.GAIP_PRE_EMERGENT_RESULT) {
-            var per = window.GAIP_PRE_EMERGENT_RESULT;
-            var perSum = per.summary || {};
-            // Only include if the engine actually ran (has results array)
-            if (per.success && Array.isArray(per.results) && per.results.length > 0) {
-                // Collect active alerts (non-GREEN, non-error)
-                var peActiveAlerts = per.results.filter(function(r) {
-                    return !r.error && r.alertStatus && r.alertStatus !== 'GREEN';
-                });
-                data.preEmergent = {
-                    hasData: true,
-                    aggregateStatus:     per.aggregateStatus || 'GREEN',
-                    isTropicalRegion:    !!per.isTropicalRegion,
-                    soilTemp5cm:         perSum.soilTemp5cm != null ? perSum.soilTemp5cm : null,
-                    soilTempSource:      perSum.soilTempSource || null,
-                    rollingAvg10d:       perSum.rollingAvg10d != null ? perSum.rollingAvg10d : null,
-                    trendDirection:      perSum.trendDirection || null,
-                    activeAlertCount:    perSum.activeAlerts || peActiveAlerts.length,
-                    totalSpecies:        perSum.totalSpecies || per.results.length,
-                    activeAlerts:        peActiveAlerts.map(function(r) {
-                        return {
-                            speciesKey:          r.speciesKey,
-                            commonName:          r.commonName || r.speciesKey,
-                            scientificName:      r.scientificName || '',
-                            alertStatus:         r.alertStatus,
-                            daysToThreshold:     r.daysToThreshold != null ? r.daysToThreshold : null,
-                            germinationThreshold: r.germinationThreshold,
-                            applyAt:             r.applyAt,
-                            confidenceRating:    r.confidenceRating || 'M',
-                            confidenceScore:     r.confidenceScore || 0,
-                            recommendedAction:   r.recommendedAction || ''
-                        };
-                    })
-                };
-            }
-        }
 
         // PGR from window - check both possible names
         var pgrResult = window.GAIP_PGR_RESULT || window.GAIP_PGR_STATUS;
@@ -7327,24 +9039,13 @@
             
         }
         
-        // Dew data (sports turf only)
-        if (window.GAIP_DEW_RESULT && window.GAIP_DEW_RESULT.applicable) {
-            var dew = window.GAIP_DEW_RESULT;
-            data.dew = { applicable: true };
-            
-            if (dew.summary && dew.summary.weekAhead) {
-                data.dew.daysWithDew = dew.summary.weekAhead.daysWithDew || 0;
-                data.dew.totalDewHours = dew.summary.weekAhead.totalDewHours || 0;
-            }
-            if (dew.leafWetness) {
-                data.dew.leafWetnessHours = dew.leafWetness.totalWetHours;
-                data.dew.consecutiveWetHours = dew.leafWetness.consecutiveWetHours;
-            }
-            if (dew.forecast && dew.forecast.dailyForecasts && dew.forecast.dailyForecasts[0]) {
-                data.dew.tonightPeak = dew.forecast.dailyForecasts[0].maxProbability;
-                data.dew.tonightIntensity = dew.forecast.dailyForecasts[0].peakIntensity;
-            }
-        }
+        // b35fix433 (C42): Dew Forecast & Match Conditions section emit removed
+        // (forecast staleness on a Word doc dated weeks ago caused client confusion;
+        // live dew prediction available in the hub dashboard). Collector deleted in
+        // lockstep with the section emit, exec-summary dew flag, and TOC entry. The
+        // upstream `window.GAIP_DEW_RESULT` continues to populate `state.computed.dew.leafWetness`,
+        // which engine-confidence.js and disease-engine inputs still consume directly,
+        // independent of `data.dew`.
         
         // Phytotoxicity data (v2.0.30) - direct plant damage from irrigation water ions
         if (window.GAIP_PHYTOTOXICITY_RESULT && window.GAIP_PHYTOTOXICITY_RESULT.assessments) {
@@ -7724,7 +9425,7 @@
         // the combined-export "skip ANR — no silent fallback" rule.
         if (!_nutComputedViaEngine) {
             data.nutritionSummary.hasData = false;
-            console.warn('[WordExport] b35fix329 nutritionSummary section dropped — ' +
+            console.warn('[WordExport] b35fix329 nutritionSummary section dropped, ' +
                          'engine path did not fire (engineReady=' + _engineReady +
                          ', soilPresent=' + !!data.soil +
                          ', engineInputsPresent=' + !!data.engineInputs + '). ' +
@@ -7745,7 +9446,7 @@
              window.GAIP_NUTRITION_SOIL_CACHE.annualK != null ||
              window.GAIP_NUTRITION_SOIL_CACHE.totalN != null)) {
             console.warn('[WordExport] b35fix329 legacy cache still being written to ' +
-                         'GAIP_NUTRITION_SOIL_CACHE — investigate upstream writer (read-side ignores it).');
+                         'GAIP_NUTRITION_SOIL_CACHE, investigate upstream writer (read-side ignores it).');
         }
         
         // v10.3.38: Collect nutrition program (product recommendations)
@@ -7766,7 +9467,7 @@
                 // b35fix287: include Mulder's flags for Word export section
                 data.nutritionProgram.muldersFlags = prog.muldersFlags || {};
             } else {
-                console.warn('[WordExport] Skipping stale nutrition program — generated for', progSiteId, 'but current site is', currentSiteId);
+                console.warn('[WordExport] Skipping stale nutrition program, generated for', progSiteId, 'but current site is', currentSiteId);
             }
         }
 
@@ -7820,7 +9521,7 @@
                 });
 
                 if (_alreadyMerged) {
-                    console.log('[WordExport] b35fix327 amendment merge skipped — ' +
+                    console.log('[WordExport] b35fix327 amendment merge skipped, ' +
                                 'programme already contains _isAmendment entries ' +
                                 '(combined-then-single workflow)');
                 } else {
@@ -7844,9 +9545,11 @@
                         if (v === undefined || v === null || !th) return;
                         if (!(v < th.min)) return;
                         var deficit = th.min - v;
+                        // b35fix424 (C20): hemisphere threaded through for elem-S
+                        // Rule 4 summer-suppression and dolomite spring-placement.
                         var d = _wxA._computeAmendmentDecision(
                             n, deficit, _soilForAmendA, _surfaceTypeA,
-                            data.nutritionProgram, _amendCtxA
+                            data.nutritionProgram, _amendCtxA, _hemA
                         );
                         if (d) _amendDecisionsA.push(d);
                     });
@@ -8019,6 +9722,18 @@
         // ───────── end b35fix327 amendment merge ─────────
 
         // Collect spray log entries for current site
+        // b35fix436 / C45 (revised): the b35fix435 filter at this scope was a
+        // no-op in the combined-export path because data.turf.subCategory does
+        // not vary per-sample inside collectData (the per-sample loop in
+        // word-export-combined.js doesn't call setActiveSample per iteration,
+        // so getActiveSample('soil') and the DOM read both return the same
+        // last-active-sample value across iterations). The correct scope for
+        // per-sample spray-log filtering is word-export-combined.js, where
+        // entry.sampleLabel is in scope per-iteration. The single-export path
+        // here writes the unfiltered cache; word-export-combined.js applies
+        // the surface-aware filter after this collectData call returns.
+        // For a single-sample export the unfiltered write is correct (one
+        // section, one surface, all entries shown).
         ensureObject(data, 'sprayLog');
         try {
             var slUI = window.GAIP_SprayLogUI;
@@ -8221,19 +9936,9 @@
             if (status !== 'critical') status = 'warning';
         }
         
-        // Check dew (sports only) — use intensity string first, peak probability as fallback
-        if (data.dew && data.dew.applicable) {
-            var execDewIntensity = (data.dew.tonightIntensity || '').toLowerCase();
-            if (execDewIntensity === 'severe' || execDewIntensity === 'extreme') {
-                flags.push('Severe dew conditions forecast — extended leaf wetness all 7 days (' + data.dew.totalDewHours + ' hrs total)');
-                if (status !== 'critical') status = 'warning';
-            } else if (execDewIntensity === 'high') {
-                flags.push('High dew likelihood this week (' + (data.dew.daysWithDew || '?') + ' days)');
-                if (status !== 'critical') status = 'warning';
-            } else if (data.dew.tonightPeak >= 75) {
-                flags.push('Heavy dew expected tonight (' + data.dew.tonightPeak + '%)');
-            }
-        }
+        // b35fix433 (C42): exec-summary dew flag removed in lockstep with the
+        // Dew Forecast & Match Conditions section emit. Dew forecast severity is
+        // surfaced live in the hub dashboard, not in the static export.
         
         // Check traffic/wear
         if (data.traffic && data.traffic.status) {
@@ -8463,7 +10168,7 @@
         if (data.soil && (data.soil.hasData || data.soil.hasResults || data.soil.P || data.soil.K || data.soil.Ca)) {
             var soilTocCtx = getSectionContext(data.soil.sampleLabel);
             var soilTocLabel = '• Soil Nutrition (' + (data.soil.methodology || 'MLSN') + ')';
-            if (soilTocCtx) soilTocLabel += ' — ' + soilTocCtx;
+            if (soilTocCtx) soilTocLabel += ', ' + soilTocCtx;
             contentItems.push(soilTocLabel);
             if (data.climate && (data.climate.temperature || data.climate.growthPotential)) {
                 contentItems.push('• Climate & Growth Conditions');
@@ -8487,7 +10192,7 @@
         if (data.tissue && (data.tissue.N || data.tissue.K) && (data.tissue.N > 0 || data.tissue.K > 0)) {
             var tissueTocCtx = getSectionContext(data.tissue.sampleLabel);
             var tissueTocLabel = '• Tissue Analysis';
-            if (tissueTocCtx) tissueTocLabel += ' — ' + tissueTocCtx;
+            if (tissueTocCtx) tissueTocLabel += ', ' + tissueTocCtx;
             contentItems.push(tissueTocLabel);
         }
         if (data.nProgram && data.nProgram.hasData) {
@@ -8499,7 +10204,7 @@
         if (data.water && (data.water.EC > 0 || data.water.SAR > 0)) {
             var waterTocCtx = getSectionContext(data.water.sourceLabel);
             var waterTocLabel = '• Water Quality';
-            if (waterTocCtx) waterTocLabel += ' — ' + waterTocCtx;
+            if (waterTocCtx) waterTocLabel += ', ' + waterTocCtx;
             contentItems.push(waterTocLabel);
             
             // Check for soil×water interactions
@@ -8522,18 +10227,13 @@
         if (data.dmi && data.dmi.product) {
             contentItems.push('• DMI Fungicide Growth Effect');
         }
-        if (data.irrigation && (data.irrigation.status || data.irrigation.strategy)) {
-            contentItems.push('• Moisture Management');
-        }
-        if (data.disease && data.disease.hasData) {
-            contentItems.push('• Disease Risk Assessment');
-        }
+        // b35fix429 (C30): Moisture Management and Disease Risk Assessment
+        // section emits removed; TOC entries removed in lockstep. Hub-redirect
+        // stub at top of report directs readers to the live hub dashboard.
         if (data.trajectory && data.trajectory.currentScore) {
             contentItems.push('• Stress Trajectory');
         }
-        if (data.dew && data.dew.hasData) {
-            contentItems.push('• Dew Prediction');
-        }
+        // b35fix433 (C42): Dew Prediction TOC entry removed in lockstep with section emit.
         if (data.traffic && data.traffic.hasData) {
             contentItems.push('• Traffic & Wear Analysis');
         }
@@ -8544,9 +10244,16 @@
         }
         // Check if Performance Impact Analysis will be generated - 
         // covers soil/water/tissue/climate interactions and variety traits
-        var hasSoilData = data.soil && (data.soil.P || data.soil.K || data.soil.Ca);
-        var hasTissueData = data.tissue && (data.tissue.N || data.tissue.K);
-        var hasWaterData = data.water && (data.water.EC !== undefined || data.water.SAR !== undefined);
+        // b35fix448 / C25: TOC predictor upgraded in lockstep with the
+        // generatePerformanceImpactAnalysis proxies above (L4344-L4348).
+        // Same pre-canonical defect, same fix: read the canonical hasData
+        // flag where producers publish one. Climate and shade retain their
+        // field-truthiness proxies because their producers don't write
+        // canonical flags. hasShadeData stays as-is (separate threshold,
+        // separate semantic; not a hasData proxy).
+        var hasSoilData = !!(data.soil && data.soil.hasData);
+        var hasTissueData = !!(data.tissue && data.tissue.hasData);
+        var hasWaterData = !!(data.water && data.water.hasData);
         var hasClimateData = data.climate && data.climate.growthPotential !== undefined;
         var hasShadeData = data.shade && data.shade.deficit > 10;
         var hasVarietyData = data.varietyTraits && data.varietyTraits.hasData;
@@ -8698,6 +10405,31 @@
             sections.push(new Paragraph({ children: [] }));
         }
 
+        // ─────────────────────────────────────────────────────────────────
+        // b35fix429 (C30): Hub-redirect stub
+        //
+        // Pre-Emergent Herbicide Timing, Disease Risk Assessment, and
+        // Moisture Management section emits were removed because each is
+        // weather-driven and the hub dashboard updates them live. A static
+        // export captures point-in-time values that drift the moment the
+        // docx is generated. The stub below replaces all three sections
+        // with a single banner directing readers to the live dashboard.
+        //
+        // Disease and Irrigation data-prep is preserved (consumed by
+        // Performance Impact Analysis and Active Alerts banner cross-section
+        // readers); Pre-Emergent data-prep was deleted because it had no
+        // cross-section consumers.
+        // ─────────────────────────────────────────────────────────────────
+        sections.push(new Paragraph({
+            spacing: { before: 200, after: 200 },
+            children: [new TextRun({
+                text: 'Live disease pressure, irrigation status, and pre-emergent timing update against current weather in the GAIP Hub dashboard. This export captures soil chemistry and recommendations only.',
+                size: 20,
+                italics: true,
+                color: '4B5563'
+            })]
+        }));
+
         // Site info section
         sections.push(new Paragraph({ 
             heading: HeadingLevel.HEADING_1, keepNext: true, pageBreakBefore: true,
@@ -8733,7 +10465,7 @@
             var soilHeading = 'Soil Nutrition (' + soilMethodLabel + ')';
             var soilContext = getSectionContext(data.soil.sampleLabel);
             if (soilContext) {
-                soilHeading += ' — ' + soilContext;
+                soilHeading += ', ' + soilContext;
             }
             
             sections.push(new Paragraph({ 
@@ -8785,11 +10517,26 @@
             
             // Show extraction method if specified
             if (data.soil.extractantLabel) {
+                // ────────────────────────────────────────────────────────
+                // b35fix441 / C46b: surface Hill Labs sample-type code
+                // ────────────────────────────────────────────────────────
+                // For AA-extracted Hill Labs samples, append the sample-type
+                // code (S277, S81, S78) and human-readable label so the
+                // audit trail at the rendered docx makes the threshold-set
+                // selection visible. Pre-fix the line read just "Hill Labs
+                // NZ Method", which left the reader unable to verify which
+                // S-code drove the deficit math without inspecting the
+                // cert separately.
+                // ────────────────────────────────────────────────────────
+                var _b35fix441_extractDisplay = data.soil.extractantLabel;
+                if (data.soil.aaSampleType && data.soil.aaSampleTypeLabel) {
+                    _b35fix441_extractDisplay = _b35fix441_extractDisplay + ' \u2013 ' + data.soil.aaSampleTypeLabel;
+                }
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
                         new TextRun({ text: 'Extraction Method: ', bold: true, size: 22, color: '6B7280' }),
-                        new TextRun({ text: data.soil.extractantLabel, size: 22, color: '374151' })
+                        new TextRun({ text: _b35fix441_extractDisplay, size: 22, color: '374151' })
                     ]
                 }));
             }
@@ -8913,23 +10660,23 @@
                         extractant: 'NH\u2084OAc pH 8.1 (cations) + Olsen P (NaHCO\u2083)',
                         philosophy: 'Exchangeable cation pool. Sufficiency ranges calibrated for NZ soils. Industry standard in NZ and widely used in Australia.',
                         regional: 'Standard in NZ; common in AU',
-                        compatible: '\u2705 Yes — this report',
+                        compatible: '\u2705 Yes, this report',
                         fill: 'F0FDF4', textColor: '166534'
                     },
                     {
                         name: 'MLSN (Woods et al. 2016)',
                         extractant: 'Mehlich-3',
-                        philosophy: 'Minimum threshold below which deficiency becomes likely. Conservative — avoids over-fertilisation. Used globally in precision turf management. First introduced 2012; canonical published guidelines Woods, Stowell & Gelernter (2016) PeerJ Preprints 4:e2144v1.',
+                        philosophy: 'Minimum threshold below which deficiency becomes likely. Conservative, avoids over-fertilisation. Used globally in precision turf management. First introduced 2012; canonical published guidelines Woods, Stowell & Gelernter (2016) PeerJ Preprints 4:e2144v1.',
                         regional: 'AU/NZ: values not directly applicable to AA data',
-                        compatible: '\u274C No — extractant mismatch',
+                        compatible: '\u274C No, extractant mismatch',
                         fill: 'FEF2F2', textColor: 'DC2626'
                     },
                     {
                         name: 'SLAN (Carrow et al. 2004)',
                         extractant: 'Mehlich-3',
-                        philosophy: 'Sufficiency range — target band above minimum. Higher thresholds than MLSN. Based on agronomic optimum rather than minimum viable level. Canonical published ranges Carrow, Stowell, Gelernter, Davis, Duncan & Skorulski (2004) GCM 72(1):194-198.',
+                        philosophy: 'Sufficiency range, target band above minimum. Higher thresholds than MLSN. Based on agronomic optimum rather than minimum viable level. Canonical published ranges Carrow, Stowell, Gelernter, Davis, Duncan & Skorulski (2004) GCM 72(1):194-198.',
                         regional: 'AU/NZ: values not directly applicable to AA data',
-                        compatible: '\u274C No — extractant mismatch',
+                        compatible: '\u274C No, extractant mismatch',
                         fill: 'FFFBEB', textColor: '92400E'
                     }
                 ];
@@ -9005,6 +10752,8 @@
             // b35fix320: build amendmentContext from engineInputs.overseedConfig.
             // Drives seedling-safe product selection (MAP-not-DAP for P, urea/DAP
             // volatilisation warnings at high pH for S Rule 4).
+            // b35fix424 (C20): also carry hemisphere through for elem-S Rule 4
+            // summer-suppression copy and dolomite spring-placement override.
             var amendmentContext = {};
             try {
                 var _oc = data.engineInputs && data.engineInputs.overseedConfig;
@@ -9015,6 +10764,9 @@
                 if (data.turf && data.turf.establishmentMode) {
                     amendmentContext.seedingActive = true;
                 }
+                // b35fix424 (C20): hemisphere from climate engine; defaults to 'south'.
+                amendmentContext.hemisphere = (data.engineInputs && data.engineInputs.climate &&
+                                               data.engineInputs.climate.hemisphere) || 'south';
             } catch (_e) { amendmentContext = {}; }
 
             var soilNarrative = generateSoilNarrative(data.soil, data.nutritionProgram, amendmentContext);
@@ -9027,6 +10779,8 @@
             // b35fix319 Phase 3 — Annual Soil Amendments table
             // b35fix320 — context threaded through for seedling-safe product
             //   selection and pH-aware N-source volatilisation warnings.
+            // b35fix424 (C20) — hemisphere threaded through for elem-S Rule 4
+            //   summer-suppression and dolomite spring-placement override.
             // Pure function — depends only on soil + nutritionProgram + surface
             //   + context; safe to call per-iteration in combined exports.
             // ========================================
@@ -9034,7 +10788,7 @@
                 var amendmentSurface = (data.soil && data.soil.surfaceType) ||
                                        ((data.turf && (data.turf.subCategory || data.turf.type)) || '').toLowerCase();
                 var amendmentPieces = buildAnnualSoilAmendmentsTable(
-                    data.soil, data.nutritionProgram, amendmentSurface, amendmentContext
+                    data.soil, data.nutritionProgram, amendmentSurface, amendmentContext, amendmentContext.hemisphere
                 );
                 amendmentPieces.forEach(function(el) { sections.push(el); });
             } catch (e) {
@@ -9175,7 +10929,7 @@
                             spacing: { after: 100 },
                             children: [new TextRun({
                                 text: 'The following antagonistic interactions were detected. These affect nutrient '
-                                    + 'availability independently of absolute soil levels — a nutrient above its '
+                                    + 'availability independently of absolute soil levels, a nutrient above its '
                                     + 'sufficiency threshold may still be functionally deficient if a competing '
                                     + 'element is elevated.',
                                 size: 18, color: '6B7280'
@@ -9273,7 +11027,43 @@
             sections.push(createTable(cationRows));
             
             // Base saturation percentages
-            if (cationBalanceData.baseSaturation) {
+            // ────────────────────────────────────────────────────────────────
+            // b35fix438 (C49): Suppress Base Saturation block on AA samples
+            // ────────────────────────────────────────────────────────────────
+            // The %BS / BCSR (Basic Cation Saturation Ratio) sufficiency
+            // framework is not validated for turfgrass. Kopittke & Menzies
+            // (2007) SSSAJ 71:259-265 reviewed BCSR and found it lacks
+            // scientific basis for predicting plant response. Carrow,
+            // Waddington & Rieke (2001) Turfgrass Soil Fertility & Chemical
+            // Problems explicitly recommends sufficiency-level (SLAN/MLSN)
+            // over BCSR for turf. Hill Labs prints %BS values on S81
+            // certificates as the primary cation reference, but printing
+            // them does not validate the framework as a sufficiency
+            // interpretation tool for turf.
+            //
+            // Pre-fix: AA samples emitted a Base Saturation block in Cation
+            // Balance Analysis with %BS rows for Ca/Mg/K/Na and a Total
+            // Base Saturation row. The values were calculated internally
+            // from converted ppm (introducing computation drift, e.g. the
+            // Hagley docx 2026-05-04 displayed TBS 115% which is
+            // mathematically impossible) and presented %BS as if it were
+            // a credible interpretation framework.
+            //
+            // Post-fix: skip the Base Saturation block entirely for AA
+            // samples. Cation Ratios block (Ca:Mg, K:Mg mass-based ratios)
+            // still emits because those are NOT BCSR-derived. Mulder's Ca:Mg
+            // warning audit closed in b35fix439 (mulders-interaction-checker.js
+            // v1.1.0): rule retired on the same Kopittke & Menzies / Leiva Soto
+            // evidence chain. Carrow & Duncan 1998 was a misattribution
+            // (salinity reference). K:Mg, K:Ca, Mg:K rules remain (Marschner).
+            //
+            // MLSN/SLAN samples: Base Saturation block was previously also
+            // suppressed for non-AA pathways via the cationBalanceData
+            // generator's hasBS check; carry-through unchanged for them.
+            var soilMethodologyForBS = (data.soil && data.soil.methodology) ? String(data.soil.methodology).toUpperCase() : '';
+            var suppressBaseSaturation = (soilMethodologyForBS === 'AMMONIUM_ACETATE' || soilMethodologyForBS === 'AMMONIUM ACETATE');
+
+            if (cationBalanceData.baseSaturation && !suppressBaseSaturation) {
                 var bs = cationBalanceData.baseSaturation;
                 sections.push(new Paragraph({
                     spacing: { before: 150, after: 50 },
@@ -9372,9 +11162,30 @@
             var _b35fix331_isSLAN = _b35fix331_methStr === 'SLAN';
             var _b35fix331_caption;
             if (_b35fix331_isAA) {
-                _b35fix331_caption = 'Ammonium Acetate extraction (Hill Labs) — removal-only estimate. ' +
-                                     'MLSN/SLAN sufficiency thresholds not applicable to AA-extracted data. ' +
-                                     'All rates kg/ha/yr.';
+                // ────────────────────────────────────────────────────────────
+                // b35fix441 / C47: AA caption reanchor
+                // ────────────────────────────────────────────────────────────
+                // Pre-fix copy: "MLSN/SLAN sufficiency thresholds not
+                // applicable to AA-extracted data." This was misleading. The
+                // engine IS applying sufficiency thresholds to AA-extracted
+                // data — Hill Labs sample-type-specific ranges (S277, S81,
+                // S78), the same thresholds that drive the deficit math in
+                // the Soil Amendment table on the same page. The disclaimer
+                // gave the impression that sufficiency interpretation was
+                // unavailable, when in fact it was being applied (correctly
+                // post-b35fix441 / C46) on the cert-native sample-type axis.
+                // Post-fix copy makes the framework framing accurate and
+                // surfaces the active sample-type code so the audit trail
+                // is visible at the call site.
+                // ────────────────────────────────────────────────────────────
+                var _b35fix441_sampleTypeCode = (data.soil && data.soil.aaSampleType) ? data.soil.aaSampleType : 'S277';
+                var _b35fix441_sampleTypeLabel = (data.soil && data.soil.aaSampleTypeLabel) ? data.soil.aaSampleTypeLabel : 'TURF Ryegrass, Sand (S277)';
+                _b35fix331_caption = 'Hill Labs ' + _b35fix441_sampleTypeCode + ' sample-type sufficiency thresholds applied (' +
+                                     _b35fix441_sampleTypeLabel + '). Cation values converted from cert-native ' +
+                                     'me/100g to ppm for amendment-math comparison; cation deficit-correction ' +
+                                     'recommendations appear in the Soil Amendment table above. The figures ' +
+                                     'below are annual removal-replacement estimates (clipping uptake), not ' +
+                                     'deficit-closure rates. All rates kg/ha/yr.';
             } else if (_b35fix331_isSLAN) {
                 _b35fix331_caption = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
                                      'K/P/S figures are removal-rate (replacement target), with P pH-adjusted ' +
@@ -9386,7 +11197,7 @@
             } else {
                 _b35fix331_caption = 'MLSN methodology (Woods et al. 2016): K/P/S figures are removal-rate ' +
                                      '(replacement target). Below the MLSN floor, requirement = removal + ' +
-                                     'deficit correction; at or above the floor, requirement = removal only — ' +
+                                     'deficit correction; at or above the floor, requirement = removal only, ' +
                                      'soil reserves are agronomically sufficient and the figure indicates the ' +
                                      'rate at which clippings are removing the nutrient, not a per-year ' +
                                      'application target. All rates kg/ha/yr.';
@@ -9450,7 +11261,7 @@
             }
             var tissueContext = getSectionContext(data.tissue.sampleLabel);
             if (tissueContext) {
-                tissueTitle += ' — ' + tissueContext;
+                tissueTitle += ', ' + tissueContext;
             }
             
             sections.push(new Paragraph({ 
@@ -9573,8 +11384,35 @@
             // Water parameters where INCREASING is bad (upper-limit parameters)
             var waterUpperLimit = { SAR: true, SARadj: true, EC: true, Na: true, Cl: true, HCO3: true, B: true, Fe: true, pH: true };
             
+            // ────────────────────────────────────────────────────────────────
+            // b35fix437 (C46): methodology-aware soil threshold label
+            // ────────────────────────────────────────────────────────────────
+            // Pre-fix: hardcoded 'MLSN/SLAN' regardless of `data.soil.methodology`.
+            // Hill Labs AA samples emitted column header "MLSN/SLAN Margin"
+            // against AA-anchored thresholds — Framework Comparison block
+            // declares the methodology mismatch but the trend column header
+            // contradicts it. Pre-Hagley fixture: Mg 67 ppm flagged as "52
+            // BELOW" against MLSN floor 47 (wrong reference).
+            //
+            // Post-fix: branch the soil thresholdLabel on
+            // `data.soil.methodology` + `data.soil.aaSampleType`. AA samples
+            // emit "Hill Labs <CODE>" (e.g. "Hill Labs S277", "Hill Labs S81")
+            // — explicit about which reference set is in play. MLSN/SLAN
+            // sites carry through unchanged.
+            var soilMethodology = (data.soil && data.soil.methodology) ? String(data.soil.methodology).toUpperCase() : '';
+            var soilThresholdLabel = 'MLSN/SLAN';
+            var soilUnit = 'ppm';
+            if (soilMethodology === 'AMMONIUM_ACETATE' || soilMethodology === 'AMMONIUM ACETATE') {
+                var aaCode = (data.soil && data.soil.aaSampleType) ? data.soil.aaSampleType : '';
+                soilThresholdLabel = aaCode ? ('Hill Labs ' + aaCode) : 'Hill Labs AA';
+                // Unit varies per nutrient under AA (me/100g vs %BS vs mg/L).
+                // Header column shows just the threshold label; per-nutrient
+                // unit is in the threshold object's `label` field if needed.
+                soilUnit = 'various';
+            }
+
             var typeLabels = {
-                soil: { heading: 'Soil Nutrient Trends', unit: 'ppm', thresholdLabel: 'MLSN/SLAN', marginGood: 'above min', marginBad: 'BELOW min' },
+                soil: { heading: 'Soil Nutrient Trends', unit: soilUnit, thresholdLabel: soilThresholdLabel, marginGood: 'above min', marginBad: 'BELOW min' },
                 tissue: { heading: 'Tissue Analysis Trends', unit: '% DW / mg/kg', thresholdLabel: 'Sufficiency', marginGood: 'above min', marginBad: 'BELOW min' },
                 water: { heading: 'Water Quality Trends', unit: 'various', thresholdLabel: 'Guideline', marginGood: 'below limit', marginBad: 'OVER limit' }
             };
@@ -9701,7 +11539,7 @@
                         }
                     
                         // Margin text
-                        var marginText = '\u2014';
+                        var marginText = '-';
                         var marginColor = '374151';
                         if (nData.mlsnMargin !== undefined && nData.mlsnMargin !== null) {
                             if (nData.mlsnMargin > 0) {
@@ -9746,9 +11584,9 @@
                     
                         var cellData = [
                             { text: nKey, color: '1F2937', bold: true, width: 1200 },
-                            { text: safeToFixed(nData.latest, 1, '\u2014'), color: '374151', width: 1100 },
-                            { text: safeToFixed(nData.previous, 1, '\u2014'), color: '6B7280', width: 1100 },
-                            { text: changeText || '\u2014', color: nData.change < 0 ? (increaseIsBad ? '16A34A' : 'DC2626') : nData.change > 0 ? (increaseIsBad ? 'DC2626' : '2563EB') : '374151', width: 1200 },
+                            { text: safeToFixed(nData.latest, 1, '-'), color: '374151', width: 1100 },
+                            { text: safeToFixed(nData.previous, 1, '-'), color: '6B7280', width: 1100 },
+                            { text: changeText || '-', color: nData.change < 0 ? (increaseIsBad ? '16A34A' : 'DC2626') : nData.change > 0 ? (increaseIsBad ? 'DC2626' : '2563EB') : '374151', width: 1200 },
                             { text: dirArrow, color: dirColor, width: 1260 },
                             { text: marginText, color: marginColor, width: 1700 },
                             { text: riskText, color: riskColor, width: 1800, fill: riskFill }
@@ -9978,7 +11816,7 @@
                         spacing: { before: 40, after: 40 },
                         indent: { left: 180 },
                         children: [new TextRun({
-                            text: '⚠️  Lime application required — pH correction is the primary intervention for this pathway.',
+                            text: '⚠️  Lime application required, pH correction is the primary intervention for this pathway.',
                             bold: true, size: 20, color: 'D97706'
                         })]
                     }));
@@ -10066,7 +11904,15 @@
         }
 
         // Water Quality section
-        if (data.water && (data.water.EC > 0 || data.water.SAR > 0 || data.water.hasData)) {
+        // b35fix434 / C43: gate tightened to measurement-based. Pre-fix the gate
+        // included `data.water.hasData` which had too many writers (the proper
+        // writers at 7953/7985/8012 plus the now-removed phytotox/salinity
+        // last-resort fallback at 8063-8067). With phytotox/salinity globals
+        // bleeding across site-switch and flipping hasData true on sites with
+        // zero water samples, the gate fired on stale state. Post-fix gate
+        // reads only real measurements: EC, SAR, Na, Ca. Na and Ca additions
+        // cover ion-only lab panels with no EC reported (rare but legitimate).
+        if (data.water && (data.water.EC > 0 || data.water.SAR > 0 || data.water.Na > 0 || data.water.Ca > 0)) {
             // Page break to ensure heading starts at top of new page
             sections.push(new Paragraph({ children: [new PageBreak()] }));
             
@@ -10076,7 +11922,7 @@
             }
             var waterContext = getSectionContext(data.water.sourceLabel);
             if (waterContext) {
-                waterTitle += ' — ' + waterContext;
+                waterTitle += ', ' + waterContext;
             }
             sections.push(new Paragraph({ 
                 heading: HeadingLevel.HEADING_1, keepNext: true, 
@@ -10157,10 +12003,10 @@
 
                 // Blend classifications summary
                 var blendClassRows = [];
-                if (data.water.salinityClass)    blendClassRows.push(createKeyValueRow('Salinity',    data.water.salinityClass.code    + ' — ' + data.water.salinityClass.desc,    getStatusColor(data.water.salinityClass.code)));
-                if (data.water.sodicityClass)    blendClassRows.push(createKeyValueRow('Sodicity',    data.water.sodicityClass.code    + ' — ' + data.water.sodicityClass.desc,    getStatusColor(data.water.sodicityClass.code)));
-                if (data.water.infiltrationClass) blendClassRows.push(createKeyValueRow('Infiltration', data.water.infiltrationClass.code + ' — ' + data.water.infiltrationClass.desc, getStatusColor(data.water.infiltrationClass.code)));
-                if (data.water.bicarbonateClass) blendClassRows.push(createKeyValueRow('Bicarbonate', data.water.bicarbonateClass.code  + ' — ' + data.water.bicarbonateClass.desc, getStatusColor(data.water.bicarbonateClass.code)));
+                if (data.water.salinityClass)    blendClassRows.push(createKeyValueRow('Salinity',    data.water.salinityClass.code    + ', ' + data.water.salinityClass.desc,    getStatusColor(data.water.salinityClass.code)));
+                if (data.water.sodicityClass)    blendClassRows.push(createKeyValueRow('Sodicity',    data.water.sodicityClass.code    + ', ' + data.water.sodicityClass.desc,    getStatusColor(data.water.sodicityClass.code)));
+                if (data.water.infiltrationClass) blendClassRows.push(createKeyValueRow('Infiltration', data.water.infiltrationClass.code + ', ' + data.water.infiltrationClass.desc, getStatusColor(data.water.infiltrationClass.code)));
+                if (data.water.bicarbonateClass) blendClassRows.push(createKeyValueRow('Bicarbonate', data.water.bicarbonateClass.code  + ', ' + data.water.bicarbonateClass.desc, getStatusColor(data.water.bicarbonateClass.code)));
                 if (blendClassRows.length > 0) {
                     sections.push(new Paragraph({
                         spacing: { before: 200, after: 80 },
@@ -10402,7 +12248,7 @@
                     children: [
                         new TextRun({ text: assessment.parameter + ': ', bold: true, size: 22, color: '374151' }),
                         new TextRun({ text: assessment.value + ' ' + (assessment.unit || 'mg/L'), bold: true, size: 22, color: statusColor }),
-                        new TextRun({ text: ' — ' + (assessment.status || 'unknown').toUpperCase() + ' RISK', size: 20, color: statusColor })
+                        new TextRun({ text: ', ' + (assessment.status || 'unknown').toUpperCase() + ' RISK', size: 20, color: statusColor })
                     ]
                 }));
                 
@@ -10846,429 +12692,6 @@
             sections.push(new Paragraph({ children: [] }));
         }
         
-        // Page break before Irrigation section
-        var hasIrrigation = data.irrigation && (data.irrigation.hasData || data.irrigation.status || charts.irrigation);
-        if (hasIrrigation) {
-            sections.push(new Paragraph({ children: [new PageBreak()] }));
-        }
-        
-        // =====================================================================
-        // v2.1.0: EXPANDED MOISTURE MANAGEMENT SECTION
-        // =====================================================================
-        if (data.irrigation && (data.irrigation.hasData || data.irrigation.status || charts.irrigation)) {
-            sections.push(new Paragraph({ 
-                heading: HeadingLevel.HEADING_1, keepNext: true, 
-                children: [new TextRun('Moisture Management')] 
-            }));
-            
-            // ----------------------------------------------------------------
-            // 1. Executive Summary / Current Status
-            // ----------------------------------------------------------------
-            var statusColor = getStatusColor(data.irrigation.status || 'adequate');
-            var statusText = (data.irrigation.status || 'Unknown').toUpperCase();
-            var statusBadge = statusText;
-            if (data.irrigation.depletionPct !== null && data.irrigation.depletionPct !== undefined) {
-                statusBadge += ' (' + data.irrigation.depletionPct + '% depleted)';
-            }
-            
-            var summaryIntro = 'Current irrigation status: ';
-            if (data.irrigation.status) {
-                var st = data.irrigation.status.toLowerCase();
-                if (st === 'critical') {
-                    summaryIntro += 'soil moisture is critically low. Immediate irrigation required to prevent turf stress and maintain playing surface quality.';
-                } else if (st === 'stressed') {
-                    summaryIntro += 'soil moisture is approaching the stress threshold. Irrigation should be scheduled within 24-48 hours.';
-                } else if (st === 'adequate') {
-                    summaryIntro += 'soil moisture is within the readily available water zone. No immediate irrigation required.';
-                } else if (st === 'optimal') {
-                    summaryIntro += 'soil moisture is at optimal levels. Monitor conditions and maintain current schedule.';
-                } else {
-                    summaryIntro += 'see details below for water balance assessment.';
-                }
-            }
-            
-            sections.push(new Paragraph({
-                spacing: { after: 150 },
-                children: [
-                    new TextRun({ text: summaryIntro, size: 22 })
-                ]
-            }));
-            
-            // Quick status table
-            var statusRows = [];
-            statusRows.push(createKeyValueRow('Current Status', statusBadge, statusColor));
-            if (data.irrigation.strategy) {
-                statusRows.push(createKeyValueRow('Irrigation Strategy', data.irrigation.strategy));
-            }
-            if (data.irrigation.needsIrrigation && data.irrigation.refillDepth) {
-                statusRows.push(createKeyValueRow('Irrigation Required', data.irrigation.refillDepth + ' mm', '#DC2626'));
-            }
-            if (data.irrigation.nextIrrigation) {
-                statusRows.push(createKeyValueRow('Next Scheduled', data.irrigation.nextIrrigation));
-            }
-            sections.push(createTable(statusRows));
-            sections.push(new Paragraph({ children: [] }));
-            
-            // ----------------------------------------------------------------
-            // 2. Water Balance Parameters (NEW)
-            // ----------------------------------------------------------------
-            if (data.irrigation.taw || data.irrigation.soilType) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Water Balance Parameters')] 
-                }));
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 100 },
-                    children: [new TextRun({ 
-                        text: 'The soil water balance model calculates plant-available water based on soil properties and rooting depth. Total Available Water (TAW) represents the maximum water storage capacity, while Readily Available Water (RAW) is the portion easily extracted by roots before stress occurs.', 
-                        size: 22 
-                    })]
-                }));
-                
-                var wbRows = [];
-                if (data.irrigation.soilType) {
-                    var soilLabel = data.irrigation.soilType.charAt(0).toUpperCase() + data.irrigation.soilType.slice(1);
-                    wbRows.push(createKeyValueRow('Soil Type', soilLabel));
-                }
-                if (data.irrigation.soilProps) {
-                    var fc = data.irrigation.soilProps.fieldCapacity;
-                    var wp = data.irrigation.soilProps.wiltingPoint;
-                    if (fc !== undefined) {
-                        wbRows.push(createKeyValueRow('Field Capacity', (fc * 100).toFixed(0) + '% VWC'));
-                    }
-                    if (wp !== undefined) {
-                        wbRows.push(createKeyValueRow('Wilting Point', (wp * 100).toFixed(0) + '% VWC'));
-                    }
-                }
-                if (data.irrigation.rootDepth) {
-                    wbRows.push(createKeyValueRow('Effective Root Depth', data.irrigation.rootDepth + ' mm'));
-                }
-                if (data.irrigation.taw !== undefined && data.irrigation.taw !== null) {
-                    wbRows.push(createKeyValueRow('Total Available Water (TAW)', data.irrigation.taw + ' mm'));
-                }
-                if (data.irrigation.raw !== undefined && data.irrigation.raw !== null) {
-                    wbRows.push(createKeyValueRow('Readily Available Water (RAW)', data.irrigation.raw + ' mm'));
-                }
-                if (data.irrigation.mad !== undefined && data.irrigation.mad !== null) {
-                    wbRows.push(createKeyValueRow('Management Allowable Depletion', (data.irrigation.mad * 100).toFixed(0) + '%'));
-                }
-                if (data.irrigation.currentDepletion !== undefined) {
-                    var depColor = data.irrigation.depletionPct >= 70 ? '#DC2626' : 
-                                   data.irrigation.depletionPct >= 50 ? '#F59E0B' : '#166534';
-                    wbRows.push(createKeyValueRow('Current Depletion', data.irrigation.currentDepletion + ' mm (' + (data.irrigation.depletionPct || 0) + '%)', depColor));
-                }
-                if (data.irrigation.depletionSource) {
-                    var sourceLabel = data.irrigation.depletionSource === 'sensor' ? 'Sensor data (TDR)' :
-                                     data.irrigation.depletionSource === 'days' ? 'Estimated from days since event' : 
-                                     data.irrigation.depletionSource;
-                    wbRows.push(createKeyValueRow('Data Source', sourceLabel));
-                }
-                
-                if (wbRows.length > 0) {
-                    sections.push(createTable(wbRows));
-                    sections.push(new Paragraph({ children: [] }));
-                }
-                
-                // Organic matter effect note
-                if (data.irrigation.omEffect && data.irrigation.omEffect.note) {
-                    sections.push(new Paragraph({
-                        spacing: { after: 150 },
-                        children: [new TextRun({ 
-                            text: 'Note: ' + data.irrigation.omEffect.note, 
-                            size: 20, 
-                            italics: true,
-                            color: '666666'
-                        })]
-                    }));
-                }
-            }
-            
-            // ----------------------------------------------------------------
-            // 3. Species & Crop Coefficient (NEW - Overseed explanation)
-            // ----------------------------------------------------------------
-            if (data.irrigation.species || data.irrigation.overseed) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Evapotranspiration & Species Selection')] 
-                }));
-                
-                var speciesIntro = 'Crop evapotranspiration (ETc) is calculated by applying a species-specific crop coefficient (Kc) to reference evapotranspiration (ET₀). ';
-                if (data.irrigation.overseed && data.irrigation.overseed.isOverseed) {
-                    speciesIntro += 'This site has an overseeded stand, requiring selection between the base warm-season and overseed cool-season ETc values.';
-                }
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 100 },
-                    children: [new TextRun({ text: speciesIntro, size: 22 })]
-                }));
-                
-                var etRows = [];
-                if (data.irrigation.species) {
-                    var sp = data.irrigation.species;
-                    if (sp.base) {
-                        etRows.push(createKeyValueRow('Base Species', sp.base + (sp.baseVariety ? ' (' + sp.baseVariety + ')' : '')));
-                    }
-                    if (sp.effective) {
-                        var effLabel = sp.effective + (sp.effectiveVariety ? ' (' + sp.effectiveVariety + ')' : '');
-                        etRows.push(createKeyValueRow('Effective Species for ETc', effLabel, sp.usingOverseed ? '#0369A1' : '#166534'));
-                    }
-                    if (sp.usingOverseed !== undefined) {
-                        etRows.push(createKeyValueRow('Using Overseed ETc', sp.usingOverseed ? 'Yes - C3 coefficients applied' : 'No - Base species coefficients'));
-                    }
-                    if (sp.summerIntent) {
-                        var intentLabel = sp.summerIntent === 'maintain' ? 'Maintain overseed through summer' : 
-                                         sp.summerIntent === 'transition' ? 'Transition back to base species' : sp.summerIntent;
-                        etRows.push(createKeyValueRow('Summer Intent', intentLabel));
-                    }
-                }
-                
-                if (data.irrigation.overseed) {
-                    var os = data.irrigation.overseed;
-                    if (os.c3Fraction !== undefined) {
-                        etRows.push(createKeyValueRow('C3 Cover Fraction', Math.round(os.c3Fraction * 100) + '%'));
-                    }
-                    if (os.reason) {
-                        etRows.push(createKeyValueRow('Selection Rationale', os.reason));
-                    }
-                }
-                
-                if (etRows.length > 0) {
-                    sections.push(createTable(etRows));
-                    sections.push(new Paragraph({ children: [] }));
-                }
-            }
-            
-            // ----------------------------------------------------------------
-            // 4. 7-Day Irrigation Schedule Table (NEW)
-            // ----------------------------------------------------------------
-            if (data.irrigation.hasSchedule && data.irrigation.schedule && data.irrigation.schedule.length > 0) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('7-Day Forecast')] 
-                }));
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 100 },
-                    children: [new TextRun({ 
-                        text: 'Daily water balance projection showing evapotranspiration losses, precipitation gains, and recommended irrigation events.', 
-                        size: 22 
-                    })]
-                }));
-                
-                // Create schedule table header
-                var scheduleHeaderRow = new TableRow({
-                    tableHeader: true,
-                    children: [
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1200, type: WidthType.DXA },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'Day', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1000, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ET₀', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1000, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ETc', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1000, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rain', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1200, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Depletion', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1200, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Status', bold: true, size: 20 })] })]
-                        }),
-                        new TableCell({ 
-                            shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                            width: { size: 1600, type: WidthType.DXA },
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Irrigation', bold: true, size: 20 })] })]
-                        })
-                    ]
-                });
-                
-                var scheduleRows = [scheduleHeaderRow];
-                
-                data.irrigation.schedule.forEach(function(day) {
-                    var dayLabel = day.dayName || new Date(day.date).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' });
-                    var et0Val = day.et0 !== undefined ? day.et0.toFixed(1) : '-';
-                    var etcVal = day.etc !== undefined ? day.etc.toFixed(1) : '-';
-                    var rainVal = day.precipitation !== undefined ? day.precipitation.toFixed(1) : '-';
-                    var depVal = day.cumulativeDepletion !== undefined ? day.cumulativeDepletion.toFixed(1) + 'mm' : '-';
-                    if (day.depletionPct !== undefined) {
-                        depVal += ' (' + day.depletionPct + '%)';
-                    }
-                    var statusVal = day.status ? day.status.charAt(0).toUpperCase() + day.status.slice(1) : '-';
-                    var irrigVal = '-';
-                    var irrigColor = '374151';
-                    if (day.irrigation && day.irrigation.recommended) {
-                        irrigVal = day.irrigation.totalDepth + 'mm';
-                        if (day.irrigation.runtime) {
-                            var mins = day.irrigation.runtime.totalRuntime || 0;
-                            var hrs = Math.floor(mins / 60);
-                            var remMins = mins % 60;
-                            irrigVal += ' (' + (hrs > 0 ? hrs + 'h' : '') + remMins + 'm)';
-                        }
-                        irrigColor = day.status === 'critical' ? 'DC2626' : 'D97706';
-                    }
-                    
-                    var rowShading = day.irrigation && day.irrigation.recommended ? { fill: 'FEF3C7', type: ShadingType.CLEAR } : null;
-                    var statusColor = day.status === 'critical' ? 'DC2626' : 
-                                     day.status === 'stressed' ? 'D97706' : 
-                                     day.status === 'adequate' ? '059669' : '166534';
-                    
-                    scheduleRows.push(new TableRow({
-                        children: [
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ children: [new TextRun({ text: dayLabel, size: 20 })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: et0Val, size: 20 })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: etcVal, size: 20 })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rainVal, size: 20 })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: depVal, size: 20 })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusVal, size: 20, color: statusColor })] })] }),
-                            new TableCell({ shading: rowShading, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: irrigVal, size: 20, bold: irrigVal !== '-', color: irrigColor })] })] })
-                        ]
-                    }));
-                });
-                
-                sections.push(new Table({
-                    width: { size: 100, type: WidthType.PERCENTAGE },
-                    rows: scheduleRows
-                }));
-                sections.push(new Paragraph({ children: [] }));
-                
-                // Summary statistics
-                if (data.irrigation.summary) {
-                    var sum = data.irrigation.summary;
-                    var summaryText = '7-day totals: ET ' + (sum.totalET || 0).toFixed(1) + 'mm, Rainfall ' + (sum.totalPrecipitation || 0).toFixed(1) + 'mm, ';
-                    summaryText += 'Net deficit ' + (sum.netDeficit || 0).toFixed(1) + 'mm. ';
-                    if (sum.irrigationEvents > 0) {
-                        summaryText += 'Irrigation events: ' + sum.irrigationEvents + ' totalling ' + (sum.totalIrrigation || 0).toFixed(1) + 'mm.';
-                    } else {
-                        summaryText += 'No irrigation events scheduled.';
-                    }
-                    
-                    sections.push(new Paragraph({
-                        spacing: { after: 150 },
-                        children: [new TextRun({ text: summaryText, size: 20, italics: true })]
-                    }));
-                }
-            }
-            
-            // ----------------------------------------------------------------
-            // 5. Runtime Calculations (when irrigation is recommended)
-            // ----------------------------------------------------------------
-            if (data.irrigation.needsIrrigation && data.irrigation.refillDepth && data.irrigation.system) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Runtime Calculation')] 
-                }));
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 100 },
-                    children: [new TextRun({ 
-                        text: 'Runtime is calculated based on system application rate, distribution uniformity, and application efficiency. Cycle-soak irrigation may be required when application rate exceeds soil infiltration capacity.', 
-                        size: 22 
-                    })]
-                }));
-                
-                var sys = data.irrigation.system;
-                var runtimeRows = [];
-                runtimeRows.push(createKeyValueRow('Required Net Depth', data.irrigation.refillDepth + ' mm'));
-                if (sys.precipRate) {
-                    runtimeRows.push(createKeyValueRow('Application Rate', sys.precipRate + ' mm/hr'));
-                }
-                if (sys.uniformity) {
-                    runtimeRows.push(createKeyValueRow('Distribution Uniformity', (sys.uniformity * 100).toFixed(0) + '%'));
-                }
-                if (sys.efficiency) {
-                    runtimeRows.push(createKeyValueRow('Application Efficiency', (sys.efficiency * 100).toFixed(0) + '%'));
-                }
-                
-                // Calculate gross depth and runtime if we have enough data
-                if (sys.precipRate && sys.uniformity && sys.efficiency) {
-                    var grossDepth = data.irrigation.refillDepth / (sys.uniformity * sys.efficiency);
-                    var runtimeMins = (grossDepth / sys.precipRate) * 60;
-                    var hrs = Math.floor(runtimeMins / 60);
-                    var mins = Math.round(runtimeMins % 60);
-                    var runtimeStr = hrs > 0 ? hrs + 'hr ' + mins + 'min' : mins + ' min';
-                    
-                    runtimeRows.push(createKeyValueRow('Gross Depth Required', grossDepth.toFixed(1) + ' mm'));
-                    runtimeRows.push(createKeyValueRow('Estimated Runtime', runtimeStr, '#0369A1'));
-                }
-                
-                sections.push(createTable(runtimeRows));
-                sections.push(new Paragraph({ children: [] }));
-            }
-            
-            // ----------------------------------------------------------------
-            // 6. Leaching Requirement (when water quality is a factor)
-            // ----------------------------------------------------------------
-            if (data.irrigation.leachingRequirement && data.irrigation.leachingRequirement.fraction > 0) {
-                // Page break to keep leaching table together on one page
-                sections.push(new Paragraph({ children: [new PageBreak()] }));
-                
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Leaching Requirement')] 
-                }));
-                
-                sections.push(new Paragraph({
-                    spacing: { after: 100 },
-                    children: [new TextRun({ 
-                        text: 'Elevated irrigation water salinity requires additional water application to leach accumulated salts below the rootzone. The leaching fraction indicates the percentage of extra water needed beyond crop water use.', 
-                        size: 22 
-                    })]
-                }));
-                
-                var lr = data.irrigation.leachingRequirement;
-                var leachRows = [];
-                leachRows.push(createKeyValueRow('Leaching Fraction', lr.fraction + '%', lr.fraction > 20 ? '#DC2626' : '#D97706'));
-                if (lr.reason) {
-                    leachRows.push(createKeyValueRow('Reason', lr.reason));
-                }
-                
-                // Calculate practical application
-                var extraPer100 = (lr.fraction / 100) * 100;
-                leachRows.push(createKeyValueRow('Additional Water', extraPer100.toFixed(0) + ' mm per 100mm crop water use'));
-                
-                sections.push(createTable(leachRows));
-                sections.push(new Paragraph({ children: [] }));
-                
-                // Cross-reference to water quality
-                sections.push(new Paragraph({
-                    spacing: { after: 150 },
-                    children: [new TextRun({ 
-                        text: 'See Water Quality Analysis section for detailed assessment of irrigation water chemistry and management recommendations.', 
-                        size: 20, 
-                        italics: true,
-                        color: '666666'
-                    })]
-                }));
-            }
-            
-            // ----------------------------------------------------------------
-            // 7. Chart (existing functionality)
-            // ----------------------------------------------------------------
-            if (charts.irrigation) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Water Balance Chart')] 
-                }));
-                sections.push(createImageParagraph(charts.irrigation, 'irrigation'));
-                sections.push(new Paragraph({ children: [] }));
-            }
-        }
         
         // =====================================================================
         // v2.1.0: ENHANCED SENSOR ZONE SECTION
@@ -11530,317 +12953,6 @@
             }
         }
         
-        // Page break before Disease section
-        var hasDisease = data.disease && data.disease.overallRisk;
-        if (hasDisease) {
-            sections.push(new Paragraph({ children: [new PageBreak()] }));
-        }
-        
-        // Disease section
-        if (data.disease && data.disease.overallRisk) {
-            sections.push(new Paragraph({ 
-                heading: HeadingLevel.HEADING_1, keepNext: true, 
-                children: [new TextRun('Disease Risk Assessment')] 
-            }));
-            
-            // Introductory text
-            var diseaseIntro = 'Disease risk assessment based on current weather conditions, turf species, and historical disease pressure patterns. ';
-            if (data.disease.overallRisk.toLowerCase() === 'high' || data.disease.overallRisk.toLowerCase() === 'critical') {
-                diseaseIntro += 'Elevated risk levels detected - preventive fungicide applications may be warranted.';
-            } else if (data.disease.overallRisk.toLowerCase() === 'moderate') {
-                diseaseIntro += 'Monitor conditions closely and consider preventive measures if conditions persist.';
-            } else {
-                diseaseIntro += 'Current conditions present low disease pressure.';
-            }
-            sections.push(new Paragraph({
-                spacing: { after: 200 },
-                children: [new TextRun({ text: diseaseIntro, size: 22 })]
-            }));
-            
-            var diseaseRows = [];
-            diseaseRows.push(createKeyValueRow('Overall Risk', data.disease.overallRisk.toUpperCase(), getStatusColor(data.disease.overallRisk)));
-            if (data.disease.primaryThreat) diseaseRows.push(createKeyValueRow('Primary Threat', data.disease.primaryThreat));
-            if (data.disease.overallScore) diseaseRows.push(createKeyValueRow('Risk Score', data.disease.overallScore + '%'));
-            
-            sections.push(createTable(diseaseRows));
-            sections.push(new Paragraph({ children: [] }));
-            
-            // v2.1.3: Add note if beta disease shows higher risk than validated primary
-            if (data.disease.betaThreatNote) {
-                sections.push(new Paragraph({
-                    spacing: { before: 50, after: 150 },
-                    children: [
-                        new TextRun({ text: '⚠ Note: ', size: 20, bold: true, color: '92400E' }),
-                        new TextRun({ text: data.disease.betaThreatNote, size: 20, italics: true, color: '78716C' })
-                    ]
-                }));
-            }
-            
-            // v2.0.8: Disease Risk Drivers - show inputs affecting disease risk
-            if (data.disease.inputs && data.disease.inputs.hasInputs) {
-                var inp = data.disease.inputs;
-                var hasDrivers = inp.nitrogen || (inp.shade && inp.shade.dliDeficitPct > 20) || 
-                                (inp.dew && inp.dew.totalWetHours > 20);
-                
-                if (hasDrivers) {
-                    sections.push(new Paragraph({ 
-                        heading: HeadingLevel.HEADING_2, keepNext: true, 
-                        children: [new TextRun('Risk Drivers')] 
-                    }));
-                    
-                    var driverText = 'The following environmental factors are influencing disease pressure:';
-                    sections.push(new Paragraph({
-                        spacing: { after: 100 },
-                        children: [new TextRun({ text: driverText, size: 22 })]
-                    }));
-                    
-                    var driverRows = [];
-                    
-                    // Nitrogen status
-                    if (inp.nitrogen) {
-                        var nStatus = inp.nitrogen.charAt(0).toUpperCase() + inp.nitrogen.slice(1);
-                        var nColor = inp.nitrogen === 'high' || inp.nitrogen === 'excessive' ? 'DC2626' : 
-                                    inp.nitrogen === 'low' || inp.nitrogen === 'deficient' ? 'CA8A04' : '16A34A';
-                        var nNote = '';
-                        if (inp.nitrogen === 'high' || inp.nitrogen === 'excessive') {
-                            nNote = ' (increases susceptibility to foliar diseases)';
-                        } else if (inp.nitrogen === 'low' || inp.nitrogen === 'deficient') {
-                            nNote = ' (increases susceptibility to root diseases)';
-                        }
-                        // Include tissue N value if available (in %, not ppm)
-                        var nDisplay = nStatus;
-                        if (inp.tissueN) {
-                            nDisplay += ' (' + inp.tissueN.toFixed(2) + '%)';
-                        }
-                        driverRows.push(createKeyValueRow('Nitrogen Status', nDisplay + nNote, nColor));
-                    }
-                    
-                    // K:N ratio - evidence-based disease predictor
-                    // Research: K:N <0.5 significantly increases Brown Patch, Pythium risk
-                    // Source: Carrow, PACE Turf, Turgeon
-                    if (inp.knRatio !== null && inp.knRatio !== undefined) {
-                        var knColor = inp.knRatio < 0.4 ? 'DC2626' : 
-                                     inp.knRatio < 0.5 ? 'F59E0B' : '16A34A';
-                        var knNote = '';
-                        if (inp.knRatio < 0.4) {
-                            knNote = ' (significantly increases disease susceptibility)';
-                        } else if (inp.knRatio < 0.5) {
-                            knNote = ' (marginal - monitor tissue quality)';
-                        } else if (inp.knRatio >= 0.5 && inp.knRatio <= 0.8) {
-                            knNote = ' (optimal range)';
-                        }
-                        driverRows.push(createKeyValueRow('K:N Ratio', inp.knRatio.toFixed(2) + knNote, knColor));
-                    }
-                    
-                    // Shade/DLI deficit
-                    if (inp.shade && inp.shade.dliDeficitPct > 0) {
-                        var shadeColor = inp.shade.dliDeficitPct > 30 ? 'DC2626' : 
-                                        inp.shade.dliDeficitPct > 15 ? 'F59E0B' : '16A34A';
-                        var shadeNote = inp.shade.dliDeficitPct > 30 ? ' (significantly elevates Dollar Spot risk)' : '';
-                        driverRows.push(createKeyValueRow('DLI Deficit', inp.shade.dliDeficitPct.toFixed(0) + '%' + shadeNote, shadeColor));
-                    }
-                    
-                    // Dew/leaf wetness
-                    if (inp.dew && inp.dew.totalWetHours) {
-                        var dewColor = inp.dew.totalWetHours > 40 ? 'DC2626' : 
-                                      inp.dew.totalWetHours > 25 ? 'F59E0B' : '16A34A';
-                        var dewNote = inp.dew.totalWetHours > 40 ? ' (extended wetness promotes infection)' : '';
-                        driverRows.push(createKeyValueRow('Weekly Wet Hours', inp.dew.totalWetHours + ' hours' + dewNote, dewColor));
-                    }
-                    
-                    // Soil temperature
-                    if (inp.soilTemp) {
-                        driverRows.push(createKeyValueRow('Soil Temperature', inp.soilTemp + '°C'));
-                    }
-                    
-                    if (driverRows.length > 0) {
-                        sections.push(createTable(driverRows));
-                        sections.push(new Paragraph({ children: [] }));
-                    }
-                }
-            }
-            
-            // Disease chart
-            if (charts.disease) {
-                sections.push(createImageParagraph(charts.disease, 'disease'));
-                
-                // Check if any diseases in the forecast are beta models
-                var forecastHasBeta = false;
-                if (data.disease.diseases) {
-                    forecastHasBeta = data.disease.diseases.some(function(d) {
-                        // Check validationStatus property first (preferred)
-                        if (d.validationStatus === 'beta') return true;
-                        // Fallback to name matching for backward compatibility
-                        var name = (d.displayName || d.name || '').toLowerCase();
-                        return name.indexOf('bipolaris') !== -1 || 
-                               name.indexOf('curvularia') !== -1 || 
-                               name.indexOf('drechslera') !== -1 ||
-                               name.indexOf('waitea') !== -1 ||
-                               name.indexOf('helminthosporium') !== -1;
-                    });
-                }
-                
-                // Chart legend note - explain dashed lines for beta models
-                if (forecastHasBeta) {
-                    sections.push(new Paragraph({
-                        spacing: { before: 80, after: 150 },
-                        children: [new TextRun({ 
-                            text: 'Chart note: Dashed lines (marked with *) indicate beta disease models. These are based on published research thresholds but have limited field validation. Use alongside visual scouting.', 
-                            size: 18, 
-                            italics: true,
-                            color: '6B7280'
-                        })]
-                    }));
-                } else {
-                    sections.push(new Paragraph({ children: [] }));
-                }
-            }
-            
-            // Disease list
-            if (data.disease.diseases && data.disease.diseases.length > 0) {
-                sections.push(new Paragraph({ 
-                    heading: HeadingLevel.HEADING_2, keepNext: true, 
-                    children: [new TextRun('Disease Details')] 
-                }));
-                
-                // Beta models disclaimer
-                var hasBetaModels = data.disease.diseases.some(function(d) {
-                    // Check validationStatus property first (preferred)
-                    if (d.validationStatus === 'beta') return true;
-                    // Fallback to name matching for backward compatibility
-                    var name = (d.displayName || d.name || '').toLowerCase();
-                    return name.indexOf('bipolaris') !== -1 || name.indexOf('curvularia') !== -1 || name.indexOf('drechslera') !== -1 || name.indexOf('waitea') !== -1 || name.indexOf('helminthosporium') !== -1;
-                });
-                if (hasBetaModels) {
-                    sections.push(new Paragraph({
-                        spacing: { after: 150 },
-                        children: [new TextRun({ 
-                            text: 'BETA models: These disease predictions are derived from peer-reviewed environmental thresholds but lack extensive field calibration. Confidence will improve as we collect outcome data from turf managers. Please report disease observations to help refine these models.', 
-                            size: 20, 
-                            italics: true 
-                        })]
-                    }));
-                }
-                
-                var diseaseListRows = [];
-                data.disease.diseases.forEach(function(disease) {
-                    var name = disease.displayName || disease.name || 'Unknown';
-                    var nameLower = name.toLowerCase();
-                    
-                    // Mark beta models
-                    var isBetaModel = disease.validationStatus === 'beta';
-                    // Fallback to name matching for backward compatibility
-                    if (!isBetaModel) {
-                        isBetaModel = nameLower.indexOf('bipolaris') !== -1 || 
-                                      nameLower.indexOf('curvularia') !== -1 || 
-                                      nameLower.indexOf('drechslera') !== -1 ||
-                                      nameLower.indexOf('waitea') !== -1 ||
-                                      nameLower.indexOf('helminthosporium') !== -1;
-                    }
-                    if (isBetaModel) {
-                        name = name + ' (BETA)';
-                    }
-                    
-                    var risk = disease.riskLevel || 'low';
-                    var score = disease.adjustedRisk ? ' (' + disease.adjustedRisk + '%)' : '';
-                    diseaseListRows.push(createKeyValueRow(name, risk.toUpperCase() + score, getStatusColor(risk)));
-                });
-                
-                sections.push(createTable(diseaseListRows));
-                sections.push(new Paragraph({ children: [] }));
-            }
-            
-            // v2.1.0: Regional Fungicide Treatment Options
-            // Only show for moderate+ risk diseases, uses GAIP_FungicideFilter for jurisdiction-safe actives
-            if (data.disease.diseases && data.disease.diseases.length > 0 && 
-                typeof window !== 'undefined' && window.GAIP_FungicideFilter) {
-                
-                var highRiskDiseases = data.disease.diseases.filter(function(d) {
-                    var risk = (d.riskLevel || '').toLowerCase();
-                    return risk === 'high' || risk === 'critical' || risk === 'moderate' || 
-                           (d.adjustedRisk && d.adjustedRisk >= 40);
-                });
-                
-                if (highRiskDiseases.length > 0) {
-                    // Get location for region detection
-                    var lat = data.location?.lat || data.climate?.lat;
-                    var lon = data.location?.lon || data.climate?.lon;
-                    
-                    sections.push(new Paragraph({ 
-                        heading: HeadingLevel.HEADING_2, keepNext: true, 
-                        children: [new TextRun('Treatment Options')] 
-                    }));
-                    
-                    // Get region info for disclaimer
-                    var regionInfo = window.GAIP_FungicideFilter.getCurrentRegion({ lat: lat, lon: lon });
-                    var regionMapping = window.GAIP_FungicideFilter.REGION_TO_FUNGICIDE_DB[regionInfo] || {};
-                    var registrationBody = regionMapping.registrationBody || 'local authority';
-                    
-                    sections.push(new Paragraph({
-                        spacing: { after: 150 },
-                        children: [new TextRun({ 
-                            text: 'The following active ingredients are registered for turf use in your region (' + registrationBody + '). Always verify current registration status and follow label directions. Rotate between different FRAC groups to manage resistance.', 
-                            size: 20, 
-                            italics: true 
-                        })]
-                    }));
-                    
-                    highRiskDiseases.forEach(function(disease) {
-                        var diseaseName = disease.displayName || disease.name || 'Unknown';
-                        var normalizedName = diseaseName.toLowerCase()
-                            .replace(/[\s-]+/g, '_')
-                            .replace(/[^a-z0-9_]/g, '');
-                        
-                        var fungicideResult = window.GAIP_FungicideFilter.getApprovedFungicides(normalizedName, {
-                            lat: lat,
-                            lon: lon,
-                            turfRegisteredOnly: true
-                        });
-                        
-                        if (fungicideResult.actives && fungicideResult.actives.length > 0) {
-                            sections.push(new Paragraph({
-                                spacing: { before: 150, after: 100 },
-                                children: [new TextRun({ text: diseaseName, bold: true, size: 22 })]
-                            }));
-                            
-                            var treatmentRows = [];
-                            
-                            // Primary options
-                            var primary = fungicideResult.actives.filter(function(a) { return a.type === 'primary'; });
-                            if (primary.length > 0) {
-                                var primaryList = primary.slice(0, 3).map(function(a) {
-                                    return (a.activeIngredient || a.active) + ' (FRAC ' + a.fracGroup + ')';
-                                }).join(', ');
-                                treatmentRows.push(createKeyValueRow('Primary Options', primaryList));
-                            }
-                            
-                            // Rotation partners
-                            var rotation = fungicideResult.actives.filter(function(a) { return a.type === 'rotation'; });
-                            if (rotation.length > 0) {
-                                var rotationList = rotation.slice(0, 2).map(function(a) {
-                                    return (a.activeIngredient || a.active) + ' (FRAC ' + a.fracGroup + ')';
-                                }).join(', ');
-                                treatmentRows.push(createKeyValueRow('Rotation Partners', rotationList));
-                            }
-                            
-                            if (treatmentRows.length > 0) {
-                                sections.push(createTable(treatmentRows));
-                            }
-                            
-                            // Application notes if available
-                            if (fungicideResult.notes) {
-                                sections.push(new Paragraph({
-                                    spacing: { after: 100 },
-                                    children: [new TextRun({ text: fungicideResult.notes, size: 20, italics: true })]
-                                }));
-                            }
-                        }
-                    });
-                    
-                    sections.push(new Paragraph({ children: [] }));
-                }
-            }
-        }
         
         // Page break before Trajectory section
         var hasTrajectory = data.trajectory && data.trajectory.currentScore !== null;
@@ -11885,89 +12997,14 @@
             }
         }
         
-        // Dew section (sports turf only)
-        if (data.dew && data.dew.applicable) {
-            sections.push(new Paragraph({ 
-                heading: HeadingLevel.HEADING_1, keepNext: true, 
-                children: [new TextRun('Dew Forecast & Match Conditions')] 
-            }));
-            
-            // Introductory text — driven by intensity string first, peak probability as fallback
-            // tonightIntensity reflects 7-day aggregate severity; tonightPeak is tonight-only probability.
-            // Using intensity prevents the mismatch where a severe 7-day outlook is described as "dry".
-            var dewIntro = 'Dew probability forecast for sports turf management and match preparation. ';
-            var dewIntensityLower = (data.dew.tonightIntensity || '').toLowerCase();
-            if (dewIntensityLower === 'severe' || dewIntensityLower === 'extreme') {
-                dewIntro += 'Severe dew conditions forecast — extended leaf wetness expected every night. High fungal disease risk. Apply preventive fungicide and schedule morning dew removal.';
-            } else if (dewIntensityLower === 'high') {
-                dewIntro += 'High dew likelihood — heavy surface moisture most nights. Plan for morning grooming and monitor disease conditions closely.';
-            } else if (dewIntensityLower === 'moderate') {
-                dewIntro += 'Moderate dew likely — some surface moisture expected on most nights.';
-            } else if (dewIntensityLower === 'low' || dewIntensityLower === 'minimal') {
-                dewIntro += 'Low dew probability — dry surface conditions expected overnight.';
-            } else {
-                // No intensity string — fall back to tonightPeak probability
-                if (data.dew.tonightPeak && data.dew.tonightPeak >= 75) {
-                    dewIntro += 'Heavy dew expected tonight — surface conditions will be affected. Plan for ball handling and traction adjustments.';
-                } else if (data.dew.tonightPeak && data.dew.tonightPeak >= 50) {
-                    dewIntro += 'Moderate dew likely — some surface moisture expected tonight.';
-                } else if (data.dew.tonightPeak !== undefined) {
-                    dewIntro += 'Low dew probability — dry conditions expected tonight.';
-                } else {
-                    dewIntro += 'Dew conditions vary — monitor overnight surface moisture.';
-                }
-            }
-            sections.push(new Paragraph({
-                spacing: { after: 200 },
-                children: [new TextRun({ text: dewIntro, size: 22 })]
-            }));
-            
-            var dewRows = [];
-            if (data.dew.tonightPeak !== undefined) {
-                // Colour driven by intensity string if available — prevents green label on severe conditions
-                var intensityStr = (data.dew.tonightIntensity || '').toLowerCase();
-                var dewColor;
-                if (intensityStr === 'severe' || intensityStr === 'extreme') {
-                    dewColor = 'DC2626';
-                } else if (intensityStr === 'high') {
-                    dewColor = 'F59E0B';
-                } else if (intensityStr === 'moderate') {
-                    dewColor = 'F59E0B';
-                } else {
-                    // Fall back to probability threshold
-                    dewColor = data.dew.tonightPeak >= 75 ? 'DC2626' : data.dew.tonightPeak >= 50 ? 'F59E0B' : '16A34A';
-                }
-                dewRows.push(createKeyValueRow("Tonight's Peak Probability", data.dew.tonightPeak + '%', dewColor));
-            }
-            if (data.dew.tonightIntensity) {
-                var intensityDisplay = data.dew.tonightIntensity.charAt(0).toUpperCase() + data.dew.tonightIntensity.slice(1);
-                var intensityColor = (['severe','extreme'].includes(data.dew.tonightIntensity.toLowerCase())) ? 'DC2626' :
-                                     (['high','moderate'].includes(data.dew.tonightIntensity.toLowerCase())) ? 'F59E0B' : '374151';
-                dewRows.push(createKeyValueRow('Expected Intensity', intensityDisplay, intensityColor));
-            }
-            if (data.dew.daysWithDew !== undefined) dewRows.push(createKeyValueRow('Days with Dew (7-day)', data.dew.daysWithDew));
-            if (data.dew.totalDewHours) dewRows.push(createKeyValueRow('Total Dew Hours (7-day)', data.dew.totalDewHours + ' hrs'));
-            if (data.dew.leafWetnessHours) dewRows.push(createKeyValueRow('Leaf Wetness Hours', data.dew.leafWetnessHours + ' hrs'));
-            if (data.dew.consecutiveWetHours) dewRows.push(createKeyValueRow('Max Consecutive Wet', data.dew.consecutiveWetHours + ' hrs'));
-            
-            if (dewRows.length > 0) {
-                sections.push(createTable(dewRows));
-                sections.push(new Paragraph({ children: [] }));
-            }
-            
-            // Note about disease implications
-            if (data.dew.leafWetnessHours && data.dew.leafWetnessHours > 40) {
-                sections.push(new Paragraph({
-                    spacing: { after: 200 },
-                    children: [new TextRun({ 
-                        text: '⚠️ Extended leaf wetness increases fungal disease risk. Monitor for dollar spot and brown patch.', 
-                        size: 22, 
-                        color: 'F59E0B',
-                        italics: true
-                    })]
-                }));
-            }
-        }
+        // b35fix433 (C42): Dew Forecast & Match Conditions section emit removed.
+        // Tonight-only and 7-day dew forecast aged badly on a Word doc dated weeks
+        // ago; live dew prediction with current weather is in the hub dashboard.
+        // Collector + exec-summary flag + TOC entry removed in lockstep. Combined
+        // export `siteLevelHeadings` filter and heading classifier dead entries
+        // pruned in word-export-combined.js. The dew-prediction-engine itself is
+        // unaffected: it continues to populate `state.computed.dew.leafWetness`
+        // for engine-confidence + disease integration.
         
         // Traffic/Wear section
         if (data.traffic && data.traffic.hasData) {
@@ -12450,7 +13487,7 @@
             var cd = data.companionDisease;
             sections.push(new Paragraph({
                 heading: HeadingLevel.HEADING_1, keepNext: true,
-                children: [new TextRun(cd.speciesLabel + ' Fairway/Tee — Disease Assessment')]
+                children: [new TextRun(cd.speciesLabel + ' Fairway/Tee, Disease Assessment')]
             }));
             sections.push(new Paragraph({
                 spacing: { after: 200 },
@@ -12484,161 +13521,6 @@
             sections.push(new Paragraph({ spacing: { after: 300 }, children: [] }));
         }
 
-        // ─────────────────────────────────────────────────────────────────
-        // Pre-Emergent Timing section
-        // Rendered when GAIP_PRE_EMERGENT_RESULT is available and has alerts
-        // ─────────────────────────────────────────────────────────────────
-        if (data.preEmergent && data.preEmergent.hasData) {
-            var pe = data.preEmergent;
-
-            // Status colour helper (mirrors STATUS_CONFIG in pre-emergent-integration.js)
-            var PE_STATUS_COLOUR = {
-                GREEN:               '22C55E',
-                AMBER:               'F59E0B',
-                RED_EARLY:           'EF4444',
-                RED_MISSED:          '7C3AED',
-                PERSISTENT_PRESSURE: 'EA580C',
-                ADVISORY_ONLY:       '6B7280'
-            };
-            var PE_STATUS_LABEL = {
-                GREEN:               'No action',
-                AMBER:               'Apply now',
-                RED_EARLY:           'Closing fast',
-                RED_MISSED:          'Timing passed',
-                PERSISTENT_PRESSURE: 'Persistent pressure',
-                ADVISORY_ONLY:       'Post-emergent only'
-            };
-
-            sections.push(new Paragraph({ children: [new PageBreak()] }));
-            sections.push(new Paragraph({
-                heading: HeadingLevel.HEADING_1,
-                keepNext: true,
-                children: [new TextRun('Pre-Emergent Herbicide Timing')]
-            }));
-
-            // Intro paragraph
-            var peStatusLabel = PE_STATUS_LABEL[pe.aggregateStatus] || pe.aggregateStatus;
-            var peIntro = 'Pre-emergent timing based on current and forecast soil temperatures at 5 cm depth. ' +
-                'Aggregate status: ' + peStatusLabel + '. ';
-            if (pe.isTropicalRegion) {
-                peIntro += 'Tropical/subtropical region — weed pressure driven by programme intervals and rainfall onset rather than temperature threshold alone. ';
-            }
-            if (pe.activeAlertCount > 0) {
-                peIntro += pe.activeAlertCount + ' species at or approaching application threshold.';
-            } else {
-                peIntro += 'No species currently at application threshold.';
-            }
-            sections.push(new Paragraph({
-                spacing: { after: 160 },
-                children: [new TextRun({ text: peIntro, size: 22, color: '374151' })]
-            }));
-
-            // Soil temperature summary table
-            var peSummaryRows = [];
-            peSummaryRows.push(new TableRow({
-                tableHeader: true,
-                children: [
-                    new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Parameter', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                    new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Value', bold: true, color: 'FFFFFF', size: 20 })] })] })
-                ]
-            }));
-            if (pe.soilTemp5cm != null) {
-                var soilTempDisplay = pe.soilTemp5cm.toFixed(1) + '°C';
-                if (pe.soilTempSource === 'derived_from_air_temp') soilTempDisplay += ' (est. from air temp)';
-                peSummaryRows.push(new TableRow({ children: [
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Soil Temperature (5 cm)', size: 20 })] })] }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: soilTempDisplay, size: 20 })] })] })
-                ]}));
-            }
-            if (pe.rollingAvg10d != null) {
-                peSummaryRows.push(new TableRow({ children: [
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: '10-Day Rolling Average', size: 20 })] })] }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: pe.rollingAvg10d.toFixed(1) + '°C', size: 20 })] })] })
-                ]}));
-            }
-            if (pe.trendDirection) {
-                var trendArrow = pe.trendDirection === 'warming' ? '↑ Warming' : pe.trendDirection === 'cooling' ? '↓ Cooling' : '→ Stable';
-                peSummaryRows.push(new TableRow({ children: [
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Temperature Trend', size: 20 })] })] }),
-                    new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: trendArrow, size: 20 })] })] })
-                ]}));
-            }
-            peSummaryRows.push(new TableRow({ children: [
-                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: 'Total Species Monitored', size: 20 })] })] }),
-                new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(pe.totalSpecies), size: 20 })] })] })
-            ]}));
-            sections.push(new Table({ rows: peSummaryRows, width: { size: 9000, type: WidthType.DXA } }));
-            sections.push(new Paragraph({ children: [] }));
-
-            // Active alerts table (only if any exist)
-            if (pe.activeAlerts && pe.activeAlerts.length > 0) {
-                sections.push(new Paragraph({
-                    heading: HeadingLevel.HEADING_2,
-                    keepNext: true,
-                    children: [new TextRun('Active Alerts')]
-                }));
-
-                var peAlertRows = [];
-                peAlertRows.push(new TableRow({
-                    tableHeader: true,
-                    children: [
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Species', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Scientific Name', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Status', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Days', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Threshold', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                        new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, width: { size: 500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Conf', bold: true, color: 'FFFFFF', size: 20 })] })] })
-                    ]
-                }));
-
-                pe.activeAlerts.forEach(function(alert) {
-                    var statusColour = PE_STATUS_COLOUR[alert.alertStatus] || '374151';
-                    var statusLabel  = PE_STATUS_LABEL[alert.alertStatus]  || alert.alertStatus;
-                    var daysText     = alert.daysToThreshold != null ? alert.daysToThreshold + 'd' : '—';
-                    var threshText   = alert.germinationThreshold != null ? alert.germinationThreshold + '°C' : '—';
-                    peAlertRows.push(new TableRow({ children: [
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.commonName || '', size: 20 })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.scientificName || '', size: 20, italics: true })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: statusLabel, size: 20, bold: true, color: statusColour })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: daysText, size: 20 })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: threshText, size: 20 })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: alert.confidenceRating || '', size: 20 })] })] })
-                    ]}));
-
-                    // Recommended action as indented sub-row
-                    if (alert.recommendedAction) {
-                        peAlertRows.push(new TableRow({ children: [
-                            new TableCell({ columnSpan: 6, children: [new Paragraph({
-                                indent: { left: 360 },
-                                spacing: { before: 20, after: 60 },
-                                children: [new TextRun({ text: alert.recommendedAction, size: 18, italics: true, color: '6B7280' })]
-                            })] })
-                        ]}));
-                    }
-                });
-
-                sections.push(new Table({ rows: peAlertRows, width: { size: 9000, type: WidthType.DXA } }));
-                sections.push(new Paragraph({ children: [] }));
-            } else {
-                // No active alerts — brief confirmation
-                sections.push(new Paragraph({
-                    spacing: { after: 200 },
-                    children: [new TextRun({
-                        text: 'No species are currently at or approaching their application threshold. Continue monitoring as soil temperatures change.',
-                        size: 22, color: '374151', italics: true
-                    })]
-                }));
-            }
-
-            // Efficacy caveat
-            sections.push(new Paragraph({
-                spacing: { before: 100, after: 200 },
-                children: [new TextRun({
-                    text: 'Note: Pre-emergent efficacy thresholds are indicative. Field validation of germination timing is recommended before committing to applications. Confidence ratings reflect data quality: H = peer-reviewed primary research; M = university extension; L = industry/extension, limited validation.',
-                    size: 18, italics: true, color: '9CA3AF'
-                })]
-            }));
-        }
 
         // Page break before References section - always on its own page
         sections.push(new Paragraph({ children: [new PageBreak()] }));
@@ -12694,14 +13576,8 @@
                 'Fidanza, M.A. & Dernoeden, P.H. (1996). Brown patch and dollar spot model development. HortScience 31:1006-1009.',
                 'Smith, J.D., Jackson, N. & Woolhouse, A.R. (1989). Fungal Diseases of Amenity Turf Grasses. E. & F.N. Spon.'
             ]},
-            { category: 'Pre-Emergent Herbicide Timing', refs: [
-                'Fidanza, M.A., Dernoeden, P.H. & Zhang, M. (1996). Degree-days for predicting smooth crabgrass emergence in cool-season turfgrasses. Crop Science 36:990-996.',
-                'Cardina, J., Herms, C.P. & Doohan, D.J. (2011). Crop planting date and crop density effects on weed emergence and growth. Weed Technology 25:211-219.',
-                'Teuton, T.C. et al. (2004). Factors affecting seed germination of cogongrass. Weed Science 52:417-424.',
-                'Grundy, A.C., Mead, A. & Burston, S. (2000). Modelling the effect of soil disturbance on weed emergence. Weed Research 40:366-378.',
-                'Chauhan, B.S. & Johnson, D.E. (2008). Germination ecology of goosegrass (Eleusine indica). Weed Science 56:699-706.',
-                'King, C.A. & Oliver, L.R. (1994). Application rate and timing effects on sethoxydim and clodinafop control of annual grasses. Weed Technology 8:1-5.'
-            ]},
+            // b35fix429 (C30): 'Pre-Emergent Herbicide Timing' references entry removed —
+            // section pruned from word-export.js.
             { category: 'Variety Traits & Performance', refs: [
                 'National Turfgrass Evaluation Program (NTEP). Multi-year variety trial data. ntep.org.',
                 'Wu, Y., Taliaferro, C.M. & Martin, D.L. (2011). Bermudagrass shade tolerance research. Oklahoma State University.',
@@ -12882,7 +13758,7 @@
                     }
                 }
             } else {
-                console.log('[WordExport] No trace data — skipping trace chart. Fe:', data.soil && data.soil.Fe, 'Mn:', data.soil && data.soil.Mn);
+                console.log('[WordExport] No trace data, skipping trace chart. Fe:', data.soil && data.soil.Fe, 'Mn:', data.soil && data.soil.Mn);
             }
             
             // Tissue chart
@@ -13198,33 +14074,30 @@
     // LOGO MANAGEMENT — server-backed dropdown
     // ============================================
 
+    var LOGO_STORAGE_KEY = 'gaip_report_logos';
+    var LOGO_SELECTED_KEY = 'gaip_selected_logo_id';
+    var ORG_NAME_STORAGE_KEY = 'gaip_org_name';
+
     // In-memory cache: array of {id, name, base64, width, height, type}
     var _logoCache = [];
     // Currently active logo object (null = none)
     var _selectedLogo = null;
-    var _logoStorage = window.GilbaStorageNS ? window.GilbaStorageNS.get() : localStorage;
-    var _logoStorageKey = 'gaip_report_logos';
-    var _logoSelectionKey = 'gaip_selected_logo_id';
 
-    function _saveLogoCache() {
+    function _readStoredLogos() {
         try {
-            _logoStorage.setItem(_logoStorageKey, JSON.stringify(_logoCache));
-            return true;
-        } catch (e) {
-            console.warn('[WordExport] Failed to save logos:', e);
-            return false;
+            var raw = localStorage.getItem(LOGO_STORAGE_KEY);
+            var parsed = raw ? JSON.parse(raw) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (_err) {
+            return [];
         }
     }
 
-    function _loadLogoCache() {
+    function _writeStoredLogos(logos) {
         try {
-            var raw = _logoStorage.getItem(_logoStorageKey);
-            if (!raw) return [];
-            var parsed = JSON.parse(raw);
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (e) {
-            console.warn('[WordExport] Failed to load logos:', e);
-            return [];
+            localStorage.setItem(LOGO_STORAGE_KEY, JSON.stringify(logos || []));
+        } catch (_err) {
+            // Ignore quota/storage failures; export can still proceed without a logo.
         }
     }
 
@@ -13239,7 +14112,7 @@
         if (!sel) return;
 
         // Rebuild options
-        sel.innerHTML = '<option value="">— None —</option>';
+        sel.innerHTML = '<option value="">, None,</option>';
         logos.forEach(function(logo) {
             var opt = document.createElement('option');
             opt.value = logo.id;
@@ -13257,9 +14130,9 @@
     }
 
     function _loadLogos() {
-        _logoCache = _loadLogoCache();
+        _logoCache = _readStoredLogos();
 
-        var savedId = _logoStorage.getItem(_logoSelectionKey) || '';
+        var savedId = localStorage.getItem(LOGO_SELECTED_KEY) || '';
         var ids = _logoCache.map(function(l) { return l.id; });
         if (savedId && ids.indexOf(savedId) === -1) savedId = '';
         if (!savedId && _logoCache.length) savedId = _logoCache[0].id;
@@ -13274,9 +14147,17 @@
         var sel         = document.getElementById('gaip-logo-select');
         var status      = document.getElementById('gaip-logo-status');
         var exportBtn   = document.getElementById('gaip-export-word');
+        var orgInput    = document.getElementById('gaip-org-name');
 
         if (exportBtn) {
             exportBtn.addEventListener('click', function() { exportToWord(); });
+        }
+
+        if (orgInput) {
+            orgInput.value = localStorage.getItem(ORG_NAME_STORAGE_KEY) || '';
+            orgInput.addEventListener('input', function() {
+                localStorage.setItem(ORG_NAME_STORAGE_KEY, orgInput.value || '');
+            });
         }
 
         // Add button triggers hidden file input
@@ -13284,7 +14165,7 @@
             addBtn.addEventListener('click', function() { uploadInput.click(); });
         }
 
-        // File chosen — persist locally
+        // File chosen — upload to server
         if (uploadInput) {
             uploadInput.addEventListener('change', function(e) {
                 var file = e.target.files[0];
@@ -13305,7 +14186,7 @@
                     var img = new Image();
                     img.onload = function() {
                         var name = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ');
-                        var newLogo = {
+                        var logo = {
                             id: _buildLogoId(),
                             name:   name,
                             base64: base64,
@@ -13315,14 +14196,10 @@
                         };
 
                         uploadInput.value = '';
-                        _logoCache.push(newLogo);
-                        if (!_saveLogoCache()) {
-                            _logoCache.pop();
-                            if (status) status.textContent = '❌ Save failed';
-                            return;
-                        }
-                        _logoStorage.setItem(_logoSelectionKey, newLogo.id);
-                        _populateDropdown(_logoCache, newLogo.id);
+                        _logoCache.push(logo);
+                        _writeStoredLogos(_logoCache);
+                        localStorage.setItem(LOGO_SELECTED_KEY, logo.id);
+                        _populateDropdown(_logoCache, logo.id);
                     };
                     img.src = base64;
                 };
@@ -13335,7 +14212,7 @@
             sel.addEventListener('change', function() {
                 var id = sel.value;
                 _selectedLogo = _logoCache.find(function(l) { return l.id === id; }) || null;
-                _logoStorage.setItem(_logoSelectionKey, id || '');
+                localStorage.setItem(LOGO_SELECTED_KEY, id || '');
                 if (delBtn) delBtn.style.display = (id && id !== '') ? 'inline-block' : 'none';
                 if (status) status.textContent = _selectedLogo ? ('✓ ' + _selectedLogo.name) : '';
             });
@@ -13349,17 +14226,14 @@
                 var logo = _logoCache.find(function(l) { return l.id === id; });
                 if (!confirm('Delete logo "' + (logo ? logo.name : id) + '"?')) return;
                 _logoCache = _logoCache.filter(function(l) { return l.id !== id; });
-                if (!_saveLogoCache()) {
-                    if (status) status.textContent = '❌ Delete failed';
-                    return;
-                }
-                _logoStorage.removeItem(_logoSelectionKey);
+                _writeStoredLogos(_logoCache);
+                localStorage.removeItem(LOGO_SELECTED_KEY);
                 _selectedLogo = null;
                 _populateDropdown(_logoCache, '');
             });
         }
 
-        // Load logos from local storage
+        // Load logos from server
         _loadLogos();
     }
 
@@ -13369,7 +14243,7 @@
 
     function getOrgName() {
         var input = document.getElementById('gaip-org-name');
-        return input ? input.value.trim() : '';
+        return input ? input.value.trim() : (localStorage.getItem(ORG_NAME_STORAGE_KEY) || '');
     }
 
     // Expose logo functions
@@ -13389,10 +14263,6 @@
         export: exportToWord,
         collectData: collectData,
         buildSections: buildSections,  // Exposed for scenario patch integration
-        generateSoilNarrative: generateSoilNarrative,
-        generateWaterNarrative: generateWaterNarrative,
-        generateTissueNarrative: generateTissueNarrative,
-        generatePerformanceImpactAnalysis: generatePerformanceImpactAnalysis,
 
         // b35fix322: expose pure decision/conversion helpers so combined-export
         // can compute amendment products per-sample (during the loop iteration
@@ -13406,6 +14276,14 @@
         _synthesiseKReconDecision: _synthesiseKReconDecision,
         _computeProgrammeKDelivered: _computeProgrammeKDelivered,
         _classifyKReconState: _classifyKReconState,
+
+        // b35fix400: region-aware K display label helpers. Exposed so
+        // live-preview integrations (Prebbles, AU, UK) can render the same
+        // labels the export will produce. Math is region-invariant; only
+        // the display string varies (AU/NZ elemental "0-0-41.5" vs UK/EU
+        // oxide "0-0-50 (as K₂O)").
+        _potassiumDisplayLabel: _potassiumDisplayLabel,
+        _detectKDisplayRegion: _detectKDisplayRegion,
 
         // b35fix328: nutrient-extraction helpers exposed so word-export-combined
         // can render the same Ca/Mg/S column logic in the Fertiliser Purchasing
@@ -13431,7 +14309,21 @@
         // optional site-uniform caption (combined-export only). Returns an
         // array of docx nodes; caller pushes them onto its sections list.
         // See helper definition for opts contract.
-        _buildMonthlyNDistribution: _buildMonthlyNDistribution
+        _buildMonthlyNDistribution: _buildMonthlyNDistribution,
+
+        // b35fix423 (C29): expose Annual Soil Amendments table builder for
+        // regression testing of the dual-rate column structure (Theoretical /
+        // Practical kg/ha). Renderer is pure given soilData + nutritionProgram
+        // + surfaceType + context; safe to call from a node test harness.
+        _buildAnnualSoilAmendmentsTable: buildAnnualSoilAmendmentsTable,
+
+        // b35fix448 (C25): expose Performance Impact Analysis narrative
+        // generator for regression testing of the module-presence gating
+        // upgrade. Pure given the collectData()-shaped data object; returns
+        // either null (no impacts) or { narrative, relationships,
+        // recommendations }. Safe to call from a node test harness without
+        // DOM or browser globals beyond the test scaffolding stubs.
+        _generatePerformanceImpactAnalysis: generatePerformanceImpactAnalysis
     };
 
     // Expose internal functions for combined export module

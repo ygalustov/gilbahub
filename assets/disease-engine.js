@@ -2622,7 +2622,7 @@ function formatFungicideRec(e, t) {
         "UK" === a && e.mapp && (r += ` [MAPP ${e.mapp}]`),
         "DE" === a && e.para17 && (r += " [§17]"),
         "FR" === a && "exempt" === e.loiLabbe && (r += " [Biocontrôle]"),
-        e.notes && (r += ` — ${e.notes}`),
+        e.notes && (r += `, ${e.notes}`),
         e.useWarning && (r += ` ${e.useWarning}`),
         r
     );
@@ -2801,12 +2801,12 @@ function getFusariumNModifier(e, t, a) {
  * so silent fallback to stale model logic is impossible.
  */
 const DiseaseEngine = {
-    version: 'STUB — delegates to DiseaseEnginePure',
+    version: 'STUB, delegates to DiseaseEnginePure',
     _isStub: true,
     analyse(inputs) {
         if (typeof window !== 'undefined' && window.DiseaseEnginePure) {
             console.warn(
-                '[DiseaseEngine] Legacy engine called directly — delegating to DiseaseEnginePure. ' +
+                '[DiseaseEngine] Legacy engine called directly, delegating to DiseaseEnginePure. ' +
                 'Check that GILBA_USE_PURE_DISEASE is set correctly in hub-orchestrator.js.'
             );
             return window.DiseaseEnginePure.analyse(inputs);

@@ -177,7 +177,7 @@
     var actionText = risk >= threshold
       ? 'Apply fungicide today'
       : risk >= 10
-        ? 'Monitor ' + name + ' \u2014 approaching threshold'
+        ? 'Monitor ' + name + ', approaching threshold'
         : 'Disease risk below threshold';
 
     var confirmTxt = confK !== 'high'
@@ -191,14 +191,14 @@
       tier: tier,
       rnCls: urgency === 'act' ? 'r' : urgency === 'warn' ? 'a' : '',
       leftUrg: urgency,
-      pbMod: 'Disease \u2014 ' + name,
+      pbMod: 'Disease, ' + name,
       pbAction: actionText,
       sig: risk + '%',
       sigClass: risk >= threshold ? 'breach' : '',
       thr: 'spray at ' + threshold + '%',
       thrNote: top.fracGroup ? 'FRAC ' + top.fracGroup : '',
       pressure: peakRisk && peakRisk > risk
-        ? 'Delay cost rises \u2014 risk peaks at ' + peakRisk + '% ' + (peakDay || '')
+        ? 'Delay cost rises, risk peaks at ' + peakRisk + '% ' + (peakDay || '')
         : 'Monitor conditions',
       pressureClass: (peakRisk && peakRisk > 70) ? 'hi' : '',
       visual: 'disease',
@@ -224,15 +224,15 @@
       forkActLbl: 'Commit to fungicide application today',
       forkDeferLbl: 'Defer application',
       forkDeferSub: peakRisk ? 'risk peaks at ' + peakRisk + '%' : 'review conditions',
-      forkActDyn: { 'default': risk >= threshold ? 'Commit \u2014 spray today' : 'Commit to monitoring' },
+      forkActDyn: { 'default': risk >= threshold ? 'Commit, spray today' : 'Commit to monitoring' },
       forkDeferDyn: { 'default': 'Defer (check forecast)' },
       deferPenalties: {
-        today:    'Later today \u2014 risk manageable if applied this afternoon',
-        tomorrow: 'Tomorrow \u2014 risk may rise significantly',
-        week:     'This week \u2014 surface at serious risk if deferred more than 48h'
+        today:    'Later today, risk manageable if applied this afternoon',
+        tomorrow: 'Tomorrow, risk may rise significantly',
+        week:     'This week, surface at serious risk if deferred more than 48h'
       },
       commitConsequence: 'Fungicide committed. Risk projected to drop below threshold post-application.',
-      clearedMsg: 'Disease risk below threshold \u2014 no action required.',
+      clearedMsg: 'Disease risk below threshold, no action required.',
       svNow: risk + '% now',
       svProj: peakRisk ? peakRisk + '% ' + (peakDay || 'day 4') : 'holding',
       svProjColor: peakRisk && peakRisk > risk ? 'color:var(--red)' : 'color:var(--ink3)',
@@ -280,7 +280,7 @@
     var confK = _confKey(result.confidence || 'high');
 
     var actionText = reappStatus === 'expired'
-      ? product + ' has expired \u2014 reapply now'
+      ? product + ' has expired, reapply now'
       : 'Schedule ' + product + ' reapplication' + (daysRemaining ? ' in ' + daysRemaining + 'd' : '');
 
     return {
@@ -288,7 +288,7 @@
       tier: tier,
       rnCls: urgency === 'act' ? 'r' : 'a',
       leftUrg: urgency,
-      pbMod: 'PGR \u2014 ' + product,
+      pbMod: 'PGR, ' + product,
       pbAction: actionText,
       sig: suppression + '% suppression',
       sigClass: pctComplete >= 80 ? 'breach' : '',
@@ -312,8 +312,8 @@
       confLabel: _confLabel(confK),
       confImplication: 'Window and rate are confirmed. Schedule on time.',
       confConfirmTxt: '',
-      act: product + (daysRemaining ? ' \u2014 ' + daysRemaining + 'd' : ''),
-      sup: suppression + '% suppression' + (daysRemaining ? ' \u2014 ' + daysRemaining + 'd' : ''),
+      act: product + (daysRemaining ? ', ' + daysRemaining + 'd' : ''),
+      sup: suppression + '% suppression' + (daysRemaining ? ', ' + daysRemaining + 'd' : ''),
       metric: daysRemaining ? daysRemaining + 'd' : pctComplete + '%',
       mc: urgency === 'act' ? 'r' : urgency === 'warn' ? 'a' : 'd',
       supHdr: 'Reapply by:',
@@ -321,15 +321,15 @@
       forkActLbl: 'Commit to reapplication',
       forkDeferLbl: 'Defer scheduling',
       forkDeferSub: daysRemaining ? 'window closes in ' + daysRemaining + 'd' : 'growth surge risk',
-      forkActDyn: { 'default': 'Commit \u2014 window closes ' + (daysRemaining ? 'in ' + daysRemaining + 'd' : 'soon') },
+      forkActDyn: { 'default': 'Commit, window closes ' + (daysRemaining ? 'in ' + daysRemaining + 'd' : 'soon') },
       forkDeferDyn: { 'default': 'Defer (growth surge risk)' },
       deferPenalties: {
-        today:    'Later today \u2014 window still intact',
-        tomorrow: 'Tomorrow \u2014 no significant penalty if >2 days remaining',
-        week:     'This week \u2014 if deferred past window, growth surge likely'
+        today:    'Later today, window still intact',
+        tomorrow: 'Tomorrow, no significant penalty if >2 days remaining',
+        week:     'This week, if deferred past window, growth surge likely'
       },
       commitConsequence: 'Suppression maintained. Next reapplication window preserved.',
-      clearedMsg: 'PGR programme on track \u2014 no reapplication yet needed.',
+      clearedMsg: 'PGR programme on track, no reapplication yet needed.',
       svNow: suppression + '% suppression',
       svProj: daysRemaining ? '~' + Math.max(0, suppression - 15) + '% in ' + daysRemaining + 'd' : 'declining',
       svProjColor: urgency !== 'ok' ? 'color:var(--amber)' : 'color:var(--green)',
@@ -361,7 +361,7 @@
     var onTrack = vwc != null ? (vwc >= vwcMin && vwc <= vwcMax) : true;
     var tier    = onTrack ? 'watch' : 'plan-on';
     var urgency = tier === 'watch' ? 'ok' : 'warn';
-    var vwcStr  = vwc != null ? vwc.toFixed(1) + '%' : '\u2014';
+    var vwcStr  = vwc != null ? vwc.toFixed(1) + '%' : '-';
 
     return {
       id: 'irrigation',
@@ -384,14 +384,14 @@
       cRLbl: 'If off-track',
       cRisk: 'Stress risk: low',
       cRC: 'g',
-      cSlope: 'No slope \u2014 deficit risk low',
+      cSlope: 'No slope, deficit risk low',
       cSlopeClass: 'lo',
       confKey: vwc != null ? 'usable' : 'estimate',
       confLabel: vwc != null ? 'Usable' : 'Estimate only',
-      confImplication: vwc != null ? 'Live VWC from sensor.' : 'No sensor data — add a sensor to improve confidence.',
+      confImplication: vwc != null ? 'Live VWC from sensor.' : 'No sensor data, add a sensor to improve confidence.',
       confConfirmTxt: '',
       act: onTrack ? 'Irrigation on track' : 'Review schedule',
-      sup: 'VWC ' + vwcStr + (nextEvent ? ' \u2014 ' + Math.round(nextEvent) + 'mm scheduled' : ''),
+      sup: 'VWC ' + vwcStr + (nextEvent ? ', ' + Math.round(nextEvent) + 'mm scheduled' : ''),
       metric: nextEvent ? Math.round(nextEvent) + 'mm' : vwcStr,
       mc: onTrack ? 'g' : 'a',
       supHdr: 'Next 3 days:',
@@ -399,7 +399,7 @@
       forkActLbl: '', forkDeferLbl: '',
       deferPenalties: {},
       commitConsequence: 'Programme on track.',
-      clearedMsg: 'Irrigation programme on track \u2014 no action required.',
+      clearedMsg: 'Irrigation programme on track, no action required.',
       svNow: 'VWC ' + vwcStr,
       svProj: onTrack ? 'on track 3 days' : 'deficit risk',
       svProjColor: onTrack ? 'color:var(--green)' : 'color:var(--amber)',
@@ -460,8 +460,8 @@
         rnCls: '',
         leftUrg: 'ok',
         pbMod: 'Pre-emergent',
-        pbAction: 'All species below threshold \u2014 no action required',
-        sig: soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C soil' : '\u2014',
+        pbAction: 'All species below threshold, no action required',
+        sig: soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C soil' : '-',
         sigClass: 'ok-val',
         thr: 'monitor soil temperature',
         thrNote: '',
@@ -477,27 +477,27 @@
         confConfirmTxt: '',
         act: 'Pre-emergent: clear',
         sup: soilTemp != null ? 'Soil ' + soilTemp.toFixed(1) + '\u00b0C' : 'No alerts',
-        metric: soilTemp != null ? soilTemp.toFixed(0) + '\u00b0C' : '\u2014',
+        metric: soilTemp != null ? soilTemp.toFixed(0) + '\u00b0C' : '-',
         mc: 'd',
         supHdr: 'Application window:',
         supSev: 'sev-low',
         forkActLbl: '', forkDeferLbl: '',
         deferPenalties: {},
         commitConsequence: 'Monitoring continued.',
-        clearedMsg: 'All species below threshold \u2014 no pre-emergent action required.',
-        svNow: soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C' : '\u2014',
+        clearedMsg: 'All species below threshold, no pre-emergent action required.',
+        svNow: soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C' : '-',
         svProj: 'below threshold',
         svProjColor: 'color:var(--green)',
         svConseq: 'no action needed'
       };
     }
 
-    var tempStr = soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C' : '\u2014';
+    var tempStr = soilTemp != null ? soilTemp.toFixed(1) + '\u00b0C' : '-';
 
     var actionText = windowOpen
-      ? 'Apply pre-emergent now \u2014 threshold reached'
+      ? 'Apply pre-emergent now, threshold reached'
       : (daysToWin != null
-          ? 'Order product \u2014 window in ~' + daysToWin + ' days'
+          ? 'Order product, window in ~' + daysToWin + ' days'
           : 'Monitor soil temperature');
 
     var confirmTxt = confK === 'estimate'
@@ -509,7 +509,7 @@
       tier: tier,
       rnCls: urgency === 'act' ? 'r' : '',
       leftUrg: urgency,
-      pbMod: 'Pre-emergent \u2014 ' + weed,
+      pbMod: 'Pre-emergent, ' + weed,
       pbAction: actionText,
       sig: tempStr + ' soil',
       sigClass: windowOpen ? 'breach' : '',
@@ -527,7 +527,7 @@
       cRLbl: 'If window missed',
       cRisk: 'Rescue cost significantly higher',
       cRC: 'a',
-      cSlope: 'Window opens once \u2014 no second chance this season',
+      cSlope: 'Window opens once, no second chance this season',
       cSlopeClass: 'hi',
       confKey: confK,
       confLabel: _confLabel(confK),
@@ -536,7 +536,7 @@
         : 'Soil temp validated. Apply at ' + applyAt + '\u00b0C.',
       confConfirmTxt: confirmTxt,
       act: windowOpen ? 'Apply pre-emergent now' : 'Order pre-emergent',
-      sup: 'Soil ' + tempStr + (daysToWin ? ' \u2014 window ~' + daysToWin + 'd' : ''),
+      sup: 'Soil ' + tempStr + (daysToWin ? ', window ~' + daysToWin + 'd' : ''),
       metric: daysToWin != null ? daysToWin + 'd' : tempStr,
       mc: urgency === 'act' ? 'r' : 'd',
       supHdr: 'Application window:',
@@ -544,17 +544,17 @@
       forkActLbl: 'Commit to ordering pre-emergent',
       forkDeferLbl: 'Defer order',
       forkDeferSub: 'one application window per season',
-      forkActDyn: { 'default': 'Commit \u2014 one window this season' },
+      forkActDyn: { 'default': 'Commit, one window this season' },
       forkDeferDyn: { 'default': 'Defer (risk: no second window)' },
       deferPenalties: {
-        today:    'Later today \u2014 no penalty',
-        tomorrow: 'Tomorrow \u2014 still fine if window > 2 days away',
-        week:     'This week \u2014 risky if deferred given ' + leadTime + '-day lead time'
+        today:    'Later today, no penalty',
+        tomorrow: 'Tomorrow, still fine if window > 2 days away',
+        week:     'This week, risky if deferred given ' + leadTime + '-day lead time'
       },
       commitConsequence: 'Order committed. Application window secured.',
-      clearedMsg: 'Soil temperature below threshold \u2014 pre-emergent not yet needed.',
+      clearedMsg: 'Soil temperature below threshold, pre-emergent not yet needed.',
       svNow: tempStr + ' now',
-      svProj: daysToWin != null ? applyAt + '\u00b0C in ~' + daysToWin + 'd' : '\u2014',
+      svProj: daysToWin != null ? applyAt + '\u00b0C in ~' + daysToWin + 'd' : '-',
       svProjColor: tier !== 'watch' ? 'color:var(--amber)' : 'color:var(--ink3)',
       svConseq: 'application window opens'
     };

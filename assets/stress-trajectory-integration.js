@@ -117,7 +117,7 @@
         // If computeAll() already ran before this listener registered,
         // GAIP_TRAJECTORY_RESULT is already populated — render immediately.
         if (window.GAIP_TRAJECTORY_RESULT) {
-            log('Late init — result already available, rendering now');
+            log('Late init, result already available, rendering now');
             setTimeout(renderFromOrchestratorResult, 0);
         }
     }
@@ -147,7 +147,7 @@
 
             // Sports/general path: render full trajectory UI
             if (typeof StressTrajectoryUI === 'undefined') {
-                logWarn('StressTrajectoryUI not available — cannot render');
+                logWarn('StressTrajectoryUI not available, cannot render');
                 return;
             }
 
@@ -474,13 +474,13 @@
         
         // Check engine loaded
         if (typeof window.GAIP_StressTrajectory === 'undefined') {
-            logWarn('GAIP_StressTrajectory not found at init — will be called from computeAll when loaded');
+            logWarn('GAIP_StressTrajectory not found at init, will be called from computeAll when loaded');
         } else {
             log('StressTrajectoryEngine ready, version:', window.GAIP_StressTrajectory.version);
         }
         
         if (typeof StressTrajectoryUI === 'undefined') {
-            logWarn('StressTrajectoryUI not found at init — UI will not render until available');
+            logWarn('StressTrajectoryUI not found at init, UI will not render until available');
         } else {
             log('StressTrajectoryUI ready');
         }
@@ -488,7 +488,7 @@
         // v3.0.0: Orchestrator-path listener replaces MutationObserver + state-dispatch hooks
         initOrchestratorListener();
         
-        log('Integration initialized — listening for gaip:orchestrator-complete');
+        log('Integration initialized, listening for gaip:orchestrator-complete');
         log('=================================================');
     }
 
@@ -805,7 +805,7 @@
             var peakTemp = trajectory[peakDay] ? Math.round(trajectory[peakDay].maxTemp) : '?';
             alertHTML = '<div class="climate-alert critical">' +
                        '🔥 <strong>Critical heat stress forecast:</strong> ' + peakTemp + '°C on ' + formatDate(peakDate) + 
-                       ' — Prepare syringe cooling, monitor canopy temps' +
+                       ', Prepare syringe cooling, monitor canopy temps' +
                        '</div>';
         } else if (peak >= 45) {
             alertHTML = '<div class="climate-alert warning">' +
@@ -918,7 +918,7 @@
     // =========================================================================
 
     window.runStressTrajectory = function() {
-        log('Manual trigger — use window.GilbaHub.compute() to re-run the full orchestrator');
+        log('Manual trigger, use window.GilbaHub.compute() to re-run the full orchestrator');
         if (typeof window.GilbaHub !== 'undefined') {
             window.GilbaHub.compute();
         }

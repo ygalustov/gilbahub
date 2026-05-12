@@ -74,18 +74,18 @@
                 }),
                 paperScope: "ultradwarf hybrid bermudagrass: MiniVerde, Champion, TifEagle (C. dactylon × C. transvaalensis)",
                 gilbaExtrapolations: Object.freeze({
-                    bermudagrass: "MEDIUM confidence — generic bermuda extension labelled in source string",
-                    couch: "MEDIUM confidence — Australian C. dactylon, paper did not study; labelled 'Same as bermudagrass'",
-                    kikuyu: "Extrapolated from C4 base temp — paper did not study Pennisetum clandestinum",
+                    bermudagrass: "MEDIUM confidence, generic bermuda extension labelled in source string",
+                    couch: "MEDIUM confidence, Australian C. dactylon, paper did not study; labelled 'Same as bermudagrass'",
+                    kikuyu: "Extrapolated from C4 base temp, paper did not study Pennisetum clandestinum",
                 }),
-                minorDeviation: "mspRatio 0.75 vs paper-canonical 1/1.3=0.7692 — 2.5% off, within rounding noise; could tighten to 0.77 if paper-exact match required",
+                minorDeviation: "mspRatio 0.75 vs paper-canonical 1/1.3=0.7692, 2.5% off, within rounding noise; could tighten to 0.77 if paper-exact match required",
                 auditDoc: "docs/provenance-audit-tier2.md (Finding 9)",
                 supersedes: "pre-b35fix343: same numerical values, no provenance field",
             }),
             kreuserSoldat2011: Object.freeze({
                 citation: "Kreuser & Soldat (2011) Crop Sci 51:2228-2236",
                 doi: "10.2135/cropsci2011.01.0034",
-                status: "citation real, encoded base temp 0°C for C3 + 1.3× MSP rule sourced from this paper. Coefficient-level audit deferred — own Tier 2 candidate.",
+                status: "citation real, encoded base temp 0°C for C3 + 1.3× MSP rule sourced from this paper. Coefficient-level audit deferred, own Tier 2 candidate.",
                 auditStatus: "deferred (own candidate, separate finding)",
             }),
         }),
@@ -99,7 +99,7 @@
                 value: 10,
                 label: "10°C (Reasor standard for C4)",
                 source: "Reasor et al. 2018",
-                provenance: "verified b35fix343 — paper Methods, justified by Berry & Bjorkman 1980 and McMaster & Wilhelm 1997"
+                provenance: "verified b35fix343, paper Methods, justified by Berry & Bjorkman 1980 and McMaster & Wilhelm 1997"
             },
             kikuyu: {
                 value: 10,
@@ -750,7 +750,7 @@
                     confidence: "MEDIUM",
                     greens: {
                         gdd: 123,
-                        source: "Reasor et al. 2018 Crop Sci 58:1801-1807 (paper-verified b35fix343, Gilba extrapolation): paper studied ultradwarf only — value adapted from PHC ultradwarf_bermuda greens"
+                        source: "Reasor et al. 2018 Crop Sci 58:1801-1807 (paper-verified b35fix343, Gilba extrapolation): paper studied ultradwarf only, value adapted from PHC ultradwarf_bermuda greens"
                     },
                     tees: {
                         gdd: 160,

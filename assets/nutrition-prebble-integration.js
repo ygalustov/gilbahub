@@ -14,7 +14,7 @@
  *   - Hub state (GAIP_STATE.soil.surfaceType)
  * 
  * @package Gilba_Hub
- * @version 1.0.3
+ * @version 1.0.4
  * @since 10.1.0
  */
 
@@ -237,8 +237,31 @@
                 return 'ammonium_acetate';
             }
 
-            if (window.GAIP_STATE?.soil?.methodology) {
-                const m = window.GAIP_STATE.soil.methodology;
+            // ────────────────────────────────────────────────────────────────
+            // b35fix446 / C55: soil methodology read prefers inputs.soil shelf.
+            // ────────────────────────────────────────────────────────────────
+            // Pre-fix this branch read window.GAIP_STATE.soil.methodology
+            // (top-level legacy slot) only. The hub-store proxy synthesiser
+            // at gilba-hub-v2.js:1399 auto-aliases inputs.turf to top-level
+            // .turf, but does NOT auto-alias inputs.soil to top-level .soil.
+            // The flat .soil shelf is only populated by the analysis-end
+            // writeback at hub-tissue-v3.js:6966. Canonical writers, including
+            // the b35fix443 routed-write helper _b35fix393_setSoilField in
+            // assets/ammonium-acetate-methodology.js, all land at
+            // GAIP_STATE.inputs.soil.methodology. Pre-b35fix446, on a fresh
+            // session or any state where the post-tissue writeback had not
+            // run, the flat shelf was undefined and this branch fell through
+            // to the DOM selector below, which can disagree with the
+            // canonical inputs.soil value the user just set in the
+            // site-settings panel. Same defect class as the b35fix442
+            // read-shelf asymmetry on the turf axis, but on the soil axis.
+            // Per b35fix442 lesson #33 the fix shape is a tolerant read
+            // priority chain.
+            const _b35fix446_soilM = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.methodology)
+                || (window.GAIP_STATE && window.GAIP_STATE.soil && window.GAIP_STATE.soil.methodology)
+                || null;
+            if (_b35fix446_soilM) {
+                const m = _b35fix446_soilM;
                 if (m === 'cotula_s78' || m === 'cotula') return 'ammonium_acetate';
                 return m;
             }
@@ -652,6 +675,14 @@
                     </tr>
                 `;
             }).join('');
+
+            // b35fix399 — Evaluate K-Reconciliation SSOT for live preview.
+            // Surfaces the spot-K decision the Word export would produce,
+            // so the user understands the K balance status without having
+            // to generate the export. State machine: balanced / no-soil /
+            // soil-suppress / will-apply.
+            const kReconResult = this._evaluateKReconPreview(nutrientRequired.K, nutrientTotals.K);
+            const kReconSummaryRow = this._buildKReconSummaryRow(kReconResult);
             
             // Build monthly rows
             const monthlyRows = monthly.map(m => {
@@ -672,7 +703,7 @@
                     // Use kg/ha for sports/fairways, g/m² for greens/tees
                     const rateDisplay = useGM2 ? `${p.rateGM2}g/m²` : `${p.rateKgHa}kg/ha`;
                     return `<span class="prebble-product eff-${effClass}" title="${p.notes || ''} ${longevityTitle} ${effTitle}">${p.name}${npkDisplay} @ ${rateDisplay}${splitNote} ${releaseTag}</span>`;
-                }).join(' + ') || '<span class="prebble-none">—</span>';
+                }).join(' + ') || '<span class="prebble-none">,</span>';
                 
                 // Show "covered by" info if this month is covered by previous application
                 let coverageDisplay = '';
@@ -698,7 +729,16 @@
                     const solubleNote = p.form === 'soluble' ? ' 💧' : ''; // Water drop to indicate dissolve in tank
                     return `<span class="prebble-product liquid" title="${p.notes || ''}">${p.name}${npkDisplay}${rate ? ' @ ' + rate : ''}${splitNote}${solubleNote}</span>`;
                 }).join(' + ') || '';
-                
+
+                // b35fix399c — append K-recon split SOP for this month (if any).
+                // Renders inline in the liquid column as form:'soluble' style
+                // (kg/ha rate + 💧 marker), italicised + amber-tinted, with
+                // "(provisional, at export)" annotation.
+                const kReconMonthlySpan = this._buildKReconMonthlySpan(kReconResult, m.month, useGM2);
+                const liquidListWithKRecon = kReconMonthlySpan
+                    ? (liquidList ? `${liquidList} + ${kReconMonthlySpan}` : kReconMonthlySpan)
+                    : liquidList;
+
                 const notesHtml = m.notes.length > 0 
                     ? `<div class="prebble-notes">${m.notes.join('. ')}</div>` 
                     : '';
@@ -717,7 +757,7 @@
                         <td>${m.season}</td>
                         <td class="prebble-req">${reqString}</td>
                         <td class="prebble-granular">${granularList}${coverageDisplay}${activeDisplay}</td>
-                        <td class="prebble-liquid">${liquidList}</td>
+                        <td class="prebble-liquid">${liquidListWithKRecon}</td>
                     </tr>
                     ${notesHtml ? `<tr class="prebble-note-row"><td colspan="5">${notesHtml}</td></tr>` : ''}
                 `;
@@ -819,6 +859,7 @@
                         </thead>
                         <tbody>
                             ${nutrientSummaryRows}
+                            ${kReconSummaryRow}
                         </tbody>
                     </table>
                     
@@ -841,6 +882,7 @@
                             </thead>
                             <tbody>
                                 ${summaryRows}
+                                ${this._buildKReconAnnualSummaryRow(kReconResult, useGM2)}
                             </tbody>
                             <tfoot>
                                 <tr class="prebble-totals-row">
@@ -903,6 +945,450 @@
             };
             
             return formats[surfaceType.toLowerCase()] || surfaceType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        },
+
+        // ====================================================================
+        // b35fix399 — K-Reconciliation Live Preview
+        // b35fix399b — Soil-state architecture fix
+        // ====================================================================
+        // Surfaces the export-time _synthesiseKReconDecision SSOT (b35fix324a,
+        // defined in word-export.js) into the Prebbles live preview so the
+        // user can see whether spot-K will fire at export time, instead of
+        // staring at a red "K balance -28" flag with no context.
+        //
+        // The SSOT applies two gates:
+        //   Gate 1: programme balance < BALANCE_THRESHOLD (default -20 kg/ha)
+        //   Gate 2: soilK < (thresholds.K.min - nearFloorBuffer) (default 5 ppm)
+        //
+        // Both must trip for spot-K to apply. Returns one of four states:
+        //   'will-apply'    — both gates trip; preview shows provisional spot-K
+        //   'soil-suppress' — gate 1 trips, gate 2 suppresses (soil K above floor)
+        //   'no-soil'       — soil sample not loaded; SSOT cannot evaluate
+        //   'balanced'      — gate 1 doesn't trip (delivery within threshold)
+        //
+        // b35fix399b architectural fix. The original b35fix399 read soil from
+        // window.GAIP_STATE.inputs.soil → window.GAIP_STATE.soil and expected
+        // soil.thresholds to be pre-attached. Production probe on Shirley GC
+        // (Hill Labs AA, K req=69, K del=41) showed:
+        //   - GAIP_STATE.inputs has 'soil' as a key but reads as null/undef
+        //     at runtime (proxy-defined parent slot, no payload)
+        //   - GAIP_STATE.soil doesn't exist
+        //   - Soil sample lives at window.GAIP_NUTRITION_SOIL_CACHE with
+        //     ppm sub-object (cache.ppm.K), methodology, surfaceType, etc.
+        //   - Thresholds are NOT pre-attached to the cache. They are
+        //     computed at runtime by the methodology engine.
+        //
+        // b35fix399b walks the canonical fallback chain (matching
+        // extractSoilValues at nutrition-summary-integration.js:557), reads
+        // soil K via the .ppm.K-or-.K shape, detects active methodology,
+        // computes the K floor at call time via the appropriate engine,
+        // and constructs a synthetic soil object in the SSOT-expected shape
+        // {K, thresholds:{K:{min}}} to pass to _synthesiseKReconDecision.
+        //
+        // Pure render-side: does not mutate state, does not run code that
+        // wasn't already running at Word export. The same SSOT decision the
+        // Word export will produce is what's previewed here.
+        // ====================================================================
+        _evaluateKReconPreview: function(kRequired, kDelivered) {
+            const result = {
+                state: 'no-soil',
+                decision: null,
+                kRequired: kRequired,
+                kDelivered: kDelivered,
+                balance: kDelivered - kRequired,
+                soilK: null,
+                soilKFloor: null,
+                methodology: null,
+                splitEntries: [],
+                hemisphere: null,
+            };
+
+            // Need the SSOT before doing anything else.
+            const wx = window.GAIP_WordExport;
+            if (!wx || typeof wx._synthesiseKReconDecision !== 'function') {
+                return result;
+            }
+
+            // ---- Step 1: extract soil K via canonical fallback chain ----
+            // Mirrors extractSoilValues() in nutrition-summary-integration.js:557.
+            // Cache uses .ppm.K shape; state uses .K directly.
+            const extractK = function(soil) {
+                if (!soil) return null;
+                const source = soil.ppm || soil;
+                const k = source.K ?? source.k;
+                if (k === null || k === undefined) return null;
+                const v = parseFloat(k);
+                return isFinite(v) ? v : null;
+            };
+
+            let soilK = null;
+            let soilSource = null;
+            let cache = null;
+
+            // 1a. GAIP_STATE.soil
+            if (window.GAIP_STATE && window.GAIP_STATE.soil) {
+                soilK = extractK(window.GAIP_STATE.soil);
+                if (soilK !== null) soilSource = window.GAIP_STATE.soil;
+            }
+            // 1b. GilbaHubOrchestrator state
+            if (soilK === null && window.GilbaHubOrchestrator
+                    && typeof window.GilbaHubOrchestrator.getState === 'function') {
+                try {
+                    const st = window.GilbaHubOrchestrator.getState();
+                    if (st && st.soil) {
+                        soilK = extractK(st.soil);
+                        if (soilK !== null) soilSource = st.soil;
+                    }
+                    if (soilK === null && st && st.inputs && st.inputs.soil) {
+                        soilK = extractK(st.inputs.soil);
+                        if (soilK !== null) soilSource = st.inputs.soil;
+                    }
+                } catch (e) { /* defensive: orchestrator may throw */ }
+            }
+            // 1c. GAIP_STATE.inputs.soil (when populated)
+            if (soilK === null && window.GAIP_STATE
+                    && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil) {
+                soilK = extractK(window.GAIP_STATE.inputs.soil);
+                if (soilK !== null) soilSource = window.GAIP_STATE.inputs.soil;
+            }
+            // 1d. GAIP_NUTRITION_SOIL_CACHE — most common runtime path on
+            //     this client (confirmed via b35fix399b production probe).
+            if (soilK === null && window.GAIP_NUTRITION_SOIL_CACHE) {
+                cache = window.GAIP_NUTRITION_SOIL_CACHE;
+                soilK = extractK(cache);
+                if (soilK !== null) soilSource = cache;
+            }
+            if (cache === null && window.GAIP_NUTRITION_SOIL_CACHE) {
+                cache = window.GAIP_NUTRITION_SOIL_CACHE; // for methodology read below
+            }
+
+            if (soilK === null) {
+                return result; // 'no-soil'
+            }
+            result.soilK = soilK;
+
+            // ---- Step 2: detect active methodology ----
+            // Methodology drives which K-floor to use. Order of precedence:
+            //   (a) soilSource.methodology (cache or state-attached)
+            //   (b) cache.methodology (when source was state but cache exists)
+            //   (c) DOM <select.gaip-soil-methodology>
+            //   (d) default to MLSN (most permissive floor — least likely to
+            //       fire spot-K incorrectly)
+            const methodologyRaw =
+                (soilSource && soilSource.methodology)
+                || (cache && cache.methodology)
+                || (function() {
+                    const el = document && document.querySelector
+                        && document.querySelector('.gaip-soil-methodology');
+                    return el ? el.value : null;
+                })()
+                || 'mlsn';
+            const methodology = String(methodologyRaw).toUpperCase();
+            result.methodology = methodology;
+
+            // ---- Step 3: compute K floor for this methodology ----
+            // AA (Ammonium Acetate / Hill Labs / Cotula S78): floor =
+            //   ranges.medium[0]  (75 ppm sands, 100 ppm others)
+            // SLAN: floor = slanRanges.K.low (75 ppm)
+            // MLSN: floor = mlsnThresholds.K (37 ppm)
+            //
+            // Each methodology engine exposes its data differently. We try
+            // the typed engine APIs first, fall back to scenario-presets
+            // CONFIG, and finally fall back to documented constants so the
+            // helper still works on stripped-down test contexts.
+            let floor = null;
+
+            if (methodology === 'AMMONIUM_ACETATE' || methodology === 'COTULA_S78') {
+                // soilType: cache.soilTexture or 'others' default. AA defines
+                // 'sands' vs 'others'. Texture string from cache may be e.g.
+                // 'sand' / 'sandy loam' / 'loam' — match 'sand' prefix to map.
+                const tx = String(
+                    (cache && cache.soilTexture)
+                    || (soilSource && soilSource.soilTexture)
+                    || ''
+                ).toLowerCase();
+                const soilType = (tx.indexOf('sand') === 0) ? 'sands' : 'others';
+                if (window.GAIP_AmmoniumAcetate
+                        && typeof window.GAIP_AmmoniumAcetate.getSufficiencyRange === 'function') {
+                    try {
+                        const rangeData = window.GAIP_AmmoniumAcetate
+                            .getSufficiencyRange('K', soilType);
+                        if (rangeData && rangeData.ranges
+                                && Array.isArray(rangeData.ranges.medium)
+                                && typeof rangeData.ranges.medium[0] === 'number') {
+                            floor = rangeData.ranges.medium[0];
+                        }
+                    } catch (e) { /* defensive */ }
+                }
+                // Documented fallback (from ammonium-acetate-methodology.js
+                // AMMONIUM_ACETATE_RANGES.K.ranges).
+                if (floor === null) {
+                    floor = (soilType === 'sands') ? 75 : 100;
+                }
+            } else if (methodology === 'SLAN') {
+                // Try GilbaScenarioPresets.getSLANRanges() (scenario-presets.js).
+                if (window.GilbaScenarioPresets
+                        && typeof window.GilbaScenarioPresets.getSLANRanges === 'function') {
+                    try {
+                        const r = window.GilbaScenarioPresets.getSLANRanges();
+                        if (r && r.K && typeof r.K.low === 'number') floor = r.K.low;
+                    } catch (e) { /* defensive */ }
+                }
+                // Documented fallback (Carrow et al. 2004, "other soils").
+                if (floor === null) {
+                    floor = 75;
+                }
+            } else {
+                // MLSN (default).
+                if (window.GilbaClassificationConstants
+                        && window.GilbaClassificationConstants.MLSN_THRESHOLDS
+                        && typeof window.GilbaClassificationConstants
+                            .MLSN_THRESHOLDS.K === 'number') {
+                    floor = window.GilbaClassificationConstants.MLSN_THRESHOLDS.K;
+                }
+                if (floor === null && window.GilbaScenarioPresets
+                        && typeof window.GilbaScenarioPresets.getMLSNThresholds === 'function') {
+                    try {
+                        const t = window.GilbaScenarioPresets.getMLSNThresholds();
+                        if (t && typeof t.K === 'number') floor = t.K;
+                    } catch (e) { /* defensive */ }
+                }
+                // Documented fallback (Woods 2014 MLSN K threshold).
+                if (floor === null) {
+                    floor = 37;
+                }
+            }
+
+            if (typeof floor !== 'number' || !isFinite(floor)) {
+                return result; // unable to compute floor: 'no-soil'
+            }
+            result.soilKFloor = floor;
+
+            // ---- Step 4: replicate Gate 1 locally ----
+            // SSOT returns null in BOTH the gate-1-not-trip case AND the
+            // gate-2-suppress case. Helper must reproduce gate 1 locally so
+            // the UI can tell the user whether soil suppression is what's
+            // happening.
+            const BALANCE_THRESHOLD = -20;
+            if (!(result.balance < BALANCE_THRESHOLD)) {
+                result.state = 'balanced';
+                return result;
+            }
+
+            // ---- Step 5: build synthetic soil object and call SSOT ----
+            // The SSOT only reads soilData.K and soilData.thresholds.K.min.
+            // Build the minimum shape it needs.
+            const synthSoil = {
+                K: soilK,
+                thresholds: { K: { min: floor } }
+            };
+            const decision = wx._synthesiseKReconDecision(synthSoil, kRequired, kDelivered);
+            if (decision) {
+                result.state = 'will-apply';
+                result.decision = decision;
+
+                // ---- Step 6 (b35fix399c): resolve monthly split entries ----
+                // The SSOT decision describes the spot-K total. The Word export
+                // splits it across 3 peak K-uptake months (Sep/Nov/Jan south,
+                // Mar/May/Jul north) via _amendmentDecisionsToProducts. The
+                // monthly preview rows need the same split resolution so the
+                // user can see WHICH months will get the SOP applications.
+                //
+                // Defensive: if the helper isn't exposed (older word-export
+                // build) or throws, the will-apply state still produces the
+                // annual summary row — only the monthly inline rows are lost.
+                result.splitEntries = [];
+                if (typeof wx._amendmentDecisionsToProducts === 'function') {
+                    try {
+                        const hemisphere =
+                            (typeof this.getHemisphere === 'function'
+                                ? this.getHemisphere()
+                                : null)
+                            || (window.GAIP_STATE
+                                && window.GAIP_STATE.location
+                                && window.GAIP_STATE.location.hemisphere)
+                            || 'south';
+                        const out = wx._amendmentDecisionsToProducts(
+                            [decision], synthSoil, hemisphere
+                        );
+                        if (out && Array.isArray(out.granularEntries)) {
+                            result.splitEntries = out.granularEntries.slice();
+                            result.hemisphere = hemisphere;
+                        }
+                    } catch (e) {
+                        // _amendmentDecisionsToProducts can fail on missing
+                        // helper deps (parseAnalysisLabel, etc.) — leave
+                        // splitEntries empty; monthly rows will skip.
+                    }
+                }
+            } else {
+                // Gate 1 tripped but SSOT returned null — so Gate 2 (soil K
+                // sufficiency) must be suppressing. Soil K is at-or-above floor
+                // (within near-floor buffer).
+                result.state = 'soil-suppress';
+            }
+            return result;
+        },
+
+        /**
+         * b35fix399 — Build the Spot-K Reconciliation row HTML for the
+         * Nutrient Delivery Summary table. Returns empty string when
+         * nothing useful to show (balanced K) or when the SSOT cannot
+         * evaluate (no soil loaded).
+         */
+        _buildKReconSummaryRow: function(reconResult) {
+            if (!reconResult || reconResult.state === 'balanced') {
+                return ''; // K is in balance — no row needed.
+            }
+            if (reconResult.state === 'no-soil') {
+                // Educational hint when soil isn't loaded but K balance is short.
+                if (reconResult.balance < -20) {
+                    return `
+                        <tr class="krecon-info">
+                            <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
+                                ℹ️ K balance is short by ${Math.abs(reconResult.balance).toFixed(0)} kg/ha. Load a soil sample to see whether spot-K reconciliation will fire at export.
+                            </td>
+                        </tr>`;
+                }
+                return '';
+            }
+            if (reconResult.state === 'soil-suppress') {
+                return `
+                    <tr class="krecon-suppress">
+                        <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
+                            ℹ️ K balance ${reconResult.balance.toFixed(0)} kg/ha; soil K (${reconResult.soilK.toFixed(0)} ppm) at or above floor (${reconResult.soilKFloor} ppm), not supplementing per soil-K sufficiency gate.
+                        </td>
+                    </tr>`;
+            }
+            if (reconResult.state === 'will-apply' && reconResult.decision) {
+                const d = reconResult.decision;
+                // Extract the spot-K kg from the decision rate text "X kg K/ha (Y kg product/ha)"
+                const m = (d.rate || '').match(/^(\d+)\s*kg K\/ha/);
+                const spotK = m ? parseInt(m[1], 10) : null;
+                const spotKText = spotK !== null ? `+${spotK} kg K/ha` : 'spot-K';
+                return `
+                    <tr class="krecon-apply" style="background: var(--gaip-warning-bg, rgba(245, 158, 11, 0.08));">
+                        <td><strong>K (provisional)</strong></td>
+                        <td>,</td>
+                        <td style="font-style: italic;">${spotKText} at export</td>
+                        <td colspan="2" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary);">
+                            🎯 Spot-K reconciliation will fire at Word export. ${d.product} ${d.analysis}, ${d.rate.replace(/^\d+\s*kg K\/ha\s*\([^)]*\)\s*—\s*/, '').replace(/Programme delivers.*$/, '').trim()}
+                        </td>
+                    </tr>`;
+            }
+            return '';
+        },
+
+        /**
+         * b35fix399 — Build the provisional spot-K row for the
+         * Annual Product Summary table. Only renders when state is
+         * 'will-apply'. Italicised + amber-tinted to distinguish from
+         * confirmed-applied products.
+         */
+        _buildKReconAnnualSummaryRow: function(reconResult, useGM2) {
+            if (!reconResult || reconResult.state !== 'will-apply' || !reconResult.decision) return '';
+            const d = reconResult.decision;
+            const m = (d.rate || '').match(/^(\d+)\s*kg K\/ha\s*\((\d+)\s*kg product\/ha\)/);
+            if (!m) return '';
+            const spotK = parseInt(m[1], 10);
+            const productKgHa = parseInt(m[2], 10);
+            const splitCount = 3; // SSOT splits across 3 peak K-uptake months
+            const perAppKgHa = Math.round(productKgHa / splitCount);
+            const rateDisplay = useGM2
+                ? `${(perAppKgHa / 10).toFixed(1)} g/m² × ${splitCount}`
+                : `${perAppKgHa} kg/ha × ${splitCount}`;
+            return `
+                <tr style="background: var(--gaip-warning-bg, rgba(245, 158, 11, 0.08)); font-style: italic;">
+                    <td>
+                        ${d.product} <em>(provisional, applied at export)</em>
+                        <div style="font-size: 11px; color: var(--gaip-text-secondary); font-style: normal;">Analysis: ${d.analysis}</div>
+                    </td>
+                    <td>${splitCount}</td>
+                    <td>${rateDisplay}</td>
+                    <td style="text-align: right; font-family: monospace;">0</td>
+                    <td style="text-align: right; font-family: monospace;">0</td>
+                    <td style="text-align: right; font-family: monospace;">${spotK}</td>
+                </tr>`;
+        },
+
+        // ====================================================================
+        // b35fix399c — Monthly inline rendering for K-recon split entries
+        // ====================================================================
+        // The Annual Product Summary row (b35fix399) shows the spot-K total.
+        // The user feedback was that this doesn't tell them WHICH months
+        // get the SOP applications. The Word export splits the spot-K total
+        // into 3 entries placed in peak K-uptake months (Sep/Nov/Jan south,
+        // Mar/May/Jul north) via _amendmentDecisionsToProducts. b35fix399c
+        // renders the same split entries inline in the monthly programme
+        // table so the user can see the placement.
+        //
+        // SOP for K-recon is dissolved in the spray tank (form: 'soluble' in
+        // Prebble convention — same as SOL-SOP). The span renders into the
+        // liquid column to match how Prebbles displays all soluble products
+        // (kg/ha rate + 💧 marker). The Word export classifies it as a
+        // granularEntry for spreader compatibility, but the live preview
+        // convention is liquid column for solubles.
+        //
+        // Returns the HTML span(s) for any K-recon SOP application(s) that
+        // fall in the given month, or empty string if no match.
+        // ====================================================================
+        _buildKReconMonthlySpan: function(reconResult, monthName, useGM2) {
+            if (!reconResult || reconResult.state !== 'will-apply') return '';
+            if (!Array.isArray(reconResult.splitEntries) || !reconResult.splitEntries.length) {
+                return '';
+            }
+            const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun',
+                                        'Jul','Aug','Sep','Oct','Nov','Dec'];
+            const MONTH_NAMES_LONG  = ['January','February','March','April','May','June',
+                                        'July','August','September','October','November','December'];
+            // Match either short or long form, case-insensitive (defensive
+            // against differing month formats across calendar/integration).
+            const monthLower = String(monthName || '').toLowerCase();
+            const idxShort = MONTH_NAMES_SHORT.findIndex(n => n.toLowerCase() === monthLower);
+            const idxLong  = MONTH_NAMES_LONG.findIndex(n => n.toLowerCase() === monthLower);
+            const monthIdx = idxShort >= 0 ? idxShort : idxLong;
+            if (monthIdx < 0) return '';
+
+            // Find any split entries that target this month.
+            const matches = reconResult.splitEntries.filter(e => e._monthIndex === monthIdx);
+            if (!matches.length) return '';
+
+            // Render each as a soluble-style span (matches the liquid-column
+            // convention for form:'soluble' products elsewhere in Prebbles —
+            // see liquidList map at the rate handling for `p.form === 'soluble'`).
+            // SOP is delivered as soluble in spray tank: kg/ha rate, 💧 marker.
+            return matches.map(e => {
+                const rateDisplay = useGM2
+                    ? `${e.rateGM2}g/m²`
+                    : `${e.rateKgHa}kg/ha`;
+                const kDelivered = (e.delivers && typeof e.delivers.K === 'number')
+                    ? e.delivers.K.toFixed(0)
+                    : '?';
+                const sDelivered = (e.delivers && typeof e.delivers.S === 'number')
+                    ? e.delivers.S.toFixed(0)
+                    : null;
+                const tooltipParts = [
+                    `Spot-K reconciliation (b35fix324a SSOT).`,
+                    `Provisional, applied at Word export.`,
+                    `Delivers ${kDelivered} kg K/ha`
+                ];
+                if (sDelivered) tooltipParts.push(`+ ${sDelivered} kg S/ha`);
+                tooltipParts.push(`(soluble, dissolve in spray tank).`);
+                if (e.notes) tooltipParts.push(e.notes);
+                const tooltip = tooltipParts.join(' ');
+                // b35fix400: e.npk is region-aware (set by
+                // _amendmentDecisionsToProducts via _detectKDisplayRegion).
+                // AU/NZ shows "0-0-41.5" elemental, UK/EU shows "0-0-50" oxide.
+                const npkLabel = e.npk || '0-0-41.5';
+                return `<span class="prebble-product liquid krecon-monthly" ` +
+                       `style="background: var(--gaip-warning-bg, rgba(245, 158, 11, 0.08)); ` +
+                       `font-style: italic; border: 1px dashed var(--gaip-warning, #f59e0b); ` +
+                       `padding: 2px 6px;" ` +
+                       `title="${tooltip.replace(/"/g, '&quot;')}">` +
+                       `${e.name} (${npkLabel}) @ ${rateDisplay} 💧 ` +
+                       `<small style="font-style: normal; opacity: 0.85;">(provisional, at export)</small>` +
+                       `</span>`;
+            }).join(' + ');
         },
         
         /**
@@ -1009,8 +1495,8 @@
         .prebble-disclaimer {
             margin-top: 1.5rem;
             padding: 0.75rem;
-            background: #fff3e0;
-            border-left: 3px solid #ff9800;
+            background: var(--gaip-warning-bg, #fffbeb);
+            border-left: 3px solid var(--gaip-warning, #f59e0b);
             font-size: 0.85rem;
             color: var(--gaip-text);
         }

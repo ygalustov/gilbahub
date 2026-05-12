@@ -210,8 +210,8 @@
             '    </select>',
             '    <label class="gaip-sheet-label" style="margin-top:8px;">Summer Management Intent</label>',
             '    <select class="gaip-sheet-overseed-intent gaip-sheet-select">',
-            '      <option value="transition">Transition — let ryegrass fade, support couch recovery</option>',
-            '      <option value="maintain">Maintain — keep ryegrass through summer</option>',
+            '      <option value="transition">Transition, let ryegrass fade, support couch recovery</option>',
+            '      <option value="maintain">Maintain, keep ryegrass through summer</option>',
             '    </select>',
             '  </div>',
 

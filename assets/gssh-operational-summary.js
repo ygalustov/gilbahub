@@ -65,7 +65,7 @@
         var tempStr = temp !== null ? ' at ' + temp + '°C' : '';
 
         if (gpPct >= 90) {
-            return species + ' is growing at ' + gpPct + '% of potential' + tempStr + ' — conditions are near-optimal.';
+            return species + ' is growing at ' + gpPct + '% of potential' + tempStr + ', conditions are near-optimal.';
         } else if (gpPct >= 70) {
             return species + ' growth is at ' + gpPct + '%' + tempStr + '. Good conditions with minor temperature constraints.';
         } else if (gpPct >= 50) {
@@ -95,16 +95,16 @@
         var limitingLabel = limiting && FACTOR_NAMES[limiting] ? FACTOR_NAMES[limiting] : null;
 
         if (status === 'READY' || composite >= 90) {
-            return 'LED environment is optimal — supplemental lighting at ' + composite + '% effectiveness.';
+            return 'LED environment is optimal, supplemental lighting at ' + composite + '% effectiveness.';
         } else if (status === 'READY_WITH_NOTES' || composite >= 70) {
             var constraint = limitingLabel ? ' Main constraint: ' + limitingLabel + '.' : '';
-            return 'LED effectiveness is ' + composite + '% — minor environmental constraints present.' + constraint;
+            return 'LED effectiveness is ' + composite + '%, minor environmental constraints present.' + constraint;
         } else if (status === 'PARTIALLY_READY' || composite >= 45) {
             var limit2 = limitingLabel ? ' ' + limitingLabel.charAt(0).toUpperCase() + limitingLabel.slice(1) + ' is the primary limiting factor.' : '';
             return 'LED conditions are suboptimal at ' + composite + '% effectiveness.' + limit2 + ' Check venue environment configuration.';
         } else {
             var limit3 = limitingLabel ? ' Critical factor: ' + limitingLabel + '.' : '';
-            return 'Poor LED conditions — only ' + composite + '% effectiveness.' + limit3 + ' Environmental intervention needed before supplemental lighting is worthwhile.';
+            return 'Poor LED conditions, only ' + composite + '% effectiveness.' + limit3 + ' Environmental intervention needed before supplemental lighting is worthwhile.';
         }
     }
 
@@ -150,11 +150,11 @@
         var name = top.name;
 
         if (risk >= 70) {
-            return 'High ' + name + ' risk (' + risk + '%). Apply preventative fungicide now — do not wait for symptoms.';
+            return 'High ' + name + ' risk (' + risk + '%). Apply preventative fungicide now, do not wait for symptoms.';
         } else if (risk >= 40) {
             return name + ' risk is elevated (' + risk + '%). Scout surfaces daily and be ready to spray.';
         } else if (risk >= 20) {
-            return name + ' pressure is moderate (' + risk + '%). Monitor conditions — risk may rise with continued warm/humid weather.';
+            return name + ' pressure is moderate (' + risk + '%). Monitor conditions, risk may rise with continued warm/humid weather.';
         }
         return null;
     }
@@ -166,7 +166,7 @@
         if (w.recoveryDays !== undefined && w.recoveryDays !== null) {
             var days = Math.round(w.recoveryDays);
             if (days <= 2) {
-                return 'Surface recovery is fast — pitch ready within ' + days + ' days of heavy use.';
+                return 'Surface recovery is fast, pitch ready within ' + days + ' days of heavy use.';
             } else if (days <= 5) {
                 return 'Allow ' + days + ' days recovery between intensive events given current growth conditions.';
             } else if (days <= 10) {
@@ -195,9 +195,9 @@
         if (eue && eue.compositeEUE < 0.45 && eue.limitingFactor) {
             var FACTOR_ACTIONS = {
                 rootZoneTemp: 'Improve root-zone temperature (heating or soil insulation) before running LED rigs.',
-                leafTemp:     'Wait for cooler ambient temperatures — LED supplementation is inefficient above/below optimal leaf temperature range.',
+                leafTemp:     'Wait for cooler ambient temperatures, LED supplementation is inefficient above/below optimal leaf temperature range.',
                 airflow:      'Improve air circulation in the venue before the next LED session.',
-                vpd:          'Manage humidity levels — high VPD is reducing leaf efficiency under artificial light.',
+                vpd:          'Manage humidity levels, high VPD is reducing leaf efficiency under artificial light.',
                 rhizosphere:  'Address root health (aeration, drainage) before investing in LED hours.'
             };
             var action = FACTOR_ACTIONS[eue.limitingFactor];
@@ -207,7 +207,7 @@
         // Stress
         if (cm && cm.stress) {
             if (cm.stress.heatStress) return 'Priority action: apply cooling irrigation during peak heat to protect root-zone temperature.';
-            if (cm.stress.droughtStress) return 'Priority action: increase irrigation frequency — moisture stress is the main growth limiter.';
+            if (cm.stress.droughtStress) return 'Priority action: increase irrigation frequency, moisture stress is the main growth limiter.';
             if (cm.stress.coldStress) return 'Priority action: use covers or heating to maintain minimum root-zone temperature for active recovery.';
         }
 
@@ -252,7 +252,7 @@
         if (action) sentences.push({ icon: '▶', text: action, highlight: true });
 
         if (!sentences.length) {
-            container.innerHTML = '<p class="gssh-ops-placeholder">Analysis complete — no significant issues detected.</p>';
+            container.innerHTML = '<p class="gssh-ops-placeholder">Analysis complete, no significant issues detected.</p>';
             return;
         }
 

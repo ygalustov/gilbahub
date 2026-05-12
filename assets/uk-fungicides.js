@@ -217,7 +217,7 @@
             ],
             targets: ['dollarSpot', 'fusarium', 'brownPatch', 'anthracnose', 'leafSpot'],
             systemic: true,
-            mode: 'DMI (sterol demethylation) — isopropanol-azole class',
+            mode: 'DMI (sterol demethylation), isopropanol-azole class',
             resistanceRisk: 'M',
             efficacyUK: {
                 dollarSpot: 4,
@@ -254,7 +254,7 @@
             ],
             targets: ['fusarium', 'takeAll', 'anthracnose', 'brownPatch', 'leafSpot', 'rust', 'fairyRing'],
             systemic: true,
-            mode: 'QoI — complex III mitochondrial electron transport inhibition',
+            mode: 'QoI, complex III mitochondrial electron transport inhibition',
             resistanceRisk: 'H',
             efficacyUK: {
                 fusarium: 3,
@@ -304,7 +304,7 @@
             ],
             targets: ['redThread', 'fusarium', 'dollarSpot', 'leafSpot', 'brownPatch', 'anthracnose'],
             systemic: false,
-            mode: 'QoI — complex III mitochondrial electron transport inhibition (translaminar)',
+            mode: 'QoI, complex III mitochondrial electron transport inhibition (translaminar)',
             resistanceRisk: 'H',
             efficacyUK: {
                 redThread: 3.5,
@@ -344,7 +344,7 @@
             ],
             targets: ['fusarium', 'leafSpot', 'anthracnose'],
             systemic: false,
-            mode: 'Phenylpyrrole — osmoregulation disruption (MAP-kinase pathway)',
+            mode: 'Phenylpyrrole, osmoregulation disruption (MAP-kinase pathway)',
             resistanceRisk: 'L',
             efficacyUK: {
                 fusarium: 3.5,
@@ -385,7 +385,7 @@
     var WITHDRAWN_UK = {
         iprodione: {
             status: 'revoked',
-            reason: 'EU/GB regulatory review — no longer available for managed amenity turf',
+            reason: 'EU/GB regulatory review, no longer available for managed amenity turf',
             lastApproval: '2019',
             wasIn: ['dollarSpot', 'fusarium', 'brownPatch', 'leafSpot']
         },
@@ -526,7 +526,7 @@
                     trade:  fracGroups[k].trade,
                     frac:   k,
                     rate:   fracGroups[k].rate,
-                    reason: 'FRAC M (multi-site) rotation — NOTE: no multi-site registered for UK turf'
+                    reason: 'FRAC M (multi-site) rotation, NOTE: no multi-site registered for UK turf'
                 });
             }
         });

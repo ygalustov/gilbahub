@@ -118,7 +118,7 @@
 
             '<div class="gaip-stp-row" style="margin-bottom:14px;">' +
                 '<label style="display:block;font-size:11px;font-weight:600;margin-bottom:4px;">Companion / overseed species</label>' +
-                '<input type="text" class="gaip-stp-companion" placeholder="e.g. Perennial Ryegrass — leave blank for none" style="width:100%;padding:6px;background:var(--gaip-input-bg,#0f172a);color:inherit;border:1px solid var(--gaip-border,#374151);border-radius:4px;box-sizing:border-box;">' +
+                '<input type="text" class="gaip-stp-companion" placeholder="e.g. Perennial Ryegrass, leave blank for none" style="width:100%;padding:6px;background:var(--gaip-input-bg,#0f172a);color:inherit;border:1px solid var(--gaip-border,#374151);border-radius:4px;box-sizing:border-box;">' +
             '</div>' +
 
             '<div class="gaip-stp-current-override" style="font-size:11px;color:var(--gaip-text-secondary,#9ca3af);margin-bottom:14px;padding:8px;border-left:3px solid var(--gaip-border,#374151);background:var(--gaip-surface-muted,#0f172a);"></div>' +
@@ -140,7 +140,7 @@
         var companionInp = dialog.querySelector('.gaip-stp-companion');
 
         // Populate species dropdown once — sports list is static
-        speciesSel.innerHTML = '<option value="">(no change — inherit from site)</option>';
+        speciesSel.innerHTML = '<option value="">(no change, inherit from site)</option>';
         var opts = _getSportsSpeciesOptions();
         for (var i = 0; i < opts.length; i++) {
             var o = opts[i];
@@ -221,7 +221,7 @@
             if (existing.companionSpecies) parts.push('companion: ' + existing.companionSpecies);
             ovEl.innerHTML = '<strong>Current override:</strong> ' + (parts.length ? parts.join(' · ') : '(empty)');
         } else {
-            ovEl.innerHTML = '<strong>Current override:</strong> none — sample inherits site-level values';
+            ovEl.innerHTML = '<strong>Current override:</strong> none, sample inherits site-level values';
         }
 
         _modal.overlay.style.display = 'flex';

@@ -197,7 +197,7 @@
         }).join('');
 
         return '<!DOCTYPE html><html><head><meta charset="utf-8">' +
-            '<title>Spray Log \u2014 ' + escHtml(siteName) + '</title>' +
+            '<title>Spray Log, ' + escHtml(siteName) + '</title>' +
             '<style>' +
                 '@page { size: A4 landscape; margin: 15mm; }' +
                 '@media print {' +

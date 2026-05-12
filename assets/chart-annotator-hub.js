@@ -232,7 +232,7 @@ var GilbaAnnotator = (function () {
         '      <span>Colour: <span id="' + NS + 'st-color" style="color:var(--gaip-border);">#dc2626</span></span>',
         '      <span>Stroke: <span id="' + NS + 'st-stroke" style="color:var(--gaip-border);">2px</span></span>',
         '      <span>Annotations: <span id="' + NS + 'st-count" style="color:var(--gaip-border);">0</span></span>',
-        '      <span id="' + NS + 'st-coords" style="margin-left:auto;">x: — y: —</span>',
+        '      <span id="' + NS + 'st-coords" style="margin-left:auto;">x:, y:,</span>',
         '    </div>',
 
         // Toast
@@ -585,10 +585,10 @@ var GilbaAnnotator = (function () {
             out.toBlob(function (blob) {
                 if (navigator.clipboard && navigator.clipboard.write) {
                     navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-                        .then(function () { _toast('Copied — paste into Word export'); })
-                        .catch(function () { _toast('Copy failed — use Export PNG instead'); });
+                        .then(function () { _toast('Copied, paste into Word export'); })
+                        .catch(function () { _toast('Copy failed, use Export PNG instead'); });
                 } else {
-                    _toast('Clipboard API not available — use Export PNG');
+                    _toast('Clipboard API not available, use Export PNG');
                 }
             });
         });
@@ -619,7 +619,7 @@ var GilbaAnnotator = (function () {
             _loadDataURL(result.dataURL, result.width, result.height);
         }).catch(function (err) {
             console.error('[GilbaAnnotator]', err);
-            _toast('Could not load chart — try Export PNG from hub first');
+            _toast('Could not load chart, try Export PNG from hub first');
         });
     }
 
@@ -668,7 +668,7 @@ var GilbaAnnotator = (function () {
                 openFromDataURL(canvas.toDataURL('image/png'), t, canvas.width, canvas.height);
             }).catch(function (err) {
                 console.error('[GilbaAnnotator] html2canvas error:', err);
-                _toast('Screenshot failed — try a single chart');
+                _toast('Screenshot failed, try a single chart');
             });
         }).catch(function (err) {
             console.error('[GilbaAnnotator] html2canvas load error:', err);
@@ -702,7 +702,7 @@ var GilbaAnnotator = (function () {
                 open(svg, title);
             } else {
                 _inject();
-                _toast('No chart found — run analysis first');
+                _toast('No chart found, run analysis first');
             }
         });
         return btn;
@@ -748,7 +748,7 @@ var GilbaAnnotator = (function () {
             soilBtn.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var grid = msoSoil.querySelector('.gaip-mso-grid') || msoSoil;
-                openFromElement(grid, 'Soil Nutrition — All Sources');
+                openFromElement(grid, 'Soil Nutrition, All Sources');
             });
             msoHeader.appendChild(soilBtn);
         });

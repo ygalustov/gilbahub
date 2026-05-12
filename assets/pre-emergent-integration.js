@@ -41,7 +41,7 @@
         ADVISORY_ONLY:       { colour: 'var(--gaip-text-secondary)', bg: 'var(--gaip-surface-muted)', border: 'var(--gaip-border)', label: 'Post-emergent only',   icon: '●' }
     };
 
-    var CONFIDENCE_LABEL = { H: 'High confidence', M: 'Medium confidence', L: 'Low confidence — informational only' };
+    var CONFIDENCE_LABEL = { H: 'High confidence', M: 'Medium confidence', L: 'Low confidence, informational only' };
 
     // Cool-season temperate species to suppress in tropical regions
     var COOL_SEASON_KEYS = [
@@ -63,11 +63,11 @@
         document.addEventListener('gaip:site-data-invalidated', function () {
             var container = document.getElementById(CONTAINER_ID);
             if (container) container.innerHTML = '';
-            log('Site switched — pre-emergent panel cleared, awaiting new run');
+            log('Site switched, pre-emergent panel cleared, awaiting new run');
         });
 
         if (window.GAIP_PRE_EMERGENT_RESULT) {
-            log('Late init — result already available');
+            log('Late init, result already available');
             setTimeout(renderFromResult, 0);
         }
     }
@@ -89,7 +89,7 @@
         try {
             container.innerHTML = buildCardHTML(result);
             bindToggleEvents(container);
-            log('Card rendered — aggregate status:', result.aggregateStatus, 'tropical:', result.isTropicalRegion);
+            log('Card rendered, aggregate status:', result.aggregateStatus, 'tropical:', result.isTropicalRegion);
         } catch (e) {
             warn('Render error:', e);
         }
@@ -287,7 +287,7 @@
         var greenSpecies     = results.filter(function (r) { return r.alertStatus === 'GREEN'; });
 
         if (pressureSpecies.length > 0) {
-            html += buildSeasonSection('🌴 Active pressure — programme window', pressureSpecies, 'gaip-pe-tropical-active', true);
+            html += buildSeasonSection('🌴 Active pressure, programme window', pressureSpecies, 'gaip-pe-tropical-active', true);
         }
         if (advisorySpecies.length > 0) {
             html += buildSeasonSection('⚠ Post-emergent strategy only', advisorySpecies, 'gaip-pe-tropical-advisory', true);

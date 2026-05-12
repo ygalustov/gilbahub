@@ -129,38 +129,26 @@
 
     /**
      * Patch DiseaseForecast to include red thread in timeline
+     *
+     * b35fix459 (C64): RETIRED. This function previously wrapped
+     * `global.DiseaseForecast.getDiseaseCalculators` which never existed on
+     * disease-forecast.js, so the wrap was a no-op since this module shipped.
+     * Red Thread is now natively registered in `DISEASE_CALCULATORS` at
+     * disease-forecast.js line ~580 with a thin `calcRedThreadDaily` wrapper
+     * delegating to GAIP_RedThreadModel.calculateDaily, and dispatched
+     * inside the main pure engine via disease-engine-pure.js analyse() loop
+     * at line ~4980. The legacy integration patch is retained as a guarded
+     * no-op for the case where window.GILBA_USE_PURE_DISEASE is explicitly
+     * set to false and the legacy `disease-engine.js` analyse() path is
+     * re-enabled (in which case patchSpeciesSusceptibility +
+     * patchDiseaseModels are still needed to backfill the legacy table).
      */
     function patchDiseaseForecast() {
-        if (!global.DiseaseForecast) {
-            console.warn('⚠️ Red Thread Integration: DiseaseForecast not found');
-            return;
-        }
-        
-        // Add calcRedThreadDaily to forecast calculations
-        const originalGetDiseaseCalcs = global.DiseaseForecast.getDiseaseCalculators || 
-                                        global.DiseaseForecast._getDiseaseCalculators;
-        
-        if (originalGetDiseaseCalcs) {
-            global.DiseaseForecast.getDiseaseCalculators = function() {
-                const calcs = originalGetDiseaseCalcs.call(this);
-                
-                // Add red thread if region is appropriate
-                const region = global.GAIP_STATE?.location?.region || 'uk_ireland';
-                const species = global.GAIP_STATE?.turf?.grassSpecies || 'perennialRyegrass';
-                
-                if (RedThread.shouldUseRedThreadModel(region, species)) {
-                    calcs.redThread = {
-                        name: 'Red Thread',
-                        calc: RedThread.calculateDaily,
-                        beta: false,
-                        confidence: 'low',
-                        heuristic: true
-                    };
-                }
-                
-                return calcs;
-            };
-        }
+        // No-op since b35fix459 (C64). Native wire-in in disease-forecast.js
+        // and disease-engine-pure.js replaces this dead wrapper. See
+        // assets/disease-forecast.js calcRedThreadDaily and
+        // assets/disease-engine-pure.js Red Thread dispatcher block.
+        return;
     }
 
     /**

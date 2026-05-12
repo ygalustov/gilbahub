@@ -228,9 +228,9 @@
             var html = '<span class="gaip-device-info-text">';
             html += '📡 <strong>' + config.name + '</strong>';
             if (deviceType === 'TDR350') {
-                html += ' — Variable depth TDR, EC in ' + config.ecUnit;
+                html += ', Variable depth TDR, EC in ' + config.ecUnit;
             } else if (deviceType === 'POGO') {
-                html += ' — Fixed 5cm depth, includes surface temp & salinity index';
+                html += ', Fixed 5cm depth, includes surface temp & salinity index';
             }
             html += '</span>';
             

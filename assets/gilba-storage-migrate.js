@@ -52,7 +52,7 @@
             : null;
 
         if (!_ls) {
-            console.warn('[GilbaMigrate] GilbaStorageNS not available — skipping migration.');
+            console.warn('[GilbaMigrate] GilbaStorageNS not available, skipping migration.');
             return;
         }
 

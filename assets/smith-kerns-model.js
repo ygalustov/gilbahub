@@ -43,6 +43,15 @@
  * implementation in b35fix335. This file is kept in lockstep so any future
  * wiring picks up the correct model.
  *
+ * b35fix452 (C57): CABI 2024 cross-reference, citation-only, no logic touch.
+ *   Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ *   Biology and Integrated Management of Turfgrass Diseases.
+ *   CABI, Wallingford. ISBN 9781789246216.
+ *   Ch.7 p.165-171: Clarireedia taxonomy and AU/NZ distribution context
+ *   for the Smith-Kerns 2018 model. Cross-references the existing
+ *   Smith et al. 2018 PLOS ONE primary citation. Coefficients,
+ *   thresholds, and weights unchanged.
+ *
  * ============================================================================
  */
 
@@ -211,7 +220,7 @@ const SmithKernsModel = (function() {
         const cultural = ['Remove dew early morning (mow, roll, or drag)'];
         const opts = options || {};
         if (opts.nitrogen && (opts.nitrogen.status === 'deficient' || opts.nitrogen.status === 'low')) {
-            cultural.unshift('PRIORITY: Apply nitrogen — low N dramatically increases dollar spot susceptibility (Davis & Dernoeden 2002)');
+            cultural.unshift('PRIORITY: Apply nitrogen, low N dramatically increases dollar spot susceptibility (Davis & Dernoeden 2002)');
         }
         const preventive = [];
         if (riskLevel === 'high' || riskLevel === 'severe') {
@@ -245,7 +254,7 @@ const SmithKernsModel = (function() {
         name: 'Smith-Kerns Dollar Spot Model',
         citation: 'Smith, D.L., Kerns, J.P., Walker, N.R., Payne, A.R., Horvath, B., Inguagiato, J.C., Kaminski, J.E., Tomaso-Peterson, M., & Koch, P.L. (2018). PLOS ONE 13(3): e0194216. DOI 10.1371/journal.pone.0194216',
         scope: 'Validated on cool-season creeping bentgrass (US locations: WI, OK, PA, MS, TN, CT, NJ). Use on warm-season turf is indicative only.',
-        previousVersion: '1.0.0 (b35fix335: rewritten — pre-fix file claimed Smith-Kerns but implemented a different model)'
+        previousVersion: '1.0.0 (b35fix335: rewritten, pre-fix file claimed Smith-Kerns but implemented a different model)'
     };
 
 })();

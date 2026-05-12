@@ -193,7 +193,7 @@
                 frequency: 21,
                 responseWindow: 14,
                 maxApps: 4,
-                notes: 'Check K:Ca tissue ratio — if K is also high, Ca uptake may be suppressed.',
+                notes: 'Check K:Ca tissue ratio, if K is also high, Ca uptake may be suppressed.',
                 phSensitivity: null
             }
         },
@@ -291,7 +291,7 @@
                 frequency: 14,
                 responseWindow: 10,
                 maxApps: 6,
-                notes: 'Foliar is primary correction route — soil Mn availability highly pH-dependent. Most effective at pH <6.5.',
+                notes: 'Foliar is primary correction route, soil Mn availability highly pH-dependent. Most effective at pH <6.5.',
                 phSensitivity: 'high'
             }
         },
@@ -308,7 +308,7 @@
                 frequency: 14,
                 responseWindow: 14,
                 maxApps: 6,
-                notes: 'Check P:Zn interaction — high soil P suppresses Zn uptake. If soil P >80 ppm (MLSN), foliar Zn is preferred route.',
+                notes: 'Check P:Zn interaction, high soil P suppresses Zn uptake. If soil P >80 ppm (MLSN), foliar Zn is preferred route.',
                 phSensitivity: 'moderate'
             }
         },
@@ -359,7 +359,7 @@
             aggressor: 'K',
             victim: 'Mg',
             tissueThreshold: { K: 3.5, Mg: 0.20 },  // K tissue above this + Mg below this
-            mechanism: 'Competitive cation uptake — excess K displaces Mg at root exchange sites',
+            mechanism: 'Competitive cation uptake, excess K displaces Mg at root exchange sites',
             correction: 'Reduce K applications; apply foliar Mg to bypass root competition',
             reference: 'Marschner (2012) Ch. 2.5'
         },
@@ -367,7 +367,7 @@
             aggressor: 'K',
             victim: 'Ca',
             tissueThreshold: { K: 3.5, Ca: 0.30 },
-            mechanism: 'Competitive cation uptake — excess K displaces Ca at root exchange sites',
+            mechanism: 'Competitive cation uptake, excess K displaces Ca at root exchange sites',
             correction: 'Reduce K applications; apply foliar Ca or gypsum',
             reference: 'Marschner (2012) Ch. 2.5'
         },
@@ -375,7 +375,7 @@
             aggressor: 'Ca',
             victim: 'Mg',
             tissueThreshold: { Ca: 0.80, Mg: 0.20 },
-            mechanism: 'Competitive cation uptake — high Ca limits Mg absorption',
+            mechanism: 'Competitive cation uptake, high Ca limits Mg absorption',
             correction: 'Apply foliar Mg; check lime application history',
             reference: 'Havlin et al. (2014) Ch. 7'
         },
@@ -604,7 +604,7 @@
                     // Critically low tissue — calendar addresses soil over 2-3 years
                     // but plant needs nutrients NOW. Foliar bridge for immediate response.
                     foliarWarranted = true;
-                    reason = 'Urgent foliar bridge — tissue critically low while soil program builds reserves';
+                    reason = 'Urgent foliar bridge, tissue critically low while soil program builds reserves';
                 } else {
                     // Marginal tissue + soil deficit = calendar is handling it
                     // The soil-applied correction will lift tissue over coming months
@@ -631,10 +631,10 @@
                 // No soil data — can't determine supply vs uptake
                 if (band === 'Deficient') {
                     foliarWarranted = true;
-                    reason = 'No soil data to assess supply — foliar recommended for critical deficiency';
+                    reason = 'No soil data to assess supply, foliar recommended for critical deficiency';
                 } else {
                     foliarWarranted = false;
-                    reason = 'Marginal without soil data — submit soil test to refine diagnosis';
+                    reason = 'Marginal without soil data, submit soil test to refine diagnosis';
                     corrections.push({
                         nutrient: nutrient,
                         type: type,
@@ -655,7 +655,7 @@
             // Get foliar rate
             const rateEntry = FOLIAR_RATES[nutrient];
             if (!rateEntry) {
-                log(`No foliar rate defined for ${nutrient} — skipping`);
+                log(`No foliar rate defined for ${nutrient}, skipping`);
                 return;
             }
 
@@ -842,7 +842,7 @@
             // The product program (Prebble/AU) is designed to meet calendar requirements.
             // Adding foliar for the same macro nutrient is double-handling.
             if (!isMicro && !isUptakeConstraint && macrosCoveredByProducts.has(nutrient)) {
-                log(`${nutrient}: product program delivers this macro — skipping foliar (not an uptake constraint)`);
+                log(`${nutrient}: product program delivers this macro, skipping foliar (not an uptake constraint)`);
                 return;
             }
 
@@ -865,14 +865,14 @@
                     if (gap <= 0) {
                         // Product program meets or exceeds calendar requirement for this nutrient
                         // No foliar needed — the supply side is covered
-                        log(`${nutrient} @ month ${monthIdx}: product delivers ${delivered.toFixed(1)} vs ${required.toFixed(1)} required — fully covered, skipping foliar`);
+                        log(`${nutrient} @ month ${monthIdx}: product delivers ${delivered.toFixed(1)} vs ${required.toFixed(1)} required, fully covered, skipping foliar`);
                         return;
                     }
 
                     // Scale foliar to just cover the gap, not the full rate
                     if (gap < nutrientPerMonth) {
                         nutrientPerMonth = Math.round(gap * 100) / 100;
-                        log(`${nutrient} @ month ${monthIdx}: gap ${gap.toFixed(1)} kg/ha — scaled foliar from ${fullMonthDelivery.toFixed(1)} to ${nutrientPerMonth.toFixed(1)}`);
+                        log(`${nutrient} @ month ${monthIdx}: gap ${gap.toFixed(1)} kg/ha, scaled foliar from ${fullMonthDelivery.toFixed(1)} to ${nutrientPerMonth.toFixed(1)}`);
                     }
                 }
 

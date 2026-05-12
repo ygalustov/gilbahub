@@ -973,7 +973,7 @@
 
             // b35fix110: reject data tagged to a different site
             if (data.siteId && siteId && data.siteId !== siteId) {
-                console.log('[Sensor] Skipping data from site', data.siteId, '— active site is', siteId);
+                console.log('[Sensor] Skipping data from site', data.siteId, ', active site is', siteId);
                 return false;
             }
             
@@ -1044,7 +1044,7 @@
                     if (data.readings && data.readings.length > 0) {
                         // Reject if tagged to a different site
                         if (data.siteId && targetSiteId && data.siteId !== targetSiteId) {
-                            console.log('[Sensor] Site changed — rejecting data tagged to', data.siteId, 'for target site', targetSiteId);
+                            console.log('[Sensor] Site changed, rejecting data tagged to', data.siteId, 'for target site', targetSiteId);
                         } else {
                             sensorData.readings = data.readings;
                             sensorData.zones = clusterIntoZones(data.readings);
@@ -1066,7 +1066,7 @@
                 }
             } catch(err) { console.warn('[Sensor] Site-switch restore failed:', err); }
 
-            console.log('[Sensor] Site changed — sensor data for', targetSiteId + ':', loaded ? (sensorData.readings.length + ' readings') : 'none');
+            console.log('[Sensor] Site changed, sensor data for', targetSiteId + ':', loaded ? (sensorData.readings.length + ' readings') : 'none');
             if (loaded) {
                 document.dispatchEvent(new CustomEvent('gaip:sensor-data-imported', {
                     detail: { source: 'site-switch-restore', readings: sensorData.readings.length }

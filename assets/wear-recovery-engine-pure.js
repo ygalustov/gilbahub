@@ -1338,7 +1338,7 @@
               N +
               "%) reducing wear tolerance and recovery capacity.",
             action: N >= 40 ?
-              "Consider Poa management program — high contamination compromising field performance" :
+              "Consider Poa management program, high contamination compromising field performance" :
               "Monitor Poa spread and adjust traffic expectations accordingly",
           });
         return s;

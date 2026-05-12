@@ -240,7 +240,7 @@
                     <div style="font-size: 10px; color: var(--gaip-text);">Peak (Day ${summary.peakDay})</div>
                 </div>
                 <div style="text-align: center; padding: 8px; background: var(--gaip-text); border-radius: 6px;">
-                    <div style="font-size: 20px; font-weight: 700; color: #60a5fa;">${summary.primaryStressor || '—'}</div>
+                    <div style="font-size: 20px; font-weight: 700; color: #60a5fa;">${summary.primaryStressor || '-'}</div>
                     <div style="font-size: 10px; color: var(--gaip-text);">Primary Stressor</div>
                 </div>
             </div>

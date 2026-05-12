@@ -101,7 +101,7 @@
       '  filter: brightness(1.08);',
       '}',
       '',
-      '/* Tooltip on hover — label appears above the button */',
+      '/* Tooltip on hover, label appears above the button */',
       '.gaip-qj-btn::after {',
       '  content: attr(data-label);',
       '  position: absolute; bottom: calc(100% + 6px); left: 50%;',

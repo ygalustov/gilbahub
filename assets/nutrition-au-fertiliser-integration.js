@@ -14,7 +14,7 @@
  *   - Hub state (GAIP_STATE.soil.surfaceType)
  * 
  * @package Gilba_Hub
- * @version 1.0.0
+ * @version 1.0.1
  * @since 10.2.0
  */
 
@@ -182,9 +182,34 @@
             // b35fix276: extended fallback chain — calendarData available at render time
             // so we can read extractant/methodology directly from soil data.
 
-            // 1. GAIP_STATE (most authoritative — set by orchestrator)
-            if (window.GAIP_STATE?.soil?.methodology) {
-                const m = window.GAIP_STATE.soil.methodology;
+            // ────────────────────────────────────────────────────────────────
+            // b35fix446 / C55: soil methodology read prefers inputs.soil shelf.
+            // ────────────────────────────────────────────────────────────────
+            // Pre-fix this branch read window.GAIP_STATE.soil.methodology
+            // (top-level legacy slot) only. The hub-store proxy synthesiser
+            // at gilba-hub-v2.js:1399 auto-aliases inputs.turf to top-level
+            // .turf, but does NOT auto-alias inputs.soil to top-level .soil.
+            // The flat .soil shelf is only populated by the analysis-end
+            // writeback at hub-tissue-v3.js:6966. Canonical writers, including
+            // the b35fix443 routed-write helper _b35fix393_setSoilField in
+            // assets/ammonium-acetate-methodology.js, all land at
+            // GAIP_STATE.inputs.soil.methodology. Pre-b35fix446, on a fresh
+            // session or any state where the post-tissue writeback had not
+            // run, the flat shelf was undefined and this branch fell through
+            // to the cotula heuristic at priority 2, the calendarData read at
+            // priority 3, the GAIP_CANONICAL_STATE read at priority 4, the
+            // DOM read at priority 5 or the SampleManager read at priority 6,
+            // any of which could disagree with the canonical inputs.soil
+            // value the user just set in the site-settings panel. Same defect
+            // class as the b35fix442 read-shelf asymmetry on the turf axis,
+            // but on the soil axis. Per b35fix442 lesson #33 the fix shape
+            // is a tolerant read priority chain.
+            // 1. GAIP_STATE (most authoritative, set by orchestrator)
+            const _b35fix446_soilM = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.methodology)
+                || (window.GAIP_STATE && window.GAIP_STATE.soil && window.GAIP_STATE.soil.methodology)
+                || null;
+            if (_b35fix446_soilM) {
+                const m = _b35fix446_soilM;
                 if (m === 'cotula_s78' || m === 'cotula') return 'ammonium_acetate';
                 return m;
             }
@@ -768,12 +793,12 @@
                         ? ` <span style="font-size: 10px; padding: 1px 4px; background: var(--gaip-info-bg); color: #1e40af; border-radius: 3px;">${p.release?.toUpperCase()}</span>` 
                         : '';
                     return `<span class="au-fert-product" title="${p.notes || ''}">${p.name} (${p.npk}) @ ${rateStr}${releaseTag}</span>`;
-                }).join(' + ') || '<span class="au-fert-none">—</span>';
+                }).join(' + ') || '<span class="au-fert-none">,</span>';
                 
                 const liquidList = m.liquid?.map(p => {
                     // b35fix282: use pre-formatted rate string (includes applications count if >1)
                     // rateUnit is 'kg/ha' for solubles, 'L/ha' for true liquids
-                    const rateStr = p.rate || (p.rateLHa ? `${p.rateLHa} ${p.rateUnit || (p.form === 'soluble' ? 'kg/ha' : 'L/ha')}` : '—');
+                    const rateStr = p.rate || (p.rateLHa ? `${p.rateLHa} ${p.rateUnit || (p.form === 'soluble' ? 'kg/ha' : 'L/ha')}` : '-');
                     return `<span class="au-fert-product liquid" title="${p.notes || ''}">${p.name} @ ${rateStr}</span>`;
                 }).join(' + ') || '';
                 
@@ -797,7 +822,7 @@
                             <span class="au-fert-req">N:${Math.round(m.requirements.N)} P:${Math.round(m.requirements.P)} K:${Math.round(m.requirements.K)}</span>
                         </td>
                         <td style="padding: 8px; border: 1px solid var(--gaip-border);">${granularList}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">${liquidList || '—'}</td>
+                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">${liquidList || '-'}</td>
                     </tr>
                     ${notesHtml ? `<tr class="au-fert-note-row"><td colspan="5" style="padding: 4px 8px; background: #fffde7; border: 1px solid var(--gaip-border); font-size: 12px; font-style: italic;">${notesHtml}</td></tr>` : ''}
                 `;
@@ -955,7 +980,7 @@
                             const sev = f.severity === 'high' ? '#dc2626' : f.severity === 'moderate' ? '#d97706' : '#6b7280';
                             const ratio = f.ratio || (f.suppressor + ':' + f.suppressed);
                             const pair = f.suppressor + ' → ' + f.suppressed;
-                            const ratioVal = f.value ? f.value.toFixed(1) : '—';
+                            const ratioVal = f.value ? f.value.toFixed(1) : '-';
                             return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #e5e7eb;">' +
                                 '<span style="font-size:16px;line-height:1.2;">⚡</span>' +
                                 '<div style="flex:1;">' +
@@ -968,7 +993,7 @@
                         }).join('');
                         const count = allFlags.length;
                         return '<div style="margin:0 0 1.25rem 0;padding:0.75rem 1rem;background:#fefce8;border:1px solid #fde047;border-left:4px solid #ca8a04;border-radius:6px;">' +
-                            '<div style="font-weight:600;color:#92400e;margin-bottom:8px;font-size:0.9rem;">⚗️ Mulder\'s Nutrient Interactions Detected — ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
+                            '<div style="font-weight:600;color:#92400e;margin-bottom:8px;font-size:0.9rem;">⚗️ Mulder\'s Nutrient Interactions Detected, ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
                             '<div style="font-size:11px;color:#78350f;margin-bottom:8px;">Product selection has been adjusted to avoid aggravating the following antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
                             rows +
                         '</div>';

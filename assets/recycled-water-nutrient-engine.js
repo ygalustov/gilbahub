@@ -116,7 +116,7 @@
                 severity: 'high',
                 driver:   'Cl⁻ ' + Cl.toFixed(0) + ' mg/L',
                 message:  'High chloride suppresses nitrification (Nitrosomonas inhibition). ' +
-                          'Ammonium and urea-based N will accumulate as NH₄⁺ — prefer nitrate-N sources (calcium nitrate, potassium nitrate).',
+                          'Ammonium and urea-based N will accumulate as NH₄⁺, prefer nitrate-N sources (calcium nitrate, potassium nitrate).',
                 detail:   'Cl⁻ >' + CL_NITRIF_THRESHOLD_HIGH + ' mg/L inhibits aerobic nitrifier ' +
                           'activity in the rootzone, causing NH₄⁺ accumulation. Excess NH₄⁺ competes ' +
                           'with K⁺, Ca²⁺ and Mg²⁺ at cation uptake sites, compounding the salt-driven ' +
@@ -127,7 +127,7 @@
             nForm.push({
                 severity: 'moderate',
                 driver:   'Cl⁻ ' + Cl.toFixed(0) + ' mg/L',
-                message:  'Elevated chloride — moderate nitrification suppression risk. ' +
+                message:  'Elevated chloride, moderate nitrification suppression risk. ' +
                           'Favour nitrate-N over ammonium/urea where program allows.',
                 detail:   'Cl⁻ >' + CL_NITRIF_THRESHOLD_MODERATE + ' mg/L begins to reduce ' +
                           'Nitrosomonas activity. Effect compounds under warm soil temperatures ' +
@@ -173,7 +173,7 @@
                     suppressor: 'Ca²⁺ (irrigation)',
                     suppressed: n,
                     severity:   'high',
-                    message:    'Recycled water Ca²⁺ (' + Ca.toFixed(0) + ' mg/L) suppresses ' + n + ' uptake — foliar application recommended.',
+                    message:    'Recycled water Ca²⁺ (' + Ca.toFixed(0) + ' mg/L) suppresses ' + n + ' uptake, foliar application recommended.',
                     citation:   'Marschner 2012'
                 });
             });
@@ -182,7 +182,7 @@
                 severity:   'moderate',
                 driver:     'Ca²⁺ ' + Ca.toFixed(0) + ' mg/L',
                 nutrients:  ['Fe', 'Mn', 'Zn'],
-                message:    'Elevated irrigation Ca²⁺ — moderate Fe, Mn and Zn suppression risk. ' +
+                message:    'Elevated irrigation Ca²⁺, moderate Fe, Mn and Zn suppression risk. ' +
                             'Monitor tissue levels; consider foliar Fe/Mn if chlorosis develops.',
                 detail:     'Ca²⁺ >' + CA_MICRONUTRIENT_THRESHOLD + ' mg/L in irrigation water ' +
                             'is agronomically significant for trace element uptake, particularly ' +
@@ -194,7 +194,7 @@
                     suppressor: 'Ca²⁺ (irrigation)',
                     suppressed: n,
                     severity:   'moderate',
-                    message:    'Recycled water Ca²⁺ (' + Ca.toFixed(0) + ' mg/L) — monitor ' + n + ' tissue levels.',
+                    message:    'Recycled water Ca²⁺ (' + Ca.toFixed(0) + ' mg/L), monitor ' + n + ' tissue levels.',
                     citation:   'Marschner 2012'
                 });
             });
@@ -218,7 +218,7 @@
                 suppressor: 'SO₄²⁻ (irrigation)',
                 suppressed: 'Fe',
                 severity:   'moderate',
-                message:    'Recycled water SO₄²⁻ (' + SO4.toFixed(0) + ' mg/L) — rhizosphere Fe precipitation risk.',
+                message:    'Recycled water SO₄²⁻ (' + SO4.toFixed(0) + ' mg/L), rhizosphere Fe precipitation risk.',
                 citation:   'Carrow & Duncan 1998'
             });
         }
@@ -247,7 +247,7 @@
                     suppressor: 'Na⁺ (irrigation)',
                     suppressed: 'K',
                     severity:   naK_molar >= NA_K_MOLAR_THRESHOLD * 2 ? 'high' : 'moderate',
-                    message:    'Irrigation Na:K ' + naK_molar.toFixed(1) + ' (molar) — functional K deficiency risk despite soil sufficiency.',
+                    message:    'Irrigation Na:K ' + naK_molar.toFixed(1) + ' (molar), functional K deficiency risk despite soil sufficiency.',
                     citation:   'Carrow & Duncan 1998'
                 });
             }
@@ -274,7 +274,7 @@
                     suppressor: 'Ca²⁺ (irrigation)',
                     suppressed: 'K',
                     severity:   caK_molar >= CA_K_MOLAR_THRESHOLD * 2 ? 'high' : 'moderate',
-                    message:    'Irrigation Ca:K ' + caK_molar.toFixed(1) + ' (molar) — K uptake suppression risk.',
+                    message:    'Irrigation Ca:K ' + caK_molar.toFixed(1) + ' (molar), K uptake suppression risk.',
                     citation:   'Marschner 2012'
                 });
             }

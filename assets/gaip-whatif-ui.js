@@ -90,7 +90,7 @@
                 label: 'Grass Species', 
                 type: 'select', 
                 options: [
-                    { value: '', label: '— No change —' },
+                    { value: '', label: ', No change,' },
                     { value: 'Perennial Ryegrass', label: 'Perennial Ryegrass' },
                     { value: 'Kikuyu', label: 'Kikuyu' },
                     { value: 'Couch', label: 'Couch (Bermuda)' },
@@ -110,7 +110,7 @@
                 label: 'PGR Product', 
                 type: 'select', 
                 options: [
-                    { value: '', label: '— None —' },
+                    { value: '', label: ', None,' },
                     { value: 'TE250', label: 'Primo 250EC (TE 250g/L)' },
                     { value: 'TE175', label: 'Indigo Amigo (TE 175g/L)' },
                     { value: 'TE120', label: 'Indigo Amigo (TE 120g/L)' },
@@ -1293,7 +1293,7 @@
                 html += `<tr><td colspan="4" style="padding: 8px 8px 4px 8px; font-weight: 600; color: var(--gaip-text); background: var(--gaip-surface-muted);">${categoryLabels[cat] || cat}</td></tr>`;
                 
                 catChanges.forEach(c => {
-                    const baseDisplay = c.baseline ?? '—';
+                    const baseDisplay = c.baseline ?? '-';
                     const modDisplay = c.modified;
                     let changeDisplay = '';
                     let changeColor = 'var(--gaip-text-secondary)';
@@ -1457,7 +1457,7 @@
                         html += `<option value="${option.value}">${option.label}</option>`;
                     } else {
                         // Legacy format: array of strings
-                        const displayVal = option || '— No change —';
+                        const displayVal = option || ', No change,';
                         html += `<option value="${option}">${displayVal}</option>`;
                     }
                 }
@@ -1471,7 +1471,7 @@
                                min="${config.min}" 
                                max="${config.max}" 
                                step="${config.step}"
-                               placeholder="—"
+                               placeholder=","
                                onchange="GAIP_WhatIfUI.updateParameter('${path}', this.value)">`;
                 
                 if (config.unit) {
@@ -1562,12 +1562,12 @@
             html += `<div style="display: flex; gap: 16px; font-size: 12px; color: var(--gaip-text); margin-bottom: 8px;">`;
             if (baselineConf) {
                 const bLevel = baselineConf.level || 'medium';
-                const bScore = baselineConf.score !== undefined ? Math.round(baselineConf.score) : '—';
+                const bScore = baselineConf.score !== undefined ? Math.round(baselineConf.score) : '-';
                 html += `<span>Baseline: ${bLevel} (${bScore}%)</span>`;
             }
             if (modifiedConf) {
                 const mLevel = modifiedConf.level || 'medium';
-                const mScore = modifiedConf.score !== undefined ? Math.round(modifiedConf.score) : '—';
+                const mScore = modifiedConf.score !== undefined ? Math.round(modifiedConf.score) : '-';
                 html += `<span>Modified: ${mLevel} (${mScore}%)</span>`;
             }
             html += `</div>`;
@@ -1681,12 +1681,12 @@
                             <!-- Light/Shade -->
                             <tr class="gaip-section-header-row"><td colspan="4">☀️ Light & Shade</td></tr>
                             ${renderDeltaRow('Total DLI', 
-                                rA.shade?.DLI_total?.toFixed(1) || '—',
-                                rB.shade?.DLI_total?.toFixed(1) || '—',
+                                rA.shade?.DLI_total?.toFixed(1) || '-',
+                                rB.shade?.DLI_total?.toFixed(1) || '-',
                                 (deltas.shade?.dliTotal || 0).toFixed(1), ' mol/m²', true)}
                             ${renderDeltaRow('Light Status', 
-                                rA.shade?.status || '—',
-                                rB.shade?.status || '—',
+                                rA.shade?.status || '-',
+                                rB.shade?.status || '-',
                                 '', '', true)}
                             ${renderDeltaRow('DLI Deficit', 
                                 rA.shade?.deficit?.toFixed(1) || '0',
@@ -1700,8 +1700,8 @@
                                 rB.disease?.overallScore || 0,
                                 deltas.disease?.overallScore || 0, '', false)}
                             ${renderDeltaRow('Risk Level', 
-                                rA.disease?.overallRisk || '—',
-                                rB.disease?.overallRisk || '—',
+                                rA.disease?.overallRisk || '-',
+                                rB.disease?.overallRisk || '-',
                                 '', '', true)}
                             ${renderDeltaRow('Primary Risk', 
                                 rA.disease?.primaryRisk || 'None',
@@ -1723,8 +1723,8 @@
                                 rB.traffic?.wearRecoveryRatio?.toFixed(2) || '0',
                                 (deltas.traffic?.wearRecoveryRatio || 0).toFixed(2), '', false)}
                             ${renderDeltaRow('Traffic Status', 
-                                rA.traffic?.status || '—',
-                                rB.traffic?.status || '—',
+                                rA.traffic?.status || '-',
+                                rB.traffic?.status || '-',
                                 '', '', true)}
                             
                             <!-- Irrigation -->
@@ -1746,8 +1746,8 @@
                                 rB.pgr?.effectRemaining || 0,
                                 deltas.pgr?.effectRemaining || 0, '%', true)}
                             ${renderDeltaRow('Days to Reapply', 
-                                rA.pgr?.daysToReapply ?? '—',
-                                rB.pgr?.daysToReapply ?? '—',
+                                rA.pgr?.daysToReapply ?? '-',
+                                rB.pgr?.daysToReapply ?? '-',
                                 deltas.pgr?.daysToReapply || 0, ' days', true)}
                             ` : ''}
                             
@@ -1758,8 +1758,8 @@
                                 rB.nOpt?.recommendedAnnual || 0,
                                 deltas.nOpt?.recommended || 0, ' kg/ha/yr', true)}
                             ${renderDeltaRow('N Status', 
-                                rA.nOpt?.status || '—',
-                                rB.nOpt?.status || '—',
+                                rA.nOpt?.status || '-',
+                                rB.nOpt?.status || '-',
                                 '', '', true)}
                             
                             <!-- Stress Trajectory -->
@@ -1773,8 +1773,8 @@
                                 rB.stressTrajectory?.criticalDays || 0,
                                 deltas.stressTrajectory?.criticalDays || 0, ' days', false)}
                             ${renderDeltaRow('Trend', 
-                                rA.stressTrajectory?.trend || '—',
-                                rB.stressTrajectory?.trend || '—',
+                                rA.stressTrajectory?.trend || '-',
+                                rB.stressTrajectory?.trend || '-',
                                 '', '', true)}
                         </tbody>
                     </table>
@@ -1818,7 +1818,7 @@
             }
         }
         
-        const deltaDisplay = numDelta === 0 ? '—' : 
+        const deltaDisplay = numDelta === 0 ? '-' : 
                             (numDelta > 0 ? '+' : '') + delta + unit;
         
         return `

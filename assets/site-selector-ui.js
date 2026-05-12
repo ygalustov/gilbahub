@@ -161,7 +161,6 @@
 
     var _updatingUI = false;
     var _lastDispatchedSiteId = null;  // prevents bounce from restore-triggered updateUI calls
-    var _preserveDraftOnNextReload = false;
     function updateUI() {
         if (_updatingUI) return;
         _updatingUI = true;
@@ -268,23 +267,11 @@
                 }
             }
 
-            // No samples at all for this type on this site. During page-load draft restore
-            // hub-persistence may already have repopulated manual inputs that have not yet been
-            // promoted to a saved sample; do not wipe that draft once on boot. Real site switches
-            // still clear as before.
-            if (_preserveDraftOnNextReload) {
-                log('Preserved ' + dt + ' draft form on boot (no samples yet)');
-                continue;
-            }
-
+            // No samples at all for this type on this site - clear the form
             if (clearFns[dt]) {
                 clearFns[dt]();
                 log('Cleared ' + dt + ' form (no samples on this site)');
             }
-        }
-
-        if (_preserveDraftOnNextReload) {
-            _preserveDraftOnNextReload = false;
         }
     }
 
@@ -313,6 +300,12 @@
 
     /**
      * Clear water form fields.
+     * b35fix434 / C43: extended to clear water sample metadata fields
+     * (source-label, lab-ref, date). Pre-fix these survived site-switch and
+     * fed word-export.js DOM-fallback reads at line ~7917-7924, producing
+     * cross-site bleed (Shirley docx showing Rockingham's "Dam" / "Bore" /
+     * "2024-07-02" with byte-identical metadata). The fix mirrors the
+     * SampleManager-scoped path: ALL water-related DOM fields clear together.
      */
     function clearWaterForm() {
         var waterFields = [
@@ -320,7 +313,9 @@
             '[data-ion="Ca"]', '[data-ion="Mg"]', '[data-ion="Na"]', '[data-ion="K"]',
             '[data-ion="Cl"]', '[data-ion="SO4"]', '[data-ion="HCO3"]', '[data-ion="CO3"]',
             '[data-ion="B"]', '[data-ion="Fe"]', '[data-ion="NO3"]', '[data-ion="PO4"]',
-            '[data-ion="Mn"]'
+            '[data-ion="Mn"]',
+            // b35fix434 / C43: metadata fields cleared in parallel with ion inputs.
+            '.gaip-water-source-label', '.gaip-water-lab-ref', '.gaip-water-date'
         ];
         clearFields(waterFields);
     }
@@ -418,15 +413,6 @@
         setTimeout(inject, 500);
         setTimeout(inject, 1500);
 
-        // If hub-persistence restored raw input state on boot, preserve it through the
-        // first reloadActiveSample() pass when the site has no saved samples yet.
-        document.addEventListener('gaip:state-restored', function(e) {
-            if (e && e.detail && e.detail.savedAt) {
-                _preserveDraftOnNextReload = true;
-                log('Boot draft restore detected — next reloadActiveSample will preserve empty-site forms');
-            }
-        });
-
         // After persistence restores samples, reload the active site's sample
         document.addEventListener('gaip:samples-restored', function() {
             log('Samples restored, reloading active site sample');
@@ -462,7 +448,7 @@
 
         // Refresh dropdown when a site is added programmatically (e.g. from loadProfile)
         document.addEventListener('gaip:site-added', function() {
-            log('Site added — refreshing dropdown');
+            log('Site added, refreshing dropdown');
             updateUI();
         });
 

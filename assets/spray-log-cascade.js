@@ -444,9 +444,9 @@
                             dataSource:     uvResult.dataSource,
                             daysElapsed:    uvResult.daysElapsed
                         };
-                        log(`UV residual (${ai}): ${uvResult.residualPct}% — UV survival ${uvResult.breakdown.uvSurvival}%, rain ${uvResult.breakdown.rainSurvival}%, bio ${uvResult.breakdown.bioSurvival}%`);
+                        log(`UV residual (${ai}): ${uvResult.residualPct}%, UV survival ${uvResult.breakdown.uvSurvival}%, rain ${uvResult.breakdown.rainSurvival}%, bio ${uvResult.breakdown.bioSurvival}%`);
                     } else {
-                        log(`UV residual (${ai}): no photolysis data — ${uvResult ? uvResult.error : 'null result'}`);
+                        log(`UV residual (${ai}): no photolysis data, ${uvResult ? uvResult.error : 'null result'}`);
                     }
                 } else {
                     log(`UV residual (${ai}): no climate history available from application date`);
@@ -886,7 +886,7 @@
         const zoneMismatch = applicationZone !== currentZone;
 
         if (zoneMismatch) {
-            log(`Zone mismatch: application zone="${applicationZone}", current zone="${currentZone}" — suppressing residual enrichment`);
+            log(`Zone mismatch: application zone="${applicationZone}", current zone="${currentZone}", suppressing residual enrichment`);
             // Purge any previously injected residual nodes
             document.querySelectorAll('.gaip-spray-residual').forEach(el => el.remove());
             // Inject a single cross-zone notice on the first disease card only
@@ -903,7 +903,7 @@
                     const notice = document.createElement('div');
                     notice.className = 'gaip-spray-residual gaip-spray-residual-zone-notice';
                     notice.style.cssText = 'margin:8px 0;padding:8px 12px;background:var(--gaip-info-bg);border-left:3px solid #0ea5e9;border-radius:4px;font-size:12px;';
-                    notice.innerHTML = `ℹ️ Last logged fungicide (<strong>${protection.productName}</strong>) was applied to <strong>${appLabel}</strong> — no ${curLabel} residual data on record.`;
+                    notice.innerHTML = `ℹ️ Last logged fungicide (<strong>${protection.productName}</strong>) was applied to <strong>${appLabel}</strong>, no ${curLabel} residual data on record.`;
                     const sourceEl = detail.querySelector('.gaip-source');
                     if (sourceEl) {
                         sourceEl.parentNode.insertBefore(notice, sourceEl);
@@ -952,7 +952,7 @@
                     noteHTML += `
                         <div class="gaip-spray-residual" style="margin:8px 0;padding:8px 12px;background:var(--gaip-critical-bg);border-left:3px solid #ef4444;border-radius:4px;font-size:12px;">
                             ⚠️ Recent application (<strong>${protection.productName}</strong>, ${protection.daysSince}d ago) 
-                            does not target <strong>${formatDiseaseName(diseaseKey)}</strong> — 
+                            does not target <strong>${formatDiseaseName(diseaseKey)}</strong>, 
                             specific treatment may be required.
                         </div>
                     `;
@@ -969,7 +969,7 @@
                     noteHTML += `
                         <div class="gaip-spray-residual" style="margin:8px 0;padding:8px 12px;background:${bgColor};border-left:3px solid ${borderColor};border-radius:4px;font-size:12px;">
                             ${icon} <strong>${protection.productName}</strong> applied ${protection.daysSince} day${protection.daysSince !== 1 ? 's' : ''} ago
-                            — est. ${protection.pctRemaining}% residual activity${fracNote}${climateNote}${targetNote}
+                           , est. ${protection.pctRemaining}% residual activity${fracNote}${climateNote}${targetNote}
                         </div>
                     `;
                 }
@@ -1202,7 +1202,7 @@
                 // Cannot safely remove other keys — they may be legitimate.
                 _ls.removeItem('gilba_last_pgr_brentford_fc');
                 _ls.setItem(cleanupKey, '1');
-                log('b35fix259: PGR bleed cleanup complete — removed _latest and poisoned brentford_fc key');
+                log('b35fix259: PGR bleed cleanup complete, removed _latest and poisoned brentford_fc key');
             } catch(e) { /* ignore */ }
         })();
 
@@ -1284,7 +1284,7 @@
 
             var result = _pgr_fn(state);
             if (!result || result.error) {
-                log('PGR chart redraw skipped — calculate returned: ' + (result && result.error));
+                log('PGR chart redraw skipped, calculate returned: ' + (result && result.error));
                 return;
             }
 

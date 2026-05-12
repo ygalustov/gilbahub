@@ -44,7 +44,7 @@
 
     var STATUS_STYLES = {
         READY:           { bg: 'var(--gaip-good-bg)', border: '#16a34a', text: '#166534', icon: '✓', label: 'Environment Ready' },
-        READY_WITH_NOTES:{ bg: 'var(--gaip-warning-bg)', border: '#ca8a04', text: '#854d0e', icon: '◐', label: 'Ready — Minor Constraints' },
+        READY_WITH_NOTES:{ bg: 'var(--gaip-warning-bg)', border: '#ca8a04', text: '#854d0e', icon: '◐', label: 'Ready, Minor Constraints' },
         PARTIALLY_READY: { bg: 'var(--gaip-warning-bg)', border: '#ea580c', text: '#9a3412', icon: '⚠', label: 'Environmental Constraints' },
         NOT_READY:       { bg: 'var(--gaip-critical-bg)', border: '#dc2626', text: '#991b1b', icon: '✕', label: 'Poor LED Conditions' }
     };
@@ -154,7 +154,7 @@
             html += '  <div class=\"gssh-vr-wear-switch\" style=\"margin:8px 0;padding:8px 12px;background:var(--gaip-warning-bg);border-left:3px solid #d97706;border-radius:4px;font-size:0.82rem;\">';
             html += '    <strong>⚡ Spectral Goal Auto-Adjusted:</strong> ';
             html += (goalLabels[sw.from] || sw.from) + ' → <strong>' + (goalLabels[sw.to] || sw.to) + '</strong>';
-            html += '    <span style=\"color:#92400e;\"> (' + sw.reason + ' — wear-driven override)</span>';
+            html += '    <span style=\"color:#92400e;\"> (' + sw.reason + ', wear-driven override)</span>';
             html += '    <div style=\"font-size:0.75rem;color:#78350f;margin-top:2px;\">Manual goal restored when recovery window clears. Change via ⚙️ to override.</div>';
             html += '  </div>';
         }
@@ -188,7 +188,7 @@
         // --- Confidence note ---
         html += '  <div class="gssh-vr-confidence">Data confidence: ' + Math.round(eueResult.confidence * 100) + '%';
         if (eueResult.confidence < 0.5) {
-            html += ' — <em>Limited sensor data. Provide venue environment details for more accurate assessment.</em>';
+            html += ', <em>Limited sensor data. Provide venue environment details for more accurate assessment.</em>';
         }
         html += '</div>';
 
@@ -256,7 +256,7 @@
             }
             html += '</div>';
             html += '  <div class="gssh-vr-factor-pct" style="color:' + colour + ';">' + pct + '%</div>';
-            html += '  <div class="gssh-vr-factor-range">Optimal (' + pathwayLabel + '): ' + (f.optimalRange || '—') + '</div>';
+            html += '  <div class="gssh-vr-factor-range">Optimal (' + pathwayLabel + '): ' + (f.optimalRange || '-') + '</div>';
             html += '</div>';
         }
 
@@ -322,7 +322,7 @@
             var suffPct = (dliTarget && dli != null) ? Math.round(dli / dliTarget * 100) : null;
             var status, statusColour, flagged;
             if (dli == null) {
-                status = '—'; statusColour = 'var(--gaip-text-muted)'; flagged = false;
+                status = '-'; statusColour = 'var(--gaip-text-muted)'; flagged = false;
             } else if (!dliTarget) {
                 status = dli + ' mol'; statusColour = 'var(--gaip-text-secondary)'; flagged = false;
             } else if (dli >= dliTarget) {
@@ -397,11 +397,11 @@
                     (z.flagged ? '<span style="color:#e05a2b;">⚠</span> ' : '') +
                     '<strong>' + (z.zoneName || z.zoneId) + '</strong></td>';
             html += '<td style="text-align:right;padding:5px 6px;font-variant-numeric:tabular-nums;">' +
-                    (z.dli != null ? z.dli.toFixed(1) + ' mol' : '—') + '</td>';
+                    (z.dli != null ? z.dli.toFixed(1) + ' mol' : '-') + '</td>';
             html += '<td style="text-align:right;padding:5px 6px;">' +
-                    (z.suffPct != null ? z.suffPct + '%' : '—') + suffBar + '</td>';
+                    (z.suffPct != null ? z.suffPct + '%' : '-') + suffBar + '</td>';
             html += '<td style="text-align:right;padding:5px 6px;">' +
-                    (z.transmissionPct != null ? z.transmissionPct.toFixed(0) + '%' : '—') + '</td>';
+                    (z.transmissionPct != null ? z.transmissionPct.toFixed(0) + '%' : '-') + '</td>';
             html += '<td style="padding:5px 6px;color:' + z.statusColour + ';font-weight:600;">' +
                     z.status + '</td>';
             html += '</tr>';
@@ -422,10 +422,10 @@
                         ' – ' + maxDLI.toFixed(1) + ' mol/m²/day</strong> (' +
                         spread.toFixed(1) + ' mol spread). ' +
                         (spread >= 8
-                            ? 'High within-pitch variation — end-zone LED coverage should be prioritised.'
+                            ? 'High within-pitch variation, end-zone LED coverage should be prioritised.'
                             : spread >= 4
-                                ? 'Moderate variation — consider targeted supplemental placement.'
-                                : 'Low variation — uniform coverage is appropriate.') +
+                                ? 'Moderate variation, consider targeted supplemental placement.'
+                                : 'Low variation, uniform coverage is appropriate.') +
                         '</p>';
             }
         }
@@ -450,7 +450,7 @@
             html += '<div class="gssh-vr-limiting-item" style="border-left:3px solid ' + colour + ';">';
             html += '  <div class="gssh-vr-limiting-name">' + (FACTOR_ICONS[lf.factor] || '') + ' ' + (FACTOR_NAMES[lf.factor] || lf.factor) + '</div>';
             html += '  <div class="gssh-vr-limiting-detail">';
-            html += '    Current: ' + (lf.value || '?') + ' ' + (lf.unit || '') + ' — Optimal: ' + (lf.optimalRange || '—');
+            html += '    Current: ' + (lf.value || '?') + ' ' + (lf.unit || '') + ', Optimal: ' + (lf.optimalRange || '-');
             html += '    <span class="gssh-vr-limiting-loss">' + Math.round((1 - lf.efficiency) * 100) + '% efficiency loss</span>';
             html += '  </div>';
             html += '</div>';
@@ -508,7 +508,7 @@
         html += '<div class="gssh-vr-proj-summary">';
         html += '  Addressing ' + projections.stepsCount + ' constraint' + (projections.stepsCount > 1 ? 's' : '');
         html += '  would raise LED utilisation from ' + Math.round(currentEUE * 100) + '% to ' + Math.round(best * 100) + '%';
-        html += '  — recovering ~' + totalGain + '% of currently wasted photons.';
+        html += ' , recovering ~' + totalGain + '% of currently wasted photons.';
         html += '</div>';
 
         html += '</div>';
@@ -668,14 +668,14 @@
                 '<span style="font-weight:700;color:' + modColour + ';">' +
                     'Chemistry modifier: ' + modPct + '%' +
                 '</span>' +
-                '<span class="gssh-chem-modifier-label"> — photon utilisation reduced by root zone and/or foliar chemistry</span>' +
+                '<span class="gssh-chem-modifier-label">, photon utilisation reduced by root zone and/or foliar chemistry</span>' +
             '</div>';
         }
 
         // Juvenile overseed flag
         if (chemistry.isJuvenile) {
             html += '<div class="gssh-chem-juvenile">' +
-                '🌱 <strong>Juvenile overseed window</strong> — elevated sensitivity to EC and Na stress (28-day establishment period). ' +
+                '🌱 <strong>Juvenile overseed window</strong>, elevated sensitivity to EC and Na stress (28-day establishment period). ' +
                 'Salt thresholds reduced. Monitor water EC closely.' +
             '</div>';
         }
@@ -715,8 +715,8 @@
         var enclosureOptions = [
             ['open', 'Open air / no roof'],
             ['partial', 'Partial roof (stands only)'],
-            ['retractable_open', 'Retractable roof — open'],
-            ['retractable_closed', 'Retractable roof — closed'],
+            ['retractable_open', 'Retractable roof, open'],
+            ['retractable_closed', 'Retractable roof, closed'],
             ['fixed_roof', 'Fixed roof / fully covered'],
             ['enclosed', 'Fully enclosed (indoor)'],
             ['enclosed_enriched', 'Enclosed with CO₂ enrichment']
@@ -748,7 +748,7 @@
 
         // Manual ECe override
         html += '<div class="gssh-vr-config-row">';
-        html += '  <label>Root-Zone ECe (dS/m) <span style="font-weight:400;font-size:11px;">(optional — overrides automatic EC conversion)</span></label>';
+        html += '  <label>Root-Zone ECe (dS/m) <span style="font-weight:400;font-size:11px;">(optional, overrides automatic EC conversion)</span></label>';
         html += '  <input type="number" id="gssh-vr-manual-ece" class="gssh-vr-input" min="0" max="50" step="0.1" value="' + (config.manualECe || '') + '" placeholder="Leave blank for automatic">';
         html += '</div>';
 
@@ -770,8 +770,8 @@
         html += '  <label>Management Goal</label>';
         html += '  <select id="gssh-vr-goal" class="gssh-vr-select">';
         var goalOptions = [
-            ['maintenance', 'Maintenance — sustain current quality'],
-            ['strengthening', 'Strengthening — build density/recovery'],
+            ['maintenance', 'Maintenance, sustain current quality'],
+            ['strengthening', 'Strengthening, build density/recovery'],
             ['recovery', 'Post-event recovery'],
             ['establishment', 'Establishment / renovation']
         ];
@@ -840,7 +840,7 @@
         html += '  <select id="gssh-vr-equipment-type" class="gssh-vr-select">';
         var eqOptions = [
             ['led', 'LED supplemental lighting'],
-            ['hps', 'HPS (High Pressure Sodium) — legacy'],
+            ['hps', 'HPS (High Pressure Sodium), legacy'],
             ['hps_to_led', 'Transitioning HPS → LED'],
             ['none', 'No supplemental lighting']
         ];
@@ -1224,7 +1224,7 @@
                 '<div class="gssh-roof-banner-left">' +
                     '<span class="gssh-roof-icon">' + (isOpen ? '☀️' : '🏟️') + '</span>' +
                     '<div>' +
-                        '<div class="gssh-roof-title">Retractable Roof — ' + (isOpen ? 'Open' : 'Closed') + '</div>' +
+                        '<div class="gssh-roof-title">Retractable Roof, ' + (isOpen ? 'Open' : 'Closed') + '</div>' +
                         '<div class="gssh-roof-desc">' +
                             (isOpen
                                 ? 'Full natural light and ambient CO₂. Shade analysis uses stand geometry only.'
@@ -1235,10 +1235,10 @@
                 '<div class="gssh-roof-toggle-wrap">' +
                     '<button class="gssh-roof-btn' + (isOpen ? ' gssh-roof-btn-active' : '') + '" ' +
                         "onclick=\"GSSH_VenueReadinessUI.setRoofState('retractable_open')\" " +
-                        'title="Roof is open — full sky exposure">&#9728; Open</button>' +
+                        'title="Roof is open, full sky exposure">&#9728; Open</button>' +
                     '<button class="gssh-roof-btn' + (!isOpen ? ' gssh-roof-btn-active gssh-roof-btn-closed' : '') + '" ' +
                         "onclick=\"GSSH_VenueReadinessUI.setRoofState('retractable_closed')\" " +
-                        'title="Roof is closed — DLI reduced, CO₂ depleted">&#127967; Closed</button>' +
+                        'title="Roof is closed, DLI reduced, CO₂ depleted">&#127967; Closed</button>' +
                 '</div>' +
             '</div>';
 

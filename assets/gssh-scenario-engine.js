@@ -1435,8 +1435,8 @@
             disease: {
                 overallScore: (scenarioB.results.disease?.overallScore || 0) - (scenarioA.results.disease?.overallScore || 0),
                 riskLevel: {
-                    from: scenarioA.results.disease?.overallRisk || '—',
-                    to: scenarioB.results.disease?.overallRisk || '—'
+                    from: scenarioA.results.disease?.overallRisk || '-',
+                    to: scenarioB.results.disease?.overallRisk || '-'
                 }
             },
             traffic: {

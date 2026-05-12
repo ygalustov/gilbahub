@@ -375,7 +375,7 @@
                             (factorLabels[lf.factor] || lf.factor) + '</span>: ' +
                         lf.value + ' ' + (lf.unit || '') + 
                         ' (optimal: ' + (lf.optimalRange || 'N/A') + ')' +
-                        ' — ' + lf.efficiencyLoss + ' efficiency loss' +
+                        ', ' + lf.efficiencyLoss + ' efficiency loss' +
                     '</li>';
             }
             html += '</ul></div>';

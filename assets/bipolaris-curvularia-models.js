@@ -54,9 +54,65 @@
  * - NC State Extension - Warm-season grass susceptibility
  * - UGA Extension - Ultradwarf management
  * - Smiley et al. Compendium of Turfgrass Diseases (3rd ed)
- * 
- * @version 3.0.0
- * @date January 2026
+ *
+ * b35fix452 (C57): CABI 2024 cross-reference, citation-only, no logic touch.
+ *   Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ *   Biology and Integrated Management of Turfgrass Diseases.
+ *   CABI, Wallingford. ISBN 9781789246216.
+ *   Ch.7 p.174-180 + Box 7.7: Bipolaris / Curvularia / Drechslera /
+ *   Pyrenophora taxonomy. Pyrenophora poae cardinal temperatures
+ *   (fungal growth optimum 18 deg C, range 3-30 deg C; sporulation
+ *   optimum 13-19 deg C, range 6-20 deg C; spore germination and
+ *   penetration 6-30 deg C; penetration optimum 18-24 deg C).
+ *   Directly supplies the deferred Tier 2 audit material for
+ *   DrechsleraPoaeModel (BETA per BIPOLARIS_VALIDATION_STATUS, audit
+ *   deferred at b35fix362). The hub currently zeros risk above 24
+ *   deg C; CABI Box 7.7 active range extends to 30 deg C, flagged in
+ *   audit recommendation #3 for Tier 2 close under a future build.
+ *   Cross-references the Brecht 2007 / PSU / UMass / NC State / UGA /
+ *   Smiley 2005 chain. Coefficients, thresholds, and weights unchanged.
+ *
+ * b35fix461 (C59): CABI 2024 audit recommendation #3 closed. Two
+ *   coordinated changes against b35fix460 baseline:
+ *
+ *   (1) DrechsleraPoaeModel temperature curve refined to CABI 2024 Box
+ *       7.7 cardinal temperatures. Pre-fix piecewise step curve (peak
+ *       15-20 deg C plateau, hard zero above 24 deg C) replaced with
+ *       asymmetric Gaussian centred at CABI fungal-growth optimum
+ *       18 deg C. Cold tail sigma 5 anchors 8 deg C at 0.135 contour
+ *       (just inside CABI sporulation lower bound 6 deg C); warm tail
+ *       sigma 6 anchors 24 deg C at 0.607 contour (CABI penetration
+ *       upper-bound optimum) and 30 deg C at 0.135 contour (CABI
+ *       fungal-growth and germination upper bound). The b35fix362 hard
+ *       zero above 24 deg C was contradicted by CABI Box 7.7.
+ *
+ *   (2) DrechsleraPoaeModel wired into DiseaseEnginePure analyse()
+ *       dispatcher adjacent to the existing Helminthosporium dispatcher.
+ *       Pre-fix the model was orphaned from production: the b35fix362
+ *       ungating was on the legacy DiseaseEngine.analyse path, defunct
+ *       since b35fix328+ legacy-to-pure cutover. Same architectural state
+ *       as Red Thread / C64 / b35fix459 pre-fix. The patchDiseaseEngineWithBipolaris
+ *       function in this file remains in place but is now dead code on the
+ *       Drechslera path (cleanup logged as C59d candidate, deferred per
+ *       single-purpose discipline).
+ *
+ *   DISPATCHER_GATES.drechsleraPoae set to 0.5 in disease-engine-pure.js,
+ *   mirroring C64 Red Thread gate decision; suppresses warm-season hosts
+ *   (bermuda / couch / kikuyu / zoysia / buffalo / buffalograss /
+ *   seashore_paspalum at 0) and admits cool-season hosts (bentgrass 0.6,
+ *   perennialRyegrass 0.8, kentuckyBluegrass 1.8, tallFescue 0.5,
+ *   poaAnnua 1.0). SPECIES_SUSCEPTIBILITY values lifted from this file's
+ *   own BIPOLARIS_CURVULARIA_SUSCEPTIBILITY table at lines 170-268.
+ *   DRECHSLERA_POAE_VALIDATION_STATUS version bumped 3.1.0 to 3.2.0;
+ *   detailedMessage rewritten to flag the curve correction; lastUpdated
+ *   bumped to 2026-05-12.
+ *
+ *   Source: Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ *   Biology and Integrated Management of Turfgrass Diseases. CABI,
+ *   Wallingford. ISBN 9781789246216. Ch.7 p.174-180 + Box 7.7.
+ *
+ * @version 3.0.2
+ * @date May 2026
  * @author Gilba Solutions
  * =============================================================================
  */
@@ -108,40 +164,62 @@ Feedback welcomed to improve model accuracy.`,
     lastUpdated: '2026-01'
 };
 
-// b35fix362: Validated status for DrechsleraPoaeModel after Tier 2 audit
+// b35fix461 (C59): Validation status updated. Supersedes b35fix362
+// Rutgers/UC IPM/PSU/MU narrative validation. CABI 2024 Box 7.7 supplies
+// the first peer-reviewed cardinal temperatures for Pyrenophora poae and
+// contradicts the b35fix362 hard zero above 24 deg C. Curve refined to
+// asymmetric Gaussian centred at CABI fungal-growth optimum 18 deg C.
+// Wire-in into pure-engine analyse() dispatcher also shipped in b35fix461;
+// the b35fix362 "ungated, runs in production" claim was on the legacy
+// DiseaseEngine.analyse path, defunct since b35fix328+ legacy-to-pure
+// cutover (same orphan-class as Red Thread / C64 / b35fix459).
 const DRECHSLERA_POAE_VALIDATION_STATUS = {
     status: 'validated',
-    version: '3.1.0', 
+    version: '3.2.0',
     displayBadge: '✓ VALIDATED',
-    shortMessage: 'Tier 2 audit complete',
-    detailedMessage: `DrechsleraPoaeModel passed comprehensive Tier 2 provenance audit (b35fix362).
+    shortMessage: 'CABI 2024 cardinal temperatures',
+    detailedMessage: `DrechsleraPoaeModel validated against CABI 2024 Box 7.7
+Pyrenophora poae cardinal temperatures (Beehag, Walker, Wong and Kaapro
+2024, ISBN 9781789246216, Ch.7 p.174-180). Supersedes b35fix362 Rutgers,
+UC IPM, PSU, MU narrative validation, which anchored the curve on a peak
+15-20 deg C plateau with hard zero above 24 deg C; CABI Box 7.7 establishes
+that fungal-growth and penetration activity extends to 30 deg C, contradicting
+the prior upper cutoff.
 
-Literature validation:
-• Temperature range 10-24°C confirmed (Rutgers, UC IPM, Penn State)
-• Cool, wet conditions requirement verified (multiple sources)
-• High nitrogen increases risk validated (extension guidance)
-• Two-phase disease pattern supported (leaf spot → melting-out)
+CABI Box 7.7 cardinal temperatures:
+, Fungal growth optimum 18 deg C, range 3-30 deg C
+, Sporulation optimum 13-19 deg C, range 6-20 deg C
+, Spore germination and penetration 6-30 deg C
+, Penetration optimum 18-24 deg C
 
-Model updates (b35fix362):
-• Literature-based temperature thresholds (peak 15-20°C, inhibited >24°C)
-• Weighted-sum coefficients revised (0.50 temp, 0.40 moisture, 0.10 base)
-• Nitrogen modifiers reduced to operational estimates (high 1.15×, excessive 1.25×)
-• Melting-out multiplier reduced to 1.15× 
+Curve shape (b35fix461 / C59):
+, Asymmetric Gaussian centred at CABI fungal-growth optimum 18 deg C
+, Cold-tail sigma 5 anchors 8 deg C at 0.135 contour and 13 deg C at 0.607
+, Warm-tail sigma 6 anchors 24 deg C at 0.607 contour and 30 deg C at 0.135
+, Hard-zero gates below 3 deg C and above 30 deg C for degraded-input safety
 
-Audit results:
-• Core biology well-supported by peer-reviewed literature
-• Fabricated parameters replaced with literature-based estimates
-• Operational estimates clearly flagged in source attribution
-• Model provides agronomically sound guidance for cool-season hosts
+Wire-in (b35fix461 / C59):
+, DrechsleraPoaeModel orphaned from DiseaseEnginePure.analyse pre-fix
+, b35fix362 ungating was on the legacy DiseaseEngine.analyse path, defunct
+  since b35fix328+ legacy-to-pure cutover
+, Wired into pure-engine dispatcher at disease-engine-pure.js adjacent to
+  Helminthosporium; cool-season hosts now receive Drechslera assessment in
+  production docx exports
 
-Primary source: Penn State Extension (Landschoot 2024)`,
+Primary source: Beehag, Walker, Wong and Kaapro 2024 (CABI Ch.7 p.174-180,
+Box 7.7).
+
+Cross-references (narrative biology, not cardinal-temperature anchors):
+Rutgers Plant and Pest Advisory, UC IPM Guidelines, Penn State Extension
+(Landschoot 2024), MU Extension.`,
     sources: [
+        'Beehag, Walker, Wong and Kaapro 2024 (CABI Ch.7 p.174-180, Box 7.7)',
         'Landschoot, P. 2024 (Penn State Extension)',
         'Rutgers Plant & Pest Advisory',
-        'UC IPM Guidelines', 
+        'UC IPM Guidelines',
         'MU Extension'
     ],
-    lastUpdated: '2026-04-27'
+    lastUpdated: '2026-05-12'
 };
 
 // =============================================================================
@@ -306,32 +384,77 @@ const BIPOLARIS_CONSECUTIVE_DAY_CONFIG = {
 
 /**
  * Get leaf wetness hours from available data sources
- * Priority: explicit data > dew model > humidity estimation
+ * Priority: explicit daily data > dew model daily average > humidity estimation
+ *
+ * b35fix464 (C59f): output contract is HOURS PER DAY, not hours per forecast
+ * window. Pre-fix paths 2 and 3 read `dewData.leafWetness.totalWetHours`
+ * directly, but that field is the count of wet hours across the entire
+ * dew-forecast window (default 3-7 days per `dew-prediction-engine.js:508`
+ * lookbackDays + `dew-prediction-engine.js:542` totalWetHours: wetHours.length).
+ * Production verification (gilbasolutions_com 2026-05-12 console log, Canberra
+ * couch-overseed-with-ryegrass site, 8 Drechslera diagnostic emissions all
+ * reading `leafWetness: 104h/day`) confirmed the unit error: 104h cannot fit
+ * inside a 24h day, the value is the 7-day window total being printed as
+ * if it were daily. The 104h figure is consistent with ~14h night-time leaf
+ * wetness × 7 days = 98-104h, exactly matching the cool autumn pattern at
+ * the Canberra site.
+ *
+ * Downstream effect: the model's `moistureFactor` calculation runs through
+ * `calcLeafWetnessResponse(hours)` which has a sigmoid saturation point at
+ * 12h. Any input >= 12h returns 1.0. Pre-fix every cool-season Drechslera
+ * run with any dew engine output silently saturated `moistureFactor` at the
+ * ceiling regardless of actual daily wet hours, inflating riskScore.
+ *
+ * Fix shape mirrors the canonical pattern used by:
+ *   - disease-engine-pure.js:805-812 (averageWetHours preferred, totalWetHours/7 fallback)
+ *   - disease-engine.js:2219-2222 (same priority chain)
+ * Reading averageWetHours directly avoids the off-by-window-length scaling.
+ * The /7 divisor on the totalWetHours fallback reflects the typical 7-day
+ * dew forecast window; it's an approximation when the actual lookbackDays
+ * is shorter, but the canonical fallback in disease-engine-pure.js uses
+ * the same divisor for the same reason and the `Math.min(24, ...)` final
+ * gate clamps any over-estimation.
+ *
+ * Presence-checks at lines 850 + 886 + 1100 + 1134 read `totalWetHours != null`
+ * to test "did the dew engine emit?", not "what is the daily value?", so
+ * those reads remain unchanged. Same for `climate-module-v2.js:571` which
+ * reads totalWetHours into a separate dormancy context (logged as C59h
+ * candidate, different bug class).
  */
 function getBipolarisLeafWetness(climate, dewData) {
     // 1. Check explicit leaf wetness in climate data
     if (climate?.moisture?.leafWetness?.hours != null) {
         return climate.moisture.leafWetness.hours;
     }
-    
-    // 2. Check dew model output
+
+    // 2. Check dew model daily average (b35fix464 / C59f). Prefer the
+    // daily-normalised averageWetHours field. Fall back to totalWetHours / 7
+    // (window total divided by typical 7-day dew forecast window) only when
+    // averageWetHours is absent. Same priority chain as disease-engine-pure.js
+    // and disease-engine.js.
+    if (dewData?.leafWetness?.averageWetHours != null) {
+        return Math.min(24, dewData.leafWetness.averageWetHours);
+    }
     if (dewData?.leafWetness?.totalWetHours != null) {
-        return dewData.leafWetness.totalWetHours;
+        return Math.min(24, dewData.leafWetness.totalWetHours / 7);
     }
-    
-    // 3. Check global dew result (from dew-model.js)
+
+    // 3. Check global dew result (from dew-model.js). Same daily normalisation.
+    if (typeof window !== 'undefined' && window.GAIP_DEW_RESULT?.leafWetness?.averageWetHours != null) {
+        return Math.min(24, window.GAIP_DEW_RESULT.leafWetness.averageWetHours);
+    }
     if (typeof window !== 'undefined' && window.GAIP_DEW_RESULT?.leafWetness?.totalWetHours) {
-        return window.GAIP_DEW_RESULT.leafWetness.totalWetHours;
+        return Math.min(24, window.GAIP_DEW_RESULT.leafWetness.totalWetHours / 7);
     }
-    
+
     // 4. Fallback: estimate from humidity and precipitation
     // b35fix345: when humidity is null, fall back to precipitation-only signal.
-    // Pre-fix `|| 70` planted 70% which slotted into the `humidity > 70` ladder
-    // → estimated = 2 hours regardless of actual conditions. With null, we
+    // Pre-fix `|| 70` planted 70% which slotted into the `humidity > 70` ladder,
+    // estimated = 2 hours regardless of actual conditions. With null, we
     // start from 0 and let precip drive the estimate.
     const humidity = climate?.moisture?.humidity?.mean ?? null;
     const precip = climate?.precipitation?.total || 0;
-    
+
     let estimated = 0;
     if (humidity != null) {
         if (humidity > 95) estimated = 12;
@@ -341,11 +464,11 @@ function getBipolarisLeafWetness(climate, dewData) {
         else if (humidity > 70) estimated = 4;
         else estimated = 2;
     }
-    
+
     // Rain extends leaf wetness
     if (precip > 10) estimated += 4;
     else if (precip > 5) estimated += 2;
-    
+
     return Math.min(24, estimated);
 }
 
@@ -437,40 +560,66 @@ function calcTempResponse_Curvularia(temp) {
 }
 
 /**
- * b35fix362: Literature-based temperature response for Drechslera poae
- * 
- * SOURCES (Tier 2 audit):
- * - Rutgers: "conidial production ceases at temperatures over 68°F (20°C)"
- * - UC IPM: "Cool (50° to 75°F / 10-24°C) moist conditions favor melting out"
- * - Penn State: "cool, wet weather in late-winter and early-spring"
- * - Spain: "above 20°C the germination growth rate is slowly reduced"
- * - MU Extension: "D. poae is inhibited by hot weather"
+ * b35fix461 (C59): CABI 2024 Box 7.7 cardinal temperature response for
+ * Drechslera poae (Pyrenophora poae). Supersedes the b35fix362 piecewise
+ * step curve (peak 15-20 deg C plateau with hard zero above 24 deg C).
  *
- * AUDIT FINDINGS: Literature supports 10-24°C activity range with optimum
- * around 18°C (midpoint of 50-75°F). Replaced fabricated asymmetric Gaussian
- * (σ=8/5) with threshold-based approach reflecting published biology.
+ * AUDIT-FRAMING CORRECTION. The b35fix362 validation was anchored on four
+ * narrative pathogen-biology references (Rutgers Plant and Pest Advisory,
+ * UC IPM Guidelines, Penn State Extension, MU Extension). None of those
+ * sources supply quantitative cardinal temperatures for Pyrenophora poae;
+ * they describe the disease as "cool and wet" without anchoring the upper
+ * bound of activity. The b35fix362 hard zero above 24 deg C was derived
+ * from an operational reading of UC IPM's "50 to 75 deg F" range, not from
+ * a cardinal-temperature measurement. CABI 2024 Box 7.7 publishes the
+ * first peer-reviewed cardinal temperatures for the species:
+ *
+ *   Fungal growth optimum    18 deg C, range 3 to 30 deg C
+ *   Sporulation optimum      13 to 19 deg C, range 6 to 20 deg C
+ *   Spore germination and    6 to 30 deg C
+ *     penetration
+ *   Penetration optimum      18 to 24 deg C
+ *
+ * The 24 deg C operational ceiling in b35fix362 contradicts CABI Box 7.7
+ * which extends fungal growth and penetration activity to 30 deg C. The
+ * b35fix461 curve replaces the step plateau with an asymmetric Gaussian
+ * centred at 18 deg C (CABI fungal-growth optimum), with sigma chosen to
+ * anchor on the CABI cardinal-temperature endpoints:
+ *
+ *   Cold tail sigma 5: at 8 deg C exp(-2.0) = 0.135 (just inside CABI
+ *     sporulation lower bound 6 deg C); at 13 deg C exp(-0.5) = 0.607
+ *     (CABI sporulation lower-bound optimum).
+ *   Warm tail sigma 6: at 24 deg C exp(-0.5) = 0.607 (CABI penetration
+ *     upper-bound optimum); at 30 deg C exp(-2.0) = 0.135 (CABI fungal-
+ *     growth and germination upper bound).
+ *
+ * Hard-zero gates retained outside CABI active range (below 3 deg C and
+ * above 30 deg C) for clean degraded-input behaviour, returning 0.05
+ * residual rather than zero so a missing-data fallthrough does not silently
+ * suppress the entire risk channel.
+ *
+ * Source: Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ * Biology and Integrated Management of Turfgrass Diseases. CABI,
+ * Wallingford. ISBN 9781789246216. Ch.7 p.174-180 + Box 7.7.
+ *
+ * Cross-references (narrative biology, not cardinal-temperature anchors):
+ * Rutgers Plant and Pest Advisory; UC IPM Guidelines; Penn State Extension
+ * (Landschoot 2024); MU Extension.
  */
 function calcTempResponse_DrechsleraPoae(temp) {
-    // b35fix362: Literature-based temperature response
-    if (temp < 5) return 0.05;    // Minimal activity in cold (vs fabricated 0.1)
-    if (temp > 24) return 0.05;   // Inhibited by heat >24°C (vs fabricated >30°C)
-    
-    // Peak activity 15-20°C (literature: cool, wet conditions)
-    if (temp >= 15 && temp <= 20) {
-        return 1.0;
+    // b35fix461 (C59): CABI 2024 Box 7.7 asymmetric Gaussian curve.
+    if (temp == null || isNaN(temp)) return 0;
+    if (temp < 3) return 0.05;    // Below CABI fungal-growth lower bound
+    if (temp > 30) return 0.05;   // Above CABI fungal-growth upper bound
+
+    const optimum = 18;           // CABI fungal-growth optimum
+    if (temp < optimum) {
+        // Cold tail sigma 5: anchors 8 deg C at 0.135, 13 deg C at 0.607
+        return Math.exp(-0.5 * Math.pow((temp - optimum) / 5, 2));
+    } else {
+        // Warm tail sigma 6: anchors 24 deg C at 0.607, 30 deg C at 0.135
+        return Math.exp(-0.5 * Math.pow((temp - optimum) / 6, 2));
     }
-    
-    // Moderate activity 10-15°C and 20-24°C  
-    if ((temp >= 10 && temp < 15) || (temp > 20 && temp <= 24)) {
-        return 0.6;
-    }
-    
-    // Declining activity at temperature extremes
-    if (temp >= 5 && temp < 10) {
-        return 0.3;  // Some activity in cool conditions
-    }
-    
-    return 0.1;  // Minimal activity outside optimal range
 }
 
 /**
@@ -588,7 +737,7 @@ const BipolarisCynodontisModel = {
                 displayName: 'Bipolaris Leaf Spot (B. cynodontis)',
                 riskScore: 0, rawRisk: 0, riskLevel: 'low',
                 confidence: 'low', confidenceScore: 30, degraded: true,
-                source: 'BipolarisCynodontisModel — degraded: temperature missing (b35fix345)',
+                source: 'BipolarisCynodontisModel, degraded: temperature missing (b35fix345)',
                 drivers: { temperature: { value: null, status: 'missing' },
                            humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
             };
@@ -883,7 +1032,7 @@ const BipolarisSorokinianaModel = {
                 displayName: 'Bipolaris Leaf Spot/Blight (B. sorokiniana)',
                 riskScore: 0, rawRisk: 0, riskLevel: 'low',
                 confidence: 'low', confidenceScore: 30, degraded: true,
-                source: 'BipolarisSorokinianaModel — degraded: temperature missing (b35fix345)',
+                source: 'BipolarisSorokinianaModel, degraded: temperature missing (b35fix345)',
                 drivers: { temperature: { value: null, status: 'missing' },
                            humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
             };
@@ -1123,7 +1272,7 @@ const CurvulariaBlightModel = {
                 displayName: 'Curvularia Blight',
                 riskScore: 0, rawRisk: 0, riskLevel: 'low',
                 confidence: 'low', confidenceScore: 30, degraded: true,
-                source: 'CurvulariaModel — degraded: temperature missing (b35fix345)',
+                source: 'CurvulariaModel, degraded: temperature missing (b35fix345)',
                 drivers: { temperature: { value: null, status: 'missing' },
                            humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
             };
@@ -1303,20 +1452,29 @@ const DrechsleraPoaeModel = {
         const temp = climate?.temperature?.mean ?? null;
         const humidity = climate?.moisture?.humidity?.mean ?? null;
         if (temp == null) {
-            // b35fix360: degraded-path diagnostic. Mirrors the symmetric
-            // pattern Helminthosporium (b35fix353a/359), Pythium (b35fix351),
-            // Anthracnose (b35fix346), and BrownPatch use — explicit degraded
+            // b35fix464 (C59c): degraded-path diagnostic header bumped from
+            // b35fix360 to b35fix461 to reflect post-curve-refinement state.
+            // The degraded gate itself is unchanged from b35fix360 - the
+            // bump is hygiene only, not a behaviour change.
+            //
+            // Pre-b35fix464 header text mirrored the symmetric pattern of
+            // HelminthosporiumModel (b35fix353a/359), Pythium (b35fix351),
+            // Anthracnose (b35fix346), and BrownPatch - explicit degraded
             // console group so production logs show whether DrechsleraPoaeModel
-            // is being reached and degraded honestly when temperature is missing.
-            // Pre-b35fix360 the model ran silently so production verification
-            // of the b35fix359 cool-season coverage closure (Finding #2) had
-            // no observability hook.
+            // is being reached and degraded honestly when temperature is
+            // missing. Pre-b35fix360 the model ran silently so production
+            // verification of the b35fix359 cool-season coverage closure
+            // (Finding #2) had no observability hook. That observability
+            // hook is preserved; only the build-tag on the header string is
+            // updated to point at the most recent material change to the
+            // model (b35fix461 curve refinement) rather than the original
+            // b35fix360 instrumentation build.
             if (typeof console !== 'undefined') {
-                console.group('[DrechsleraPoaeModel.calculate() diagnostic — b35fix360 degraded]');
+                console.group('[DrechsleraPoaeModel.calculate() diagnostic, b35fix461 degraded]');
                 console.log('species         :', species || 'n/a (not provided to model)');
                 console.log('temp            : n/a (no data)');
                 console.log('humidity        :', humidity != null ? humidity.toFixed(1) + '%' : 'n/a');
-                console.log('riskScore       : 0 (DEGRADED — DrechsleraPoaeModel temperature input missing)');
+                console.log('riskScore       : 0 (DEGRADED, DrechsleraPoaeModel temperature input missing)');
                 console.groupEnd();
             }
             return {
@@ -1324,7 +1482,7 @@ const DrechsleraPoaeModel = {
                 displayName: 'Melting-Out (Drechslera poae)',
                 riskScore: 0, rawRisk: 0, riskLevel: 'low',
                 confidence: 'low', confidenceScore: 30, degraded: true,
-                source: 'DrechsleraPoaeModel — degraded: temperature missing (b35fix345)',
+                source: 'DrechsleraPoaeModel, degraded: temperature missing (b35fix345)',
                 drivers: { temperature: { value: null, status: 'missing' },
                            humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
             };
@@ -1410,23 +1568,36 @@ const DrechsleraPoaeModel = {
         
         riskScore = Math.min(100, Math.max(0, riskScore));
 
-        // b35fix360: real-data diagnostic. Stylistic shape mirrors
-        // HelminthosporiumModel (b35fix359), Anthracnose (b35fix346), and
-        // BrownPatch (b35fix340). Surfaces species, the cool-season
-        // tempResponse value (which is the b35fix359 closure's behaviour
-        // pin — non-zero on cool-spring tall fescue), the moisture factor,
-        // disease phase, and the rounded riskScore. Production-verification
-        // hook for the b35fix359 cool-season coverage closure: confirms
-        // DrechsleraPoaeModel actually fires with non-zero output on real
-        // cool-season climate after the tallFescue susceptibility bump.
+        // b35fix464 (C59c): real-data diagnostic.
+        //
+        // Pre-b35fix464 the header tag was `b35fix360` and the tempResponse
+        // descriptor read "literature-based thresholds, peak 15-20°C,
+        // active 10-24°C, inhibited >24°C". Both were stale post-b35fix461:
+        // the header tag had not been bumped after the b35fix461 curve
+        // refinement, and the descriptor described the PRE-b35fix461
+        // piecewise step curve that was replaced with the CABI 2024 Box 7.7
+        // asymmetric Gaussian. Production verification (Canberra cool-season
+        // log 2026-05-12) confirmed the numerical values matched the
+        // Gaussian curve (tempResponse 0.478 at 11.9°C is consistent with
+        // exp(-((11.9-18)^2)/(2*5^2)) = 0.475, NOT consistent with the
+        // pre-fix step curve which would have returned a flat low value
+        // on the 10-15°C ramp). The curve is correct; only the descriptor
+        // text and the header tag are stale. C59c closes both.
+        //
+        // Stylistic shape still mirrors HelminthosporiumModel, Anthracnose,
+        // and BrownPatch diagnostic blocks. Surfaces species, the cool-season
+        // tempResponse value, the moisture factor, disease phase, and the
+        // rounded riskScore. Production-verification hook for the b35fix461
+        // wire-in: confirms DrechsleraPoaeModel actually fires with the
+        // post-b35fix461 Gaussian curve on real cool-season climate.
         if (typeof console !== 'undefined') {
-            console.group('[DrechsleraPoaeModel.calculate() diagnostic — b35fix360]');
+            console.group('[DrechsleraPoaeModel.calculate() diagnostic, b35fix461]');
             console.log('species         :', species || 'n/a (not provided to model)');
             console.log('temp            :', temp.toFixed(1) + '°C', '(period mean)');
             console.log('humidity        :', humidity != null ? humidity.toFixed(1) + '%' : 'n/a');
             console.log('leafWetness     :', leafWetness + 'h/day');
             console.log('tempResponse    :', tempResponse.toFixed(4),
-                        '(literature-based thresholds, peak 15-20°C, active 10-24°C, inhibited >24°C)');
+                        '(CABI 2024 Box 7.7 asymmetric Gaussian, centre 18°C, cold-tail σ=5, warm-tail σ=6, hard-zero <3°C or >30°C)');
             console.log('moistureFactor  :', moistureFactor.toFixed(4),
                         '(0.7 × leafWetResponse + 0.3 × humidityContrib)');
             console.log('diseasePhase    :', diseasePhase, phaseNote ? '(' + phaseNote + ')' : '');
@@ -1469,7 +1640,7 @@ const DrechsleraPoaeModel = {
                         ? '⚠️ High N increasing disease pressure' : null
                 }
             },
-            source: 'DrechsleraPoaeModel — Gilba operational based on Penn State Extension (Landschoot 2024) epidemiology (b35fix362 Tier 2 audit)'
+            source: 'DrechsleraPoaeModel, Gilba operational based on Penn State Extension (Landschoot 2024) epidemiology (b35fix362 Tier 2 audit)'
         };
     },
     
@@ -1859,86 +2030,60 @@ function analyseBipolarisCurvularia(state) {
 // =============================================================================
 
 /**
- * Patch main DiseaseEngine with Bipolaris/Curvularia models
- * 
- * NOTE: Beta diseases are HIDDEN from production UI by default.
- * Set window.GAIP_SHOW_BETA_DISEASES = true to enable display.
+ * patchDiseaseEngineWithBipolaris (b35fix464 / C59d retired to no-op).
+ *
+ * RETIRED 2026-05-12. This function previously wrapped
+ * `window.DiseaseEngine.analyse` to post-process the legacy engine's
+ * results - filtering out the original `helminthosporium` disease entry,
+ * running `analyseBipolarisCurvularia`, splicing the four cool-season
+ * leaf-spot results back in, re-sorting, and rebuilding topThreats.
+ *
+ * Three independent reasons the wrap is dead in production:
+ *
+ *   1. The legacy `DiseaseEngine.analyse` itself is a stub since the
+ *      b35fix328+ cutover. It carries `_isStub: true`, logs a console
+ *      warning, and delegates to `DiseaseEnginePure.analyse`. See
+ *      `assets/disease-engine.js:2803-2818`.
+ *
+ *   2. The canonical disease orchestration in `disease-integration.js`
+ *      routes directly through `DiseaseEnginePure.analyse(pureInputs)`
+ *      when `GILBA_USE_PURE_DISEASE !== false` (default true per
+ *      `disease-engine-pure.js:5330`). It never calls
+ *      `DiseaseEngine.analyse` so the wrap is never invoked on the
+ *      production path.
+ *
+ *   3. b35fix461 / C59 wired DrechsleraPoaeModel directly into
+ *      `DiseaseEnginePure.analyse()` via the dispatcher block adjacent
+ *      to Helminthosporium with DISPATCHER_GATES + DISEASE_DISPLAY_NAMES
+ *      + 12-row SPECIES_SUSCEPTIBILITY column. The cool-season Drechslera
+ *      flow that this wrap was originally needed for now runs through
+ *      the pure-engine dispatcher. The wrap's post-process logic
+ *      (filter helminthosporium, splice Bipolaris/Curvularia/Drechslera,
+ *      rebuild topThreats) is therefore not the canonical surface even
+ *      if the wrap somehow fired.
+ *
+ * Same architectural shape as C64 / b35fix459 `patchDiseaseForecast`
+ * retirement which removed the analogous wrap on RedThreadModel.
+ *
+ * Function identifier and the window + module exports are preserved so
+ * any legacy external caller does not crash. The body is replaced with
+ * an early-return false so the wrap reports "not installed" without
+ * mutating the legacy stub. Auto-fire at the DOMContentLoaded handler
+ * below still calls the function; the call returns false silently.
+ *
+ * If a future regression surfaces a code path that genuinely needs the
+ * post-process, the right shape is to add that logic to
+ * `DiseaseEnginePure.analyse()` directly, not to revive this wrap.
+ *
+ * The detached `analyseBipolarisCurvularia` helper above (which this
+ * wrap used to call) remains live and is still invoked from the pure
+ * engine dispatcher for cool-season hosts.
  */
 function patchDiseaseEngineWithBipolaris() {
-    if (typeof window === 'undefined' || !window.DiseaseEngine) {
-        console.warn('DiseaseEngine not found - Bipolaris/Drechslera models not patched');
-        return false;
-    }
-    
-    const originalAnalyse = window.DiseaseEngine.analyse;
-    
-    window.DiseaseEngine.analyse = function(state) {
-        // Call original analysis
-        const results = originalAnalyse.call(this, state);
-        
-        // =========================================================================
-        // BETA DISEASE FILTER (v3.0.1) — b35fix362 partial ungating
-        // =========================================================================
-        // 
-        // b35fix362: DrechsleraPoaeModel passed Tier 2 audit and is ungated for
-        // production use. Literature-based temperature response and weighted-sum
-        // coefficients provide sufficient validation for cool-season coverage.
-        //
-        // Other Bipolaris/Curvularia models remain beta-gated pending audit.
-        // 
-        const showBetaDiseases = window.GAIP_SHOW_BETA_DISEASES === true;
-        const allowDrechsleraPoae = true; // b35fix362: ungated after Tier 2 audit
-        
-        if (!showBetaDiseases && !allowDrechsleraPoae) {
-            return results;
-        }
-        
-        const species = state.species || 'perennialRyegrass';
-        
-        // Determine grass type
-        const warmSeasonGrasses = ['bermuda', 'couch', 'ultradwarf', 'zoysia', 'kikuyu', 'buffalo', 'paspalum'];
-        const coolSeasonGrasses = ['bentgrass', 'perennialRyegrass', 'kentuckyBluegrass', 'tallFescue', 'poaAnnua'];
-        
-        const isWarmSeason = warmSeasonGrasses.includes(species);
-        const isCoolSeason = coolSeasonGrasses.includes(species);
-        
-        if (results && results.diseases) {
-            // Remove old helminthosporium model results (being replaced)
-            results.diseases = results.diseases.filter(d => d.disease !== 'helminthosporium');
-            
-            // Run new leaf spot complex analysis
-            const leafSpotResults = analyseBipolarisCurvularia(state);
-            
-            if (leafSpotResults && leafSpotResults.length > 0) {
-                // Add new results
-                results.diseases.push(...leafSpotResults);
-                
-                // Re-sort by adjusted risk
-                results.diseases.sort((a, b) => b.adjustedRisk - a.adjustedRisk);
-                
-                
-                // Update top threats
-                results.topThreats = results.diseases.slice(0, 3).map(d => ({
-                    disease: d.displayName,
-                    risk: d.adjustedRisk,
-                    level: d.riskLevel,
-                    primaryDriver: d.primaryDriver,
-                    validationBadge: d.validationBadge || null,
-                    coInfectionSynergy: !!d.coInfectionSynergy
-                }));
-                
-                // Add co-infection warning to results if present
-                const coInfectedDisease = leafSpotResults.find(d => d.coInfectionSynergy?.active);
-                if (coInfectedDisease) {
-                    results.coInfectionWarning = coInfectedDisease.coInfectionSynergy;
-                }
-            }
-        }
-        
-        return results;
-    };
-    
-    return true;
+    // Retired no-op. See JSDoc above for the three reasons this wrap is
+    // dead in production. The function returns false to signal "not
+    // installed" without mutating the legacy stub.
+    return false;
 }
 
 

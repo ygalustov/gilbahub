@@ -56,17 +56,17 @@
     // =========================================================================
 
     function esc(v) {
-        if (v === null || v === undefined) return '—';
+        if (v === null || v === undefined) return '-';
         return String(v);
     }
 
     function pct(v, decimals) {
-        if (v === null || v === undefined) return '—';
+        if (v === null || v === undefined) return '-';
         return (Math.round(v * Math.pow(10, decimals || 0)) / Math.pow(10, decimals || 0)) + '%';
     }
 
     function round1(v) {
-        if (v === null || v === undefined) return '—';
+        if (v === null || v === undefined) return '-';
         return (Math.round(v * 10) / 10).toString();
     }
 
@@ -158,7 +158,7 @@
         return new D.Paragraph({
             children: [
                 new D.TextRun({ text: label + ':  ', bold: true, size: 20, color: COLOURS.textMid, font: 'Calibri' }),
-                new D.TextRun({ text: String(value || '—'), size: 20, color: colour || COLOURS.textDark, font: 'Calibri' })
+                new D.TextRun({ text: String(value || '-'), size: 20, color: colour || COLOURS.textDark, font: 'Calibri' })
             ],
             spacing: { before: 40, after: 40 }
         });
@@ -218,7 +218,7 @@
         var readinessStatus = eue && eue.venueReadiness ? eue.venueReadiness.status : null;
         var statusText = {
             READY:            'Environment Ready',
-            READY_WITH_NOTES: 'Ready — Minor Constraints',
+            READY_WITH_NOTES: 'Ready, Minor Constraints',
             PARTIALLY_READY:  'Environmental Constraints Present',
             NOT_READY:        'Poor LED Conditions'
         }[readinessStatus] || '';
@@ -270,7 +270,7 @@
     }
 
     function buildEUESection(eue) {
-        if (!eue) return [heading1('2. Venue Environment Assessment'), para('No EUE data available — run analysis first.', { color: COLOURS.textMid })];
+        if (!eue) return [heading1('2. Venue Environment Assessment'), para('No EUE data available, run analysis first.', { color: COLOURS.textMid })];
         var elems = [heading1('2. Venue Environment Assessment')];
         var status = eue.venueReadiness ? eue.venueReadiness.status : 'UNKNOWN';
         var composite = eue.compositeEUE ? Math.round(eue.compositeEUE * 100) : 0;
@@ -286,7 +286,7 @@
             var rows = Object.keys(eue.factors).map(function(k) {
                 var f = eue.factors[k];
                 var eff = f.efficiency !== undefined ? f.efficiency : f.score;
-                var score = eff !== undefined ? Math.round(eff * 100) + '%' : '—';
+                var score = eff !== undefined ? Math.round(eff * 100) + '%' : '-';
                 var status2 = eff === undefined ? 'No data' : eff >= 0.9 ? 'Optimal' : eff >= 0.7 ? 'Sub-optimal' : 'Limiting';
                 var colour = eff === undefined ? COLOURS.textMid : eff >= 0.9 ? COLOURS.gilbaGreen : eff >= 0.7 ? COLOURS.amber : COLOURS.red;
                 return [{ text: factorLabel(k) }, { text: score, color: colour }, { text: status2, color: colour }];
@@ -334,7 +334,7 @@
                 dc.ambient_dli !== undefined && dc.target_dli !== undefined) {
                 var gap = dc.ambient_dli - dc.target_dli;
                 if (gap >= 0) {
-                    elems.push(kv('DLI Gap', 'None — ambient exceeds target by ' + round1(gap) + ' mol/m²/day',
+                    elems.push(kv('DLI Gap', 'None, ambient exceeds target by ' + round1(gap) + ' mol/m²/day',
                         COLOURS.gilbaGreen));
                 } else {
                     elems.push(kv('DLI Deficit', round1(Math.abs(gap)) + ' mol/m²/day supplemental required',
@@ -353,7 +353,7 @@
                 (global.GaipTurfProfile && global.GaipTurfProfile.state && global.GaipTurfProfile.state.variety) || null;
             if (dliVariety === 'generic') dliVariety = null;
             if (dliSpecies && dliVariety) {
-                elems.push(kv('Effective Species', dliSpecies + ' \u2014 ' + dliVariety));
+                elems.push(kv('Effective Species', dliSpecies + ', ' + dliVariety));
             } else if (dliSpecies) {
                 elems.push(kv('Effective Species', dliSpecies));
             }
@@ -362,7 +362,7 @@
             if (turfState && turfState.overseedDominant) {
                 var baseSpecies = turfState.grassSpecies || turfState.warmBase || 'base grass';
                 elems.push(para(
-                    '\u26A0 Overseed dominant \u2014 DLI target reflects ' + dliSpecies +
+                    '\u26A0 Overseed dominant, DLI target reflects ' + dliSpecies +
                     ' overseeded on ' + baseSpecies + '. ' +
                     'Rig requirements will change during transition periods when base grass is dominant.',
                     { size: 18, color: COLOURS.amber }
@@ -378,8 +378,8 @@
 
         // ── RIG SUMMARY ────────────────────────────────────────────────────
         var s = rigData.summary;
-        elems.push(kv('Venue', (rigData.venue && rigData.venue.name) || '—'));
-        elems.push(kv('Rig Model', rigData.rigModel || '—'));
+        elems.push(kv('Venue', (rigData.venue && rigData.venue.name) || '-'));
+        elems.push(kv('Rig Model', rigData.rigModel || '-'));
         elems.push(kv('Analysis Month', monthName(rigData.month)));
         elems.push(new global.docx.Paragraph({ children: [], spacing: { before: 100, after: 100 } }));
 
@@ -417,7 +417,7 @@
 
         var currSymbol = seasonalData.currency === 'GBP' ? '£' : seasonalData.currency === 'EUR' ? '€' : '$';
 
-        elems.push(kv('Rig Model', seasonalData.rigModel || '—'));
+        elems.push(kv('Rig Model', seasonalData.rigModel || '-'));
         elems.push(kv('Currency', seasonalData.currency || 'AUD'));
         // G1: Use venue-configured tariff if available, fall back to seasonalData, then default 0.30
         var venueKwhRate = null;
@@ -437,10 +437,10 @@
                 esc(m.month_name || monthName(m.month)),
                 esc(m.rigs_required),
                 round1(m.hours_per_day),
-                m.ambient_dli !== null && m.ambient_dli !== undefined ? round1(m.ambient_dli) : '—',
-                m.target_dli !== null && m.target_dli !== undefined ? round1(m.target_dli) : '—',
-                m.kwh !== null && m.kwh !== undefined ? Math.round(m.kwh).toLocaleString() : '—',
-                m.cost_formatted || (m.cost !== null && m.cost !== undefined ? currSymbol + Math.round(m.cost).toLocaleString() : '—')
+                m.ambient_dli !== null && m.ambient_dli !== undefined ? round1(m.ambient_dli) : '-',
+                m.target_dli !== null && m.target_dli !== undefined ? round1(m.target_dli) : '-',
+                m.kwh !== null && m.kwh !== undefined ? Math.round(m.kwh).toLocaleString() : '-',
+                m.cost_formatted || (m.cost !== null && m.cost !== undefined ? currSymbol + Math.round(m.cost).toLocaleString() : '-')
             ];
         });
         elems.push(buildTable(mHeaders, mRows));
@@ -489,7 +489,7 @@
             var isOverseed = tps.overseedDominant || tps.overseedSignificant;
             if (isOverseed && baseSpeciesName && speciesName !== baseSpeciesName) {
                 elems.push(kv('Base Species', baseSpeciesName));
-                elems.push(kv('Overseed Species', speciesName || '—'));
+                elems.push(kv('Overseed Species', speciesName || '-'));
                 elems.push(kv('Overseed Status', tps.overseedDominant ? 'Dominant' : 'Establishing'));
             } else if (speciesName) {
                 elems.push(kv('Species', speciesName));
@@ -508,7 +508,7 @@
             var hoc = tps.hoc || turf.hoc || turf.heightOfCut;
             if (hoc) elems.push(kv('HOC', hoc + ' mm'));
             if (!speciesName && !turfType) {
-                elems.push(para('Turf profile data not available — run analysis first.', { size: 20, color: COLOURS.textMid }));
+                elems.push(para('Turf profile data not available, run analysis first.', { size: 20, color: COLOURS.textMid }));
             }
         }
 
@@ -603,7 +603,7 @@
         // Build all sections
         var children = [].concat(
             buildCover(venue, rigData, eue),
-            [heading1('1. Summary'), kv('Venue', (venue && venue.name) || '—'), kv('Date', today()), kv('Rig Model', (rigData && rigData.rigModel) || (seasonalData && seasonalData.rigModel) || '—'), divider()],
+            [heading1('1. Summary'), kv('Venue', (venue && venue.name) || '-'), kv('Date', today()), kv('Rig Model', (rigData && rigData.rigModel) || (seasonalData && seasonalData.rigModel) || '-'), divider()],
             buildEUESection(eue),
             [new D.Paragraph({ children: [new D.PageBreak()], spacing: { before: 0, after: 0 } })],
             buildRigSection(rigData, gaipState),
@@ -620,7 +620,7 @@
 
         var doc = new D.Document({
             creator:     'Gilba Agronomic Intelligence Hub',
-            title:       'LED Lighting Technical Report — ' + venueName,
+            title:       'LED Lighting Technical Report, ' + venueName,
             description: 'Generated by GAIP Hub v' + VERSION,
             styles: {
                 default: {
@@ -639,7 +639,7 @@
                     default: new D.Header({
                         children: [new D.Paragraph({
                             children: [
-                                new D.TextRun({ text: 'Gilba Solutions — LED Technical Report', bold: true, size: 18, color: COLOURS.gilbaGreen, font: 'Calibri' }),
+                                new D.TextRun({ text: 'Gilba Solutions, LED Technical Report', bold: true, size: 18, color: COLOURS.gilbaGreen, font: 'Calibri' }),
                                 new D.TextRun({ text: '    |    ' + venueName, size: 18, color: COLOURS.textMid, font: 'Calibri' })
                             ],
                             border: { bottom: { style: D.BorderStyle.SINGLE, size: 4, color: COLOURS.gilbaGreen } }

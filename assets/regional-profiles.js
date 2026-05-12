@@ -629,12 +629,12 @@
             },
 
             managementNotes: [
-                'Year-round growth — no dormancy period',
+                'Year-round growth, no dormancy period',
                 'Pythium pressure extreme in wet season',
                 'Mowing frequency high year-round',
                 'Heat stress management critical',
                 'C3 grasses not viable year-round',
-                'Northern Hemisphere — June/July/August is peak summer'
+                'Northern Hemisphere, June/July/August is peak summer'
             ]
         },
 

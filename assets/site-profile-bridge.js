@@ -225,19 +225,19 @@
 
         // Don't snapshot during page-load site-config restore — turf state is stale/transitional
         if (global.GAIP_SITE_CONFIG_PENDING === true) {
-            log('Skipping sync for "' + siteName + '" — site-config restore pending');
+            log('Skipping sync for "' + siteName + '", site-config restore pending');
             return;
         }
         // Also check the public API if available
         if (global.GAIP_SiteConfig && typeof global.GAIP_SiteConfig.isRestoring === 'function' &&
             global.GAIP_SiteConfig.isRestoring()) {
-            log('Skipping sync for "' + siteName + '" — site-config isRestoring()');
+            log('Skipping sync for "' + siteName + '", site-config isRestoring()');
             return;
         }
 
         // Don't recreate profiles the user explicitly deleted
         if (wasExplicitlyDeleted(siteName)) {
-            log('Skipping sync for "' + siteName + '" — user deleted this profile');
+            log('Skipping sync for "' + siteName + '", user deleted this profile');
             return;
         }
 
@@ -534,7 +534,7 @@
             }
         }, 3000); // Wait for all systems to settle
 
-        log('v' + VERSION + ' ready — bridging Site Selector ↔ Saved Profiles');
+        log('v' + VERSION + ' ready, bridging Site Selector ↔ Saved Profiles');
     }
 
     // =========================================================================

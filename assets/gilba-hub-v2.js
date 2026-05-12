@@ -355,7 +355,7 @@
           soilTemp: {
             source: null,
             reliability: 0,
-            depths: { d20mm: null, d50mm: null, d100mm: null, d200mm: null },
+            depths: { d20mm: null, d40mm: null, d50mm: null, d100mm: null, d200mm: null },
             mean: null,
             current: null,
             warning: null,
@@ -636,7 +636,7 @@
           soilTemp: {
             source: null,
             reliability: 0,
-            depths: { d20mm: null, d50mm: null, d100mm: null, d200mm: null },
+            depths: { d20mm: null, d40mm: null, d50mm: null, d100mm: null, d200mm: null },
             mean: null,
             current: null,
             warning: null,

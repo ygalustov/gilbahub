@@ -182,6 +182,41 @@ class SiteApiTest extends TestCase
         ]);
     }
 
+    public function test_authenticated_user_can_update_site_config_for_legacy_string_site_id(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/sites/sync', [
+                '_token' => 'test-token',
+                'sites' => [
+                    'my_site' => [
+                        'label' => 'My Site',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.saved', 1);
+
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->putJson('/api/sites/my_site/config/gaip', [
+                '_token' => 'test-token',
+                'config' => [
+                    'turf' => ['species' => 'couch'],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.site_id', 'my_site')
+            ->assertJsonPath('data.config.turf.species', 'couch');
+
+        $this->assertDatabaseHas('site_configs', [
+            'site_id' => 'my_site',
+            'namespace' => 'gaip',
+        ]);
+    }
+
     public function test_authenticated_user_can_store_and_list_samples(): void
     {
         $user = User::factory()->create();

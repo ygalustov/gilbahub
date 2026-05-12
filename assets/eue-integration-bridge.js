@@ -166,7 +166,7 @@
      */
     function recalculate(trigger) {
         if (typeof global.GSSH_EUE === 'undefined') {
-            log('calc', 'GSSH_EUE module not loaded — skipping');
+            log('calc', 'GSSH_EUE module not loaded, skipping');
             return null;
         }
 
@@ -226,10 +226,10 @@
         if (params.wearRecoveryDays != null) {
             if (params.wearRecoveryDays >= 7) {
                 _wearAutoGoal = 'recovery';
-                log('G2', 'Wear recovery ' + params.wearRecoveryDays.toFixed(1) + ' days >= 7 — spectral goal auto-switched to recovery');
+                log('G2', 'Wear recovery ' + params.wearRecoveryDays.toFixed(1) + ' days >= 7, spectral goal auto-switched to recovery');
             } else if (params.wearRecoveryDays >= 4) {
                 _wearAutoGoal = 'strengthening';
-                log('G2', 'Wear recovery ' + params.wearRecoveryDays.toFixed(1) + ' days >= 4 — spectral goal auto-switched to strengthening');
+                log('G2', 'Wear recovery ' + params.wearRecoveryDays.toFixed(1) + ' days >= 4, spectral goal auto-switched to strengthening');
             }
         }
         if (_wearAutoGoal && _wearAutoGoal !== _effectiveGoal) {
@@ -381,7 +381,7 @@
                     if (adjSuppPct >= 10) parts.push('PGR active (' + Math.round(adjSuppPct) + '% growth suppression)');
                     if (dmiActive) parts.push('DMI fungicide active' + (dmiLevel ? ' (' + dmiLevel + ')' : ''));
                     return parts.join(' + ') +
-                        ' — plant DLI requirement reduced ~' + Math.round(dliReductionFactor * 100) + '%.' +
+                        ', plant DLI requirement reduced ~' + Math.round(dliReductionFactor * 100) + '%.' +
                         (reducedHours ? ' Consider reducing LED session to ~' + reducedHours + 'h to avoid energy waste.' : '');
                 })(),
                 citation: 'Kreuser & Soldat (2012) Crop Sci 52:1177; Kageyama et al. (2015) J Jpn Soc Turfgrass Sci 44:14'
@@ -399,7 +399,7 @@
             detail: _lastEUE
         }));
 
-        log('calc', 'EUE complete — composite: ' + _lastEUE.compositeEUE +
+        log('calc', 'EUE complete, composite: ' + _lastEUE.compositeEUE +
             ' readiness: ' + _lastEUE.venueReadiness.status +
             ' limiting: ' + (_lastEUE.primaryLimitingFactor ? _lastEUE.primaryLimitingFactor.factor : 'none'));
 
@@ -512,7 +512,7 @@
                 params.soilMoisturePct = bridged.soilMoisturePct;
             }
         } else {
-            log('params', 'Venue transitioning — skipping stale climate data, using defaults');
+            log('params', 'Venue transitioning, skipping stale climate data, using defaults');
         }
 
         // Direct temperature extraction — rawWeatherData is the most reliable source
@@ -647,7 +647,7 @@
         // Need at least species and some weather to be useful
         if (!params.species) return null;
         if (params.airTempC == null && params.soilTempC == null) {
-            log('params', 'No temperature data available — attempting with defaults');
+            log('params', 'No temperature data available, attempting with defaults');
         }
 
         return params;
@@ -1117,7 +1117,7 @@
                     _lastClimate = metrics;
                     // Also update window.climateMetrics so other modules benefit
                     global.climateMetrics = metrics;
-                    log('climate', 'Venue climate fetched and metrics calculated — air temp: ' +
+                    log('climate', 'Venue climate fetched and metrics calculated, air temp: ' +
                         (metrics.temperature ? (metrics.temperature.todayMean || metrics.temperature.mean) : 'N/A') + '°C');
                 } else {
                     // Use raw data directly as fallback
@@ -1132,7 +1132,7 @@
                 _pendingVenueCoords = null;
                 recalculate('venue_climate_fetch');
             }).catch(function(err) {
-                log('climate', 'Climate fetch failed: ' + err.message + ' — falling back to API');
+                log('climate', 'Climate fetch failed: ' + err.message + ', falling back to API');
                 fetchClimateFromAPI(lat, lng);
             });
         } else {
@@ -1276,7 +1276,7 @@
             var detail = e.detail || {};
             if (detail.lat && detail.lng) {
                 log('climate', 'Venue changed to ' + (detail.venue_name || 'unknown') + 
-                    ' (' + detail.lat + ', ' + detail.lng + ') — fetching climate');
+                    ' (' + detail.lat + ', ' + detail.lng + '), fetching climate');
                 _lastClimate = null;
                 _venueTransitioning = true;
                 _pendingVenueCoords = { lat: detail.lat, lng: detail.lng };
@@ -1287,7 +1287,7 @@
             var detail = e.detail || {};
             if (detail.lat && detail.lng && !_pendingVenueCoords) {
                 // Only if venueSelect didn't already trigger the fetch
-                log('climate', 'Location changed (' + detail.lat + ', ' + detail.lng + ') — fetching climate');
+                log('climate', 'Location changed (' + detail.lat + ', ' + detail.lng + '), fetching climate');
                 _lastClimate = null;
                 _venueTransitioning = true;
                 _pendingVenueCoords = { lat: detail.lat, lng: detail.lng };
@@ -1360,7 +1360,7 @@
         if (_initialized) return;
 
         if (typeof global.GSSH_EUE === 'undefined') {
-            log('init', 'GSSH_EUE not loaded — bridge inactive');
+            log('init', 'GSSH_EUE not loaded, bridge inactive');
             return;
         }
 

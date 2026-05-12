@@ -65,7 +65,12 @@
         var key = (d.key || d.id || d.disease || '').toLowerCase();
         if (key.includes('bipolaris') || name.includes('bipolaris')) return true;
         if (key.includes('curvularia') || name.includes('curvularia')) return true;
-        if (key.includes('drechslera') || name.includes('drechslera') || name.includes('melting-out') || name.includes('melting out')) return true;
+        // b35fix462 (C59g): Drechslera Melting-Out promoted to validated after
+        // b35fix362 Tier 2 audit and b35fix461 CABI 2024 Box 7.7 curve lock.
+        // Model now emits validationStatus: 'validated' from
+        // DRECHSLERA_POAE_VALIDATION_STATUS (bipolaris-curvularia-models.js:176).
+        // Name-match hardcode removed; the validationStatus check on line above
+        // is sufficient should the model ever be reverted to beta.
         if (key.includes('waitea') || name.includes('waitea')) return true;
         return false;
     }
@@ -99,7 +104,7 @@
                 actions.push({
                     engine: 'disease',
                     urgency: URGENCY.CRITICAL,
-                    title: name + ' risk is HIGH — preventive action recommended',
+                    title: name + ' risk is HIGH, preventive action recommended',
                     detail: detail,
                     timeframe: '24–48h',
                     confidence: d.confidence || null
@@ -108,7 +113,7 @@
                 actions.push({
                     engine: 'disease',
                     urgency: URGENCY.WARNING,
-                    title: name + ' risk is MODERATE — monitor closely',
+                    title: name + ' risk is MODERATE, monitor closely',
                     detail: detail,
                     timeframe: '2–4 days',
                     confidence: d.confidence || null
@@ -161,7 +166,7 @@
         var pctRemaining = Math.max(0, 100 - pctComplete);
         var daysRemaining = avgDailyGDD > 0 ? Math.ceil(gddRemaining / avgDailyGDD) : null;
 
-        var detail = product + ' — ' + Math.round(gddAccumulated) + ' / ' + gddThreshold + ' GDD (' + pctComplete + '%)';
+        var detail = product + ', ' + Math.round(gddAccumulated) + ' / ' + gddThreshold + ' GDD (' + pctComplete + '%)';
         if (suppressionPct > 0) detail += ' · ' + suppressionPct + '% suppression';
 
         var reappStatus = effectData.reapplicationStatus || '';
@@ -170,7 +175,7 @@
             actions.push({
                 engine: 'pgr',
                 urgency: URGENCY.CRITICAL,
-                title: product + ' has expired — reapply if needed',
+                title: product + ' has expired, reapply if needed',
                 detail: detail,
                 timeframe: 'Now',
                 confidence: null
@@ -215,7 +220,7 @@
                 actions.push({
                     engine: 'climate',
                     urgency: (stress.heat.days || 0) >= 3 ? URGENCY.WARNING : URGENCY.ADVISORY,
-                    title: 'Heat stress' + (stress.heat.days > 1 ? ' — ' + stress.heat.days + ' days above ' + stress.heat.threshold + '°C' : ' — ' + stress.heat.maxTemp + '°C forecast'),
+                    title: 'Heat stress' + (stress.heat.days > 1 ? ', ' + stress.heat.days + ' days above ' + stress.heat.threshold + '°C' : ', ' + stress.heat.maxTemp + '°C forecast'),
                     detail: stress.heat.recommendation || 'Consider syringing, raised HOC, wetting agent.',
                     timeframe: 'This week',
                     confidence: null
@@ -226,7 +231,7 @@
                 actions.push({
                     engine: 'climate',
                     urgency: URGENCY.WARNING,
-                    title: 'Frost risk — ' + stress.cold.frostDays + ' night' + (stress.cold.frostDays > 1 ? 's' : '') + ' near 0°C',
+                    title: 'Frost risk, ' + stress.cold.frostDays + ' night' + (stress.cold.frostDays > 1 ? 's' : '') + ' near 0°C',
                     detail: stress.cold.recommendation || 'Delay mowing until thaw. Avoid traffic on frosted turf.',
                     timeframe: 'This week',
                     confidence: null
@@ -253,7 +258,7 @@
                 actions.push({
                     engine: 'irrigation',
                     urgency: URGENCY.ADVISORY,
-                    title: 'Rain forecast — consider deferring irrigation',
+                    title: 'Rain forecast, consider deferring irrigation',
                     detail: fi.precip.total + 'mm over ' + fi.precip.days + ' day(s). ' + timing,
                     timeframe: timing || 'This week',
                     confidence: null
@@ -341,7 +346,7 @@
             actions.push({
                 engine: 'soil',
                 urgency: URGENCY.ADVISORY,
-                title: 'Sensor data is ' + daysSinceImport + ' days old — reimport recommended',
+                title: 'Sensor data is ' + daysSinceImport + ' days old, reimport recommended',
                 detail: 'Last import: ' + new Date(importDate).toLocaleDateString() + ' (' + (canonical.sensor.source || 'sensor') + ').',
                 timeframe: 'When convenient',
                 confidence: null
@@ -381,7 +386,7 @@
             actions.push({
                 engine: 'water',
                 urgency: URGENCY.CRITICAL,
-                title: riskIon + ' phytotoxicity risk — irrigate at night',
+                title: riskIon + ' phytotoxicity risk, irrigate at night',
                 detail: 'Foliar damage likely with daytime irrigation. Switch to night cycles.',
                 timeframe: 'Now',
                 confidence: null
@@ -531,7 +536,7 @@
                     surfaceLabel = 'Lawn';
                 }
             } catch(e) {}
-            html += '<div style="font-weight:600; font-size:12px; color:#1e40af; padding:6px 12px 2px; margin-top:4px;">🌿 ' + speciesLabel + surfaceLabel + ' — Disease Alerts</div>';
+            html += '<div style="font-weight:600; font-size:12px; color:#1e40af; padding:6px 12px 2px; margin-top:4px;">🌿 ' + speciesLabel + surfaceLabel + ', Disease Alerts</div>';
             diseaseActions.forEach(function(action) { html += renderAction(action); });
         }
         html += '</div></div>';

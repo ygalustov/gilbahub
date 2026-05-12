@@ -209,7 +209,7 @@
         const styles = document.createElement('style');
         styles.id = 'gaip-dashboard-styles';
         styles.textContent = `
-            /* Dashboard Container — visual weight matches result cards below */
+            /* Dashboard Container, visual weight matches result cards below */
             .gaip-dashboard {
                 margin-bottom: 20px;
                 overflow: hidden;
@@ -280,7 +280,7 @@
                 display: none;
             }
             
-            /* Widget Grid — 3 fixed columns, 2 rows of 3 */
+            /* Widget Grid, 3 fixed columns, 2 rows of 3 */
             .gaip-dashboard-grid {
                 display: grid;
                 grid-template-columns: repeat(3, 1fr);
@@ -292,7 +292,7 @@
                 margin-top: 14px;
             }
             
-            /* Individual Widget — lighter borders inside the dashboard container */
+            /* Individual Widget, lighter borders inside the dashboard container */
             .gaip-widget {
                 background: var(--gaip-surface-muted);
                 border: 1px solid var(--gaip-surface-hover);
@@ -625,7 +625,7 @@
             // Pure C4: show thermal GP with context
             breakdownLabel = `Thermal (warm-season): ${c4Percent}%`;
         } else if (showBoth && c3Percent !== null && c4Percent !== null) {
-            breakdownLabel = `Thermal — C3: ${c3Percent}% · C4: ${c4Percent}%`;
+            breakdownLabel = `Thermal, C3: ${c3Percent}% · C4: ${c4Percent}%`;
         }
 
         const severityClass = gpPercent >= 70 ? 'gaip-severity-low' :
@@ -634,7 +634,7 @@
                         gpPercent >= 40 ? 'gaip-progress-yellow' : 'gaip-progress-red';
 
         widget.innerHTML = `
-            <div class="gaip-widget-value ${severityClass}" title="Weighted growth potential — accounts for temperature, day length and variety adjustment">${gpPercent}<span class="gaip-widget-unit">%</span></div>
+            <div class="gaip-widget-value ${severityClass}" title="Weighted growth potential, accounts for temperature, day length and variety adjustment">${gpPercent}<span class="gaip-widget-unit">%</span></div>
             <div class="gaip-progress-bar">
                 <div class="gaip-progress-fill ${barClass}" style="width: ${Math.min(gpPercent, 100)}%"></div>
             </div>
@@ -999,7 +999,7 @@
                     ? `<div style="margin-top:4px;font-size:0.78em;">${dmi.recommendation}</div>`
                     : '';
                 return `<div style="${style}padding:5px 7px;margin-top:6px;border-radius:3px;font-size:0.8em;line-height:1.35;">
-                    <strong>DMI interaction</strong> — ${dmi.product || 'Active DMI'} (${dmi.pgrSuppression}% PGR suppression)
+                    <strong>DMI interaction</strong>, ${dmi.product || 'Active DMI'} (${dmi.pgrSuppression}% PGR suppression)
                     ${rec}
                 </div>`;
             })()}
@@ -1372,10 +1372,12 @@
                 if (diseaseKey.includes('curvularia') || diseaseName.includes('curvularia')) {
                     return true;
                 }
-                // Drechslera model (Melting-Out)
-                if (diseaseKey.includes('drechslera') || diseaseName.includes('drechslera') || diseaseName.includes('melting-out') || diseaseName.includes('melting out')) {
-                    return true;
-                }
+                // b35fix462 (C59g): Drechslera Melting-Out promoted to validated.
+                // Name-match block removed - model emits validationStatus: 'validated'
+                // (DRECHSLERA_POAE_VALIDATION_STATUS, bipolaris-curvularia-models.js:176)
+                // following b35fix362 Tier 2 audit and b35fix461 CABI 2024 Box 7.7
+                // curve lock. The validationStatus check earlier in this function
+                // is sufficient should the model ever be reverted to beta.
                 // Waitea Patch (Rhizoctonia zeae) - beta model
                 if (diseaseKey.includes('waitea') || diseaseName.includes('waitea')) {
                     return true;
@@ -1818,18 +1820,18 @@
         if (inWindow) {
             // 16–24°C: window is open — AMBER urgent
             bg = 'var(--gaip-warning-bg)'; border = '#f59e0b'; icon = '⚠️';
-            title = 'Spring Dead Spot — Treatment Window Open';
-            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''} is within the preventive application window (16–24°C). Apply fungicide now — SDS cannot be treated curatively. Two applications 28 days apart for high-risk sites.`;
+            title = 'Spring Dead Spot, Treatment Window Open';
+            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''} is within the preventive application window (16–24°C). Apply fungicide now, SDS cannot be treated curatively. Two applications 28 days apart for high-risk sites.`;
         } else if (soilTemp > 24 && soilTemp <= 28) {
             // 24–28°C: approaching — informational
             bg = 'var(--gaip-good-bg)'; border = '#22c55e'; icon = 'ℹ️';
-            title = 'Spring Dead Spot — Window Approaching';
-            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''}. Window opens at 24°C (soil falling). Monitor soil temperature — plan fungicide program now for high-risk sites.`;
+            title = 'Spring Dead Spot, Window Approaching';
+            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''}. Window opens at 24°C (soil falling). Monitor soil temperature, plan fungicide program now for high-risk sites.`;
         } else {
             // <16°C: window has closed
             bg = 'var(--gaip-info-bg)'; border = '#7c3aed'; icon = '📅';
-            title = 'Spring Dead Spot — Window Has Closed';
-            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''} — below treatment threshold (16°C). Next opportunity: autumn when soil cools to 24°C.`;
+            title = 'Spring Dead Spot, Window Has Closed';
+            message = `Soil temperature ${soilTemp}°C${estimated ? ' (est.)' : ''}, below treatment threshold (16°C). Next opportunity: autumn when soil cools to 24°C.`;
         }
 
         const html = `
@@ -1845,7 +1847,7 @@
                 <div style="font-weight: 600; margin-bottom: 4px;">${icon} ${title}</div>
                 <div style="color: var(--gaip-text);">${message}</div>
                 <div style="font-size: 11px; color: var(--gaip-text-secondary); margin-top: 6px;">
-                    Source: Tredway et al. 2020; Hutchens et al. 2024 — <em>Ophiosphaerella narmari</em> (AU primary pathogen)
+                    Source: Tredway et al. 2020; Hutchens et al. 2024, <em>Ophiosphaerella narmari</em> (AU primary pathogen)
                 </div>
             </div>`;
 
@@ -1929,7 +1931,7 @@
             </label>
             <div style="display:flex; gap:8px; align-items:center; margin-bottom:4px;">
                 <select id="gaip-companion-species" style="flex:1; padding:6px 10px; border:1px solid var(--gaip-border); border-radius:4px; font-size:13px; background:var(--gaip-surface); color:var(--gaip-text);">
-                    <option value="">— None (greens only) —</option>
+                    <option value="">, None (greens only),</option>
                     <option value="couch">Couch (Bermudagrass)</option>
                     <option value="kikuyu">Kikuyu</option>
                     <option value="zoysia">Zoysia</option>
@@ -2114,9 +2116,9 @@
             let windowNote = '';
             if (tw) {
                 if (tw.inWindow) {
-                    windowNote = `<span style="color:#b45309; font-weight:600;"> ⚠️ Treatment window open — soil ${tw.soilTemp}°C${tw.soilTempEstimated ? ' (est.)' : ''}</span>`;
+                    windowNote = `<span style="color:#b45309; font-weight:600;"> ⚠️ Treatment window open, soil ${tw.soilTemp}°C${tw.soilTempEstimated ? ' (est.)' : ''}</span>`;
                 } else if (tw.soilTemp != null && tw.soilTemp > 16 && tw.soilTemp < 24) {
-                    windowNote = `<span style="color:var(--gaip-text-secondary);"> Soil ${tw.soilTemp}°C${tw.soilTempEstimated ? ' (est.)' : ''} — ${tw.timing || ''}</span>`;
+                    windowNote = `<span style="color:var(--gaip-text-secondary);"> Soil ${tw.soilTemp}°C${tw.soilTempEstimated ? ' (est.)' : ''}, ${tw.timing || ''}</span>`;
                 }
                 if (tw.timing && !tw.inWindow) {
                     windowNote = `<span style="color:var(--gaip-text-secondary); font-size:11px;"> ${tw.timing}</span>`;
@@ -2127,7 +2129,7 @@
                     <span style="min-width:16px; height:16px; border-radius:50%; background:${colour}; display:inline-block; margin-top:2px; flex-shrink:0;"></span>
                     <div>
                         <span style="font-weight:600;">${d.displayName || d.name}</span>
-                        <span style="color:var(--gaip-text-secondary); font-size:12px;"> — ${label} (${Math.round(risk)}%)</span>
+                        <span style="color:var(--gaip-text-secondary); font-size:12px;">, ${label} (${Math.round(risk)}%)</span>
                         ${windowNote}
                     </div>
                 </div>`;
@@ -2143,7 +2145,7 @@
                 font-size:13px;
             ">
                 <div style="font-weight:600; margin-bottom:8px; color:#3730a3;">
-                    ⛳ ${speciesLabel} Fairway/Tee — Disease Alerts
+                    ⛳ ${speciesLabel} Fairway/Tee, Disease Alerts
                 </div>
                 ${rows}
                 <div style="font-size:11px; color:var(--gaip-text-muted); margin-top:8px;">

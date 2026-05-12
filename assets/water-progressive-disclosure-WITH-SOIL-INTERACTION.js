@@ -134,7 +134,7 @@ function renderWaterProgressiveDisclosure(waterResults, state) {
 // ── RECYCLED WATER ADVISORY RENDERER ────────────────────────────────────────
 function renderRecycledWaterAdvisory(rwResult) {
     let html = '<div class="gaip-recycled-advisory-panel">';
-    html += '<div class="gaip-recycled-advisory-header">♻️ Recycled Water — Nutrient Interaction Advisory</div>';
+    html += '<div class="gaip-recycled-advisory-header">♻️ Recycled Water, Nutrient Interaction Advisory</div>';
     html += '<div class="gaip-recycled-advisory-body">';
 
     if (!rwResult.active) {
@@ -509,15 +509,15 @@ function getPHStatus(value) {
 
 function getCalciumStatus(mgL) {
     // Ayers & Westcot (1985) — Ca in irrigation water; low Ca promotes sodicity
-    if (mgL < 20)  return { label: 'Low', class: 'status-borderline', driver: 'Low Ca — reduced buffering against sodium-induced sodicity', recommendation: 'Monitor SAR closely; consider Ca-containing amendments (gypsum)' };
-    if (mgL <= 200) return { label: 'Adequate', class: 'status-adequate', driver: 'Adequate Ca — good buffering capacity', recommendation: 'No action required' };
+    if (mgL < 20)  return { label: 'Low', class: 'status-borderline', driver: 'Low Ca, reduced buffering against sodium-induced sodicity', recommendation: 'Monitor SAR closely; consider Ca-containing amendments (gypsum)' };
+    if (mgL <= 200) return { label: 'Adequate', class: 'status-adequate', driver: 'Adequate Ca, good buffering capacity', recommendation: 'No action required' };
     return { label: 'High', class: 'status-borderline', driver: 'Elevated Ca may contribute to scale and calcite deposition', recommendation: 'Check LSI; consider water treatment if scale is present' };
 }
 
 function getMagnesiumStatus(mgL) {
     // Ayers & Westcot (1985); Carrow & Duncan (1998)
     if (mgL < 5)   return { label: 'Low', class: 'status-borderline', driver: 'Low Mg may limit plant uptake if soil Mg is borderline', recommendation: 'Supplement with MgSO4 (Epsom salt) if soil Mg is also low' };
-    if (mgL <= 60) return { label: 'Adequate', class: 'status-adequate', driver: 'Adequate Mg — no concerns', recommendation: 'No action required' };
+    if (mgL <= 60) return { label: 'Adequate', class: 'status-adequate', driver: 'Adequate Mg, no concerns', recommendation: 'No action required' };
     return { label: 'Elevated', class: 'status-borderline', driver: 'High Mg relative to Ca can displace Ca on exchange sites', recommendation: 'Check Ca:Mg ratio in soil; apply gypsum if Ca:Mg < 3:1' };
 }
 
@@ -531,9 +531,9 @@ function getPotassiumStatus(mgL) {
 
 function getSulphateStatus(mgL) {
     // Ayers & Westcot (1985) — SO4 up to 1000 mg/L generally tolerated by turfgrass
-    if (mgL < 200)  return { label: 'Low', class: 'status-adequate', driver: 'Low sulphate — no concerns', recommendation: 'No action required' };
-    if (mgL <= 600) return { label: 'Moderate', class: 'status-adequate', driver: 'Moderate sulphate — within normal irrigation range', recommendation: 'No action required; contributes S to plant nutrition' };
-    if (mgL <= 1000) return { label: 'Elevated', class: 'status-borderline', driver: 'Elevated SO4 — monitor total salinity (EC)', recommendation: 'Monitor ECw; ensure adequate leaching fraction' };
+    if (mgL < 200)  return { label: 'Low', class: 'status-adequate', driver: 'Low sulphate, no concerns', recommendation: 'No action required' };
+    if (mgL <= 600) return { label: 'Moderate', class: 'status-adequate', driver: 'Moderate sulphate, within normal irrigation range', recommendation: 'No action required; contributes S to plant nutrition' };
+    if (mgL <= 1000) return { label: 'Elevated', class: 'status-borderline', driver: 'Elevated SO4, monitor total salinity (EC)', recommendation: 'Monitor ECw; ensure adequate leaching fraction' };
     return { label: 'High', class: 'status-deficient', driver: 'High sulphate contributes significantly to EC and total salt load', recommendation: 'Increase leaching fraction; consider water blending or treatment' };
 }
 

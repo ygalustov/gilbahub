@@ -268,7 +268,7 @@
             '  100% { background-position: -200% 0; }',
             '}',
             '',
-            '/* Hide original result blocks — they get moved into cards */',
+            '/* Hide original result blocks, they get moved into cards */',
             '.gaip-results .gaip-result-block { display: none; }',
             '',
             '/* But show them when inside a result card */',
@@ -597,7 +597,8 @@
         header.innerHTML =
             '<span class="gaip-inputs-title">Inputs</span>' +
             '<span class="gaip-inputs-setup-badge">Setup required</span>' +
-            '<span class="gaip-inputs-spacer" aria-hidden="true"></span>';
+            '<span class="gaip-inputs-hint">Soil, water, tissue, PGR, traffic settings</span>' +
+            '<span class="gaip-inputs-toggle">▼</span>';
 
         header.addEventListener('click', function() {
             wrapper.classList.toggle('collapsed');
@@ -626,13 +627,13 @@
             }
         }
         if (!results) {
-            log('WARNING: .gaip-results not found — result cards cannot be created');
+            log('WARNING: .gaip-results not found, result cards cannot be created');
             return;
         }
 
         // Skip if already restructured
         if (results.querySelector('.gaip-result-cards')) {
-            log('Results already restructured — skipping');
+            log('Results already restructured, skipping');
             return;
         }
 
@@ -813,7 +814,7 @@
     function init() {
         var hub = document.getElementById('gaip-hub');
         if (!hub) {
-            log('Hub element not found — deferring');
+            log('Hub element not found, deferring');
             setTimeout(init, 500);
             return;
         }
@@ -824,7 +825,7 @@
         // insertion point and crashes.
         var dashboard = document.getElementById('gaip-daily-dashboard');
         if (!dashboard) {
-            log('Dashboard not initialized yet — deferring 500ms');
+            log('Dashboard not initialized yet, deferring 500ms');
             setTimeout(init, 500);
             return;
         }
@@ -842,7 +843,7 @@
 
         // Listen for analysis completion
         document.addEventListener('gaip:analysis-complete', function() {
-            log('Analysis complete — moving blocks and updating statuses');
+            log('Analysis complete, moving blocks and updating statuses');
             var results = hub.querySelector('.gaip-results') || document.querySelector('.gaip-results');
             if (results) {
                 moveResultBlocks(results);

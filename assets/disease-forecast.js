@@ -573,6 +573,37 @@ var DiseaseForecast = (function() {
         return Math.min(100, Math.max(0, Math.round(risk)));
     }
 
+    /**
+     * Calculate Red Thread (Laetisaria fuciformis) daily risk for forecast
+     * timeline (b35fix459 / C64 - engine wire-in).
+     *
+     * Thin delegation wrapper around the standalone red-thread-model.js
+     * GAIP_RedThreadModel.calculateDaily helper. Defensive null check: if
+     * red-thread-model.js failed to load, returns 0 silently. Daily-shape
+     * variant of the main analyse() dispatcher block in disease-engine-pure.js
+     * line ~4980; same neutral-baseline invocation (species='perennialRyegrass',
+     * region='neutral' so the standalone module's internal regional modifier
+     * stays at 1.0 and the forecast's own susceptibility multiplier in the
+     * main loop at line ~1331 applies the per-species scaling instead).
+     *
+     * The 4-arg form is needed because RedThreadModel.calculateDaily reads
+     * options.species and options.region; the daily forecast loop at
+     * line ~1331 was 3-arg pre-b35fix459 (dayClimate, nitrogen, variety)
+     * with options omitted, falling through to the standalone module's
+     * defaults (species='perennialRyegrass', region='uk_ireland' which
+     * would apply 1.3x regional pressure silently). The pure-engine
+     * dispatcher and this forecast wrapper deliberately override both.
+     */
+    function calcRedThreadDaily(dayClimate, nitrogen, variety, options) {
+        var rt = typeof window !== 'undefined'
+            ? window.GAIP_RedThreadModel
+            : (typeof global !== 'undefined' ? global.GAIP_RedThreadModel : null);
+        if (!rt || typeof rt.calculateDaily !== 'function') return 0;
+        var rtOpts = { species: 'perennialRyegrass', region: 'neutral' };
+        if (options && typeof options.tissueN === 'number') rtOpts.tissueN = options.tissueN;
+        return rt.calculateDaily(dayClimate, nitrogen, variety, rtOpts);
+    }
+
     // =========================================================================
     // DISEASE CALCULATOR MAP
     // =========================================================================
@@ -585,24 +616,42 @@ var DiseaseForecast = (function() {
         fusarium: { name: 'Fusarium', calc: calcFusariumDaily, beta: false },
         grayLeafSpot: { name: 'Gray Leaf Spot', calc: calcGrayLeafSpotDaily, beta: false },
         bipolaris: { name: 'Bipolaris Leaf Spot', calc: calcBipolarisDaily, beta: true },
-        drechslera: { name: 'Drechslera Melting-Out', calc: calcDrechsleraDaily, beta: true }
+        // b35fix462 (C59g): Drechslera Melting-Out promoted from beta to validated.
+        // DrechsleraPoaeModel emits validationStatus: 'validated' after b35fix362
+        // Tier 2 audit and b35fix461 CABI 2024 Box 7.7 curve lock. Registry flag
+        // cleared so the forecast chart, peak-risk surface and BETA legend stop
+        // marking Drechslera as beta.
+        drechslera: { name: 'Drechslera Melting-Out', calc: calcDrechsleraDaily, beta: false },
+        // b35fix459 (C64): Red Thread engine wire-in. Heuristic confidence-low
+        // model; included in the daily forecast registry so timeline chart
+        // and forecast peak-risk surface Red Thread risk on cool-season turf
+        // matching the main analyse() dispatcher coverage.
+        redThread: { name: 'Red Thread', calc: calcRedThreadDaily, beta: false, heuristic: true }
     };
 
     // =========================================================================
     // SPECIES SUSCEPTIBILITY (simplified from disease-engine.js)
     // =========================================================================
 
+    // b35fix459 (C64): redThread column added to mirror the pure engine
+    // dispatcher decision. Warm-season values set to 0 so the forecast
+    // timeline does not emit Red Thread on bermuda/couch/kikuyu/zoysia/
+    // buffalo (matches the >0.5 gate in disease-engine-pure.js at the
+    // main analyse() dispatcher). Cool-season values match the pure
+    // engine's susceptibility column. The forecast loop at line ~1331
+    // applies this multiplier as `adjustedRisk = baseRisk * suscept`
+    // so 0 fully suppresses the disease in the timeline output.
     var SPECIES_SUSCEPTIBILITY = {
-        bentgrass: { dollarSpot: 1.3, brownPatch: 1.2, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, grayLeafSpot: 0.3, bipolaris: 0.8, drechslera: 0.6 },
-        perennialRyegrass: { dollarSpot: 1.1, brownPatch: 1.2, pythium: 1.4, anthracnose: 0.8, fusarium: 1.0, grayLeafSpot: 1.5, bipolaris: 1.3, drechslera: 1.2 },
-        kentuckyBluegrass: { dollarSpot: 1.0, brownPatch: 0.9, pythium: 1.1, anthracnose: 0.7, fusarium: 1.2, grayLeafSpot: 0.4, bipolaris: 0.9, drechslera: 1.5 },
-        tallFescue: { dollarSpot: 0.8, brownPatch: 1.4, pythium: 0.9, anthracnose: 0.5, fusarium: 0.7, grayLeafSpot: 0.8, bipolaris: 0.7, drechslera: 0.6 },
-        poaAnnua: { dollarSpot: 1.4, brownPatch: 1.0, pythium: 1.5, anthracnose: 1.8, fusarium: 1.3, grayLeafSpot: 0, bipolaris: 0.8, drechslera: 0.9 },
-        bermuda: { dollarSpot: 0.3, brownPatch: 0.7, pythium: 0.6, anthracnose: 0.3, fusarium: 0, grayLeafSpot: 0.3, bipolaris: 1.4, drechslera: 0.2 },
-        couch: { dollarSpot: 0.3, brownPatch: 0.7, pythium: 0.6, anthracnose: 0.3, fusarium: 0, grayLeafSpot: 0.3, bipolaris: 1.4, drechslera: 0.2 },
-        kikuyu: { dollarSpot: 0.25, brownPatch: 0.5, pythium: 0.6, anthracnose: 0.2, fusarium: 0, grayLeafSpot: 0.2, bipolaris: 1.0, drechslera: 0.3 },
-        zoysia: { dollarSpot: 0.9, brownPatch: 1.0, pythium: 0.7, anthracnose: 0.4, fusarium: 0, grayLeafSpot: 0.4, bipolaris: 1.1, drechslera: 0.3 },
-        buffalo: { dollarSpot: 0.5, brownPatch: 0.6, pythium: 0.5, anthracnose: 0.2, fusarium: 0, grayLeafSpot: 1.6, bipolaris: 0.8, drechslera: 0.2 }
+        bentgrass: { dollarSpot: 1.3, brownPatch: 1.2, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, grayLeafSpot: 0.3, bipolaris: 0.8, drechslera: 0.6, redThread: 0.9 },
+        perennialRyegrass: { dollarSpot: 1.1, brownPatch: 1.2, pythium: 1.4, anthracnose: 0.8, fusarium: 1.0, grayLeafSpot: 1.5, bipolaris: 1.3, drechslera: 1.2, redThread: 1.3 },
+        kentuckyBluegrass: { dollarSpot: 1.0, brownPatch: 0.9, pythium: 1.1, anthracnose: 0.7, fusarium: 1.2, grayLeafSpot: 0.4, bipolaris: 0.9, drechslera: 1.5, redThread: 1.1 },
+        tallFescue: { dollarSpot: 0.8, brownPatch: 1.4, pythium: 0.9, anthracnose: 0.5, fusarium: 0.7, grayLeafSpot: 0.8, bipolaris: 0.7, drechslera: 0.6, redThread: 0.7 },
+        poaAnnua: { dollarSpot: 1.4, brownPatch: 1.0, pythium: 1.5, anthracnose: 1.8, fusarium: 1.3, grayLeafSpot: 0, bipolaris: 0.8, drechslera: 0.9, redThread: 1.0 },
+        bermuda: { dollarSpot: 0.3, brownPatch: 0.7, pythium: 0.6, anthracnose: 0.3, fusarium: 0, grayLeafSpot: 0.3, bipolaris: 1.4, drechslera: 0.2, redThread: 0 },
+        couch: { dollarSpot: 0.3, brownPatch: 0.7, pythium: 0.6, anthracnose: 0.3, fusarium: 0, grayLeafSpot: 0.3, bipolaris: 1.4, drechslera: 0.2, redThread: 0 },
+        kikuyu: { dollarSpot: 0.25, brownPatch: 0.5, pythium: 0.6, anthracnose: 0.2, fusarium: 0, grayLeafSpot: 0.2, bipolaris: 1.0, drechslera: 0.3, redThread: 0 },
+        zoysia: { dollarSpot: 0.9, brownPatch: 1.0, pythium: 0.7, anthracnose: 0.4, fusarium: 0, grayLeafSpot: 0.4, bipolaris: 1.1, drechslera: 0.3, redThread: 0 },
+        buffalo: { dollarSpot: 0.5, brownPatch: 0.6, pythium: 0.5, anthracnose: 0.2, fusarium: 0, grayLeafSpot: 1.6, bipolaris: 0.8, drechslera: 0.2, redThread: 0 }
     };
 
     // =========================================================================
@@ -639,7 +688,7 @@ var DiseaseForecast = (function() {
         var _cmDiag = state.climateMetrics;
         var _hourlyArr = _cmDiag.hourly && _cmDiag.hourly.humidity;
         var _hourlyDataArr = _cmDiag.hourlyData && _cmDiag.hourlyData.relative_humidity_2m;
-        console.log('[DiseaseForecast b35fix355] climateMetrics humidity shape — ' +
+        console.log('[DiseaseForecast b35fix355] climateMetrics humidity shape, ' +
             'moisture.humidity.mean=' + (_cmDiag.moisture && _cmDiag.moisture.humidity ? _cmDiag.moisture.humidity.mean : 'undefined') +
             ' | humidity.mean=' + (_cmDiag.humidity ? _cmDiag.humidity.mean : 'undefined') +
             ' | hourly.humidity[len]=' + (Array.isArray(_hourlyArr) ? _hourlyArr.length : 'n/a') +
@@ -701,10 +750,10 @@ var DiseaseForecast = (function() {
                         // hourly arrays when available.
                         hourlyData: climateMetrics.hourlyData || _adapted.hourlyData || null,
                     });
-                    console.log('[DiseaseForecast b35fix356] humidity fallback fired — adapter resolved ' +
+                    console.log('[DiseaseForecast b35fix356] humidity fallback fired, adapter resolved ' +
                         _adaptedH.mean + '% (state.climateMetrics.moisture.humidity was missing)');
                 } else {
-                    console.log('[DiseaseForecast b35fix356] humidity fallback attempted — adapter returned no usable humidity');
+                    console.log('[DiseaseForecast b35fix356] humidity fallback attempted, adapter returned no usable humidity');
                 }
             } catch (_e) {
                 console.warn('[DiseaseForecast b35fix356] humidity fallback threw:', _e && _e.message);
@@ -1208,7 +1257,11 @@ var DiseaseForecast = (function() {
     }
     
     function isBetaDisease(diseaseKey) {
-        var betaDiseases = ['bipolarisCynodontis', 'bipolarisSorokiniana', 'curvularia', 'drechsleraPoae', 'waiteaPatch', 'helminthosporium'];
+        // b35fix462 (C59g): drechsleraPoae removed from beta array following
+        // promotion to validated (DRECHSLERA_POAE_VALIDATION_STATUS in
+        // bipolaris-curvularia-models.js:176, b35fix362 Tier 2 audit + b35fix461
+        // CABI 2024 Box 7.7 curve lock).
+        var betaDiseases = ['bipolarisCynodontis', 'bipolarisSorokiniana', 'curvularia', 'waiteaPatch', 'helminthosporium'];
         return betaDiseases.indexOf(diseaseKey) !== -1;
     }
     
@@ -1319,6 +1372,17 @@ var DiseaseForecast = (function() {
         var variety = state.varietyTraits || window.selectedVarietyTraits || null;
         var susceptibility = SPECIES_SUSCEPTIBILITY[species] || SPECIES_SUSCEPTIBILITY.perennialRyegrass;
         var dailyClimate = buildDailyClimate(dailyPattern, climateMetrics);
+        // b35fix459 (C64): options bag passed to per-calculator .calc so the
+        // Red Thread wrapper can override the standalone module's species and
+        // region defaults (perennialRyegrass / uk_ireland) and consume
+        // optional tissueN. Most calculators ignore the 4th arg via positional
+        // signature truncation (function calcDollarSpotDaily(dayClimate,
+        // nitrogen, variety) drops options) so the bump is backward-compatible
+        // across the existing registry. Only calcRedThreadDaily reads options.
+        var rtOptions = {
+            species: species,
+            tissueN: (state && state.tissue && typeof state.tissue.N === 'number') ? state.tissue.N : undefined
+        };
         var diseaseForecasts = {};
         for (var diseaseKey in DISEASE_CALCULATORS) {
             if (!DISEASE_CALCULATORS.hasOwnProperty(diseaseKey)) continue;
@@ -1328,7 +1392,7 @@ var DiseaseForecast = (function() {
             var forecast = [];
             for (var d = 0; d < dailyClimate.length; d++) {
                 var dayClimate = dailyClimate[d];
-                var baseRisk = calculator.calc(dayClimate, nitrogenStatus, variety);
+                var baseRisk = calculator.calc(dayClimate, nitrogenStatus, variety, rtOptions);
                 var adjustedRisk = Math.min(100, Math.round(baseRisk * suscept));
                 forecast.push({ day: d, date: dayClimate.date, risk: adjustedRisk });
             }

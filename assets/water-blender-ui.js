@@ -9,13 +9,284 @@
  * DEPENDENCIES:
  * - water-blender.js (core computation)
  * - water-progressive-disclosure.js (result rendering)
- * - jQuery (Hub standard)
  * 
  * ============================================================================
  */
 
-(function($) {
+(function(global) {
     'use strict';
+
+    function createMiniQuery(globalObj) {
+        var listenerRegistry = [];
+
+        function camelCase(value) {
+            return String(value || '').replace(/-([a-z])/g, function(_, char) {
+                return char.toUpperCase();
+            });
+        }
+
+        function normaliseElements(input, context) {
+            if (!input) return [];
+            if (input instanceof MiniQuery) return input.elements.slice();
+            if (typeof input === 'string') {
+                var trimmed = input.trim();
+                if (trimmed.charAt(0) === '<') {
+                    var template = document.createElement('template');
+                    template.innerHTML = trimmed;
+                    return Array.prototype.filter.call(template.content.childNodes, function(node) {
+                        return node.nodeType === 1;
+                    });
+                }
+                var root = context && context.nodeType ? context : document;
+                return Array.from(root.querySelectorAll(trimmed));
+            }
+            if (input === globalObj || input === document || input === window) return [input];
+            if (input.nodeType) return [input];
+            if (Array.isArray(input)) return input.filter(Boolean);
+            if (typeof input.length === 'number') return Array.from(input).filter(Boolean);
+            return [];
+        }
+
+        function setStyle(el, name, value) {
+            if (name.indexOf('-') !== -1) {
+                el.style.setProperty(name, value);
+            } else {
+                el.style[name] = value;
+            }
+        }
+
+        function getDataValue(el, key) {
+            if (!el || !el.dataset) return undefined;
+            var camelKey = camelCase(key);
+            if (Object.prototype.hasOwnProperty.call(el.dataset, camelKey)) {
+                return el.dataset[camelKey];
+            }
+            return el.getAttribute('data-' + key);
+        }
+
+        function MiniQuery(elements) {
+            this.elements = elements || [];
+            this.length = this.elements.length;
+        }
+
+        MiniQuery.prototype.each = function(callback) {
+            this.elements.forEach(function(el, index) {
+                callback.call(el, index, el);
+            });
+            return this;
+        };
+
+        MiniQuery.prototype.on = function(eventSpec, selector, handler) {
+            if (typeof selector === 'function') {
+                handler = selector;
+                selector = null;
+            }
+
+            var parts = String(eventSpec || '').split('.');
+            var eventType = parts[0];
+            var namespace = parts[1] || '';
+
+            this.elements.forEach(function(el) {
+                var wrapped = function(event) {
+                    if (!selector) {
+                        handler.call(el, event);
+                        return;
+                    }
+                    var target = event.target && event.target.closest ? event.target.closest(selector) : null;
+                    if (!target) return;
+                    if (el !== document && el !== window && el !== target && !el.contains(target)) return;
+                    handler.call(target, event);
+                };
+
+                listenerRegistry.push({
+                    element: el,
+                    eventType: eventType,
+                    namespace: namespace,
+                    handler: handler,
+                    selector: selector,
+                    wrapped: wrapped
+                });
+                el.addEventListener(eventType, wrapped);
+            });
+            return this;
+        };
+
+        MiniQuery.prototype.off = function(eventSpec) {
+            var parts = String(eventSpec || '').split('.');
+            var eventType = parts[0] || '';
+            var namespace = parts[1] || '';
+
+            listenerRegistry = listenerRegistry.filter(function(entry) {
+                var sameElement = this.elements.indexOf(entry.element) !== -1;
+                var sameType = !eventType || entry.eventType === eventType;
+                var sameNamespace = !namespace || entry.namespace === namespace;
+                if (sameElement && sameType && sameNamespace) {
+                    entry.element.removeEventListener(entry.eventType, entry.wrapped);
+                    return false;
+                }
+                return true;
+            }, this);
+
+            return this;
+        };
+
+        MiniQuery.prototype.ready = function(callback) {
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', callback, { once: true });
+            } else {
+                callback();
+            }
+            return this;
+        };
+
+        MiniQuery.prototype.is = function(selector) {
+            var el = this.elements[0];
+            if (!el) return false;
+            if (selector === ':checked') return !!el.checked;
+            return el.matches(selector);
+        };
+
+        MiniQuery.prototype.toggle = function(force) {
+            return this.each(function() {
+                var shouldShow = typeof force === 'boolean' ? force : this.style.display === 'none';
+                this.style.display = shouldShow ? '' : 'none';
+            });
+        };
+
+        MiniQuery.prototype.show = function() {
+            return this.each(function() {
+                this.style.display = '';
+            });
+        };
+
+        MiniQuery.prototype.hide = function() {
+            return this.each(function() {
+                this.style.display = 'none';
+            });
+        };
+
+        MiniQuery.prototype.css = function(name, value) {
+            if (typeof name === 'string' && typeof value === 'undefined') {
+                var el = this.elements[0];
+                if (!el) return undefined;
+                return globalObj.getComputedStyle(el).getPropertyValue(name) || el.style[name];
+            }
+
+            return this.each(function() {
+                if (typeof name === 'string') {
+                    setStyle(this, name, value);
+                    return;
+                }
+                Object.keys(name || {}).forEach(function(key) {
+                    setStyle(this, key, name[key]);
+                }, this);
+            });
+        };
+
+        MiniQuery.prototype.removeClass = function(className) {
+            return this.each(function() {
+                this.classList.remove(className);
+            });
+        };
+
+        MiniQuery.prototype.addClass = function(className) {
+            return this.each(function() {
+                this.classList.add(className);
+            });
+        };
+
+        MiniQuery.prototype.hasClass = function(className) {
+            var el = this.elements[0];
+            return !!(el && el.classList.contains(className));
+        };
+
+        MiniQuery.prototype.text = function(value) {
+            if (typeof value === 'undefined') {
+                return this.elements[0] ? this.elements[0].textContent : '';
+            }
+            return this.each(function() {
+                this.textContent = value;
+            });
+        };
+
+        MiniQuery.prototype.val = function(value) {
+            if (typeof value === 'undefined') {
+                return this.elements[0] ? this.elements[0].value : undefined;
+            }
+            return this.each(function() {
+                this.value = value;
+            });
+        };
+
+        MiniQuery.prototype.html = function(value) {
+            if (typeof value === 'undefined') {
+                return this.elements[0] ? this.elements[0].innerHTML : '';
+            }
+            return this.each(function() {
+                this.innerHTML = value;
+            });
+        };
+
+        MiniQuery.prototype.data = function(key) {
+            return getDataValue(this.elements[0], key);
+        };
+
+        MiniQuery.prototype.attr = function(name, value) {
+            if (typeof value === 'undefined') {
+                return this.elements[0] ? this.elements[0].getAttribute(name) : undefined;
+            }
+            return this.each(function() {
+                this.setAttribute(name, value);
+            });
+        };
+
+        MiniQuery.prototype.closest = function(selector) {
+            var matches = this.elements.map(function(el) {
+                return el.closest ? el.closest(selector) : null;
+            }).filter(Boolean);
+            return new MiniQuery(matches);
+        };
+
+        MiniQuery.prototype.find = function(selector) {
+            var matches = [];
+            this.each(function() {
+                matches = matches.concat(Array.from(this.querySelectorAll(selector)));
+            });
+            return new MiniQuery(matches);
+        };
+
+        MiniQuery.prototype.insertAfter = function(target) {
+            var targets = normaliseElements(target);
+            if (!targets.length) return this;
+            var currentTarget = targets[targets.length - 1];
+            this.elements.forEach(function(el) {
+                currentTarget.parentNode.insertBefore(el, currentTarget.nextSibling);
+                currentTarget = el;
+            });
+            return this;
+        };
+
+        MiniQuery.prototype.trigger = function(eventType, extraArgs) {
+            return this.each(function() {
+                var event;
+                if (extraArgs) {
+                    event = new CustomEvent(eventType, { bubbles: true, detail: extraArgs });
+                } else {
+                    event = new Event(eventType, { bubbles: true });
+                }
+                this.dispatchEvent(event);
+            });
+        };
+
+        function $(input) {
+            return new MiniQuery(normaliseElements(input));
+        }
+
+        $.fn = MiniQuery.prototype;
+        return $;
+    }
+
+    var $ = global.jQuery || createMiniQuery(global);
 
     // ========================================================================
     // CONFIGURATION
@@ -530,7 +801,7 @@
         }).join(' + ');
         
         // Date if available
-        var dateStr = blenderState.sampleDate ? ' — ' + blenderState.sampleDate : '';
+        var dateStr = blenderState.sampleDate ? ', ' + blenderState.sampleDate : '';
         
         // Blended water header
         html += '<div style="margin-bottom: 12px; padding: 10px 14px; background: var(--gaip-info-bg); border-radius: 6px;">';
@@ -548,7 +819,7 @@
         if (result.ccpi !== undefined && result.ccpiClassification) {
             var ccpiClass = result.ccpiClassification;
             html += '<div class="gaip-guidance ' + ccpiClass.class + '" style="margin-top:8px;padding:10px 14px;border-radius:8px;font-size:13px;">' +
-                '<strong>CCPI ' + (parseFloat(result.ccpi) || 0).toFixed(2) + ' — ' + ccpiClass.label + ':</strong> ' + ccpiClass.desc +
+                '<strong>CCPI ' + (parseFloat(result.ccpi) || 0).toFixed(2) + ', ' + ccpiClass.label + ':</strong> ' + ccpiClass.desc +
                 '</div>';
         }
 
@@ -684,4 +955,4 @@
         getState: function() { return blenderState; }
     };
 
-})(jQuery);
+})(window);

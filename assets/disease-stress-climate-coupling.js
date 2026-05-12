@@ -135,7 +135,7 @@
                         var severity = Math.min(1, ctx.stressFactors.drought.severity);
                         return 1 - (severity - 0.3) * 0.22;
                     },
-                    reason: 'Drought suppresses mycelial growth — C. jacksonii requires dew/moisture',
+                    reason: 'Drought suppresses mycelial growth, C. jacksonii requires dew/moisture',
                     source: 'Couch 1995; Walsh et al. 1999'
                 },
                 {
@@ -263,7 +263,7 @@
                         var severity = Math.min(1, ctx.stressFactors.drought.severity);
                         return Math.max(0.55, 1 - severity * 0.45);
                     },
-                    reason: 'Water mold requires free water — drought eliminates zoospore activity',
+                    reason: 'Water mold requires free water, drought eliminates zoospore activity',
                     source: 'Nutter & Shane 1983; Smiley et al. 2005'
                 },
                 {
@@ -390,7 +390,7 @@
                         var gpDeficit = (25 - ctx.growthPotential) / 25;
                         return 1 + gpDeficit * 0.20;
                     },
-                    reason: 'Low GP prevents recovery from lesions — damage accumulates',
+                    reason: 'Low GP prevents recovery from lesions, damage accumulates',
                     source: 'Vargas 2005'
                 },
                 {

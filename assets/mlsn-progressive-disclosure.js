@@ -39,7 +39,7 @@ function renderMethodologyHeader(context) {
         config = {
             label: 'Ammonium Acetate',
             fullName: 'Hill Labs NZ Method',
-            description: `Olsen P + NH₄OAc extraction — calibrated for NZ soils (${soilType === 'sands' ? 'sand-based rootzone' : 'native soil'})`,
+            description: `Olsen P + NH₄OAc extraction, calibrated for NZ soils (${soilType === 'sands' ? 'sand-based rootzone' : 'native soil'})`,
             bgColor: 'var(--gaip-warning-bg)',
             borderColor: '#f59e0b',
             textColor: '#92400e',
@@ -49,7 +49,7 @@ function renderMethodologyHeader(context) {
         config = {
             label: 'SLAN',
             fullName: 'Sufficiency Level of Available Nutrients',
-            description: 'Traditional sufficiency-range approach — widely used across all turf types',
+            description: 'Traditional sufficiency-range approach, widely used across all turf types',
             bgColor: 'var(--gaip-info-bg)',
             borderColor: '#3b82f6',
             textColor: '#1e40af',
@@ -59,7 +59,7 @@ function renderMethodologyHeader(context) {
         config = {
             label: 'MLSN',
             fullName: 'Minimum Levels for Sustainable Nutrition',
-            description: 'Threshold-based approach — validated primarily on golf putting greens',
+            description: 'Threshold-based approach, validated primarily on golf putting greens',
             bgColor: 'var(--gaip-good-bg)',
             borderColor: '#10b981',
             textColor: '#065f46',
@@ -818,11 +818,19 @@ function extractRatiosFromHTML(html) {
     // Extract Ca:Mg ratio - handle <strong> tags
     const caMgMatch = html.match(/Ca:Mg ratio<\/strong>\s*≈\s*([\d.]+)\s*–\s*([^<]+)/i);
     if (caMgMatch) {
+        // b35fix440 / C50: derive isMgLow from the upstream interpretation
+        // copy emitted by hub-tissue-v3 generateRatioNotes, which now reports
+        // "below sufficiency floor" when Mg < 50 ppm and a Kopittke-citation
+        // rebuttal otherwise. Without this gate the status badge would paint
+        // "High" on the strength of Ca:Mg > 6 alone, the BCSR-derived rule
+        // retired in b35fix439 OQ-Mulder closure.
+        const interp = caMgMatch[2];
+        const isMgLow = /below sufficiency floor/i.test(interp);
         ratios.push({
             name: 'Ca:Mg',
             value: parseFloat(caMgMatch[1]),
-            status: getMLSNRatioStatus(parseFloat(caMgMatch[1]), 'CaMg'),
-            statusClass: getMLSNRatioStatusClass(parseFloat(caMgMatch[1]), 'CaMg'),
+            status: getMLSNRatioStatus(parseFloat(caMgMatch[1]), 'CaMg', isMgLow),
+            statusClass: getMLSNRatioStatusClass(parseFloat(caMgMatch[1]), 'CaMg', isMgLow),
             interpretation: caMgMatch[2].trim()
         });
     }
@@ -856,12 +864,29 @@ function extractRatiosFromHTML(html) {
 
 /**
  * Get ratio status
+ *
+ * b35fix440 / C50: optional isMgLow flag for the CaMg branch. Pre-fix this
+ * function returned "High" on any Ca:Mg > 6, a BCSR-derived rule that
+ * Kopittke & Menzies (2007) SSSAJ 71:259-265 reviewed and found unsupported
+ * by yield data. Same evidence chain as the b35fix439 OQ-Mulder closure that
+ * retired the Ca:Mg rule from mulders-interaction-checker.js. Post-fix the
+ * "High" status only fires when Ca:Mg > 6 *and* the caller has independent
+ * evidence that Mg is below the sufficiency floor; without that evidence
+ * the ratio status returns "Balanced" because ratio alone is not a deficit
+ * signal. The isMgLow flag defaults to false so any caller that has not
+ * been updated will receive the conservative non-flagging behaviour, which
+ * matches the agronomic intent (no false-positive Mg deficiency calls on
+ * the strength of a high ratio alone).
  */
-function getMLSNRatioStatus(value, ratioType) {
+function getMLSNRatioStatus(value, ratioType, isMgLow) {
     if (ratioType === 'CaMg') {
         if (value < 2) return 'Low';
         if (value <= 6) return 'Balanced';
-        return 'High';
+        // High ratio: only flag as "High" when independently-measured Mg
+        // is below the sufficiency floor (caller responsibility). Otherwise
+        // return "Balanced" so the UI does not paint a caution badge on the
+        // strength of BCSR alone.
+        return isMgLow ? 'High' : 'Balanced';
     } else if (ratioType === 'KMg') {
         if (value < 0.1) return 'Low';
         if (value <= 0.3) return 'Balanced';
@@ -876,9 +901,13 @@ function getMLSNRatioStatus(value, ratioType) {
 
 /**
  * Get ratio status class
+ *
+ * b35fix440 / C50: pass-through isMgLow to getMLSNRatioStatus so the colour
+ * class matches the gated status decision (no caution colour for high Ca:Mg
+ * without independent Mg-low evidence).
  */
-function getMLSNRatioStatusClass(value, ratioType) {
-    const status = getMLSNRatioStatus(value, ratioType);
+function getMLSNRatioStatusClass(value, ratioType, isMgLow) {
+    const status = getMLSNRatioStatus(value, ratioType, isMgLow);
     if (status === 'Balanced') return 'ratio-balanced';
     if (status === 'Low' || status === 'High') return 'ratio-caution';
     return 'ratio-unknown';

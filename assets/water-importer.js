@@ -368,7 +368,7 @@
                 var data = parseGilbaWaterReport(text);
                 var ionCount = Object.keys(data.ions).length;
                 if (ionCount === 0 && !data.pH && !data.EC) {
-                    setStatus('Could not parse water data — is this a Gilba water report?', '#ef4444');
+                    setStatus('Could not parse water data, is this a Gilba water report?', '#ef4444');
                     return;
                 }
                 showPreview(data);

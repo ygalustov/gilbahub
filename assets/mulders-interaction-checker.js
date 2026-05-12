@@ -1,5 +1,5 @@
 /**
- * mulders-interaction-checker.js — v1.0.0
+ * mulders-interaction-checker.js — v1.1.0
  *
  * Mulder's Chart nutrient interaction checker for GAIP Hub.
  * Runs after MLSN/SLAN/NH4OAc sufficiency check and flags antagonistic
@@ -23,13 +23,30 @@
  * Interaction graph source:
  *   Marschner H (2012) Mineral Nutrition of Higher Plants, 3rd ed. Academic Press.
  *   Kopittke PM & Menzies NW (2007) A review of the use of the basic cation
- *     saturation ratio and the "ideal" soil. Soil Sci Soc Am J 71:259–265.
- *   Carrow RN & Duncan RR (1998) Salt-Affected Turfgrass Sites. Ann Arbor Press.
+ *     saturation ratio and the "ideal" soil. Soil Sci Soc Am J 71:259-265.
+ *   Carrow RN, Waddington DV, Rieke PE (2001) Turfgrass Soil Fertility and
+ *     Chemical Problems. John Wiley & Sons. Chapter 5 explicitly recommends
+ *     sufficiency-level (SLAN/MLSN) over BCSR for turf interpretation.
+ *   Leiva Soto A et al. (2023) Calcium-magnesium ratios did not affect crop
+ *     yields in a 6-year field experiment. Soil Sci Soc Am J 87:1373-1385.
  *   Bowman DC et al. (2006) Soil and plant tissue testing for turfgrass.
  *     In: Handbook of Turfgrass Management and Physiology. CRC Press.
  *
+ * b35fix439 (v1.1.0): OQ-Mulder closure. Ca:Mg rule retired. The previous
+ * Ca:Mg threshold (7.0 mass ratio, severeAt 12.0) was attributed to
+ * Carrow & Duncan (1998), but that text is a salinity/sodicity reference
+ * (Salt-Affected Turfgrass Sites) and the Ca:Mg discussion there concerns
+ * Ca displacement of Na on the exchange complex, not Ca-induced Mg
+ * suppression. The ratio rule traces structurally to BCSR, which Kopittke
+ * & Menzies (2007) reviewed and found unsupported by yield data, and
+ * Leiva Soto et al. (2023) confirmed in a 6-year corn/soybean field
+ * trial. K:Mg, K:Ca, and Mg:K rules retained because those are
+ * Marschner-grounded uptake-carrier antagonisms, not BCSR-derived.
+ * The K:Mg co-citation to Carrow & Duncan (1998) was the same
+ * misattribution and has been stripped.
+ *
  * @author Gilba Solutions
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 (function (global) {
@@ -52,10 +69,10 @@
       threshold: 2.5, // mass ratio mg/kg:mg/kg; >2.5 agronomically significant
       severeAt: 5.0, // >5.0 high severity
       severity: "moderate",
-      message: "Elevated K:Mg ratio — excess K competitively suppresses Mg uptake at root level.",
+      message: "Elevated K:Mg ratio, excess K competitively suppresses Mg uptake at root level.",
       detail:
         "K and Mg share cation uptake carriers (high-affinity transport). K:Mg >2.5 (mass ratio) reduces Mg absorption even when soil Mg is above sufficiency threshold. Common on sand profiles with high K fertiliser programs or calcareous irrigation water.",
-      citation: "Marschner 2012; Carrow & Duncan 1998",
+      citation: "Marschner 2012",
     },
     {
       suppressor: "K",
@@ -64,23 +81,24 @@
       threshold: 0.5, // K:Ca mass ratio
       severeAt: 1.0,
       severity: "moderate",
-      message: "Elevated K:Ca ratio — excess K can suppress Ca translocation to shoot tips.",
+      message: "Elevated K:Ca ratio, excess K can suppress Ca translocation to shoot tips.",
       detail:
         "Ca mobility in the phloem is limited; excess K at root level reduces Ca uptake efficiency. Most significant under low-transpiration conditions (shade, dew periods).",
       citation: "Marschner 2012",
     },
-    {
-      suppressor: "Ca",
-      suppressed: "Mg",
-      ratio: "Ca:Mg",
-      threshold: 7.0, // Ca:Mg mass ratio; >7 suppresses Mg
-      severeAt: 12.0,
-      severity: "moderate",
-      message: "Elevated Ca:Mg ratio — high Ca can restrict Mg uptake.",
-      detail:
-        "Ca:Mg mass ratio >7 is associated with Mg deficiency symptoms even when soil Mg is above MLSN floor. Common after heavy liming or on calcareous parent material. Turf-specific threshold from Carrow & Duncan (1998).",
-      citation: "Carrow & Duncan 1998; Kopittke & Menzies 2007",
-    },
+    // ── Ca:Mg rule retired in b35fix439 (v1.1.0) ─────────────────────────
+    // The previous Ca:Mg rule (threshold 7.0, severeAt 12.0, citation
+    // "Carrow & Duncan 1998; Kopittke & Menzies 2007") has been removed.
+    // Carrow & Duncan (1998) is "Salt-Affected Turfgrass Sites" — a
+    // salinity/sodicity reference; its Ca:Mg discussion concerns Ca
+    // displacement of Na on the exchange complex, not Ca-induced Mg
+    // suppression. The threshold itself traces structurally to BCSR,
+    // which Kopittke & Menzies (2007) reviewed and found unsupported by
+    // yield data, and Leiva Soto et al. (2023) confirmed null in a
+    // 6-year corn/soybean field trial (SSSAJ 87:1373-1385). Surviving
+    // K:Mg, K:Ca, and Mg:K rules are Marschner-grounded uptake-carrier
+    // antagonisms, not BCSR-derived, and are retained.
+    // ────────────────────────────────────────────────────────────────────
     {
       suppressor: "Mg",
       suppressed: "K",
@@ -88,7 +106,7 @@
       threshold: 4.0, // Mg:K mass ratio; very high Mg can suppress K
       severeAt: 8.0,
       severity: "moderate",
-      message: "Elevated Mg:K ratio — excess Mg may suppress K uptake.",
+      message: "Elevated Mg:K ratio, excess Mg may suppress K uptake.",
       detail:
         "Less common than K→Mg suppression but occurs on dolomite-heavy or heavily magnesited soils. Turf shows K deficiency symptoms (tip scorch, poor stress tolerance) despite adequate soil K.",
       citation: "Marschner 2012",
@@ -101,7 +119,7 @@
       threshold: 100, // P:Zn mass ratio
       severeAt: 200,
       severity: "moderate",
-      message: "Elevated P:Zn ratio — excess P can induce Zn deficiency.",
+      message: "Elevated P:Zn ratio, excess P can induce Zn deficiency.",
       detail:
         "High soil P inhibits Zn solubilisation and root uptake. Significant on alkaline sands receiving high P inputs. Zn deficiency in turf presents as shortened internodes and pale new growth.",
       citation: "Marschner 2012; Bowman et al. 2006",
@@ -113,7 +131,7 @@
       threshold: 10,
       severeAt: 20,
       severity: "moderate",
-      message: "Elevated P:Fe ratio — excess P can precipitate Fe in the rhizosphere.",
+      message: "Elevated P:Fe ratio, excess P can precipitate Fe in the rhizosphere.",
       detail:
         "P reacts with Fe³⁺ to form insoluble iron phosphates, reducing Fe availability regardless of total soil Fe. Common on alkaline profiles after P fertilisation.",
       citation: "Marschner 2012",
@@ -125,7 +143,7 @@
       threshold: 500,
       severeAt: 1000,
       severity: "moderate",
-      message: "Elevated P:Cu ratio — excess P may reduce Cu availability.",
+      message: "Elevated P:Cu ratio, excess P may reduce Cu availability.",
       detail:
         "Similar mechanism to P:Zn. Cu deficiency in turf is rare but presents as wilting and blue-green discolouration under high P regimes.",
       citation: "Marschner 2012",
@@ -138,7 +156,7 @@
       threshold: 2.5,
       severeAt: 5.0,
       severity: "moderate",
-      message: "Elevated Fe:Mn ratio — excess Fe can suppress Mn uptake.",
+      message: "Elevated Fe:Mn ratio, excess Fe can suppress Mn uptake.",
       detail:
         "Fe and Mn compete for the same root uptake pathway (IRT transporters). High Fe (common after Fe-acidification programs or high-Fe irrigation water) reduces Mn availability. Mn deficiency presents as interveinal chlorosis on young leaves.",
       citation: "Marschner 2012",
@@ -150,7 +168,7 @@
       threshold: 2.0,
       severeAt: 4.0,
       severity: "moderate",
-      message: "Elevated Mn:Fe ratio — excess Mn can suppress Fe uptake.",
+      message: "Elevated Mn:Fe ratio, excess Mn can suppress Fe uptake.",
       detail:
         "High Mn (common at low pH <5.5) competes with Fe for uptake. Fe deficiency under acid conditions is often Mn-induced rather than absolute Fe deficiency. Check pH.",
       citation: "Marschner 2012",
@@ -162,7 +180,7 @@
       threshold: 0.5,
       severeAt: 1.0,
       severity: "moderate",
-      message: "Elevated Zn:Fe ratio — excess Zn may interfere with Fe uptake.",
+      message: "Elevated Zn:Fe ratio, excess Zn may interfere with Fe uptake.",
       detail: "Less common; occurs after heavy Zn fungicide applications (zineb, mancozeb) on low-Fe sandy soils.",
       citation: "Marschner 2012",
     },
@@ -540,7 +558,7 @@
   // =========================================================================
 
   global.GilbaMulders = {
-    version: "1.0.0",
+    version: "1.1.0",
     analyse: analyse,
     // Expose internals for testing
     normaliseToBasis: normaliseToBasis,
@@ -548,5 +566,5 @@
     INTERACTIONS: MULDER_INTERACTIONS,
   };
 
-  console.log("[GilbaMulders] v1.0.0 loaded — " + MULDER_INTERACTIONS.length + " interactions defined");
+  console.log("[GilbaMulders] v1.1.0 loaded, " + MULDER_INTERACTIONS.length + " interactions defined");
 })(window);

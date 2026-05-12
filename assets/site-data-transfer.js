@@ -193,7 +193,7 @@
             URL.revokeObjectURL(url);
         }, 100);
 
-        log('Exported', siteLabel, '—', sampleCount, 'samples →', filename);
+        log('Exported', siteLabel, '-', sampleCount, 'samples →', filename);
         showToast('✓ Exported ' + sampleCount + ' samples for ' + siteLabel);
     }
 
@@ -210,13 +210,13 @@
             try {
                 bundle = JSON.parse(e.target.result);
             } catch (err) {
-                showToast('⚠ Invalid file — not a Gilba Hub export', true);
+                showToast('⚠ Invalid file, not a Gilba Hub export', true);
                 return;
             }
 
             // Basic validation
             if (!bundle.version || !bundle.site || !bundle.samples) {
-                showToast('⚠ File format not recognised — was it exported from the Gilba Hub?', true);
+                showToast('⚠ File format not recognised, was it exported from the Gilba Hub?', true);
                 return;
             }
 
@@ -255,9 +255,6 @@
                     }
 
                     SM.restoreFromPersistence(existing);
-                    document.dispatchEvent(new CustomEvent('gaip:samples-imported', {
-                        detail: { siteId: incomingSiteId, source: 'site-data-transfer' }
-                    }));
                     log('Samples merged for site:', incomingSiteId);
                 } catch (err) {
                     warn('Sample merge failed:', err);
@@ -307,7 +304,7 @@
                 if (store[t]) sampleCount += Object.keys(store[t]).length;
             });
 
-            log('Import complete —', incomingSiteLabel, ':', sampleCount, 'samples');
+            log('Import complete,', incomingSiteLabel, ':', sampleCount, 'samples');
 
             // Switch to the imported site and reload
             setTimeout(function () {
@@ -315,7 +312,7 @@
                 if (SM2 && typeof SM2.setActiveSite === 'function') {
                     SM2.setActiveSite(incomingSiteId);
                 }
-                showToast('✓ Imported ' + sampleCount + ' samples for ' + incomingSiteLabel + ' — reloading…');
+                showToast('✓ Imported ' + sampleCount + ' samples for ' + incomingSiteLabel + ', reloading…');
                 setTimeout(function () { location.reload(); }, 1200);
             }, 300);
         };
@@ -334,7 +331,6 @@
         // Don't inject twice
         if (document.getElementById('gaip-site-export-btn')) return;
 
-        var saveBtn = document.getElementById('gaip-site-save-top');
         var statusSpan = document.getElementById('gaip-site-status-top');
 
         // Export button
@@ -386,12 +382,8 @@
 
         importBtn.addEventListener('click', function () { fileInput.click(); });
 
-        // Keep transfer controls in the main action cluster, before Save Site.
-        if (saveBtn && saveBtn.parentNode === bar) {
-            bar.insertBefore(exportBtn, saveBtn);
-            bar.insertBefore(importBtn, saveBtn);
-            bar.insertBefore(fileInput, saveBtn);
-        } else if (statusSpan && statusSpan.parentNode === bar) {
+        // Insert before the status span (or at end of bar)
+        if (statusSpan && statusSpan.parentNode === bar) {
             bar.insertBefore(exportBtn, statusSpan);
             bar.insertBefore(importBtn, statusSpan);
             bar.insertBefore(fileInput, statusSpan);
@@ -401,7 +393,7 @@
             bar.appendChild(fileInput);
         }
 
-        log('v' + VERSION + ' ready — Export/Import buttons injected');
+        log('v' + VERSION + ' ready, Export/Import buttons injected');
     }
 
     // =========================================================================
@@ -422,7 +414,7 @@
                     injectButtons();
                 } else if (attempts > 20) {
                     clearInterval(interval);
-                    warn('Site selector bar not found after 10s — buttons not injected');
+                    warn('Site selector bar not found after 10s, buttons not injected');
                 }
             }, 500);
         }

@@ -255,6 +255,7 @@
       reliability: 0, // 0-100 confidence score
       depths: {
         d20mm: null, // Germination zone
+        d40mm: null, // SDS infection trigger zone (CABI Ch.6 p.114-121, b35fix458 / C63)
         d50mm: null, // Seed zone / overseed timing
         d100mm: null, // Primary root zone / disease
         d200mm: null, // Deep pathogens
@@ -939,6 +940,10 @@
           if (physicsResult && physicsResult.depths) {
             soilTempDepths = {
               d20mm: physicsResult.depths["20mm"]?.mean ?? null,
+              // b35fix458 (C63): d40mm canonical depth for SDS infection trigger
+              //   per CABI 2024 audit recommendation #2. Physics model evaluates
+              //   the analytical heat-equation solution at the 40mm depth band.
+              d40mm: physicsResult.depths["40mm"]?.mean ?? null,
               d50mm: physicsResult.depths["50mm"]?.mean ?? null,
               d100mm: physicsResult.depths["100mm"]?.mean ?? null,
               d200mm: physicsResult.depths["200mm"]?.mean ?? null,
@@ -966,12 +971,25 @@
       }
     }
 
-    // Populate soil temp state
+    // Populate soil temp state.
+    //
+    // b35fix458b (C63b): fallback-default depths shape must include d40mm
+    //   alongside the existing d20mm / d50mm / d100mm / d200mm keys. Closes
+    //   the C63 producer-side gap surfaced during b35fix458 live verification
+    //   on 2026-05-11: physics-model branch at line 940-951 was edited
+    //   correctly but the fallback default below was missed. Since the
+    //   physics branch is dead in current production (gaip_enhanced_soil_temp
+    //   returns raw T_NNmm series rather than the .depths wrapped shape),
+    //   the fallback is the live writer and must carry d40mm for SDS
+    //   Priority 2 cascade to resolve. Per banked lesson #52 (canonical-state
+    //   writers may emit shape literals at multiple sites within one file;
+    //   schema extensions must be lockstep across all writers).
     GAIP_CANONICAL_STATE.soilTemp = {
       source: soilTempSource,
       reliability: soilTempReliability,
       depths: soilTempDepths || {
         d20mm: soilTempValue,
+        d40mm: soilTempValue,
         d50mm: soilTempValue,
         d100mm: soilTempValue,
         d200mm: soilTempValue,
@@ -2034,7 +2052,7 @@
             citations: [
               'Kingdom Arena turf microclimate (SGL System, 2025)',
               'Lyons E., Rogers Centre retractable roof humidity study (Turf & Rec, 2019)',
-              'Magarey et al. — Estimating Surface Wetness on Plants (DigitalCommons@UNL)',
+              'Magarey et al., Estimating Surface Wetness on Plants (DigitalCommons@UNL)',
               'Sentelhas et al. (2006) Agric. For. Meteorol. 141:105-117',
             ],
             note: 'Update when measured Marvel Stadium canopy microclimate data available.',
@@ -2057,11 +2075,11 @@
           });
         }
 
-        log('disease', 'Roof microclimate modifier applied — humidity:',
+        log('disease', 'Roof microclimate modifier applied, humidity:',
           _baseHumidity + '%', '->', _enclosedHumidity + '%', '| LWD x1.5');
 
       } catch (err) {
-        warn('disease', 'Roof microclimate modifier error — using unmodified inputs:', err);
+        warn('disease', 'Roof microclimate modifier error, using unmodified inputs:', err);
       }
     }
 
@@ -2797,7 +2815,7 @@
     // Priority 3: single-point fallback
     if (soilTempHistory.length === 0 && soilTemp5cm != null) {
       soilTempHistory = [soilTemp5cm];
-      log("pre-emergent", "soilTempHistory: single-point fallback — trend will be zero");
+      log("pre-emergent", "soilTempHistory: single-point fallback, trend will be zero");
     }
 
     // ── Moisture flag (recent rainfall/irrigation mm) ─────────────────────
@@ -2856,7 +2874,7 @@
     // and climate precip may also be null. Default to 0 (dry, conservative).
     if (moistureFlag == null) {
       moistureFlag = 0;
-      log("pre-emergent", "moistureFlag null — defaulting to 0 (site-switch race or no precip data)");
+      log("pre-emergent", "moistureFlag null, defaulting to 0 (site-switch race or no precip data)");
     }
 
     return { soilTemp5cm, soilTempHistory, moistureFlag, selectedSpecies, region, soilTempSource };
@@ -3781,7 +3799,7 @@
         GAIP_CANONICAL_STATE.lon = climate.lon || climate.longitude;
       }
     } catch (e) {
-      warn("climate", "Climate engine error — using empty fallback", e);
+      warn("climate", "Climate engine error, using empty fallback", e);
       _hubState.computed.climate = {};
     }
 
@@ -3888,7 +3906,7 @@
     try {
       calculateStressAggregates();
     } catch (e) {
-      warn("stress", "Stress aggregation error — downstream engines will use defaults", e);
+      warn("stress", "Stress aggregation error, downstream engines will use defaults", e);
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -3940,7 +3958,7 @@
           // Confirm disease result write for dashboard debugging
           warn(
             "disease",
-            `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written — species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
+            `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
           );
           document.dispatchEvent(
             new CustomEvent("gaip:disease-updated", { detail: { result: _hubState.computed.disease } }),
@@ -4088,7 +4106,7 @@
         if (preEmInputs.soilTemp5cm != null) {
           const _h = preEmInputs.soilTempHistory;
           console.log(
-            "[PreEmergent] inputs — soilTemp5cm:",
+            "[PreEmergent] inputs, soilTemp5cm:",
             preEmInputs.soilTemp5cm,
             "historyLen:",
             _h.length,
@@ -4126,9 +4144,9 @@
           if (_priorWasSensor && _currentIsPhysicsSinglePoint) {
             log('pre-emergent',
               'Site-switch race guard: holding prior sensor result (source=' +
-              _priorResult.summary.soilTempSource + ') — current input is ' +
+              _priorResult.summary.soilTempSource + '), current input is ' +
               preEmInputs.soilTempSource + ' single-point, awaiting sensor fetch');
-            console.log('[PreEmergent] race guard — holding prior sensor result, skipping physics single-point');
+            console.log('[PreEmergent] race guard, holding prior sensor result, skipping physics single-point');
           } else {
           const preEmResult = global.GAIP_PreEmergent.analyse(preEmInputs);
           // Stamp source so race guard can check it on next run
@@ -4145,7 +4163,7 @@
           });
           } // end race guard else
         } else {
-          log("pre-emergent", "Skipped — soilTemp5cm not available");
+          log("pre-emergent", "Skipped, soilTemp5cm not available");
         }
       } catch (e) {
         warn("pre-emergent", "Pre-emergent engine error", e);
@@ -4323,7 +4341,7 @@
             var traj = result && result.computed && result.computed.stressTrajectory;
             var preEm = result && result.computed && result.computed.preEmergent;
             console.log(
-              "[Orchestrator] computeAll complete — trajectory:",
+              "[Orchestrator] computeAll complete, trajectory:",
               traj ? "score=" + (traj.summary && traj.summary.currentScore) : "NOT COMPUTED",
             );
             console.log(
@@ -4345,7 +4363,28 @@
     // (disease, PGR, irrigation, stress trajectory) remained stale from
     // the previous site until a manual analysis re-run.
     document.addEventListener("gaip:site-changed", function () {
-      log("integration", "gaip:site-changed — re-triggering computeAll for new site");
+      log("integration", "gaip:site-changed, re-triggering computeAll for new site");
+
+      // b35fix434 / C43: water-state clearance on site-switch.
+      // Mirrors b35fix401 / C16 turf-identity clearance pattern. Three slots
+      // bleed across site-switch because the hub-store inputs.water slot is
+      // not site-scoped at the storage layer (C44, SaaS-port-target):
+      //   1. window.GilbaHub.get('inputs.water') retains prior-site water
+      //      with ions + pH + testDate even when ecw zeroed by some upstream.
+      //   2. window.GAIP_PHYTOTOXICITY_RESULT and window.GAIP_SALINITY_RESULT
+      //      are populated by ANY site's water engine run; no clear hook.
+      //   3. DOM water metadata fields (.gaip-water-source-label / -lab-ref /
+      //      -date) also bleed but are cleared by site-selector-ui.js
+      //      clearWaterForm() which b35fix434 extends in parallel.
+      // C43 closes the water symptom; C44 covers the structural defect.
+      try {
+        if (window.GilbaHub && typeof window.GilbaHub.set === 'function') {
+          window.GilbaHub.set('inputs.water', null);
+        }
+      } catch (_e) {}
+      try { window.GAIP_PHYTOTOXICITY_RESULT = null; } catch (_e) {}
+      try { window.GAIP_SALINITY_RESULT = null; } catch (_e) {}
+
       clearTimeout(_autoComputeTimer);
       _autoComputeTimer = setTimeout(() => {
         // Guard against page-load config restore still in flight.
@@ -4354,7 +4393,7 @@
         // here hits a TIER 0 identity failure (speciesKey missing). Defer to
         // the site-config-applied listener below.
         if (window.GAIP_SITE_CONFIG_PENDING) {
-          log("integration", "gaip:site-changed — config restore pending, deferring to site-config-applied");
+          log("integration", "gaip:site-changed, config restore pending, deferring to site-config-applied");
           _orchestratorDeferredPending = true;
           return;
         }
@@ -4380,7 +4419,7 @@
       if (!_orchestratorDeferredPending) return;
       _orchestratorDeferredPending = false;
       if (_isComputingAll) {
-        log("integration", "gaip:site-config-applied — computeAll already running, skipping deferred run");
+        log("integration", "gaip:site-config-applied, computeAll already running, skipping deferred run");
         return;
       }
       clearTimeout(_autoComputeTimer);
@@ -4390,7 +4429,7 @@
       _autoComputeTimer = setTimeout(() => {
         log(
           "integration",
-          "gaip:site-config-applied — safety-net deferred computeAll (analysis-complete should have handled this)",
+          "gaip:site-config-applied, safety-net deferred computeAll (analysis-complete should have handled this)",
         );
         computeAll().catch((err) => {
           console.error("[Orchestrator] computeAll (site-config-applied safety) FAILED:", err);
@@ -4406,7 +4445,7 @@
     document.addEventListener("gaip:weather-ready", function () {
       if (_weatherReadyFired) return; // only retry once per page load
       _weatherReadyFired = true;
-      log("integration", "gaip:weather-ready — re-triggering computeAll for disease");
+      log("integration", "gaip:weather-ready, re-triggering computeAll for disease");
       clearTimeout(_autoComputeTimer);
       _autoComputeTimer = setTimeout(() => {
         computeAll().catch((err) => {
@@ -4652,7 +4691,7 @@
               global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
               warn(
                 "disease",
-                `[b35fix365 writer2-cascadeCase] GAIP_DISEASE_RESULT written — species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)} diseaseInputs.species: "${diseaseInputs.species || "none"}"`,
+                `[b35fix365 writer2-cascadeCase] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)} diseaseInputs.species: "${diseaseInputs.species || "none"}"`,
               );
             }
           }
@@ -4913,10 +4952,10 @@
                 warn("tissue-corrective", "Pure engine threw", tcErr);
               }
             } else {
-              log("tissue-corrective", "Skipping — no tissue data or no calendar program");
+              log("tissue-corrective", "Skipping, no tissue data or no calendar program");
             }
           } else {
-            log("tissue-corrective", "TissueCorrectiveEngine_Pure not loaded — relying on legacy event path");
+            log("tissue-corrective", "TissueCorrectiveEngine_Pure not loaded, relying on legacy event path");
           }
           break;
 

@@ -30,9 +30,20 @@
  *   Hickey, M.J. et al. (1997). Selection of 'Grasslands Pahia' cotula.
  *     NZ Journal of Agricultural Research 40(3): 379-381.
  *   NZSTI Bowls Chemical Guide 2021-2022 (disease/chemical reference).
+ *   Beehag, Walker, Wong & Kaapro 2024. Biology and Integrated Management of
+ *     Turfgrass Diseases. CABI Wallingford. ISBN 9781789246216. Ch 8 p 215-226
+ *     + Table 8.1 (cotula diseases), consolidates the NZSTI 2008, Christensen
+ *     1989, Howard 2012, Ormsby & Howard 2021, and Ormsby 1990 source chain
+ *     into a single peer-reviewed reference for cotula disease coverage.
+ *     Cited by b35fix457 (C62) disease register, closes CABI audit
+ *     recommendation #8 items (a)/(b)/(c). Item (d) host-class engine gate is
+ *     logged separately for follow-on build.
+ *   Erwin, D.C. & Ribeiro, O.K. 1996. Phytophthora Diseases Worldwide. APS
+ *     Press, St. Paul MN. (Phytophthora cryptogea cardinal temperatures, cited
+ *     by CABI Ch 8 p 220.)
  *
  * @author Gilba Solutions
- * @version 1.0.0
+ * @version 1.1.0
  * @nz-only true
  */
 
@@ -268,10 +279,10 @@
 
         return {
             methodology: 'cotula_s78',
-            methodologyLabel: 'Hill Labs S78 — Turf Cotula',
+            methodologyLabel: 'Hill Labs S78, Turf Cotula',
             surfaceType: 'cotula_bowling_green',
             extractants: { P: 'Olsen (NaHCO₃)', cations: 'NH₄OAc (pH 8.1)' },
-            source: 'RJ Hill Laboratories Ltd — S78 Turf Cotula ranges',
+            source: 'RJ Hill Laboratories Ltd, S78 Turf Cotula ranges',
             nzOnly: true,
             results,
             flags,
@@ -307,7 +318,7 @@
             conservative: 50,   // Minimum maintenance (older/established greens)
             moderate:     80,   // Typical program for good season performance
             high:        120,   // Maximum. Excess N promotes thatch and disease.
-            note: 'Empirical — no peer-reviewed N rate trial data exists for cotula bowling greens.'
+            note: 'Empirical, no peer-reviewed N rate trial data exists for cotula bowling greens.'
         },
 
         // Temperature activity window (°C)
@@ -370,9 +381,9 @@
             const trans = COTULA_N_BENCHMARKS.season_split.transition_months_sh;
             if (dom.includes(month)) {
                 canApply = false;
-                note = 'Dormant period — withhold N. Risk of Sclerotinia minor increases with winter N.';
+                note = 'Dormant period, withhold N. Risk of Sclerotinia minor increases with winter N.';
             } else if (trans.includes(month)) {
-                note = 'Transition month — apply N at half rate only if growth is active.';
+                note = 'Transition month, apply N at half rate only if growth is active.';
             }
         }
 
@@ -389,7 +400,7 @@
             annualBenchmark: annualN,
             level,
             canApply,
-            note: note || (activity < 0.2 ? 'Low activity — apply N only if actively growing.' : ''),
+            note: note || (activity < 0.2 ? 'Low activity, apply N only if actively growing.' : ''),
             methodology: 'cotula_empirical',
             caveat: COTULA_N_BENCHMARKS.annual_n.note
         };
@@ -422,10 +433,112 @@
         hocRange: [3, 8],          // mm — typical cotula bowling green HOC
         defaultHoc: 5,
         sgn_max: 100,              // Granule size limit (same as grass greens)
-        diseaseFlags: [
-            'sclerotinia_minor',   // Gold bracelet / Rolfs disease
-            'brown_patch',
-            'pythophthora'
+        // =====================================================================
+        // b35fix457 (C62): COTULA DISEASE REGISTER, closes CABI 2024 audit
+        // recommendation #8 items (a) taxonomic conflation, (b) Phytophthora
+        // misspelling, (c) coverage gap. Audit pointer at the pre-fix flag
+        // array (3 entries) was carrying a misspelled key plus an inline
+        // comment that suggested one pathogen caused three different diseases.
+        // Replaced here with a structured register of 9 entries per Beehag,
+        // Walker, Wong & Kaapro 2024 (CABI) Ch 8 Table 8.1, the canonical
+        // consolidation of the NZSTI 2008, Christensen 1989, Howard 2012,
+        // Ormsby & Howard 2021, Ormsby 1990, and Erwin & Ribeiro 1996 source
+        // chain. Each entry self-documents pathogen + CABI page pin +
+        // qualitative epidemiology so the future host-class engine gate
+        // (logged as adjacent C-entry; item (d) of audit rec #8) can read
+        // pathogen-level metadata without re-parsing this file.
+        //
+        // CABI Ch 8 p 215-226 explicitly states that none of the nine
+        // cotula diseases have peer-reviewed quantitative epidemiology models
+        // that would meet the hub's Tier 2 standard; the register is a
+        // reference list, NOT a risk-engine input. Rolf's disease and
+        // Phytophthora root rot carry the only published quantitative
+        // thresholds (single-band, qualitative) and are noted in their
+        // entries below. Gold bracelet's causal agent identity is unknown
+        // per CABI p 218 and predictive management remains problematic.
+        //
+        // Item (d) host-class gate (skip the grass disease model list and
+        // emit a structured Cotula reference-register output when
+        // siteSettings.turfType === 'bowls' AND region === 'NZ') is out of
+        // scope for this single-purpose build; the engine currently routes
+        // unknown species through SPECIES_SUSCEPTIBILITY.perennialRyegrass
+        // at assets/disease-engine-pure.js, which silently scores cotula
+        // bowling greens under a grass-pathogen profile. Logged as adjacent
+        // C-entry for separate Tier B / SaaS-port-coordinated close.
+        // =====================================================================
+        diseaseRegister: [
+            {
+                key: 'alternaria_leaf_spot',
+                displayName: 'Alternaria leaf spot',
+                pathogen: 'Alternaria sp.',
+                cabiPagePin: 'Ch 8 Table 8.1',
+                qualitativeNote: 'Leaf spotting on cotula; no quantitative epidemiology.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 Table 8.1; NZSTI 2008'
+            },
+            {
+                key: 'brown_patch',
+                displayName: 'Brown patch',
+                pathogen: 'Rhizoctonia solani',
+                cabiPagePin: 'Ch 8 Table 8.1',
+                qualitativeNote: 'Same R. solani genus as the grass-host disease, but Fidanza 1996 E2 regression is calibrated for perennial ryegrass, not cotula; no cotula-specific quantitative model.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 Table 8.1; NZSTI 2008'
+            },
+            {
+                key: 'fairy_ring',
+                displayName: 'Fairy ring',
+                pathogen: 'various basidiomycetes',
+                cabiPagePin: 'Ch 8 Table 8.1',
+                qualitativeNote: 'Multiple basidiomycete causal agents; no quantitative epidemiology.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 Table 8.1; NZSTI 2008'
+            },
+            {
+                key: 'gold_bracelet',
+                displayName: 'Gold bracelet',
+                pathogen: 'Rhizoctonia sp. (causal agent identity unknown)',
+                cabiPagePin: 'Ch 8 p 218',
+                qualitativeNote: 'CABI states predictive management remains problematic; causal agent identity unknown. Distinct from Rolf\u0027s disease and Sclerotinia patch despite historical conflation in field guides.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 p 218; Howard 2012'
+            },
+            {
+                key: 'phytophthora_root_rot',
+                displayName: 'Phytophthora root rot',
+                pathogen: 'Phytophthora cryptogea',
+                cabiPagePin: 'Ch 8 p 220',
+                qualitativeNote: 'Cardinal temperatures per Erwin & Ribeiro 1996: optimum 22-25 deg C, range below 1 deg C to 31-33 deg C. No validated cotula-specific predictive model.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 p 220; Erwin & Ribeiro 1996'
+            },
+            {
+                key: 'rolfs_disease',
+                displayName: 'Rolf\u0027s disease (southern blight)',
+                pathogen: 'Athelia rolfsii (formerly Sclerotium rolfsii)',
+                cabiPagePin: 'Ch 8 p 221',
+                qualitativeNote: 'Warm-season disease, single threshold above 25 deg C between December and March per Ormsby 1990 and Howard 2012.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 p 221; Ormsby 1990; Howard 2012'
+            },
+            {
+                key: 'sclerotinia_patch',
+                displayName: 'Sclerotinia patch',
+                pathogen: 'Sclerotinia minor',
+                cabiPagePin: 'Ch 8 p 222',
+                qualitativeNote: 'CABI identifies as the most widespread and common fungal disease on mixed-cotula bowling greens. Favoured by lush growth and leaf wetness above 12 h. Observational, not quantitatively validated.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 p 222; NZSTI 2008'
+            },
+            {
+                key: 'winter_pythium_patch',
+                displayName: 'Winter Pythium patch',
+                pathogen: 'Pythium sp.',
+                cabiPagePin: 'Ch 8 Table 8.1',
+                qualitativeNote: 'Cool-weather Pythium variant on cotula; no quantitative epidemiology. Distinct from the grass-host Pythium blight covered by PythiumModel.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 Table 8.1; Ormsby & Howard 2021'
+            },
+            {
+                key: 'white_patch',
+                displayName: 'White patch',
+                pathogen: 'unknown',
+                cabiPagePin: 'Ch 8 Table 8.1',
+                qualitativeNote: 'Causal agent unknown; no quantitative epidemiology.',
+                source: 'Beehag/Walker/Wong/Kaapro 2024 CABI Ch 8 Table 8.1; Christensen 1989'
+            }
         ],
         // Nitrogen program
         nProgram: {
@@ -445,8 +558,8 @@
         },
         // Agronomic limitations
         limitations: [
-            'No MLSN data — S78 ranges are the only calibrated reference.',
-            'No tissue N ratio data — PACE Turf uptake model does not apply.',
+            'No MLSN data, S78 ranges are the only calibrated reference.',
+            'No tissue N ratio data, PACE Turf uptake model does not apply.',
             'Dicot physiology: C3/C4 GP model not valid. Uses cotula activity fraction.',
             'Disease engine limited to fungal pathogens with NZ chemical registrations.'
         ]
@@ -501,7 +614,7 @@
                 color: #78350f;
                 line-height: 1.5;
             ">
-                <strong>Cotula (Leptinella)</strong> — NZ bowling green only.<br>
+                <strong>Cotula (Leptinella)</strong>, NZ bowling green only.<br>
                 Soil interpretation uses Hill Labs S78 ranges. MLSN does not apply.<br>
                 Ammonium Acetate methodology will be selected automatically.
             </div>
@@ -610,7 +723,7 @@
             }
         }));
 
-        console.log('[CotulaBowling] Bowls profile activated — S78 interpretation, AA methodology.');
+        console.log('[CotulaBowling] Bowls profile activated, S78 interpretation, AA methodology.');
     }
 
     // =========================================================================
@@ -723,13 +836,13 @@
                             padding: 2px 8px;
                             border-radius: 4px;
                             border: 1px solid #10b981;
-                        ">Hill Labs S78 — Turf Cotula</span>
+                        ">Hill Labs S78, Turf Cotula</span>
                         <span style="font-size: 12px; color: #065f46; opacity: 0.85;">
                             NZ Bowling Green
                         </span>
                     </div>
                     <div style="font-size: 11px; color: #065f46; margin-top: 4px; opacity: 0.8;">
-                        Olsen P + NH₄OAc extraction — calibrated for Leptinella spp. (S78 ranges).
+                        Olsen P + NH₄OAc extraction, calibrated for Leptinella spp. (S78 ranges).
                         MLSN does not apply to cotula.
                     </div>
                 </div>
@@ -817,12 +930,12 @@
         const recs = {
             pH: 'Apply agricultural lime to raise pH toward 5.8. Calcitic lime preferred for cotula.',
             P_olsen: 'Olsen P is below optimal. Apply single superphosphate or DAP at low rate.',
-            K_pct_bs: 'K below minimum. Apply sulphate of potash (SOP) — avoid MOP on cotula.',
+            K_pct_bs: 'K below minimum. Apply sulphate of potash (SOP), avoid MOP on cotula.',
             Ca_pct_bs: 'Ca low. Apply gypsum or calcitic lime to raise Ca%BS.',
             Mg_pct_bs: 'Mg below range. Apply Epsom salts (MgSO₄) at maintenance rate.',
             Na_pct_bs: null,
             CEC: 'Low CEC indicates sandy or depleted soil. Organic matter additions will help.',
-            TBS: 'Low TBS — likely excessive acidity. Lime application required.',
+            TBS: 'Low TBS, likely excessive acidity. Lime application required.',
             VW: 'Volume weight below 0.60 g/mL suggests very high organic matter or thatchy profile.',
             K_Mg_ratio: 'K/Mg ratio is critically low. Mg is suppressing K uptake. Apply SOP before correcting Mg.'
         };
@@ -831,14 +944,14 @@
 
     function _highRec(param, value) {
         const recs = {
-            pH: 'pH above 6.5 — acidifying fertiliser (ammonium sulphate, ferrous sulphate) may be required.',
+            pH: 'pH above 6.5, acidifying fertiliser (ammonium sulphate, ferrous sulphate) may be required.',
             P_olsen: `Olsen P is very high (${value} mg/L vs optimal 20–30). Eliminate all P inputs. Review if surfactant-driven P redistribution is possible.`,
             K_pct_bs: 'K above range. No K inputs needed this season.',
-            Ca_pct_bs: 'Ca above range — common on NZ bowling greens. No corrective action unless Ca:Mg ratio is extreme.',
+            Ca_pct_bs: 'Ca above range, common on NZ bowling greens. No corrective action unless Ca:Mg ratio is extreme.',
             Mg_pct_bs: 'Mg above range. High Mg may suppress K uptake. Check K/Mg ratio.',
-            Na_pct_bs: 'Na above 5% — risk of soil dispersion. Apply gypsum (Ca²⁺ displacement of Na⁺) and improve drainage.',
-            CEC: 'CEC high — clay-dominated. Monitor drainage carefully.',
-            TBS: 'TBS high — check individual cation ratios for imbalance.',
+            Na_pct_bs: 'Na above 5%, risk of soil dispersion. Apply gypsum (Ca²⁺ displacement of Na⁺) and improve drainage.',
+            CEC: 'CEC high, clay-dominated. Monitor drainage carefully.',
+            TBS: 'TBS high, check individual cation ratios for imbalance.',
             VW: 'Volume weight above 1.0 g/mL suggests compaction. Core aeration indicated.',
             K_Mg_ratio: 'K/Mg above 1.0 is unusual on NZ cotula greens. Confirm Mg inputs are not excessive.'
         };
@@ -935,7 +1048,7 @@
         setTimeout(_injectUI, 1500);
         setTimeout(_injectUI, 3000);
 
-        console.log('[CotulaBowling] v1.0.0 initialised — NZ bowling green module active.');
+        console.log('[CotulaBowling] v1.0.0 initialised, NZ bowling green module active.');
     }
 
     init();

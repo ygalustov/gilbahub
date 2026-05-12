@@ -159,7 +159,7 @@
             return reading.source && reading.source.toLowerCase().indexOf(s) !== -1;
         });
         if (!isSensorSource) {
-            console.log('[SoilTempLogger] Skipping log — non-sensor source:', reading.source);
+            console.log('[SoilTempLogger] Skipping log, non-sensor source:', reading.source);
             return;
         }
 
@@ -195,7 +195,7 @@
         saveStore(store);
 
         console.log('[SoilTempLogger] Logged ' + temp + '°C (' + reading.source + ') for site ' + siteId +
-                    ' on ' + today + ' — ' + store[siteId].length + ' days stored');
+                    ' on ' + today + ', ' + store[siteId].length + ' days stored');
     }
 
     // =========================================================================
@@ -304,7 +304,7 @@
         document.addEventListener('gaip:orchestrator-complete', function () {
             logReading();
         });
-        console.log('[SoilTempLogger] v' + VERSION + ' ready — ' +
+        console.log('[SoilTempLogger] v' + VERSION + ' ready, ' +
                     daysStored() + ' days stored for active site');
     }
 

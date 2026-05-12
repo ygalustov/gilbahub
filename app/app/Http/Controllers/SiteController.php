@@ -128,8 +128,10 @@ class SiteController extends Controller
         ]);
     }
 
-    public function show(Request $request, Site $site): JsonResponse
+    public function show(Request $request, string $site): JsonResponse
     {
+        $site = $this->resolveAccessibleSite($request, $site);
+
         $this->abortUnlessMember($request, $site);
 
         return response()->json([
@@ -137,8 +139,10 @@ class SiteController extends Controller
         ]);
     }
 
-    public function update(Request $request, Site $site): JsonResponse
+    public function update(Request $request, string $site): JsonResponse
     {
+        $site = $this->resolveAccessibleSite($request, $site);
+
         $this->abortUnlessMember($request, $site);
 
         $data = $request->validate([
@@ -183,8 +187,10 @@ class SiteController extends Controller
         ]);
     }
 
-    public function updateConfig(Request $request, Site $site, string $namespace = 'gaip'): JsonResponse
+    public function updateConfig(Request $request, string $site, string $namespace = 'gaip'): JsonResponse
     {
+        $site = $this->resolveAccessibleSite($request, $site);
+
         $this->abortUnlessMember($request, $site);
 
         $data = $request->validate([
@@ -234,6 +240,23 @@ class SiteController extends Controller
             ->exists();
 
         abort_unless($isMember, 404);
+    }
+
+    private function resolveAccessibleSite(Request $request, string $siteIdentifier): Site
+    {
+        $site = Site::query()
+            ->where(function ($query) use ($siteIdentifier) {
+                $query->where('id', $siteIdentifier)
+                    ->orWhere('slug', $siteIdentifier);
+            })
+            ->whereHas('users', function ($query) use ($request) {
+                $query->where('users.id', $request->user()->id);
+            })
+            ->first();
+
+        abort_unless($site, 404);
+
+        return $site;
     }
 
     private function uniqueSlug(int $accountId, string $name, ?string $ignoreSiteId = null): string

@@ -351,7 +351,7 @@
             var enc = venueEnclosure || 'open';
             if (enc === 'open' || enc === 'partial' || enc === 'retractable_open') {
                 return { efficiency: 1.0, source: 'no_data', confidence: 0.4,
-                         note: 'Assumed adequate — open venue, no wind measurement' };
+                         note: 'Assumed adequate, open venue, no wind measurement' };
             }
             return { efficiency: 0.80, source: 'no_data', confidence: 0.3 };
         }
@@ -604,7 +604,7 @@
 
             if (isJuvenile && eceMod < 1.0) {
                 eceMod = Math.max(0.30, eceMod - (1.0 - eceMod) * 0.5); // juvenile: 1.5x penalty
-                warnings.push('Juvenile overseed detected — EC stress penalty elevated (28-day establishment window).');
+                warnings.push('Juvenile overseed detected, EC stress penalty elevated (28-day establishment window).');
             }
             if (eceMod < 0.88) {
                 warnings.push('Root-zone ECe ' + ece.toFixed(1) + ' dS/m exceeds ' +
@@ -631,7 +631,7 @@
                 sources.push('water_ec');
                 confidence = Math.max(confidence, 0.55);
                 if (wEC >= 1.5) {
-                    warnings.push('Water EC ' + wEC.toFixed(2) + ' dS/m — salt accumulation risk ' +
+                    warnings.push('Water EC ' + wEC.toFixed(2) + ' dS/m, salt accumulation risk ' +
                         'elevated under LED-driven irrigation frequency (' +
                         chemInputs.irrigationsPerWeek + ' irrigations/week).');
                 }
@@ -700,7 +700,7 @@
                 unknown: true,
                 confidence: 0,
                 flag: 'tissue_test_recommended',
-                message: 'Photosynthetic efficiency cannot be assessed — tissue test required. ' +
+                message: 'Photosynthetic efficiency cannot be assessed, tissue test required. ' +
                     'MLSN soil data is not used for EUE assessment on stadium surfaces. ' +
                     'Mg, Fe and Mn status directly affect chlorophyll synthesis and electron transport efficiency under LED operation.'
             };
@@ -720,9 +720,9 @@
             else                 mgMod = 0.55;
             mod *= mgMod;
             if (mgMod < 0.88) {
-                warnings.push('Tissue Mg ' + mg.toFixed(3) + '% DW — below sufficiency (0.20%). ' +
+                warnings.push('Tissue Mg ' + mg.toFixed(3) + '% DW, below sufficiency (0.20%). ' +
                     'Mg is the central atom in every chlorophyll molecule. Deficiency directly ' +
-                    'reduces chlorophyll synthesis — delivered LED photons cannot be captured efficiently.');
+                    'reduces chlorophyll synthesis, delivered LED photons cannot be captured efficiently.');
             }
         }
 
@@ -737,12 +737,12 @@
             else               feMod = 0.62;
             mod *= feMod;
             if (feMod < 0.90) {
-                warnings.push('Tissue Fe ' + fe.toFixed(0) + ' mg/kg — below sufficiency (50 mg/kg). ' +
+                warnings.push('Tissue Fe ' + fe.toFixed(0) + ' mg/kg, below sufficiency (50 mg/kg). ' +
                     'Iron is required for chlorophyll synthesis and ferredoxin in the PSI electron transport chain.');
             }
             // Flag HCO3 as Fe availability risk
             if (chemInputs.waterHCO3 != null && chemInputs.waterHCO3 > 180) {
-                warnings.push('Water HCO3 ' + chemInputs.waterHCO3.toFixed(0) + ' mg/L exceeds 180 mg/L — ' +
+                warnings.push('Water HCO3 ' + chemInputs.waterHCO3.toFixed(0) + ' mg/L exceeds 180 mg/L, ' +
                     'elevated bicarbonate induces alkalinity-driven Fe and Mn chlorosis. Monitor tissue Fe and Mn closely.');
             }
         }
@@ -759,7 +759,7 @@
             else               mnMod = 0.65;
             mod *= mnMod;
             if (mnMod < 0.92) {
-                warnings.push('Tissue Mn ' + mn.toFixed(0) + ' mg/kg — below sufficiency (25 mg/kg). ' +
+                warnings.push('Tissue Mn ' + mn.toFixed(0) + ' mg/kg, below sufficiency (25 mg/kg). ' +
                     'Mn is essential at the oxygen-evolving complex of Photosystem II. ' +
                     'Reduced UV output under LED operation may suppress Mn mobilisation in sand rootzones.');
             }
@@ -775,7 +775,7 @@
             else                 caMod = 0.88;
             mod *= caMod;
             if (caMod < 1.0) {
-                warnings.push('Tissue Ca ' + ca.toFixed(3) + '% DW — below sufficiency (0.50%). ' +
+                warnings.push('Tissue Ca ' + ca.toFixed(3) + '% DW, below sufficiency (0.50%). ' +
                     'Ca deficiency impairs membrane integrity and cell division.');
             }
         }
@@ -1118,11 +1118,11 @@
         },
         vpd: {
             // Table 4 — four-band graduated messaging (grow light management reference)
-            optimal:          'VPD 0.5–0.8 kPa — optimal. Stomata fully open, CO₂ flux and transpiration balanced. Maintain current conditions.',
-            acceptable:       'VPD 0.8–1.5 kPa — acceptable. Mild stomatal throttling begins above 1.2 kPa; monitor closely and target return to 0.5–0.8 kPa range via irrigation or misting.',
-            decliningIR:      'VPD 1.5–2.0 kPa — declining efficiency. Stomatal aperture significantly reduced. LED photon utilisation impaired. Reduce or suspend IR heater operation to limit further vapour pressure increase. Increase irrigation frequency.',
-            nearClosure:      'VPD >2.0 kPa — near stomatal closure. Photosynthesis is stalling regardless of PPFD delivered. Suspend IR heating immediately. Emergency irrigation or misting required. Do not increase light hours until VPD is corrected.',
-            low:              'VPD below 0.5 kPa — excessive humidity. Transpiration suppressed, disease risk elevated. Improve air circulation to raise VPD into 0.5–0.8 kPa optimal range.'
+            optimal:          'VPD 0.5–0.8 kPa, optimal. Stomata fully open, CO₂ flux and transpiration balanced. Maintain current conditions.',
+            acceptable:       'VPD 0.8–1.5 kPa, acceptable. Mild stomatal throttling begins above 1.2 kPa; monitor closely and target return to 0.5–0.8 kPa range via irrigation or misting.',
+            decliningIR:      'VPD 1.5–2.0 kPa, declining efficiency. Stomatal aperture significantly reduced. LED photon utilisation impaired. Reduce or suspend IR heater operation to limit further vapour pressure increase. Increase irrigation frequency.',
+            nearClosure:      'VPD >2.0 kPa, near stomatal closure. Photosynthesis is stalling regardless of PPFD delivered. Suspend IR heating immediately. Emergency irrigation or misting required. Do not increase light hours until VPD is corrected.',
+            low:              'VPD below 0.5 kPa, excessive humidity. Transpiration suppressed, disease risk elevated. Improve air circulation to raise VPD into 0.5–0.8 kPa optimal range.'
         },
         airflow: {
             low: 'Insufficient airflow (<0.3 m/s). CO₂ boundary layer builds around leaves, causing localised depletion. Photosynthesis plateaus early. Deploy fans for 0.3–1.0 m/s gentle circulation.'
@@ -1481,7 +1481,7 @@
                 band: 'Below minimum (' + hocMM + 'mm)',
                 source: 'extrapolated',
                 hocProvided: true,
-                warning: 'HOC below documented range. DLI requirement extrapolated — verify with local trial data.'
+                warning: 'HOC below documented range. DLI requirement extrapolated, verify with local trial data.'
             };
         }
 
@@ -1597,7 +1597,7 @@
                        c4Pres.blue450 + 'B) and C3 (' + c3Pres.red660 + 'R/' +
                        c3Pres.blue450 + 'B) targets.'
             };
-            blendNote = Math.round(c3Fraction * 100) + '% ryegrass dominant — spectrum blended toward C3 requirements.';
+            blendNote = Math.round(c3Fraction * 100) + '% ryegrass dominant, spectrum blended toward C3 requirements.';
         }
 
         // Start with base prescription values
@@ -1713,16 +1713,16 @@
 
         if (equipment && !multiChannel) {
             channelNote = 'Equipment uses fixed spectrum (' + (equipment.spectrum || 'unknown') + '). ' +
-                         'Spectral prescription shown for reference — adjustable only on multi-channel systems.';
+                         'Spectral prescription shown for reference, adjustable only on multi-channel systems.';
         }
 
         // Phytochrome guidance (from adjusted values)
         var redFarRedRatio = adjusted.red660 / Math.max(1, adjusted.farRed730);
         var phytochromeNote = '';
         if (redFarRedRatio > 4) {
-            phytochromeNote = 'Red:far-red ratio ' + redFarRedRatio.toFixed(1) + ':1 \u2014 promotes compact, wear-tolerant sward (high Pfr form).';
+            phytochromeNote = 'Red:far-red ratio ' + redFarRedRatio.toFixed(1) + ':1, promotes compact, wear-tolerant sward (high Pfr form).';
         } else {
-            phytochromeNote = 'Red:far-red ratio ' + redFarRedRatio.toFixed(1) + ':1 \u2014 moderate shade response stimulation. Monitor for elongation.';
+            phytochromeNote = 'Red:far-red ratio ' + redFarRedRatio.toFixed(1) + ':1, moderate shade response stimulation. Monitor for elongation.';
         }
 
         // Build label

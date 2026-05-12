@@ -123,13 +123,13 @@
     const PRE_EM_UK = [
         {
             key:   'pendimethalin_uk',
-            label: 'Pendimethalin — Stomp Aqua MAPP 14664 (HRAC 3) \u26A0 off-label on turf',
+            label: 'Pendimethalin, Stomp Aqua MAPP 14664 (HRAC 3) \u26A0 off-label on turf',
             ai:    'pendimethalin',
             warn:  'MAPP 14664 approved for agricultural crops only. No on-label turf EAMU confirmed (GB, 2024). Professional use only (PA1/PA6 required).'
         },
         {
             key:   'propyzamide_uk',
-            label: 'Propyzamide — Kerb Flo / generics (HRAC 3) \u2744 soil temp <8\u00b0C',
+            label: 'Propyzamide, Kerb Flo / generics (HRAC 3) \u2744 soil temp <8\u00b0C',
             ai:    'propyzamide',
             warn:  'Amenity vegetation approval confirmed. Apply Oct\u2013Jan only when soil temp <8\u00b0C. Breaks down rapidly in warm soil.'
         }
@@ -267,12 +267,12 @@
         let db;
         if (region === 'uk_ireland') {
             db = global.GAIP_UK_FUNGICIDES && global.GAIP_UK_FUNGICIDES.db;
-            if (!db) console.error('[SprayLogUI] GAIP_UK_FUNGICIDES not loaded — check uk-fungicides.js enqueue order');
+            if (!db) console.error('[SprayLogUI] GAIP_UK_FUNGICIDES not loaded, check uk-fungicides.js enqueue order');
         } else if (region === 'continental_europe' || region === 'scandinavia') {
             // Use European regional db if available; fall back to UK as closest proxy
             db = (global.GAIP_EUROPEAN_FUNGICIDES && global.GAIP_EUROPEAN_FUNGICIDES.db)
               || (global.GAIP_UK_FUNGICIDES && global.GAIP_UK_FUNGICIDES.db);
-            if (!db) console.warn('[SprayLogUI] No European fungicide db loaded — falling back to AU');
+            if (!db) console.warn('[SprayLogUI] No European fungicide db loaded, falling back to AU');
         } else if (nz) {
             db = global.GAIP_NZ_FUNGICIDES && global.GAIP_NZ_FUNGICIDES.db;
         } else {
@@ -449,7 +449,7 @@
         sel.className = 'gaip-sl-select';
         var blank = document.createElement('option');
         blank.value = '';
-        blank.textContent = '\u2014 ' + placeholder + ' \u2014';
+        blank.textContent = ', ' + placeholder + ',';
         sel.appendChild(blank);
         opts.forEach(function(opt) {
             var o = document.createElement('option');
@@ -479,7 +479,7 @@
         sel.className = 'gaip-sl-select';
         var blank = document.createElement('option');
         blank.value = '';
-        blank.textContent = '\u2014 ' + placeholder + ' \u2014';
+        blank.textContent = ', ' + placeholder + ',';
         sel.appendChild(blank);
         var groups = {};
         opts.forEach(function(opt) {
@@ -625,12 +625,12 @@
 
         var nz = isNZ();
         var regionNote = isUK()
-            ? 'Region: UK & Ireland \u2014 UK product lists active'
+            ? 'Region: UK & Ireland, UK product lists active'
             : isEU()
-                ? 'Region: Europe \u2014 European product lists active'
+                ? 'Region: Europe, European product lists active'
                 : nz
-                    ? 'Region: New Zealand \u2014 NZ product lists active'
-                    : 'Region: Australia \u2014 AU product lists active';
+                    ? 'Region: New Zealand, NZ product lists active'
+                    : 'Region: Australia, AU product lists active';
 
         var catOpts = CATEGORIES.map(function(c) {
             return '<option value="' + c.id + '">' + c.icon + ' ' + c.label + '</option>';
@@ -714,7 +714,7 @@
         var html = '<div class="gaip-sl-table-wrap"><table class="gaip-sl-table"><thead><tr>'
             + '<th>Date</th><th>Zone</th><th>Product</th><th>Category</th>'
             + '<th>Rate</th><th>Target</th>'
-            + '<th style="cursor:help;" title="Residual index — fungicide only. UV/rain/biological degradation model.">Residual \u24D8</th>'
+            + '<th style="cursor:help;" title="Residual index, fungicide only. UV/rain/biological degradation model.">Residual \u24D8</th>'
             + '<th>Source</th><th></th>'
             + '</tr></thead><tbody>';
 
@@ -723,7 +723,7 @@
             var dateStr   = SL ? SL.formatDate(e.application_date) : e.application_date;
             var daysAgo   = SL ? SL.daysBetween(e.application_date) : '';
             var daysLabel = daysAgo !== '' ? ' <span style="color:var(--gaip-text-muted);font-size:11px;">(' + daysAgo + 'd ago)</span>' : '';
-            var rateStr   = e.rate ? e.rate + ' ' + (e.rate_unit || '') : '\u2014';
+            var rateStr   = e.rate ? e.rate + ' ' + (e.rate_unit || '') : '-';
             var fracLabel = e.frac_group ? ' <span style="color:var(--gaip-text-muted);font-size:11px;">FRAC ' + e.frac_group + '</span>' : '';
 
             html += '<tr data-logid="' + e.log_id + '">'
@@ -732,7 +732,7 @@
                 + '<td><strong>' + escHtml(e.product_name) + '</strong>' + fracLabel + '<br><span style="color:var(--gaip-text-muted);font-size:11px;">' + escHtml(e.active_ingredient || '') + '</span></td>'
                 + '<td><span class="gaip-sl-badge gaip-sl-badge-' + e.product_category + '">' + getCategoryLabel(e.product_category) + '</span></td>'
                 + '<td>' + rateStr + '</td>'
-                + '<td>' + escHtml(e.target || '\u2014') + '</td>'
+                + '<td>' + escHtml(e.target || '-') + '</td>'
                 + '<td>' + _buildResidualCell(residualMap[e.log_id], e.product_category, e.application_date) + '</td>'
                 + '<td><span class="gaip-sl-badge gaip-sl-badge-' + e.source + '">' + e.source + '</span></td>'
                 + '<td class="gaip-sl-actions"><button class="del" data-logid="' + e.log_id + '" title="Delete">\uD83D\uDDD1</button></td>'
@@ -757,7 +757,7 @@
     // =========================================================================
 
     function _buildResidualCell(result, category, applicationDate) {
-        if (category !== 'fungicide') return '<span class="gaip-sl-residual-na">\u2014</span>';
+        if (category !== 'fungicide') return '<span class="gaip-sl-residual-na">,</span>';
         if (!result || result.residualPct === null || result.error) {
             // b35fix203b: same-day applications have zero elapsed time — UV engine returns
             // no-climate-data error. Show 100% (just applied) rather than n/a.
@@ -765,7 +765,7 @@
                 var appDay = applicationDate.split('T')[0];
                 var today  = new Date().toISOString().split('T')[0];
                 if (appDay === today) {
-                    return '<span class="gaip-sl-residual gaip-sl-residual-high" title="Applied today — residual at 100%"><span class="gaip-sl-residual-bar"><span class="gaip-sl-residual-fill" style="width:100%"></span></span> 100%</span>';
+                    return '<span class="gaip-sl-residual gaip-sl-residual-high" title="Applied today, residual at 100%"><span class="gaip-sl-residual-bar"><span class="gaip-sl-residual-fill" style="width:100%"></span></span> 100%</span>';
                 }
             }
             var reason = result && result.error ? result.error : 'No UV data';
@@ -836,12 +836,12 @@
             var nz = isNZ();
             var note = document.getElementById('gaip-sl-region-note');
             if (note) note.textContent = isUK()
-                ? 'Region: UK & Ireland \u2014 UK product lists active'
+                ? 'Region: UK & Ireland, UK product lists active'
                 : isEU()
-                    ? 'Region: Europe \u2014 European product lists active'
+                    ? 'Region: Europe, European product lists active'
                     : nz
-                        ? 'Region: New Zealand \u2014 NZ product lists active'
-                        : 'Region: Australia \u2014 AU product lists active';
+                        ? 'Region: New Zealand, NZ product lists active'
+                        : 'Region: Australia, AU product lists active';
             onCategoryChange(document.getElementById('gaip-sl-f-cat').value || 'fungicide');
         } else {
             form.classList.remove('visible');
@@ -974,7 +974,7 @@
                     this.innerHTML = '\u2705 Logged';
                 } else {
                     this.classList.remove('logging');
-                    this.innerHTML = '\u274C Error \u2014 retry';
+                    this.innerHTML = '\u274C Error, retry';
                     var self = this;
                     setTimeout(function() { self.innerHTML = '\uD83D\uDCCB Log Application'; }, 3000);
                 }

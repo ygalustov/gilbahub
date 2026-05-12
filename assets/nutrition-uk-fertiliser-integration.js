@@ -20,7 +20,7 @@
  *   - Hub state (GAIP_STATE.soil.surfaceType)
  * 
  * @package Gilba_Hub
- * @version 1.0.0
+ * @version 1.0.1
  * @since b35fix293
  */
 
@@ -704,8 +704,34 @@
         },
 
         getMethodology: function(calendarData) {
-            if (window.GAIP_STATE && window.GAIP_STATE.soil && window.GAIP_STATE.soil.methodology) {
-                var m = window.GAIP_STATE.soil.methodology;
+            // ────────────────────────────────────────────────────────────────
+            // b35fix447 / C56: soil methodology read prefers inputs.soil shelf.
+            // ────────────────────────────────────────────────────────────────
+            // Pre-fix this branch read window.GAIP_STATE.soil.methodology
+            // (top-level legacy slot) only. The hub-store proxy synthesiser
+            // at gilba-hub-v2.js:1399 auto-aliases inputs.turf to top-level
+            // .turf, but does NOT auto-alias inputs.soil to top-level .soil.
+            // The flat .soil shelf is only populated by the analysis-end
+            // writeback at hub-tissue-v3.js:6966. Canonical writers, including
+            // the b35fix443 routed-write helper _b35fix393_setSoilField in
+            // assets/ammonium-acetate-methodology.js, all land at
+            // GAIP_STATE.inputs.soil.methodology. Pre-b35fix447, on a fresh
+            // session or any state where the post-tissue writeback had not
+            // run, the flat shelf was undefined and this branch fell through
+            // to the calendarData read at priority 2 or the terminal mlsn
+            // default at priority 3, either of which could disagree with the
+            // canonical inputs.soil value the user just set in the
+            // site-settings panel. Same defect class as the b35fix442
+            // read-shelf asymmetry on the turf axis, but on the soil axis;
+            // identical fix shape to b35fix446 / C55 (AU + Prebble), now
+            // applied to the UK fertiliser integration code path. Per
+            // b35fix442 lesson #33 the fix shape is a tolerant read priority
+            // chain.
+            var _b35fix447_soilM = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.methodology)
+                || (window.GAIP_STATE && window.GAIP_STATE.soil && window.GAIP_STATE.soil.methodology)
+                || null;
+            if (_b35fix447_soilM) {
+                var m = _b35fix447_soilM;
                 if (m === 'cotula_s78' || m === 'cotula') return 'ammonium_acetate';
                 return m;
             }
@@ -900,10 +926,10 @@
                         ? ' <span style="font-size:10px;padding:1px 4px;background:var(--gaip-surface-muted,#f3f4f6);color:var(--gaip-text-secondary);border-radius:3px;">' + p.nForm + '</span>'
                         : '';
                     return '<span class="uk-fert-product" title="' + (p.notes || '') + '">' + p.name + ' (' + p.npk + ') @ ' + rateStr + releaseTag + nFormTag + '</span>';
-                }).join(' + ') || '<span class="uk-fert-none">\u2014</span>';
+                }).join(' + ') || '<span class="uk-fert-none">,</span>';
 
                 var liquidList = (m.liquid || []).map(function(p) {
-                    var rateStr = p.rate || (p.rateLHa ? (p.rateLHa + ' ' + (p.rateUnit || 'L/ha')) : '\u2014');
+                    var rateStr = p.rate || (p.rateLHa ? (p.rateLHa + ' ' + (p.rateUnit || 'L/ha')) : '-');
                     return '<span class="uk-fert-product liquid" title="' + (p.notes || '') + '">' + p.name + ' @ ' + rateStr + '</span>';
                 }).join(' + ') || '';
 
@@ -915,7 +941,7 @@
                     '<td style="padding:8px;border:1px solid var(--gaip-border);">' + m.season + '</td>' +
                     '<td style="padding:8px;border:1px solid var(--gaip-border);"><span class="uk-fert-req">N:' + Math.round(m.requirements.N) + ' P:' + Math.round(m.requirements.P) + ' K:' + Math.round(m.requirements.K) + '</span></td>' +
                     '<td style="padding:8px;border:1px solid var(--gaip-border);">' + granularList + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);">' + (liquidList || '\u2014') + '</td>' +
+                    '<td style="padding:8px;border:1px solid var(--gaip-border);">' + (liquidList || '-') + '</td>' +
                 '</tr>' +
                 (notesHtml ? '<tr class="uk-fert-note-row"><td colspan="5" style="padding:4px 8px;background:var(--gaip-warning-bg,#fffde7);border:1px solid var(--gaip-border);font-size:12px;font-style:italic;">' + notesHtml + '</td></tr>' : '');
             }).join('');
@@ -993,7 +1019,7 @@
                 var rows = allFlags.map(function(f) {
                     var sev = f.severity === 'high' ? 'var(--gaip-error)' : f.severity === 'moderate' ? 'var(--gaip-warning)' : 'var(--gaip-text-secondary)';
                     var pair = f.suppressor + ' \u2192 ' + f.suppressed;
-                    var ratioVal = f.value ? f.value.toFixed(1) : '\u2014';
+                    var ratioVal = f.value ? f.value.toFixed(1) : '-';
                     return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--gaip-border);">' +
                         '<span style="font-size:16px;line-height:1.2;">\u26A1</span>' +
                         '<div style="flex:1;">' +
@@ -1005,7 +1031,7 @@
                 }).join('');
                 var count = allFlags.length;
                 return '<div style="margin:0 0 1.25rem 0;padding:0.75rem 1rem;background:var(--gaip-warning-bg,#fefce8);border:1px solid var(--gaip-warning-border,#fde047);border-left:4px solid var(--gaip-warning,#ca8a04);border-radius:6px;">' +
-                    '<div style="font-weight:600;color:var(--gaip-warning);margin-bottom:8px;font-size:0.9rem;">\u2697\uFE0F Mulder\'s Nutrient Interactions \u2014 ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
+                    '<div style="font-weight:600;color:var(--gaip-warning);margin-bottom:8px;font-size:0.9rem;">\u2697\uFE0F Mulder\'s Nutrient Interactions, ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
                     '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-bottom:8px;">Product selection adjusted to avoid aggravating detected antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
                     rows + '</div>';
             })();
@@ -1069,7 +1095,7 @@
                         '<tr style="background:var(--gaip-good-bg,#ecfdf5);font-weight:600;">' +
                             '<td style="padding:8px;border:1px solid var(--gaip-border);">TOTAL DELIVERED</td>' +
                             '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:center;">' + totalApps + '</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">\u2014</td>' +
+                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">,</td>' +
                             '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + Math.round(nutrientTotals.N) + '</td>' +
                             '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + (Math.round(nutrientTotals.P * 10) / 10) + '</td>' +
                             '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + Math.round(nutrientTotals.K) + '</td>' +

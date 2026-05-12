@@ -298,62 +298,32 @@
         setLoading(true);
         
         try {
-            const result = generateLocalSynthesisInterpretation(synthesisData);
-            window.GAIP_SYNTHESIS_INTERPRETATION = result;
-            renderInterpretation(result);
+            const formData = new FormData();
+            formData.append('action', 'gilba_interpret_synthesis');
+            formData.append('nonce', window.GAIP_HUB_CONFIG?.nonce || '');
+            formData.append('synthesis_data', JSON.stringify(synthesisData));
+            
+            const response = await fetch(window.GAIP_HUB_CONFIG?.ajaxUrl || '/wp-admin/admin-ajax.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Store globally for Word export
+                window.GAIP_SYNTHESIS_INTERPRETATION = data.data;
+                renderInterpretation(data.data);
+            } else {
+                showError(data.data?.message || 'Analysis failed');
+            }
+            
         } catch (err) {
             console.error('[Synthesis] Error:', err);
-            showError('Analysis failed — local synthesis engine unavailable');
+            showError('Network error, please try again');
         } finally {
             setLoading(false);
         }
-    }
-
-    function generateLocalSynthesisInterpretation(synthesisData) {
-        const engine = window.GAIP_WordExport;
-        if (!engine || typeof engine.generatePerformanceImpactAnalysis !== 'function') {
-            throw new Error('GAIP_WordExport.generatePerformanceImpactAnalysis unavailable');
-        }
-
-        const analysis = engine.generatePerformanceImpactAnalysis(synthesisData) || {};
-        return {
-            narrative: formatSynthesisNarrative(analysis),
-            relationships: analysis.relationships || [],
-            recommendations: analysis.recommendations || [],
-            cached: false
-        };
-    }
-
-    function formatSynthesisNarrative(analysis) {
-        const sections = [];
-        const narrative = Array.isArray(analysis.narrative) ? analysis.narrative.filter(Boolean) : [];
-        const relationships = Array.isArray(analysis.relationships) ? analysis.relationships : [];
-        const recommendations = Array.isArray(analysis.recommendations) ? analysis.recommendations : [];
-
-        if (narrative.length) {
-            sections.push('## Cross-module synthesis');
-            narrative.forEach(item => sections.push(item));
-        }
-
-        if (relationships.length) {
-            sections.push('## Key interactions');
-            relationships.forEach(function(rel) {
-                sections.push('- ' + rel.text);
-            });
-        }
-
-        if (recommendations.length) {
-            sections.push('## Priority actions');
-            recommendations.forEach(function(rec) {
-                sections.push('- ' + rec);
-            });
-        }
-
-        if (!sections.length) {
-            sections.push('No significant cross-module interactions were detected from the currently available data.');
-        }
-
-        return sections.join('\n\n');
     }
 
     /**
@@ -425,7 +395,7 @@
             
             // Only keep soil if we have actual nutrient data
             if (Object.keys(data.soil.ppm).length === 0) {
-                console.log('[Synthesis] Soil: ppm keys found but all values were null/NaN — discarding');
+                console.log('[Synthesis] Soil: ppm keys found but all values were null/NaN, discarding');
                 data.soil = null;
             } else {
                 console.log('[Synthesis] Soil: ✓ collected', Object.keys(data.soil.ppm).length, 'nutrients');
@@ -492,7 +462,7 @@
             // Only keep water if we have at least 1 non-zero ion value
             const nonZeroIons = Object.values(data.water.ions).filter(v => v > 0).length;
             if (nonZeroIons < 1) {
-                console.log('[Synthesis] Water: ions found but all zero — discarding');
+                console.log('[Synthesis] Water: ions found but all zero, discarding');
                 data.water = null;
             } else {
                 console.log('[Synthesis] Water: ✓ collected', Object.keys(data.water.ions).length, 'ions (' + nonZeroIons + ' non-zero)');

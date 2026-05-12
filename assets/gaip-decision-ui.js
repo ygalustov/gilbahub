@@ -98,7 +98,7 @@
       return '<div>'
         + '<div class="gdp-pgr-bar-lbl">'
         + '<span>Suppression remaining</span>'
-        + '<span style="color:#d97706 !important">' + sup + '% \u2014 reapply below 40%</span>'
+        + '<span style="color:#d97706 !important">' + sup + '%, reapply below 40%</span>'
         + '</div>'
         + '<div class="gdp-pgr-bar-track"><div class="gdp-pgr-bar-fill" style="width:' + sup + '%;background:linear-gradient(90deg,#2d7a4f,#d97706)"></div></div>'
         + '<div class="gdp-pgr-bar-ticks"><span>0%</span><span>40% reapply</span><span>100%</span></div>'
@@ -114,7 +114,7 @@
       var target = d.target || [15, 25];
       var next   = d.nextEvent;
       var def    = d.deficit;
-      var vStr   = vwc != null ? vwc.toFixed(1) + '%' : '\u2014';
+      var vStr   = vwc != null ? vwc.toFixed(1) + '%' : '-';
       // b35fix238: bar shows VWC as % of 0-40 range (field capacity scale), not position within target band
       // At VWC=15 (lower target) bar shows 37.5%, at VWC=25 (upper) shows 62.5%
       var fcMax  = 40;
@@ -142,7 +142,7 @@
       var st   = d.soilTemp;
       var at   = d.applyAt || 15;
       var dtw  = d.daysToWindow;
-      var sStr = st != null ? st.toFixed(1) + '\u00b0C' : '\u2014';
+      var sStr = st != null ? st.toFixed(1) + '\u00b0C' : '-';
 
       // Bar: 0% = soil at applyAt+15°C (start monitoring), 100% = at applyAt (window open)
       var barRange = 15;
@@ -154,13 +154,13 @@
         ? 'linear-gradient(90deg,#2d7a4f,#2d7a4f)'
         : (barPct >= 60 ? 'linear-gradient(90deg,#2d7a4f,#d97706)' : 'linear-gradient(90deg,var(--gaip-border),#d97706)');
       var windowLabel = windowOpen
-        ? 'Window open \u2014 apply now'
+        ? 'Window open, apply now'
         : (dtw != null ? '~' + dtw + 'd to window' : 'Monitor soil temp');
       var windowColor = windowOpen ? '#2d7a4f' : '#d97706';
 
       return '<div>'
         + '<div class="gdp-pgr-bar-lbl">'
-        + '<span>Soil temp \u2014 50mm depth</span>'
+        + '<span>Soil temp, 50mm depth</span>'
         + '<span style="color:' + windowColor + ' !important">' + windowLabel + '</span>'
         + '</div>'
         + '<div class="gdp-pgr-bar-track"><div class="gdp-pgr-bar-fill" style="width:' + barPct + '%;background:' + barColor + '"></div></div>'
@@ -172,7 +172,7 @@
         + '</div></div>';
     }
 
-    return '<div style="color:var(--gaip-text-secondary);font-size:10px;padding:8px 0;">\u2014</div>';
+    return '<div style="color:var(--gaip-text-secondary);font-size:10px;padding:8px 0;">,</div>';
   }
 
   // =========================================================================
@@ -222,7 +222,7 @@
         '<span class="sig ' + (item.sigClass || '') + '">' + _esc(item.sig) + '</span>'
         + '<span class="sep">/</span>'
         + '<span class="thr">' + _esc(item.thr) + '</span>'
-        + (item.thrNote ? '<span style="color:var(--gaip-text-secondary)"> \u2014 ' + _esc(item.thrNote) + '</span>' : '');
+        + (item.thrNote ? '<span style="color:var(--gaip-text-secondary)">, ' + _esc(item.thrNote) + '</span>' : '');
     }
 
     var pressEl = _el('pb-pressure');
@@ -324,7 +324,7 @@
 
     if (disp.state === 'committed') {
       var fcTxt = _el('fc-txt');
-      if (fcTxt) fcTxt.textContent = 'Decision recorded \u2014 ' + (disp.ts || '');
+      if (fcTxt) fcTxt.textContent = 'Decision recorded, ' + (disp.ts || '');
       var fcSub = _el('fc-sub');
       if (fcSub) fcSub.textContent = item.commitConsequence || '';
     }
@@ -702,7 +702,7 @@
                 + '<button class="gdp-fd-undo" id="gdp-fd-undo">Undo</button>'
               + '</div>'
               + '<div class="gdp-fork-cleared" id="gdp-fork-cleared">'
-                + '<div class="gdp-fclr-txt" id="gdp-fclr-txt">Monitoring \u2014 no action required</div>'
+                + '<div class="gdp-fclr-txt" id="gdp-fclr-txt">Monitoring, no action required</div>'
               + '</div>'
             + '</div>'
           + '</div>' // end left

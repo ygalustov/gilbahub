@@ -102,6 +102,6 @@
         isGAIP:       isGAIP,
     };
 
-    console.log('[GAIP_SiteContext] v1.0.0 loaded — mode:', global.GILBA_PLUGIN_NS || 'unknown');
+    console.log('[GAIP_SiteContext] v1.0.0 loaded, mode:', global.GILBA_PLUGIN_NS || 'unknown');
 
 })(typeof window !== 'undefined' ? window : this);

@@ -292,7 +292,7 @@
       {
         id:'water', label:'Water',
         cls: water.salinityIssue ? 'act' : water.salinityWarn ? 'warn' : water.hasSamples ? 'ok' : '',
-        txt: water.salinityIssue ? 'Salinity \u2014 check programme'
+        txt: water.salinityIssue ? 'Salinity, check programme'
            : water.salinityWarn  ? 'Salinity borderline'
            : water.hasSamples    ? 'Not limiting' : 'No water data'
       },
@@ -348,7 +348,7 @@
       card = _recCard('Nutrients (ppm)', dateLine, d.fields);
     } else {
       var methLabel = d.methodology || 'MLSN';
-      callout = _callout('ok','OK','Soil is fine \u2014 nothing to act on',[
+      callout = _callout('ok','OK','Soil is fine, nothing to act on',[
         {text:'All nutrients within ' + methLabel + ' range',cls:'ok'},
         {text:'no soil constraint',cls:''},
         {text:'Decisions unaffected',cls:'ok'}]);
@@ -366,13 +366,13 @@
         {text:'No data',cls:'warn'},{text:'salinity unknown',cls:'warn'},
         {text:'import a result',cls:'warn'}]);
     } else if (d.salinityIssue) {
-      var issTitle = d.salinityStatus || 'Salinity — review irrigation programme';
+      var issTitle = d.salinityStatus || 'Salinity, review irrigation programme';
       callout = _callout('act','!',issTitle,[
         {text:'EC or SAR above threshold',cls:'act'},{text:'soil structure risk',cls:'act'},
         {text:'leaching fraction required',cls:'act'}]);
       card = _recCard('Salinity & sodicity', dateLine, d.fields);
     } else if (d.salinityWarn) {
-      var warnTitle = d.salinityStatus || 'Salinity borderline — monitor';
+      var warnTitle = d.salinityStatus || 'Salinity borderline, monitor';
       callout = _callout('warn','!',warnTitle,[
         {text:'EC/SAR approaching limits',cls:'warn'},{text:'watch trend',cls:'warn'},
         {text:'no immediate action',cls:''}]);
@@ -404,7 +404,7 @@
         {text:'host susceptibility uncertain',cls:'warn'},
         {text:'disease confidence: Usable only',cls:'warn'}]);
     } else if (d.nDeficient) {
-      callout = _callout('act','!','N deficiency \u2014 disease risk elevated',[
+      callout = _callout('act','!','N deficiency, disease risk elevated',[
         {text:'Tissue N below adequate',cls:'act'},
         {text:'host susceptibility higher',cls:'act'},
         {text:'disease risk modifier applied',cls:'act'}]);
@@ -560,11 +560,11 @@
     if (global.GAIP_STATE) setTimeout(_renderAndWire, 800);
   }
 
-  console.log('[GilbaEvidence] v1.0.0 loaded — container:', !!document.getElementById('gaip-evidence-panel'));
+  console.log('[GilbaEvidence] v1.0.0 loaded, container:', !!document.getElementById('gaip-evidence-panel'));
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      console.log('[GilbaEvidence] DOMContentLoaded — container:', !!document.getElementById('gaip-evidence-panel'));
+      console.log('[GilbaEvidence] DOMContentLoaded, container:', !!document.getElementById('gaip-evidence-panel'));
       init();
     });
   } else {

@@ -215,7 +215,7 @@
             minDaysAfterEvent: 3,
             recoveryMultiplier: 1.3,
             duration: 10,
-            effect: 'Boosts recovery rate ~30% for 7-14 days. NEVER apply before event — ' +
+            effect: 'Boosts recovery rate ~30% for 7-14 days. NEVER apply before event, ' +
                     'high N makes turf prone to damage and disease.',
             reference: 'Christians et al. 2017; Gilba Solutions 2025'
         },

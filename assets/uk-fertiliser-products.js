@@ -239,7 +239,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "P-free NK formula. Use where soil P is adequate — MLSN recommended to guide P omission.",
+            "notes": "P-free NK formula. Use where soil P is adequate, MLSN recommended to guide P omission.",
             "verified": false,
             "nForm": "ammonium",
             "nFormConfidence": "auto",
@@ -505,7 +505,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description — no chloride-K)"
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)"
         },
         {
             "id": "sportsmaster-autumn",
@@ -550,7 +550,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description — no chloride-K)"
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)"
         },
         {
             "id": "sportsmaster-nk",
@@ -595,7 +595,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description — no chloride-K)"
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)"
         },
         {
             "id": "sportsmaster-pre-seeder",
@@ -637,7 +637,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description — no chloride-K)"
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)"
         },
         {
             "id": "polyon-12-0-25-3-4m",
@@ -686,7 +686,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-15-0-10-4-5m",
@@ -735,7 +735,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-15-0-30-fine-6-7m",
@@ -784,7 +784,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-15-5-15-4-5m",
@@ -833,7 +833,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-18-0-8-4-5m",
@@ -879,7 +879,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-20-5-8-3-4m",
@@ -921,11 +921,11 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "High N spring/summer CRF. Standard granule — outfields and sports pitches.",
+            "notes": "High N spring/summer CRF. Standard granule, outfields and sports pitches.",
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-20-5-8-fine-3-4m",
@@ -974,7 +974,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-24-5-8-6-7m",
@@ -1019,7 +1019,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "polyon-24-5-8-fine-6-7m",
@@ -1067,7 +1067,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "floranid-twin-club",
@@ -1481,7 +1481,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-advanced-thrive",
@@ -1524,7 +1524,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-advanced-entrench",
@@ -1567,7 +1567,7 @@ const UkFertiliserProducts = {
             "verified": false,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-premier-20-10-10",
@@ -1612,7 +1612,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-premier-12-6-6",
@@ -1658,7 +1658,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-premier-3-3-12",
@@ -1700,7 +1700,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-premier-6-9-6",
@@ -1742,7 +1742,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "absolute-premier-9-7-7",
@@ -1788,7 +1788,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "ammonium",
             "nFormConfidence": "review",
-            "nFormReason": "Absolute range: conventional quick-release — likely ammonium; confirm from SDS"
+            "nFormReason": "Absolute range: conventional quick-release, likely ammonium; confirm from SDS"
         },
         {
             "id": "ferro-top",
@@ -1831,7 +1831,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Fe speciality with high Mg and K. Colour without growth. Manganese included — confirm SDS.",
+            "notes": "Fe speciality with high Mg and K. Colour without growth. Manganese included, confirm SDS.",
             "verified": false,
             "nForm": "mixed",
             "nFormConfidence": "review",
@@ -1922,7 +1922,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "nitrate",
             "nFormConfidence": "auto",
-            "nFormReason": "Potassium nitrate (KNO3): 100% nitrate-N — negligible volatilisation risk"
+            "nFormReason": "Potassium nitrate (KNO3): 100% nitrate-N, negligible volatilisation risk. Preferred N form for seashore paspalum (Duncan & Carrow 2000); use ~40-50% lower N rates than bermudagrass."
         },
         {
             "id": "regen-fine-4-0-4-fe",
@@ -2006,7 +2006,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Seaweed biostimulant component. Moderate N + Mg. Spring/summer fine turf. Seaweed source/species not specified on website — request SDS.",
+            "notes": "Seaweed biostimulant component. Moderate N + Mg. Spring/summer fine turf. Seaweed source/species not specified on website, request SDS.",
             "verified": false,
             "nForm": "ammonium",
             "nFormConfidence": "review",
@@ -2095,7 +2095,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "Soil amendment product — likely organo-mineral. High K + Mg. Confirm release type and organic N source from SDS.",
+            "notes": "Soil amendment product, likely organo-mineral. High K + Mg. Confirm release type and organic N source from SDS.",
             "verified": false,
             "nForm": "organic",
             "nFormConfidence": "auto",
@@ -2136,7 +2136,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "Ca + Mg amendment. Likely lime-based — confirm CaCO3 vs CaSO4 source. High Ca for cell wall integrity and pH correction.",
+            "notes": "Ca + Mg amendment. Likely lime-based, confirm CaCO3 vs CaSO4 source. High Ca for cell wall integrity and pH correction.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -2168,7 +2168,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Humic acid amendment — no NPK",
+            "npk_label": "Humic acid amendment, no NPK",
             "rates": {
                 "greensMin": 20,
                 "greensMax": 50,
@@ -2177,7 +2177,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "Granular humic acid (80% humic+fulvic). Soil conditioning, CEC improvement, nutrient chelation. Not a fertiliser — no N/P/K. SDS needed for humate source and % breakdown.",
+            "notes": "Granular humic acid (80% humic+fulvic). Soil conditioning, CEC improvement, nutrient chelation. Not a fertiliser, no N/P/K. SDS needed for humate source and % breakdown.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -2221,7 +2221,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 8,
-            "notes": "Organic fine-grade granule for greens and fine turf. Slow mineralisation of N expected. Organic N source not specified — confirm from SDS.",
+            "notes": "Organic fine-grade granule for greens and fine turf. Slow mineralisation of N expected. Organic N source not specified, confirm from SDS.",
             "verified": false,
             "nForm": "organic",
             "nFormConfidence": "auto",
@@ -2265,7 +2265,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 8,
-            "notes": "Higher N organic fine-grade. Lower K than Sigma 4-4-4. Organic N source not specified — confirm from SDS.",
+            "notes": "Higher N organic fine-grade. Lower K than Sigma 4-4-4. Organic N source not specified, confirm from SDS.",
             "verified": false,
             "nForm": "organic",
             "nFormConfidence": "auto",
@@ -2314,7 +2314,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "mixed",
             "nFormConfidence": "review",
-            "nFormReason": "Greentech: NPK compound — N source not confirmed; likely ammonium + nitrate; request SDS"
+            "nFormReason": "Greentech: NPK compound, N source not confirmed; likely ammonium + nitrate; request SDS"
         },
         {
             "id": "greentech-ignite-prot",
@@ -2355,11 +2355,11 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Comprehensive secondary nutrient profile — Ca, Mg, Fe. Summer outfield growth and disease resistance formula.",
+            "notes": "Comprehensive secondary nutrient profile, Ca, Mg, Fe. Summer outfield growth and disease resistance formula.",
             "verified": true,
             "nForm": "mixed",
             "nFormConfidence": "review",
-            "nFormReason": "Greentech: NPK compound — N source not confirmed; likely ammonium + nitrate; request SDS"
+            "nFormReason": "Greentech: NPK compound, N source not confirmed; likely ammonium + nitrate; request SDS"
         },
         {
             "id": "greentech-ignite-h",
@@ -2407,7 +2407,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "mixed",
             "nFormConfidence": "review",
-            "nFormReason": "Greentech: NPK compound — N source not confirmed; likely ammonium + nitrate; request SDS"
+            "nFormReason": "Greentech: NPK compound, N source not confirmed; likely ammonium + nitrate; request SDS"
         },
         {
             "id": "greentech-ignite-k",
@@ -2453,7 +2453,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "mixed",
             "nFormConfidence": "review",
-            "nFormReason": "Greentech: NPK compound — N source not confirmed; likely ammonium + nitrate; request SDS"
+            "nFormReason": "Greentech: NPK compound, N source not confirmed; likely ammonium + nitrate; request SDS"
         },
         {
             "id": "regen-cr-10-3-8-mg",
@@ -2498,11 +2498,11 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "CRF + Mg. Coating technology and release duration not stated on website — request SDS. Lower N entry point for spring/autumn.",
+            "notes": "CRF + Mg. Coating technology and release duration not stated on website, request SDS. Lower N entry point for spring/autumn.",
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "regen-cr-15-3-8-mg",
@@ -2551,7 +2551,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "regen-cr-20-3-8-mg",
@@ -2597,7 +2597,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "regen-cr-24-4-10-mg",
@@ -2642,7 +2642,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "urea_pcu",
             "nFormConfidence": "auto",
-            "nFormReason": "CRF polymer-coated urea — all UK CRF products in database use PCU technology"
+            "nFormReason": "CRF polymer-coated urea, all UK CRF products in database use PCU technology"
         },
         {
             "id": "oas-multigreen-28-3-15-mg",
@@ -2916,7 +2916,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "Finer SGN — suitable for greens. High K hardening formula. Good for autumn or as single-app tee/fairway program.",
+            "notes": "Finer SGN, suitable for greens. High K hardening formula. Good for autumn or as single-app tee/fairway program.",
             "verified": true,
             "productCode": "OAI004547",
             "nForm": "urea_pcu",
@@ -3701,7 +3701,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": null,
-            "notes": "High K stabilised N. MgO% not stated in brochure — request SDS for exact Mg level.",
+            "notes": "High K stabilised N. MgO% not stated in brochure, request SDS for exact Mg level.",
             "verified": false,
             "productCode": "OAI006314",
             "nForm": "stabilised_urea",
@@ -3962,12 +3962,12 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "True complete micro-granule — N, P, K, Mg, Ca and Fe in every granule. All-round summer nutrition.",
+            "notes": "True complete micro-granule, N, P, K, Mg, Ca and Fe in every granule. All-round summer nutrition.",
             "verified": true,
             "productCode": "OAI008909",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-microlite-allround-6-0-20-fe",
@@ -4119,7 +4119,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Balanced NK with Mg. Methylene urea component extends longevity. MgO% not given — request SDS.",
+            "notes": "Balanced NK with Mg. Methylene urea component extends longevity. MgO% not given, request SDS.",
             "verified": false,
             "productCode": "OAI004533",
             "nForm": "urea_mu",
@@ -4170,7 +4170,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "High K + Fe autumn hardening. Ammonium + nitrate N sources — good cool-temp uptake. MgO% not stated — request SDS.",
+            "notes": "High K + Fe autumn hardening. Ammonium + nitrate N sources, good cool-temp uptake. MgO% not stated, request SDS.",
             "verified": false,
             "productCode": "OAI004535",
             "nForm": "mixed",
@@ -4483,7 +4483,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Composted organic base stimulates soil microbial activity without N immobilisation (unlike non-composted organics). MgO% not stated — request SDS.",
+            "notes": "Composted organic base stimulates soil microbial activity without N immobilisation (unlike non-composted organics). MgO% not stated, request SDS.",
             "verified": false,
             "productCode": "OAI005492",
             "nForm": "mixed",
@@ -4589,7 +4589,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 8,
-            "notes": "Longer longevity (8-10 weeks) due to larger granule and urea-dominant N. MgO% not stated — request SDS.",
+            "notes": "Longer longevity (8-10 weeks) due to larger granule and urea-dominant N. MgO% not stated, request SDS.",
             "verified": false,
             "productCode": "OAI005493",
             "nForm": "mixed",
@@ -4695,7 +4695,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 7,
-            "notes": "High Ca and P. High humic acid (11%) — CEC enhancement, chelation, soil biology. Establishment and root development. 6-8 week longevity.",
+            "notes": "High Ca and P. High humic acid (11%), CEC enhancement, chelation, soil biology. Establishment and root development. 6-8 week longevity.",
             "verified": true,
             "productCode": "OAI000044",
             "nForm": "mixed",
@@ -4803,7 +4803,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 7,
-            "notes": "Higher N Apex. Ca + humic + MgO. Spring/summer growth with soil biology benefit. MgO% not stated — request SDS.",
+            "notes": "Higher N Apex. Ca + humic + MgO. Spring/summer growth with soil biology benefit. MgO% not stated, request SDS.",
             "verified": false,
             "productCode": "OAI000046",
             "nForm": "mixed",
@@ -4908,7 +4908,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 9,
-            "notes": "Organic NPK. Higher K version — autumn or spring conditioning. 8-10 week slow release from organic N.",
+            "notes": "Organic NPK. Higher K version, autumn or spring conditioning. 8-10 week slow release from organic N.",
             "verified": true,
             "productCode": "OAI000176",
             "nForm": "mixed",
@@ -5115,7 +5115,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Cost-effective conventional outfield formula. Homogeneous — each granule identical. Quick response.",
+            "notes": "Cost-effective conventional outfield formula. Homogeneous, each granule identical. Quick response.",
             "verified": true,
             "productCode": "OAI000021",
             "nForm": "ammonium",
@@ -5414,7 +5414,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "P-free NK with Mg and Fe. Ammoniacal-dominant N — reliable cool-temp uptake.",
+            "notes": "P-free NK with Mg and Fe. Ammoniacal-dominant N, reliable cool-temp uptake.",
             "verified": true,
             "productCode": "OAI000062",
             "nForm": "mixed",
@@ -5572,7 +5572,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Comprehensive secondary nutrient package — Ca, Mg, Fe plus K. Autumn hardening with colour response.",
+            "notes": "Comprehensive secondary nutrient package, Ca, Mg, Fe plus K. Autumn hardening with colour response.",
             "verified": true,
             "productCode": "OAI000051",
             "nForm": "mixed",
@@ -5624,7 +5624,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Full spectrum micro-granule — NPK + Ca + Mg + Fe. Renovation or multi-nutrient top-up.",
+            "notes": "Full spectrum micro-granule, NPK + Ca + Mg + Fe. Renovation or multi-nutrient top-up.",
             "verified": true,
             "productCode": "OAI000052",
             "nForm": "mixed",
@@ -5942,7 +5942,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 6,
-            "notes": "Premium bio-fertiliser micro-granule. 50% organic N — slow mineralisation supports soil biology. Low salt index. Fine enough for greens.",
+            "notes": "Premium bio-fertiliser micro-granule. 50% organic N, slow mineralisation supports soil biology. Low salt index. Fine enough for greens.",
             "verified": true,
             "productCode": "OAI007276",
             "nForm": "mixed",
@@ -6114,7 +6114,7 @@ const UkFertiliserProducts = {
                                 "max": 600
                     },
                     "interval_weeks": 4,
-                    "notes": "High-N liquid for rapid green-up. Two formulations may exist (25-0-0 and 33-0-0) \u2014 SDS needed to confirm.",
+                    "notes": "High-N liquid for rapid green-up. Two formulations may exist (25-0-0 and 33-0-0), SDS needed to confirm.",
                     "verified": false,
                     "nForm": "mixed",
                     "nFormConfidence": "review",
@@ -6219,7 +6219,7 @@ const UkFertiliserProducts = {
                     },
                     "npk_label": "0-0-0+6.9Fe",
                     "release": "quick",
-                    "releaseNotes": "Iron-only liquid. ICL site lists 7.2% Fe; Agrovista 6.9% Fe \u2014 confirm from SDS.",
+                    "releaseNotes": "Iron-only liquid. ICL site lists 7.2% Fe; Agrovista 6.9% Fe, confirm from SDS.",
                     "surfaces": [
                                 "greens",
                                 "tees",
@@ -6243,11 +6243,11 @@ const UkFertiliserProducts = {
                                 "max": 600
                     },
                     "interval_weeks": 3,
-                    "notes": "Iron-only colour enhancer. No nitrogen. ICL site: 7.2% Fe; Agrovista: 6.9% Fe \u2014 SDS needed to confirm.",
+                    "notes": "Iron-only colour enhancer. No nitrogen. ICL site: 7.2% Fe; Agrovista: 6.9% Fe, SDS needed to confirm.",
                     "verified": false,
                     "nForm": "no_N",
                     "nFormConfidence": "auto",
-                    "nFormReason": "No nitrogen in analysis \u2014 iron-only liquid"
+                    "nFormReason": "No nitrogen in analysis, iron-only liquid"
         },
         {
                     "id": "gm-liquid-step",
@@ -6284,11 +6284,11 @@ const UkFertiliserProducts = {
                                 "max": 600
                     },
                     "interval_weeks": 4,
-                    "notes": "Trace element package only \u2014 no NPK. Chelated TE. Agrovista/Pitchcare confirmed.",
+                    "notes": "Trace element package only, no NPK. Chelated TE. Agrovista/Pitchcare confirmed.",
                     "verified": false,
                     "nForm": "no_N",
                     "nFormConfidence": "auto",
-                    "nFormReason": "No nitrogen \u2014 trace element package only"
+                    "nFormReason": "No nitrogen, trace element package only"
         },
         {
             "id": "vitalnova-baseline",
@@ -6318,7 +6318,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Biostimulant — see SDS",
+            "npk_label": "Biostimulant, see SDS",
             "rates": {
                 "greensMin": 200,
                 "greensMax": 50
@@ -6359,7 +6359,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Wetting agent — no NPK",
+            "npk_label": "Wetting agent, no NPK",
             "rates": {
                 "greensMin": 200,
                 "greensMax": 30,
@@ -6368,7 +6368,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Patented 100% biodegradable liquid wetting agent. 3 modes of action: penetrate, retain moisture, nutrient uptake enhancement. Rate determines mode — low rate = penetration, higher rate = retention. Proven to retain 1-1.5% more VWC vs leading competitor in bentgrass trial (brochure data, not peer-reviewed).",
+            "notes": "Patented 100% biodegradable liquid wetting agent. 3 modes of action: penetrate, retain moisture, nutrient uptake enhancement. Rate determines mode, low rate = penetration, higher rate = retention. Proven to retain 1-1.5% more VWC vs leading competitor in bentgrass trial (brochure data, not peer-reviewed).",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6401,14 +6401,14 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Wetting agent — no NPK",
+            "npk_label": "Wetting agent, no NPK",
             "rates": {
                 "greensMin": 15,
                 "greensMax": 25
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Wetting agent — no further detail on website. SDS required. Likely a spot-treatment or curative dry patch product given the name.",
+            "notes": "Wetting agent, no further detail on website. SDS required. Likely a spot-treatment or curative dry patch product given the name.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6442,7 +6442,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Wetting agent — no NPK",
+            "npk_label": "Wetting agent, no NPK",
             "rates": {
                 "greensMin": 15,
                 "greensMax": 25,
@@ -6485,7 +6485,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Biostimulant — liquid seaweed extract",
+            "npk_label": "Biostimulant, liquid seaweed extract",
             "rates": {
                 "greensMin": 5,
                 "greensMax": 10,
@@ -6494,7 +6494,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Laminaria digitata cold-extraction. High Mannitol (osmoregulant — drought/salt/cold stress), high Laminarin (carbon energy, soil microbe stimulation, plant defence elicitor). 100% Ecocert certified. Application: 5 L/ha standard, 10 L/ha high stress. Water rate 300-600 L/ha.",
+            "notes": "Laminaria digitata cold-extraction. High Mannitol (osmoregulant, drought/salt/cold stress), high Laminarin (carbon energy, soil microbe stimulation, plant defence elicitor). 100% Ecocert certified. Application: 5 L/ha standard, 10 L/ha high stress. Water rate 300-600 L/ha.",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6528,7 +6528,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Biostimulant — confirm from SDS",
+            "npk_label": "Biostimulant, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
@@ -6569,7 +6569,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Biostimulant — confirm from SDS",
+            "npk_label": "Biostimulant, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
@@ -6609,14 +6609,14 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Biostimulant — likely photosynthesis support; confirm from SDS",
+            "npk_label": "Biostimulant, likely photosynthesis support; confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "PAR = Photosynthetically Active Radiation — likely a chlorophyll/photosynthesis support product. GSSH stadium shade hub relevance: potential overlap with LED DLI supplementation advisory. SDS required.",
+            "notes": "PAR = Photosynthetically Active Radiation, likely a chlorophyll/photosynthesis support product. GSSH stadium shade hub relevance: potential overlap with LED DLI supplementation advisory. SDS required.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6650,7 +6650,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Amino acid biostimulant — NPK variable; confirm from SDS",
+            "npk_label": "Amino acid biostimulant, NPK variable; confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
@@ -6687,7 +6687,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Humic/fulvic acid — no NPK",
+            "npk_label": "Humic/fulvic acid, no NPK",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20,
@@ -6730,7 +6730,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Organic biostimulant — confirm from SDS",
+            "npk_label": "Organic biostimulant, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
@@ -6863,7 +6863,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "NPK not stated on website. Name implies stress response — possibly biostimulant + NPK combination. SDS required before GAIP integration.",
+            "notes": "NPK not stated on website. Name implies stress response, possibly biostimulant + NPK combination. SDS required before GAIP integration.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6897,7 +6897,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Liquid Ca — confirm % from SDS",
+            "npk_label": "Liquid Ca, confirm % from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 30
@@ -6938,7 +6938,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Liquid Fe — confirm % from SDS",
+            "npk_label": "Liquid Fe, confirm % from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20,
@@ -6947,7 +6947,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 3,
-            "notes": "Liquid iron for colour response. Fe source (sulphate vs chelated) not specified — important for staining risk on hardscapes. SDS required.",
+            "notes": "Liquid iron for colour response. Fe source (sulphate vs chelated) not specified, important for staining risk on hardscapes. SDS required.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -6981,7 +6981,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Colour lift liquid — confirm from SDS",
+            "npk_label": "Colour lift liquid, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
@@ -7022,7 +7022,7 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Colour lift liquid — confirm from SDS",
+            "npk_label": "Colour lift liquid, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20,
@@ -7064,14 +7064,14 @@ const UkFertiliserProducts = {
                 "Mn": 0,
                 "S": 0
             },
-            "npk_label": "Colour lift liquid — confirm from SDS",
+            "npk_label": "Colour lift liquid, confirm from SDS",
             "rates": {
                 "greensMin": 10,
                 "greensMax": 20
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Fine turf colour product. \"Jade\" implies dark green response — likely Fe + Mn combination. SDS required.",
+            "notes": "Fine turf colour product. \"Jade\" implies dark green response, likely Fe + Mn combination. SDS required.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
@@ -7119,7 +7119,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "High N slow-release liquid. Methylene urea reduces flush growth risk. Very low salt index — suitable in hot conditions. Water volume 300-450 L/ha.",
+            "notes": "High N slow-release liquid. Methylene urea reduces flush growth risk. Very low salt index, suitable in hot conditions. Water volume 300-450 L/ha.",
             "verified": true,
             "productCode": "OAI005441",
             "nForm": "urea_mu",
@@ -7268,7 +7268,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI005454",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-protec-6-0-12",
@@ -7311,12 +7311,12 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Low N high K liquid hardening formula. Three N sources — good cool-temp response.",
+            "notes": "Low N high K liquid hardening formula. Three N sources, good cool-temp response.",
             "verified": true,
             "productCode": "OAI005461",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-protec-0-0-25",
@@ -7360,7 +7360,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI005448",
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Protec 0-0-25: potassium only — no nitrogen"
+            "nFormReason": "Protec 0-0-25: potassium only, no nitrogen"
         },
         {
             "id": "oas-microflow-26-0-0-te",
@@ -7500,12 +7500,12 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "High K liquid hardening formula. Low N. Fe and trace elements included. Fe% not stated in brochure — request SDS.",
+            "notes": "High K liquid hardening formula. Low N. Fe and trace elements included. Fe% not stated in brochure, request SDS.",
             "verified": false,
             "productCode": "OAI000115",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-ecofeed-25-0-0-te",
@@ -7553,7 +7553,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI000312",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-ecofeed-10-0-10-te",
@@ -7595,7 +7595,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Cost-effective balanced NK liquid. Urea N — warm conditions preferred. Drum size for large areas.",
+            "notes": "Cost-effective balanced NK liquid. Urea N, warm conditions preferred. Drum size for large areas.",
             "verified": true,
             "productCode": "OAI000311",
             "nForm": "urea",
@@ -7649,7 +7649,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI000220",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-nutrilink-revive-3-0-0-fe-seaweed-amino",
@@ -7736,7 +7736,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Ammoniacal + nitrate N for rapid cool-temp response. Very high Mg for chlorophyll and photosynthesis. Low pH formulation — does not encourage disease. Green colour enhancement.",
+            "notes": "Ammoniacal + nitrate N for rapid cool-temp response. Very high Mg for chlorophyll and photosynthesis. Low pH formulation, does not encourage disease. Green colour enhancement.",
             "verified": true,
             "productCode": "OAI000287",
             "nForm": "mixed",
@@ -7784,12 +7784,12 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 3,
-            "notes": "Very high K water soluble. Autumn hardening. Three N sources for broad temperature coverage. Water volume 300-600 L/ha. MgO% not stated — request SDS.",
+            "notes": "Very high K water soluble. Autumn hardening. Three N sources for broad temperature coverage. Water volume 300-600 L/ha. MgO% not stated, request SDS.",
             "verified": false,
             "productCode": "OAI006387",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-optisol-28-7-14-mg",
@@ -7837,7 +7837,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI006392",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-optisol-13-40-13-mg",
@@ -7885,7 +7885,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI006388",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-optisol-15-0-35-mg",
@@ -7933,7 +7933,7 @@ const UkFertiliserProducts = {
             "productCode": "OAI006389",
             "nForm": "mixed",
             "nFormConfidence": "auto",
-            "nFormReason": "nBreakdown present — mixed sources"
+            "nFormReason": "nBreakdown present, mixed sources"
         },
         {
             "id": "oas-optisol-13-0-45",
@@ -7974,7 +7974,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "kg/ha",
             "interval_weeks": 3,
-            "notes": "Extremely high K soluble. Nitrate N only — fast cool-temp uptake. Maximum autumn/winter K hardening.",
+            "notes": "Extremely high K soluble. Nitrate N only, fast cool-temp uptake. Maximum autumn/winter K hardening.",
             "verified": true,
             "productCode": "OAI006390",
             "nForm": "nitrate",
@@ -8029,6 +8029,102 @@ const UkFertiliserProducts = {
             "nFormReason": "nBreakdown: urea only"
         },
         {
+            "id": "sol-kno3-uk",
+            "name": "Potassium Nitrate (KNO3) Technical Soluble",
+            "brand": "Potassium Nitrate",
+            "supplier": "various",
+            "form": "soluble",
+            "release": "quick",
+            "surfaces": [
+                "greens",
+                "tees",
+                "bowling",
+                "fairways",
+                "sports"
+            ],
+            "season": [
+                "autumn",
+                "winter",
+                "spring"
+            ],
+            "analysis": {
+                "N": 13.85,
+                "P": 0,
+                "K": 38.67,
+                "Mg": 0,
+                "Ca": 0,
+                "Fe": 0,
+                "Mn": 0,
+                "S": 0
+            },
+            "npk_label": "14-0-46 (as K2O)",
+            "nBreakdown": {
+                "nitrateN_pct": 13.85
+            },
+            "rates": {
+                "greensMin": 20,
+                "greensMax": 30,
+                "teesMin": 20,
+                "teesMax": 50,
+                "fairwaysMin": 30,
+                "fairwaysMax": 80
+            },
+            "rateUnit": "kg/ha",
+            "interval_weeks": 3,
+            "notes": "Technical-grade soluble KNO3. Chloride-free K source with nitrate-N. Solubility ~316 g/L at 20C, ~210 g/L at 5C, tank check after cold storage. Foliar at <600 L/ha water; soil-applied at >600 L/ha. Counts toward total N applied.",
+            "verified": true,
+            "nForm": "nitrate",
+            "nFormConfidence": "auto",
+            "nFormReason": "Potassium nitrate (KNO3): 100% nitrate-N. Negligible volatilisation risk. Preferred N form for seashore paspalum (Duncan & Carrow 2000)."
+        },
+        {
+            "id": "sol-k2so4-uk",
+            "name": "Potassium Sulphate (K2SO4) Technical Soluble",
+            "brand": "Potassium Sulphate",
+            "supplier": "various",
+            "form": "soluble",
+            "release": "quick",
+            "surfaces": [
+                "greens",
+                "tees",
+                "bowling",
+                "fairways",
+                "sports"
+            ],
+            "season": [
+                "autumn",
+                "winter",
+                "spring",
+                "summer"
+            ],
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 41.5,
+                "Mg": 0,
+                "Ca": 0,
+                "Fe": 0,
+                "Mn": 0,
+                "S": 18
+            },
+            "npk_label": "0-0-50 (as K2O) +18S",
+            "rates": {
+                "greensMin": 15,
+                "greensMax": 25,
+                "teesMin": 15,
+                "teesMax": 40,
+                "fairwaysMin": 25,
+                "fairwaysMax": 60
+            },
+            "rateUnit": "kg/ha",
+            "interval_weeks": 3,
+            "notes": "Technical-grade soluble K2SO4. Pure K + S, no N. Chloride-free. Lower solubility than KNO3 (~110 g/L at 20C, ~85 g/L at 5C), tank check after cold storage. Useful for tissue-K correction without adding N, and on chloride-sensitive turf (couch greens, paspalum, fine fescues). 41.5% K elemental = 50% K2O x 0.8302; 18% S textbook value (Havlin et al., Soil Fertility and Fertilizers, 8th ed., Ch.10).",
+            "verified": true,
+            "nForm": "none",
+            "nFormConfidence": "auto",
+            "nFormReason": "No nitrogen in analysis"
+        },
+        {
             "id": "oas-biobooster-fish-hydrolysate-8-7-7",
             "name": "BioBooster Fish Hydrolysate 8-7-7",
             "brand": "BioBooster",
@@ -8069,7 +8165,7 @@ const UkFertiliserProducts = {
             },
             "rateUnit": "L/ha",
             "interval_weeks": 4,
-            "notes": "Odour-free fish hydrolysate. Full NPK from organic sources. Stimulates plant and soil microbes. Low salt index — suitable in stress conditions.",
+            "notes": "Odour-free fish hydrolysate. Full NPK from organic sources. Stimulates plant and soil microbes. Low salt index, suitable in stress conditions.",
             "verified": true,
             "productCode": "OAI007208",
             "nForm": "organic",
@@ -8437,7 +8533,7 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "Premium fine turf wetting agent. Three surfactant technologies — penetration, spread and retention in one product. Most effective against LDS (Localised Dry Patch). 2023 STRI trial: bi-monthly at 20 L/ha = monthly at 10 L/ha. Can be tank-mixed with Greenmaster Liquids (not Ca-Booster). All year use. Confirmed rates from Pitchcare/Amenity Choice product labels.",
+            "notes": "Premium fine turf wetting agent. Three surfactant technologies, penetration, spread and retention in one product. Most effective against LDS (Localised Dry Patch). 2023 STRI trial: bi-monthly at 20 L/ha = monthly at 10 L/ha. Can be tank-mixed with Greenmaster Liquids (not Ca-Booster). All year use. Confirmed rates from Pitchcare/Amenity Choice product labels.",
             "tankMixCompatible": [
                 "greenmaster-liquid-advance",
                 "h2pro-flowsmart",
@@ -8446,7 +8542,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-trismart-granular",
@@ -8478,11 +8574,11 @@ const UkFertiliserProducts = {
             "rateUnit": "kg/ha",
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "TriSmart performance in mini-granule format. Patent pending. Targeted dry patch treatment — applies TriSmart chemistry via granule for areas where sprayer access is difficult or where spot treatment is preferred. Rates need SDS confirmation.",
+            "notes": "TriSmart performance in mini-granule format. Patent pending. Targeted dry patch treatment, applies TriSmart chemistry via granule for areas where sprayer access is difficult or where spot treatment is preferred. Rates need SDS confirmation.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-flowsmart",
@@ -8522,7 +8618,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-aquasmart",
@@ -8556,7 +8652,7 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 5,
             "longevity_weeks": 5,
-            "notes": "Outfield/cost-effective wetting agent. Low-rate formulation — 5 L/ha standard, 10 L/ha high-stress. Apply 3-4 times through summer. Prevents drying and allows quick rewetting. Best fit: fairways, tees, sports pitches where budget is a constraint vs TriSmart.",
+            "notes": "Outfield/cost-effective wetting agent. Low-rate formulation, 5 L/ha standard, 10 L/ha high-stress. Apply 3-4 times through summer. Prevents drying and allows quick rewetting. Best fit: fairways, tees, sports pitches where budget is a constraint vs TriSmart.",
             "tankMixCompatible": [
                 "h2pro-trismart",
                 "h2pro-flowsmart"
@@ -8564,7 +8660,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-balance",
@@ -8596,12 +8692,12 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "LEGACY PRODUCT — replaced by TriSmart in current range. Penetrant + retention wetting agent. Still referenced in some existing programmes. If encountered, TriSmart is the current equivalent.",
+            "notes": "LEGACY PRODUCT, replaced by TriSmart in current range. Penetrant + retention wetting agent. Still referenced in some existing programmes. If encountered, TriSmart is the current equivalent.",
             "legacy": true,
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-dispatch",
@@ -8632,12 +8728,12 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "LEGACY PRODUCT — replaced by FlowSmart in current range. Penetrant-focused. FlowSmart is the current equivalent.",
+            "notes": "LEGACY PRODUCT, replaced by FlowSmart in current range. Penetrant-focused. FlowSmart is the current equivalent.",
             "legacy": true,
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-conserve",
@@ -8669,12 +8765,12 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "LEGACY PRODUCT — retention-focused. Referenced in some labels as tank-mix partner with Greenmaster Liquids. AquaSmart is closest current equivalent for outfield; TriSmart for greens.",
+            "notes": "LEGACY PRODUCT, retention-focused. Referenced in some labels as tank-mix partner with Greenmaster Liquids. AquaSmart is closest current equivalent for outfield; TriSmart for greens.",
             "legacy": true,
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-conserve-tablet",
@@ -8706,7 +8802,7 @@ const UkFertiliserProducts = {
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "h2pro-transaction",
@@ -8739,12 +8835,12 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "LEGACY PRODUCT — multi-mode wetting agent. Predecessor to TriSmart. TriSmart is the current equivalent with improved surfactant chemistry.",
+            "notes": "LEGACY PRODUCT, multi-mode wetting agent. Predecessor to TriSmart. TriSmart is the current equivalent with improved surfactant chemistry.",
             "legacy": true,
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "headland-tricure-ad",
@@ -8781,11 +8877,11 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "Headland's flagship wetting agent. Well established in UK golf — widely referenced in case studies. Low rate 5 L/ha = ~2 weeks activity; full rate 10 L/ha = up to 4 weeks. Tank-mix partner: Elevate Fe in spring/summer programme. Confirmed rate from TriCure AD Pellets label: \"Full rate 10 L/ha 4 weeks, low rate 5 L/ha 2 weeks.\"",
+            "notes": "Headland's flagship wetting agent. Well established in UK golf, widely referenced in case studies. Low rate 5 L/ha = ~2 weeks activity; full rate 10 L/ha = up to 4 weeks. Tank-mix partner: Elevate Fe in spring/summer programme. Confirmed rate from TriCure AD Pellets label: \"Full rate 10 L/ha 4 weeks, low rate 5 L/ha 2 weeks.\"",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "headland-tricure-ad-pellets",
@@ -8813,11 +8909,11 @@ const UkFertiliserProducts = {
             "rateUnit": "pellet",
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "Hose-end pellet version of TriCure AD. Dissolution rate varies with water temperature — calibration required before use. Apply when ambient temps reach 10-15°C (early spring) or at first heat stress signs. Fits 1\" hose or 3/4\" with adapter.",
+            "notes": "Hose-end pellet version of TriCure AD. Dissolution rate varies with water temperature, calibration required before use. Apply when ambient temps reach 10-15°C (early spring) or at first heat stress signs. Fits 1\" hose or 3/4\" with adapter.",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "headland-tricure-granular",
@@ -8848,11 +8944,11 @@ const UkFertiliserProducts = {
             "rateUnit": "kg/ha",
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "DG-lite carrier granular formulation. Same chemistry as TriCure AD liquid. Rapid breakdown on turf surface. Rates not confirmed from public sources — request SDS from Headland.",
+            "notes": "DG-lite carrier granular formulation. Same chemistry as TriCure AD liquid. Rapid breakdown on turf surface. Rates not confirmed from public sources, request SDS from Headland.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "headland-terafirm-liquid",
@@ -8885,11 +8981,11 @@ const UkFertiliserProducts = {
             },
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "Soil penetrant formulated to improve downward water movement — reduces lateral movement, maximises drainage. Non-phytotoxic. Creates firmer surface by accelerating soil contraction during dry-down. DIFFERENT purpose to TriCure — Terafirm is for drainage/firmness, TriCure for dry patch rewetting. Case study: Canons Brook GC, applied to fairways at 2.5 L/ha alongside XTEND 21-0-0 and Elevate Fe.",
+            "notes": "Soil penetrant formulated to improve downward water movement, reduces lateral movement, maximises drainage. Non-phytotoxic. Creates firmer surface by accelerating soil contraction during dry-down. DIFFERENT purpose to TriCure, Terafirm is for drainage/firmness, TriCure for dry patch rewetting. Case study: Canons Brook GC, applied to fairways at 2.5 L/ha alongside XTEND 21-0-0 and Elevate Fe.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         },
         {
             "id": "headland-terafirm-granular",
@@ -8919,11 +9015,11 @@ const UkFertiliserProducts = {
             "rateUnit": "kg/ha",
             "interval_weeks": 4,
             "longevity_weeks": 4,
-            "notes": "DG-lite carrier. Same drainage-focussed chemistry as Terafirm liquid in granular form. Rates not confirmed — request SDS.",
+            "notes": "DG-lite carrier. Same drainage-focussed chemistry as Terafirm liquid in granular form. Rates not confirmed, request SDS.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Wetting agent — no nitrogen"
+            "nFormReason": "Wetting agent, no nitrogen"
         }
     ],
     "plantHealth": [
@@ -8972,11 +9068,11 @@ const UkFertiliserProducts = {
                     ]
                 }
             },
-            "notes": "Core component of Headland 20-20-30 Fusarium suppression programme at 30 L/ha. Citrate-chelated Fe — creates acidic leaf environment hostile to Microdochium nivale. Mg and S present but % not stated on public pages — request SDS. Apply morning/evening; water in at high rate (30 L/ha) or dry weather. Also includes seaweed per case study reference.",
+            "notes": "Core component of Headland 20-20-30 Fusarium suppression programme at 30 L/ha. Citrate-chelated Fe, creates acidic leaf environment hostile to Microdochium nivale. Mg and S present but % not stated on public pages, request SDS. Apply morning/evening; water in at high rate (30 L/ha) or dry weather. Also includes seaweed per case study reference.",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-liquid-turf-hardener",
@@ -9022,11 +9118,11 @@ const UkFertiliserProducts = {
                     ]
                 }
             },
-            "notes": "Ca + Mg in nitrate form — increases cell wall thickness. Rapid uptake in low temperatures. Acid buffered for tank-mix compatibility. Core component of 20-20-30 at 20 L/ha. Ca and Mg % not on public pages — request SDS.",
+            "notes": "Ca + Mg in nitrate form, increases cell wall thickness. Rapid uptake in low temperatures. Acid buffered for tank-mix compatibility. Core component of 20-20-30 at 20 L/ha. Ca and Mg % not on public pages, request SDS.",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-turfite-elite",
@@ -9083,11 +9179,11 @@ const UkFertiliserProducts = {
                 }
             },
             "sarMechanism": true,
-            "notes": "Potassium phosphite + salicylic acid. SA triggers SAR (Systemic Acquired Resistance) — activates plant defence pathways against Microdochium and other pathogens. Phosphite provides direct anti-fungal activity at leaf surface. STRI-trialled since 2007 (11+ years continuous). 20-20-30 rate at 20 L/ha confirmed from multiple sources. Compatible with Seamac Ultra Plus and TeMag HPE for post-stress recovery.",
+            "notes": "Potassium phosphite + salicylic acid. SA triggers SAR (Systemic Acquired Resistance), activates plant defence pathways against Microdochium and other pathogens. Phosphite provides direct anti-fungal activity at leaf surface. STRI-trialled since 2007 (11+ years continuous). 20-20-30 rate at 20 L/ha confirmed from multiple sources. Compatible with Seamac Ultra Plus and TeMag HPE for post-stress recovery.",
             "verified": true,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-elevate-fe",
@@ -9128,11 +9224,11 @@ const UkFertiliserProducts = {
                     ]
                 }
             },
-            "notes": "Non-staining complexed Fe — key differentiator vs ferrous sulphate (no wheel marks, no concrete staining). Mixes with Primo Maxx II and liquid fertilisers. Spring/summer tank-mix partner: XTEND 46-0-0 + TriCure AD (referenced Stratford Oaks case study). Fe% not on public pages — request SDS.",
+            "notes": "Non-staining complexed Fe, key differentiator vs ferrous sulphate (no wheel marks, no concrete staining). Mixes with Primo Maxx II and liquid fertilisers. Spring/summer tank-mix partner: XTEND 46-0-0 + TriCure AD (referenced Stratford Oaks case study). Fe% not on public pages, request SDS.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-seamac-ultra-plus",
@@ -9164,11 +9260,11 @@ const UkFertiliserProducts = {
                 "max": 500
             },
             "interval_weeks": 4,
-            "notes": "Chelated Fe + seaweed combination. Post-stress recovery partner with Turfite Elite and TeMag HPE. Fe% and seaweed concentration not confirmed from public sources — request SDS.",
+            "notes": "Chelated Fe + seaweed combination. Post-stress recovery partner with Turfite Elite and TeMag HPE. Fe% and seaweed concentration not confirmed from public sources, request SDS.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-dewcure",
@@ -9196,11 +9292,11 @@ const UkFertiliserProducts = {
                 "max": 500
             },
             "interval_weeks": 2,
-            "notes": "Dew dispersant — forms water-resistant rainfast coating on leaf surface. Reduces leaf wetness duration, lowering Microdochium infection risk. Referenced in case studies as supplementary to 20-20-30 programme. Rates approximate — confirm from SDS.",
+            "notes": "Dew dispersant, forms water-resistant rainfast coating on leaf surface. Reduces leaf wetness duration, lowering Microdochium infection risk. Referenced in case studies as supplementary to 20-20-30 programme. Rates approximate, confirm from SDS.",
             "verified": false,
             "nForm": "no_N",
             "nFormConfidence": "auto",
-            "nFormReason": "Plant health product — no fertiliser N"
+            "nFormReason": "Plant health product, no fertiliser N"
         },
         {
             "id": "headland-xtend-liquid-21-0-0",

@@ -140,7 +140,7 @@
             unavailable: {
                 code: 'unavailable',
                 label: 'Unavailable',
-                symbol: '—',
+                symbol: '-',
                 color: '9CA3AF',
                 description: 'Engine did not run or data not available'
             }
@@ -191,7 +191,7 @@
      */
     function formatValue(value, precision = 1, unit = '') {
         if (value === null || value === undefined) {
-            return '—';
+            return '-';
         }
         
         if (typeof value === 'number') {
@@ -504,7 +504,7 @@
                     quality: changeQuality,
                     formatted: change !== null 
                         ? (change >= 0 ? '+' : '') + formatValue(change, config.precision, config.unit)
-                        : '—'
+                        : '-'
                 }
             });
         }

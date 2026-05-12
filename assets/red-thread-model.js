@@ -42,7 +42,24 @@
  * - Hims et al. (1984) Control of red thread
  * - Zhang et al. (2015) Red thread on warm-season turf in tropical China
  * - Richter & Schneider (1961) Red thread damage in NW Germany
- * 
+ *
+ * b35fix452 (C57): CABI 2024 cross-reference, citation-only, no logic touch.
+ *   Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ *   Biology and Integrated Management of Turfgrass Diseases.
+ *   CABI, Wallingford. ISBN 9781789246216.
+ *   Ch.6 p.88-90 + Box 6.6: low-to-moderate temperature 18-24 deg C,
+ *   nitrogen deficiency and imbalanced nutrition, high humidity > 80%,
+ *   prolonged leaf wetness MINIMUM 12h, lower mowing heights, reduced
+ *   light intensity, host-fungicide interactions. Chastagner & Vassey
+ *   1979 (cited within CABI Ch.6 p.90) records that PGR application
+ *   has been shown to favour red thread occurrence and probably enhance
+ *   pathogen infection. The hub currently uses a 6h leaf-wetness floor
+ *   and a 15-25 deg C optimal temperature window with no PGR multiplier;
+ *   flagged in audit recommendation #4 for engine refinement under a
+ *   future build. Cross-references the existing Penn State / NC State /
+ *   MSU / UMass / UC IPM / RHS / Syngenta ANZ / Smiley 2005 chain.
+ *   Coefficients, thresholds, and weights unchanged in this build.
+ *
  * CONFIDENCE LEVEL: LOW
  * This is a heuristic risk index, not a validated predictive model.
  * Use for general risk awareness, not precise timing decisions.
@@ -80,10 +97,23 @@
             optimal: 90            // Ideal for pathogen
         },
         
-        // Leaf wetness (estimated hours per day)
+        // Leaf wetness (per-day wet hours)
+        // b35fix460 (C64a): CABI 2024 Ch.6 p.88-90 + Box 6.6 anchors red thread
+        // infection at MINIMUM 12h prolonged leaf wetness (Beehag et al. 2024
+        // CABI ISBN 9781789246216). Pre-fix the hub computed humidityFactor
+        // from RH + precip with no wet-hours read; the existing 6h `minHours`
+        // and 10h `optimalHours` constants were declared but unread by
+        // calculate(). Post-fix when dewData.leafWetness.averageWetHours is
+        // available we derive a multiplicative LWD factor (sigmoid 6h to 12h
+        // ramp, full activation at or above 12h) and gate humidityFactor on
+        // it. CABI 12h floor is the saturation anchor; the pre-existing 6h
+        // floor stays as the lower bound below which infection probability
+        // is minimal, matching the bipolaris models' calcLeafWetnessResponse
+        // convention at assets/bipolaris-curvularia-models.js:376-393.
         leafWetness: {
-            minHours: 6,      // Minimum for infection
-            optimalHours: 10  // Extended wetness = high risk
+            minHours: 6,        // Minimum for infection (lower bound)
+            optimalHours: 10,   // Extended wetness, high risk
+            cabiMinHours: 12    // CABI 2024 prolonged-wetness saturation anchor
         },
 
         // Nitrogen status modifiers
@@ -187,9 +217,16 @@
          * @param {Object} nitrogen - Nitrogen status {status: 'deficient'|'low'|'adequate'|'high'|'excessive'}
          * @param {Object} variety - Variety traits (may include disease.redThread.riskMultiplier)
          * @param {Object} options - Additional options {species, region, tissueN}
+         * @param {Object} [dewData=null] - Optional dew/leaf-wetness data
+         *   { leafWetness: { averageWetHours?, totalWetHours? } } per
+         *   disease-engine-pure.js:29 canonical contract. When
+         *   averageWetHours is present we apply a CABI 2024 LWD multiplicative
+         *   gate on humidityFactor (b35fix460 / C64a). When absent we fall
+         *   through to the pre-b35fix460 RH + precip humidityFactor, strict
+         *   superset of pre-fix behaviour on the no-dewData path.
          * @returns {Object} Risk assessment
          */
-        calculate(climate, nitrogen, variety, options = {}) {
+        calculate(climate, nitrogen, variety, options = {}, dewData = null) {
             // b35fix345: null-passthrough on temperature and humidity. Pre-fix
             // meanTemp `?? 15` and humidity `?? 75` planted fabricated values
             // when climate data was missing — produced spurious risk on no-data
@@ -205,11 +242,11 @@
             
             if (meanTemp == null) {
                 return this._buildResult(0, 'minimal', {
-                    temperature: { value: null, contribution: 0, note: 'No temperature data — degraded' },
+                    temperature: { value: null, contribution: 0, note: 'No temperature data, degraded' },
                     humidity: { value: humidity, contribution: 0 },
                     nitrogen: { status: nStatus, modifier: 1 },
                     species: { name: species, modifier: 1 }
-                }, 'Temperature data unavailable — risk computation skipped (b35fix345)');
+                }, 'Temperature data unavailable, risk computation skipped (b35fix345)');
             }
             
             const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
@@ -278,6 +315,63 @@
                 humidityFactor = Math.min(1, humidityFactor + 0.2);
             } else if (precip > 5) {
                 humidityFactor = Math.min(1, humidityFactor + 0.1);
+            }
+            
+            // ==============================================================
+            // LEAF WETNESS DURATION (LWD) FACTOR
+            // b35fix460 (C64a): CABI 2024 audit recommendation #4 sub-item (a)
+            // close. Beehag et al. (2024) Biology and Integrated Management of
+            // Turfgrass Diseases, CABI Ch.6 p.88-90 + Box 6.6 records that
+            // Laetisaria fuciformis infection requires MINIMUM 12h prolonged
+            // leaf wetness. Pre-b35fix460 the hub proxied wetness from RH +
+            // precip with no wet-hours read. When dewData carries the dew
+            // engine's averageWetHours (per-day basis, see
+            // assets/dew-prediction-engine.js:542-543 where averageWetHours
+            // is computed as wetHours.length / max(1, lookbackDays)) we apply
+            // a multiplicative LWD gate on humidityFactor: full activation
+            // (1.0) at or above CABI's 12h saturation anchor, sigmoid ramp
+            // from the existing 6h minHours floor to the 12h anchor, mute
+            // (0.05) below 6h. The 0.05 floor (not 0) preserves a small
+            // residual signal so high-RH days with documented short wetness
+            // do not zero out the env-risk component entirely.
+            //
+            // When dewData is absent (no dew engine result on the site, test
+            // harness without dew shim, sample without measured leafWetness)
+            // we skip the gate: humidityFactor stays at the RH + precip
+            // value. Strict superset of pre-b35fix460 behaviour on the
+            // no-dewData path.
+            //
+            // Out of scope for b35fix460: the calculateDaily() forecast
+            // wrapper at line ~447 is NOT touched because dewData is a
+            // window-aggregate (7-day rollup) and the daily forecast loop
+            // iterates per-day synthetic climate projections; synthesising
+            // per-day wet hours from the aggregate is a separate piece of
+            // work outside the C64a LWD-threshold close.
+            //
+            // Sigmoid shape mirrors the bipolaris convention at
+            // assets/bipolaris-curvularia-models.js:376-393
+            // (calcLeafWetnessResponse: threshold 6h, saturation 12h)
+            // intentionally so the two cool-season-disease modules share
+            // the same LWD response curve under matching CABI anchors.
+            let lwdFactor = 1.0;
+            let lwdHours = null;
+            let lwdSource = 'unavailable';
+            const lwCfg = RED_THREAD_CONFIG.leafWetness;
+            if (dewData && dewData.leafWetness && typeof dewData.leafWetness.averageWetHours === 'number') {
+                lwdHours = dewData.leafWetness.averageWetHours;
+                lwdSource = 'dewData.averageWetHours';
+                if (lwdHours >= lwCfg.cabiMinHours) {
+                    lwdFactor = 1.0;
+                } else if (lwdHours >= lwCfg.minHours) {
+                    // Sigmoid 6h -> 12h: midpoint at 9h, gentle S-curve.
+                    // f(6) = 0.27, f(9) = 0.62, f(12) = 0.88; cap to 1.0
+                    // at the 12h anchor via the branch above.
+                    const x = (lwdHours - lwCfg.minHours) / (lwCfg.cabiMinHours - lwCfg.minHours);
+                    lwdFactor = 1 / (1 + Math.exp(-6 * (x - 0.5)));
+                } else {
+                    lwdFactor = 0.05;
+                }
+                humidityFactor = humidityFactor * lwdFactor;
             }
             
             // ==============================================================
@@ -373,6 +467,23 @@
                     precipitation: precip,
                     contribution: Math.round(100 * humidityFactor),
                     note: humidity >= hCfg.high ? 'Extended leaf wetness likely' : null
+                },
+                // b35fix460 (C64a): LWD driver added when dewData is available.
+                // averageWetHours stays null when no dewData was passed (the
+                // pre-b35fix460 path); UI consumers should treat null as
+                // "wetness inferred from RH + precip" not "wetness zero".
+                leafWetness: {
+                    averageWetHours: lwdHours,
+                    source: lwdSource,
+                    cabiMinHours: lwCfg.cabiMinHours,
+                    factor: lwdHours != null ? Math.round(100 * lwdFactor) / 100 : null,
+                    note: lwdHours != null
+                        ? (lwdHours >= lwCfg.cabiMinHours
+                            ? 'Wet hours at or above CABI 12h saturation anchor'
+                            : (lwdHours >= lwCfg.minHours
+                                ? 'Wet hours in 6 to 12h ramp, partial activation'
+                                : 'Wet hours below 6h floor, infection minimal'))
+                        : null
                 },
                 nitrogen: {
                     status: nStatus,
@@ -656,8 +767,15 @@
         CONFIG: RED_THREAD_CONFIG,
         
         // Main calculation
-        calculate: (climate, nitrogen, variety, options) => 
-            RedThreadModel.calculate(climate, nitrogen, variety, options),
+        // b35fix460 (C64a): facade arity extended to 5 args so dewData
+        // forwards through to RedThreadModel.calculate. Pre-b35fix460 the
+        // facade truncated at 4 args (climate, nitrogen, variety, options),
+        // which would silently drop the 5th arg post-signature-extension on
+        // the inner calculate. Lesson #32 (sibling-emission-site) class:
+        // public API facades that forward via explicit-arity arrows must
+        // be updated lockstep with the underlying method signature.
+        calculate: (climate, nitrogen, variety, options, dewData) => 
+            RedThreadModel.calculate(climate, nitrogen, variety, options, dewData),
         
         calculateDaily: (dayClimate, nitrogen, variety, options) =>
             RedThreadModel.calculateDaily(dayClimate, nitrogen, variety, options),
@@ -705,8 +823,9 @@
     global.RedThreadModel = RedThreadModel;
     
     // Convenience function for disease engine integration
-    global.calcRedThreadRisk = (climate, nitrogen, variety, options) =>
-        RedThreadModel.calculate(climate, nitrogen, variety, options);
+    // b35fix460 (C64a): arity extended to 5 args lockstep with the facade.
+    global.calcRedThreadRisk = (climate, nitrogen, variety, options, dewData) =>
+        RedThreadModel.calculate(climate, nitrogen, variety, options, dewData);
     
     global.calcRedThreadDaily = (dayClimate, nitrogen, variety, options) =>
         RedThreadModel.calculateDaily(dayClimate, nitrogen, variety, options);

@@ -197,7 +197,7 @@
         sports_pitch: { placeholder: '0.7',  minHa: 0.3,   maxHa: 2.5,   example: '0.7 ha soccer / 1.4 ha AFL / 1.8 ha cricket' },
         goal_area:    { placeholder: '0.012', minHa: 0.003, maxHa: 0.03, example: '0.005–0.02 ha per goal mouth' },
         centre:       { placeholder: '0.5',  minHa: 0.05,  maxHa: 2.0,   example: 'varies with sport' },
-        other:        { placeholder: '0.5',  minHa: 0.001, maxHa: 50.0,  example: '0.5 ha default — range deliberately permissive' }
+        other:        { placeholder: '0.5',  minHa: 0.001, maxHa: 50.0,  example: '0.5 ha default, range deliberately permissive' }
     };
 
     /**
@@ -217,7 +217,7 @@
         if (!input) return;
         const g = _areaGuidanceFor(zoneType);
         input.placeholder = 'e.g. ' + g.placeholder;
-        input.title = g.example + '. Optional — leave blank to report per-hectare rates only.';
+        input.title = g.example + '. Optional, leave blank to report per-hectare rates only.';
     }
 
     /**
@@ -403,6 +403,35 @@
         'Zn_ppm': '[data-mlsn="Zn"]', 'Zn': '[data-mlsn="Zn"]',
         'B_ppm': '[data-mlsn="B"]', 'B': '[data-mlsn="B"]',
         'Na_ppm': '[data-mlsn="Na"]', 'Na': '[data-mlsn="Na"]'
+    };
+
+    // b35fix409 (C3+C5): canonical-key override for the normaliser. Pre-fix, the
+    // normaliser derived `sample.normalized` keys from the DOM selector via
+    // `selector.replace('.gaip-', '').replace(/-/g, '_')`. That produced
+    // `cec`, `loi`, `soil_ec` lowercase keys that downstream readers
+    // (`nutrition-calendar.js syncSoilFromDOM:480-481`, `word-export.js
+    // collectData:6500-6507`) were written to expect uppercase `CEC`, `OM`,
+    // `EC` — the rawData/CSV-side schema. Net effect: Zone Comparison table
+    // showed blank em-dashes for every zone in CEC, EC, and OM columns
+    // because the per-sample soil object never carried the right key shape.
+    //
+    // This map is consulted before the generic transform. Only the three
+    // fields whose downstream readers were broken in production are
+    // overridden — area, pH, texture, stratified LOI, and the [data-mlsn]
+    // nutrients all retain their existing transforms which work correctly
+    // for their downstream readers (or fall through to the data-mlsn regex
+    // earlier in the function).
+    //
+    // pH is intentionally NOT overridden here even though the same casing
+    // issue exists in principle — `word-export.js:6500` reads
+    // `soilInput.pH_water` (with underscore), and the multiple DOM-fallback
+    // selectors at line 6551 are working in production today. Touching pH
+    // in this build would risk regressions for a column that already
+    // populates correctly.
+    const SOIL_NORMALIZED_KEY_OVERRIDES = {
+        '.gaip-soil-ec': 'EC',
+        '.gaip-cec': 'CEC',
+        '.gaip-loi': 'OM'
     };
 
     const WATER_FIELD_MAP = {
@@ -995,7 +1024,7 @@
             samples[sampleId] = {
                 id: sampleId,
                 date: dateRegistered || new Date().toISOString(),
-                notes: 'Hill Labs Job ' + jobNumber + (clientRef ? ' — ' + clientRef : ''),
+                notes: 'Hill Labs Job ' + jobNumber + (clientRef ? ', ' + clientRef : ''),
                 zoneType: 'turf',
                 rawData: rawData,
                 normalized: {}
@@ -1255,6 +1284,12 @@
             const match = selector.match(/\[data-(?:mlsn|ion|val)="(\w+)"\]/);
             if (match) {
                 key = match[1];
+            } else if (dataType === 'soil' && SOIL_NORMALIZED_KEY_OVERRIDES[selector]) {
+                // b35fix409 (C3+C5): explicit canonical-key override takes
+                // precedence over the lossy `.gaip-` selector transform.
+                // Restores `sample.normalized.{CEC,EC,OM}` to the uppercase
+                // shape downstream readers expect.
+                key = SOIL_NORMALIZED_KEY_OVERRIDES[selector];
             } else if (selector.startsWith('.gaip-')) {
                 key = selector.replace('.gaip-', '').replace(/-/g, '_');
             }
@@ -1510,11 +1545,102 @@
 
     /**
      * Get active sample
+     *
+     * b35fix411 (C3+C5 stale-data migration): self-heal samples whose
+     * `normalized` shape pre-dates b35fix409's normaliser fix. Pre-b35fix409,
+     * the normaliser produced lossy lowercase keys (`cec`, `loi`, `soil_ec`)
+     * for the three Zone Comparison fields. b35fix409 fixed the import path
+     * but didn't migrate existing samples in localStorage, so any sample
+     * imported before 2026-05-02 retained the broken shape.
+     *
+     * Symptom: even though `rawData.{CEC,EC,OM}` carry the lab values
+     * correctly, `sample.normalized.{CEC,EC,OM}` are absent. The b35fix410
+     * read-priority helper at `word-export.js collectData` reads
+     * `_normalized[canonicalKey]` first — finds nothing — and the Zone
+     * Comparison column renders blank for these legacy samples.
+     *
+     * Fix: on every getActiveSample call, detect stale shapes by checking
+     * for any of the legacy lowercase keys. If found, re-normalise from
+     * `rawData` (which is the trusted source of truth) using the current
+     * normaliser, and dispatch `gaip:sample-updated` so persistence saves
+     * the corrected shape back to storage. After the first read, the
+     * sample is permanently fixed.
+     *
+     * Also called from getActiveSample because that's the read site
+     * b35fix410 added a dependency on. Could equivalently hook into
+     * loadSample, but getActiveSample is simpler — covers all read paths
+     * including the one that exposed the bug (collectData per-zone iteration).
      */
     function getActiveSample(dataType) {
         const id = _activeSamples[dataType];
-        return id ? _sampleStore[dataType]?.[id] : null;
+        if (!id) return null;
+        const sample = _sampleStore[dataType]?.[id];
+        if (!sample) return null;
+        if (dataType === 'soil') {
+            _migrateStaleSoilNormalized(sample);
+        }
+        return sample;
     }
+
+    /**
+     * b35fix411: detect and repair stale `sample.normalized` shapes for soil
+     * samples imported before b35fix409 deployed (2026-05-02).
+     *
+     * Stale-shape signature: presence of any of the three pre-fix lowercase
+     * keys (`cec`, `loi`, `soil_ec`) — these were the literal output of the
+     * pre-b35fix409 selector-to-key transform. b35fix409's override map
+     * produces canonical-uppercase `CEC`, `OM`, `EC` instead.
+     *
+     * No-op when:
+     *   - sample has no normalized shape at all (nothing to migrate)
+     *   - sample has no rawData (can't re-derive without source)
+     *   - normalized already uses canonical keys (no stale signature)
+     *
+     * Side effects:
+     *   - Mutates sample.normalized in place
+     *   - Dispatches `gaip:sample-updated` so sample-persistence persists
+     *     the corrected shape (one-time per sample, durable thereafter)
+     *
+     * Idempotent: calling twice is safe; the second call detects no stale
+     * keys and no-ops.
+     */
+    function _migrateStaleSoilNormalized(sample) {
+        if (!sample || !sample.normalized || !sample.rawData) return;
+
+        const STALE_KEYS = ['cec', 'loi', 'soil_ec'];
+        let hasStale = false;
+        for (let i = 0; i < STALE_KEYS.length; i++) {
+            if (Object.prototype.hasOwnProperty.call(sample.normalized, STALE_KEYS[i])) {
+                hasStale = true;
+                break;
+            }
+        }
+        if (!hasStale) return;
+
+        // Re-normalise from rawData using the current (post-b35fix409) normaliser.
+        // rawData is the trusted source; the PHP parser writes canonical keys
+        // (`CEC_meq100g`, `EC1_5`, `OM_Percent`, plus uppercase `CEC`/`EC`/`OM`)
+        // and field-map resolution maps all variants to the canonical-uppercase
+        // normalized shape via SOIL_NORMALIZED_KEY_OVERRIDES.
+        const fresh = normalizeValues(sample.rawData, 'soil');
+
+        // Replace the stale normalized shape entirely. We don't merge because
+        // legacy lowercase keys must be removed, not preserved alongside the
+        // canonical ones — keeping both would leave a polluted shape that
+        // could trip downstream code expecting a single canonical form.
+        sample.normalized = fresh;
+
+        log('Migrated stale soil normalized shape for sample:', sample.id,
+            '(re-normalised from rawData; canonical keys CEC/EC/OM restored)');
+
+        // Dispatch sample-updated so sample-persistence saves the corrected
+        // shape back to localStorage. After this round-trip the sample is
+        // permanently fixed.
+        document.dispatchEvent(new CustomEvent('gaip:sample-updated', {
+            detail: { dataType: 'soil', sampleId: sample.id, reason: 'b35fix411-migration' }
+        }));
+    }
+
 
     /**
      * Get active sample ID

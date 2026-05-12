@@ -1,22 +1,33 @@
 /**
- * AMMONIUM ACETATE METHODOLOGY v1.0.0
+ * AMMONIUM ACETATE METHODOLOGY v1.1.0
  * Hill Labs (NZ) extractant method support for Gilba Agronomic Intelligence Hub
- * 
+ *
  * Extractants:
  *   - Phosphorus: Olsen (sodium bicarbonate)
  *   - K, Ca, Mg, S: NH₄OAc (pH 8.1)
- * 
+ *
  * Data source: Hill Labs NZ standard soil test interpretation ranges
  * Reference: RJ Hill Laboratories Ltd, Hamilton NZ
- * 
+ *
  * Key differences from MLSN/SLAN (Mehlich III):
  *   - Olsen P extracts less than Mehlich III (lower numbers, different ranges)
- *   - NH₄OAc at pH 8.1 gives different extraction efficiency than Mehlich III
+ *   - NH4OAc at pH 8.1 gives different extraction efficiency than Mehlich III
  *   - Soil texture (sands vs others) affects K and Mg sufficiency ranges
  *   - P reported in mg/L (equivalent to ppm for soil extracts)
- * 
+ *
+ * v1.1.0, b35fix443 / C53: methodology VALUE routed-write through hub-store
+ * proxy. b35fix393 closed methodologyExplicit + aaSoilTexture writes; the
+ * methodology value itself was never routed, so engines reading
+ * state.soil.methodology (mlsnEngine, nutrition-calendar, nutrition-requirement-
+ * engine, hub-tissue-v3 lines 5349/5351, gilba-soil-interpretation,
+ * mlsn-progressive-disclosure, AU/UK fertiliser integrations, prebble
+ * integration) silently received the prior cascade value or default 'slan'.
+ * Routed at four sources: init-time sync (guarded), gaip:stateRestored handler,
+ * updateMethodologyVisibility auto-AA + non-NZ revert branches, plus a
+ * change-listener catch-all on .gaip-soil-methodology.
+ *
  * @author Gilba Solutions
- * @version 1.0.0
+ * @version 1.1.0
  */
 
 (function(global) {
@@ -25,7 +36,7 @@
     // b35fix393: helper for routed soil writes through the hub-store proxy.
     // Pre-fix, this module wrote `window.GAIP_STATE.soil.<key> = value` at three
     // sites (lines 412, 512). All silently dropped through the proxy installed at
-    // gilba-hub-v2.js:1393 — the getter synthesises a fresh object per read; only
+    // gilba-hub-v2.js:1393, the getter synthesises a fresh object per read; only
     // the setter's e.inputs branch routes writes via c.set("inputs.soil", ...).
     // Same bug class as b35fix386 / b35fix388 / b35fix391. The setter REPLACES
     // inputs.soil wholesale, so writers must merge with existing fields first.
@@ -51,7 +62,7 @@
         }
     }
 
-    // getSoilField(key): tolerant read — prefers canonical inputs.soil, falls
+    // getSoilField(key): tolerant read, prefers canonical inputs.soil, falls
     // back to legacy top-level .soil. Returns undefined if neither has the key.
     function _b35fix393_getSoilField(key) {
         if (!global.GAIP_STATE) return undefined;
@@ -332,7 +343,7 @@
         const config = {
             label: 'Ammonium Acetate',
             fullName: 'Hill Labs NZ Method',
-            description: `Olsen P + NH₄OAc extraction — calibrated for NZ soils (${soilType === 'sands' ? 'sand-based rootzone' : 'native soil'})`,
+            description: `Olsen P + NH₄OAc extraction, calibrated for NZ soils (${soilType === 'sands' ? 'sand-based rootzone' : 'native soil'})`,
             bgColor: 'var(--gaip-warning-bg)',
             borderColor: '#f59e0b',
             textColor: '#92400e',
@@ -427,8 +438,35 @@
             return;
         }
 
+        // b35fix443 / C53: route the methodology VALUE itself through the
+        // hub-store proxy at every change, so engines reading state.soil.methodology
+        // (mlsnEngine at hub-tissue-v3.js:2205, the AA/SLAN branch at lines
+        // 5349/5351, nutrition-calendar.js:332, nutrition-requirement-engine.js:656,
+        // gilba-soil-interpretation.js:245, mlsn-progressive-disclosure.js:952, the
+        // AU + UK fertiliser integrations, the prebble integration) all observe
+        // the user's actual choice. Pre-fix the methodology value was never
+        // routed; only methodologyExplicit + aaSoilTexture were, via b35fix393.
+        // This catch-all listener fires for every trigger path: site-settings
+        // panel button click (setDomVal dispatches change), auto-AA at line ~500,
+        // non-NZ revert at line ~509, direct legacy DOM-select interaction.
+        // Using addEventListener (not onchange=) avoids clobbering any other
+        // listener; grep confirmed no other module attaches to this selector
+        // pre-b35fix443.
+        methodologySelect.addEventListener('change', function() {
+            _b35fix393_setSoilField('methodology', methodologySelect.value);
+        });
+
         // Check if already has ammonium_acetate option
         if (methodologySelect.querySelector('option[value="ammonium_acetate"]')) {
+            // b35fix443 / C53: initial sync, route the current DOM value if the
+            // canonical slot is empty. Guard against polluting a restored value:
+            // if inputs.soil.methodology is already populated (state restoration
+            // ran before init), do not overwrite. Empty-or-undefined slot
+            // populated from DOM covers fresh-page-load.
+            var _existingMethod = _b35fix393_getSoilField('methodology');
+            if (!_existingMethod && methodologySelect.value) {
+                _b35fix393_setSoilField('methodology', methodologySelect.value);
+            }
             updateMethodologyVisibility();
             return;
         }
@@ -438,6 +476,12 @@
         option.value = 'ammonium_acetate';
         option.textContent = 'Ammonium Acetate (Hill Labs NZ)';
         methodologySelect.appendChild(option);
+
+        // b35fix443 / C53: initial sync (post option-add path), same guard.
+        var _existingMethod2 = _b35fix393_getSoilField('methodology');
+        if (!_existingMethod2 && methodologySelect.value) {
+            _b35fix393_setSoilField('methodology', methodologySelect.value);
+        }
 
         // Initial visibility check
         updateMethodologyVisibility();
@@ -450,6 +494,15 @@
             if (methodologySelect && methodologySelect.value && methodologySelect.value !== 'mlsn') {
                 // b35fix393: route through hub-store proxy (was direct .soil.X assignment, dropped)
                 _b35fix393_setSoilField('methodologyExplicit', true);
+            }
+            // b35fix443 / C53: route the methodology VALUE on stateRestored.
+            // Pre-fix only the explicit flag was routed; the value was lost
+            // when the persistence layer rehydrated through DOM but did not
+            // write to inputs.soil.methodology. Routing here closes the loop
+            // before any engine reads state.soil.methodology in the next compute
+            // cycle.
+            if (methodologySelect && methodologySelect.value) {
+                _b35fix393_setSoilField('methodology', methodologySelect.value);
             }
             updateMethodologyVisibility();
         });
@@ -476,7 +529,7 @@
             if (currentMethod !== 'ammonium_acetate') {
                 // Check if user has explicitly chosen their methodology via site settings
                 // If no explicit choice stored, auto-select AA for NZ
-                // b35fix393: tolerant read — prefers canonical inputs.soil, falls
+                // b35fix393: tolerant read, prefers canonical inputs.soil, falls
                 // back to legacy top-level .soil. Pre-fix the legacy-only read
                 // returned undefined post-analysis-run because the proxy synthesiser
                 // doesn't expose top-level .soil; explicit choice was lost on every
@@ -486,6 +539,11 @@
                 const explicitChoice = _b35fix393_getSoilField('methodologyExplicit');
                 if (!explicitChoice) {
                     methodologySelect.value = 'ammonium_acetate';
+                    // b35fix443 / C53: route the value at source. The change-event
+                    // catch-all below will also fire and route, but routing here
+                    // first guarantees the canonical slot reflects the new value
+                    // before any synchronous listener on the change event runs.
+                    _b35fix393_setSoilField('methodology', 'ammonium_acetate');
                     methodologySelect.dispatchEvent(new Event('change'));
                     console.log('[AmmoniumAcetate] Auto-selected for NZ region');
                 }
@@ -494,6 +552,9 @@
             // If currently selected but not NZ, switch to SLAN
             if (methodologySelect.value === 'ammonium_acetate') {
                 methodologySelect.value = 'slan';
+                // b35fix443 / C53: route the value at source for the non-NZ
+                // revert path as well, same rationale as the auto-AA branch.
+                _b35fix393_setSoilField('methodology', 'slan');
                 methodologySelect.dispatchEvent(new Event('change'));
             }
         }

@@ -368,10 +368,10 @@
             ],
             description: 'Species-level pre-emergent herbicide application timing based on soil temperature thresholds and trend trajectory. Covers AU/NZ/UK temperate and tropical weed suites. Confidence-rated: H = peer-reviewed, M = extension, L = indicative only.',
             notes: [
-                'Runs at hub-orchestrator Step 8b — after climate engine guarantees soil temp is available',
+                'Runs at hub-orchestrator Step 8b, after climate engine guarantees soil temp is available',
                 'Skipped silently when soilTemp5cm is null (no weather data entered)',
                 'Tropical regions (southeast_asia, australia_tropical, australia_subtropical) use programme-interval logic',
-                'L-rated species never trigger RED alerts — informational only',
+                'L-rated species never trigger RED alerts, informational only',
                 'Efficacy thresholds flagged indicative until field validation data available'
             ]
         }

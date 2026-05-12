@@ -31,7 +31,17 @@
  * - Confirmed in SA, WA on kikuyu (DNA testing pending for AG 2-2 LP confirmation)
  * - Name: "Large Patch" (adopted from US terminology)
  * - Affects: Couch, Zoysia, Kikuyu, Buffalo
- * 
+ *
+ * b35fix452 (C57): CABI 2024 cross-reference, citation-only, no logic touch.
+ *   Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
+ *   Biology and Integrated Management of Turfgrass Diseases.
+ *   CABI, Wallingford. ISBN 9781789246216.
+ *   Ch.6 p.127-129: Hyakumachi & Hayakawa 2008 AG-2-2LP attribution.
+ *   Table 6.14 cardinal temperatures (optimal growth 25 deg C, optimal
+ *   infection 21-32 deg C). Cross-references the existing Kerns &
+ *   Tredway 2013 / Envu 2023 / Penn State / Kreinberg 2025 chain.
+ *   Coefficients, thresholds, and weights unchanged.
+ *
  * @author Gilba Solutions
  * @version 1.0.0
  */
@@ -85,7 +95,7 @@ const LargePatchModel = {
                 displayName: 'Large Patch',
                 riskScore: 0, rawRisk: 0, riskLevel: 'low',
                 confidence: 'low', confidenceScore: 30, degraded: true,
-                source: 'LargePatchModel — degraded: temperature missing (b35fix345)',
+                source: 'LargePatchModel, degraded: temperature missing (b35fix345)',
                 drivers: { temperature: { value: null, status: 'missing' },
                            humidity:    { value: humidity, status: humidity == null ? 'missing' : 'available' } },
             };

@@ -3070,29 +3070,29 @@ const VARIETY_TRAITS = {
           traits: {
             heat: { toleranceMultiplier: 0.95, droughtMultiplier: 0.95, confidence: 'medium', source: 'NTEP 2014 drought trials', notes: 'Good heat tolerance, intermediate drought tolerance. Adapted through transition zone.' },
             cold: { winterHardiness: 1.00, winterkillRisk: 1.00, dormancyThresholdModifier: 1.00, confidence: 'medium', source: 'NTEP cold regions', notes: 'Average cold tolerance for creeping bentgrass' },
-            wear: { multiplier: 1.00, recoveryMultiplier: 1.05, confidence: 'medium', source: 'NTEP fairway/tee trials (Penn State)', notes: 'Intermediate wear tolerance. Upright growth, not excessively dense — less scalping risk than Declaration/Proclamation.' },
-            waterUse: { multiplier: 1.00, confidence: 'low', source: 'NTEP — no dedicated water use data', notes: 'No specific water use efficiency data. Average for creeping bentgrass.' },
+            wear: { multiplier: 1.00, recoveryMultiplier: 1.05, confidence: 'medium', source: 'NTEP fairway/tee trials (Penn State)', notes: 'Intermediate wear tolerance. Upright growth, not excessively dense, less scalping risk than Declaration/Proclamation.' },
+            waterUse: { multiplier: 1.00, confidence: 'low', source: 'NTEP, no dedicated water use data', notes: 'No specific water use efficiency data. Average for creeping bentgrass.' },
             shade: { thresholdModifier: 1.00, confidence: 'low', source: 'Species baseline', notes: 'No specific shade data. Creeping bentgrass generally moderate shade tolerance.' },
-            establishment: { germinationSpeed: 1.15, confidence: 'high', source: 'NTEP 2008 Penn State — greatest seedling vigor', notes: 'Excellent establishment vigor — tied highest in NTEP trials' },
+            establishment: { germinationSpeed: 1.15, confidence: 'high', source: 'NTEP 2008 Penn State, greatest seedling vigor', notes: 'Excellent establishment vigor, tied highest in NTEP trials' },
             disease: {
               dollarSpot: { riskMultiplier: 1.05, confidence: 'high', source: 'NTEP 2008-2013: intermediate tolerance (Penn State). Very good in fairway trials. Newer cultivars (Declaration, Proclamation) now superior.' },
               brownPatch: { riskMultiplier: 0.90, confidence: 'medium', source: 'NTEP', notes: 'Good brown patch tolerance' },
-              fusarium: { riskMultiplier: 0.90, confidence: 'medium', source: 'Jacklin/NTEP — exceptional Microdochium resistance' },
+              fusarium: { riskMultiplier: 0.90, confidence: 'medium', source: 'Jacklin/NTEP, exceptional Microdochium resistance' },
               anthracnose: { riskMultiplier: 1.00, confidence: 'low', source: 'No specific data' }
             },
             poaCompetition: {
               aggression: 0.80,
               confidence: 'high',
-              source: 'NTEP 2008-2013 Penn State — greatest Poa encroachment alongside Penncross',
+              source: 'NTEP 2008-2013 Penn State, greatest Poa encroachment alongside Penncross',
               notes: 'POOR Poa annua competition. Requires aggressive cultural management to maintain bentgrass purity.'
             }
           },
-          notes: 'Excellent establishment, good heat/disease tolerance, but poor Poa competition. Intermediate quality in recent trials — newer cultivars (Declaration, Proclamation, 007) now outperform.'
+          notes: 'Excellent establishment, good heat/disease tolerance, but poor Poa competition. Intermediate quality in recent trials, newer cultivars (Declaration, Proclamation, 007) now outperform.'
         },
         
         cold_ntep: {
           qualityRating: 6.3,
-          qualitySource: 'NTEP — Purdue/Penn State',
+          qualitySource: 'NTEP, Purdue/Penn State',
           climateEquivalent: 'Canberra, Southern Highlands',
           
           traits: {

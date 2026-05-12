@@ -102,12 +102,12 @@
             if (data && data.sites) {
                 var ids = Object.keys(data.sites);
                 if (ids.length > 1 && isGaipSiteList(ids)) {
-                    log('getSiteList: using key', candidates[i], '—', ids.length, 'sites');
+                    log('getSiteList: using key', candidates[i], '-', ids.length, 'sites');
                     return ids.map(function (id) {
                         return { id: id, label: (data.sites[id].label || id) };
                     });
                 } else if (ids.length > 1) {
-                    log('getSiteList: skipping', candidates[i], '— all GSSH sites');
+                    log('getSiteList: skipping', candidates[i], ', all GSSH sites');
                 }
             }
         }
@@ -256,7 +256,7 @@
             var timing = peakDay ? ' in ' + peakDay + 'd' : '';
             return {
                 level: 'high',
-                text: diseaseLabel + ' risk HIGH' + (peakPct > pct ? ' — forecast ' + Math.round(peakPct) + '%' + timing : '') + '. Consider fungicide application.'
+                text: diseaseLabel + ' risk HIGH' + (peakPct > pct ? ', forecast ' + Math.round(peakPct) + '%' + timing : '') + '. Consider fungicide application.'
             };
         }
         if (pct >= 50 || peakPct >= 65) {
@@ -274,9 +274,9 @@
     function gpDecision(gpRaw) {
         if (gpRaw === null || gpRaw === undefined) return null;
         var pct = gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
-        if (pct >= 70) return { level: 'good', text: 'GP ' + pct + '% — good growing conditions.' };
-        if (pct >= 40) return { level: 'moderate', text: 'GP ' + pct + '% — moderate growth, watch stress.' };
-        return { level: 'poor', text: 'GP ' + pct + '% — poor growing conditions.' };
+        if (pct >= 70) return { level: 'good', text: 'GP ' + pct + '%, good growing conditions.' };
+        if (pct >= 40) return { level: 'moderate', text: 'GP ' + pct + '%, moderate growth, watch stress.' };
+        return { level: 'poor', text: 'GP ' + pct + '%, poor growing conditions.' };
     }
 
     function pgrDecision(pgr) {
@@ -284,18 +284,18 @@
         var daysSince = Math.floor((Date.now() - new Date(pgr.applicationDate).getTime()) / 86400000);
         if (daysSince < 0) return null;
         var product = pgr.productType ? pgr.productType : 'PGR';
-        if (daysSince > 28) return { level: 'overdue', text: product + ' — ' + daysSince + 'd since last application. Review reapplication window.' };
-        if (daysSince > 21) return { level: 'due', text: product + ' — ' + daysSince + 'd since application. Reapplication window approaching.' };
-        if (daysSince > 14) return { level: 'active', text: product + ' — ' + daysSince + 'd since application. Active suppression period.' };
-        return { level: 'active', text: product + ' — ' + daysSince + 'd since application.' };
+        if (daysSince > 28) return { level: 'overdue', text: product + ', ' + daysSince + 'd since last application. Review reapplication window.' };
+        if (daysSince > 21) return { level: 'due', text: product + ', ' + daysSince + 'd since application. Reapplication window approaching.' };
+        if (daysSince > 14) return { level: 'active', text: product + ', ' + daysSince + 'd since application. Active suppression period.' };
+        return { level: 'active', text: product + ', ' + daysSince + 'd since application.' };
     }
 
     function vwcDecision(vwc) {
         if (vwc === null || vwc === undefined) return null;
-        if (vwc < 10) return { level: 'low', text: 'VWC ' + vwc + '% — soil dry, irrigation likely needed.' };
-        if (vwc < 15) return { level: 'moderate', text: 'VWC ' + vwc + '% — soil moisture marginal.' };
-        if (vwc > 35) return { level: 'high', text: 'VWC ' + vwc + '% — soil wet, hold irrigation.' };
-        return { level: 'ok', text: 'VWC ' + vwc + '% — moisture adequate.' };
+        if (vwc < 10) return { level: 'low', text: 'VWC ' + vwc + '%, soil dry, irrigation likely needed.' };
+        if (vwc < 15) return { level: 'moderate', text: 'VWC ' + vwc + '%, soil moisture marginal.' };
+        if (vwc > 35) return { level: 'high', text: 'VWC ' + vwc + '%, soil wet, hold irrigation.' };
+        return { level: 'ok', text: 'VWC ' + vwc + '%, moisture adequate.' };
     }
 
     function formatDiseaseName(key) {
@@ -484,7 +484,7 @@
 
         // No-data state for non-active sites
         var noDataHTML = (!metrics && vwc === null && !pgr.applicationDate)
-            ? '<div style="font-size:0.85em;color:var(--gaip-text-muted);padding:4px 0;">No analysis data on this device — open site in hub to run.</div>'
+            ? '<div style="font-size:0.85em;color:var(--gaip-text-muted);padding:4px 0;">No analysis data on this device, open site in hub to run.</div>'
             : '';
 
         // Header meta line
@@ -569,7 +569,7 @@
                 cachedSiteId = cacheRaw.siteId || activeSite;
                 log('Cache assigned to site:', cachedSiteId, '(age:', Math.round(ageH * 60), 'min)');
             } else {
-                log('Cache expired:', Math.round(ageH), 'h old — run analysis in hub to refresh');
+                log('Cache expired:', Math.round(ageH), 'h old, run analysis in hub to refresh');
             }
         }
 
@@ -689,18 +689,18 @@
                 _pendingRender = true;
                 setTimeout(function() {
                     _pendingRender = false;
-                    log('Orchestrator complete — refreshing briefing');
+                    log('Orchestrator complete, refreshing briefing');
                     render();
                 }, 500);
                 return;
             }
-            log('Orchestrator complete — refreshing briefing');
+            log('Orchestrator complete, refreshing briefing');
             render();
         });
 
         // Re-render on site switch (active site changed, cache now points elsewhere)
         document.addEventListener('gaip:site-changed', function () {
-            log('Site changed — refreshing briefing');
+            log('Site changed, refreshing briefing');
             setTimeout(render, 400); // wait for SampleManager to update _currentSite
         });
     }

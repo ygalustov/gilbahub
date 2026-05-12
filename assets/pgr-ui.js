@@ -128,7 +128,7 @@
         .pgr-gdd-fill.approaching { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
         .pgr-gdd-fill.due         { background: linear-gradient(90deg, #f87171, #ef4444); }
 
-        /* Reapplication window tick — amber line at 75% */
+        /* Reapplication window tick, amber line at 75% */
         .pgr-reapply-tick {
             position: absolute;
             top: -3px;
@@ -287,7 +287,7 @@
             margin-top: 2px;
         }
 
-        /* Log buttons — b35fix232 */
+        /* Log buttons, b35fix232 */
         .pgr-log-actions { display:flex; gap:8px; margin-top:10px; padding-top:8px; border-top:1px solid rgba(0,0,0,0.06); }
         .pgr-log-btn { flex:1; padding:5px 10px; border-radius:4px; font-size:11px; font-weight:500; cursor:pointer; border:none; transition:background .15s; }
         .pgr-log-btn-pgr { background:#4f46e5; color:var(--gaip-surface); }
@@ -466,19 +466,19 @@
     <!-- Metrics: values updated by updatePGRPanel -->
     <div class="pgr-metrics">
       <div class="pgr-metric">
-        <div class="pgr-metric-value" id="pgr-m-gdd">—</div>
+        <div class="pgr-metric-value" id="pgr-m-gdd">,</div>
         <div class="pgr-metric-label" id="pgr-m-gdd-label">GDD to Window</div>
       </div>
       <div class="pgr-metric">
-        <div class="pgr-metric-value" id="pgr-m-supp">—</div>
+        <div class="pgr-metric-value" id="pgr-m-supp">,</div>
         <div class="pgr-metric-label">Suppression</div>
       </div>
       <div class="pgr-metric" id="pgr-m-combined-cell" style="display:none;">
-        <div class="pgr-metric-value" id="pgr-m-combined" style="color:#d97706;">—</div>
+        <div class="pgr-metric-value" id="pgr-m-combined" style="color:#d97706;">,</div>
         <div class="pgr-metric-label">Combined Est. ⚠️</div>
       </div>
       <div class="pgr-metric">
-        <div class="pgr-metric-value" id="pgr-m-days">—</div>
+        <div class="pgr-metric-value" id="pgr-m-days">,</div>
         <div class="pgr-metric-label">Days Since</div>
       </div>
     </div>
@@ -863,7 +863,7 @@
             }
         }
 
-        setText(container.querySelector('#pgr-m-days'), pgrStatus.gdd.days ?? '—');
+        setText(container.querySelector('#pgr-m-days'), pgrStatus.gdd.days ?? '-');
 
         // Projection
         const projEl = container.querySelector('#pgr-projection');
@@ -910,7 +910,7 @@
                 let dmiNote = '';
                 if (adjSupp && adjSupp.addedPct > 0) {
                     dmiNote = `<div style="font-size:10px;color:#92400e;margin-top:3px;">
-                        ⚠️ DMI active: combined est. ${adjSupp.adjustedPct}% suppression — consider extending interval
+                        ⚠️ DMI active: combined est. ${adjSupp.adjustedPct}% suppression, consider extending interval
                     </div>`;
                 }
 
@@ -921,7 +921,7 @@
                             <span style="font-size:12px;font-weight:600;color:${labelColor};">${label}</span>
                             ${dateFormatted ? `<span style="font-size:13px;font-weight:700;color:var(--gaip-text);margin-left:6px;">${dateFormatted}</span>` : ''}
                             ${timing ? `<span style="font-size:11px;color:var(--gaip-text);margin-left:4px;">(${timing})</span>` : ''}
-                            ${!overdue ? '<div style="font-size:10px;color:#92400e;margin-top:2px;">Before suppression drops below 20% — do not wait until GDD threshold</div>' : ''}
+                            ${!overdue ? '<div style="font-size:10px;color:#92400e;margin-top:2px;">Before suppression drops below 20%, do not wait until GDD threshold</div>' : ''}
                             ${dmiNote}
                         </div>
                         <div style="font-size:10px;color:var(--gaip-text);white-space:nowrap;margin-left:8px;">~${dailyRate.toFixed(1)} GDD/day</div>

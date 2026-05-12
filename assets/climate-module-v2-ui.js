@@ -351,7 +351,7 @@
             <div class="climate-v2-header">
                 <div class="climate-v2-title" style="display: flex; align-items: center; gap: 10px;">
                     🌡️ Climate Analysis
-                    ${result.variety ? `<span style="font-weight: 400; font-size: 13px; color: var(--gaip-text);"> — ${result.variety}</span>` : ''}
+                    ${result.variety ? `<span style="font-weight: 400; font-size: 13px; color: var(--gaip-text);">, ${result.variety}</span>` : ''}
                     ${weatherBadge}
                 </div>
                 ${result.primaryStress !== 'none' ? `

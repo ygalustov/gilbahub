@@ -95,7 +95,7 @@
         if (document.getElementById('gaip-tab-nav-styles')) return;
 
         var css = [
-            '/* PHASE 4: TAB NAVIGATION (b35fix358 — Option D: framed bar + merged active tab) */',
+            '/* PHASE 4: TAB NAVIGATION (b35fix358, Option D: framed bar + merged active tab) */',
             '',
             '#' + TAB_BAR_ID + ' {',
             '  display: flex; align-items: flex-end; gap: 8px;',
@@ -410,8 +410,8 @@
             ' runBtn=' + !!runBtn + ' reports=' + !!reports +
             ' grid=' + !!resultCardsGrid + ' results=' + !!resultsWrapper);
 
-        if (!inputs) log('⚠ .gaip-inputs-section NOT FOUND — input cards will always show');
-        if (!runBtn) log('⚠ .gaip-run-btn NOT FOUND — run button will always show');
+        if (!inputs) log('⚠ .gaip-inputs-section NOT FOUND, input cards will always show');
+        if (!runBtn) log('⚠ .gaip-run-btn NOT FOUND, run button will always show');
     }
 
     // =========================================================================
@@ -452,14 +452,14 @@
         var headerBar = document.querySelector('.gaip-header-bar');
         var dashboard = document.getElementById('gaip-daily-dashboard');
         if (!headerBar || !dashboard) {
-            log('Header bar or dashboard not ready — deferring');
+            log('Header bar or dashboard not ready, deferring');
             setTimeout(init, 500);
             return;
         }
 
         var resultCards = document.querySelector('.gaip-result-cards');
         if (!resultCards) {
-            log('Card layout not ready — deferring');
+            log('Card layout not ready, deferring');
             setTimeout(init, 500);
             return;
         }
@@ -501,7 +501,7 @@
             if (e.detail && e.detail.tab === 'analysis') clearAnalysisBadge();
         });
 
-        log('Ready — active tab: ' + savedTab);
+        log('Ready, active tab: ' + savedTab);
     }
 
     // =========================================================================

@@ -273,8 +273,8 @@ const DiseaseUI = {
         const ACTION_LABELS = {
             monitor:    'Monitor',
             prepare:    'Prepare',
-            preventive: 'Apply — Preventive',
-            curative:   'Apply — Curative',
+            preventive: 'Apply, Preventive',
+            curative:   'Apply, Curative',
         };
 
         const p      = PALETTE[rec.action] || PALETTE.monitor;

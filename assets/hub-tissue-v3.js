@@ -283,7 +283,7 @@ function assessSpeciesPHTolerance(pH, species) {
                 tolMax.toFixed(1) +
                 ").";
             recommendation = tolerance.acidTolerant ?
-                "Species tolerates acidic conditions. Monitor only — no urgent correction needed." :
+                "Species tolerates acidic conditions. Monitor only, no urgent correction needed." :
                 "Consider gradual lime application to raise pH toward " + optMin.toFixed(1) + ".";
         } else {
             message =
@@ -341,7 +341,7 @@ function assessSpeciesPHTolerance(pH, species) {
                 recommendation =
                     "URGENT: Acidification strongly recommended. " +
                     speciesKey +
-                    " is not alkaline-tolerant — expect significant stress at this pH.";
+                    " is not alkaline-tolerant, expect significant stress at this pH.";
             }
         }
     }
@@ -2234,8 +2234,8 @@ function mlsnEngine(state, weather) {
                 cotulaActivity >= 0.4 ?
                 "Moderate growth conditions" :
                 cotulaActivity >= 0.15 ?
-                "Slow growth — temperature limiting" :
-                "Dormant — minimal growth",
+                "Slow growth, temperature limiting" :
+                "Dormant, minimal growth",
         };
     } else {
         growthPotential = calcMixedGrowthPotential(avgTemperature, c3c4Fractions.c3frac, c3c4Fractions.c4frac);
@@ -2691,7 +2691,7 @@ function mlsnEngine(state, weather) {
                 nutrient: nutrient,
                 actual: actualPPM.toFixed(1),
                 mlsn: rangeStr,
-                uptakePpm: annualUptakePpm[nutrient]?.toFixed(1) || "—",
+                uptakePpm: annualUptakePpm[nutrient]?.toFixed(1) || "-",
                 targetPpm: range.lo, // For SLAN, target is the low end of range
                 status: status,
                 statusClass: statusClass,
@@ -2875,7 +2875,7 @@ function mlsnEngine(state, weather) {
                 <td style="color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-size: 11px;">${r.uptakePpm}</td>
                 <td><strong>${r.targetPpm}</strong></td>
                 <td><span class="status-badge ${r.statusClass}">${r.status}</span></td>
-                <td style="font-size: 11px;">${r.deficitKgHa > 0 ? r.deficitKgHa.toFixed(1) + " kg/ha" : "—"}</td>
+                <td style="font-size: 11px;">${r.deficitKgHa > 0 ? r.deficitKgHa.toFixed(1) + " kg/ha" : "-"}</td>
             </tr>
             `,
               )
@@ -2954,12 +2954,26 @@ function mlsnEngine(state, weather) {
     const ratioNotes = [];
 
     if (calciumPPM > 0 && magnesiumPPM > 0) {
+        // b35fix440 / C50: Ca:Mg ratio interpretation grounded in independent
+        // Mg measurement, not BCSR ratio targeting. Pre-fix this branch
+        // emitted a Mg-deficit monitoring claim on Ca:Mg > 6 alone (the
+        // "monitor-Mg-on-high-ratio" pattern), a BCSR-derived rule that
+        // Kopittke & Menzies (2007) SSSAJ 71:259-265 reviewed and found unsupported by yield data, and which the b35fix439 OQ-Mulder
+        // closure already retired from `mulders-interaction-checker.js`. Same
+        // evidence chain applies here: high Ca:Mg without independently low
+        // Mg is not a deficit signal. The Mg < 50 ppm gate is a conservative
+        // Mehlich-3 proxy aligned with the MLSN sufficiency floor (Woods,
+        // Stowell & Soldat 2014); when Mg sits above the floor, ratio alone
+        // does not indicate deficiency regardless of how high Ca:Mg climbs.
+        const isMgLow = magnesiumPPM < 50;
         const caMgInterpretation =
             caMgRatio < 2 ?
             "Tight surface, higher compaction/softness risk." :
             caMgRatio <= 6 ?
             "Balanced for shear strength and stability." :
-            "High Ca:Mg – firmer but monitor Mg deficiency.";
+            isMgLow ?
+            "High Ca:Mg with Mg below sufficiency floor – check Mg supply." :
+            "High Ca:Mg observed; Mg adequate by sufficiency floor – ratio alone is not a deficit signal (Kopittke & Menzies 2007).";
         ratioNotes.push(`<strong>Ca:Mg ratio</strong> ≈ ${caMgRatio.toFixed(1)} – ${caMgInterpretation}`);
     }
 
@@ -3149,7 +3163,7 @@ function mlsnEngine(state, weather) {
             // Show positive confirmation when pH is optimal for species
             phImpactHTML += `
         <div style="margin: 10px 0; padding: 8px; background: var(--gaip-good-bg); border-left: 3px solid #10b981; border-radius: 4px;">
-            <span style="font-size: 11px;">✓ <strong>${speciesPHAssessment.species}</strong> — pH ${phAssessment.pH.toFixed(1)} is within optimal range (${speciesPHAssessment.optimalRange[0].toFixed(1)}–${speciesPHAssessment.optimalRange[1].toFixed(1)})</span>
+            <span style="font-size: 11px;">✓ <strong>${speciesPHAssessment.species}</strong>, pH ${phAssessment.pH.toFixed(1)} is within optimal range (${speciesPHAssessment.optimalRange[0].toFixed(1)}–${speciesPHAssessment.optimalRange[1].toFixed(1)})</span>
         </div>
       `;
         }
@@ -4775,16 +4789,16 @@ function generateRecoveryCalendar(e, t, r) {
         P +=
         '<div style="margin-top: 10px; padding: 6px 8px; background: var(--gaip-critical-bg); border-radius: 4px; font-size: 11px; color: #991b1b;"><strong>⚠ ' +
         Math.round(F) +
-        " day shortfall</strong> — field degradation likely without intervention</div>";
+        " day shortfall</strong>, field degradation likely without intervention</div>";
     else if (G) {
         var L = Math.round($ - a);
         P +=
-            '<div style="margin-top: 10px; padding: 6px 8px; background: var(--gaip-good-bg); border-radius: 4px; font-size: 11px; color: #065f46;"><strong>✓ Schedule sustainable</strong> — ' +
+            '<div style="margin-top: 10px; padding: 6px 8px; background: var(--gaip-good-bg); border-radius: 4px; font-size: 11px; color: #065f46;"><strong>✓ Schedule sustainable</strong>, ' +
             L +
             " day buffer for unexpected events</div>";
     } else
         P +=
-        '<div style="margin-top: 10px; padding: 6px 8px; background: var(--gaip-warning-bg); border-radius: 4px; font-size: 11px; color: #92400e;"><strong>⚠ Tight margins</strong> — schedule works but no buffer for delays</div>';
+        '<div style="margin-top: 10px; padding: 6px 8px; background: var(--gaip-warning-bg); border-radius: 4px; font-size: 11px; color: #92400e;"><strong>⚠ Tight margins</strong>, schedule works but no buffer for delays</div>';
     if (((P += "</div>"), o || p)) {
         ((P +=
                 '<div style="margin-top: 10px; padding: 10px; background: var(--gaip-surface-muted); border-radius: 6px; font-size: 11px;"><strong>Recovery Modifiers</strong>'),
@@ -4959,7 +4973,7 @@ function generateRecoveryCalendar(e, t, r) {
             (P +=
                 '<div style="font-size: 10px;  margin-top: 8px; font-style: italic;">Missing: ' +
                 z.join(", ") +
-                " — using defaults</div>"),
+                ", using defaults</div>"),
             (P += "</div>"));
     }
     P +=
@@ -4976,13 +4990,13 @@ function generateRecoveryCalendar(e, t, r) {
             o.growth > 1.3 &&
             _ &&
             (P +=
-                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">—</div><div><div style="color: var(--gaip-text);"><strong>Deploy LED grow lights</strong> to boost effective GP during dormancy</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Target 15+ mol/m²/day supplemental DLI to halve recovery time</div></div></div>'),
+                '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">,</div><div><div style="color: var(--gaip-text);"><strong>Deploy LED grow lights</strong> to boost effective GP during dormancy</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Target 15+ mol/m²/day supplemental DLI to halve recovery time</div></div></div>'),
             _ && n >= 2)
     ) {
         0;
         var ce = Math.ceil(a / $);
         P +=
-            '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">🔄</div><div><div style="color: var(--gaip-text);"><strong>Zone rotation</strong> — divide field into ' +
+            '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--gaip-info-bg);"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-warning-bg); color: #d97706; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">🔄</div><div><div style="color: var(--gaip-text);"><strong>Zone rotation</strong>, divide field into ' +
             ce +
             ' sections</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Rotate high-wear activities weekly to give each zone ' +
             Math.round($ * ce) +
@@ -5002,7 +5016,7 @@ function generateRecoveryCalendar(e, t, r) {
         D &&
         !_ &&
         (P +=
-            '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-good-bg); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">✓</div><div><div style="color: var(--gaip-text);">Current schedule is sustainable</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Monitor growth potential — recovery time increases as GP drops below 50%</div></div></div>'),
+            '<div style="display: flex; align-items: flex-start; gap: 8px; padding: 6px 0;"><div style="width: 18px; height: 18px; border-radius: 50%; background: var(--gaip-good-bg); color: #059669; display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0;">✓</div><div><div style="color: var(--gaip-text);">Current schedule is sustainable</div><div style="font-size: 10px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: 2px;">Monitor growth potential, recovery time increases as GP drops below 50%</div></div></div>'),
         (P += "</div></div>")
     );
 }
@@ -5179,7 +5193,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         } else
             ir(
                 "Traffic Load vs Recovery Probability",
-                `\n            <p><strong>Traffic load index:</strong> ${((i.TrafficRisk ?? 0) || 0).toFixed(1)} — ${W}</p>\n            <p><strong>Recovery probability:</strong> ${Math.round(i.recoveryProb ?? 0)}%</p>\n            <p><strong>Expected recovery window:</strong> ${i.recoveryWindow ?? 0} days</p>\n            \n            ${U}\n\n            <hr>\n\n            <p><strong>How traffic load affects recovery</strong><br>\n            Higher traffic load (matches + training sessions) reduces recovery probability and extends the required recovery window. \n            This combines with firmness AND growth potential to determine overall playability risk.</p>\n            \n            <p><strong>Growth impact on recovery:</strong><br>\n            • Optimal growth (>80%): Rapid recovery, ~20% faster healing<br>\n            • Good growth (60-80%): Normal recovery rates<br>\n            • Moderate growth (40-60%): 30% slower recovery<br>\n            • Slow growth (20-40%): 80% slower recovery<br>\n            • Dormant (<20%): 2.5x slower recovery - avoid heavy use</p>\n\n            <p><strong>Traffic load thresholds:</strong><br>\n            • Low (<3): Minimal impact on recovery<br>\n            • Moderate (3-5): Some reduction in recovery rate<br>\n            • Moderate-High (5-7): Significant recovery delays<br>\n            • High (7-10): Major recovery impediment<br>\n            • Severe (>10): Critical load, extended recovery required</p>\n\n            <p><strong>Operational implications</strong><br>\n            • High TrafficRisk → restrict high-intensity sessions, rotate field areas.<br>\n            • Low recoveryProb → add rest days, manage moisture more aggressively.<br>\n            • Extended recovery window → plan longer breaks between peak events.<br>\n            ${i.growthMultiplier < 0.4 ? "• <strong>⚠ Low growth conditions - significantly reduce traffic load</strong>" : ""}</p>\n        `,
+                `\n            <p><strong>Traffic load index:</strong> ${((i.TrafficRisk ?? 0) || 0).toFixed(1)}, ${W}</p>\n            <p><strong>Recovery probability:</strong> ${Math.round(i.recoveryProb ?? 0)}%</p>\n            <p><strong>Expected recovery window:</strong> ${i.recoveryWindow ?? 0} days</p>\n            \n            ${U}\n\n            <hr>\n\n            <p><strong>How traffic load affects recovery</strong><br>\n            Higher traffic load (matches + training sessions) reduces recovery probability and extends the required recovery window. \n            This combines with firmness AND growth potential to determine overall playability risk.</p>\n            \n            <p><strong>Growth impact on recovery:</strong><br>\n            • Optimal growth (>80%): Rapid recovery, ~20% faster healing<br>\n            • Good growth (60-80%): Normal recovery rates<br>\n            • Moderate growth (40-60%): 30% slower recovery<br>\n            • Slow growth (20-40%): 80% slower recovery<br>\n            • Dormant (<20%): 2.5x slower recovery - avoid heavy use</p>\n\n            <p><strong>Traffic load thresholds:</strong><br>\n            • Low (<3): Minimal impact on recovery<br>\n            • Moderate (3-5): Some reduction in recovery rate<br>\n            • Moderate-High (5-7): Significant recovery delays<br>\n            • High (7-10): Major recovery impediment<br>\n            • Severe (>10): Critical load, extended recovery required</p>\n\n            <p><strong>Operational implications</strong><br>\n            • High TrafficRisk → restrict high-intensity sessions, rotate field areas.<br>\n            • Low recoveryProb → add rest days, manage moisture more aggressively.<br>\n            • Extended recovery window → plan longer breaks between peak events.<br>\n            ${i.growthMultiplier < 0.4 ? "• <strong>⚠ Low growth conditions - significantly reduce traffic load</strong>" : ""}</p>\n        `,
             );
         ir(
             "Field Manager Scheduling Guidance",
@@ -5219,12 +5233,12 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
             ie = e.turf?.grassSpecies || "",
             ae = "greens" === ne || ie.toLowerCase().includes("greens") || ie.toLowerCase().includes("putting");
         if (a && i) {
-            var oe = void 0 !== a.FI ? (100 * a.FI).toFixed(0) : "—",
+            var oe = void 0 !== a.FI ? (100 * a.FI).toFixed(0) : "-",
                 se = a.softnessClass || "Unknown",
-                le = void 0 !== i.TrafficRisk ? i.TrafficRisk.toFixed(0) : "—",
-                de = void 0 !== i.recoveryProb ? i.recoveryProb.toFixed(0) : "—",
-                ce = void 0 !== i.recoveryWindow ? i.recoveryWindow.toFixed(0) : "—",
-                pe = void 0 !== a.surfaceHardness ? a.surfaceHardness : "—",
+                le = void 0 !== i.TrafficRisk ? i.TrafficRisk.toFixed(0) : "-",
+                de = void 0 !== i.recoveryProb ? i.recoveryProb.toFixed(0) : "-",
+                ce = void 0 !== i.recoveryWindow ? i.recoveryWindow.toFixed(0) : "-",
+                pe = void 0 !== a.surfaceHardness ? a.surfaceHardness : "-",
                 ge = a.hardnessClass || "Unknown",
                 ue = (a.hardnessSource, a.hardnessWarning || null),
                 me = a.FI >= 0.6 ? "#22c55e" : a.FI >= 0.4 ? "#f59e0b" : "#ef4444",
@@ -5308,7 +5322,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         (Se = `\n        <div style="margin: 10px 0; padding: 8px; background: var(--gaip-warning-bg); border-left: 3px solid #f59e0b; border-radius: 4px;">\n            <strong>Temperature × Light Interaction:</strong><br>\n            <span style="font-size: 12px;">\n                At ${l.temperature.toFixed(1)}°C, DLI requirements are adjusted:<br>\n                ${l.c3TempFactor < 1 ? "• C3 grasses can tolerate lower DLI in cool conditions" : ""}\n                ${l.c3TempFactor > 1 ? "• C3 grasses need MORE light to compensate for heat stress" : ""}\n                ${l.c4TempFactor < 1 ? "• C4 grasses can tolerate lower DLI at optimal temps" : ""}\n                ${l.c4TempFactor > 1 ? "• C4 grasses need MORE light when temperatures are cool" : ""}\n            </span>\n        </div>\n        `);
         // v9.9.0: Build overseed-aware status display for shade section
         var overseedIndicatorHtml = l.isOverseedDominant ?
-            `<div style="margin: 10px 0; padding: 10px; background: var(--gaip-info-bg); border-left: 3px solid #3b82f6; border-radius: 4px;"><strong>🌱 Overseed-Dominant Stand:</strong> ${Math.round(l.c3Fraction * 100)}% C3 (Cool-Season)<br><span style="font-size: 12px; color: #1e40af;">DLI requirements assessed against <strong>C3 thresholds</strong> — the dominant grass type.</span></div>` :
+            `<div style="margin: 10px 0; padding: 10px; background: var(--gaip-info-bg); border-left: 3px solid #3b82f6; border-radius: 4px;"><strong>🌱 Overseed-Dominant Stand:</strong> ${Math.round(l.c3Fraction * 100)}% C3 (Cool-Season)<br><span style="font-size: 12px; color: #1e40af;">DLI requirements assessed against <strong>C3 thresholds</strong>, the dominant grass type.</span></div>` :
             "";
         var effectiveStatusColor =
             (l.effectiveStatus || "").indexOf("Optimal") > -1 ?
@@ -5319,7 +5333,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         var speciesStatusHtml = l.isOverseedDominant ?
             `<p><strong>Effective Species Status:</strong> <span style="font-weight: 600; color: ${effectiveStatusColor};">${l.effectiveStatus}</span></p><p style="font-size: 12px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: -4px;">Based on C3 requirements: Min ${l.c3Min.toFixed(1)} | Optimal: ${xe} mol/m²/day</p><details style="margin-top: 8px; font-size: 12px;"><summary style="cursor: pointer; color: var(--gaip-text-muted, var(--gaip-text-secondary));">Base species status (${Math.round(l.c4Fraction * 100)}% C4)</summary><p style=" margin-top: 4px;">C4 Warm-Season Status: ${l.c4Status}</p><p style="font-size: 11px; ">Min requirement: ${l.c4Min.toFixed(1)} | Optimal: ${we} mol/m²/day</p></details>` :
             `<p><strong>C3 Cool-Season Status:</strong> ${l.c3Status}</p><p style="font-size: 12px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: -4px;">Min requirement: ${l.c3Min.toFixed(1)} | Optimal: ${xe} mol/m²/day</p><p><strong>C4 Warm-Season Status:</strong> ${l.c4Status}</p><p style="font-size: 12px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: -4px;">Min requirement: ${l.c4Min.toFixed(1)} | Optimal: ${we} mol/m²/day</p>`;
-        var Ce = `\n        <p><strong>Total DLI Available:</strong> ${l.DLI_total.toFixed(1)} mol/m²/day</p>\n        <p style="font-size: 12px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: -4px;">\n            (Natural: ${l.DLI_adj.toFixed(1)} + LED: ${l.DLI_led.toFixed(1)})\n        </p>\n        \n        ${Se}\n        ${overseedIndicatorHtml}\n        ${speciesStatusHtml}\n\n        <p><strong>Renovation Conditions:</strong> ${l.renovation}</p>\n        \n        <hr>\n        \n        <p><strong>Shade Factor:</strong> ${(100 * l.shadeFactor).toFixed(0)}% of full sun</p>\n        <p style="font-size: 11px; color: var(--gaip-text-muted, var(--gaip-text-secondary));">\n            Sky View: ${(100 * l.svf).toFixed(0)}% | \n            Facade Obstruction: ${l.facade}° | \n            Tree/Structural: ${l.treeBlock}%\n        </p>\n        \n        ${l.DLI_led > 0 ? `\n        <div style="margin-top: 10px; padding: 8px; background: var(--gaip-info-bg); border-left: 3px solid #6366f1; border-radius: 4px;">\n            <strong>LED Supplementation Active:</strong><br>\n            <span style="font-size: 12px;">\n                Providing ${l.DLI_led.toFixed(1)} mol/m²/day additional light\n            </span>\n        </div>\n        ` : ""}\n        \n        ${l.modular ? `\n        <div class="gaip-shade-progressive" style="margin-top: 16px;  padding-top: 12px;">\n            \n            \x3c!-- Fungal Risk Panel --\x3e\n            ${l.fungalClass ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Fungal Risk</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${l.fungalClass.colour}20; color: ${l.fungalClass.colour}; border: 1px solid ${l.fungalClass.colour}40;">${l.fungalClass.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Index: ${l.fungalRisk}/100</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">DLI factor: ${l.DLI_total < 12 ? "Elevated" : "Normal"}</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">Low DLI + extended dew increases fungal pressure. Monitor for dollar spot, brown patch.</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Stress Forecast Panel --\x3e\n            ${l.stressClass ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Stress Forecast</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${l.stressClass.colour}20; color: ${l.stressClass.colour}; border: 1px solid ${l.stressClass.colour}40;">${l.stressClass.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Index: ${l.stressIndex}/100</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Light deficit: ${l.modular.deficitPct ?? l.modular.dliDeficit ?? 0}%</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">Combined assessment of light, ET, traffic, and disease pressure.</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Recovery Window Panel --\x3e\n            ${l.recoveryWindow ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Recovery Window</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}20; color: ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}; border: 1px solid ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}40;">${l.recoveryWindow.flag}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    ${l.recoveryWindow.windowStart ? `<div style="margin-bottom: 8px;"><span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Window: ${l.recoveryWindow.windowStart} – ${l.recoveryWindow.windowEnd}</span></div>` : ""}\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">${l.recoveryWindow.detail}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- LED Recommendation Panel (from modular engine) --\x3e\n            ${l.ledRecommendation && l.ledRecommendation.required ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">LED Supplementation Needed</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: #eab30820; color: #eab308; border: 1px solid #eab30840;">Required</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Deficit: ${l.ledRecommendation.deficitMol} mol</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Hours: ${l.ledRecommendation.hours}/day</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Energy: ${l.ledRecommendation.kWh} kWh/day</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Cost: $${l.ledRecommendation.costPerDay}/day</span>\n                    </div>\n                    ${l.ledRecommendation.warning ? `<div style="font-size: 0.75rem; color: #fbbf24;">${l.ledRecommendation.warning}</div>` : ""}\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- ========================================\n                 v2.0 SHADE MANAGEMENT PANELS\n                 Research-backed agronomic adjustments\n            ======================================== --\x3e\n            \n            \x3c!-- Nitrogen Adjustment Panel (Bell & Danneberger 1999) --\x3e\n            ${l.nAdjustment && l.nAdjustment.factor < 1 ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">⚗ Nitrogen Adjustment</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"concern" === l.nAdjustment.severity ? "#f9731620" : "#eab30820"}; color: ${"concern" === l.nAdjustment.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"concern" === l.nAdjustment.severity ? "#f9731640" : "#eab30840"};">${l.nAdjustment.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Reduce N by ${l.nAdjustment.reductionPct}%</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Factor: ${l.nAdjustment.factor.toFixed(2)}</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.nAdjustment.reason}</div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.nAdjustment.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Mowing Height Panel (Dudeck & Peacock 1992) --\x3e\n            ${l.mowingGuidance && l.mowingGuidance.increasePct > 0 ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">✂ Mowing Height</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"concern" === l.mowingGuidance.severity ? "#f9731620" : "#eab30820"}; color: ${"concern" === l.mowingGuidance.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"concern" === l.mowingGuidance.severity ? "#f9731640" : "#eab30840"};">+${l.mowingGuidance.increasePct}%</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Current: ${l.mowingGuidance.currentHOC || "—"}mm</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #22c55e;">Recommended: ${l.mowingGuidance.recommendedHOC}mm</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Max for shade: ${l.mowingGuidance.shadeMax}mm</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.mowingGuidance.reason}</div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.mowingGuidance.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- PGR Warning Panel (Ervin & Koski 1998) --\x3e\n            ${l.pgrGuidance && l.pgrGuidance.warning ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">⚠ PGR Guidance</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"critical" === l.pgrGuidance.severity ? "#ef444420" : "concern" === l.pgrGuidance.severity ? "#f9731620" : "#eab30820"}; color: ${"critical" === l.pgrGuidance.severity ? "#ef4444" : "concern" === l.pgrGuidance.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"critical" === l.pgrGuidance.severity ? "#ef444440" : "concern" === l.pgrGuidance.severity ? "#f9731640" : "#eab30840"};">${l.pgrGuidance.suspend ? "Suspend" : "Caution"}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="font-size: 0.82rem; color: ${"critical" === l.pgrGuidance.severity ? "#ef4444" : "#f97316"}; font-weight: 500; margin-bottom: 6px;">${l.pgrGuidance.warning}</div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.pgrGuidance.recommendation}</div>\n                    ${l.pgrGuidance.conflictDetected ? '<div style="font-size: 0.75rem; color: #ef4444; margin-bottom: 6px;">⚠ PGR program currently active — review recommended</div>' : ""}\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.pgrGuidance.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Seasonal Trajectory Panel (Solar Geometry) --\x3e\n            ${l.seasonalTrajectory ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">☀ Seasonal Light Trajectory</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: rgba(59,130,246,0.2); color: #3b82f6; border: 1px solid rgba(59,130,246,0.4);">Range: ${(100 * l.seasonalTrajectory.seasonalRange).toFixed(0)}%</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #22c55e;">Peak: ${l.seasonalTrajectory.peakMonthName} (${(100 * l.seasonalTrajectory.peakDLI).toFixed(0)}%)</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #ef4444;">Trough: ${l.seasonalTrajectory.troughMonthName} (${(100 * l.seasonalTrajectory.troughDLI).toFixed(0)}%)</span>\n                    </div>\n                    ${l.seasonalTrajectory.stressPeriods.length > 0 ? `\n                    <div style="font-size: 0.75rem; color: #fbbf24; margin-bottom: 6px;">Stress periods: ${l.seasonalTrajectory.stressPeriods.join(", ")}</div>\n                    ` : ""}\n                    <div style="font-size: 0.75rem; color: #22c55e; margin-bottom: 6px;">Optimal renovation: ${l.seasonalTrajectory.optimalRenovation.join(", ")}</div>\n                    <div id="gaip-shade-forecast-chart" style="margin-top: 12px;"></div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic; margin-top: 8px;">${l.seasonalTrajectory.note}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n        </div>\n        ` : ""}\n    `;
+        var Ce = `\n        <p><strong>Total DLI Available:</strong> ${l.DLI_total.toFixed(1)} mol/m²/day</p>\n        <p style="font-size: 12px; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-top: -4px;">\n            (Natural: ${l.DLI_adj.toFixed(1)} + LED: ${l.DLI_led.toFixed(1)})\n        </p>\n        \n        ${Se}\n        ${overseedIndicatorHtml}\n        ${speciesStatusHtml}\n\n        <p><strong>Renovation Conditions:</strong> ${l.renovation}</p>\n        \n        <hr>\n        \n        <p><strong>Shade Factor:</strong> ${(100 * l.shadeFactor).toFixed(0)}% of full sun</p>\n        <p style="font-size: 11px; color: var(--gaip-text-muted, var(--gaip-text-secondary));">\n            Sky View: ${(100 * l.svf).toFixed(0)}% | \n            Facade Obstruction: ${l.facade}° | \n            Tree/Structural: ${l.treeBlock}%\n        </p>\n        \n        ${l.DLI_led > 0 ? `\n        <div style="margin-top: 10px; padding: 8px; background: var(--gaip-info-bg); border-left: 3px solid #6366f1; border-radius: 4px;">\n            <strong>LED Supplementation Active:</strong><br>\n            <span style="font-size: 12px;">\n                Providing ${l.DLI_led.toFixed(1)} mol/m²/day additional light\n            </span>\n        </div>\n        ` : ""}\n        \n        ${l.modular ? `\n        <div class="gaip-shade-progressive" style="margin-top: 16px;  padding-top: 12px;">\n            \n            \x3c!-- Fungal Risk Panel --\x3e\n            ${l.fungalClass ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Fungal Risk</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${l.fungalClass.colour}20; color: ${l.fungalClass.colour}; border: 1px solid ${l.fungalClass.colour}40;">${l.fungalClass.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Index: ${l.fungalRisk}/100</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">DLI factor: ${l.DLI_total < 12 ? "Elevated" : "Normal"}</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">Low DLI + extended dew increases fungal pressure. Monitor for dollar spot, brown patch.</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Stress Forecast Panel --\x3e\n            ${l.stressClass ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Stress Forecast</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${l.stressClass.colour}20; color: ${l.stressClass.colour}; border: 1px solid ${l.stressClass.colour}40;">${l.stressClass.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Index: ${l.stressIndex}/100</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Light deficit: ${l.modular.deficitPct ?? l.modular.dliDeficit ?? 0}%</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">Combined assessment of light, ET, traffic, and disease pressure.</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Recovery Window Panel --\x3e\n            ${l.recoveryWindow ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">Recovery Window</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}20; color: ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}; border: 1px solid ${"good" === l.recoveryWindow.severity ? "#22c55e" : "watch" === l.recoveryWindow.severity ? "#eab308" : "concern" === l.recoveryWindow.severity ? "#f97316" : "#ef4444"}40;">${l.recoveryWindow.flag}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    ${l.recoveryWindow.windowStart ? `<div style="margin-bottom: 8px;"><span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Window: ${l.recoveryWindow.windowStart} – ${l.recoveryWindow.windowEnd}</span></div>` : ""}\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">${l.recoveryWindow.detail}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- LED Recommendation Panel (from modular engine) --\x3e\n            ${l.ledRecommendation && l.ledRecommendation.required ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">LED Supplementation Needed</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: #eab30820; color: #eab308; border: 1px solid #eab30840;">Required</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Deficit: ${l.ledRecommendation.deficitMol} mol</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Hours: ${l.ledRecommendation.hours}/day</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Energy: ${l.ledRecommendation.kWh} kWh/day</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Cost: $${l.ledRecommendation.costPerDay}/day</span>\n                    </div>\n                    ${l.ledRecommendation.warning ? `<div style="font-size: 0.75rem; color: #fbbf24;">${l.ledRecommendation.warning}</div>` : ""}\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- ========================================\n                 v2.0 SHADE MANAGEMENT PANELS\n                 Research-backed agronomic adjustments\n            ======================================== --\x3e\n            \n            \x3c!-- Nitrogen Adjustment Panel (Bell & Danneberger 1999) --\x3e\n            ${l.nAdjustment && l.nAdjustment.factor < 1 ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">⚗ Nitrogen Adjustment</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"concern" === l.nAdjustment.severity ? "#f9731620" : "#eab30820"}; color: ${"concern" === l.nAdjustment.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"concern" === l.nAdjustment.severity ? "#f9731640" : "#eab30840"};">${l.nAdjustment.label}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Reduce N by ${l.nAdjustment.reductionPct}%</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Factor: ${l.nAdjustment.factor.toFixed(2)}</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.nAdjustment.reason}</div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.nAdjustment.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Mowing Height Panel (Dudeck & Peacock 1992) --\x3e\n            ${l.mowingGuidance && l.mowingGuidance.increasePct > 0 ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">✂ Mowing Height</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"concern" === l.mowingGuidance.severity ? "#f9731620" : "#eab30820"}; color: ${"concern" === l.mowingGuidance.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"concern" === l.mowingGuidance.severity ? "#f9731640" : "#eab30840"};">+${l.mowingGuidance.increasePct}%</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Current: ${l.mowingGuidance.currentHOC || "-"}mm</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #22c55e;">Recommended: ${l.mowingGuidance.recommendedHOC}mm</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;  ">Max for shade: ${l.mowingGuidance.shadeMax}mm</span>\n                    </div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.mowingGuidance.reason}</div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.mowingGuidance.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- PGR Warning Panel (Ervin & Koski 1998) --\x3e\n            ${l.pgrGuidance && l.pgrGuidance.warning ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">⚠ PGR Guidance</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: ${"critical" === l.pgrGuidance.severity ? "#ef444420" : "concern" === l.pgrGuidance.severity ? "#f9731620" : "#eab30820"}; color: ${"critical" === l.pgrGuidance.severity ? "#ef4444" : "concern" === l.pgrGuidance.severity ? "#f97316" : "#eab308"}; border: 1px solid ${"critical" === l.pgrGuidance.severity ? "#ef444440" : "concern" === l.pgrGuidance.severity ? "#f9731640" : "#eab30840"};">${l.pgrGuidance.suspend ? "Suspend" : "Caution"}</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="font-size: 0.82rem; color: ${"critical" === l.pgrGuidance.severity ? "#ef4444" : "#f97316"}; font-weight: 500; margin-bottom: 6px;">${l.pgrGuidance.warning}</div>\n                    <div style="font-size: 0.75rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); margin-bottom: 6px;">${l.pgrGuidance.recommendation}</div>\n                    ${l.pgrGuidance.conflictDetected ? '<div style="font-size: 0.75rem; color: #ef4444; margin-bottom: 6px;">⚠ PGR program currently active, review recommended</div>' : ""}\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic;">Ref: ${l.pgrGuidance.reference}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n            \x3c!-- Seasonal Trajectory Panel (Solar Geometry) --\x3e\n            ${l.seasonalTrajectory ? `\n            <div class="gaip-shade-panel" style="margin-bottom: 8px;  border-radius: 8px; overflow: hidden;">\n                <div class="gaip-panel-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'; this.querySelector('.gaip-chevron').textContent = this.nextElementSibling.style.display === 'none' ? '▶' : '▼';" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; cursor: pointer; ">\n                    <span class="gaip-chevron" style="font-size: 0.7rem; color: var(--gaip-text-muted, var(--gaip-text-secondary));">▶</span>\n                    <span style="flex: 1; font-size: 0.82rem; font-weight: 500;">☀ Seasonal Light Trajectory</span>\n                    <span style="font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; background: rgba(59,130,246,0.2); color: #3b82f6; border: 1px solid rgba(59,130,246,0.4);">Range: ${(100 * l.seasonalTrajectory.seasonalRange).toFixed(0)}%</span>\n                </div>\n                <div style="display: none; padding: 10px 12px;  font-size: 0.82rem; ">\n                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(34,197,94,0.2); border: 1px solid rgba(34,197,94,0.4); color: #22c55e;">Peak: ${l.seasonalTrajectory.peakMonthName} (${(100 * l.seasonalTrajectory.peakDLI).toFixed(0)}%)</span>\n                        <span style="font-size: 0.72rem; padding: 2px 8px; border-radius: 999px; background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #ef4444;">Trough: ${l.seasonalTrajectory.troughMonthName} (${(100 * l.seasonalTrajectory.troughDLI).toFixed(0)}%)</span>\n                    </div>\n                    ${l.seasonalTrajectory.stressPeriods.length > 0 ? `\n                    <div style="font-size: 0.75rem; color: #fbbf24; margin-bottom: 6px;">Stress periods: ${l.seasonalTrajectory.stressPeriods.join(", ")}</div>\n                    ` : ""}\n                    <div style="font-size: 0.75rem; color: #22c55e; margin-bottom: 6px;">Optimal renovation: ${l.seasonalTrajectory.optimalRenovation.join(", ")}</div>\n                    <div id="gaip-shade-forecast-chart" style="margin-top: 12px;"></div>\n                    <div style="font-size: 0.68rem; color: var(--gaip-text-muted, var(--gaip-text-secondary)); font-style: italic; margin-top: 8px;">${l.seasonalTrajectory.note}</div>\n                </div>\n            </div>\n            ` : ""}\n            \n        </div>\n        ` : ""}\n    `;
         ((v = document.querySelector(".gaip-growth-body")),
             (b = document.querySelector(".gaip-seasonal-body")),
             (x = document.querySelector(".gaip-calendar-body")));
@@ -5379,49 +5393,38 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                     ["IMMEDIATE: Apply fertiliser to correct deficiencies", "30-90 DAYS: Retest to confirm improvement"] :
                     [],
                 );
-            var hasWaterData =
-                e.water &&
-                ((e.water.ions &&
-                    Object.keys(e.water.ions).some(function(k) {
-                        return safeNum(e.water.ions[k], 0) > 0;
-                    })) ||
-                    safeNum(e.water.ecw || e.water.ECw, 0) > 0);
-            if (hasWaterData) {
-                var $e =
-                    (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
-                    "IMMINENT_FAILURE" :
-                    Me.indexOf("High") > -1 ?
-                    "HIGH_RISK" :
-                    Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
-                    "MONITOR" :
-                    "ACCEPTABLE";
-                Ee = generateDecisionBlock(
-                    "Irrigation Water Quality",
-                    $e,
-                    "Water chemistry analysed for salinity, sodium hazard, and toxicity risks",
-                    "Poor water quality causes soil sodicity, reduced infiltration, and direct turf damage",
-                    "IMMINENT_FAILURE" === $e ?
-                    "Severe water quality issues will cause rapid turf decline and unplayable conditions" :
-                    "HIGH_RISK" === $e ?
-                    "Continued use without treatment will progressively damage soil structure" :
-                    "Water quality is manageable with standard practices",
-                    "IMMINENT_FAILURE" === $e ?
-                    "Implement water treatment system immediately or source alternative water" :
-                    "HIGH_RISK" === $e ?
-                    "Apply gypsum and increase leaching fraction" :
-                    "Monitor and maintain current practices",
-                    "IMMINENT_FAILURE" === $e ?
-                    [
-                        "IMMEDIATE: Install treatment system or find alternative water source",
-                        "IMMEDIATE: Heavy gypsum application",
-                    ] :
-                    "HIGH_RISK" === $e ?
-                    ["30-90 DAYS: Begin gypsum program", "30-90 DAYS: Increase irrigation frequency for leaching"] :
-                    [],
-                );
-            } else {
-                Ee = "";
-            }
+            var $e =
+                (Me = n).indexOf("Very high") > -1 || Me.indexOf("Severe") > -1 ?
+                "IMMINENT_FAILURE" :
+                Me.indexOf("High") > -1 ?
+                "HIGH_RISK" :
+                Me.indexOf("Medium") > -1 || Me.indexOf("Moderate") > -1 ?
+                "MONITOR" :
+                "ACCEPTABLE";
+            Ee = generateDecisionBlock(
+                "Irrigation Water Quality",
+                $e,
+                "Water chemistry analysed for salinity, sodium hazard, and toxicity risks",
+                "Poor water quality causes soil sodicity, reduced infiltration, and direct turf damage",
+                "IMMINENT_FAILURE" === $e ?
+                "Severe water quality issues will cause rapid turf decline and unplayable conditions" :
+                "HIGH_RISK" === $e ?
+                "Continued use without treatment will progressively damage soil structure" :
+                "Water quality is manageable with standard practices",
+                "IMMINENT_FAILURE" === $e ?
+                "Implement water treatment system immediately or source alternative water" :
+                "HIGH_RISK" === $e ?
+                "Apply gypsum and increase leaching fraction" :
+                "Monitor and maintain current practices",
+                "IMMINENT_FAILURE" === $e ?
+                [
+                    "IMMEDIATE: Install treatment system or find alternative water source",
+                    "IMMEDIATE: Heavy gypsum application",
+                ] :
+                "HIGH_RISK" === $e ?
+                ["30-90 DAYS: Begin gypsum program", "30-90 DAYS: Increase irrigation frequency for leaching"] :
+                [],
+            );
         }
         if (p) {
             var Fe = (function(e) {
@@ -5506,9 +5509,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
         }
         if (c) {
             var De = window.convertMLSNToProgressive ? window.convertMLSNToProgressive(e, t) : Ae + r;
-            // The progressive soil renderer replaces the legacy soil block.
-            // Prepending Ae again duplicates the top-level soil decision card.
-            u.innerHTML = window.convertMLSNToProgressive ? De : Ae + De;
+            u.innerHTML = Ae + De;
             var Ge = document.querySelector(".gaip-nutrient-demand-body"),
                 Le = document.querySelector('[data-section="nutrient-demand"]');
             if (Ge && window.GilbaNutrientDemandEngine)
@@ -6243,11 +6244,11 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                                             var _c3f = e?.turf?.speciesFractions?.c3Fraction ?? 1;
                                             if (_c4f === 0) {
                                                 er = null;
-                                                console.log("[C4 FIX Path-A] Pure C3 grass — gpC4 set to null");
+                                                console.log("[C4 FIX Path-A] Pure C3 grass, gpC4 set to null");
                                             }
                                             if (_c3f === 0) {
                                                 Xt = null;
-                                                console.log("[C3 FIX Path-A] Pure C4 grass — gpC3 set to null");
+                                                console.log("[C3 FIX Path-A] Pure C4 grass, gpC3 set to null");
                                             }
                                         })(),
                                         er !== null ? (window.climateMetrics.growth.c4 = er) : (window.climateMetrics.growth.c4 = null),
@@ -6372,14 +6373,14 @@ function initTurfTypeMode() {
                     // PATCH: Skip if already running or within cooldown
                     var now = Date.now();
                     if (_analysisRunning) {
-                        console.log("[GAIP] Analysis already in progress — skipping re-entry");
+                        console.log("[GAIP] Analysis already in progress, skipping re-entry");
                         return;
                     }
                     if (now - _lastRunAt < _COOLDOWN_MS) {
                         console.log(
                             "[GAIP] Analysis cooldown active (" +
                             Math.round((_COOLDOWN_MS - (now - _lastRunAt)) / 1000) +
-                            "s remaining) — skipping",
+                            "s remaining), skipping",
                         );
                         return;
                     }
@@ -6458,7 +6459,7 @@ function initTurfTypeMode() {
                                             console.log(
                                                 "[Hub] Ambient DLI calculated:",
                                                 s.current,
-                                                "mol/m²/day (" + s.source + ") — synced to climateMetrics.solar.dli",
+                                                "mol/m²/day (" + s.source + "), synced to climateMetrics.solar.dli",
                                             ));
                                 } catch (e) {
                                     console.warn("[Hub] Ambient DLI calculation failed:", e);
@@ -6791,7 +6792,7 @@ function initTurfTypeMode() {
                                                 if (_c4frac === 0) {
                                                     gpC4 = null;
                                                     console.log(
-                                                        "[C4 FIX] Pure C3 grass detected — gpC4 set to null (hidden). species=" +
+                                                        "[C4 FIX] Pure C3 grass detected, gpC4 set to null (hidden). species=" +
                                                         // b35fix218b: t.turf.grassSpecies empty in V2 IIFE on GSSH; fall back to GAIP_STATE
                                                         (t.turf?.grassSpecies || window.GAIP_STATE?.turf?.grassSpecies || "unknown") +
                                                         " c4Fraction=" +
@@ -6801,7 +6802,7 @@ function initTurfTypeMode() {
                                                 if (_c3frac === 0) {
                                                     gpC3 = null;
                                                     console.log(
-                                                        "[C3 FIX] Pure C4 grass detected — gpC3 set to null (hidden). species=" +
+                                                        "[C3 FIX] Pure C4 grass detected, gpC3 set to null (hidden). species=" +
                                                         (t.turf?.grassSpecies || "?") +
                                                         " c3Fraction=" +
                                                         _c3frac,
@@ -7247,7 +7248,7 @@ function initTurfTypeMode() {
                         "slan" === e ?
                         "Mehlich 3 extractant (Olsen for P). Thresholds vary by soil type." :
                         "ammonium_acetate" === e ?
-                        "Olsen P + NH₄OAc extraction — calibrated for NZ soils" :
+                        "Olsen P + NH₄OAc extraction, calibrated for NZ soils" :
                         "Mehlich 3 extractant (Olsen for P)"),
                     g &&
                     (g.textContent =
@@ -7342,7 +7343,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener("DOMContentLoaded", function() {
         setTimeout(function() {
             if (!_autoRunFired) {
-                console.warn("[GAIP] Auto-run safety fallback: site-config-applied not received — running now");
+                console.warn("[GAIP] Auto-run safety fallback: site-config-applied not received, running now");
                 _siteConfigApplied = true;
                 _stateRestored = true;
                 triggerAutoRun();
@@ -7362,7 +7363,7 @@ document.addEventListener("DOMContentLoaded", function() {
 
     document.addEventListener("gaip:site-changed", function() {
         _pendingSiteRun = true;
-        console.log("[GAIP] Site switch queued — waiting for current analysis to finish");
+        console.log("[GAIP] Site switch queued, waiting for current analysis to finish");
         // Fallback: if analysis-complete never fires (e.g. no analysis was running),
         // run after 1s — BUT only if page-load config restore is already complete.
         // On page load, gaip:site-changed fires from SiteSelector sample restore at
@@ -7377,13 +7378,13 @@ document.addEventListener("DOMContentLoaded", function() {
             // Guard against page-load config restore still in flight.
             // Note: this IIFE has no 'global' param — use window directly
             if (window.GAIP_SITE_CONFIG_PENDING) {
-                console.log("[GAIP] Site switch fallback deferred — config restore pending, delegating to site-config-applied");
+                console.log("[GAIP] Site switch fallback deferred, config restore pending, delegating to site-config-applied");
                 return; // site-config-applied listener will handle it
             }
             _pendingSiteRun = false;
             var btn = document.querySelector(".gaip-run-btn");
             if (btn) {
-                console.log("[GAIP] Site switched — re-running analysis (fallback timer)");
+                console.log("[GAIP] Site switched, re-running analysis (fallback timer)");
                 btn.click();
             }
         }, 1000);
@@ -7400,7 +7401,7 @@ document.addEventListener("DOMContentLoaded", function() {
         }
         if (_pendingSiteRun) {
             _pendingSiteRun = false;
-            console.log("[GAIP] Site config applied — auto-run delegated to tissue listener");
+            console.log("[GAIP] Site config applied, auto-run delegated to tissue listener");
         }
     });
 
@@ -7413,7 +7414,7 @@ document.addEventListener("DOMContentLoaded", function() {
         _pendingSiteRun = false;
         var btn = document.querySelector(".gaip-run-btn");
         if (btn) {
-            console.log("[GAIP] Site switched — re-running analysis");
+            console.log("[GAIP] Site switched, re-running analysis");
             btn.click();
         }
     });
@@ -7429,7 +7430,7 @@ document.addEventListener("DOMContentLoaded", function() {
 // ═══════════════════════════════════════════════════════════════════════════════
 (function() {
     document.addEventListener("gssh:venue-profile-restored", function() {
-        console.log("[GAIP] Venue profile restored — re-running analysis with correct species");
+        console.log("[GAIP] Venue profile restored, re-running analysis with correct species");
         if (typeof window.GAIP_ForceRun === "function") {
             window.GAIP_ForceRun();
         } else {
@@ -7488,7 +7489,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 col +
                 ';">' +
                 w.severity +
-                " — Soil " +
+                ", Soil " +
                 w.ratioLabel +
                 " ratio: " +
                 w.ratio +
@@ -7588,7 +7589,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 readings: _readingCount
             };
 
-            console.log('[SensorPane] Re-rendered after live data arrived —', 
+            console.log('[SensorPane] Re-rendered after live data arrived,', 
                 Lt ? Lt.length + ' zones' : 'overview only');
 
         } catch (err) {

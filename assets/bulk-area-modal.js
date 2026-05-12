@@ -125,7 +125,7 @@
                 const currentHa = s.rawData && s.rawData.areaHa;
                 const currentDisplay = (currentHa != null && isFinite(currentHa) && currentHa > 0)
                     ? parseFloat(currentHa).toFixed(3).replace(/\.?0+$/, '') + ' ha'
-                    : '\u2014';
+                    : '-';
                 const badge = (currentHa != null && isFinite(currentHa) && currentHa > 0)
                     ? '<span class="gaip-bulk-badge gaip-bulk-badge-set">set</span>'
                     : '<span class="gaip-bulk-badge gaip-bulk-badge-missing">missing</span>';
@@ -250,14 +250,14 @@
             const status = modal.querySelector('.gaip-bulk-status');
             const assignments = _collectAssignments(modal);
             if (assignments.length === 0) {
-                status.textContent = 'Nothing to apply — enter a group value or per-sample override.';
+                status.textContent = 'Nothing to apply, enter a group value or per-sample override.';
                 status.className = 'gaip-bulk-status gaip-bulk-status-warn';
                 return;
             }
 
             const sm = global.GAIP_SampleManager;
             if (!sm || typeof sm.updateSample !== 'function') {
-                status.textContent = 'SampleManager unavailable — cannot apply.';
+                status.textContent = 'SampleManager unavailable, cannot apply.';
                 status.className = 'gaip-bulk-status gaip-bulk-status-error';
                 return;
             }

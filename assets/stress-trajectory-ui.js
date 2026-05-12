@@ -430,7 +430,7 @@ var StressTrajectoryUI = (function() {
         // Current
         html += '<div class="gaip-stat-card" style="text-align: center; padding: 12px; background: var(--gaip-surface-muted); border-radius: 6px;">';
         html += '<div style="font-size: 20px; font-weight: 600; color: ' + getStatusColor(currentLevel) + ';">' + 
-                (currentScore !== undefined ? currentScore : '—') + '</div>';
+                (currentScore !== undefined ? currentScore : '-') + '</div>';
         html += '<div style="font-size: 12px; color: var(--gaip-text);">Current</div>';
         html += '<div style="font-size: 11px; color: ' + getStatusColor(currentLevel) + ';">' + 
                 escapeHtml(getLevelLabel(currentLevel)) + '</div>';
@@ -439,7 +439,7 @@ var StressTrajectoryUI = (function() {
         // Peak
         html += '<div class="gaip-stat-card" style="text-align: center; padding: 12px; background: var(--gaip-surface-muted); border-radius: 6px;">';
         html += '<div style="font-size: 20px; font-weight: 600; color: ' + getStatusColor(peakLevel) + ';">' + 
-                (peakScore !== undefined ? peakScore : '—') + '</div>';
+                (peakScore !== undefined ? peakScore : '-') + '</div>';
         html += '<div style="font-size: 12px; color: var(--gaip-text);">Peak' + (peakDateDisplay ? ' (' + escapeHtml(peakDateDisplay) + ')' : '') + '</div>';
         html += '<div style="font-size: 11px; color: ' + getStatusColor(peakLevel) + ';">' + 
                 escapeHtml(getLevelLabel(peakLevel)) + '</div>';

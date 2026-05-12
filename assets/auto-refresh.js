@@ -56,19 +56,19 @@
     function canAutoRefresh() {
         // Already fired this page load
         if (_hasFired) {
-            log('Skipping — already fired this session');
+            log('Skipping, already fired this session');
             return false;
         }
 
         // User already clicked Analyse manually before restore finished
         if (_manualRunDetected) {
-            log('Skipping — manual analysis already triggered');
+            log('Skipping, manual analysis already triggered');
             return false;
         }
 
         // First-run user (wizard not completed AND no saved state restored)
         if (!_stateRestored && typeof GAIP_WIZARD_CONFIG !== 'undefined' && !GAIP_WIZARD_CONFIG.wizardComplete) {
-            log('Skipping — wizard not completed and no saved state (first-run user)');
+            log('Skipping, wizard not completed and no saved state (first-run user)');
             return false;
         }
 
@@ -76,13 +76,13 @@
         var lat = document.querySelector('.gaip-lat');
         var lon = document.querySelector('.gaip-lon');
         if (!lat || !lon) {
-            log('Skipping — no lat/lon inputs found');
+            log('Skipping, no lat/lon inputs found');
             return false;
         }
         var latVal = parseFloat(lat.value);
         var lonVal = parseFloat(lon.value);
         if (!latVal && !lonVal) {
-            log('Skipping — coordinates are 0,0 (no location set)');
+            log('Skipping, coordinates are 0,0 (no location set)');
             return false;
         }
 
@@ -211,7 +211,7 @@
         // Find the real run button
         var runBtn = document.querySelector('.gaip-run-btn');
         if (!runBtn) {
-            log('Run button not found — aborting');
+            log('Run button not found, aborting');
             return;
         }
 
@@ -270,7 +270,7 @@
             runBtn.addEventListener('click', function() {
                 if (!_hasFired) {
                     _manualRunDetected = true;
-                    log('Manual run detected — suppressing auto-refresh');
+                    log('Manual run detected, suppressing auto-refresh');
                 }
                 // Remove staleness badges on manual analysis
                 removeStalenessIndicators();
@@ -307,12 +307,12 @@
             if (!_hasFired && !_manualRunDetected) {
                 _siteConfigApplied = true;  // unblock the gate
                 _stateRestored = true;
-                log('Fallback trigger — site-config-applied not received');
+                log('Fallback trigger, site-config-applied not received');
                 triggerAutoRefresh();
             }
         }, 4500);
 
-        log('Ready — waiting for state restore');
+        log('Ready, waiting for state restore');
     }
 
     // =========================================================================

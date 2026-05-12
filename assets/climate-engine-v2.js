@@ -322,6 +322,13 @@
       result.source = 'api';
       result.reliability = 85;
       result.depths.d50mm = round(apiSoilTemp, 1);
+      // b35fix458 (C63): d40mm reuses the API shallow value rather than
+      //   extrapolating, since Open-Meteo soil temp is anchored at a
+      //   single shallow depth without sub-decimetre disambiguation.
+      //   d40mm and d50mm read the same API number in this branch; the
+      //   physics-model branch below produces the canonical 40 vs 50
+      //   damping distinction. CABI 2024 audit recommendation #2.
+      result.depths.d40mm = round(apiSoilTemp, 1);
 
       // Extrapolate deeper using damping
       if (airTempMean != null && airTempAmp != null) {
@@ -352,8 +359,16 @@
       result.source = 'model';
       result.reliability = 60;
 
-      // Standard depths
-      for (const [key, d] of Object.entries({ d20mm: 0.02, d50mm: 0.05, d100mm: 0.1, d200mm: 0.2 })) {
+      // Standard depths.
+      // b35fix458 (C63): d40mm added per CABI 2024 audit recommendation #2.
+      //   CABI Ch.6 p.114-121 anchors the Spring Dead Spot infection trigger
+      //   at soil temperature falling below 23 deg C for several days at
+      //   4.0 cm depth (Beehag, Walker, Wong & Kaapro 2024). The analytical
+      //   heat-equation solution evaluates at arbitrary depth, so d40mm is
+      //   computed identically to the other depths: phase-averaged with
+      //   amplitude residual airTempAmp * exp(-depth / dampingLength) * 0.5.
+      //   Existing d20mm / d50mm / d100mm / d200mm consumers are unchanged.
+      for (const [key, d] of Object.entries({ d20mm: 0.02, d40mm: 0.04, d50mm: 0.05, d100mm: 0.1, d200mm: 0.2 })) {
         const amp = airTempAmp * Math.exp(-d / dampingLength);
         result.depths[key] = round(airTempMean + amp * 0.5, 1);
       }
@@ -535,7 +550,7 @@
           reliability: source === 'api' ? 90 : source === 'manual' ? 70 : 30,
           fetchedAt: raw?.fetchedAt || null,
           staleAfterMs: 3600000, // 1 hour
-          warning: source === 'default' ? 'No climate data available — using defaults' : null
+          warning: source === 'default' ? 'No climate data available, using defaults' : null
         },
         citations: [
           { ref: 'Kreuser & Soldat 2011', context: 'C3/C4 growth potential model' },
@@ -775,7 +790,7 @@
         quality: {
           overall: 'fair',
           source: 'manual',
-          issues: ['Manual input — forecast-dependent features unavailable'],
+          issues: ['Manual input, forecast-dependent features unavailable'],
           fetchedAt: null
         }
       };
@@ -1074,7 +1089,7 @@
 
       if (gpAlreadyCorrected) {
         console.log('[ClimateEngine v2] Shim: preserved hub-tissue GP correction (' +
-          growthToWrite.weighted + '%) — raw engine value not applied');
+          growthToWrite.weighted + '%), raw engine value not applied');
       }
 
       // Also fire the legacy event for v1 listeners
@@ -1086,7 +1101,7 @@
       }));
     });
 
-    console.log('[ClimateEngine v2] Legacy shim installed — window.climateMetrics will mirror computed.climate');
+    console.log('[ClimateEngine v2] Legacy shim installed, window.climateMetrics will mirror computed.climate');
   }
 
 

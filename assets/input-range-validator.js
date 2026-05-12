@@ -143,14 +143,14 @@
             return {
                 valid: false,
                 level: 'implausible',
-                message: `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) is below minimum expected (${range.min}${range.unit ? ' ' + range.unit : ''}) — verify this value`
+                message: `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) is below minimum expected (${range.min}${range.unit ? ' ' + range.unit : ''}), verify this value`
             };
         }
         if (num > range.max) {
             return {
                 valid: false,
                 level: 'implausible',
-                message: `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) exceeds maximum expected (${range.max}${range.unit ? ' ' + range.unit : ''}) — verify this value`
+                message: `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) exceeds maximum expected (${range.max}${range.unit ? ' ' + range.unit : ''}), verify this value`
             };
         }
 
@@ -159,7 +159,7 @@
         if (num < typLo || num > typHi) {
             let msg = `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) is outside typical range (${typLo}–${typHi}${range.unit ? ' ' + range.unit : ''})`;
             if (num > typHi && range.highWarning) {
-                msg += ` — ${range.highWarning}`;
+                msg += `, ${range.highWarning}`;
             }
             return {
                 valid: true,  // Valid but unusual

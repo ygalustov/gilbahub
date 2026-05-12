@@ -401,7 +401,7 @@
             <div class="gaip-blend-composition" style="margin-bottom: 1rem; background: var(--gaip-info-bg); padding: 0.75rem; border-radius: 8px;">
                 <div style="font-weight: 600; font-size: 0.9rem; color: #1e40af; margin-bottom: 0.5rem;">
                     Blend Composition
-                    ${traits._supplier ? `<span style="font-weight: 400; color: #3b82f6;"> — ${traits._supplier}</span>` : ''}
+                    ${traits._supplier ? `<span style="font-weight: 400; color: #3b82f6;">, ${traits._supplier}</span>` : ''}
                 </div>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
         `;

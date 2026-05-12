@@ -183,7 +183,7 @@
                 modifier: 1.0,
                 deficitPct: deficitPct,
                 applied: false,
-                reason: `DLI deficit ${deficitPct.toFixed(1)}% below ${CONFIG.minDeficitPctForGPAdjust}% threshold — no GP adjustment`
+                reason: `DLI deficit ${deficitPct.toFixed(1)}% below ${CONFIG.minDeficitPctForGPAdjust}% threshold, no GP adjustment`
             };
         }
 
@@ -420,7 +420,7 @@
             note: nAdj.applied
                 ? `Thresholds recalculated at shade-adjusted N rate (${nAdj.adjustedN} vs ${originalNRate} kg/ha/yr). ` +
                   `K and Fe thresholds boosted for shade stress tolerance.`
-                : 'No shade adjustment needed — adequate light.',
+                : 'No shade adjustment needed, adequate light.',
             reference: 'Bell & Danneberger (1999), Beard (1973), Kussow et al. (2012)'
         };
     }
@@ -510,7 +510,7 @@
     function patchNutritionCalendar() {
         // Wait for NutritionCalendar to be available
         if (!global.NutritionCalendar) {
-            log('patch', 'NutritionCalendar not yet loaded — deferring patch');
+            log('patch', 'NutritionCalendar not yet loaded, deferring patch');
             return false;
         }
 
@@ -580,7 +580,7 @@
                         ? `⚠️ Shade adjustment: N programme reduced from ${nAdj.originalN} to ${nAdj.adjustedN} kg/ha/yr ` +
                           `(${nAdj.reductionPct}% reduction). Monthly GP distribution also shade-adjusted. ` +
                           `K and Fe demand elevated for shade tolerance.`
-                        : 'Adequate light — no shade adjustment applied.',
+                        : 'Adequate light, no shade adjustment applied.',
                     reference: 'Bell & Danneberger (1999), Beard (1973), Stier & Gardner (2008)'
                 };
 
@@ -603,7 +603,7 @@
     function setupEventListeners() {
         // When shade analysis completes, flag that nutrition should recalculate
         document.addEventListener('gssh:shadeOrchestratorComplete', function(e) {
-            log('event', 'Shade analysis completed — nutrition recalculation available');
+            log('event', 'Shade analysis completed, nutrition recalculation available');
 
             // Store latest shade result for the patch to pick up
             if (e.detail) {
@@ -618,7 +618,7 @@
                     growthModifier: getShadeGrowthModifier(e.detail),
                     deficitPct: getShadeDeficitPct(e.detail),
                     nFactor: calculateNFactorFromDeficit(getShadeDeficitPct(e.detail)),
-                    message: 'Shade data updated — regenerate nutrition calendar to apply shade adjustments'
+                    message: 'Shade data updated, regenerate nutrition calendar to apply shade adjustments'
                 }
             }));
         });
@@ -635,7 +635,7 @@
             if (e.detail && e.detail.trigger === 'shade') {
                 // Original list: ['disease', 'stress', 'wear', 'irrigation', 'pgr']
                 // We flag that nutrition should also refresh
-                log('event', 'Selective compute from shade — nutrition refresh recommended');
+                log('event', 'Selective compute from shade, nutrition refresh recommended');
             }
         });
 
@@ -782,7 +782,7 @@
                     kBoost: `+${Math.round((CONFIG.shadeKBoostFactor - 1) * 100)}%`,
                     feBoost: `+${Math.round((CONFIG.shadeFeBoostFactor - 1) * 100)}%`
                 }
-                : { message: 'Adequate light — no adjustment' },
+                : { message: 'Adequate light, no adjustment' },
             reference: 'Bell & Danneberger (1999), Beard (1973), Stier & Gardner (2008), Cockerham et al. (2004)',
             hpsLedTransitionWarning: (function() {
                 // Detect HPS→LED switch without IR heater. HPS delivers substantial radiant heat

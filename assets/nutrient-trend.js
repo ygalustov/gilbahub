@@ -1119,7 +1119,7 @@
         }
 
         if (!group || group.length < 2) {
-            log('[' + dataType + '] Need 2+ samples for trends, found: ' + (group ? group.length : 0) + ' — trying spatial comparison');
+            log('[' + dataType + '] Need 2+ samples for trends, found: ' + (group ? group.length : 0) + ', trying spatial comparison');
             removeTrendUI(dataType);
             // Still attempt spatial comparison (multiple zones, same date)
             // This is the normal case when all samples are different zones taken at the same time
@@ -1379,7 +1379,7 @@
         var SM = global.GAIP_SampleManager;
         var sampleCount = SM ? (SM.getSamples(dataType) || []).length : -1;
         if (sampleCount === 0) {
-            log('[' + dataType + '] No samples on this site — skipping card retry, attempting spatial only');
+            log('[' + dataType + '] No samples on this site, skipping card retry, attempting spatial only');
             _retryCount = 0;
             attachSpatialComparison(dataType);
             return;
@@ -2312,7 +2312,7 @@
             '<div class="gaip-multi-source-overlay" id="' + panelId + '">' +
                 '<div class="gaip-mso-header gaip-mso-toggle-btn">' +
                     '<span class="gaip-mso-toggle">▼</span>' +
-                    '<strong>All Sources — ' + escapeHTML(typeConf.label) + '</strong>' +
+                    '<strong>All Sources, ' + escapeHTML(typeConf.label) + '</strong>' +
                     '<span class="gaip-mso-subtitle"> ' + sourceKeys.length + ' sources, ' + charts.length + ' parameters</span>' +
                 '</div>' +
                 '<div class="gaip-mso-body">' +

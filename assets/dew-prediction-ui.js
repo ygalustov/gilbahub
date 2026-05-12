@@ -148,8 +148,8 @@
                 ${currentRisk?.peakProbability >= 50 ? `
                     <div class="gaip-dew-alert">
                         <strong>⚠️ Action:</strong> ${currentRisk.peakProbability >= 75 ? 
-                            'Heavy dew expected — remove before morning activities' :
-                            'Moderate dew likely — consider morning dew removal'}
+                            'Heavy dew expected, remove before morning activities' :
+                            'Moderate dew likely, consider morning dew removal'}
                     </div>
                 ` : ''}
             </div>

@@ -414,7 +414,7 @@
             _identityState.isCotula = true;
             _identityState.quality.tier0Valid = true;
             if (global.SpeciesController?.isDicotBypass) {
-                console.log('[IdentityEnforcement] Cotula dicot bypass — TIER 0 satisfied, grass engines suppressed.');
+                console.log('[IdentityEnforcement] Cotula dicot bypass, TIER 0 satisfied, grass engines suppressed.');
             }
         }
 

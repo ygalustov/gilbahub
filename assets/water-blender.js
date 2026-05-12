@@ -1122,7 +1122,7 @@
      */
     function classifyCCPI(ccpi) {
         ccpi = safeNum(ccpi);
-        if (ccpi > 0.5)  return { class: 'status-deficient',  label: 'High Scaling',    desc: 'Strong CaCO₃ precipitation expected — irrigation heads, emitters, and soil pores at risk. Acidification required.' };
+        if (ccpi > 0.5)  return { class: 'status-deficient',  label: 'High Scaling',    desc: 'Strong CaCO₃ precipitation expected, irrigation heads, emitters, and soil pores at risk. Acidification required.' };
         if (ccpi > 0.2)  return { class: 'status-caution',    label: 'Mild Scaling',    desc: 'CaCO₃ deposition possible under drying cycles. Monitor pH drift and surface sealing.' };
         if (ccpi > -0.2) return { class: 'status-adequate',   label: 'Stable',          desc: 'Carbonate system near equilibrium. Low scaling or corrosion risk.' };
         if (ccpi > -0.5) return { class: 'status-caution',    label: 'Mild Corrosive',  desc: 'Slight CaCO₃ dissolution. Monitor for Ca depletion and pipe corrosion at low pH.' };
@@ -1282,7 +1282,7 @@
         var d = best.result.derived;
 
         var message = 'Optimal blend: ' + pctStrings.join(' / ') +
-            ' — EC ' + safeNum(b.EC_dSm).toFixed(2) + ' dS/m, SAR ' + safeNum(d.SAR).toFixed(1) +
+            ', EC ' + safeNum(b.EC_dSm).toFixed(2) + ' dS/m, SAR ' + safeNum(d.SAR).toFixed(1) +
             ', RSC ' + safeNum(d.RSC).toFixed(2) + ' meq/L, LSI ' + safeNum(d.LSI).toFixed(2) + '.' +
             ' Maximises ' + primaryLabel + ' (lowest EC×SAR).';
 

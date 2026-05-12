@@ -139,8 +139,8 @@
             ? '<option value="%">%</option><option value="mgkg">mg/kg</option>'
             : '<option value="mgkg">mg/kg</option><option value="%">%</option>') +
         '</select></td>' +
-        '<td data-range="'+e.k+'">—</td>' +
-        '<td data-band="'+e.k+'">—</td>' +
+        '<td data-range="'+e.k+'">,</td>' +
+        '<td data-band="'+e.k+'">,</td>' +
       '</tr>';
     }
     rowsEl.innerHTML = html;
@@ -174,7 +174,7 @@
   }
 
   function fmtRange(r, isMacro){
-    if (!r) return "—";
+    if (!r) return "-";
     if (isMacro) {
       function tidy(x){ return (Math.round(x*100)/100).toString().replace(/\.00$/,""); }
       return tidy(r.lo) + "–" + tidy(r.hi) + " %";

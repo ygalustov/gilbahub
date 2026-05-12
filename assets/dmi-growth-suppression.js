@@ -183,7 +183,7 @@
             notes: {
                 typicalRate: { min: 3, max: 6, unit: 'L/ha' },
                 interval: '14-28 days',
-                warning: 'Registered for fairways only — not greens or tees. Use caution with concurrent PGR applications.'
+                warning: 'Registered for fairways only, not greens or tees. Use caution with concurrent PGR applications.'
             }
         },
         BUMPER: {
@@ -213,7 +213,7 @@
             notes: {
                 typicalRate: { min: 1.4, max: 2.8, unit: 'L/ha' },
                 interval: '14-28 days',
-                warning: 'Highly concentrated. Lower volume required — calculate carefully.'
+                warning: 'Highly concentrated. Lower volume required, calculate carefully.'
             }
         },
 
@@ -267,7 +267,7 @@
             notes: {
                 typicalRate: { min: 3, max: 6, unit: 'L/ha' },
                 interval: '28 days',
-                warning: 'State registration restrictions apply. Older DMI chemistry — confirm current APVMA status before use.'
+                warning: 'State registration restrictions apply. Older DMI chemistry, confirm current APVMA status before use.'
             }
         },
         TRIDIM: {
@@ -350,7 +350,7 @@
             notes: {
                 typicalRate: { min: 0.4, max: 0.75, unit: 'L/ha' },
                 interval: '14-28 days',
-                warning: 'Lowest phytotoxicity of all DMIs tested — injury ≤0.1 on all species and dates (Kahiu et al. 2025). Preferred option when using concurrent PGR programs.'
+                warning: 'Lowest phytotoxicity of all DMIs tested, injury ≤0.1 on all species and dates (Kahiu et al. 2025). Preferred option when using concurrent PGR programs.'
             }
         }
     };

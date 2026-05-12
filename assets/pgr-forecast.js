@@ -272,9 +272,9 @@ var PGRForecast = (function() {
                     '<span style="font-size: 12px; color: var(--gaip-text-secondary); line-height: 1.5;">' +
                     'Ethephon suppresses seedhead emergence via ethylene release. Unlike growth regulators, it does not follow a decay curve.<br><br>' +
                     '<strong>Timing Protocol (GDD&#8320;&#8322; from Jan 1):</strong><br>' +
-                    '• <strong>Autumn app (optional):</strong> After last mowing — improves spring control ~25%<br>' +
+                    '• <strong>Autumn app (optional):</strong> After last mowing, improves spring control ~25%<br>' +
                     '• <strong>1st spring app:</strong> At 150-200 GDD&#8320;&#8322; (or forsythia bloom / boot stage)<br>' +
-                    '• <strong>2nd spring app:</strong> 200 GDD&#8320;&#8322; after first (3-4 weeks) — add TE for safety<br><br>' +
+                    '• <strong>2nd spring app:</strong> 200 GDD&#8320;&#8322; after first (3-4 weeks), add TE for safety<br><br>' +
                     '<em>Alternative: 50 GDD&#8325;&#8320; from Feb 1 (Mid-Atlantic). Southern hemisphere: Aug 1 biofix.</em>' +
                     '</span></div>';
             } else {

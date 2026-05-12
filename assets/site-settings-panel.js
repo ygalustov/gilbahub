@@ -102,11 +102,6 @@
         return {
             turfType: state.turfType || '',
             subCategory: state.subCategory || '',
-            locationName: (document.getElementById('gaip-location-search') || {}).value || '',
-            latitude: domVal('.gaip-lat'),
-            longitude: domVal('.gaip-lon'),
-            hemisphere: domVal('.gaip-hemi'),
-            elevation: domVal('.gaip-elev'),
             species: domVal('.gaip-species'),
             variety: domVal('.gaip-variety'),
             construction: domVal('.gaip-construction'),
@@ -149,12 +144,6 @@
 
         setDomVal('.gaip-construction', snap.construction);
         setDomVal('.gaip-drainage', snap.drainage);
-        var locInput = document.getElementById('gaip-location-search');
-        if (locInput) locInput.value = snap.locationName || '';
-        setDomVal('.gaip-lat', snap.latitude);
-        setDomVal('.gaip-lon', snap.longitude);
-        setDomVal('.gaip-hemi', snap.hemisphere);
-        setDomVal('.gaip-elev', snap.elevation);
         setDomVal('.gaip-hoc', snap.hoc);
         setDomVal('.gaip-n-program', snap.nProgram);
         setDomVal('.gaip-soil-methodology', snap.methodology);
@@ -332,8 +321,8 @@
                         '<div class="gaip-sp-field" id="gaip-sp-overseed-intent-field" style="display:none;">' +
                             '<label class="gaip-sp-label">Summer Management Intent</label>' +
                             '<select class="gaip-sp-select" id="gaip-sp-overseed-intent">' +
-                                '<option value="transition">Transition — let ryegrass fade</option>' +
-                                '<option value="maintain">Maintain — keep ryegrass through summer</option>' +
+                                '<option value="transition">Transition, let ryegrass fade</option>' +
+                                '<option value="maintain">Maintain, keep ryegrass through summer</option>' +
                             '</select>' +
                         '</div>' +
                     '</div>' +
@@ -404,7 +393,7 @@
                     '<div class="gaip-sp-field">' +
                         '<label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;">' +
                             '<input type="checkbox" id="gaip-sp-alert-quiet" checked> ' +
-                            'Quiet hours — suppress SMS between 10 pm and 7 am UTC' +
+                            'Quiet hours, suppress SMS between 10 pm and 7 am UTC' +
                         '</label>' +
                     '</div>' +
                     '<div id="gaip-sp-alert-status" style="font-size:12px;color:var(--gaip-text-secondary);margin-top:4px;min-height:18px;"></div>' +
@@ -632,7 +621,7 @@
                 'font-size: 10px; color: var(--gaip-text-muted);' +
             '}' +
             '.gaip-turf-profile-card .gaip-profile-badge::after {' +
-                'content: " — Edit via header bar"; font-style: italic;' +
+                'content: ", Edit via header bar"; font-style: italic;' +
             '}' +
 
             /* Mobile responsive */
@@ -825,7 +814,7 @@
             // Cotula bowling green — single surface, no sub-selection needed
             subGrid.innerHTML = '<div style="padding:6px 10px;font-size:12px;color:#065f46;' +
                 'background:var(--gaip-good-bg);border:1px solid #10b981;border-radius:6px;line-height:1.5;">' +
-                '🌿 <strong>Cotula (Leptinella)</strong> — NZ bowling green.<br>' +
+                '🌿 <strong>Cotula (Leptinella)</strong>, NZ bowling green.<br>' +
                 'Soil interpretation uses Hill Labs S78 ranges. ' +
                 'Ammonium Acetate methodology will be applied.</div>';
             subGrid.style.display = 'block';
@@ -1129,9 +1118,6 @@
         // Location & Climate
         var spLoc = document.getElementById('gaip-sp-location');
         var realLoc = document.getElementById('gaip-location-search');
-        var previousLocName = realLoc ? (realLoc.value || '') : '';
-        var previousLat = domVal('.gaip-lat');
-        var previousLon = domVal('.gaip-lon');
         if (spLoc && realLoc && spLoc.value !== realLoc.value) {
             realLoc.value = spLoc.value;
         }
@@ -1143,15 +1129,6 @@
         if (spHemi) { var realHemi = document.querySelector('.gaip-hemi'); if (realHemi && spHemi.value !== realHemi.value) setDomVal('.gaip-hemi', spHemi.value); }
         var spElev = document.getElementById('gaip-sp-elev');
         if (spElev) setDomVal('.gaip-elev', spElev.value);
-        if (spLoc && (spLoc.value !== previousLocName || (spLat && spLat.value !== previousLat) || (spLon && spLon.value !== previousLon))) {
-            document.dispatchEvent(new CustomEvent('gaip:locationChange', {
-                detail: {
-                    name: spLoc.value || '',
-                    lat: spLat && spLat.value !== '' ? parseFloat(spLat.value) : null,
-                    lon: spLon && spLon.value !== '' ? parseFloat(spLon.value) : null
-                }
-            }));
-        }
 
         // Construction & Drainage
         var spCon = document.getElementById('gaip-sp-construction');
@@ -1296,7 +1273,7 @@
                 if (!window.GAIP_Alerts) { setStatus('Alerts module not loaded.', true); return; }
                 setStatus('Sending test SMS…', false);
                 window.GAIP_Alerts.sendTest('sms', val.trim())
-                    .then(function(response) { setStatus((response && response.message) || ('Test SMS sent to ' + val.trim()), false); })
+                    .then(function() { setStatus('Test SMS sent to ' + val.trim(), false); })
                     .catch(function(e) { setStatus('SMS failed: ' + (e.message || e), true); });
             });
         }
@@ -1308,7 +1285,7 @@
                 if (!window.GAIP_Alerts) { setStatus('Alerts module not loaded.', true); return; }
                 setStatus('Sending test email…', false);
                 window.GAIP_Alerts.sendTest('email', val.trim())
-                    .then(function(response) { setStatus((response && response.message) || ('Test email sent to ' + val.trim()), false); })
+                    .then(function() { setStatus('Test email sent to ' + val.trim(), false); })
                     .catch(function(e) { setStatus('Email failed: ' + (e.message || e), true); });
             });
         }
@@ -1345,6 +1322,19 @@
                     resultsDiv.innerHTML = '<div style="padding:10px; color:var(--gaip-text-secondary); font-size:13px;">Searching...</div>';
                     resultsDiv.style.display = 'block';
 
+                    // Use same AJAX endpoint as the main location search
+                    var cfg = window.GAIP_HUB_CONFIG || {};
+                    if (!cfg.ajaxUrl) {
+                        resultsDiv.innerHTML = '<div style="padding:10px; color:#c41e3a;">AJAX not configured</div>';
+                        return;
+                    }
+
+                    var fd = new FormData();
+                    fd.append('action', 'gilba_geocode_search');
+                    fd.append('address', query);
+                    fd.append('nonce', cfg.nonce || '');
+
+                    // Try WordPress AJAX first, fall back to Open-Meteo geocoding if session/nonce issue
                     function renderLocResults(locations) {
                         var html = '';
                         locations.forEach(function(loc, idx2) {
@@ -1374,13 +1364,25 @@
                                 if (spLat) spLat.value = lat2;
                                 if (spLon) spLon.value = lon2;
                                 if (spHemi) spHemi.value = parseFloat(lat2) < 0 ? 'southern' : 'northern';
+                                setDomVal('.gaip-lat', lat2);
+                                setDomVal('.gaip-lon', lon2);
+                                setDomVal('.gaip-hemi', parseFloat(lat2) < 0 ? 'southern' : 'northern');
+                                var realLoc = document.getElementById('gaip-location-search');
+                                if (realLoc) realLoc.value = name;
+                                var saveFd = new FormData();
+                                saveFd.append('action', 'gilba_save_location');
+                                saveFd.append('lat', lat2);
+                                saveFd.append('lon', lon2);
+                                saveFd.append('name', name);
+                                saveFd.append('nonce', cfg.nonce || '');
+                                if (cfg.ajaxUrl) fetch(cfg.ajaxUrl, { method: 'POST', body: saveFd });
                                 resultsDiv.style.display = 'none';
                                 log('Location selected: ' + name + ' (' + lat2 + ', ' + lon2 + ')');
                             });
                         });
                     }
 
-                    function searchOpenMeteo(q) {
+                    function openMeteoFallback(q) {
                         var url = 'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json';
                         fetch(url)
                             .then(function(r) { return r.json(); })
@@ -1400,10 +1402,31 @@
                                 }
                             })
                             .catch(function() {
-                                resultsDiv.innerHTML = '<div style="padding:10px; color:#c41e3a; font-size:13px;">Search unavailable — check internet connection</div>';
+                                resultsDiv.innerHTML = '<div style="padding:10px; color:#c41e3a; font-size:13px;">Search unavailable, check internet connection</div>';
                             });
                     }
-                    searchOpenMeteo(query);
+
+                    if (!cfg.ajaxUrl) {
+                        openMeteoFallback(query);
+                    } else {
+                        fetch(cfg.ajaxUrl, { method: 'POST', body: fd })
+                            .then(function(r) { return r.json(); })
+                            .then(function(resp) {
+                                if (resp.success && resp.data && resp.data.length > 0) {
+                                    renderLocResults(resp.data);
+                                } else if (resp.data && resp.data.code === 'nonce_expired') {
+                                    // Nonce expired — fall back to Open-Meteo directly
+                                    openMeteoFallback(query);
+                                } else {
+                                    // AJAX returned no results — try Open-Meteo
+                                    openMeteoFallback(query);
+                                }
+                            })
+                            .catch(function() {
+                                // AJAX failed entirely (network, auth, non-JSON) — fall back
+                                openMeteoFallback(query);
+                            });
+                    }
                 }, 500);
             });
 
@@ -1666,7 +1689,7 @@
             open();
         });
 
-        log('Header button intercepted — now opens slide-over panel');
+        log('Header button intercepted, now opens slide-over panel');
     }
 
     // =========================================================================

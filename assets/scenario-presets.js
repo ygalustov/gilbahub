@@ -453,7 +453,7 @@
             if (ec > 0 && ec < CONFIG.gypsum.minECForEffectiveness) {
                 warnings.push({
                     type: 'low-ec',
-                    message: `EC (${ec} dS/m) below ${CONFIG.gypsum.minECForEffectiveness} dS/m — gypsum may not prevent dispersion`,
+                    message: `EC (${ec} dS/m) below ${CONFIG.gypsum.minECForEffectiveness} dS/m, gypsum may not prevent dispersion`,
                     recommendation: 'Consider combining with organic matter or PAM'
                 });
             }
@@ -462,7 +462,7 @@
             if (sand > 85) {
                 warnings.push({
                     type: 'high-sand',
-                    message: `High sand content (${sand}%) — limited CEC reduces gypsum retention`,
+                    message: `High sand content (${sand}%), limited CEC reduces gypsum retention`,
                     recommendation: 'Frequent light applications more effective than heavy single dose'
                 });
             }
@@ -471,7 +471,7 @@
             if (cec > 0 && cec < 3) {
                 warnings.push({
                     type: 'low-cec',
-                    message: `Very low CEC (${cec} cmol/kg) — limited exchange capacity`,
+                    message: `Very low CEC (${cec} cmol/kg), limited exchange capacity`,
                     recommendation: 'Consider calcium chloride for faster response, gypsum for maintenance'
                 });
             }
@@ -671,7 +671,7 @@
                 ],
                 targetSAR,
                 estimatedSAR: f1 * lowSAR + f2 * highSAR,
-                note: 'SAR blending is non-linear — verify with full chemistry calculation',
+                note: 'SAR blending is non-linear, verify with full chemistry calculation',
                 label: `${Math.round(f1 * 100)}% ${sorted[0].label || 'Low SAR'} + ${Math.round(f2 * 100)}% ${sorted[sorted.length - 1].label || 'High SAR'}`
             };
         },
@@ -733,7 +733,7 @@
                 label: `${Math.round(maxFraction * 100)}% ${primary.label} (max)`,
                 savings: maxFraction > 0 
                     ? `Can use ${Math.round(maxFraction * 100)}% ${primary.label}`
-                    : `Cannot use ${primary.label} — ${limitingFactor} constraint`
+                    : `Cannot use ${primary.label}, ${limitingFactor} constraint`
             };
         },
         

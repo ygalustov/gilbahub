@@ -435,7 +435,7 @@
                 'enclosed environments: practical considerations. HortScience, 54(10), 1689–1695.',
             year: 2019,
             doi: '10.21273/HORTSCI14252-19',
-            topic: 'Supplemental lighting for stadium turf — practical implementation'
+            topic: 'Supplemental lighting for stadium turf, practical implementation'
         },
 
         'pinho_2017': {
@@ -466,7 +466,7 @@
             year: 2024,
             doi: '10.3389/fpls.2024.1447368',
             url: 'https://doi.org/10.3389/fpls.2024.1447368',
-            topic: 'Sinusoidal LED light regimes — gradual photoperiod ramping vs square-wave delivery (rocket; CEA setting)',
+            topic: 'Sinusoidal LED light regimes, gradual photoperiod ramping vs square-wave delivery (rocket; CEA setting)',
             scope: 'Whole-photoperiod (~16 h) intensity modulation. Does not test or recommend ' +
                 'a specific session-onset/offset ramp duration; the 20–30 min figure used in ' +
                 'GSSH sessionProtocol is a Gilba practitioner heuristic, not a Stamford 2024 finding.'
@@ -479,7 +479,7 @@
                 'plant water use efficiency. New Phytologist, 221(1), 93–98.',
             year: 2019,
             doi: '10.1111/nph.15330',
-            topic: 'Stomatal opening kinetics — supports the directional claim that rapid intensity ' +
+            topic: 'Stomatal opening kinetics, supports the directional claim that rapid intensity ' +
                 'changes outpace stomatal response, motivating gradual session ramping in CEA/GSSH contexts.'
         }
     };
