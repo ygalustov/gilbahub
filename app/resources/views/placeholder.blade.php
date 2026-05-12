@@ -4,7 +4,7 @@
     <main class="content">
         <section class="panel">
             <h1>{{ $title }}</h1>
-            <p class="muted">This protected page is ready for the WordPress feature lift-out.</p>
+            <p class="muted">This protected page is ready for implementation.</p>
         </section>
     </main>
 @endsection

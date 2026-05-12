@@ -397,7 +397,7 @@
                         '</label>' +
                     '</div>' +
                     '<div id="gaip-sp-alert-status" style="font-size:12px;color:var(--gaip-text-secondary);margin-top:4px;min-height:18px;"></div>' +
-                    '<p style="font-size:11px;color:var(--gaip-text-muted);margin:8px 0 0;">ClickSend API credentials are configured in WordPress admin settings.</p>'
+                    '<p style="font-size:11px;color:var(--gaip-text-muted);margin:8px 0 0;">Test SMS and email actions are currently logged server-side.</p>'
                 ) +
 
             '</div>' +
