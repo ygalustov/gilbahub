@@ -17,7 +17,7 @@ class SensorProxyController extends Controller
 
         $endpoint = $this->normaliseEndpoint($data['endpoint']);
         if ($endpoint === null) {
-            return $this->error('Invalid endpoint', 422);
+            return $this->error('Invalid endpoint');
         }
 
         $response = Http::acceptJson()
@@ -30,7 +30,6 @@ class SensorProxyController extends Controller
         if (! $response->successful()) {
             return $this->error(
                 $this->extractErrorMessage($response, 'Hydrosight request failed'),
-                $response->status()
             );
         }
 
@@ -46,7 +45,7 @@ class SensorProxyController extends Controller
 
         $endpoint = $this->normaliseEndpoint($data['endpoint']);
         if ($endpoint === null) {
-            return $this->error('Invalid endpoint', 422);
+            return $this->error('Invalid endpoint');
         }
 
         $url = 'https://api.specconnect.net:6703'.$endpoint;
@@ -59,7 +58,6 @@ class SensorProxyController extends Controller
         if (! $response->successful()) {
             return $this->error(
                 $this->extractErrorMessage($response, 'SpecConnect request failed'),
-                $response->status()
             );
         }
 
@@ -82,12 +80,10 @@ class SensorProxyController extends Controller
         $json = $response->json();
 
         if (is_array($json)) {
-            if (isset($json['message']) && is_string($json['message']) && trim($json['message']) !== '') {
-                return trim($json['message']);
-            }
-
-            if (isset($json['error']) && is_string($json['error']) && trim($json['error']) !== '') {
-                return trim($json['error']);
+            foreach (['message', 'Message', 'error', 'Error', 'errorMessage'] as $key) {
+                if (isset($json[$key]) && is_string($json[$key]) && trim($json[$key]) !== '') {
+                    return trim($json[$key]);
+                }
             }
         }
 
@@ -104,14 +100,11 @@ class SensorProxyController extends Controller
         ]);
     }
 
-    private function error(string $message, int $status = 400): JsonResponse
+    private function error(string $message): JsonResponse
     {
         return response()->json([
             'success' => false,
-            'data' => [
-                'message' => $message,
-                'status' => $status,
-            ],
-        ], $status);
+            'data' => ['message' => $message],
+        ]);
     }
 }

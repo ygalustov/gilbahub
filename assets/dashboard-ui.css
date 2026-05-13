@@ -381,38 +381,43 @@ body { margin: 0; padding: 0; }
     border-top: 1px solid var(--gaip-border-light, #dde7e2);
 }
 
-/* Range bar for VWC */
-.db-range-bar-wrap {
+/* VWC segmented zone bar: red | green | red */
+.db-vwc-bar {
     position: relative;
     height: 8px;
-    background: var(--gaip-surface-muted, #eef2f0);
     border-radius: 4px;
-    margin: 6px 0 4px;
+    margin: 6px 0 6px;
     overflow: visible;
+    display: flex;
 }
-.db-range-bar-fill {
-    position: absolute;
-    left: 0;
-    top: 0;
+.db-vwc-zone-low {
     height: 100%;
-    background: var(--gaip-accent, #2da85e);
-    border-radius: 4px;
+    background: #fca5a5;
+    border-radius: 4px 0 0 4px;
+    flex-shrink: 0;
 }
-.db-range-bar-marker {
-    position: absolute;
-    top: -4px;
-    width: 2px;
-    height: 16px;
-    background: var(--gaip-text-muted, #6b8878);
-    border-radius: 1px;
+.db-vwc-zone-ok {
+    height: 100%;
+    background: #86efac;
+    flex-shrink: 0;
 }
-.db-range-bar-target {
+.db-vwc-zone-high {
+    height: 100%;
+    background: #fca5a5;
+    border-radius: 0 4px 4px 0;
+    flex: 1;
+}
+.db-vwc-needle {
     position: absolute;
-    top: -2px;
-    height: 12px;
-    background: rgba(45,168,94,0.15);
-    border: 1px solid rgba(45,168,94,0.4);
+    top: -5px;
+    width: 3px;
+    height: 18px;
+    background: #17231f;
     border-radius: 2px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 0 2px #fff;
+    pointer-events: none;
+    transition: left 0.35s ease;
 }
 
 /* Progress bar for stress */

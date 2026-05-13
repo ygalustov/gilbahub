@@ -735,6 +735,77 @@
         if (fillEl)     fillEl.style.width     = Math.round(ok / 6 * 100) + '%';
     }
 
+    // =========================================================================
+    // SENSOR LIVE READINGS — populate VWC card + soilTemp from localStorage cache
+    // =========================================================================
+
+    function populateSensorReadings(siteId) {
+        var cache = safeJson(_ls.getItem('gaip_hydrosight_readings_cache_' + (siteId || 'default')));
+        if (!cache || !cache.data || !cache.data.length) return;
+
+        var readings = cache.data;
+
+        // Aggregate all readings with VWC values → site average
+        var vwcVals  = readings.map(function (r) { return r.vwc; }).filter(function (v) { return v != null; });
+        var tmpVals  = readings.map(function (r) { return r.soilTemp; }).filter(function (v) { return v != null; });
+
+        if (!vwcVals.length) return;
+
+        var avg = function (arr) { return arr.reduce(function (a, b) { return a + b; }, 0) / arr.length; };
+        var vwc = Math.round(avg(vwcVals) * 10) / 10;
+        var tmp = tmpVals.length ? Math.round(avg(tmpVals) * 10) / 10 : null;
+
+        // Thresholds (defaults; ideally pulled from site config)
+        var wp     = 10;   // wilting point
+        var trig   = 12;   // irrigation trigger
+        var optLow = 12;
+        var optHi  = 15;
+        var maxVal = 40;   // bar scale
+
+        // Update VWC card value
+        var valEl = document.getElementById('db-vwc-value');
+        if (valEl) {
+            valEl.textContent = vwc + '%';
+            var cls = vwc < wp ? 'critical' : (vwc <= optHi ? 'ok' : 'warning');
+            valEl.className = 'db-vital-main ' + cls;
+        }
+
+        // Position needle on zone bar
+        var needleEl = document.getElementById('db-vwc-fill');
+        if (needleEl) {
+            var pct = Math.min(vwc / maxVal * 100, 100);
+            needleEl.style.left = pct.toFixed(1) + '%';
+            needleEl.style.display = '';
+        }
+
+        // Update footer message
+        var msgEl = document.getElementById('db-vwc-msg');
+        if (msgEl) {
+            var nSensors = readings.length;
+            var badge = ' <span style="font-size:10px;color:var(--gaip-text-muted)">· ' + nSensors + ' sensor' + (nSensors !== 1 ? 's' : '') + ' live</span>';
+            if (vwc < wp) {
+                msgEl.innerHTML = '<span style="color:#dc2626">Below wilting point — irrigate now</span>' + badge;
+            } else if (vwc < trig) {
+                var buf = (vwc - wp).toFixed(1);
+                msgEl.innerHTML = buf + '% buffer before trigger' + badge;
+            } else if (vwc <= optHi) {
+                msgEl.innerHTML = 'Within target zone' + badge;
+            } else {
+                msgEl.innerHTML = 'Above target — monitor drainage' + badge;
+            }
+        }
+
+        // Override GP footer with live soil temp if available
+        if (tmp != null) {
+            var gpFooterEl = document.getElementById('db-gp-footer');
+            if (gpFooterEl && gpFooterEl.textContent.indexOf('Soil') !== -1) {
+                gpFooterEl.textContent = 'Soil ' + tmp + '°C (live)';
+            } else if (gpFooterEl && gpFooterEl.textContent === '') {
+                gpFooterEl.textContent = 'Soil ' + tmp + '°C (live)';
+            }
+        }
+    }
+
     function populateSensorSource() {
         var sensorData = safeJson(_ls.getItem('gilba_sensor_last_fetch'));
         var dotEl  = document.querySelector('[data-source="sensors"] .db-source-dot');
@@ -1073,6 +1144,7 @@
         }
 
         populateVitals(metrics, computed);
+        populateSensorReadings(siteId);
         populateVerdict(metrics);
         populateActionQueue(metrics, computed);
         populateTimestamp(ts);

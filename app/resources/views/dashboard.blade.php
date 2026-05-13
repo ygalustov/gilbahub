@@ -69,7 +69,7 @@
         </a>
 
         {{-- Data --}}
-        <a href="#" class="db-nav-item" title="Data">
+        <a href="{{ route('data') }}" class="db-nav-item" title="Data">
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <ellipse cx="12" cy="5" rx="9" ry="3"/>
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
@@ -254,17 +254,19 @@
                             Soil Moisture (VWC)
                             <span class="db-info-icon" data-info="vwc" tabindex="0" role="button" aria-label="About Soil Moisture VWC">i</span>
                         </div>
-                        <div class="db-vital-main" id="db-vwc-value">13%</div>
-                        <div class="db-range-bar-wrap" id="db-vwc-bar-wrap">
-                            {{-- Target zone 12-15% --}}
-                            <div class="db-range-bar-target" style="left:30%;width:7.5%"></div>
-                            {{-- Fill to current value (13% of 40% max ≈ 32.5%) --}}
-                            <div class="db-range-bar-fill" id="db-vwc-fill" style="width:32.5%"></div>
+                        <div class="db-vital-main" id="db-vwc-value">—</div>
+                        {{-- Zone bar: red (dry) | green (target 12–15%) | red (wet) --}}
+                        {{-- Scale: 0–40% VWC = 0–100% bar width; trigger@12%=30%, target hi@15%=37.5% --}}
+                        <div class="db-vwc-bar" id="db-vwc-bar-wrap">
+                            <div class="db-vwc-zone-low"  style="width:30%"></div>
+                            <div class="db-vwc-zone-ok"   style="width:7.5%"></div>
+                            <div class="db-vwc-zone-high"></div>
+                            <div class="db-vwc-needle" id="db-vwc-fill" style="display:none"></div>
                         </div>
                         <div class="db-vital-sub" style="font-size:10px;color:var(--gaip-text-muted)">
                             Target: <strong style="color:var(--gaip-accent)">12–15%</strong>
                         </div>
-                        <div class="db-vital-footer" id="db-vwc-msg">0.7mm buffer before irrigation trigger</div>
+                        <div class="db-vital-footer" id="db-vwc-msg"></div>
                     </div>
 
                     {{-- Irrigation Plan --}}
