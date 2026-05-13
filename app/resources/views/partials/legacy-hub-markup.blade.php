@@ -1,4 +1,17 @@
 <div id="gaip-hub">
+        <div style="margin-bottom: 8px;">
+            <a href="/dashboard" style="
+                display: inline-block;
+                padding: 6px 14px;
+                border: 1px solid #2c5f2d;
+                border-radius: 6px;
+                background: #2c5f2d;
+                color: white;
+                font-size: 13px;
+                font-weight: 600;
+                text-decoration: none;
+            ">New Hub →</a>
+        </div>
         <h2>Gilba Agronomic Intelligence Hub</h2>
 
         <!-- Decision State Machine — b35fix219 -->

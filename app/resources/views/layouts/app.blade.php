@@ -191,6 +191,7 @@
         <header class="topbar">
             <div class="brand">{{ config('app.name') }}</div>
             <nav class="nav" aria-label="Primary">
+                <a href="{{ route('dashboard') }}" style="font-weight:700;color:#2c5f2d;">New Hub</a>
                 <a href="{{ route('hub') }}">Hub</a>
                 <a href="{{ route('field-log') }}">Field Log</a>
                 <a href="{{ route('morning-briefing') }}">Morning Briefing</a>

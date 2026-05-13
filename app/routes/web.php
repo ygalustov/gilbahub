@@ -38,6 +38,7 @@ Route::middleware('auth')->group(function () {
     })->where('path', '.*')->name('legacy-assets.show');
 
     Route::view('/hub', 'hub')->name('hub');
+    Route::view('/dashboard', 'dashboard')->name('dashboard');
     Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
