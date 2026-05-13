@@ -41,7 +41,7 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **Change log**
 GH-1: Add dashboard view and related assets, including new CSS styles and routing
 GH-2: Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
-
+GH-3: Enhance dashboard functionality by adding interactive side panels for vital cards; implement JavaScript logic for panel opening/closing and update CSS for improved styling and responsiveness.
 
 
 

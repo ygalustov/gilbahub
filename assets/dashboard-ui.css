@@ -856,3 +856,235 @@ body { margin: 0; padding: 0; }
     line-height: 1.55;
     color: var(--gaip-text, #1a2b23);
 }
+
+/* ---------- Vital card — clickable cue ---------- */
+.db-vital-card[data-panel] {
+    cursor: pointer;
+    transition: box-shadow 0.15s, border-color 0.15s;
+}
+.db-vital-card[data-panel]:hover {
+    border-color: var(--gaip-accent, #2da85e);
+    box-shadow: 0 2px 10px rgba(45,168,94,0.12);
+}
+
+/* ---------- Card side panel ---------- */
+.db-panel-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 2900;
+    background: rgba(0,0,0,0.35);
+    display: none;
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+}
+.db-panel-backdrop.open { display: block; }
+
+.db-side-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 3000;
+    width: 380px;
+    max-width: calc(100vw - 60px);
+    background: #fff;
+    box-shadow: -6px 0 32px rgba(0,0,0,0.14);
+    display: flex;
+    flex-direction: column;
+    font-family: "Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    transform: translateX(100%);
+    transition: transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94);
+    overflow: hidden;
+}
+.db-side-panel.open { transform: translateX(0); }
+
+.db-panel-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--gaip-border, #ccd9d2);
+    flex-shrink: 0;
+    background: var(--gaip-bg, #f4f7f5);
+}
+.db-panel-title {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+}
+.db-panel-close {
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--gaip-text-muted, #6b8878);
+    font-size: 20px;
+    cursor: pointer;
+    line-height: 1;
+    flex-shrink: 0;
+}
+.db-panel-close:hover {
+    background: var(--gaip-surface-muted, #eef2f0);
+    color: var(--gaip-text, #1a2b23);
+}
+
+.db-panel-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.db-panel-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 16px 0 8px;
+    gap: 4px;
+    text-align: center;
+}
+.db-panel-hero-value {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--gaip-text, #1a2b23);
+}
+.db-panel-hero-value.critical { color: #dc2626; }
+.db-panel-hero-value.warning  { color: #d97706; }
+.db-panel-hero-value.ok       { color: #16a34a; }
+.db-panel-hero-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--gaip-text-muted, #6b8878);
+}
+
+.db-panel-section {
+    background: var(--gaip-bg, #f4f7f5);
+    border-radius: 8px;
+    padding: 14px 16px;
+}
+.db-panel-section-title {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gaip-text-muted, #6b8878);
+    margin-bottom: 10px;
+}
+
+/* Factor bars (stress components) */
+.db-factor-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+.db-factor-row:last-child { margin-bottom: 0; }
+.db-factor-label {
+    width: 80px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text, #1a2b23);
+    flex-shrink: 0;
+}
+.db-factor-bar-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.db-factor-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+}
+.db-factor-value {
+    width: 30px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+    flex-shrink: 0;
+}
+
+/* Disease rows */
+.db-disease-row {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--gaip-border-light, #dde7e2);
+}
+.db-disease-row:last-child { border-bottom: none; }
+.db-disease-row-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+.db-disease-row-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--gaip-text, #1a2b23);
+}
+.db-disease-row-pct {
+    font-size: 12px;
+    font-weight: 700;
+}
+.db-disease-row-sub {
+    font-size: 11px;
+    color: var(--gaip-text-muted, #6b8878);
+    margin-top: 3px;
+}
+
+/* Stat grid (climate inputs etc.) */
+.db-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+.db-stat-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: center;
+    text-align: center;
+    padding: 8px 4px;
+    background: #fff;
+    border-radius: 6px;
+}
+.db-stat-value {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+}
+.db-stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gaip-text-muted, #6b8878);
+}
+
+/* Irrigation schedule */
+.db-irr-schedule {
+    display: flex;
+    flex-direction: column;
+}
+.db-irr-schedule-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--gaip-border-light, #dde7e2);
+    font-size: 12px;
+}
+.db-irr-schedule-row:last-child { border-bottom: none; }
+.db-irr-schedule-day { font-weight: 600; color: var(--gaip-text, #1a2b23); }
+.db-irr-schedule-mm  { font-weight: 700; color: var(--gaip-accent, #2da85e); }

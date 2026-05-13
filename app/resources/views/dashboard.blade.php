@@ -200,7 +200,7 @@
                 <div class="db-vitals" id="db-vitals-row">
 
                     {{-- Growth Potential --}}
-                    <div class="db-vital-card">
+                    <div class="db-vital-card" data-panel="growth-potential">
                         <div class="db-vital-label">
                             Growth Potential
                             <span class="db-info-icon" data-info="growth-potential" tabindex="0" role="button" aria-label="About Growth Potential">i</span>
@@ -214,7 +214,7 @@
                     </div>
 
                     {{-- Disease Risk --}}
-                    <div class="db-vital-card">
+                    <div class="db-vital-card" data-panel="disease-risk">
                         <div class="db-vital-label">
                             Disease Risk
                             <span class="db-info-icon" data-info="disease-risk" tabindex="0" role="button" aria-label="About Disease Risk">i</span>
@@ -235,7 +235,7 @@
                     </div>
 
                     {{-- Stress Index --}}
-                    <div class="db-vital-card">
+                    <div class="db-vital-card" data-panel="stress-index">
                         <div class="db-vital-label">
                             Stress Index
                             <span class="db-info-icon" data-info="stress-index" tabindex="0" role="button" aria-label="About Stress Index">i</span>
@@ -249,7 +249,7 @@
                     </div>
 
                     {{-- Soil Moisture VWC --}}
-                    <div class="db-vital-card">
+                    <div class="db-vital-card" data-panel="vwc">
                         <div class="db-vital-label">
                             Soil Moisture (VWC)
                             <span class="db-info-icon" data-info="vwc" tabindex="0" role="button" aria-label="About Soil Moisture VWC">i</span>
@@ -268,7 +268,7 @@
                     </div>
 
                     {{-- Irrigation Plan --}}
-                    <div class="db-vital-card">
+                    <div class="db-vital-card" data-panel="irrigation-plan">
                         <div class="db-vital-label">
                             Irrigation Plan
                             <span class="db-info-icon" data-info="irrigation-plan" tabindex="0" role="button" aria-label="About Irrigation Plan">i</span>
@@ -488,5 +488,15 @@
     <div class="db-info-popover-title" id="db-info-popover-title"></div>
     <div class="db-info-popover-body" id="db-info-popover-body"></div>
 </div>
+
+{{-- Card side panel — slides in from right on vital card click --}}
+<div id="db-panel-backdrop" class="db-panel-backdrop"></div>
+<aside id="db-side-panel" class="db-side-panel" role="dialog" aria-modal="true" aria-label="Detail panel">
+    <div class="db-panel-header">
+        <div class="db-panel-title" id="db-panel-title">Detail</div>
+        <button class="db-panel-close" id="db-panel-close" aria-label="Close panel">×</button>
+    </div>
+    <div class="db-panel-body" id="db-panel-body"></div>
+</aside>
 </body>
 </html>

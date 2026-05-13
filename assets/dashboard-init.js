@@ -757,6 +757,290 @@
     }
 
     // =========================================================================
+    // CARD SIDE PANELS
+    // =========================================================================
+
+    var _panelMetrics  = null;
+    var _panelComputed = null;
+
+    function initCardPanels(metrics, computed) {
+        _panelMetrics  = metrics;
+        _panelComputed = computed;
+
+        var backdrop = document.getElementById('db-panel-backdrop');
+        var panel    = document.getElementById('db-side-panel');
+        var closeBtn = document.getElementById('db-panel-close');
+        if (!panel) return;
+
+        document.querySelectorAll('.db-vital-card[data-panel]').forEach(function (card) {
+            card.addEventListener('click', function (e) {
+                if (e.target.closest('.db-info-icon')) return;
+                openPanel(card.dataset.panel);
+            });
+        });
+
+        function closePanelFn() {
+            panel.classList.remove('open');
+            if (backdrop) backdrop.classList.remove('open');
+        }
+
+        if (closeBtn)  closeBtn.addEventListener('click', closePanelFn);
+        if (backdrop)  backdrop.addEventListener('click', closePanelFn);
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && panel.classList.contains('open')) closePanelFn();
+        });
+    }
+
+    function openPanel(key) {
+        var panel    = document.getElementById('db-side-panel');
+        var body     = document.getElementById('db-panel-body');
+        var titleEl  = document.getElementById('db-panel-title');
+        var backdrop = document.getElementById('db-panel-backdrop');
+        if (!panel || !body) return;
+
+        var TITLES = {
+            'growth-potential': 'Growth Potential',
+            'disease-risk':     'Disease Risk',
+            'stress-index':     'Stress Index',
+            'vwc':              'Soil Moisture (VWC)',
+            'irrigation-plan':  'Irrigation Plan'
+        };
+        if (titleEl) titleEl.textContent = TITLES[key] || key;
+
+        var html = '';
+        if      (key === 'growth-potential') html = buildGrowthPanel(_panelMetrics, _panelComputed);
+        else if (key === 'disease-risk')     html = buildDiseasePanel(_panelMetrics, _panelComputed);
+        else if (key === 'stress-index')     html = buildStressPanel(_panelMetrics, _panelComputed);
+        else if (key === 'vwc')              html = buildVWCPanel(_panelMetrics, _panelComputed);
+        else if (key === 'irrigation-plan')  html = buildIrrigationPanel(_panelMetrics, _panelComputed);
+
+        body.innerHTML = html ||
+            '<p style="color:var(--gaip-text-muted,#6b8878);font-size:13px;padding:8px 0">No data available — run analysis in Hub first.</p>';
+        panel.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
+    }
+
+    /* ── Panel helpers ── */
+    function panelHero(value, cls, subtitle) {
+        return '<div class="db-panel-hero">' +
+            '<div class="db-panel-hero-value' + (cls ? ' ' + cls : '') + '">' + value + '</div>' +
+            (subtitle ? '<div class="db-panel-hero-label">' + subtitle + '</div>' : '') +
+            '</div>';
+    }
+    function panelSection(title, content) {
+        return '<div class="db-panel-section"><div class="db-panel-section-title">' + title + '</div>' + content + '</div>';
+    }
+    function factorRow(label, val, color) {
+        return '<div class="db-factor-row">' +
+            '<div class="db-factor-label">' + label + '</div>' +
+            '<div class="db-factor-bar-wrap"><div class="db-factor-bar-fill" style="width:' + Math.min(val, 100) + '%;background:' + color + '"></div></div>' +
+            '<div class="db-factor-value">' + Math.round(val) + '</div>' +
+            '</div>';
+    }
+    function statGrid(stats) {
+        return '<div class="db-stat-grid">' +
+            stats.map(function (s) {
+                return '<div class="db-stat-cell">' +
+                    '<div class="db-stat-value">' + s.value + '</div>' +
+                    '<div class="db-stat-label">' + s.label + '</div>' +
+                    '</div>';
+            }).join('') +
+            '</div>';
+    }
+    function barColor(v) { return v >= 60 ? '#dc2626' : (v >= 30 ? '#d97706' : '#16a34a'); }
+
+    /* ── Growth Potential ── */
+    function buildGrowthPanel(m, c) {
+        var gpObj   = c && c.climate && c.climate.growth;
+        var gpRaw   = m && m.growthPotential != null ? m.growthPotential
+                    : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
+        var gp      = gpRaw != null ? (gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100)) : null;
+        var gpCls   = gp != null ? (gp >= 70 ? 'ok' : (gp >= 40 ? 'warning' : 'critical')) : '';
+        var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
+        var c4f     = gpObj ? (gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0)) : 0;
+        var isWarm  = c4f > c3f;
+        var html    = panelHero(gp != null ? gp + '%' : '—', gpCls, isWarm ? 'Warm-Season Grass' : 'Cool-Season Grass');
+
+        if (gpObj) {
+            var c3v = gpObj.c3      != null ? (gpObj.c3      > 1 ? Math.round(gpObj.c3)      : Math.round(gpObj.c3      * 100)) : null;
+            var c4v = gpObj.c4      != null ? (gpObj.c4      > 1 ? Math.round(gpObj.c4)      : Math.round(gpObj.c4      * 100)) : null;
+            var wtv = gpObj.weighted != null ? (gpObj.weighted > 1 ? Math.round(gpObj.weighted) : Math.round(gpObj.weighted * 100)) : gp;
+            var rows = '';
+            if (c3v != null) rows += factorRow('Cool (C3)', c3v, barColor(100 - c3v));
+            if (c4v != null) rows += factorRow('Warm (C4)', c4v, barColor(100 - c4v));
+            if (wtv != null) rows += factorRow('Weighted', wtv, barColor(100 - wtv));
+            if (rows) html += panelSection('Thermal Breakdown', rows);
+        }
+
+        var climate = c && c.climate;
+        var gddVal  = m && m.gdd      != null ? m.gdd      : (climate && climate.gdd      != null ? climate.gdd      : null);
+        var etVal   = m && m.et       != null ? m.et       : (climate && climate.et       != null ? climate.et       : null);
+        var stVal   = m && m.soilTemp != null ? m.soilTemp : (climate && climate.soilTemp != null ? climate.soilTemp : null);
+        if (gddVal != null || etVal != null || stVal != null) {
+            html += panelSection('Climate Inputs', statGrid([
+                { value: gddVal != null ? Math.round(gddVal)    : '—', label: 'GDD (Daily)' },
+                { value: etVal  != null ? etVal.toFixed(1)      : '—', label: 'ET₀ (mm)' },
+                { value: stVal  != null ? Math.round(stVal) + '°C' : '—', label: 'Soil Temp' }
+            ]));
+        }
+        return html;
+    }
+
+    /* ── Disease Risk ── */
+    function buildDiseasePanel(m, c) {
+        var diseases    = c && c.disease && c.disease.diseases ? c.disease.diseases : null;
+        var risk        = m && m.diseaseRisk  != null ? (m.diseaseRisk  > 1 ? Math.round(m.diseaseRisk)  : Math.round(m.diseaseRisk  * 100)) : 0;
+        var peak        = m && m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
+        var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
+        var level, cls;
+        if      (displayRisk >= 85) { level = 'SEVERE'; cls = 'critical'; }
+        else if (displayRisk >= 70) { level = 'HIGH';   cls = 'critical'; }
+        else if (displayRisk >= 50) { level = 'MEDIUM'; cls = 'warning';  }
+        else                        { level = 'LOW';    cls = 'ok';       }
+
+        var html = panelHero(level, cls, displayRisk + '% overall risk');
+
+        var makeRow = function (name, cur, pk, pd) {
+            var pct  = cur || 0;
+            var col  = pct >= 70 ? '#dc2626' : (pct >= 50 ? '#d97706' : '#16a34a');
+            var sub  = pk != null && pd != null && pd > 0
+                ? 'Peak ' + pk + '% in ' + pd + ' day' + (pd !== 1 ? 's' : '')
+                : (pk != null ? 'Peak ' + pk + '%' : '');
+            return '<div class="db-disease-row">' +
+                '<div class="db-disease-row-head">' +
+                '<span class="db-disease-row-name">' + name + '</span>' +
+                (cur != null ? '<span class="db-disease-row-pct" style="color:' + col + '">' + cur + '%</span>' : '') +
+                '</div>' +
+                '<div class="db-progress-bar" style="margin:0 0 4px"><div class="db-progress-fill" style="width:' + Math.min(pct,100) + '%;background:' + col + '"></div></div>' +
+                (sub ? '<div class="db-disease-row-sub">' + sub + '</div>' : '') +
+                '</div>';
+        };
+
+        if (diseases && diseases.length) {
+            var rows = diseases.slice(0, 5).map(function (d) {
+                var name = d.displayName || d.name || d.disease || 'Unknown';
+                var cur  = d.riskScore    != null ? Math.round(d.riskScore)    : (d.current  != null ? Math.round(d.current)  : null);
+                var pk   = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.peakRisk != null ? Math.round(d.peakRisk) : null);
+                return makeRow(name, cur, pk, d.peakDay != null ? d.peakDay : null);
+            }).join('');
+            html += panelSection('Disease Breakdown', rows);
+        } else if (m && m.topDisease) {
+            html += panelSection('Disease Breakdown', makeRow(m.topDisease, risk, peak, m.peakDay || null));
+        }
+
+        if (peak != null && m && m.peakDay != null) {
+            html += panelSection('Forecast', '<p style="font-size:13px;margin:0;color:var(--gaip-text,#1a2b23)">Peak: <strong>' + peak + '%</strong> in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '') + '</p>');
+        }
+        return html;
+    }
+
+    /* ── Stress Index ── */
+    function buildStressPanel(m, c) {
+        var stress    = m && m.stressIndex != null ? Math.round(m.stressIndex) : null;
+        var stressCls = stress != null ? (stress >= 60 ? 'critical' : (stress >= 30 ? 'warning' : 'ok')) : '';
+        var html      = panelHero(stress != null ? stress + '/100' : '—', stressCls, 'Combined Stress Score');
+
+        var traj  = c && c.stressTrajectory;
+        var comps = traj && (traj.currentComponents || (traj.data && traj.data.currentComponents));
+        if (comps) {
+            var rows = [
+                { key: 'thermal',   label: 'Heat' },
+                { key: 'moisture',  label: 'Moisture' },
+                { key: 'light',     label: 'Light' },
+                { key: 'traffic',   label: 'Traffic' },
+                { key: 'nutrition', label: 'Nutrition' },
+                { key: 'biotic',    label: 'Disease' }
+            ].map(function (f) {
+                var val = Math.abs(comps[f.key] || 0);
+                return factorRow(f.label, val, barColor(val));
+            }).join('');
+            html += panelSection('Stress Components', rows);
+        }
+
+        var summary = traj && traj.summary;
+        if (summary) {
+            html += panelSection('Summary', '<p style="font-size:13px;margin:0;line-height:1.5;color:var(--gaip-text,#1a2b23)">' + summary + '</p>');
+        }
+        return html;
+    }
+
+    /* ── VWC ── */
+    function buildVWCPanel(m, c) {
+        var vwcRaw = m && m.vwc != null ? m.vwc : null;
+        var vwc    = vwcRaw != null ? Math.round(vwcRaw) : 13;
+        var wp = 8, trig = 12, optLow = 12, optHigh = 15, fc = 35, maxVal = 40;
+        var fillPct = Math.min(vwc / maxVal * 100, 100);
+        var zoneLo  = optLow  / maxVal * 100;
+        var zoneWid = (optHigh - optLow) / maxVal * 100;
+        var vcCls   = vwc < trig ? 'critical' : (vwc <= optHigh ? 'ok' : 'warning');
+
+        var html = panelHero(vwc + '%', vcCls, 'Volumetric Water Content');
+
+        var barFillColor = vcCls === 'critical' ? '#dc2626' : (vcCls === 'warning' ? '#d97706' : '#2da85e');
+        var bar = '<div style="position:relative;height:16px;background:var(--gaip-surface-muted,#eef2f0);border-radius:8px;overflow:hidden;margin:8px 0 4px">' +
+            '<div style="position:absolute;left:' + zoneLo + '%;width:' + zoneWid + '%;top:0;height:100%;background:rgba(45,168,94,0.2);border-left:2px solid rgba(45,168,94,0.6);border-right:2px solid rgba(45,168,94,0.6)"></div>' +
+            '<div style="position:absolute;left:0;top:0;height:100%;width:' + fillPct + '%;background:' + barFillColor + ';border-radius:8px"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gaip-text-muted,#6b8878)">' +
+            '<span>WP ' + wp + '%</span><span>Trigger ' + trig + '%</span><span>Target ' + optLow + '–' + optHigh + '%</span><span>FC ' + fc + '%</span>' +
+            '</div>';
+        html += panelSection('Soil Water Level', bar);
+
+        var statusMsg = vwc < wp      ? 'Critical: below wilting point — irrigate immediately'
+                      : vwc < trig    ? 'Low: approaching irrigation trigger'
+                      : vwc <= optHigh ? 'Optimal: within target zone'
+                      :                  'Saturated: above field capacity';
+        var statusCol = vwc < wp ? '#dc2626' : (vwc < trig ? '#d97706' : (vwc <= optHigh ? '#16a34a' : '#d97706'));
+        html += panelSection('Status', '<p style="font-size:13px;margin:0;color:' + statusCol + ';font-weight:600">' + statusMsg + '</p>');
+
+        html += panelSection('How to read', '<p style="font-size:12px;margin:0;line-height:1.55;color:var(--gaip-text,#1a2b23)">Green zone (12–15%) is the optimal range. Below trigger (12%) activates irrigation schedule. Above field capacity (35%) risks compaction and anaerobic conditions.</p>');
+        return html;
+    }
+
+    /* ── Irrigation Plan ── */
+    function buildIrrigationPanel(m, c) {
+        var irr     = c && c.irrigation;
+        var summary = irr && irr.summary;
+        var irrMm   = m && m.irrigationNeed != null ? Math.round(m.irrigationNeed)
+                    : (summary && summary.totalIrrigation != null ? Math.round(summary.totalIrrigation) : null);
+        var irrCls  = irrMm != null ? (irrMm > 15 ? 'critical' : (irrMm > 8 ? 'warning' : 'ok')) : '';
+        var html    = panelHero(irrMm != null ? irrMm + ' mm' : '—', irrCls, 'Weekly Requirement');
+
+        var wb = irr && irr.waterBalance;
+        if (wb) {
+            var deficit = wb.deficit  != null ? Math.round(wb.deficit)  : null;
+            var et0     = wb.et0      != null ? wb.et0.toFixed(1)       : null;
+            var rain    = wb.rainfall != null ? Math.round(wb.rainfall) : null;
+            html += panelSection('Water Balance', statGrid([
+                { value: deficit != null ? (deficit > 0 ? '+' : '') + deficit + ' mm' : '—', label: deficit != null && deficit > 0 ? 'Deficit' : 'Surplus' },
+                { value: et0  ? et0 + ' mm' : '—',  label: 'ET₀ (7d)' },
+                { value: rain != null ? rain + ' mm' : '—', label: 'Rainfall (7d)' }
+            ]));
+        } else if (summary && summary.netDeficit != null) {
+            var def2  = Math.round(summary.netDeficit);
+            var col2  = def2 > 0 ? '#d97706' : '#16a34a';
+            var msg2  = def2 < 0 ? '↑ Ahead by ' + Math.abs(def2) + 'mm — skip cycle' : (def2 > 0 ? 'Deficit: ' + def2 + 'mm' : 'On track');
+            html += panelSection('Water Balance', '<p style="font-size:13px;margin:0;color:' + col2 + ';font-weight:600">' + msg2 + '</p>');
+        }
+
+        var schedule = irr && irr.schedule;
+        if (schedule && schedule.length) {
+            var schedRows = schedule.slice(0, 7).map(function (d) {
+                var dayDate = new Date(d.date + 'T12:00:00');
+                var dayName = isNaN(dayDate.getTime()) ? d.date
+                    : dayDate.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+                var mm = d.irrigation != null ? Math.round(d.irrigation) : 0;
+                return '<div class="db-irr-schedule-row">' +
+                    '<span class="db-irr-schedule-day">' + dayName + '</span>' +
+                    '<span class="db-irr-schedule-mm">' + (mm > 0 ? mm + ' mm' : '—') + '</span>' +
+                    '</div>';
+            }).join('');
+            html += panelSection('7-Day Schedule', '<div class="db-irr-schedule">' + schedRows + '</div>');
+        }
+        return html;
+    }
+
+    // =========================================================================
     // MAIN
     // =========================================================================
 
@@ -795,6 +1079,7 @@
         populatePills(siteId);
         populateSensorSource();
         initInfoPopovers();
+        initCardPanels(metrics, computed);
 
         // Weather
         var loc = config.savedLocation;
