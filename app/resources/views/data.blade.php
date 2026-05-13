@@ -169,7 +169,15 @@
                 </div>
             </div>
 
-            <div style="margin-left:auto;display:flex;align-items:center;gap:12px">
+            <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+                @if($section !== 'sensors')
+                <button type="button" class="dat-add-btn" disabled>
+                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    Add Data
+                </button>
+                @endif
                 <a href="{{ route('settings') }}" class="db-settings-btn" title="Settings">
                     <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
@@ -255,12 +263,12 @@
                     </button>
                     @endif
                     @if($section !== 'sensors')
-                    <a href="{{ route('hub') }}" class="dat-add-btn">
+                    <button type="button" class="dat-add-btn" disabled>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                         </svg>
                         Add Data
-                    </a>
+                    </button>
                     @endif
                 </div>
             </div>
@@ -352,15 +360,24 @@
 
             {{-- ── EMPTY STATE ── --}}
             @elseif($rows->isEmpty())
+            @php
+                $emptyHints = [
+                    'soil'      => 'Upload a soil test report — click <strong>+ Add Data</strong> above and select your lab file (CSV, Excel or PDF).',
+                    'tissue'    => 'Upload a tissue test report — click <strong>+ Add Data</strong> above and select your lab file.',
+                    'water'     => 'Upload a water test report — click <strong>+ Add Data</strong> above and select your lab file.',
+                    'loi'       => 'Upload an LOI / organic matter test — click <strong>+ Add Data</strong> above and select your lab file.',
+                    'spray-log' => 'Log your first spray application — click <strong>+ Add Data</strong> above and fill in the product, rate and zone.',
+                ];
+            @endphp
             <div class="dat-empty-state">
                 <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                      stroke-linecap="round" stroke-linejoin="round" style="color:var(--gaip-border,#ccd9d2)">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
+                    <line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>
                 </svg>
                 <div class="dat-empty-title">No {{ strtolower($sectionTitles[$section]) }} yet</div>
-                <div class="dat-empty-sub">Import data from Hub to populate this page.</div>
-                <a href="{{ route('hub') }}" class="dat-import-btn">Import Data →</a>
+                <div class="dat-empty-sub">{!! $emptyHints[$section] ?? 'Click <strong>+ Add Data</strong> above to get started.' !!}</div>
             </div>
 
             @else
@@ -394,7 +411,7 @@
                         $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
-                        data-row="{{ htmlspecialchars(json_encode($rowData), ENT_QUOTES, 'UTF-8') }}">
+                        data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
@@ -445,7 +462,7 @@
                         $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="tissue"
-                        data-row="{{ htmlspecialchars(json_encode($rowData), ENT_QUOTES, 'UTF-8') }}">
+                        data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
@@ -494,7 +511,7 @@
                         $rowData = ['id'=>$row->id,'section'=>'water','name'=>$name,'labId'=>$labId,'zone'=>null,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="water"
-                        data-row="{{ htmlspecialchars(json_encode($rowData), ENT_QUOTES, 'UTF-8') }}">
+                        data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
@@ -542,7 +559,7 @@
                         $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="loi"
-                        data-row="{{ htmlspecialchars(json_encode($rowData), ENT_QUOTES, 'UTF-8') }}">
+                        data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
@@ -602,7 +619,7 @@
                         ];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="spray-log"
-                        data-row="{{ htmlspecialchars(json_encode($rowData), ENT_QUOTES, 'UTF-8') }}">
+                        data-row="{{ json_encode($rowData) }}">
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
                             @if($date)<div class="dat-date-age">{{ $ageLabel($date) }}</div>@endif
@@ -636,7 +653,6 @@
                         <div class="dat-detail-subtitle" id="dat-detail-subtitle"></div>
                     </div>
                     <div class="dat-detail-actions">
-                        <a href="{{ route('hub') }}" class="dat-full-report-btn" target="_blank">Full Report</a>
                         <button class="dat-detail-close" id="dat-detail-close" aria-label="Close detail panel">×</button>
                     </div>
                 </div>
@@ -819,11 +835,16 @@
         var st  = statusOf(val, opt);
         var pct = (opt && maxVal) ? Math.min(parseFloat(val) / maxVal * 100, 100) : 0;
         var bar = st.cls === 'optimal' ? '#16a34a' : (st.cls === 'good' ? '#d97706' : '#dc2626');
+        var barRow = opt
+            ? '<div class="dat-metric-bar-row">' +
+                '<div class="dat-metric-bar-wrap"><div class="dat-metric-bar" style="width:' + pct.toFixed(1) + '%;background:' + bar + '"></div></div>' +
+                (st.label ? '<span class="dat-metric-status ' + st.cls + '">' + st.label + '</span>' : '') +
+              '</div>'
+            : '';
         return '<div class="dat-metric-card">' +
             '<div class="dat-metric-name">' + esc(name) + '</div>' +
             '<div class="dat-metric-value">' + val + (unit ? '<span class="dat-metric-unit"> ' + esc(unit) + '</span>' : '') + '</div>' +
-            (opt ? '<div class="dat-metric-bar-wrap"><div class="dat-metric-bar" style="width:' + pct.toFixed(1) + '%;background:' + bar + '"></div></div>' : '') +
-            (st.label ? '<div class="dat-metric-status ' + st.cls + '">' + st.label + '</div>' : '') +
+            barRow +
             '</div>';
     }
 

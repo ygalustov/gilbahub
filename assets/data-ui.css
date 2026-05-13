@@ -113,7 +113,8 @@
     font-weight: 700;
     text-decoration: none;
 }
-.dat-add-btn:hover { background: #259950; color: #fff; text-decoration: none; }
+.dat-add-btn:not([disabled]):hover { background: #259950; color: #fff; text-decoration: none; }
+.dat-add-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
 
 /* ---------- Table ---------- */
 .dat-table-wrap {
@@ -236,7 +237,8 @@
     flex: 1;
 }
 .dat-empty-title { font-size: 15px; font-weight: 600; color: var(--gaip-text, #1a2b23); margin-top: 4px; }
-.dat-empty-sub   { font-size: 13px; color: var(--gaip-text-muted, #6b8878); }
+.dat-empty-sub   { font-size: 13px; color: var(--gaip-text-muted, #6b8878); max-width: 340px; line-height: 1.5; }
+.dat-empty-sub strong { color: var(--gaip-text, #1a2b23); font-weight: 600; }
 .dat-import-btn {
     display: inline-block;
     margin-top: 8px;
@@ -597,7 +599,7 @@
     background: #fff;
     border: 1px solid var(--gaip-border-light, #dde7e2);
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 14px 16px;
 }
 .dat-metric-name {
     font-size: 10px;
@@ -605,25 +607,35 @@
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--gaip-text-muted, #6b8878);
-    margin-bottom: 4px;
+    margin-bottom: 6px;
 }
 .dat-metric-value {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
     color: var(--gaip-text, #1a2b23);
     line-height: 1;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
 }
 .dat-metric-unit { font-size: 13px; font-weight: 600; }
-.dat-metric-bar-wrap {
-    height: 4px;
-    background: var(--gaip-surface-muted, #eef2f0);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-bottom: 4px;
+.dat-metric-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.dat-metric-bar { height: 100%; border-radius: 2px; }
-.dat-metric-status { font-size: 11px; font-weight: 700; }
+.dat-metric-bar-wrap {
+    flex: 1;
+    height: 5px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.dat-metric-bar { height: 100%; border-radius: 3px; }
+.dat-metric-status {
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
 .dat-metric-status.optimal  { color: #15803d; }
 .dat-metric-status.good     { color: #b45309; }
 .dat-metric-status.low      { color: #dc2626; }
