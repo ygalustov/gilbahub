@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\AnalysisCacheController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AlertController;
 use App\Http\Controllers\BenchmarkController;
 use App\Http\Controllers\FieldLogEntryController;
@@ -38,7 +40,7 @@ Route::middleware('auth')->group(function () {
     })->where('path', '.*')->name('legacy-assets.show');
 
     Route::view('/hub', 'hub')->name('hub');
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');
     Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
@@ -79,6 +81,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/interpretations/water', [InterpretationController::class, 'water'])->name('interpretations.water');
         Route::post('/interpretations/synthesis', [InterpretationController::class, 'synthesis'])->name('interpretations.synthesis');
         Route::post('/lab-reports/parse', [LabReportParseController::class, 'store'])->name('lab-reports.parse');
+
+        Route::post('/analysis-cache', [AnalysisCacheController::class, 'store'])->name('analysis-cache.store');
         Route::post('/sensors/hydrosight/proxy', [SensorProxyController::class, 'hydrosight'])->name('sensors.hydrosight.proxy');
         Route::post('/sensors/specconnect/proxy', [SensorProxyController::class, 'specconnect'])->name('sensors.specconnect.proxy');
         Route::post('/stadium/shade-render', [StadiumAnalysisController::class, 'shadeRender'])->name('stadium.shade-render');

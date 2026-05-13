@@ -827,12 +827,18 @@
             timestamp: new Date().toISOString()
         };
         
-        // Growth potential
-        if (global.climateMetrics) {
-            metrics.growthPotential = global.climateMetrics.growthPotential?.weighted;
-            metrics.gdd = global.climateMetrics.gdd?.today;
-            metrics.et = global.climateMetrics.et?.daily;
-            metrics.soilTemp = global.climateMetrics.soilTemp?.d100mm;
+        // Growth potential — prefer live global, fall back to orchestrator computed state
+        const _cm = global.climateMetrics;
+        const _cc = global.GaipOrchestrator && typeof global.GaipOrchestrator.getState === 'function'
+            ? global.GaipOrchestrator.getState()?.computed?.climate : null;
+        if (_cm) {
+            metrics.growthPotential = _cm.growthPotential?.weighted;
+            metrics.gdd             = _cm.gdd?.today;
+            metrics.et              = _cm.et?.daily;
+            metrics.soilTemp        = _cm.soilTemp?.d100mm;
+        } else if (_cc) {
+            metrics.growthPotential = _cc.growthPotential?.weighted;
+            metrics.soilTemp        = _cc.soilTemp?.d100mm ?? _cc.soilTemp;
         }
         
         // Disease risk — GAIP_DISEASE_RESULT is the live global (disease-engine-pure shape:
@@ -844,11 +850,12 @@
             metrics.topDisease  = (_dr.topThreats && _dr.topThreats[0])
                                 ? _dr.topThreats[0].disease
                                 : (_dr.highestRisk || null);
-            // Forecast peak for morning briefing disease decision
+            // Forecast peak + disease name for dashboard alert
             const _fc = global.GAIP_DISEASE_FORECAST;
             if (_fc && _fc.summary) {
-                metrics.forecastPeak = _fc.summary.peakRisk  || null;
-                metrics.peakDay      = _fc.summary.peakDay   != null ? _fc.summary.peakDay : null;
+                metrics.forecastPeak    = _fc.summary.peakRisk   || null;
+                metrics.peakDay         = _fc.summary.peakDay    != null ? _fc.summary.peakDay : null;
+                metrics.forecastDisease = _fc.summary.topThreat  || null;
             }
         }
         
@@ -946,6 +953,8 @@
                 'gaip:sample-renamed',
                 'gaip:turf-profile-change',
                 'gaip:analysis-complete',
+                'gaip:orchestrator-complete', // fires after computeAll — captures irrigation, PGR, etc.
+                'gaip:weather-ready',         // weather-ready may trigger a second computeAll with full data
                 'gaip:site-added',
                 'gaip:site-removed',
                 'gaip:site-renamed',
@@ -1014,16 +1023,54 @@
                 storageSet(CONFIG.keys.samples, JSON.stringify(samples));
             }
             
-            // Cache analysis results
+            // Cache analysis results (localStorage for same-session use)
             const cache = cacheAnalysisResults();
             storageSet(CONFIG.keys.cache, JSON.stringify(cache));
-            
+
+            // Persist to DB via API so the dashboard can read without localStorage
+            this.syncToServer(cache);
+
             log('save', 'State saved');
-            
+
             // Dispatch event
             document.dispatchEvent(new CustomEvent('gaip:state-saved', {
                 detail: { timestamp: state.savedAt }
             }));
+        },
+
+        /**
+         * POST analysis cache to the server so the dashboard can read from the DB.
+         * Fires after every save that has a valid site_id and metrics.
+         */
+        syncToServer: function(cache) {
+            if (!cache || !cache.dashboard) return;
+
+            // Use the Laravel UUID from GAIP_HUB_CONFIG — not cache.siteId which is the
+            // Hub's internal string identifier (e.g. "burns_gc") rather than the DB primary key.
+            const siteId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
+                || cache.siteId;
+            if (!siteId) return;
+
+            const csrfToken = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
+                || document.querySelector('meta[name="csrf-token"]')?.content;
+            const restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
+
+            fetch(restUrl + 'analysis-cache', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken || '',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    site_id:     siteId,
+                    analyzed_at: cache.dashboard.timestamp || cache.cachedAt || new Date().toISOString(),
+                    metrics:     cache.dashboard,
+                    computed:    cache.computed || null,
+                }),
+            }).catch(function() {
+                // Silently ignore — localStorage remains the fallback
+            });
         },
 
         /**
