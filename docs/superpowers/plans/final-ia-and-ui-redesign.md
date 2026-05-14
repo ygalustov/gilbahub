@@ -2120,14 +2120,119 @@ ET₀ за неделю: 8.2 mm
 
 ### 11.3. /analysis/growth-light
 
-**Движок:** `climate-module-v2.1-dual-metrics.js` + `climate-engine-v2.js`.
+**Движки:** `climate-module-v2.1-dual-metrics.js` + `climate-engine-v2.js` + `climate-engine.js` + `shade-engine.js` + `ambient-dli-engine.js` + `growth-potential-engine.js`
 
-**Содержимое страницы:**
+**Принцип:** одна страница = один вопрос: "В каких условиях сейчас растёт трава?" Температурная и световая стороны роста считаются разными движками, но для пользователя это одна тема. Два текущих блока ("Climate & Weather" и "Growth & Light") объединены здесь — они были разделены по архитектуре движков, а не по логике данных.
 
-1. **14-day GP trajectory** — линейный график с confidence bands (уверенность по дням из `daily[].confidence`). C3 и C4 линии отдельно для mixed stands
-2. **GDD accumulation** — накопленные growing degree days (база 10°C) — контекст для сезонных решений
-3. **Component breakdown по дням** — таблица: дата / temp / Thermal GP / Day-length adj / Variety adj / Final GP
-4. **Species-specific thresholds** — optimal temp range для текущего сорта, текущее положение на кривой
+**Header:**
+```
+Growth & Light Analysis  ,Penncross          [Validated] [→ View in Planning]
+Temperature and light conditions for growth
+GP 68% · Good  |  DLI 19.7 mol/m²/d · Optimal  |  Key Insight: Cool-season at optimal temp range
+```
+Weather status badge (Live / Manual / Stale) — в правом углу header. Источник: `quality.source`
+
+---
+
+**БЛОК 1 — Growth Potential (temperature-driven)**
+
+1. **14-day GP trajectory chart** — линейный график с confidence bands, switcher 7d / 14d. C3 и C4 линии отдельно для mixed/overseed stands. Источник: `dualMetrics.daily[].gp`, `daily[].confidence` из `climate-module-v2.1-dual-metrics.js`
+
+2. **Current vs 8-day comparison** — две карточки: Current GP % + avg temp / Outlook GP % + avg temp + confidence %. Trajectory arrow + delta + description text. Источник: `dualMetrics.current`, `dualMetrics.outlook`, `dualMetrics.trajectory`
+
+3. **GP Component breakdown** — как складывается финальный GP:
+   - Thermal score: X% (из PACE-кривой для текущей temp)
+   - Day-length adjustment: +X%
+   - Variety adjustment: +X%
+   - Final GP: X%
+   Источник: `growthPotential.baseGrowthPotential`, `adjustedGrowthPotential`, variety modifier из `climate-module-v2-ui.js`
+
+4. **Species position + Key Insight** — текущая температура на кривой:
+   - "12.9°C — optimal range для Penncross (15–24°C)"
+   - Key Insight фраза (5 вариантов: heat event / C4 dormant / C3 heat-stressed / optimal C3 / transition zone). Источник: logic из `hub-tissue-v3.js:4505`, `temperature.optimal.label`
+
+5. **GDD accumulation** — контекст для N timing и сезонных решений:
+   - GDD this period: C3 base 0°C = X, C4 base 10°C = X
+   - Seasonal total (90-day): X GDD
+   Источник: `growth.gdd.c3/c4`, `historical.gdd.totalC3/totalC4`
+
+6. **Seasonal temperature trend** — "Warming trend ahead" / "Cooling trend ahead" / "Stable temperatures expected". Источник: `forecast.temp.insight`, `historical.temp.direction`
+
+---
+
+**БЛОК 2 — Light / DLI (light-driven)**
+
+1. **Current DLI vs target** — с контекстом:
+   - Natural: X + LED: X = Total: X mol/m²/d
+   - Target Range: X–X mol/m²/d · Status: CRITICAL / DEFICIENT / ADEQUATE / OPTIMAL
+   Источник: `ambientDLI.current`, `shade.DLI_total`, `shade.dliTarget`, species thresholds из `shade-engine.js`
+
+2. **14-day DLI forecast** — bar chart: столбики per day, target min/max lines. Цвет по статусу (зелёный/жёлтый/красный). Источник: `solar.dailyTotals[]` из `climate-engine.js`
+
+3. **Species DLI thresholds** — с учётом overseed если dominant:
+   - Effective species, Min DLI, Optimal DLI, Status
+   Источник: `shade.effectiveStatus`, `SPECIES_DLI` из `shade-engine.js`
+
+4. **Shade context** (только если shade > 0%):
+   - Shade Factor: X% от full sun, Sky View: X%, Temperature × Light interaction note
+   Источник: `shade.shadePercent`, `shade.skyView`
+
+5. **Seasonal DLI trajectory** — 12-месячный график: Peak month / Trough month / Stress periods / Optimal renovation months. Источник: `shade.seasonalTrajectory`
+
+6. **LED recommendation** (только если DLI дефицит):
+   - Deficit mol/m²/d, Hours/day, Energy kWh/day
+   Источник: `shade.ledRecommendation`
+
+---
+
+**БЛОК 3 — Temperature Stresses**
+
+Сетка карточек (не отдельные панели):
+
+| Heat Stress | Drought Stress | Cold / Dormancy |
+|---|---|---|
+| Score + severity | Score + ET deficit mm/week | Score + avg soil temp |
+| Max temp, Avg night temp | — | GDD progress bar (C4 only) |
+| Variety modifier | Variety modifier | Variety modifier |
+
+- **Stress Outlook** (current → 8-day): Heat / Drought / Cold с direction arrow. Источник: `stressOutlook` из `climate-module-v2.1-dual-metrics.js`
+- **Soil Temperature Profile** — 4 глубины (20mm / 50mm / 100mm / 200mm): mean + current per depth, Profile type + κ (thermal diffusivity). Источник: `GAIP_SOIL_TEMP` physics model из `climate-module-v2-ui.js`
+- **Dormancy status** (только C4) — status label / statusDetail / GDD progress bar / heading direction. Источник: `dormancy` из `climate-module-v2-ui.js`
+
+---
+
+**БЛОК 4 — Research-backed guidance** (показывать только если применимо — не рендерить пустые секции)
+
+- **Fungal Risk** (если DLI < 12 или dew hours > threshold): Index + DLI Factor + Risk Class + action text. Источник: `shade.fungalClass`, `shade.fungalRisk`
+- **Recovery Window**: Window dates + detail text + class. Источник: `shade.recoveryWindow`
+- **N Adjustment** (только если DLI дефицит): Reduction % + factor. Ref: Bell & Danneberger 1999. Источник: `shade.nAdjustment`
+- **Mowing Height** (только если shade stress): Current HOC / Recommended / Max. Ref: Dudeck & Peacock 1992. Источник: `shade.mowingGuidance`
+- **PGR Warning** (только если PGR активен AND shade stress): Warning text + severity. Ref: Ervin & Koski 1998. Источник: `shade.pgrGuidance`
+
+---
+
+**БЛОК 5 — Unified Recommendations**
+
+Все рекомендации из Блоков 1–4, синтезированные и приоритизированные (не дублирующие):
+- 🔴 Critical — немедленное действие
+- 🟡 This week — запланировать
+- 🟢 Monitor — следить
+
+[→ View in Planning] — для рекомендаций с scheduling-компонентом
+
+---
+
+**Что НЕ входит в growth-light (логическое разделение):**
+
+| Данные | Куда |
+|---|---|
+| N Program Validation | `/analysis/soil-nutrition` |
+| Green Surface Quality / Firmness / Gmax | Performance & Wear section |
+| Dew Forecast (leaf wetness, disease-favorable hours) | `/analysis/disease` |
+| ET / Precipitation | `/analysis/pgr-irrigation` (water balance) |
+| Humidity / Dewpoint / Wind | Dashboard Conditions strip (weather facts only) |
+| Data quality assessment | `/analysis/accuracy` |
+| Weather status badge | Global header (все страницы) |
 
 ---
 

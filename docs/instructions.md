@@ -50,8 +50,7 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-8** Enhance settings and site configuration by adding turf profile management, location geocoding autocomplete, and improved site data handling; update SettingsController to include active GAIP configuration and modify view to display turf-related fields.
 **GH-9** Enhance site configuration handling by integrating active GAIP configuration into the app layout; improve turf profile management in hub orchestrator and site config persistence, ensuring species data is accurately seeded and fallback mechanisms are in place for better data integrity.
 **GH-10** Update settings view to clarify annual nitrogen label and add soil temperature query in instructions documentation for improved user guidance.
-
-
+**GH-11** Update navigation links in dashboard, data, and settings views to point to the new analysis growth-light route; add route definition for analysis growth-light in web.php.
 
 ## Backlog
 
@@ -64,6 +63,8 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - Give permissions to users
 
 - Task management
+
+- Onboarding
 
 - In the old site UI I only see 2 methodology SLAN, MLSN. Why do we have 3?
 

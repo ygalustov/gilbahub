@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalysisCacheController;
+use App\Http\Controllers\AnalysisController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\DashboardController;
@@ -43,6 +44,7 @@ Route::middleware('auth')->group(function () {
 
     Route::view('/hub', 'hub')->name('hub');
     Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');
+    Route::get('/analysis/growth-light', [AnalysisController::class, 'growthLight'])->name('analysis.growth-light');
     Route::get('/data', [DataController::class, 'show'])->name('data');
     Route::get('/data/{section}', [DataController::class, 'show'])->name('data.section');
     Route::view('/field-log', 'field-log')->name('field-log');
