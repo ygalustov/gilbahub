@@ -18,6 +18,9 @@
             $activeGaipConfig = is_array($activeGaipRecord?->config) ? $activeGaipRecord->config : [];
         }
         $wizardState = is_array($activeGaipConfig['wizard'] ?? null) ? $activeGaipConfig['wizard'] : [];
+        $turfConfig = is_array($activeGaipConfig['turf'] ?? null) ? $activeGaipConfig['turf'] : null;
+        $locationConfig = is_array($activeGaipConfig['location'] ?? null) ? $activeGaipConfig['location'] : null;
+        $siteConfig = ($turfConfig || $locationConfig) ? ['turf' => $turfConfig, 'location' => $locationConfig] : null;
     @endphp
     <script>
         window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
@@ -30,7 +33,8 @@
             siteUrl: "{{ url('/') }}",
             hubUrl: "{{ route('hub') }}",
             hubMode: "agronomic",
-            savedLocation: @json($savedLocation)
+            savedLocation: @json($savedLocation),
+            siteConfig: @json($siteConfig)
         });
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {

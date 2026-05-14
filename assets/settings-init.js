@@ -68,14 +68,14 @@
             }
 
             var payload = {
-                name:          name,
-                location_name: siteForm.querySelector('#stg-location-name').value.trim() || null,
-                site_type:     siteForm.querySelector('#stg-site-type').value,
-                timezone:      siteForm.querySelector('#stg-timezone').value,
-                latitude:      siteForm.querySelector('#stg-latitude').value !== ''
-                                   ? parseFloat(siteForm.querySelector('#stg-latitude').value) : null,
-                longitude:     siteForm.querySelector('#stg-longitude').value !== ''
-                                   ? parseFloat(siteForm.querySelector('#stg-longitude').value) : null,
+                name:                 name,
+                location_name:        siteForm.querySelector('#stg-location-name').value.trim() || null,
+                site_type:            siteForm.querySelector('#stg-site-type').value,
+                timezone:             siteForm.querySelector('#stg-timezone').value,
+                latitude:             siteForm.querySelector('#stg-latitude').value !== ''
+                                          ? parseFloat(siteForm.querySelector('#stg-latitude').value) : null,
+                longitude:            siteForm.querySelector('#stg-longitude').value !== ''
+                                          ? parseFloat(siteForm.querySelector('#stg-longitude').value) : null,
             };
 
             setSaving(siteSaveBtn, true);
@@ -92,6 +92,227 @@
                 })
                 .catch(function () { setMsg(siteMsg, 'Network error.', 'err'); })
                 .finally(function () { setSaving(siteSaveBtn, false); });
+        });
+    }
+
+    /* ── Location geocoding autocomplete ────────────────────── */
+    (function () {
+        var locInput   = document.getElementById('stg-location-name');
+        var resultsDiv = document.getElementById('stg-location-results');
+        if (!locInput || !resultsDiv) return;
+
+        var _geoTimer;
+
+        locInput.addEventListener('input', function () {
+            clearTimeout(_geoTimer);
+            var q = locInput.value.trim();
+            if (q.length < 3) { resultsDiv.style.display = 'none'; return; }
+
+            _geoTimer = setTimeout(function () {
+                resultsDiv.innerHTML = '<div style="padding:10px;color:#6b7f76;font-size:13px;">Searching…</div>';
+                resultsDiv.style.display = 'block';
+
+                fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json')
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        var results = data.results || [];
+                        if (!results.length) {
+                            resultsDiv.innerHTML = '<div style="padding:10px;color:#6b7f76;font-size:13px;">No locations found</div>';
+                            return;
+                        }
+                        var locs = results.map(function (r) {
+                            return {
+                                display: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
+                                lat: r.latitude,
+                                lon: r.longitude,
+                            };
+                        });
+                        var html = '';
+                        locs.forEach(function (loc, i) {
+                            html += '<div class="stg-loc-result" data-i="' + i + '" style="padding:10px 12px;border-bottom:1px solid #eef1ef;cursor:pointer;">' +
+                                '<div style="font-weight:500;color:#2c5f2d;font-size:13px;">📍 ' + escHtml(loc.display) + '</div>' +
+                                '<div style="font-size:11px;color:#6b7f76;font-family:monospace;margin-top:2px;">' +
+                                loc.lat.toFixed(4) + '°, ' + loc.lon.toFixed(4) + '°</div></div>';
+                        });
+                        resultsDiv.innerHTML = html;
+                        resultsDiv.querySelectorAll('.stg-loc-result').forEach(function (el) {
+                            var idx = parseInt(el.dataset.i, 10);
+                            el.addEventListener('mouseenter', function () { el.style.background = '#f4f8f5'; });
+                            el.addEventListener('mouseleave', function () { el.style.background = ''; });
+                            el.addEventListener('click', function () {
+                                var loc = locs[idx];
+                                locInput.value = loc.display;
+                                var latEl = document.getElementById('stg-latitude');
+                                var lonEl = document.getElementById('stg-longitude');
+                                if (latEl) { latEl.value = loc.lat.toFixed(7); updateHemisphere(loc.lat); }
+                                if (lonEl) lonEl.value = loc.lon.toFixed(7);
+                                resultsDiv.style.display = 'none';
+                            });
+                        });
+                    })
+                    .catch(function () {
+                        resultsDiv.innerHTML = '<div style="padding:10px;color:#c41e3a;font-size:13px;">Search unavailable — check connection</div>';
+                    });
+            }, 400);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!e.target.closest('#stg-location-name, #stg-location-results')) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+    }());
+
+    function updateHemisphere(lat) {
+        var hEl = document.getElementById('stg-hemisphere');
+        if (!hEl) return;
+        var v = parseFloat(lat);
+        hEl.value = isNaN(v) ? '' : (v < 0 ? 'Southern' : 'Northern');
+    }
+    var _latInput = document.getElementById('stg-latitude');
+    if (_latInput) {
+        _latInput.addEventListener('input', function () { updateHemisphere(this.value); });
+    }
+
+    /* ── Turf profile ───────────────────────────────────────── */
+    var turfForm    = document.getElementById('stg-turf-form');
+    var turfSaveBtn = document.getElementById('stg-turf-save');
+    var turfMsg     = document.getElementById('stg-turf-msg');
+    var turfTypeEl  = document.getElementById('stg-turf-type');
+    var turfSubEl   = document.getElementById('stg-turf-subcategory');
+
+    var turfVarietyEl = document.getElementById('stg-turf-variety');
+    var turfSpeciesEl = document.getElementById('stg-turf-species');
+
+    var _speciesTraitsKey = {
+        'Creeping Bentgrass (Greens)':  'bentgrass',
+        'Creeping Bentgrass (Fairway)': 'bentgrass',
+        'Creeping Bentgrass':           'bentgrass',
+        'Colonial Bentgrass':           'bentgrass',
+        'Browntop Bent':                'browntopBent',
+        'Perennial Ryegrass':           'perennialRyegrass',
+        'Kentucky Bluegrass':           'kentuckyBluegrass',
+        'Tall Fescue':                  'tallFescue',
+        'Fine Fescue':                  'fineFescue',
+        'Chewings Fescue':              'chewingsFescue',
+        'Chewings Fescue (Greens)':     'chewingsFescue',
+        'Slender Creeping Red Fescue':  'slenderCreepingRedFescue',
+        'Strong Creeping Red Fescue':   'strongCreepingRedFescue',
+        'Poa annua':                    null,
+        'Couch':                        'couch',
+        'Bermuda':                      'couch',
+        'Kikuyu':                       'kikuyu',
+        'Zoysia':                       'zoysia',
+        'Seashore Paspalum':            'seashore_paspalum',
+        'Buffalo':                      'buffalo',
+    };
+
+    function repopulateVariety(species, selectedValue) {
+        if (!turfVarietyEl) return;
+        var vt = window.GAIP_VARIETY_TRAITS;
+        var key = _speciesTraitsKey[species];
+        var varieties = [{ value: 'generic', label: 'Generic / Unknown' }];
+        if (vt && key && vt[key]) {
+            Object.keys(vt[key]).forEach(function(name) {
+                if (name.startsWith('_')) return;
+                var v = vt[key][name];
+                varieties.push({ value: name, label: (v && v.displayName) || name });
+            });
+        }
+        turfVarietyEl.innerHTML = '';
+        varieties.forEach(function(v) {
+            var o = document.createElement('option');
+            o.value = v.value;
+            o.textContent = v.label;
+            if (v.value === selectedValue) o.selected = true;
+            turfVarietyEl.appendChild(o);
+        });
+        // If saved variety not in list, prepend it
+        if (selectedValue && selectedValue !== 'generic' &&
+            !varieties.some(function(v) { return v.value === selectedValue; })) {
+            var o = document.createElement('option');
+            o.value = selectedValue;
+            o.textContent = selectedValue;
+            o.selected = true;
+            turfVarietyEl.insertBefore(o, turfVarietyEl.firstChild);
+        }
+    }
+
+    if (turfSpeciesEl) {
+        var _initVariety = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || 'generic';
+        repopulateVariety(turfSpeciesEl.value, _initVariety);
+        turfSpeciesEl.addEventListener('change', function () {
+            repopulateVariety(turfSpeciesEl.value, 'generic');
+        });
+    }
+
+    var _subOptions = {
+        golf:   { greens: 'Greens', fairways: 'Fairways', tees: 'Tees', surrounds: 'Surrounds' },
+        sports: { soccer: 'Soccer', afl: 'AFL', rugby_union: 'Rugby Union', rugby_league: 'Rugby League' },
+        lawns:  {},
+    };
+
+    function repopulateSubcategory(turfType, selectedValue) {
+        if (!turfSubEl) return;
+        var opts = _subOptions[turfType] || {};
+        turfSubEl.innerHTML = '<option value="">— select —</option>';
+        Object.keys(opts).forEach(function (v) {
+            var o = document.createElement('option');
+            o.value = v;
+            o.textContent = opts[v];
+            if (v === selectedValue) o.selected = true;
+            turfSubEl.appendChild(o);
+        });
+    }
+
+    if (turfTypeEl) {
+        var _initSub = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.subCategory) || '';
+        repopulateSubcategory(turfTypeEl.value, _initSub);
+        turfTypeEl.addEventListener('change', function () {
+            repopulateSubcategory(turfTypeEl.value, '');
+        });
+    }
+
+    if (turfForm) {
+        turfForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!siteId) return;
+            setSaving(turfSaveBtn, true);
+            setMsg(turfMsg, '', '');
+
+            var soilTexture = document.getElementById('stg-turf-soil-texture').value || null;
+            var turf = {
+                species:      document.getElementById('stg-turf-species').value,
+                variety:      document.getElementById('stg-turf-variety').value.trim(),
+                turfType:     document.getElementById('stg-turf-type').value,
+                subCategory:  document.getElementById('stg-turf-subcategory').value,
+                construction: document.getElementById('stg-turf-construction').value,
+                drainage:     document.getElementById('stg-turf-drainage').value,
+                hoc:          document.getElementById('stg-turf-hoc').value,
+                methodology:  document.getElementById('stg-turf-methodology').value,
+                nProgram:     document.getElementById('stg-turf-n').value,
+                poaPercent:   document.getElementById('stg-turf-poa').value || '0',
+                c3Cover:      document.getElementById('stg-turf-c3').value || '0',
+            };
+
+            // Merge into existing gaip config — preserve all fields not shown in this form
+            // (aaTexture, overseedSpecies, summerIntent, trafficEnabled, wizard, pgr, etc.)
+            var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
+            cfg.turf = Object.assign({}, cfg.turf || {}, turf);
+
+            // soil_texture_override lives on the site model, not gaip config — save separately
+            var saves = [
+                apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: cfg }),
+                apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), { soil_texture_override: soilTexture }),
+            ];
+
+            Promise.all(saves)
+                .then(function () {
+                    D.gaipConfig = cfg;
+                    setMsg(turfMsg, 'Saved.', 'ok');
+                })
+                .catch(function () { setMsg(turfMsg, 'Save failed.', 'err'); })
+                .finally(function () { setSaving(turfSaveBtn, false); });
         });
     }
 
@@ -183,7 +404,6 @@
 
     var hsForm   = document.getElementById('stg-hydrosight-form');
     var hsKeyEl  = document.getElementById('stg-hs-key');
-    var hsSave   = document.getElementById('stg-hs-save');
     var hsTest   = document.getElementById('stg-hs-test');
     var hsMsg    = document.getElementById('stg-hs-msg');
 
@@ -408,8 +628,10 @@
 
     function runAnalysisAndRedirect(afterMsg) {
         if (impSuccessMsg) {
-            impSuccessMsg.innerHTML = afterMsg +
-                '<br><span style="font-size:12px;opacity:0.75">Re-running analysis…</span>';
+            impSuccessMsg.innerHTML =
+                '<div>' + afterMsg + '</div>' +
+                '<div style="font-size:15px;font-weight:600;color:#2c5f2d;">Re-running analysis…</div>' +
+                '<div style="font-size:12px;color:#6b7f76;">You will be redirected to the dashboard when complete.</div>';
         }
 
         var iframe = document.createElement('iframe');
@@ -436,6 +658,84 @@
         setTimeout(finish, 30000);
     }
 
+    // Apply siteConfig from bundle: update DB site record + gaip config + localStorage hub state
+    function applySiteConfig(bundle) {
+        var cfg = bundle.siteConfig;
+        if (!cfg || !siteId) return Promise.resolve();
+
+        var tasks = [];
+
+        // 1. Update site model: location + clear soil_texture_override (not in import bundle)
+        var loc = cfg.location;
+        var t = cfg.turf || {};
+        var sitePatch = { soil_texture_override: null };
+        if (loc && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+            sitePatch.location_name = loc.name || '';
+            sitePatch.latitude      = loc.lat;
+            sitePatch.longitude     = loc.lon;
+        }
+        tasks.push(apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), sitePatch));
+
+        // 2. Save full turf + location + pgr config to DB gaip namespace
+        tasks.push(apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+            config: { turf: t, location: cfg.location || {}, pgr: cfg.pgr || {} }
+        }));
+
+        // 3. Update gilba_hub_site_configs (SiteConfigPersistence key) — force-overwrites so
+        //    the seed guard ("skip if species already set") doesn't prevent using fresh data
+        try {
+            var configsKey = 'gilba_hub_site_configs';
+            var allConfigs = {};
+            try { allConfigs = JSON.parse(localStorage.getItem(configsKey) || '{}'); } catch (_) {}
+            if (!allConfigs[siteId]) allConfigs[siteId] = {};
+            allConfigs[siteId].turf = Object.assign({}, allConfigs[siteId].turf || {}, {
+                species:      t.species      || '',
+                variety:      t.variety      || '',
+                turfType:     t.turfType     || '',
+                subCategory:  t.subCategory  || '',
+                construction: t.construction || '',
+                drainage:     t.drainage     || '',
+                hoc:          t.hoc          || '',
+                nProgram:     t.nProgram     || '',
+                methodology:  t.methodology  || '',
+                poaPercent:   t.poaPercent   || '0',
+                c3Cover:      t.c3Cover      || '0',
+                aaTexture:    t.aaTexture    || '',
+            });
+            if (loc && typeof loc.lat === 'number') {
+                allConfigs[siteId].location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
+            }
+            localStorage.setItem(configsKey, JSON.stringify(allConfigs));
+        } catch (_) {}
+
+        // 4. Also update gilba_hub_state (legacy key read by some hub modules)
+        try {
+            var userId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.userId) || 'anon';
+            var stateKey = 'gilba_hub_state_' + userId;
+            var existing = {};
+            try { existing = JSON.parse(localStorage.getItem(stateKey) || '{}'); } catch (_) {}
+            existing.turf = Object.assign({}, existing.turf || {}, {
+                species:      t.species      || '',
+                variety:      t.variety      || '',
+                turfType:     t.turfType     || '',
+                subCategory:  t.subCategory  || '',
+                construction: t.construction || '',
+                drainage:     t.drainage     || '',
+                hoc:          t.hoc          || '',
+                nProgram:     t.nProgram     || '',
+                methodology:  t.methodology  || '',
+                poaPercent:   t.poaPercent   || '0',
+                c3Cover:      t.c3Cover      || '0',
+            });
+            if (loc && typeof loc.lat === 'number') {
+                existing.location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
+            }
+            localStorage.setItem(stateKey, JSON.stringify(existing));
+        } catch (_) {}
+
+        return Promise.all(tasks);
+    }
+
     if (impRunBtn) {
         impRunBtn.addEventListener('click', function () {
             if (!siteId || !_bundle) return;
@@ -448,6 +748,9 @@
             apiFetch('POST', '/samples/sync', { allSites: remapped })
                 .then(function (data) {
                     var synced = (data && data.data && data.data.synced) || 0;
+                    return applySiteConfig(_bundle).then(function () { return synced; });
+                })
+                .then(function (synced) {
                     impStepPreview.classList.add('stg-hidden');
                     impStepDone.classList.remove('stg-hidden');
                     var checkmark = '<svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';

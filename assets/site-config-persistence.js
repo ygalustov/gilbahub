@@ -851,6 +851,26 @@
 
     function init() {
         loadFromStorage();
+
+        // Seed active site config from server-injected GAIP_HUB_CONFIG.siteConfig.
+        // This runs synchronously before any async API call so species is available
+        // immediately on page load — no race condition with pullConfigsFromServer.
+        // Server wins for identity fields (species, turfType, etc.) when local is empty.
+        (function seedFromInjectedConfig() {
+            var injected = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteConfig;
+            var siteId   = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+            if (!injected || !injected.turf || !injected.turf.species || !siteId) return;
+            if (!_configs[siteId]) _configs[siteId] = { turf: {}, location: {} };
+            var local = _configs[siteId];
+            if (local.turf && local.turf.species) return; // local already has species — don't overwrite
+            local.turf = Object.assign({}, local.turf || {}, injected.turf);
+            if (injected.location && injected.location.lat) {
+                local.location = Object.assign({}, local.location || {}, injected.location);
+            }
+            saveToStorage();
+            log('Seeded site config from GAIP_HUB_CONFIG.siteConfig — species:', injected.turf.species);
+        })();
+
         _cleanupLocationBleed(); // b35fix268
 
         // b35fix137: one-time cleanup for pgr bleed introduced by b35fix133/135.

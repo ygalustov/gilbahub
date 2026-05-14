@@ -6244,10 +6244,11 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                                             var _c3f = e?.turf?.speciesFractions?.c3Fraction ?? 1;
                                             if (_c4f === 0) {
                                                 er = null;
-                                                // Pure C3: Qt may be a C4 multi-day average (wrong species
-                                                // fallback). Override weighted with the drought module's C3
-                                                // value (Xt) which uses current-hour temp.
-                                                if (Xt !== null) window.climateMetrics.growth.weighted = Xt;
+                                                // Override weighted only when V2 computed GP using the C4
+                                                // formula (Jt.isC4=true), meaning species was missing/wrong.
+                                                // If V2 already used C3 formula (Jt.isC4=false), Qt is the
+                                                // correct multi-day C3 average — leave it unchanged.
+                                                if (Jt && Jt.isC4 && Xt !== null) window.climateMetrics.growth.weighted = Xt;
                                                 console.log("[C4 FIX Path-A] Pure C3 grass, gpC4 set to null");
                                             }
                                             if (_c3f === 0) {
@@ -6796,13 +6797,11 @@ function initTurfTypeMode() {
                                                 var _c3frac = t.turf?.speciesFractions?.c3Fraction ?? 1;
                                                 if (_c4frac === 0) {
                                                     gpC4 = null;
-                                                    // Pure C3 grass: weighted = C3 value.
-                                                    // V2's adjustedGrowthPotential is a multi-day forecast
-                                                    // average that can read far below the current C3 value
-                                                    // when cold days dominate the 7-day window. Using gpC3
-                                                    // (today's drought-adjusted C3) keeps the dashboard
-                                                    // consistent with the hub's own status display.
-                                                    if (gpC3 !== null) gpWeighted = gpC3;
+                                                    // Override only when V2 used the C4 formula (gp.isC4=true),
+                                                    // meaning species was missing/wrong and adjustedGrowthPotential
+                                                    // is a C4 multi-day average. If V2 already used C3 formula,
+                                                    // gpWeighted is already the correct multi-day C3 average.
+                                                    if (gp && gp.isC4 && gpC3 !== null) gpWeighted = gpC3;
                                                     console.log(
                                                         "[C4 FIX] Pure C3 grass detected, gpC4 set to null (hidden). species=" +
                                                         // b35fix218b: t.turf.grassSpecies empty in V2 IIFE on GSSH; fall back to GAIP_STATE

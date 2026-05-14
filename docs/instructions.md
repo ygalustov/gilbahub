@@ -38,7 +38,8 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 2. **IA and UI redesign**: moving to a decision-first dashboard with a tiered structure (Tier 0–5), Quick Capture FAB, and a Site Switcher with multi-site overview. Details in `docs/superpowers/plans/final-ia-and-ui-redesign.md`.
 
 
-**Change log**
+## Change log
+
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
 **GH-2** Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
 **GH-3** Enhance dashboard functionality by adding interactive side panels for vital cards; implement JavaScript logic for panel opening/closing and update CSS for improved styling and responsiveness.
@@ -46,21 +47,38 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-5** Enhance data view by adding disabled 'Add Data' buttons for non-sensor sections, updating empty state hints, and improving CSS styles for better usability and responsiveness.
 **GH-6** Enhance SiteController validation by adding 'attributes_json' field; update navigation links in app layout for clarity; modify settings route to use controller method; implement rerun functionality in dashboard scripts; improve hub persistence signaling for analysis completion; refine climate metrics handling in hub tissue scripts; update documentation with new feature notes.
 **GH-7** Enhance dashboard irrigation metrics by refining deficit calculations and improving water balance display logic; update irrigation schedule handling for better data accuracy.
+**GH-8** Enhance settings and site configuration by adding turf profile management, location geocoding autocomplete, and improved site data handling; update SettingsController to include active GAIP configuration and modify view to display turf-related fields.
+
+
+
+## Backlog
+
+
+- Check why irrigation 6mm in the old site is highlighted with orange and on the new one with green. Check all thresholds for all blocks on the new site to be the same as on old one. 
+
+
+- Auto re-run - setup minutes or hours - how often to rerun
+
+- Give permissions to users
+
+- Task management
+
+- In the old site UI I only see 2 methodology SLAN, MLSN. Why do we have 3?
+
+- Where zones are set on the old site?
+
+- The only exception: manually-entered samples with no client_uid (NULL) are preserved, because they're not tracked by the import system - why manually-entered samples are with no client_uid ?
+
+- How often data should be pulled from sensors?
 
 
 
 
+For information
+1) aaTexture has its own UI, but it lives inside the hub analysis panel (legacy-hub-markup), not in Settings. It appears as a "Rootzone Type (for K/Mg ranges)" dropdown that's dynamically shown/hidden: it only appears when the methodology is set to ammonium_acetate. When any other methodology is selected, it's hidden.
 
-Why in the block Irrigation plan - doesnt display additional info like - Deficit:1mm
+So the answer is: yes, it is in the UI — it shows up in the hub's analysis panel automatically when you switch to the AA methodology. It's not in the Settings tab, which is by design since it's a per-analysis input rather than a site-level setting.
 
+The Settings "Soil texture" dropdown (soil_texture_override) is a separate, always-visible site-level field for granular texture (sand, loamy sand, loam, etc.), and that one is what feeds sample snapshots and soil temperature calculations.
 
-Re-running analysis…
-
-When I import data - does this info is updated? Site details
-Basic information about this location.
-
-Auto re-run - setup minutes or hours - how often to rerun
-
-Give permissions to users
-
-Task management
+2) On the old website - coordinates doesnot update after import

@@ -13,14 +13,18 @@ class SettingsController extends Controller
         $activeSite = $user?->activeSite;
         $allSites   = $user?->sites()->orderBy('name')->get() ?? collect();
 
+        $activeGaipConfig = [];
         if ($activeSite) {
             $activeSite->load('configs');
+            $gaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
+            $activeGaipConfig = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
         }
 
         return view('settings', [
-            'title'      => 'Settings',
-            'activeSite' => $activeSite,
-            'allSites'   => $allSites,
+            'title'           => 'Settings',
+            'activeSite'      => $activeSite,
+            'allSites'        => $allSites,
+            'activeGaipConfig' => $activeGaipConfig,
         ]);
     }
 }
