@@ -967,6 +967,8 @@
                 : _ir.summary && _ir.summary.totalIrrigation != null ? _ir.summary.totalIrrigation
                 : _ir.schedule ? _ir.schedule.reduce(function(s, d) { return s + ((d.irrigation && d.irrigation.totalDepth) || 0); }, 0)
                 : null;
+            metrics.irrigationDeficit = _ir.summary && _ir.summary.netDeficit != null
+                ? _ir.summary.netDeficit : null;
         }
         
         return metrics;

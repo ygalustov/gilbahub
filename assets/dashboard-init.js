@@ -452,8 +452,9 @@
                 irrEl.className = 'db-vital-main ' + irrCls;
             }
 
-            // Deficit/surplus — try summary.netDeficit, then waterBalance.deficit
+            // Deficit/surplus — try summary.netDeficit, then metrics.irrigationDeficit, then waterBalance.deficit
             var deficitRaw = irrSummary && irrSummary.netDeficit != null ? irrSummary.netDeficit
+                           : m && m.irrigationDeficit != null ? m.irrigationDeficit
                            : irrResult && irrResult.waterBalance && irrResult.waterBalance.deficit != null
                              ? irrResult.waterBalance.deficit : null;
 
@@ -990,8 +991,10 @@
         if (diseases && diseases.length) {
             var rows = diseases.slice(0, 5).map(function (d) {
                 var name = d.displayName || d.name || d.disease || 'Unknown';
-                var cur  = d.riskScore    != null ? Math.round(d.riskScore)    : (d.current  != null ? Math.round(d.current)  : null);
-                var pk   = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.peakRisk != null ? Math.round(d.peakRisk) : null);
+                // adjustedRisk = species-susceptibility-adjusted score (same basis as overallScore)
+                // riskScore    = pre-adjustment base; use only as fallback
+                var cur  = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.riskScore != null ? Math.round(d.riskScore) : (d.current != null ? Math.round(d.current) : null));
+                var pk   = d.peakRisk     != null ? Math.round(d.peakRisk)     : null;
                 return makeRow(name, cur, pk, d.peakDay != null ? d.peakDay : null);
             }).join('');
             html += panelSection('Disease Breakdown', rows);
@@ -1078,20 +1081,19 @@
         var html    = panelHero(irrMm != null ? irrMm + ' mm' : '—', irrCls, 'Weekly Requirement');
 
         var wb = irr && irr.waterBalance;
-        if (wb) {
-            var deficit = wb.deficit  != null ? Math.round(wb.deficit)  : null;
-            var et0     = wb.et0      != null ? wb.et0.toFixed(1)       : null;
-            var rain    = wb.rainfall != null ? Math.round(wb.rainfall) : null;
+        if (wb || summary) {
+            // waterBalance has currentDepletion; ET and rainfall live in summary
+            var deficit = wb && wb.deficit    != null ? Math.round(wb.deficit)
+                        : summary && summary.netDeficit != null ? Math.round(summary.netDeficit) : null;
+            var et0     = wb && wb.et0        != null ? wb.et0.toFixed(1)
+                        : summary && summary.totalET   != null ? summary.totalET.toFixed(1) : null;
+            var rain    = wb && wb.rainfall   != null ? Math.round(wb.rainfall)
+                        : summary && summary.totalPrecipitation != null ? Math.round(summary.totalPrecipitation) : null;
             html += panelSection('Water Balance', statGrid([
                 { value: deficit != null ? (deficit > 0 ? '+' : '') + deficit + ' mm' : '—', label: deficit != null && deficit > 0 ? 'Deficit' : 'Surplus' },
                 { value: et0  ? et0 + ' mm' : '—',  label: 'ET₀ (7d)' },
                 { value: rain != null ? rain + ' mm' : '—', label: 'Rainfall (7d)' }
             ]));
-        } else if (summary && summary.netDeficit != null) {
-            var def2  = Math.round(summary.netDeficit);
-            var col2  = def2 > 0 ? '#d97706' : '#16a34a';
-            var msg2  = def2 < 0 ? '↑ Ahead by ' + Math.abs(def2) + 'mm — skip cycle' : (def2 > 0 ? 'Deficit: ' + def2 + 'mm' : 'On track');
-            html += panelSection('Water Balance', '<p style="font-size:13px;margin:0;color:' + col2 + ';font-weight:600">' + msg2 + '</p>');
         }
 
         var schedule = irr && irr.schedule;
@@ -1100,7 +1102,7 @@
                 var dayDate = new Date(d.date + 'T12:00:00');
                 var dayName = isNaN(dayDate.getTime()) ? d.date
                     : dayDate.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
-                var mm = d.irrigation != null ? Math.round(d.irrigation) : 0;
+                var mm = d.irrigation != null ? Math.round(d.irrigation.totalDepth || d.irrigation.netDepth || d.irrigation) : 0;
                 return '<div class="db-irr-schedule-row">' +
                     '<span class="db-irr-schedule-day">' + dayName + '</span>' +
                     '<span class="db-irr-schedule-mm">' + (mm > 0 ? mm + ' mm' : '—') + '</span>' +
