@@ -39,6 +39,96 @@
     'use strict';
 
     // =========================================================================
+    // RE-RUN IFRAME SIGNALLING
+    // We only want to signal the parent dashboard after the SECOND orchestrator
+    // pass — the one that runs after gaip:weather-ready with full weather data.
+    // Sequence we wait for:
+    //   1. gaip:weather-ready  → _weatherReady = true
+    //   2. gaip:orchestrator-complete (second pass) → _readyToSignal = true
+    //   3. syncToServer().then() → postMessage fires
+    // =========================================================================
+    var _rerunIframe     = (window.parent !== window);
+    var _weatherReady    = false;
+    var _readyToSignal   = false;
+    var _rerunSignalSent = false;
+
+    function _signalRerunComplete() {
+        if (!_rerunIframe || _rerunSignalSent) return;
+        _rerunSignalSent = true;
+        try { window.parent.postMessage('gilba:analysis-complete', window.location.origin); } catch (e) {}
+    }
+
+    if (_rerunIframe) {
+        /* Shared: do a dedicated DB write then signal the parent. */
+        function _doRerunSync(source) {
+            if (_rerunSignalSent) return;
+            var snap    = cacheAnalysisResults();
+            var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
+                          || (snap && snap.siteId);
+            console.log('[GilbaRerun] _doRerunSync called from:', source || 'unknown',
+                '| siteId:', siteId,
+                '| GP(growth.weighted):', window.climateMetrics && window.climateMetrics.growth && window.climateMetrics.growth.weighted,
+                '| diseaseRisk:', window.GAIP_DISEASE_RESULT && window.GAIP_DISEASE_RESULT.overallScore,
+                '| snap.dashboard:', snap && snap.dashboard);
+            if (!siteId) { _signalRerunComplete(); return; }
+            var csrf    = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
+                          || ((document.querySelector('meta[name="csrf-token"]') || {}).content);
+            var restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
+            fetch(restUrl + 'analysis-cache', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    site_id:     siteId,
+                    analyzed_at: (snap.dashboard && snap.dashboard.timestamp) || snap.cachedAt || new Date().toISOString(),
+                    metrics:     snap.dashboard,
+                    computed:    snap.computed || null,
+                }),
+            }).then(function (r) {
+                console.log('[GilbaRerun] POST /api/analysis-cache success, signalling parent');
+                _signalRerunComplete();
+            }).catch(function (e) {
+                console.warn('[GilbaRerun] POST /api/analysis-cache FAILED:', e, '— signalling anyway');
+                _signalRerunComplete();
+            });
+        }
+
+        document.addEventListener('gaip:weather-ready', function () {
+            console.log('[GilbaRerun] gaip:weather-ready received, setting _weatherReady=true');
+            _weatherReady = true;
+        });
+
+        /* FAST PATH — standard case: weather loads from API after hub starts.
+           gaip:weather-ready fires → _weatherReady = true → next orchestrator-complete
+           triggers a 3s delayed sync (gives async calcs time to finish). */
+        document.addEventListener('gaip:orchestrator-complete', function () {
+            console.log('[GilbaRerun] gaip:orchestrator-complete | _weatherReady:', _weatherReady, '| _readyToSignal:', _readyToSignal);
+            if (_weatherReady && !_readyToSignal) {
+                _readyToSignal = true;
+                setTimeout(function() { _doRerunSync('fast-path-3s'); }, 3000);
+            }
+        });
+
+        /* SLOW PATH — catches the case where gaip:weather-ready fired from a
+           localStorage cache *before* hub-persistence.js registered its listener
+           (weather-resilience.js runs earlier in the script list).  By 10 s the
+           single weather-inclusive analysis pass and all async calculations are
+           guaranteed to have finished. */
+        setTimeout(function () {
+            console.log('[GilbaRerun] 10s slow path | _readyToSignal:', _readyToSignal, '| _weatherReady:', _weatherReady);
+            if (!_readyToSignal) {
+                _readyToSignal = true;
+                _doRerunSync('slow-path-10s');
+            }
+        }, 10000);
+
+        /* Absolute fallback: if nothing saved to DB, just signal at 20 s */
+        setTimeout(function () {
+            console.log('[GilbaRerun] 20s absolute fallback firing, _rerunSignalSent:', _rerunSignalSent);
+            _signalRerunComplete();
+        }, 20000);
+    }
+
+    // =========================================================================
     // CONFIGURATION
     // =========================================================================
 
@@ -832,12 +922,12 @@
         const _cc = global.GaipOrchestrator && typeof global.GaipOrchestrator.getState === 'function'
             ? global.GaipOrchestrator.getState()?.computed?.climate : null;
         if (_cm) {
-            metrics.growthPotential = _cm.growthPotential?.weighted;
+            metrics.growthPotential = _cm.growth?.weighted;
             metrics.gdd             = _cm.gdd?.today;
             metrics.et              = _cm.et?.daily;
             metrics.soilTemp        = _cm.soilTemp?.d100mm;
         } else if (_cc) {
-            metrics.growthPotential = _cc.growthPotential?.weighted;
+            metrics.growthPotential = _cc.growth?.weighted;
             metrics.soilTemp        = _cc.soilTemp?.d100mm ?? _cc.soilTemp;
         }
         
@@ -1068,6 +1158,8 @@
                     metrics:     cache.dashboard,
                     computed:    cache.computed || null,
                 }),
+            }).then(function() {
+                // Signal is sent by the dedicated 3s timer in orchestrator-complete handler
             }).catch(function() {
                 // Silently ignore — localStorage remains the fallback
             });

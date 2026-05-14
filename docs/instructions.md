@@ -44,4 +44,18 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-3** Enhance dashboard functionality by adding interactive side panels for vital cards; implement JavaScript logic for panel opening/closing and update CSS for improved styling and responsiveness.
 **GH-4** Refactor error handling in SensorProxyController to remove status codes; update dashboard view to use route for data link; enhance VWC card with live sensor readings and improved CSS for segmented zone bar.
 **GH-5** Enhance data view by adding disabled 'Add Data' buttons for non-sensor sections, updating empty state hints, and improving CSS styles for better usability and responsiveness.
+**GH-6** Enhance SiteController validation by adding 'attributes_json' field; update navigation links in app layout for clarity; modify settings route to use controller method; implement rerun functionality in dashboard scripts; improve hub persistence signaling for analysis completion; refine climate metrics handling in hub tissue scripts; update documentation with new feature notes.
 
+Why in the block Irrigation plan - doesnt display additional info like - Deficit:1mm
+
+
+Re-running analysis…
+
+When I import data - does this info is updated? Site details
+Basic information about this location.
+
+Auto re-run - setup minutes or hours - how often to rerun
+
+Give permissions to users
+
+Task management

@@ -152,6 +152,7 @@ class SiteController extends Controller
             'longitude' => ['nullable', 'numeric', 'between:-180,180'],
             'timezone' => ['nullable', 'string', 'max:80'],
             'site_type' => ['nullable', 'string', 'max:32'],
+            'attributes_json' => ['nullable', 'array'],
             'precinct_group_id' => ['nullable', 'integer', 'exists:precinct_groups,id'],
             'parent_site_id' => ['nullable', 'string', Rule::exists('sites', 'id')->whereNot('id', $site->id)],
         ]);

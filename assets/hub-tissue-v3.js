@@ -6244,10 +6244,15 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                                             var _c3f = e?.turf?.speciesFractions?.c3Fraction ?? 1;
                                             if (_c4f === 0) {
                                                 er = null;
+                                                // Pure C3: Qt may be a C4 multi-day average (wrong species
+                                                // fallback). Override weighted with the drought module's C3
+                                                // value (Xt) which uses current-hour temp.
+                                                if (Xt !== null) window.climateMetrics.growth.weighted = Xt;
                                                 console.log("[C4 FIX Path-A] Pure C3 grass, gpC4 set to null");
                                             }
                                             if (_c3f === 0) {
                                                 Xt = null;
+                                                if (er !== null) window.climateMetrics.growth.weighted = er;
                                                 console.log("[C3 FIX Path-A] Pure C4 grass, gpC3 set to null");
                                             }
                                         })(),
@@ -6258,7 +6263,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                                             "✅ Climate V2 GP synced to climateMetrics: " +
                                             tr +
                                             "% -> " +
-                                            Qt +
+                                            window.climateMetrics.growth.weighted +
                                             "% (C3=" +
                                             Xt +
                                             "%, C4=" +
@@ -6791,6 +6796,13 @@ function initTurfTypeMode() {
                                                 var _c3frac = t.turf?.speciesFractions?.c3Fraction ?? 1;
                                                 if (_c4frac === 0) {
                                                     gpC4 = null;
+                                                    // Pure C3 grass: weighted = C3 value.
+                                                    // V2's adjustedGrowthPotential is a multi-day forecast
+                                                    // average that can read far below the current C3 value
+                                                    // when cold days dominate the 7-day window. Using gpC3
+                                                    // (today's drought-adjusted C3) keeps the dashboard
+                                                    // consistent with the hub's own status display.
+                                                    if (gpC3 !== null) gpWeighted = gpC3;
                                                     console.log(
                                                         "[C4 FIX] Pure C3 grass detected, gpC4 set to null (hidden). species=" +
                                                         // b35fix218b: t.turf.grassSpecies empty in V2 IIFE on GSSH; fall back to GAIP_STATE
@@ -6801,6 +6813,7 @@ function initTurfTypeMode() {
                                                 }
                                                 if (_c3frac === 0) {
                                                     gpC3 = null;
+                                                    if (gpC4 !== null) gpWeighted = gpC4;
                                                     console.log(
                                                         "[C3 FIX] Pure C4 grass detected, gpC3 set to null (hidden). species=" +
                                                         (t.turf?.grassSpecies || "?") +

@@ -13,6 +13,7 @@ use App\Http\Controllers\MediaUploadController;
 use App\Http\Controllers\PredictionController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SensorProxyController;
+use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use App\Http\Controllers\StadiumAnalysisController;
@@ -47,7 +48,7 @@ Route::middleware('auth')->group(function () {
     Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
-    Route::view('/settings', 'placeholder', ['title' => 'Settings'])->name('settings');
+    Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');

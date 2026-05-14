@@ -1,0 +1,421 @@
+/* ── Settings page ─────────────────────────────────────────── */
+
+/* Scrollable content column (reuse db-content if it exists, add scroll) */
+.stg-scroll {
+    overflow-y: auto;
+    height: 100%;
+}
+
+.stg-wrap {
+    padding: 28px 28px 48px;
+    max-width: 820px;
+}
+
+/* ── Page heading ──────────────────────────────────────────── */
+.stg-page-head {
+    margin-bottom: 20px;
+}
+
+.stg-page-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+    letter-spacing: -0.01em;
+}
+
+/* ── Logout button (topbar) ────────────────────────────────── */
+.stg-logout-btn {
+    background: transparent;
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.stg-logout-btn:hover {
+    border-color: var(--gaip-text-muted, #6b8878);
+    color: var(--gaip-text, #1a2b23);
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.stg-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--gaip-border, #ccd9d2);
+    margin-bottom: 20px;
+}
+
+.stg-tab {
+    padding: 8px 16px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gaip-text-muted, #6b8878);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.stg-tab:hover {
+    color: var(--gaip-text, #1a2b23);
+}
+.stg-tab.active {
+    color: var(--gaip-accent, #2da85e);
+    border-bottom-color: var(--gaip-accent, #2da85e);
+    font-weight: 600;
+}
+
+/* ── Panel visibility ──────────────────────────────────────── */
+.stg-hidden { display: none !important; }
+
+/* ── Card ──────────────────────────────────────────────────── */
+.stg-card {
+    background: var(--gaip-surface, #fff);
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 10px;
+    padding: 24px;
+}
+
+.stg-card-head {
+    margin-bottom: 20px;
+}
+
+.stg-card-head-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.stg-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+    margin-bottom: 3px;
+}
+
+.stg-card-desc {
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    line-height: 1.45;
+}
+
+/* ── No-site state ─────────────────────────────────────────── */
+.stg-no-site {
+    text-align: center;
+    padding: 48px 24px;
+    color: var(--gaip-text-muted, #6b8878);
+    font-size: 14px;
+}
+.stg-no-site p { margin: 0; }
+
+/* ── Form ──────────────────────────────────────────────────── */
+.stg-form {}
+
+.stg-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stg-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.stg-field-narrow {
+    max-width: 400px;
+}
+
+.stg-field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text-muted, #6b8878);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+}
+
+.stg-field input[type="text"],
+.stg-field input[type="number"],
+.stg-field input[type="password"],
+.stg-field select {
+    width: 100%;
+    padding: 8px 11px;
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--gaip-text, #1a2b23);
+    background: var(--gaip-surface, #fff);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    line-height: 1.4;
+}
+.stg-field input:focus,
+.stg-field select:focus {
+    outline: none;
+    border-color: var(--gaip-accent, #2da85e);
+    box-shadow: 0 0 0 3px rgba(45, 168, 94, 0.12);
+}
+
+.stg-field-hint {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: var(--gaip-text-muted, #6b8878);
+    line-height: 1.4;
+}
+
+/* ── Actions row ───────────────────────────────────────────── */
+.stg-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.stg-btn-primary {
+    padding: 8px 16px;
+    background: var(--gaip-accent, #2da85e);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.stg-btn-primary:hover  { background: var(--gaip-accent-hover, #259950); }
+.stg-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.stg-btn-secondary {
+    padding: 8px 14px;
+    background: transparent;
+    color: var(--gaip-text, #1a2b23);
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.stg-btn-secondary:hover   { background: var(--gaip-surface-muted, #eef2f0); border-color: #b0c0b8; }
+.stg-btn-secondary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Feedback messages ─────────────────────────────────────── */
+.stg-msg {
+    font-size: 13px;
+    font-weight: 500;
+}
+.stg-msg.ok  { color: var(--gaip-good, #16a34a); }
+.stg-msg.err { color: var(--gaip-critical, #dc2626); }
+
+/* ── Zones ─────────────────────────────────────────────────── */
+.stg-zone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 14px;
+    min-height: 10px;
+}
+
+.stg-zone-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border: 1px solid var(--gaip-border-light, #dde7e2);
+    border-radius: 7px;
+    font-size: 14px;
+    color: var(--gaip-text, #1a2b23);
+}
+
+.stg-zone-name { flex: 1; }
+
+.stg-zone-del {
+    background: transparent;
+    border: none;
+    padding: 2px 5px;
+    cursor: pointer;
+    color: var(--gaip-text-muted, #6b8878);
+    font-size: 16px;
+    line-height: 1;
+    border-radius: 4px;
+    transition: color 0.12s, background 0.12s;
+}
+.stg-zone-del:hover { color: var(--gaip-critical, #dc2626); background: #fef2f2; }
+
+.stg-zone-empty {
+    padding: 14px 0;
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    font-style: italic;
+}
+
+.stg-zone-add {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.stg-zone-input {
+    flex: 1;
+    max-width: 300px;
+    padding: 8px 11px;
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 14px;
+    color: var(--gaip-text, #1a2b23);
+    background: var(--gaip-surface, #fff);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.stg-zone-input:focus {
+    outline: none;
+    border-color: var(--gaip-accent, #2da85e);
+    box-shadow: 0 0 0 3px rgba(45, 168, 94, 0.12);
+}
+
+/* ── Coming soon ───────────────────────────────────────────── */
+.stg-coming-soon {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 18px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border: 1px solid var(--gaip-border-light, #dde7e2);
+    border-radius: 8px;
+}
+
+.stg-coming-soon-icon {
+    color: var(--gaip-text-muted, #6b8878);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.stg-coming-soon-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gaip-text, #1a2b23);
+    margin-bottom: 4px;
+}
+
+.stg-coming-soon-body {
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    line-height: 1.5;
+}
+
+/* ── Import tab ────────────────────────────────────────────── */
+.imp-file-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 18px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border: 1px dashed var(--gaip-border, #ccd9d2);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--gaip-text-muted, #6b8878);
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    max-width: 360px;
+}
+.imp-file-label:hover {
+    background: var(--gaip-accent-light, #e6f5ec);
+    border-color: var(--gaip-accent, #2da85e);
+    color: var(--gaip-accent-dark, #1e7d45);
+}
+
+.imp-found-table {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.imp-found-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 16px;
+    background: var(--gaip-surface-muted, #eef2f0);
+    border: 1px solid var(--gaip-border-light, #dde7e2);
+    border-radius: 8px;
+}
+
+.imp-found-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--gaip-text-muted, #6b8878);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.imp-found-count {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--gaip-text, #1a2b23);
+    line-height: 1;
+}
+
+.imp-found-count.zero {
+    color: var(--gaip-text-muted, #6b8878);
+    font-size: 18px;
+}
+
+.imp-target-note {
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    margin-top: 2px;
+}
+
+.imp-target-note strong {
+    color: var(--gaip-text, #1a2b23);
+}
+
+.imp-nothing {
+    padding: 16px;
+    font-size: 14px;
+    color: var(--gaip-text-muted, #6b8878);
+    background: var(--gaip-surface-muted, #eef2f0);
+    border-radius: 8px;
+}
+
+.imp-success {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px;
+    background: var(--gaip-good-bg, #f0fdf4);
+    border: 1px solid var(--gaip-good-border, #86efac);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--gaip-good, #16a34a);
+    font-weight: 500;
+}
+
+/* ── Integration badge ─────────────────────────────────────── */
+.stg-integration-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--gaip-accent-light, #e6f5ec);
+    color: var(--gaip-accent-dark, #1e7d45);
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
