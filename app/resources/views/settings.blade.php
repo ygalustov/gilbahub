@@ -398,7 +398,7 @@
                                     <p class="stg-field-hint">MLSN: validated for sand-based greens. SLAN: standard for sports fields, fairways, and lawns.</p>
                                 </div>
                                 <div class="stg-field">
-                                    <label for="stg-turf-n">Annual nitrogen (kg N/ha/year)</label>
+                                    <label for="stg-turf-n">Annual nitrogen (kg/ha)</label>
                                     <input type="number" id="stg-turf-n" name="nProgram"
                                            value="{{ $turfVal('nProgram') }}" min="0" max="1000" step="1" placeholder="e.g. 150">
                                 </div>

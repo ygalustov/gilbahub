@@ -49,6 +49,8 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-7** Enhance dashboard irrigation metrics by refining deficit calculations and improving water balance display logic; update irrigation schedule handling for better data accuracy.
 **GH-8** Enhance settings and site configuration by adding turf profile management, location geocoding autocomplete, and improved site data handling; update SettingsController to include active GAIP configuration and modify view to display turf-related fields.
 **GH-9** Enhance site configuration handling by integrating active GAIP configuration into the app layout; improve turf profile management in hub orchestrator and site config persistence, ensuring species data is accurately seeded and fallback mechanisms are in place for better data integrity.
+**GH-10** Update settings view to clarify annual nitrogen label and add soil temperature query in instructions documentation for improved user guidance.
+
 
 
 ## Backlog
@@ -70,6 +72,8 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - The only exception: manually-entered samples with no client_uid (NULL) are preserved, because they're not tracked by the import system - why manually-entered samples are with no client_uid ?
 
 - How often data should be pulled from sensors?
+
+- Soil temperature take from sensor ? 
 
 
 
