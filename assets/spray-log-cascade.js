@@ -61,8 +61,8 @@
         
         log('Context query params: siteId=' + siteId + ' zone=' + zone);
         
-        if (!siteId) {
-            log('No site ID available');
+        if (!siteId || siteId === 'default') {
+            log('No valid site ID — skipping (will reload on gaip:site-config-applied). siteId=' + siteId);
             return null;
         }
 

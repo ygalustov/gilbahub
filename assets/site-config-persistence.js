@@ -520,8 +520,6 @@
         // Location, water, soil, and other config are unaffected.
         var _isGSSHPage = !!(
             document.getElementById('gssh-venue-readiness') ||
-            document.querySelector('[id^="gssh-"]') ||
-            global.GSSH_EUE ||
             (global.location && global.location.search && global.location.search.indexOf('gssh_venue') !== -1)
         );
         var skipTurfIdentity = _isGSSHPage;
@@ -852,23 +850,35 @@
     function init() {
         loadFromStorage();
 
-        // Seed active site config from server-injected GAIP_HUB_CONFIG.siteConfig.
-        // This runs synchronously before any async API call so species is available
-        // immediately on page load — no race condition with pullConfigsFromServer.
-        // Server wins for identity fields (species, turfType, etc.) when local is empty.
+        // Seed active site config from server-injected DB config.
+        // Prefers the full GAIP_HUB_CONFIG.gaipConfig (all sections: turf, location,
+        // traffic, shade, pgr, schedule, etc.) over the legacy siteConfig subset.
+        // Runs synchronously so species is available immediately — no race with pullConfigsFromServer.
+        // DB wins for identity fields (species, turfType) only when local is empty.
         (function seedFromInjectedConfig() {
-            var injected = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteConfig;
-            var siteId   = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+            var hubCfg  = global.GAIP_HUB_CONFIG || {};
+            var fullCfg = hubCfg.gaipConfig || null;  // full DB config (all sections)
+            var injected = fullCfg || hubCfg.siteConfig;  // fallback to legacy subset
+            var siteId   = hubCfg.activeSiteId;
             if (!injected || !injected.turf || !injected.turf.species || !siteId) return;
             if (!_configs[siteId]) _configs[siteId] = { turf: {}, location: {} };
             var local = _configs[siteId];
             if (local.turf && local.turf.species) return; // local already has species — don't overwrite
-            local.turf = Object.assign({}, local.turf || {}, injected.turf);
-            if (injected.location && injected.location.lat) {
-                local.location = Object.assign({}, local.location || {}, injected.location);
+            if (fullCfg) {
+                // Full DB config available — seed every section that isn't already saved locally.
+                var SKIP_KEYS = { savedAt: true, wizard: true };
+                Object.keys(fullCfg).forEach(function(key) {
+                    if (SKIP_KEYS[key]) return;
+                    if (!local[key]) local[key] = fullCfg[key];
+                });
+            } else {
+                local.turf = Object.assign({}, local.turf || {}, injected.turf);
+                if (injected.location && injected.location.lat) {
+                    local.location = Object.assign({}, local.location || {}, injected.location);
+                }
             }
             saveToStorage();
-            log('Seeded site config from GAIP_HUB_CONFIG.siteConfig — species:', injected.turf.species);
+            log('Seeded site config from GAIP_HUB_CONFIG' + (fullCfg ? '.gaipConfig' : '.siteConfig') + ' — species:', injected.turf.species);
         })();
 
         _cleanupLocationBleed(); // b35fix268
@@ -1087,6 +1097,27 @@
                     saveToStorage();
                     log('Page-load config finalised for', currentId,
                         '— species:', (freshSnap.turf || {}).species);
+
+                    // Seed GAIP_STATE.turf so hub-orchestrator's computeAll finds the
+                    // correct species on gaip:site-config-applied, even on a fresh import
+                    // where TurfProfile skips last-profile restore (GSSH page detection)
+                    // and no previous-session GAIP_STATE exists.
+                    var _snapTurf = freshSnap.turf || {};
+                    var _snapSpecies = _snapTurf.species || _snapTurf.grassSpecies;
+                    if (_snapSpecies) {
+                        global.GAIP_STATE = global.GAIP_STATE || {};
+                        global.GAIP_STATE.turf = global.GAIP_STATE.turf || {};
+                        var _gst = global.GAIP_STATE.turf;
+                        if (!_gst.grassSpecies) _gst.grassSpecies = _snapSpecies;
+                        if (!_gst.effectiveSpecies) _gst.effectiveSpecies = _snapSpecies;
+                        if (!_gst.species) _gst.species = _snapSpecies;
+                        if (!_gst.turfType && _snapTurf.turfType) _gst.turfType = _snapTurf.turfType;
+                        if (!_gst.subCategory && _snapTurf.subCategory) _gst.subCategory = _snapTurf.subCategory;
+                        if (!_gst.variety && _snapTurf.variety) _gst.variety = _snapTurf.variety;
+                        if (!_gst.trafficLevel && _snapTurf.trafficLevel) _gst.trafficLevel = _snapTurf.trafficLevel;
+                        log('Seeded GAIP_STATE.turf.grassSpecies =', _snapSpecies, 'for computeAll');
+                    }
+
             log('Page-load restore complete — dispatching gaip:site-config-applied');
                     global.GAIP_SITE_CONFIG_PENDING = false;
                     document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {

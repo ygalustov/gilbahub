@@ -1435,8 +1435,6 @@
       // then fall back to checking the URL for known GSSH patterns.
       var _isGSSHPage = !!(
         document.getElementById('gssh-venue-readiness') ||
-        document.querySelector('[id^="gssh-"]') ||
-        window.GSSH_EUE ||
         (window.location && window.location.search.indexOf('gssh_venue') !== -1)
       );
       if (_isGSSHPage) {

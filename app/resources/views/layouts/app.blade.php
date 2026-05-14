@@ -34,7 +34,8 @@
             hubUrl: "{{ route('hub') }}",
             hubMode: "agronomic",
             savedLocation: @json($savedLocation),
-            siteConfig: @json($siteConfig)
+            siteConfig: @json($siteConfig),
+            gaipConfig: @json($activeGaipConfig ?: null)
         });
         window.GAIP_FIELD_LOG_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG, window.GAIP_FIELD_LOG_CONFIG || {});
         window.GAIP_WIZARD_CONFIG = Object.assign({}, window.GAIP_WIZARD_CONFIG || {}, {

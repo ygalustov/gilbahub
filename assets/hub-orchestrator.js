@@ -541,6 +541,21 @@
       }
       // ── end enrichment ─────────────────────────────────────────────
 
+      // DB species fallback: inject species into allInputs.turf BEFORE validateIdentity
+      // so TIER 0 can pass even when TurfProfile restore cascade hasn't finished yet.
+      // DB (gaipConfig) is the authoritative source → fallback GAIP_STATE.
+      if (!_onGSSHVenuePage && allInputs.turf && !allInputs.turf.grassSpecies) {
+        var _preCfg = global.GAIP_HUB_CONFIG && (global.GAIP_HUB_CONFIG.gaipConfig || global.GAIP_HUB_CONFIG.siteConfig);
+        var _preSpecies = (_preCfg && _preCfg.turf && (_preCfg.turf.species || _preCfg.turf.grassSpecies)) || null;
+        if (!_preSpecies && global.GAIP_STATE && global.GAIP_STATE.turf) {
+          _preSpecies = global.GAIP_STATE.turf.effectiveSpecies || global.GAIP_STATE.turf.grassSpecies || null;
+        }
+        if (_preSpecies) {
+          allInputs.turf = Object.assign({}, allInputs.turf, { grassSpecies: _preSpecies });
+          log('canonical', '[db-pre-identity] Injected species from DB before validateIdentity:', _preSpecies);
+        }
+      }
+
       identityResult = global.GilbaIdentityEnforcement.validateIdentity(allInputs);
 
       if (!identityResult.valid) {
@@ -600,7 +615,19 @@
       rawEffectiveSpecies = turf.effectiveSpecies || turf.species?.effectiveSpecies;
     }
 
-    // Also check SpeciesController state (it may have been set by UI)
+    // DB config is the authoritative user-configured species — check it BEFORE
+    // SpeciesController which returns 'perennialRyegrass' as a default when nothing
+    // is set in the UI. Checking DB first means a stale SpeciesController default
+    // cannot shadow the correct DB species.
+    if (!rawSpecies) {
+      var _dbCfg = global.GAIP_HUB_CONFIG && (global.GAIP_HUB_CONFIG.gaipConfig || global.GAIP_HUB_CONFIG.siteConfig);
+      if (_dbCfg && _dbCfg.turf) {
+        rawSpecies = _dbCfg.turf.species || _dbCfg.turf.grassSpecies || null;
+        if (!rawEffectiveSpecies) rawEffectiveSpecies = rawSpecies;
+      }
+    }
+
+    // SpeciesController fallback (may have been set by UI interactions)
     if (!rawSpecies && global.SpeciesController) {
       rawSpecies = global.SpeciesController.getBaseSpecies();
       rawEffectiveSpecies = global.SpeciesController.getEffectiveSpecies();
@@ -639,6 +666,25 @@
           );
           speciesKey = _stateKey;
           effectiveSpeciesKey = _stateKey;
+        }
+      }
+    }
+    // Last resort: if still on the default, use the server-injected DB config.
+    // SpeciesController.getBaseSpecies() returns 'perennialRyegrass' when nothing
+    // is set, so this catches fresh-import page loads where GAIP_STATE is empty
+    // and TurfProfile has not yet cascaded species into the DOM.
+    if ((speciesKey === _DEFAULT_SPECIES_KEY || !speciesKey) && global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteConfig) {
+      const _injCfg = global.GAIP_HUB_CONFIG.siteConfig;
+      const _injSpecies = (_injCfg.turf && (_injCfg.turf.species || _injCfg.turf.grassSpecies)) || null;
+      if (_injSpecies) {
+        const _injKey = global.SpeciesController
+          ? global.SpeciesController.normalize(_injSpecies)
+          : normalizeSpeciesKey(_injSpecies);
+        if (_injKey && _injKey !== _DEFAULT_SPECIES_KEY) {
+          log("canonical", `speciesKey resolved from GAIP_HUB_CONFIG.siteConfig: "${_injKey}"`);
+          speciesKey = _injKey;
+          effectiveSpeciesKey = _injKey;
+          rawSpecies = _injSpecies;
         }
       }
     }

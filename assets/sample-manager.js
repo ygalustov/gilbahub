@@ -2402,12 +2402,15 @@
                 warn('Site not found: ' + siteId);
                 return false;
             }
+            var changed = siteId !== _currentSite;
             _currentSite = siteId;
             _initSite(siteId);
             log('Switched to site: ' + siteId + ' (' + (_sites[siteId].label || siteId) + ')');
-            document.dispatchEvent(new CustomEvent('gaip:site-changed', {
-                detail: { siteId: siteId, label: _sites[siteId].label }
-            }));
+            if (changed) {
+                document.dispatchEvent(new CustomEvent('gaip:site-changed', {
+                    detail: { siteId: siteId, label: _sites[siteId].label }
+                }));
+            }
             return true;
         },
         
