@@ -14,15 +14,18 @@
     <title>Growth & Light Analysis — {{ config('app.name') }}</title>
     <script>
         window.GAIP_HUB_CONFIG = Object.assign({}, window.GAIP_HUB_CONFIG || {}, {
-            nonce:         "{{ csrf_token() }}",
-            csrfToken:     "{{ csrf_token() }}",
-            restUrl:       "{{ url('/api') }}/",
-            userId:        {{ auth()->id() ?? 0 }},
-            activeSiteId:  @json($activeSite?->id),
-            siteUrl:       "{{ url('/') }}",
-            hubUrl:        "{{ route('hub') }}",
-            hubMode:       "agronomic",
-            savedLocation: @json($savedLocation)
+            nonce:            "{{ csrf_token() }}",
+            csrfToken:        "{{ csrf_token() }}",
+            restUrl:          "{{ url('/api') }}/",
+            userId:           {{ auth()->id() ?? 0 }},
+            activeSiteId:     @json($activeSite?->id),
+            siteUrl:          "{{ url('/') }}",
+            hubUrl:           "{{ route('hub') }}",
+            hubMode:          "agronomic",
+            savedLocation:    @json($savedLocation),
+            turfSpecies:      @json($turfSpecies),
+            turfMethodology:  @json($turfMethodology),
+            percentC3Cover:   @json($percentC3Cover)
         });
         window.GAIP_DASHBOARD_DATA = @json($analysisCache);
     </script>
@@ -130,7 +133,7 @@
         </header>
 
         {{-- NOTIFICATION BAR (shown by JS when data is stale/missing) --}}
-        <div id="db-analysis-notice" class="db-verdict warning" hidden>
+        <div id="db-analysis-notice" class="db-verdict warning" style="display:none">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
@@ -169,6 +172,14 @@
 
     </div>{{-- /.db-main --}}
 </div>{{-- /.db-shell --}}
+
+{{-- Info popover (shared, positioned by JS) --}}
+<div id="db-info-popover" class="db-info-popover" style="display:none">
+    <div id="db-info-popover-arrow" class="db-info-popover-arrow"></div>
+    <button id="db-info-popover-close" class="db-info-popover-close" type="button">&#215;</button>
+    <div id="db-info-popover-title" class="db-info-popover-title"></div>
+    <div id="db-info-popover-body" class="db-info-popover-body"></div>
+</div>
 
 {{-- Assets --}}
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>

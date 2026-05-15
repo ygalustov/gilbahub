@@ -907,7 +907,73 @@
                 cache.computed = state.computed;
             }
         }
-        
+
+        // Augment computed.climate with Climate V2 dual metrics (daily GP chips + trend text).
+        // GAIP_CLIMATE_V2_RESULT.dualMetrics has .daily[], .trajectory, .current, .outlook
+        // which are not captured by the orchestrator's computed state.
+        const _v2 = global.GAIP_CLIMATE_V2_RESULT;
+        if (_v2 && _v2.dualMetrics && _v2.dualMetrics.available) {
+            cache.computed = Object.assign({}, cache.computed || {});
+            cache.computed.climate = Object.assign({}, cache.computed.climate || {});
+            cache.computed.climate.dualMetrics     = _v2.dualMetrics;
+            cache.computed.climate.outlookHeadline = _v2.outlookHeadline || null;
+        }
+
+        // Also save today's temperature mean from climateMetrics for the "today's GP" context line.
+        const _liveClimate = global.climateMetrics;
+        if (_liveClimate && _liveClimate.temperature) {
+            cache.computed = Object.assign({}, cache.computed || {});
+            cache.computed.climate = Object.assign({}, cache.computed.climate || {});
+            cache.computed.climate.temperature = _liveClimate.temperature;
+        }
+
+        // Reconstruct dailyPattern and forecast.temp.insight from raw weather data.
+        // validateClimateMetrics strips these fields, so we recalculate them here
+        // using the globally-available climate-engine.js functions.
+        var _raw = global.rawWeatherData;
+        if (_raw && _raw.forecast && _raw.forecast.hourly &&
+            typeof aggregateHourlyToDaily === 'function' &&
+            typeof calculateGrowthMetrics === 'function' &&
+            typeof calculateForecastInsights === 'function') {
+            try {
+                var _dailyRows = aggregateHourlyToDaily(_raw.forecast.hourly);
+                // Build a minimal state with species fractions for calculateGrowthMetrics
+                var _orcState = global.GaipOrchestrator && typeof global.GaipOrchestrator.getState === 'function'
+                    ? global.GaipOrchestrator.getState() : null;
+                var _fracs = (_orcState && _orcState.turf && _orcState.turf.speciesFractions)
+                    || (global.GAIP_STATE && global.GAIP_STATE.turf && global.GAIP_STATE.turf.speciesFractions)
+                    || null;
+                var _c3f = (_fracs && _fracs.c3Fraction != null) ? _fracs.c3Fraction
+                    : (global.GAIP_STATE && global.GAIP_STATE.turf && global.GAIP_STATE.turf.c3Fraction != null)
+                    ? global.GAIP_STATE.turf.c3Fraction : 1;
+                var _c4f = (_fracs && _fracs.c4Fraction != null) ? _fracs.c4Fraction
+                    : (1 - _c3f);
+                var _minimalState = { turf: { species: { c3Fraction: _c3f, c4Fraction: _c4f } } };
+                var _todayMean = (_liveClimate && _liveClimate.temperature && _liveClimate.temperature.todayMean != null)
+                    ? _liveClimate.temperature.todayMean : 20;
+                var _growthFull = calculateGrowthMetrics(_todayMean, _minimalState, _dailyRows);
+                var _forecastFull = calculateForecastInsights(_dailyRows, _minimalState);
+                if (_growthFull && Array.isArray(_growthFull.dailyPattern) && _growthFull.dailyPattern.length > 0) {
+                    cache.computed = Object.assign({}, cache.computed || {});
+                    cache.computed.climate = Object.assign({}, cache.computed.climate || {});
+                    cache.computed.climate.growth = Object.assign({}, cache.computed.climate.growth || {}, {
+                        dailyPattern: _growthFull.dailyPattern
+                    });
+                    console.log('[GilbaPersist] Augmented dailyPattern, length:', _growthFull.dailyPattern.length);
+                }
+                if (_forecastFull && _forecastFull.temp) {
+                    cache.computed = Object.assign({}, cache.computed || {});
+                    cache.computed.climate = Object.assign({}, cache.computed.climate || {});
+                    cache.computed.climate.forecast = Object.assign({}, cache.computed.climate.forecast || {}, {
+                        temp: _forecastFull.temp
+                    });
+                    console.log('[GilbaPersist] Augmented forecast.temp.insight:', _forecastFull.temp.insight);
+                }
+            } catch (e) {
+                console.warn('[GilbaPersist] Failed to reconstruct dailyPattern/forecast:', e);
+            }
+        }
+
         return cache;
     }
 

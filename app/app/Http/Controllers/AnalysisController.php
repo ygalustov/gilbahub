@@ -22,16 +22,20 @@ class AnalysisController extends Controller
         $gaipConfig      = [];
         $turfSpecies     = null;
         $turfMethodology = null;
+        $percentC3Cover  = null;
         $locationName    = null;
 
         if ($activeSite) {
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
             $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
-            $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
-            $turfMethodology = isset($gaipConfig['turf']['methodology'])
+            $turfSpecies      = $gaipConfig['turf']['species'] ?? null;
+            $turfMethodology  = isset($gaipConfig['turf']['methodology'])
                 ? strtoupper($gaipConfig['turf']['methodology'])
                 : null;
-            $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
+            $percentC3Cover   = isset($gaipConfig['turf']['c3Cover'])
+                ? (float) $gaipConfig['turf']['c3Cover']
+                : null;
+            $locationName     = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
         }
 
         $analysisCacheRecord = $activeSite
@@ -50,6 +54,7 @@ class AnalysisController extends Controller
             'savedLocation'   => $savedLocation,
             'turfSpecies'     => $turfSpecies,
             'turfMethodology' => $turfMethodology,
+            'percentC3Cover'  => $percentC3Cover,
             'locationName'    => $locationName,
             'analysisCache'   => $analysisCache,
         ]);

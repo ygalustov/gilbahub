@@ -51,6 +51,9 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-9** Enhance site configuration handling by integrating active GAIP configuration into the app layout; improve turf profile management in hub orchestrator and site config persistence, ensuring species data is accurately seeded and fallback mechanisms are in place for better data integrity.
 **GH-10** Update settings view to clarify annual nitrogen label and add soil temperature query in instructions documentation for improved user guidance.
 **GH-11** Update navigation links in dashboard, data, and settings views to point to the new analysis growth-light route; add route definition for analysis growth-light in web.php.
+**GH-12** Enhance growth light analysis by adding percent C3 cover to the AnalysisController and updating the view to include turf species, methodology, and C3 cover data. Improve JavaScript insights for climate metrics and refine CSS styles for better layout and usability.
+
+
 
 ## Backlog
 
@@ -75,6 +78,60 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - How often data should be pulled from sensors?
 
 - Soil temperature take from sensor ? 
+
+- Check settings update. Looks like it is not saving data. Ex - C3 cover. 
+
+
+
+
+are you sure that 66% it is only based on the temperature? because on the old site it said Thermal Breakdown
+Cool (C3)
+99
+Weighted
+66
+
+
+Why 85 is moderate? what all options do you have on old site?
+
+
+---
+
+
+Нашёл точные тексты из старого сайта. Вот сравнение:
+
+Старый сайт (hub-tissue-v3.js):
+
+t >= 15 && t <= 25 → "Optimal C3 growth range - cool-season grasses thriving." ✓
+t > 30 → "C3 grasses are heat-stressed - C4 grasses dominating."
+t < 10 → "C4 grasses are dormant - C3 dominant in mixed stands."
+Heat event → "Heat event forecast (X°C peak) - C3 stress expected."
+else → "Transition zone - both grass types moderately active."
+У нас есть лишнее (наши дополнения):
+
+"Warm conditions — C3 growth declining as temperatures rise." (t 25-30)
+"Cool conditions — approaching optimal C3 range." (t 10-15)
+"Cold — C3 growth very slow." (t 5-10)
+Все C4-специфичные тексты ("Optimal C4 growth range...", "Warm conditions — C4 growth accelerating...")
+Старый сайт показывал один текст для любой ситуации (не разделяя C3/C4). Хочешь оставить наши дополнения или сократить до точных текстов старого сайта?
+
+
+---
+
+
+Чтобы настроить mixed stand в GAIP settings, нужно одновременно заполнить несколько полей — движок (calculateC3C4Fractions) определяет смешанный травостой только когда есть обе компоненты:
+
+1. Primary species → C4 тёплосезонная трава
+Выбери что-то из: Couch / Bermuda / Kikuyu / Zoysia / Buffalo. Это устанавливает warmBase в настройках сайта.
+
+2. Overseed field → C3 холодносезонная трава
+Выбери: Perennial Ryegrass / Fescue / Bluegrass / Annual Ryegrass. Это пишется в поле coolOverseed.
+
+3. C3 Cover (%) → реальная доля C3
+Например: если 40% площади покрыто подсевом — ставь 40. Движок использует это число как пропорцию blend.
+
+4. Overseed Status → не "none"
+Должен быть "established" или "dominant" (иначе движок считает, что подсева нет).
+
 
 
 
