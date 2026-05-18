@@ -178,7 +178,7 @@
     <div id="db-info-popover-arrow" class="db-info-popover-arrow"></div>
     <button id="db-info-popover-close" class="db-info-popover-close" type="button">&#215;</button>
     <div id="db-info-popover-title" class="db-info-popover-title"></div>
-    <div id="db-info-popover-body" class="db-info-popover-body"></div>
+    <div id="db-info-popover-body" class="db-info-popover-body" style="white-space:pre-line"></div>
 </div>
 
 {{-- Assets --}}

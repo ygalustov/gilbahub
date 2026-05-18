@@ -488,7 +488,7 @@
     <div class="db-info-popover-arrow" id="db-info-popover-arrow"></div>
     <button class="db-info-popover-close" id="db-info-popover-close" aria-label="Close">×</button>
     <div class="db-info-popover-title" id="db-info-popover-title"></div>
-    <div class="db-info-popover-body" id="db-info-popover-body"></div>
+    <div class="db-info-popover-body" id="db-info-popover-body" style="white-space:pre-line"></div>
 </div>
 
 {{-- Card side panel — slides in from right on vital card click --}}

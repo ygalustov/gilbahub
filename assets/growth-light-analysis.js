@@ -117,7 +117,7 @@
             if (t >= 15)       return ins('Optimal conditions — expect strong growth.', 'green');
             if (t >= 10)       return ins('Cool conditions — growth is slower, improving as it warms.', 'amber');
             if (t >= 5)        return ins('Cold — growth is very slow.', 'blue');
-            return ins('Very cold — growth has nearly stopped.', 'blue');
+            return ins('Very cold — growth has stopped.', 'blue');
         }
 
         if (gt === 'c4') {

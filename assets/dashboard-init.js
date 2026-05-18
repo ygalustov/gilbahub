@@ -32,8 +32,8 @@
 
     var INFO_GLOSSARY = {
         'growth-potential': {
-            title: 'Growth Potential',
-            body:  'How actively the turf is growing right now (0% = dormant, 100% = peak growth). Combines temperature, day length, and grass variety.'
+            title: '16-Day Average Growth Potential',
+            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the full 16-day weather forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming weeks. Use it to plan fertiliser applications, overseeding, and recovery work.'
         },
         'disease-risk': {
             title: 'Disease Risk',
@@ -323,7 +323,7 @@
                 var thermalVal = isWarm ? c4 : c3;
                 var seasonLabel = isWarm ? 'Warm-Season' : 'Cool-Season';
                 var gpFooterStr = thermalVal != null
-                    ? seasonLabel + ' · Thermal ' + thermalVal + '%'
+                    ? seasonLabel + ' · Current GP ' + thermalVal + '%'
                     : seasonLabel;
                 setText('db-gp-footer', gpFooterStr);
             } else if (m.soilTemp != null) {
@@ -759,7 +759,6 @@
         // Thresholds (defaults; ideally pulled from site config)
         var wp     = 10;   // wilting point
         var trig   = 12;   // irrigation trigger
-        var optLow = 12;
         var optHi  = 15;
         var maxVal = 40;   // bar scale
 
@@ -924,37 +923,108 @@
     /* ── Growth Potential ── */
     function buildGrowthPanel(m, c) {
         var gpObj   = c && c.climate && c.climate.growth;
-        var gpRaw   = m && m.growthPotential != null ? m.growthPotential
+        var climate = c && c.climate;
+
+        // 16-day average (what the dashboard card shows)
+        var avgRaw  = m && m.growthPotential != null ? m.growthPotential
                     : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
-        var gp      = gpRaw != null ? (gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100)) : null;
-        var gpCls   = gp != null ? (gp >= 70 ? 'ok' : (gp >= 40 ? 'warning' : 'critical')) : '';
+        var avgGP   = avgRaw != null ? (avgRaw > 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100)) : null;
+
+        // Today's GP
         var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
         var c4f     = gpObj ? (gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0)) : 0;
         var isWarm  = c4f > c3f;
-        var html    = panelHero(gp != null ? gp + '%' : '—', gpCls, isWarm ? 'Warm-Season Grass' : 'Cool-Season Grass');
+        var todayRaw = gpObj ? (isWarm ? gpObj.c4 : gpObj.c3) : null;
+        if (todayRaw == null && gpObj) todayRaw = gpObj.weighted;
+        var todayGP  = todayRaw != null ? (todayRaw > 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
+        var todayCls = todayGP != null ? (todayGP >= 70 ? 'ok' : (todayGP >= 40 ? 'warning' : 'critical')) : '';
 
-        if (gpObj) {
-            var c3v = gpObj.c3      != null ? (gpObj.c3      > 1 ? Math.round(gpObj.c3)      : Math.round(gpObj.c3      * 100)) : null;
-            var c4v = gpObj.c4      != null ? (gpObj.c4      > 1 ? Math.round(gpObj.c4)      : Math.round(gpObj.c4      * 100)) : null;
-            var wtv = gpObj.weighted != null ? (gpObj.weighted > 1 ? Math.round(gpObj.weighted) : Math.round(gpObj.weighted * 100)) : gp;
-            var rows = '';
-            if (c3v != null) rows += factorRow('Cool (C3)', c3v, barColor(100 - c3v));
-            if (c4v != null) rows += factorRow('Warm (C4)', c4v, barColor(100 - c4v));
-            if (wtv != null) rows += factorRow('Weighted', wtv, barColor(100 - wtv));
-            if (rows) html += panelSection('Thermal Breakdown', rows);
+        // Species info
+        var cfg         = global.GAIP_HUB_CONFIG || {};
+        var speciesName = cfg.turfSpecies ? cfg.turfSpecies : null;
+        var seasonTag   = isWarm ? 'C4 warm-season grass' : 'C3 cool-season grass';
+
+        // Temperature — prefer weather widget cache (current.temperature_2m)
+        var todayTemp = (function() {
+            try {
+                for (var i = 0; i < localStorage.length; i++) {
+                    var k = localStorage.key(i);
+                    if (k && k.startsWith('gaip_weather_cache_')) {
+                        var entry = safeJson(localStorage.getItem(k));
+                        var cur = entry && entry.data && (entry.data.current || entry.data.current_weather);
+                        if (cur) return cur.temperature_2m !== undefined ? cur.temperature_2m : cur.temperature;
+                    }
+                }
+            } catch (e) {}
+            return climate && climate.temperature ? climate.temperature.todayMean : null;
+        })();
+        var tempStr = todayTemp != null ? todayTemp.toFixed(1) + '°C' : null;
+        var insightText = (function() {
+            if (todayTemp == null) return null;
+            var t = todayTemp;
+            if (isWarm) {
+                if (t > 38)   return 'Extreme heat — growth is starting to suffer.';
+                if (t >= 28)  return 'Optimal conditions — expect strong growth.';
+                if (t >= 20)  return 'Warm conditions — growth is picking up.';
+                if (t >= 10)  return 'Cool conditions — warm-season grass growth is suppressed.';
+                return 'Cold — grass is dormant.';
+            } else {
+                if (t > 30)   return 'Heat stress — growth has nearly stopped.';
+                if (t >= 25)  return 'Warm conditions — grass growth is slowing.';
+                if (t >= 15)  return 'Optimal conditions — expect strong growth.';
+                if (t >= 10)  return 'Cool conditions — growth is slower, improving as it warms.';
+                if (t >= 5)   return 'Cold — growth is very slow.';
+                return 'Very cold — growth has stopped.';
+            }
+        })();
+
+        // ET₀, Soil Temp
+        var etVal  = m && m.et       != null ? m.et       : (climate && climate.et       != null ? climate.et       : null);
+        var stVal  = m && m.soilTemp != null ? m.soilTemp : (climate && climate.soilTemp != null ? climate.soilTemp : null);
+
+        var avgCls = avgGP != null ? (avgGP >= 70 ? 'ok' : (avgGP >= 40 ? 'warning' : 'critical')) : '';
+        var html = '';
+
+        // Species badge
+        if (speciesName) {
+            html += '<div style="font-size:12px;color:var(--gaip-text-muted,#6b8878);margin-bottom:14px;padding:8px 12px;background:var(--gaip-surface-muted,#f5f7f6);border-radius:6px;border:1px solid var(--gaip-border,#d8e0dc)">' +
+                '<strong style="color:var(--gaip-text,#1a2b23)">' + speciesName + '</strong>' +
+                ' &middot; ' + seasonTag +
+                '</div>';
         }
 
-        var climate = c && c.climate;
-        var gddVal  = m && m.gdd      != null ? m.gdd      : (climate && climate.gdd      != null ? climate.gdd      : null);
-        var etVal   = m && m.et       != null ? m.et       : (climate && climate.et       != null ? climate.et       : null);
-        var stVal   = m && m.soilTemp != null ? m.soilTemp : (climate && climate.soilTemp != null ? climate.soilTemp : null);
-        if (gddVal != null || etVal != null || stVal != null) {
-            html += panelSection('Climate Inputs', statGrid([
-                { value: gddVal != null ? Math.round(gddVal)    : '—', label: 'GDD (Daily)' },
-                { value: etVal  != null ? etVal.toFixed(1)      : '—', label: 'ET₀ (mm)' },
-                { value: stVal  != null ? Math.round(stVal) + '°C' : '—', label: 'Soil Temp' }
+        // Hero: 16-day average (matches dashboard card)
+        html += panelHero(avgGP != null ? avgGP + '%' : '—', avgCls, '16-Day Average Growth Potential');
+
+        // Current GP + insight
+        if (todayGP != null || insightText) {
+            var insightColor = todayCls === 'ok' ? '#14532d' : (todayCls === 'warning' ? '#78350f' : '#7f1d1d');
+            var insightBg    = todayCls === 'ok' ? '#f0fdf4' : (todayCls === 'warning' ? '#fffbeb' : '#fef2f2');
+            var currentRow = todayGP != null
+                ? '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span style="font-size:22px;font-weight:700;color:var(--gaip-text,#1a2b23)">' + todayGP + '%</span><span style="font-size:12px;color:var(--gaip-text-muted,#6b8878)">today</span></div>'
+                : '';
+            var insightRow = insightText
+                ? '<div style="padding:8px 10px;border-radius:6px;background:' + insightBg + ';font-size:12px;color:' + insightColor + ';line-height:1.5">' +
+                  (tempStr ? '<strong>' + tempStr + '</strong> &mdash; ' : '') + insightText + '</div>'
+                : '';
+            html += panelSection('Current Conditions', currentRow + insightRow);
+        }
+
+        // ET₀, Soil Temp
+        if (avgGP != null) {
+            html += panelSection('Climate', statGrid([
+                { value: etVal  != null ? etVal.toFixed(1) + ' mm'  : '—', label: 'ET₀ daily' },
+                { value: stVal  != null ? Math.round(stVal) + '°C'  : '—', label: 'Soil Temp' }
             ]));
         }
+
+        // Link to full analysis
+        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
+            '<a href="/analysis/growth-light" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
+            'View full Growth &amp; Light analysis' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
+            '</a></div>';
+
         return html;
     }
 
@@ -1039,7 +1109,7 @@
     }
 
     /* ── VWC ── */
-    function buildVWCPanel(m, c) {
+    function buildVWCPanel(m) {
         var vwcRaw = m && m.vwc != null ? m.vwc : null;
         var vwc    = vwcRaw != null ? Math.round(vwcRaw) : 13;
         var wp = 8, trig = 12, optLow = 12, optHigh = 15, fc = 35, maxVal = 40;
