@@ -107,33 +107,33 @@
         }
 
         if (heatActive && heatMax > 30) {
-            if (gt === 'c4') return ins('Heat event forecast (' + Number(heatMax).toFixed(1) + '°C peak) — monitor for C4 heat limits.', 'orange');
-            return ins('Heat event forecast (' + Number(heatMax).toFixed(1) + '°C peak) — C3 growth suppressed.', 'red');
+            if (gt === 'c4') return ins('Heat event forecast (' + Number(heatMax).toFixed(1) + '°C peak) — monitor warm-season grass for heat stress.', 'orange');
+            return ins('Heat event forecast (' + Number(heatMax).toFixed(1) + '°C peak) — cool-season grass growth will slow significantly.', 'red');
         }
 
         if (gt === 'c3') {
-            if (t > 30)        return ins('Heat stress — C3 growth significantly reduced.', 'red');
-            if (t >= 25)       return ins('Warm conditions — C3 growth declining as temperatures rise.', 'orange');
-            if (t >= 15)       return ins('Optimal C3 growth range — cool-season grasses thriving.', 'green');
-            if (t >= 10)       return ins('Cool conditions — approaching optimal C3 range.', 'amber');
-            if (t >= 5)        return ins('Cold — C3 growth very slow.', 'blue');
-            return ins('Very cold — C3 growth nearly stopped.', 'blue');
+            if (t > 30)        return ins('Heat stress — growth has nearly stopped.', 'red');
+            if (t >= 25)       return ins('Warm conditions — grass growth is slowing.', 'orange');
+            if (t >= 15)       return ins('Optimal conditions — expect strong growth.', 'green');
+            if (t >= 10)       return ins('Cool conditions — growth is slower, improving as it warms.', 'amber');
+            if (t >= 5)        return ins('Cold — growth is very slow.', 'blue');
+            return ins('Very cold — growth has nearly stopped.', 'blue');
         }
 
         if (gt === 'c4') {
-            if (t > 38)        return ins('Extreme heat — approaching C4 upper limits.', 'red');
-            if (t >= 28)       return ins('Optimal C4 growth range — warm-season grasses thriving.', 'green');
-            if (t >= 20)       return ins('Warm conditions — C4 growth accelerating.', 'amber');
-            if (t >= 10)       return ins('Cool conditions — C4 growth suppressed.', 'blue');
-            return ins('Cold — C4 grasses are dormant.', 'blue');
+            if (t > 38)        return ins('Extreme heat — growth is starting to suffer.', 'red');
+            if (t >= 28)       return ins('Optimal conditions — expect strong growth.', 'green');
+            if (t >= 20)       return ins('Warm conditions — growth is picking up.', 'amber');
+            if (t >= 10)       return ins('Cool conditions — warm-season grass growth is suppressed.', 'blue');
+            return ins('Cold — grass is dormant.', 'blue');
         }
 
         // Mixed
-        if (t > 30)            return ins('C3 grasses heat-stressed — C4 grasses dominating.', 'red');
-        if (t >= 25)           return ins('Warm — C3 growth declining, C4 grasses thriving.', 'orange');
-        if (t >= 15)           return ins('Optimal C3 growth range — cool-season grasses thriving.', 'green');
-        if (t >= 10)           return ins('Transition zone — both grass types moderately active.', 'amber');
-        return ins('Cold — C4 grasses dormant, C3 growing slowly.', 'blue');
+        if (t > 30)            return ins('Heat stress — cool-season varieties struggling, warm-season growing well.', 'red');
+        if (t >= 25)           return ins('Warm conditions — cool-season growth slowing, warm-season thriving.', 'orange');
+        if (t >= 15)           return ins('Optimal conditions — cool-season grass growing well, warm-season moderate.', 'green');
+        if (t >= 10)           return ins('Cool conditions — both types growing slowly.', 'amber');
+        return ins('Cold — warm-season grass dormant, cool-season growing slowly.', 'blue');
     }
 
     // =========================================================================
@@ -193,7 +193,7 @@
             '.gl-insight-box.amber{background:#fffbeb;border-color:#fde68a;color:#78350f}',
             '.gl-insight-box.red{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}',
             '.gl-chart-wrap{margin-bottom:20px}',
-            '.gl-chart-label{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500}',
+            '.gl-chart-label{font-size:12px;color:var(--muted);margin-bottom:14px;font-weight:500;text-align:center}',
             'svg.gl-svg{display:block;width:100%;overflow:visible}',
             '.gl-two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}',
             '.gl-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px}',
@@ -389,10 +389,10 @@
     var GL_GLOSSARY = {
         'gl-gp': {
             title: '16-Day Average Growth Potential',
-            body:  'The average growth potential across the full 16-day forecast period. A more reliable indicator than today\'s value — it smooths out single-day extremes and shows where growth is heading over the coming weeks.'
+            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the full 16-day weather forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming weeks. Use it to plan fertiliser applications, overseeding, and recovery work.'
         },
         'gl-gp-today': {
-            title: 'Today\'s Growth Potential',
+            title: 'Current Growth Potential',
             body:  'Growth potential at today\'s current air temperature. Cool-season grasses grow best around 20°C, warm-season grasses around 31°C. This value reflects conditions right now and may differ from the forecast average if warmer or cooler weather is on the way.'
         },
         'gl-c3c4': {
@@ -539,12 +539,6 @@
         var dli       = getDLI(shade);
         var dliStatus = shade ? shade.effectiveStatus : null;
         var shadeShort = dliStatus ? dliStatus.split('(')[0].trim() : null;
-        var grassType  = detectGrassType(shade);
-        var isMixed    = grassType === 'mixed';
-        var insight    = isMixed ? null : keyInsight(cm, grassType);
-        var headerTemp = cm && cm.temperature && cm.temperature.todayMean !== null && cm.temperature.todayMean !== undefined
-            ? cm.temperature.todayMean : null;
-        var insightPrefix = headerTemp !== null ? '<strong>' + fmt(headerTemp, 1) + '°C</strong> &mdash; ' : '';
 
         function hexToRgb(hex) {
             var h = hex.replace('#', '');
@@ -593,12 +587,7 @@
             '    <div class="gl-kpi-grid">',
             cards.join('\n'),
             '    </div>',
-            insight ? [
-                '<div class="gl-kpi-insight" style="background:' + insight.bg + ';border:1px solid ' + insight.border + ';color:' + insight.color + '">',
-                '  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="flex-shrink:0;margin-top:1px"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>',
-                '  <span>' + insightPrefix + esc(insight.text) + '</span>',
-                '</div>'
-            ].join('\n') : '',
+            '',
             '  </div>',
             '</div>'
         ].join('\n');
@@ -641,21 +630,28 @@
         var speciesLabel = cfg.turfSpecies ? capitalize(cfg.turfSpecies) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
         var tempPrefix = avgTemp !== null && avgTemp !== undefined ? '<strong>' + fmt(avgTemp, 1) + '°C</strong> &mdash; ' : '';
 
-        // Mixed stand banner
+        // Species banner — shown for all grass types
         var mixedBannerHtml = '';
         if (grassType === 'mixed') {
             var c3pct = cfg.percentC3Cover != null ? Math.round(cfg.percentC3Cover) : null;
             var c4pct = c3pct != null ? 100 - c3pct : null;
-            if (c3pct != null) {
-                mixedBannerHtml = [
-                    '<div class="gl-mixed-banner">',
-                    '  <span class="gl-mixed-tag">Mixed stand</span>',
-                    '  <span>' + c3pct + '% ' + esc(speciesLabel || 'C3 cool-season') + '</span>',
-                    '  <span class="gl-mixed-sep">·</span>',
-                    '  <span>' + c4pct + '% C4 warm-season</span>',
-                    '</div>'
-                ].join('');
-            }
+            mixedBannerHtml = [
+                '<div class="gl-mixed-banner">',
+                '  <span class="gl-mixed-tag">Mixed stand</span>',
+                c3pct != null
+                    ? '  <span>' + c3pct + '% ' + esc(speciesLabel || 'cool-season') + ' &mdash; cool-season grass</span><span class="gl-mixed-sep">·</span><span>' + c4pct + '% warm-season grass</span>'
+                    : '  <span>' + esc(speciesLabel || 'Cool-season') + ' &mdash; cool-season grass</span><span class="gl-mixed-sep">·</span><span>Warm-season grass</span>',
+                '</div>'
+            ].join('');
+        } else if (speciesLabel) {
+            var seasonTag = grassType === 'c4' ? 'C4 warm-season grass' : 'C3 cool-season grass';
+            mixedBannerHtml = [
+                '<div class="gl-mixed-banner" style="background:#f5f7f6;border-color:#d8e0dc;margin-bottom:20px">',
+                '  <span style="font-weight:600;color:#17231f">' + esc(speciesLabel) + '</span>',
+                '  <span class="gl-mixed-sep">·</span>',
+                '  <span style="color:#5b6a65">' + seasonTag + '</span>',
+                '</div>'
+            ].join('');
         }
 
         // Today's GP value
@@ -675,7 +671,7 @@
             var c3v = growth.c3 != null ? growth.c3 : 0;
             var c4v = growth.c4 != null ? growth.c4 : 0;
             todayLeftHtml = [
-                '<div class="gl-hero-section-label">Today\'s Growth Potential</div>',
+                '<div class="gl-hero-section-label">Current Growth Potential</div>',
                 '<div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:4px">',
                 '  <div>',
                 '    <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px">' + esc(speciesLabel || 'C3') + '</div>',
@@ -689,7 +685,7 @@
             ].join('\n');
         } else {
             todayLeftHtml = [
-                '<div class="gl-hero-section-label">Today\'s Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
+                '<div class="gl-hero-section-label">Current Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
                 '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
                 '  <span class="gl-gp-big" style="color:' + todayColor + '">' + fmt(todayVal, 0, '—') + (todayVal != null ? '%' : '') + '</span>',
                 '  ' + statusBadge(esc(gpStatus), todayColor),
@@ -965,7 +961,7 @@
             }
             var barH = val != null ? Math.round(clamp(val / 100, 0, 1) * 36) : 2;
             var isToday = i === 0;
-            var tempHtml = d.temp != null ? '<div class="gl-day-chip-temp">' + d.temp + '°</div>' : '';
+            var tempHtml = d.temp != null ? '<div class="gl-day-chip-temp">' + d.temp + '° avg</div>' : '';
             // Forecast confidence drops with each day: 95% → 50% over 8 days
             var conf = Math.round(Math.max(50, 95 - i * 6));
             var confDots = isToday ? '' : (function() {
