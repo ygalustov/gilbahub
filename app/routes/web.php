@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::view('/hub', 'hub')->name('hub');
     Route::get('/dashboard', [DashboardController::class, 'show'])->name('dashboard');
     Route::get('/analysis/growth-light', [AnalysisController::class, 'growthLight'])->name('analysis.growth-light');
+    Route::get('/analysis/disease', [AnalysisController::class, 'disease'])->name('analysis.disease');
     Route::get('/data', [DataController::class, 'show'])->name('data');
     Route::get('/data/{section}', [DataController::class, 'show'])->name('data.section');
     Route::view('/field-log', 'field-log')->name('field-log');

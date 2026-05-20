@@ -2018,56 +2018,11 @@
     // INIT
     // =========================================================================
 
-    function initRerun() {
-        var btn = document.getElementById('db-rerun-btn');
-        if (!btn) return;
-
-        // Inject spin keyframe once
-        if (!document.getElementById('db-spin-style')) {
-            var s = document.createElement('style');
-            s.id = 'db-spin-style';
-            s.textContent = '@keyframes db-spin { to { transform: rotate(360deg); } }';
-            document.head.appendChild(s);
-        }
-
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            if (btn.dataset.running === '1') return;
-            btn.dataset.running = '1';
-            btn.disabled = true;
-            btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:db-spin 0.8s linear infinite"><path d="M4 12a8 8 0 018-8v4l4-4-4-4v4a10 10 0 100 10"/></svg> Running…';
-
-            var iframe = document.createElement('iframe');
-            iframe.src = '/hub';
-            iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0';
-            iframe.setAttribute('aria-hidden', 'true');
-            document.body.appendChild(iframe);
-
-            var done = false;
-            function finish() {
-                if (done) return;
-                done = true;
-                try { document.body.removeChild(iframe); } catch (e) {}
-                window.location.reload();
-            }
-
-            window.addEventListener('message', function onMsg(e) {
-                if (e.data === 'gilba:analysis-complete') {
-                    window.removeEventListener('message', onMsg);
-                    finish();
-                }
-            });
-
-            setTimeout(finish, 30000);
-        });
-    }
-
     function init() {
         var el = document.getElementById('gl-page-content');
         if (el) {
             render(el);
         }
-        initRerun();
         initInfoPopovers();
     }
 

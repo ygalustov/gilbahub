@@ -435,62 +435,8 @@
 </div>{{-- /db-shell --}}
 
 <script src="{{ $legacyAssetUrl('gilba-storage-ns.js') }}"></script>
+<script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
-
-<script>
-(function () {
-    var btn = document.getElementById('db-site-switcher-btn');
-    var dropdown = document.getElementById('db-site-dropdown');
-    if (!btn || !dropdown) return;
-
-    btn.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var open = !dropdown.hidden;
-        dropdown.hidden = open;
-        btn.setAttribute('aria-expanded', String(!open));
-    });
-
-    document.addEventListener('click', function () {
-        dropdown.hidden = true;
-        btn.setAttribute('aria-expanded', 'false');
-    });
-
-    dropdown.addEventListener('click', function (e) {
-        e.stopPropagation();
-        var target = e.target.closest('[data-site-id]');
-        if (!target) return;
-
-        var siteId = target.dataset.siteId;
-        var csrfToken = document.querySelector('meta[name="csrf-token"]')?.content
-            || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
-            || '';
-
-        target.disabled = true;
-        target.textContent = '…';
-
-        fetch('/api/active-site', {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify({ site_id: siteId }),
-        })
-        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-        .then(function () { window.location.reload(); })
-        .catch(function () {
-            target.disabled = false;
-            target.textContent = target.dataset.siteName || 'Error';
-        });
-    });
-
-    // Store site names for error recovery
-    dropdown.querySelectorAll('[data-site-id]').forEach(function (el) {
-        el.dataset.siteName = el.textContent.trim();
-    });
-}());
-</script>
 
 {{-- Info popover — shown when db-info-icon is clicked --}}
 <div id="db-info-popover" class="db-info-popover" style="display:none" role="tooltip" aria-live="polite">

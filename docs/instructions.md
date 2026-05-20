@@ -56,12 +56,26 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-14** Enhance dashboard and growth potential insights by updating the growth potential description for clarity, adjusting the display style in the dashboard view, and refining temperature-related messages in the growth light analysis for improved user understanding.
 **GH-15** Enhance growth light analysis by adding overseed species handling in AnalysisController and updating views to reflect new turf management options. Improve settings initialization for overseed options and refine JavaScript insights for better user experience. 
 **GH-16** Implement navigation updates and new views for Plan and Reports. Add links to the new Plan and Reports pages in the dashboard, data, settings, and analysis views. Define routes for Plan and Reports in web.php.
+**GH-17** Add disease analysis view and update navigation links
+- Implemented a new disease analysis view in the AnalysisController and created a corresponding Blade template.
+- Updated the dashboard and growth light analysis views to include navigation links to the new disease analysis page.
+- Refactored JavaScript for site switcher functionality into a shared dashboard UI script for better maintainability.
+- Enhanced routing in web.php to define the new disease analysis route.
+
+
+
 
 
 ## Backlog
 
 
-Look grath looks different for cool season grass and warm. It should be like cool season (blue one)
+
+
+и проверь, почему меню меняется при переключении между вкладками болезни и Growth and Light. И давай сделаем, чтобы верхняя панелька, например, с каким коротким описанием была одинаковая по всех этих вкладках. И какой-то summary по этой странице. по аналогии, как сделано Groove and Light. И чтобы следующий блок после summary был recommendations, чтобы сразу можно было увидеть, так, вот какие детали вкратце и какие рекомендации, а потом уже вниз идёшь, листаешь, смотришь детали. то есть это форма для всех страниц на анализе. Только вот в рекомендациях на странице Grove and Light первая рекомендация с галочкой стоит — renovation conditions suitable. Может быть, и оно в другом формате. Давай лучше формат одинаковый сделаем, чтобы было одинаково на всех страничках.
+
+
+
+Ещё неудобно всё-таки переключать между разными болезнями. То есть, когда ты одну выбираешь болезнь, одна выводится, вторую болезнь выбираешь, выводятся по ней детали. То есть нет возможности сразу всё посмотреть. Давай какой-то вариант, когда можно сразу всё посмотреть. Ну и вот я думаю, может быть, под recommendations spray application window тоже добавить сразу после recommendations, чтобы опять самое важное наверху, а внизу уже детали.
 
 ----
 
