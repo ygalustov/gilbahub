@@ -50,6 +50,8 @@ Route::middleware('auth')->group(function () {
     Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
+    Route::view('/plan', 'plan')->name('plan');
+    Route::view('/reports', 'reports')->name('reports');
     Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {
