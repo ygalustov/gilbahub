@@ -238,11 +238,51 @@
         }
     }
 
+    var _overseedGroups = {
+        'Warm-season (C4)': ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
+        'Cool-season (C3)': ['Perennial Ryegrass', 'Annual Ryegrass', 'Tall Fescue', 'Fine Fescue', 'Kentucky Bluegrass', 'Creeping Bentgrass'],
+    };
+
+    function getPrimarySpeciesType() {
+        if (!turfSpeciesEl || !turfSpeciesEl.value) return null;
+        var opt = turfSpeciesEl.options[turfSpeciesEl.selectedIndex];
+        if (!opt || !opt.parentNode || opt.parentNode.tagName !== 'OPTGROUP') return null;
+        var label = opt.parentNode.label || '';
+        if (label.indexOf('C4') !== -1) return 'c4';
+        if (label.indexOf('C3') !== -1) return 'c3';
+        return null;
+    }
+
+    var turfOverseedEl = document.getElementById('stg-turf-cool-overseed');
+
+    function repopulateOverseedOptions() {
+        if (!turfOverseedEl) return;
+        var currentVal = turfOverseedEl.value;
+        var primaryType = getPrimarySpeciesType();
+        turfOverseedEl.innerHTML = '<option value="">— none —</option>';
+        Object.keys(_overseedGroups).forEach(function (groupLabel) {
+            var groupType = groupLabel.indexOf('C4') !== -1 ? 'c4' : 'c3';
+            if (primaryType && groupType === primaryType) return;
+            var og = document.createElement('optgroup');
+            og.label = groupLabel;
+            _overseedGroups[groupLabel].forEach(function (sp) {
+                var o = document.createElement('option');
+                o.value = sp;
+                o.textContent = sp;
+                if (sp === currentVal) o.selected = true;
+                og.appendChild(o);
+            });
+            turfOverseedEl.appendChild(og);
+        });
+    }
+
     if (turfSpeciesEl) {
         var _initVariety = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || 'generic';
         repopulateVariety(turfSpeciesEl.value, _initVariety);
+        repopulateOverseedOptions();
         turfSpeciesEl.addEventListener('change', function () {
             repopulateVariety(turfSpeciesEl.value, 'generic');
+            repopulateOverseedOptions();
         });
     }
 
@@ -291,13 +331,21 @@
                 hoc:          document.getElementById('stg-turf-hoc').value,
                 methodology:  document.getElementById('stg-turf-methodology').value,
                 nProgram:     document.getElementById('stg-turf-n').value,
-                poaPercent:   document.getElementById('stg-turf-poa').value || '0',
-                c3Cover:      document.getElementById('stg-turf-c3').value || '0',
+                poaPercent:     document.getElementById('stg-turf-poa').value || '0',
+                c3Cover:        document.getElementById('stg-turf-c3').value || '0',
+                // Save under both keys: overseedSpecies (hub persistence layer) and
+                // coolOverseed (engine internal name read by hub-tissue-v3, hub-orchestrator, etc.)
+                overseedSpecies: document.getElementById('stg-turf-cool-overseed').value || '',
+                coolOverseed:    document.getElementById('stg-turf-cool-overseed').value || '',
+                overseedStatus:  document.getElementById('stg-turf-overseed-status').value || 'none',
             };
 
             // Merge into existing gaip config — preserve all fields not shown in this form
             // (aaTexture, overseedSpecies, summerIntent, trafficEnabled, wizard, pgr, etc.)
             var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
+            // New sites initialise config as [] (PHP empty array → JSON array).
+            // Array properties are silently dropped by JSON.stringify, so convert to object.
+            if (Array.isArray(cfg)) cfg = {};
             cfg.turf = Object.assign({}, cfg.turf || {}, turf);
 
             // soil_texture_override lives on the site model, not gaip config — save separately
@@ -309,6 +357,16 @@
             Promise.all(saves)
                 .then(function () {
                     D.gaipConfig = cfg;
+                    // Mirror to localStorage so the hub engine picks up the new values
+                    // without requiring a manual re-run or page reload.
+                    try {
+                        var configsKey = 'gilba_hub_site_configs';
+                        var allConfigs = {};
+                        try { allConfigs = JSON.parse(localStorage.getItem(configsKey) || '{}'); } catch (_) {}
+                        if (!allConfigs[siteId]) allConfigs[siteId] = {};
+                        allConfigs[siteId].turf = Object.assign({}, allConfigs[siteId].turf || {}, turf);
+                        localStorage.setItem(configsKey, JSON.stringify(allConfigs));
+                    } catch (_) {}
                     setMsg(turfMsg, 'Saved.', 'ok');
                 })
                 .catch(function () { setMsg(turfMsg, 'Save failed.', 'err'); })
@@ -698,9 +756,12 @@
                 hoc:          t.hoc          || '',
                 nProgram:     t.nProgram     || '',
                 methodology:  t.methodology  || '',
-                poaPercent:   t.poaPercent   || '0',
-                c3Cover:      t.c3Cover      || '0',
-                aaTexture:    t.aaTexture    || '',
+                poaPercent:     t.poaPercent     || '0',
+                c3Cover:        t.c3Cover        || '0',
+                warmBase:       t.warmBase       || '',
+                coolOverseed:   t.coolOverseed   || '',
+                overseedStatus: t.overseedStatus || 'none',
+                aaTexture:      t.aaTexture      || '',
             });
             if (loc && typeof loc.lat === 'number') {
                 allConfigs[siteId].location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
@@ -724,8 +785,11 @@
                 hoc:          t.hoc          || '',
                 nProgram:     t.nProgram     || '',
                 methodology:  t.methodology  || '',
-                poaPercent:   t.poaPercent   || '0',
-                c3Cover:      t.c3Cover      || '0',
+                poaPercent:     t.poaPercent     || '0',
+                c3Cover:        t.c3Cover        || '0',
+                warmBase:       t.warmBase       || '',
+                coolOverseed:   t.coolOverseed   || '',
+                overseedStatus: t.overseedStatus || 'none',
             });
             if (loc && typeof loc.lat === 'number') {
                 existing.location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };

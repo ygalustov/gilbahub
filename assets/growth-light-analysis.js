@@ -68,26 +68,24 @@
         return '<span class="gl-badge" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '44">' + label + '</span>';
     }
 
-    function fungalBadge(cls) {
-        var s, c;
-        if (cls && typeof cls === 'object') {
-            s = cls.severity || cls.label || '';
-            c = cls.colour || null;
-        } else {
-            s = (cls && typeof cls === 'string') ? cls : '';
-            c = null;
-        }
-        var map = { good: '#16a34a', watch: '#d97706', concern: '#ea580c', critical: '#dc2626' };
-        var color = c || map[s.toLowerCase()] || '#9ca3af';
-        return statusBadge(s ? s.charAt(0).toUpperCase() + s.slice(1) : '—', color);
+    // Returns { c3: 'Creeping Bentgrass', c4: 'Couch' } — empty string when unknown.
+    // Hub writes cfg.species; settings writes cfg.turfSpecies — check both.
+    function grassNamesForMixed(cfg) {
+        var C4K = ['bermuda','couch','kikuyu','zoysia','buffalo','st aug','paspalum','seashore','warm'];
+        var primary  = (cfg.turfSpecies || cfg.species || cfg.grassSpecies || '').trim();
+        var overseed = (cfg.overseedSpecies || cfg.coolOverseed || '').trim();
+        // Also try warmBase (auto-derived by hub-tissue-v3 when C4 is selected as primary)
+        var warmBase = (cfg.warmBase || '').trim();
+        var isPrimaryC4 = C4K.some(function(k) { return primary.toLowerCase().indexOf(k) !== -1; });
+        var c4raw = isPrimaryC4 ? primary : (overseed || warmBase);
+        var c3raw = isPrimaryC4 ? overseed : primary;
+        return {
+            c3: c3raw ? capitalize(c3raw) : '',
+            c4: c4raw ? capitalize(c4raw) : '',
+        };
     }
 
-    function fungalLabel(cls) {
-        if (cls && typeof cls === 'object') return cls.label || capitalize(cls.severity) || '—';
-        return capitalize(cls) || '—';
-    }
-
-    function keyInsight(climateMetrics, grassType) {
+    function keyInsight(climateMetrics, grassType, specName) {
         var t = (climateMetrics && climateMetrics.temperature && climateMetrics.temperature.todayMean) || 0;
         var heatActive = climateMetrics && climateMetrics.stress && climateMetrics.stress.heat && climateMetrics.stress.heat.days > 0;
         var heatMax = (climateMetrics && climateMetrics.stress && climateMetrics.stress.heat && climateMetrics.stress.heat.maxTemp) || t;
@@ -112,23 +110,25 @@
         }
 
         if (gt === 'c3') {
-            if (t > 30)        return ins('Heat stress — growth has nearly stopped.', 'red');
-            if (t >= 25)       return ins('Warm conditions — grass growth is slowing.', 'orange');
-            if (t >= 15)       return ins('Optimal conditions — expect strong growth.', 'green');
-            if (t >= 10)       return ins('Cool conditions — growth is slower, improving as it warms.', 'amber');
-            if (t >= 5)        return ins('Cold — growth is very slow.', 'blue');
-            return ins('Very cold — growth has stopped.', 'blue');
+            var c3n = specName || 'cool-season grass';
+            if (t > 30)        return ins('Heat stress — ' + c3n + ' growth has nearly stopped.', 'red');
+            if (t >= 25)       return ins('Warm conditions — ' + c3n + ' growth is slowing.', 'orange');
+            if (t >= 15)       return ins('Optimal conditions — expect strong ' + c3n + ' growth.', 'green');
+            if (t >= 10)       return ins('Cool conditions — ' + c3n + ' growth is slower, improving as it warms.', 'amber');
+            if (t >= 5)        return ins('Cold — ' + c3n + ' growth is very slow.', 'blue');
+            return ins(c3n + ' growth has stopped.', 'blue');
         }
 
         if (gt === 'c4') {
-            if (t > 38)        return ins('Extreme heat — growth is starting to suffer.', 'red');
-            if (t >= 28)       return ins('Optimal conditions — expect strong growth.', 'green');
-            if (t >= 20)       return ins('Warm conditions — growth is picking up.', 'amber');
-            if (t >= 10)       return ins('Cool conditions — warm-season grass growth is suppressed.', 'blue');
-            return ins('Cold — grass is dormant.', 'blue');
+            var c4n = specName || 'warm-season grass';
+            if (t > 38)        return ins('Extreme heat — ' + c4n + ' growth is starting to suffer.', 'red');
+            if (t >= 28)       return ins('Optimal conditions — expect strong ' + c4n + ' growth.', 'green');
+            if (t >= 20)       return ins('Warm conditions — ' + c4n + ' growth is picking up.', 'amber');
+            if (t >= 10)       return ins('Cool conditions — ' + c4n + ' growth is suppressed.', 'blue');
+            return ins(c4n + ' is dormant.', 'blue');
         }
 
-        // Mixed
+        // Mixed — specName not used here (two grass types)
         if (t > 30)            return ins('Heat stress — cool-season varieties struggling, warm-season growing well.', 'red');
         if (t >= 25)           return ins('Warm conditions — cool-season growth slowing, warm-season thriving.', 'orange');
         if (t >= 15)           return ins('Optimal conditions — cool-season grass growing well, warm-season moderate.', 'green');
@@ -164,13 +164,15 @@
             '.db-info-icon:hover{background:#ccd9d2;color:#1a2b23}',
             '.gl-body{max-width:1100px;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;gap:28px}',
             '.gl-block{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden}',
-            '.gl-soil-mini{display:flex;align-items:center;gap:0;border-top:1px solid var(--border);margin-top:16px;padding-top:14px;flex-wrap:wrap;row-gap:8px}',
-            '.gl-soil-mini-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-right:16px;flex-shrink:0;align-self:center}',
-            '.gl-soil-mini-item{display:flex;flex-direction:column;align-items:center;padding:0 14px;border-right:1px solid var(--border)}',
-            '.gl-soil-mini-item:last-of-type{border-right:none}',
-            '.gl-soil-mini-depth{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}',
-            '.gl-soil-mini-val{font-size:18px;font-weight:800}',
-            '.gl-soil-mini-status{font-size:11px;color:var(--muted);margin-left:auto;align-self:center;padding-left:16px}',
+            '.gl-soil-section{border-top:1px solid var(--border);margin-top:16px;padding-top:16px}',
+            '.gl-soil-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}',
+            '.gl-soil-title{font-size:13px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px}',
+            '.gl-soil-badge{font-size:10px;font-weight:600;padding:2px 8px;border-radius:999px;background:#fef3c7;color:#92400e;border:1px solid #fde68a}',
+            '.gl-soil-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:10px}',
+            '.gl-soil-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center}',
+            '.gl-soil-depth{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:6px}',
+            '.gl-soil-mean{font-size:22px;font-weight:800;line-height:1}',
+            '.gl-soil-current{font-size:11px;color:var(--muted);margin-top:4px}',
             '.gl-reno-box{border-radius:8px;padding:12px 16px;display:flex;align-items:flex-start;gap:12px;margin-bottom:16px}',
             '.gl-reno-icon{font-size:22px;line-height:1;flex-shrink:0}',
             '.gl-reno-status{font-size:14px;font-weight:700;margin-bottom:3px}',
@@ -213,8 +215,10 @@
             '.gl-dli-target{font-size:13px;color:var(--muted);margin-bottom:16px}',
             '.gl-three-col{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:20px}',
             '.gl-four-col{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}',
+            '.gl-five-col{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}',
+            '.gl-six-col{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}',
             '.gl-stress-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px}',
-            '.gl-stress-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;color:var(--muted)}',
+            '.gl-stress-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;color:var(--muted);display:flex;align-items:center;gap:4px}',
             '.gl-stress-val{font-size:20px;font-weight:700}',
             '.gl-stress-detail{font-size:12px;color:var(--muted);margin-top:4px}',
             '.gl-section-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px}',
@@ -237,6 +241,35 @@
             '.gl-shade-ctx{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;margin-bottom:12px}',
             '.gl-shade-item{font-size:13px}',
             '.gl-shade-item span{color:var(--muted)}',
+            '.gl-light-verdict{display:flex;align-items:center;gap:12px;padding:14px 0 10px}',
+            '.gl-light-verdict-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;flex-shrink:0}',
+            '.gl-light-verdict-status{font-size:15px;font-weight:700;display:flex;align-items:center;gap:4px}',
+            '.gl-light-verdict-target{font-size:12px;color:var(--muted);margin-top:2px}',
+            '.gl-light-verdict-dli{font-size:24px;font-weight:800;margin-left:auto;white-space:nowrap;line-height:1}',
+            '.gl-light-verdict-unit{font-size:11px;font-weight:400;color:var(--muted)}',
+            '.gl-light-quick-row{display:flex;align-items:stretch;border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 0 4px}',
+            '.gl-light-quick-item{flex:1;padding:10px 14px;display:flex;flex-direction:column;gap:3px}',
+            '.gl-light-quick-divider{width:1px;background:var(--border)}',
+            '.gl-light-quick-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;display:flex;align-items:center;gap:4px}',
+            '.gl-light-quick-val{font-size:14px;font-weight:700}',
+            '.gl-dli-thresholds{margin:10px 0 4px}',
+            '.gl-dli-bar-track{height:8px;border-radius:4px;overflow:hidden;display:flex;position:relative}',
+            '.gl-dli-zone-red{background:#fca5a5}',
+            '.gl-dli-zone-yellow{background:#fde68a}',
+            '.gl-dli-zone-green{background:#bbf7d0;flex:1}',
+            '.gl-dli-bar-marker{position:absolute;top:-3px;width:3px;height:14px;background:#1f2937;border-radius:2px;transform:translateX(-50%)}',
+            '.gl-dli-bar-labels{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px}',
+            '.gl-temp-light{background:#f0f9f4;border:1px solid #c3dfd0;border-radius:8px;padding:9px 14px;font-size:12px;color:#1a3a2a;margin:10px 0 2px;line-height:1.5}',
+            '.gl-metrics-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}',
+            '@media(max-width:600px){.gl-metrics-grid{grid-template-columns:repeat(2,1fr)}}',
+            '.gl-metric-card{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:12px 14px}',
+            '.gl-metric-label-row{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b7f76;display:flex;align-items:center;gap:4px}',
+            '.gl-metric-main-val{font-size:15px;font-weight:700;margin-top:5px;display:block}',
+            '.gl-metric-detail{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}',
+            '.gl-metric-split{margin-top:5px;display:flex;flex-direction:column;gap:3px}',
+            '.gl-metric-split-row{display:flex;align-items:baseline;gap:5px}',
+            '.gl-metric-type-tag{font-size:9px;font-weight:800;color:#9ca3af;min-width:16px;letter-spacing:.04em}',
+            '.gl-metric-split-val{font-size:14px;font-weight:700}',
             '.gl-tabs-bar{display:flex;align-items:stretch;background:#fff;border-bottom:1px solid #d8e0dc;padding:0 24px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}',
             '.gl-tabs-bar::-webkit-scrollbar{display:none}',
             '.gl-tab{display:inline-flex;align-items:center;gap:5px;padding:0 16px;height:42px;font-size:13px;font-weight:500;color:#5b6a65;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;transition:color 0.15s,border-color 0.15s}',
@@ -270,7 +303,7 @@
             '.gl-conf-dots::before{content:"";position:absolute;bottom:calc(100% + 1px);left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:#1f2937;pointer-events:none;opacity:0;transition:opacity .15s;z-index:100}',
             '.gl-conf-dots:hover::after,.gl-conf-dots:hover::before{opacity:1}',
             '@media(max-width:768px){',
-            '  .gl-two-col,.gl-three-col,.gl-four-col{grid-template-columns:1fr}',
+            '  .gl-two-col,.gl-three-col,.gl-four-col,.gl-five-col,.gl-six-col{grid-template-columns:1fr}',
             '  .gl-header-inner{padding:14px 12px}',
             '  .gl-kpi-grid{grid-template-columns:1fr;gap:8px}',
             '  .gl-kpi-value{font-size:28px}',
@@ -308,11 +341,12 @@
         var gpStatus = gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low';
 
         var stressFactors = Array.isArray(stressObj.factors) ? stressObj.factors : [];
-        var heatFactor = null, coldFactor = null, droughtFactor = null;
+        var heatFactor = null, coldFactor = null, droughtFactor = null, salinityFactor = null;
         stressFactors.forEach(function (f) {
-            if (f.type === 'heat')    heatFactor    = f;
-            if (f.type === 'cold')    coldFactor    = f;
-            if (f.type === 'drought') droughtFactor = f;
+            if (f.type === 'heat')     heatFactor     = f;
+            if (f.type === 'cold')     coldFactor     = f;
+            if (f.type === 'drought')  droughtFactor  = f;
+            if (f.type === 'salinity') salinityFactor = f;
         });
 
         var confScore = (conf.overall && conf.overall.score)
@@ -350,7 +384,8 @@
             stress: {
                 heat:    heatFactor    ? { days: heatFactor.days    || 0, maxTemp: heatFactor.maxTemp    || null } : { days: 0 },
                 cold:    coldFactor    ? { days: coldFactor.days    || 0, frostDays: coldFactor.frostDays || 0, minTemp: coldFactor.minTemp || null } : { days: 0, frostDays: 0 },
-                drought: droughtFactor || null,
+                drought:   droughtFactor  || null,
+                salinity:  salinityFactor || null,
                 level:   stressObj.severity || null,
                 index:   shade.stressIndex  || null,
                 stressClass: shade.stressClass || null,
@@ -379,7 +414,14 @@
     }
 
     function getSoilTemp(data) {
-        return (data && data.computed && data.computed.soilTemp) || global.GAIP_SOIL_TEMP || null;
+        // Physics-model result saved by hub-persistence during hub analysis run
+        var p = data && data.computed && data.computed.soilTempPhysics;
+        if (p && p.summary && p.summary.available) return p;
+        // Live session fallback (if running on hub page)
+        if (global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary && global.GAIP_SOIL_TEMP.summary.available) {
+            return global.GAIP_SOIL_TEMP;
+        }
+        return null;
     }
 
     // =========================================================================
@@ -442,6 +484,66 @@
         'gl-weighted': {
             title: 'Overall Growth Potential',
             body:  'Blended growth potential for the whole stand, weighted by the proportion of C3 and C4 grass present. Formula: (C3 GP × C3 fraction) + (C4 GP × C4 fraction). This is the headline number that best represents actual turf performance across the mixed stand.'
+        },
+        'gl-light-status': {
+            title: 'Light Status',
+            body:  'How current DLI compares to your species light requirement.\n\nOptimal — above optimal; excellent growing conditions.\nAcceptable — meets the minimum; healthy growth expected.\nSuboptimal — below optimal; slower growth and recovery.\nMarginal — approaching critical threshold; turf under stress.\nDeficient — below minimum; risk of thinning and poor recovery.\nCritical — severe deficiency; turf survival at risk.'
+        },
+        'gl-renovation-cond': {
+            title: 'Renovation Conditions',
+            body:  'Whether current light and seasonal conditions support renovation (overseeding, scarification, top-dressing).\n\nSuitable — DLI and seasonal timing both support establishment.\nConditional — possible but with higher risk; monitor closely.\nPoor — insufficient light or adverse season; defer renovation.'
+        },
+        'gl-fungal-risk-light': {
+            title: 'Fungal Risk',
+            body:  'Disease pressure index based on DLI deficit and dew nights. Low DLI weakens turf and extends leaf wetness, increasing susceptibility to dollar spot, brown patch and fusarium.\n\nLow — minimal risk.\nModerate — monitor; avoid high nitrogen.\nHigh — preventive fungicide recommended.\nCritical — immediate action required.'
+        },
+        'gl-stress-forecast-light': {
+            title: 'Stress Forecast',
+            body:  'Combined stress index from light deficit, ET demand, disease pressure and traffic load. Indicates overall surface resilience over the coming period.'
+        },
+        'gl-recovery-window': {
+            title: 'Recovery Window',
+            body:  'How quickly turf can recover from stress or renovation given current light levels and season.\n\nOptimal — fast recovery expected.\nGood — recovery within normal timeframes.\nConditional — slower recovery; minimise traffic.\nPoor — avoid renovation; prioritise protection.'
+        },
+        'gl-soil-temp': {
+            title: 'Soil Temperature Profile',
+            body:  'Soil temperature estimated at 4 depths using a physics model (air temp + solar radiation + rootzone type).\n\nMean — average over the 16-day forecast. Now — current estimate.\n\nColour:\nBlue (<10°C) — cold; root activity and nutrient uptake slow.\nGreen (10–20°C) — optimal for most turf species.\nOrange (>20°C) — warm; C4 roots active, C3 roots may be stressed.'
+        },
+        'gl-stress-overall': {
+            title: 'Overall Stress',
+            body:  'A combined environmental stress score (0–100) that summarises how much the current conditions are limiting turf growth potential. It integrates shade deficit, heat load, cold exposure, and moisture stress into a single index.\n\nLow (0–24): Conditions are favourable — minimal drag on growth.\nModerate (25–49): Some stress present but growth is not critically impaired.\nHigh (50–74): Conditions are significantly limiting turf performance. Review individual stress factors.\nExtreme (≥75): Severe multi-factor stress — growth is heavily suppressed.\n\nESI (Environmental Stress Index) is the raw score before banding, shown for reference.'
+        },
+        'gl-stress-shade': {
+            title: 'Shade Stress',
+            body:  'How much the current shade level is cutting into available photosynthesis. The deficit percentage shows how far below the species light requirement the turf is operating.\n\nNo shade stress: Light supply meets or exceeds the species minimum — no restriction.\nActive (purple): Shade is measurably reducing growth potential. The higher the deficit %, the greater the impact on root development, recovery speed, and disease resistance.\n\nShade is the one stress factor that cannot be corrected by irrigation or nutrition — it requires canopy management or LED supplementation.'
+        },
+        'gl-stress-heat': {
+            title: 'Heat Stress',
+            body:  'Days in the 16-day forecast where air temperature is expected to exceed the heat stress threshold for the active grass type. Heat events reduce C3 (cool-season) growth sharply and can cause wilting, protein denaturation and accelerated respiration drain.\n\nNo heat events forecast: Temperatures are within manageable range.\nActive: Shows the number of forecast heat days and the expected peak temperature. Syringing, raising mowing height and avoiding heavy traffic are the primary management responses.'
+        },
+        'gl-stress-cold': {
+            title: 'Cold & Frost',
+            body:  'Cold days are forecast periods where minimum temperature falls below the cold stress threshold for the active grass type. Frost days are periods where temperature drops to or below 0°C.\n\nNo frost risk forecast: Temperatures are safe — no cold limitation on growth.\nCold (orange): Sub-optimal temperatures are slowing growth, particularly for warm-season grasses. Avoid heavy traffic on cold mornings.\nFrost (blue): Frost risk is present. Avoid all traffic on frosted turf — ice crystals in leaf cells are crushed by foot and machinery load, causing permanent cell damage. Delay irrigation until frost has melted.'
+        },
+        'gl-stress-drought': {
+            title: 'Moisture Deficit',
+            body:  'Soil moisture stress occurs when volumetric water content (VWC) drops below 25% — the threshold where roots begin to experience water limitation. The deficit % shows how far below that threshold the soil is.\n\nNo moisture deficit: Soil moisture is adequate for unrestricted growth and root function.\nActive (orange): Dry soil is reducing turgor pressure in leaf cells, slowing photosynthesis and nutrient uptake. Growth potential is being capped proportionally to the deficit.\n\nThis is separate from the Irrigation Plan — that page shows the scheduled response. This card shows whether drought stress is actively reducing GP right now.'
+        },
+        'gl-stress-salinity': {
+            title: 'Salinity Stress',
+            body:  'Salinity stress is measured by ECw (electrical conductivity of irrigation water, in dS/m). High salt concentration raises the osmotic pressure in the soil solution, forcing roots to work harder to extract water — an effect called osmotic stress.\n\nNo salinity stress: ECw is below the threshold for this grass species — no yield reduction.\nActive (red): Salt levels are measurably reducing growth. The yield loss % is the estimated reduction in biomass production relative to non-saline conditions.\n\nSource: ECw value from your water/irrigation sample entered in the site data. Threshold varies by species — salt-tolerant grasses (bermuda, paspalum) can handle higher ECw than bentgrass or ryegrass.'
+        },
+        'gl-shade-n-adj': {
+            title: 'Nitrogen Adjustment for Shade',
+            body:  'Shaded turf grows slower and uses less nitrogen. Applying full N rates under shade causes excess shoot growth relative to root mass, weakening the plant and increasing disease risk.\n\nReduction %: how much to cut your planned N application.\nApplication Factor: multiply your scheduled N rate by this number to get the shade-adjusted rate.\n\nExample: 5 kg/ha planned × factor 0.6 = 3 kg/ha applied.'
+        },
+        'gl-shade-mowing': {
+            title: 'Mowing Height in Shade',
+            body:  'Raising the height of cut (HOC) in shade preserves leaf area for photosynthesis. Shaded turf already has less light energy — cutting it low removes the leaf surface it needs to recover.\n\nRecommended HOC: the minimum safe cutting height for current light levels.\nMax Shade Tolerance: the maximum shade percentage this species can tolerate before growth becomes unsustainable regardless of HOC.'
+        },
+        'gl-shade-pgr': {
+            title: 'PGR Guidance',
+            body:  'Plant Growth Regulators (PGRs) — such as trinexapac-ethyl (Primo Maxx) or prohexadione — slow vertical shoot growth by inhibiting gibberellin biosynthesis.\n\nIn shade conditions, turf is already struggling to photosynthesize. Applying PGRs further suppresses the growth the plant needs to recover, making the stress worse.\n\nSuspend PGR: stop applications until light levels recover above the minimum threshold.\nCaution: reduce rate or extend interval — do not apply at full rate under current light conditions.'
         }
     };
 
@@ -600,20 +702,27 @@
     var C3_KEYS = ['bent','bentgrass','fescue','ryegrass','rye','poa','bluegrass','kentucky','creeping','annual'];
     var C4_KEYS = ['bermuda','couch','kikuyu','zoysia','buffalo','st aug','paspalum','seashore','warm'];
 
+    // Same logic as old site calculateC3C4Fractions():
+    // percentC3Cover is the primary signal — 0..100 exclusive = mixed, 100 = pure C3, 0 = pure C4.
+    // Falls back to species name keywords when percentC3Cover is absent.
     function detectGrassType(shade) {
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var methodology = (cfg.turfMethodology || '').toLowerCase();
-
-        // Explicit mixed/overseeded always wins
-        if (methodology === 'mixed' || methodology === 'overseeded') return 'mixed';
-
-        // Pure stand: trust methodology, then fall back to species name
-        if (methodology === 'c3') return 'c3';
-        if (methodology === 'c4') return 'c4';
+        var c3pct = cfg.percentC3Cover;
+        // Only use percentC3Cover to signal 'mixed' when it's genuinely between 1–99.
+        // c3pct = 0 or 100 just means the field was saved with a default — fall through
+        // to species-key detection so a single-species setup isn't misclassified.
+        if (c3pct != null && c3pct > 0 && c3pct < 100) return 'mixed';
         var speciesKey = (cfg.turfSpecies || (shade && shade.speciesKey) || '').toLowerCase();
         for (var i = 0; i < C3_KEYS.length; i++) { if (speciesKey.indexOf(C3_KEYS[i]) !== -1) return 'c3'; }
         for (var i = 0; i < C4_KEYS.length; i++) { if (speciesKey.indexOf(C4_KEYS[i]) !== -1) return 'c4'; }
-        return 'mixed';
+        return 'c3';
+    }
+
+    function gpToStressBand(gp) {
+        if (gp == null) return null;
+        if (gp >= 70) return { label: 'Low',      color: '#22c55e' };
+        if (gp >= 40) return { label: 'Moderate', color: '#eab308' };
+        return               { label: 'High',      color: '#ef4444' };
     }
 
     function renderGrowthBlock(cm, soilTemp, shade) {
@@ -627,20 +736,24 @@
         var grassType = detectGrassType(shade);
         var dailyPattern = (growth.dailyPattern || []).slice(0, 16);
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var speciesLabel = cfg.turfSpecies ? capitalize(cfg.turfSpecies) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
+        var _specRaw = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
+        var speciesLabel = _specRaw ? capitalize(_specRaw) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
         var tempPrefix = avgTemp !== null && avgTemp !== undefined ? '<strong>' + fmt(avgTemp, 1) + '°C</strong> &mdash; ' : '';
+        var grassNames = grassNamesForMixed(cfg);
 
         // Species banner — shown for all grass types
         var mixedBannerHtml = '';
         if (grassType === 'mixed') {
             var c3pct = cfg.percentC3Cover != null ? Math.round(cfg.percentC3Cover) : null;
             var c4pct = c3pct != null ? 100 - c3pct : null;
+            var c3BannerName = grassNames.c3 || 'cool-season';
+            var c4BannerName = grassNames.c4 || 'warm-season';
             mixedBannerHtml = [
                 '<div class="gl-mixed-banner">',
                 '  <span class="gl-mixed-tag">Mixed stand</span>',
                 c3pct != null
-                    ? '  <span>' + c3pct + '% ' + esc(speciesLabel || 'cool-season') + ' &mdash; cool-season grass</span><span class="gl-mixed-sep">·</span><span>' + c4pct + '% warm-season grass</span>'
-                    : '  <span>' + esc(speciesLabel || 'Cool-season') + ' &mdash; cool-season grass</span><span class="gl-mixed-sep">·</span><span>Warm-season grass</span>',
+                    ? '  <span>' + c3pct + '% ' + esc(c3BannerName) + ' &mdash; cool-season grass (C3)</span><span class="gl-mixed-sep">·</span><span>' + c4pct + '% ' + esc(c4BannerName) + ' &mdash; warm-season grass (C4)</span>'
+                    : '  <span>' + esc(c3BannerName) + ' &mdash; cool-season grass (C3)</span><span class="gl-mixed-sep">·</span><span>' + esc(c4BannerName) + ' &mdash; warm-season grass (C4)</span>',
                 '</div>'
             ].join('');
         } else if (speciesLabel) {
@@ -668,19 +781,12 @@
         // Today left: number + badge
         var todayLeftHtml;
         if (grassType === 'mixed') {
-            var c3v = growth.c3 != null ? growth.c3 : 0;
-            var c4v = growth.c4 != null ? growth.c4 : 0;
+            var baseGpVal = growth.c3 != null ? growth.c3 : gp;
             todayLeftHtml = [
-                '<div class="gl-hero-section-label">Current Growth Potential</div>',
-                '<div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-top:4px">',
-                '  <div>',
-                '    <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px">' + esc(speciesLabel || 'C3') + '</div>',
-                '    <span class="gl-gp-big" style="color:' + gpColor(c3v) + '">' + fmt(c3v, 0, '—') + '%</span>',
-                '  </div>',
-                '  <div>',
-                '    <div style="font-size:11px;color:var(--muted);font-weight:600;margin-bottom:2px">C4 warm-season</div>',
-                '    <span class="gl-gp-big" style="color:' + gpColor(c4v) + '">' + fmt(c4v, 0, '—') + '%</span>',
-                '  </div>',
+                '<div class="gl-hero-section-label">Current Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
+                '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
+                '  <span class="gl-gp-big" style="color:' + gpColor(baseGpVal) + '">' + fmt(baseGpVal, 0, '—') + (baseGpVal != null ? '%' : '') + '</span>',
+                '  ' + statusBadge(esc(gpStatus), gpColor(baseGpVal)),
                 '</div>'
             ].join('\n');
         } else {
@@ -696,19 +802,20 @@
         // Today right: insight
         var todayRightHtml;
         if (grassType === 'mixed') {
-            var insC3 = keyInsight(cm, 'c3');
-            var insC4 = keyInsight(cm, 'c4');
+            var insC3 = keyInsight(cm, 'c3', grassNames.c3 || null);
+            var insC4 = keyInsight(cm, 'c4', grassNames.c4 || null);
             todayRightHtml = [
                 '<div class="gl-insight-box" style="background:' + insC3.bg + ';border-color:' + insC3.border + ';color:' + insC3.color + '">' + tempPrefix + esc(insC3.text) + '</div>',
                 '<div class="gl-insight-box" style="background:' + insC4.bg + ';border-color:' + insC4.border + ';color:' + insC4.color + '">' + tempPrefix + esc(insC4.text) + '</div>'
             ].join('\n');
         } else {
-            var insight = keyInsight(cm, grassType);
+            var insight = keyInsight(cm, grassType, speciesLabel || null);
             todayRightHtml = '<div class="gl-insight-box" style="background:' + insight.bg + ';border-color:' + insight.border + ';color:' + insight.color + '">' + tempPrefix + esc(insight.text) + '</div>';
         }
 
         // SECTION 1: Today row + bell curve
-        var todaySectionHtml = [
+        var todaySectionHtml;
+        todaySectionHtml = [
             '<div class="gl-gp-row">',
             '  <div class="gl-gp-row-left">' + todayLeftHtml + '</div>',
             '  <div class="gl-gp-row-right">' + todayRightHtml + '</div>',
@@ -792,36 +899,76 @@
     }
 
     function renderCompactSoilTemp(soilTemp) {
-        var depths = [
-            { key: 'd20mm',  label: '20 mm' },
-            { key: 'd50mm',  label: '50 mm' },
-            { key: 'd100mm', label: '100 mm' }
+        // 4-depth physics model display matching old site.
+        // soilTemp.summary.depths keys: '20mm', '50mm', '100mm', '200mm'
+        var depthDefs = [
+            { key: '20mm',  label: '20mm' },
+            { key: '50mm',  label: '50mm' },
+            { key: '100mm', label: '100mm' },
+            { key: '200mm', label: '200mm' }
         ];
 
         if (!soilTemp || !soilTemp.summary || !soilTemp.summary.depths) {
-            return '<div class="gl-soil-mini"><span class="gl-soil-mini-label">Soil Temp</span><span style="font-size:12px;color:var(--muted);font-style:italic">Data not yet available — will show once sensor data is cached</span></div>';
+            return [
+                '<div class="gl-soil-section">',
+                '  <div class="gl-soil-header">',
+                '    <div class="gl-soil-title">Soil Temperature Profile' + infoBtn('gl-soil-temp') + '</div>',
+                '    <span class="gl-soil-badge">Physics Model</span>',
+                '  </div>',
+                '  <div style="font-size:12px;color:var(--muted);font-style:italic">Data not yet available — re-run analysis to populate</div>',
+                '</div>'
+            ].join('\n');
         }
 
-        var depthData = soilTemp.summary.depths;
-        var items = depths.map(function(dk) {
-            var d = depthData[dk.key];
+        var depths = soilTemp.summary.depths;
+        var cards = depthDefs.map(function(dk) {
+            var d = depths[dk.key];
             if (!d) return '';
-            var val = d.mean !== undefined ? d.mean : d.current;
-            var color = val === null || val === undefined ? '#9ca3af' : (val < 10 ? '#0ea5e9' : val < 20 ? '#16a34a' : '#f97316');
+            var mean    = d.mean;
+            var current = d.current !== undefined ? d.current : null;
+            var color   = mean === null || mean === undefined ? '#9ca3af'
+                : mean < 10 ? '#0ea5e9'
+                : mean < 20 ? '#16a34a'
+                : '#f97316';
             return [
-                '<div class="gl-soil-mini-item">',
-                '  <span class="gl-soil-mini-depth">' + dk.label + '</span>',
-                '  <span class="gl-soil-mini-val" style="color:' + color + '">' + fmt(val, 1, '—') + (val !== null && val !== undefined ? '°' : '') + '</span>',
+                '<div class="gl-soil-card">',
+                '  <div class="gl-soil-depth">' + dk.label + '</div>',
+                '  <div class="gl-soil-mean" style="color:' + color + '">' + fmt(mean, 1, '—') + (mean !== null && mean !== undefined ? '°C' : '') + '</div>',
+                current !== null && current !== undefined ? '  <div class="gl-soil-current">now: ' + fmt(current, 1) + '°C</div>' : '',
                 '</div>'
-            ].join('');
-        }).filter(Boolean).join('');
+            ].join('\n');
+        }).filter(Boolean).join('\n');
 
-        // Overall status
-        var refDepth = depthData['d50mm'] || depthData['d20mm'] || null;
-        var refVal = refDepth ? (refDepth.mean !== undefined ? refDepth.mean : refDepth.current) : null;
-        var status = refVal === null ? '' : (refVal < 10 ? 'Cold — C4 dormancy likely' : refVal < 15 ? 'Cool' : refVal < 22 ? 'Optimal for roots' : 'Warm');
+        // Profile name + kappa — injected into the ⓘ popover, not shown on the card
+        var profileNames = {
+            'usga': 'USGA Sand', 'native': 'Native Soil', 'push-up': 'Push-up Green',
+            'sand-carpet': 'Sand Carpet', 'hybrid': 'Hybrid Pitch',
+            'sand-profile': 'Sand Profile', 'pipe-drained': 'Pipe Drained', 'soil-field': 'Soil Field'
+        };
+        var rawProfile  = soilTemp.profileType || (soilTemp.summary && soilTemp.summary.profileType) || '';
+        var profileName = profileNames[rawProfile] || rawProfile || null;
+        var kappa       = soilTemp.summary.thermalProps && soilTemp.summary.thermalProps.kappa
+            ? (soilTemp.summary.thermalProps.kappa * 1e6).toFixed(2) : null;
+        var techLine = [];
+        if (profileName) techLine.push('Profile: ' + profileName);
+        if (kappa)       techLine.push('κ = ' + kappa + ' ×10⁻⁶ m²/s');
+        if (techLine.length) {
+            GL_GLOSSARY['gl-soil-temp'].body =
+                techLine.join(' • ') + '\n\n' +
+                'Soil temperature estimated at 4 depths using a physics model (air temp + solar radiation + rootzone type).\n\nMean — average over the 16-day forecast. Now — current estimate.\n\nColour:\nBlue (<10°C) — cold; root activity and nutrient uptake slow.\nGreen (10–20°C) — optimal for most turf species.\nOrange (>20°C) — warm; C4 roots active, C3 roots may be stressed.';
+        }
 
-        return '<div class="gl-soil-mini"><span class="gl-soil-mini-label">Soil Temp</span>' + items + (status ? '<span class="gl-soil-mini-status">' + esc(status) + '</span>' : '') + '</div>';
+        return [
+            '<div class="gl-soil-section">',
+            '  <div class="gl-soil-header">',
+            '    <div class="gl-soil-title">Soil Temperature Profile' + infoBtn('gl-soil-temp') + '</div>',
+            '    <span class="gl-soil-badge">Physics Model</span>',
+            '  </div>',
+            '  <div class="gl-soil-grid">',
+            cards,
+            '  </div>',
+            '</div>'
+        ].join('\n');
     }
 
     function renderBellCurve(cm, shade, grassType) {
@@ -830,13 +977,15 @@
         var showC3 = grassType !== 'c4';
         var showC4 = grassType !== 'c3';
         var cfg = global.GAIP_HUB_CONFIG || {};
-        var speciesLabel = cfg.turfSpecies ? capitalize(cfg.turfSpecies) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
+        var _specRaw2 = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
+        var speciesLabel = _specRaw2 ? capitalize(_specRaw2) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
+        var bcNames = grassNamesForMixed(cfg);
 
         // Chart is always shown — curves are mathematical
 
         // Must match climate-engine.js calculateC3Growth / calculateC4Growth
         var C3_PEAK = 20.0, C3_SIGMA = 10.0;
-        var C4_PEAK = 31.0, C4_SIGMA = 8.0;
+        var C4_PEAK = 31.0, C4_SIGMA = 10.0;
         var T_MIN = -5, T_MAX = 45;
         var W = 600, H = 180, padL = 40, padR = 20, padT = 22, padB = 40;
         var innerW = W - padL - padR;
@@ -900,8 +1049,9 @@
         var legY = padT + innerH + 30;
         var legParts = [];
         if (showC3 && showC4) {
-            legParts.push('<circle cx="' + (W/2 - 100) + '" cy="' + legY + '" r="5" fill="#0ea5e9"/><text x="' + (W/2 - 92) + '" y="' + (legY+4) + '" font-size="11" fill="#374151">C3 cool-season</text>');
-            legParts.push('<circle cx="' + (W/2 + 30) + '" cy="' + legY + '" r="5" fill="#f97316"/><text x="' + (W/2 + 38) + '" y="' + (legY+4) + '" font-size="11" fill="#374151">C4 warm-season</text>');
+            var legC3 = bcNames.c3 || 'C3 cool-season';
+            var legC4 = bcNames.c4 || 'C4 warm-season';
+            // mixed: two HTML legend items built below
         } else {
             var legColor = showC3 ? '#0ea5e9' : '#f97316';
             var legName  = speciesLabel || (showC3 ? 'C3 cool-season grass' : 'C4 warm-season grass');
@@ -909,7 +1059,19 @@
         }
         var legend = legParts.join('');
 
-        var subtitle = '— how temperature drives growth potential' + (speciesLabel ? ' for ' + speciesLabel : '');
+        var subtitle = '— how temperature drives growth potential' + (grassType !== 'mixed' && speciesLabel ? ' for ' + speciesLabel : '');
+
+        // Mixed legend rendered as HTML below SVG (avoids truncation of long species names)
+        var htmlLegend = '';
+        if (showC3 && showC4) {
+            htmlLegend = [
+                '<div style="display:flex;gap:20px;justify-content:center;margin-top:6px;font-size:12px;color:#374151;flex-wrap:wrap">',
+                '<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#0ea5e9;flex-shrink:0"></span>' + esc(legC3 || 'C3 cool-season') + '</span>',
+                '<span style="display:flex;align-items:center;gap:6px"><span style="width:10px;height:10px;border-radius:50%;background:#f97316;flex-shrink:0"></span>' + esc(legC4 || 'C4 warm-season') + '</span>',
+                '</div>'
+            ].join('');
+            legend = ''; // remove from SVG
+        }
 
         // SVG curves — only draw what's needed
         var curveSvg = [];
@@ -928,7 +1090,7 @@
             '<svg class="gl-svg" viewBox="0 0 ' + W + ' ' + (H + 16) + '" height="' + (H + 16) + '">',
             '<defs>',
             '<linearGradient id="bc-c3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#0ea5e9" stop-opacity=".2"/><stop offset="100%" stop-color="#0ea5e9" stop-opacity=".01"/></linearGradient>',
-            '<linearGradient id="bc-c4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f97316" stop-opacity=".2"/><stop offset="100%" stop-color="#f97316" stop-opacity=".01"/></linearGradient>',
+            '<linearGradient id="bc-c4" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f97316" stop-opacity=".12"/><stop offset="100%" stop-color="#f97316" stop-opacity=".01"/></linearGradient>',
             '</defs>',
             grid,
             xLabels.join(''),
@@ -937,6 +1099,7 @@
             tempMarkup,
             legend,
             '</svg>',
+            htmlLegend,
             '</div>'
         ].join('\n');
     }
@@ -993,66 +1156,249 @@
     // =========================================================================
 
     function renderLightBlock(cm, shade) {
-        var dli = getDLI(shade);
-        var dliStatus = shade ? shade.effectiveStatus : null;
-        var dliTarget = shade ? shade.dliTarget : null;
-        var shadePercent = shade ? shade.shadePercent : null;
-        var skyView = shade ? shade.skyView : null;
-        var seasonal = shade ? shade.seasonalTrajectory : null;
-        var led = shade ? shade.ledRecommendation : null;
+        var _lightCfg = global.GAIP_HUB_CONFIG || {};
+        var _lightGrassNames = grassNamesForMixed(_lightCfg);
+        var dli             = getDLI(shade);
+        var dliStatus       = shade ? shade.effectiveStatus : null;
+        var dliTarget       = shade ? (shade.blendedTargetDLI || shade.dliTarget) : null;
+        var seasonal        = shade ? shade.seasonalTrajectory : null;
+        var led             = shade ? (shade.led || shade.ledRecommendation) : null;
+        var recovery        = shade ? shade.recoveryWindow : null;
+        var fungalClass     = shade ? shade.fungalClass : null;
+        var stressClass     = shade ? shade.stressClass : null;
         var solarDailyTotals = cm && cm.solar ? (cm.solar.dailyTotals || []) : [];
-        var color = dliColor(dliStatus);
+        var color           = dliColor(dliStatus);
 
-        // DLI bar chart from solar.dailyTotals or shade pattern
-        var dliChartHtml = '';
-        if (solarDailyTotals.length >= 2) {
-            dliChartHtml = '<div class="gl-chart-wrap"><div class="gl-chart-label">14-Day DLI (mol/m²/day)</div>' + renderDLIBarSvg(solarDailyTotals, dliTarget) + '</div>';
-        }
+        // Strip parenthetical suffix before comparing, e.g. "optimal (cool temps…)" → "optimal"
+        var statusKey = dliStatus ? dliStatus.toLowerCase().split('(')[0].trim() : '';
+        var statusLabels = {
+            optimal: 'Optimal', adequate: 'Acceptable', acceptable: 'Acceptable',
+            suboptimal: 'Suboptimal', marginal: 'Marginal',
+            deficient: 'Deficient', critical: 'Critical'
+        };
+        var statusLabel = statusLabels[statusKey] || capitalize(dliStatus || '—');
+        var isGood = statusKey === 'optimal' || statusKey === 'adequate' || statusKey === 'acceptable';
+        var statusIcon = isGood ? '&#10003;' : (statusKey === 'suboptimal' || statusKey === 'marginal' ? '!' : '&#10007;');
 
-        // Species thresholds from shade
-        var speciesHtml = '';
-        if (shade && shade.speciesKey) {
-            speciesHtml = renderSpeciesThresholds(shade);
-        }
+        var grassType = detectGrassType(shade);
+        var growth    = cm ? (cm.growth || {}) : {};
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        var speciesLabel = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
+        var speciesName  = speciesLabel ? capitalize(speciesLabel) : null;
+        var _c3pct = cfg.percentC3Cover != null ? Math.round(cfg.percentC3Cover) : null;
+        var _c4pct = _c3pct != null ? 100 - _c3pct : null;
+        var mixedComposition = _c3pct != null
+            ? (_c4pct + '% C4 · ' + _c3pct + '% C3')
+            : 'C3/C4 mixed';
+        var typeTag = grassType === 'mixed' ? mixedComposition
+                    : grassType === 'c3'    ? (speciesLabel || 'C3 cool-season')
+                    : (speciesLabel || 'C4 warm-season');
 
-        // Shade context
-        var shadeCtxHtml = '';
-        if (shadePercent !== null && shadePercent !== undefined && shadePercent > 0) {
-            shadeCtxHtml = '<div class="gl-shade-ctx">' +
-                '<div class="gl-shade-item"><span>Shade Factor:</span> <strong>' + fmt(shadePercent, 0) + '%</strong></div>' +
-                (skyView !== null && skyView !== undefined ? '<div class="gl-shade-item"><span>Sky View:</span> <strong>' + fmt(skyView, 2) + '</strong></div>' : '') +
-                '</div>';
-        }
+        // ── Verdict row ──────────────────────────────────────────────────────
+        var targetSub = dliTarget
+            ? ('Target: ' + fmt(dliTarget, 1) + ' mol/m²/day · ' + esc(typeTag))
+            : esc(typeTag);
 
-        // Seasonal trajectory (collapsed)
-        var seasonalHtml = '';
-        if (seasonal) {
-            seasonalHtml = renderSeasonalTrajectory(seasonal);
-        }
+        var verdictHtml = dli !== null ? [
+            '<div class="gl-light-verdict">',
+            '  <span class="gl-light-verdict-icon" style="background:' + color + '22;color:' + color + '">' + statusIcon + '</span>',
+            '  <div>',
+            '    <div class="gl-light-verdict-status" style="color:' + color + '">' + esc(statusLabel) + infoBtn('gl-light-status') + '</div>',
+            '<div class="gl-light-verdict-target">' + targetSub + '</div>',
+            '  </div>',
+            '  <div class="gl-light-verdict-dli" style="color:' + color + '">' + fmt(dli, 1) + '<span class="gl-light-verdict-unit"> mol/m²/day</span></div>',
+            '</div>'
+        ].join('\n') : '';
 
-        // LED recommendation
-        var ledHtml = '';
+        // ── 14-day DLI chart ─────────────────────────────────────────────────
+        var chartHtml = solarDailyTotals.length >= 2
+            ? '<div class="gl-chart-wrap"><div class="gl-chart-label">14-Day DLI (mol/m²/day)</div>' + renderDLIBarSvg(solarDailyTotals, dliTarget) + '</div>'
+            : '';
+
+        // ── Shared data ───────────────────────────────────────────────────────
+        var riskColors  = { good: '#22c55e', watch: '#eab308', concern: '#f97316', critical: '#ef4444' };
+        var renMap      = { optimal: 'Suitable', good: 'Suitable', conditional: 'Conditional', poor: 'Unsuitable' };
+        var renColorMap = { good: '#16a34a', watch: '#d97706', concern: '#ea580c', critical: '#dc2626' };
+        var renLabel = recovery ? (renMap[(recovery.flag || '').toLowerCase()] || recovery.flag || '—') : '—';
+        var renColor = recovery ? (renColorMap[recovery.severity] || '#9ca3af') : '#9ca3af';
+
+        var ledLabel = '—', ledColor = '#9ca3af';
         if (led) {
-            if (led.required && led.deficitMol > 0) {
-                ledHtml = [
-                    '<div class="gl-led-box">',
-                    '  <div class="gl-led-title">&#9889; LED Supplementation Recommended</div>',
-                    '  <div class="gl-four-col" style="grid-template-columns:repeat(3,1fr);margin-top:10px">',
-                    '    <div class="gl-card"><div class="gl-card-label">Deficit</div><div class="gl-card-value">' + fmt(led.deficitMol, 1) + '</div><div class="gl-card-sub">mol/m²/day</div></div>',
-                    '    <div class="gl-card"><div class="gl-card-label">Hours / Day</div><div class="gl-card-value">' + fmt(led.hours, 1, '—') + '</div></div>',
-                    '    <div class="gl-card"><div class="gl-card-label">Energy</div><div class="gl-card-value">' + fmt(led.kWh, 2, '—') + '</div><div class="gl-card-sub">kWh/day</div></div>',
-                    '  </div>',
-                    led.warning ? '<div style="margin-top:8px;font-size:12px;color:#78350f">' + esc(led.warning) + '</div>' : '',
-                    '</div>'
-                ].join('\n');
+            ledLabel = (led.required && led.deficitMol > 0) ? fmt(led.deficitMol, 1) + ' mol deficit' : 'Not required';
+            ledColor = (led.required && led.deficitMol > 0) ? '#d97706' : '#16a34a';
+        }
+
+        var fLabel = '—', fColor = '#9ca3af';
+        if (fungalClass) { fLabel = fungalClass.label || '—'; fColor = riskColors[fungalClass.severity] || '#9ca3af'; }
+
+        var sLabel = '—', sColor = '#9ca3af';
+        if (stressClass) { sLabel = stressClass.label || '—'; sColor = riskColors[stressClass.severity] || '#9ca3af'; }
+
+        var recLabel = '—', recColor = '#9ca3af', recDates = '';
+        if (recovery) {
+            recLabel = recovery.flag || '—';
+            recColor = riskColors[recovery.severity] || '#9ca3af';
+            if (recovery.windowStart) recDates = recovery.windowStart + ' – ' + recovery.windowEnd;
+        }
+
+        function gpStressBand(gp) {
+            if (gp == null) return { label: '—', color: '#9ca3af' };
+            if (gp >= 70)  return { label: 'Low',      color: '#22c55e' };
+            if (gp >= 40)  return { label: 'Moderate', color: '#eab308' };
+            return               { label: 'High',      color: '#ef4444' };
+        }
+        function gpRenoBand(gp) {
+            if (gp == null) return { label: '—',          color: '#9ca3af' };
+            if (gp < 20)   return { label: 'Unsuitable',  color: '#dc2626' };
+            if (gp < 50)   return { label: 'Conditional', color: '#d97706' };
+            return               { label: renLabel,       color: renColor  };
+        }
+
+        var hasBothComponents = grassType === 'mixed' && growth.c3 != null && growth.c4 != null;
+        var grassSubLabel = grassType === 'mixed' ? mixedComposition
+                          : grassType === 'c4'    ? (speciesName ? speciesName + ' — C4 warm-season' : 'C4 warm-season')
+                          :                         (speciesName ? speciesName + ' — C3 cool-season' : 'C3 cool-season');
+
+        var fungalSplitBands = null;
+        if (grassType === 'mixed' && fungalClass && fungalClass.severity) {
+            var _fSevOrder = ['good', 'watch', 'concern', 'critical'];
+            var _fLabels   = { good: 'Low', watch: 'Watch', concern: 'Moderate', critical: 'High' };
+            var _fIdx  = _fSevOrder.indexOf(fungalClass.severity);
+            var _c4Idx = Math.max(0, _fIdx - 1);
+            fungalSplitBands = {
+                c3: { label: fungalClass.label || '—', color: riskColors[fungalClass.severity] || '#9ca3af' },
+                c4: { label: _fLabels[_fSevOrder[_c4Idx]] || '—', color: riskColors[_fSevOrder[_c4Idx]] || '#9ca3af' },
+            };
+        }
+
+        // ── DLI threshold bar ─────────────────────────────────────────────────
+        var dliMin     = shade ? (shade.blendedMinDLI || shade.dliMin) : null;
+        var dliOptimal = shade ? shade.dliOptimal : null;
+        var fungalScore = shade ? shade.fungalRisk : null;
+        var thresholdBarHtml = '';
+        if (dli !== null && dliTarget) {
+            var _tbMax = Math.max(dliOptimal || 35, dliTarget * 1.3, dli * 1.2, 30);
+            var _markerPct = Math.min(97, Math.max(2, (dli / _tbMax) * 100)).toFixed(1);
+            var _targetPct = Math.min(97, (dliTarget / _tbMax) * 100).toFixed(1);
+            var _minPct    = dliMin ? Math.min(95, (dliMin / _tbMax) * 100).toFixed(1) : null;
+            var _zones = [];
+            if (_minPct) {
+                _zones.push('<div class="gl-dli-zone-red" style="width:' + _minPct + '%"></div>');
+                _zones.push('<div class="gl-dli-zone-yellow" style="width:' + Math.max(0, _targetPct - _minPct).toFixed(1) + '%"></div>');
             } else {
-                var ledNote = led.warning || 'Current light levels meet species requirements.';
-                ledHtml = [
-                    '<div class="gl-led-box" style="background:#f0fdf4;border-color:#bbf7d0">',
-                    '  <div class="gl-led-title" style="color:#14532d">&#10003; LED Supplementation Not Required</div>',
-                    '  <div style="margin-top:6px;font-size:13px;color:#166534">' + esc(ledNote) + '</div>',
-                    '</div>'
-                ].join('\n');
+                _zones.push('<div class="gl-dli-zone-yellow" style="width:' + _targetPct + '%"></div>');
+            }
+            _zones.push('<div class="gl-dli-zone-green"></div>');
+            thresholdBarHtml = [
+                '<div class="gl-dli-thresholds">',
+                '  <div style="position:relative">',
+                '    <div class="gl-dli-bar-track">' + _zones.join('') + '</div>',
+                '    <div class="gl-dli-bar-marker" style="left:' + _markerPct + '%" title="Current: ' + fmt(dli, 1) + ' mol/m²/day"></div>',
+                '  </div>',
+                '  <div class="gl-dli-bar-labels">',
+                (_minPct ? '<span>Min ' + fmt(dliMin, 1) + '</span>' : '<span></span>'),
+                '    <span>Target ' + fmt(dliTarget, 1) + '</span>',
+                (dliOptimal ? '<span>Optimal ' + fmt(dliOptimal, 1) + ' mol/m²/day</span>' : '<span></span>'),
+                '  </div>',
+                '</div>',
+            ].join('\n');
+        }
+
+        // ── Temperature × Light interaction ───────────────────────────────────
+        var todayTemp = (cm && cm.temperature && cm.temperature.todayMean != null) ? cm.temperature.todayMean : null;
+        var tempLightHtml = '';
+        if (todayTemp !== null) {
+            var _tempNotes = [];
+            if (grassType === 'mixed' || grassType === 'c3') {
+                _tempNotes.push(todayTemp < 15
+                    ? 'C3 can tolerate lower DLI in cool conditions'
+                    : (todayTemp > 28 ? 'C3 heat stress increases light sensitivity' : 'C3 in active growth range'));
+            }
+            if (grassType === 'mixed' || grassType === 'c4') {
+                _tempNotes.push(todayTemp < 15
+                    ? 'C4 needs <strong>more light</strong> when temperatures are cool'
+                    : (todayTemp > 28 ? 'C4 in optimal temperature range' : 'C4 in transitional temperature range'));
+            }
+            if (_tempNotes.length) {
+                tempLightHtml = '<div class="gl-temp-light">At ' + fmt(todayTemp, 1) + '°C — ' + _tempNotes.join(' · ') + '</div>';
+            }
+        }
+
+        // ── Metric card renderers ─────────────────────────────────────────────
+        function mCard(labelText, infoKey, bodyHtml, detailText) {
+            return [
+                '<div class="gl-metric-card">',
+                '<div class="gl-metric-label-row">' + esc(labelText) + (infoKey ? infoBtn(infoKey) : '') + '</div>',
+                bodyHtml,
+                detailText ? '<div class="gl-metric-detail">' + esc(detailText) + '</div>' : '',
+                '</div>'
+            ].join('');
+        }
+        function mVal(text, color) {
+            return '<span class="gl-metric-main-val" style="color:' + color + '">' + esc(text) + '</span>';
+        }
+        function mSplit(c3b, c4b) {
+            return [
+                '<div class="gl-metric-split">',
+                '<div class="gl-metric-split-row"><span class="gl-metric-type-tag">C3</span><span class="gl-metric-split-val" style="color:' + c3b.color + '">' + esc(c3b.label) + '</span></div>',
+                '<div class="gl-metric-split-row"><span class="gl-metric-type-tag">C4</span><span class="gl-metric-split-val" style="color:' + c4b.color + '">' + esc(c4b.label) + '</span></div>',
+                '</div>'
+            ].join('');
+        }
+
+        // ── Build each card ───────────────────────────────────────────────────
+        // Renovation
+        var renoDetail = (dli !== null && dliTarget)
+            ? 'DLI ' + fmt(dli, 1) + ' vs ' + fmt(dliTarget, 1) + ' mol/m²/day required'
+            : (grassType !== 'mixed' ? grassSubLabel : null);
+        var renoBody = hasBothComponents
+            ? mSplit({ label: renLabel, color: renColor }, gpRenoBand(growth.c4))
+            : mVal(renLabel, renColor);
+        // For mixed stand showing a single status, note which species it's based on
+        var renoCardLabel = (grassType === 'mixed' && !hasBothComponents)
+            ? 'Renovation · ' + (_lightGrassNames.c3 || 'Base species (C3)') + ' only'
+            : 'Renovation';
+        var renoCard = mCard(renoCardLabel, 'gl-renovation-cond', renoBody, renoDetail);
+
+        // LED
+        var ledDetail = led && led.required && led.deficitMol > 0
+            ? 'Deficit: ' + fmt(led.deficitMol, 1) + ' mol/m²/day'
+            : (led && !led.required ? 'DLI meets minimum threshold' : null);
+        var ledCard = mCard('LED Supplementation', null, mVal(ledLabel, ledColor), ledDetail);
+
+        // Fungal Risk
+        var fungalBody = fungalSplitBands ? mSplit(fungalSplitBands.c3, fungalSplitBands.c4) : mVal(fLabel, fColor);
+        var fungalDetail = fungalScore != null ? 'Index: ' + Math.round(fungalScore) + ' / 100' : null;
+        var fungalCard = mCard('Fungal Risk', 'gl-fungal-risk-light', fungalBody, fungalDetail);
+
+        // Stress
+        var stressBody = hasBothComponents
+            ? mSplit(gpStressBand(growth.c3), gpStressBand(growth.c4))
+            : mVal(sLabel, sColor);
+        var stressDetail = !hasBothComponents && grassType === 'mixed' ? grassSubLabel : null;
+        var stressCard = mCard('Stress', 'gl-stress-forecast-light', stressBody, stressDetail);
+
+        // Recovery
+        var recBodyHtml = mVal(recLabel, recColor) +
+            (recDates ? '<div style="font-size:12px;color:var(--muted);margin-top:3px">' + esc(recDates) + '</div>' : '');
+        var recDetail = recovery && recovery.detail ? recovery.detail : null;
+        var recCard = mCard('Recovery', 'gl-recovery-window', recBodyHtml, recDetail);
+
+        var metricsHtml = [
+            '<div class="gl-metrics-grid">',
+            renoCard, fungalCard, recCard, ledCard, stressCard,
+            '</div>',
+        ].join('\n');
+
+        // ── Seasonal note ─────────────────────────────────────────────────────
+        var seaHtml = '';
+        if (seasonal) {
+            var seaParts = [];
+            if (seasonal.range !== undefined) seaParts.push('Annual DLI range: ' + fmt(seasonal.range, 1) + ' mol/m²/day');
+            if (seasonal.stressMonths && seasonal.stressMonths.length) seaParts.push('Stress months: ' + seasonal.stressMonths.join(', '));
+            if (seasonal.renovationMonths && seasonal.renovationMonths.length) seaParts.push('Best renovation window: ' + seasonal.renovationMonths.join(', '));
+            if (seaParts.length) {
+                seaHtml = '<div style="font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6">' + seaParts.join(' · ') + '</div>';
             }
         }
 
@@ -1061,16 +1407,15 @@
             '  <div class="gl-block-header">',
             '    <div class="gl-block-accent" style="background:#0ea5e9"></div>',
             '    <div class="gl-block-title">Light Conditions</div>',
-            '    <div class="gl-block-sub">Daily Light Integral (DLI)</div>',
+            '    <div class="gl-block-sub">Daily Light Integral (DLI) ' + infoBtn('gl-dli') + '</div>',
             '  </div>',
             '  <div class="gl-block-body">',
-            dli !== null ? '<div class="gl-dli-headline" style="color:' + color + '">' + fmt(dli, 1) + ' mol/m²/day &middot; ' + statusBadge(capitalize(dliStatus || 'Unknown'), color) + '</div>' : '<div class="gl-dli-headline" style="color:#9ca3af">— mol/m²/day</div>',
-            dliTarget !== null && dliTarget !== undefined ? '<div class="gl-dli-target">Species target: ' + fmt(dliTarget, 1) + ' mol/m²/day</div>' : '',
-            dliChartHtml,
-            speciesHtml,
-            shadeCtxHtml,
-            seasonalHtml,
-            ledHtml,
+            verdictHtml,
+            thresholdBarHtml,
+            tempLightHtml,
+            chartHtml,
+            metricsHtml,
+            seaHtml,
             '  </div>',
             '</div>'
         ].join('\n');
@@ -1120,53 +1465,42 @@
         ].join('\n');
     }
 
-    function renderSpeciesThresholds(shade) {
-        var rows = [
-            ['Species / Mode', esc(shade.speciesKey || '—')],
-            ['Min DLI', fmt(shade.minDLI !== undefined ? shade.minDLI : (shade.dliThresholds && shade.dliThresholds.min), 1, '—') + ' mol/m²/day'],
-            ['Optimal DLI', fmt(shade.dliTarget, 1, '—') + ' mol/m²/day'],
-            ['Status', shade.effectiveStatus ? capitalize(shade.effectiveStatus) : '—'],
-        ];
-        return '<div class="gl-section-label">Species Thresholds</div>' + renderSimpleTable(['Parameter', 'Value'], rows);
-    }
-
-    function renderSeasonalTrajectory(seasonal) {
-        var items = [];
-        if (seasonal.peakMonth !== undefined) items.push('Peak month: <strong>Month ' + seasonal.peakMonth + '</strong>');
-        if (seasonal.troughMonth !== undefined) items.push('Trough month: <strong>Month ' + seasonal.troughMonth + '</strong>');
-        if (seasonal.stressMonths && seasonal.stressMonths.length) items.push('Stress months: <strong>' + seasonal.stressMonths.join(', ') + '</strong>');
-        if (seasonal.renovationMonths && seasonal.renovationMonths.length) items.push('Renovation window: <strong>' + seasonal.renovationMonths.join(', ') + '</strong>');
-        if (seasonal.range !== undefined) items.push('Annual DLI range: <strong>' + fmt(seasonal.range, 1) + ' mol/m²/day</strong>');
-
-        return [
-            '<div class="gl-research-section">',
-            '<div class="gl-section-label">Seasonal Trajectory</div>',
-            '<ul style="margin:6px 0 0;padding-left:20px;font-size:13px;line-height:1.8">' + items.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ul>',
-            '</div>'
-        ].join('\n');
-    }
-
     // =========================================================================
     // BLOCK 3 — TEMPERATURE STRESSES
     // =========================================================================
 
-    function renderStressBlock(cm) {
+    function renderStressBlock(cm, shade) {
         var stress = cm ? (cm.stress || {}) : {};
         var heat   = stress.heat   || {};
         var cold   = stress.cold   || {};
         var stressClass = stress.stressClass || null;
         var stressIndex = stress.index;
         var factors = stress.factors || [];
+        var grassType = detectGrassType(shade);
+        var growth = cm ? (cm.growth || {}) : {};
 
         // Overall stress card (from shade engine)
         var overallColor = stressClass ? (stressClass.colour || '#9ca3af') : '#9ca3af';
         var overallLabel = stressClass ? stressClass.label : (stress.level ? capitalize(stress.level) : null);
+        var hasBothGP = grassType === 'mixed' && growth.c3 != null && growth.c4 != null;
+        var overallSplitHtml = '';
+        if (hasBothGP) {
+            var c3band = gpToStressBand(growth.c3);
+            var c4band = gpToStressBand(growth.c4);
+            overallSplitHtml = [
+                '<div style="display:flex;gap:12px;margin-top:6px;flex-wrap:wrap">',
+                c3band ? '<div style="font-size:11px"><span style="color:var(--muted)">C3: </span><span style="color:' + c3band.color + ';font-weight:600">' + c3band.label + '</span></div>' : '',
+                c4band ? '<div style="font-size:11px"><span style="color:var(--muted)">C4: </span><span style="color:' + c4band.color + ';font-weight:600">' + c4band.label + '</span></div>' : '',
+                '</div>'
+            ].join('');
+        }
         var overallCard = [
             '<div class="gl-stress-card" style="border-top:3px solid ' + overallColor + '">',
-            '  <div class="gl-stress-label">Overall Stress</div>',
+            '  <div class="gl-stress-label">Overall Stress' + infoBtn('gl-stress-overall') + '</div>',
             overallLabel ? '<div class="gl-stress-val" style="color:' + overallColor + '">' + esc(overallLabel) + '</div>' : '<div class="gl-stress-val">—</div>',
             stressIndex !== null && stressIndex !== undefined ? '<div class="gl-stress-detail">Index: ' + fmt(stressIndex, 0) + '</div>' : '',
             stress.environmentalStressIndex ? '<div class="gl-stress-detail">ESI: ' + fmt(stress.environmentalStressIndex, 1) + '</div>' : '',
+            overallSplitHtml,
             '</div>'
         ].join('\n');
 
@@ -1174,35 +1508,65 @@
         var shadeFactor = factors.filter(function (f) { return f.type === 'shade'; })[0] || null;
         var shadeCard = [
             '<div class="gl-stress-card" style="border-top:3px solid ' + (shadeFactor ? '#a855f7' : '#9ca3af') + '">',
-            '  <div class="gl-stress-label">Shade Stress</div>',
+            '  <div class="gl-stress-label">Shade Stress' + infoBtn('gl-stress-shade') + '</div>',
             shadeFactor ? [
                 '<div class="gl-stress-val" style="color:#a855f7">' + fmt(shadeFactor.deficitPct || shadeFactor.severity * 100, 0) + '% deficit</div>',
                 '<div class="gl-stress-detail">' + esc(shadeFactor.status || '') + '</div>',
                 shadeFactor.note ? '<div class="gl-stress-detail" style="font-size:11px">' + esc(shadeFactor.note) + '</div>' : ''
-            ].join('\n') : '<div class="gl-stress-detail">No shade stress</div>',
+            ].join('\n') : '<div class="gl-stress-detail" style="color:#16a34a;font-weight:500">&#10003; No shade stress</div>',
             '</div>'
         ].join('\n');
 
         // Heat stress card
         var heatActive = heat.days > 0;
+        var heatLines = heatActive ? [
+            heat.days + ' day' + (heat.days !== 1 ? 's' : '') + ' forecast',
+            heat.maxTemp ? 'Peak: ' + fmt(heat.maxTemp, 1) + '°C' : '',
+            (grassType === 'mixed' || grassType === 'c3') ? 'Primarily affects cool-season (C3) grasses' : ''
+        ].filter(Boolean) : null;
         var heatCard = renderStressCard('Heat Stress',
-            heatActive ? [
-                heat.days + ' day' + (heat.days !== 1 ? 's' : '') + ' forecast',
-                heat.maxTemp ? 'Peak: ' + fmt(heat.maxTemp, 1) + '°C' : ''
-            ].filter(Boolean) : null,
+            heatLines,
             heatActive ? '#dc2626' : '#16a34a',
-            heatActive ? null : 'No heat events forecast');
+            heatActive ? null : 'No heat events forecast',
+            'gl-stress-heat');
 
         // Cold card
         var coldActive = cold.days > 0 || cold.frostDays > 0;
+        var coldLines = coldActive ? [
+            cold.days ? cold.days + ' cold day' + (cold.days !== 1 ? 's' : '') : '',
+            cold.frostDays ? cold.frostDays + ' frost day' + (cold.frostDays !== 1 ? 's' : '') : '',
+            cold.minTemp !== undefined ? 'Min: ' + fmt(cold.minTemp, 1) + '°C' : '',
+            (grassType === 'mixed' || grassType === 'c4') ? 'Primarily affects warm-season (C4) grasses' : ''
+        ].filter(Boolean) : null;
         var coldCard = renderStressCard('Cold & Frost',
-            coldActive ? [
-                cold.days ? cold.days + ' cold day' + (cold.days !== 1 ? 's' : '') : '',
-                cold.frostDays ? cold.frostDays + ' frost day' + (cold.frostDays !== 1 ? 's' : '') : '',
-                cold.minTemp !== undefined ? 'Min: ' + fmt(cold.minTemp, 1) + '°C' : ''
-            ].filter(Boolean) : null,
+            coldLines,
             cold.frostDays > 0 ? '#0ea5e9' : (coldActive ? '#d97706' : '#16a34a'),
-            coldActive ? null : 'No frost risk forecast');
+            coldActive ? null : 'No frost risk forecast',
+            'gl-stress-cold');
+
+        // Drought / moisture deficit card
+        var droughtFactor = stress.drought || null;
+        var droughtPct = droughtFactor ? Math.round((droughtFactor.severity || 0) * 100) : 0;
+        var droughtNote = droughtFactor ? (droughtFactor.note || '') : '';
+        var droughtCard = renderStressCard('Moisture Deficit',
+            droughtFactor ? [
+                droughtPct + '% soil moisture deficit',
+                droughtNote
+            ].filter(Boolean) : null,
+            droughtFactor ? '#f97316' : '#16a34a',
+            droughtFactor ? null : 'No moisture deficit',
+            'gl-stress-drought');
+
+        // Salinity card
+        var salinityFactor = stress.salinity || null;
+        var salinityCard = renderStressCard('Salinity',
+            salinityFactor ? [
+                'ECw: ' + fmt(salinityFactor.ecw, 1) + ' dS/m',
+                fmt(salinityFactor.yieldReduction, 0) + '% yield loss'
+            ].filter(Boolean) : null,
+            salinityFactor ? '#dc2626' : '#16a34a',
+            salinityFactor ? null : 'No salinity stress',
+            'gl-stress-salinity');
 
         return [
             '<div class="gl-block">',
@@ -1212,15 +1576,15 @@
             '    <div class="gl-block-sub">Direct factors reducing Growth Potential</div>',
             '  </div>',
             '  <div class="gl-block-body">',
-            '    <div class="gl-four-col">',
-            overallCard, shadeCard, heatCard, coldCard,
+            '    <div class="gl-six-col">',
+            overallCard, shadeCard, heatCard, coldCard, droughtCard, salinityCard,
             '    </div>',
             '  </div>',
             '</div>'
         ].join('\n');
     }
 
-    function renderStressCard(title, lines, accentColor, okMsg) {
+    function renderStressCard(title, lines, accentColor, okMsg, infoKey) {
         var color = accentColor || '#9ca3af';
         var content;
         if (lines && lines.length) {
@@ -1232,7 +1596,7 @@
         }
         return [
             '<div class="gl-stress-card" style="border-top:3px solid ' + color + '">',
-            '  <div class="gl-stress-label">' + esc(title) + '</div>',
+            '  <div class="gl-stress-label">' + esc(title) + (infoKey ? infoBtn(infoKey) : '') + '</div>',
             content,
             '</div>'
         ].join('\n');
@@ -1246,16 +1610,6 @@
         if (!shade) return '';
 
         var sections = [];
-
-        // Fungal Risk
-        if (shade.fungalClass) {
-            sections.push(renderFungalSection(shade));
-        }
-
-        // Recovery Window
-        if (shade.recoveryWindow) {
-            sections.push(renderRecoverySection(shade.recoveryWindow));
-        }
 
         // N Adjustment (only if shaded)
         var sp = shade.shadePercent;
@@ -1288,39 +1642,10 @@
         ].join('\n');
     }
 
-    function renderFungalSection(shade) {
-        var risk = shade.fungalRisk !== undefined ? fmt(shade.fungalRisk, 0) + '/100' : '—';
-        var cls = shade.fungalClass;
-        var clsColor = (cls && typeof cls === 'object' && cls.colour) ? cls.colour : '#9ca3af';
-        return [
-            '<div class="gl-research-section">',
-            '<div class="gl-research-title">Fungal Risk ' + fungalBadge(cls) + '</div>',
-            '<div class="gl-two-col">',
-            '<div class="gl-card"><div class="gl-card-label">Risk Score</div><div class="gl-card-value">' + risk + '</div></div>',
-            '<div class="gl-card"><div class="gl-card-label">Class</div><div class="gl-card-value" style="color:' + clsColor + '">' + fungalLabel(cls) + '</div></div>',
-            '</div>',
-            '</div>'
-        ].join('\n');
-    }
-
-    function renderRecoverySection(rw) {
-        var flagColor = rw.severity === 'good' ? '#16a34a' : rw.severity === 'watch' ? '#d97706' : '#9ca3af';
-        var flagLabel = rw.flag || rw.class || '—';
-        return [
-            '<div class="gl-research-section">',
-            '<div class="gl-research-title">Recovery Window ' + statusBadge(flagLabel, flagColor) + '</div>',
-            rw.detail ? '<div class="gl-card" style="margin-bottom:12px"><div class="gl-card-sub">' + esc(rw.detail) + '</div></div>' : '',
-            renderSimpleTable(['', ''], [
-                ['Window', esc((rw.windowStart || '—') + ' – ' + (rw.windowEnd || '—'))],
-            ]),
-            '</div>'
-        ].join('\n');
-    }
-
     function renderNAdjSection(nAdj) {
         return [
             '<div class="gl-research-section">',
-            '<div class="gl-research-title">Nitrogen Adjustment</div>',
+            '<div class="gl-research-title">Nitrogen Adjustment ' + infoBtn('gl-shade-n-adj') + '</div>',
             renderSimpleTable(['Parameter', 'Value'], [
                 ['Reduction', fmt(nAdj.reductionPct, 0, '—') + (nAdj.reductionPct !== undefined ? '%' : '')],
                 ['Application Factor', fmt(nAdj.factor, 2, '—')],
@@ -1332,7 +1657,7 @@
     function renderMowingSection(mow) {
         return [
             '<div class="gl-research-section">',
-            '<div class="gl-research-title">Mowing Height</div>',
+            '<div class="gl-research-title">Mowing Height ' + infoBtn('gl-shade-mowing') + '</div>',
             renderSimpleTable(['Parameter', 'Value'], [
                 ['Current HOC', fmt(mow.currentHOC, 0, '—') + (mow.currentHOC !== undefined ? ' mm' : '')],
                 ['Recommended HOC', fmt(mow.recommendedHOC, 0, '—') + (mow.recommendedHOC !== undefined ? ' mm' : '')],
@@ -1347,10 +1672,9 @@
         var message = pgr.warning || pgr.recommendation || '—';
         var rows = [];
         if (pgr.suspend) rows.push(['Suspend PGR', 'Yes — do not apply']);
-        if (pgr.reference) rows.push(['Reference', esc(pgr.reference)]);
         return [
             '<div class="gl-research-section">',
-            '<div class="gl-research-title">PGR Guidance ' + statusBadge(capitalize(pgr.severity || 'Good'), sevColor) + '</div>',
+            '<div class="gl-research-title">PGR Guidance ' + infoBtn('gl-shade-pgr') + ' ' + statusBadge(capitalize(pgr.severity || 'Good'), sevColor) + '</div>',
             '<div class="gl-card" style="margin-bottom:' + (rows.length ? '12px' : '0') + '"><div class="gl-card-sub">' + esc(message) + '</div></div>',
             rows.length ? renderSimpleTable(['', ''], rows) : '',
             '</div>'
@@ -1411,19 +1735,20 @@
         var rw = shade && shade.recoveryWindow;
         if (!rw || !rw.windowStart) return '';
 
-        var suitable = rw.severity === 'good';
-        var approaching = rw.flag === 'approaching';
+        var flag = (rw.flag || '').toLowerCase();
+        var suitable   = flag === 'optimal' || flag === 'good';
+        var conditional = flag === 'conditional' || flag === 'approaching';
 
         var bg, border, color, icon, statusText;
         if (suitable) {
             bg = '#f0fdf4'; border = '#86efac'; color = '#14532d'; icon = '✓'; statusText = 'Renovation Conditions: Suitable';
-        } else if (approaching) {
-            bg = '#fffbeb'; border = '#fde68a'; color = '#78350f'; icon = '◷'; statusText = 'Renovation Conditions: Window Approaching';
+        } else if (conditional) {
+            bg = '#fffbeb'; border = '#fde68a'; color = '#78350f'; icon = '◷'; statusText = 'Renovation Conditions: Conditional';
         } else {
             bg = '#f9fafb'; border = '#d1d5db'; color = '#374151'; icon = '✕'; statusText = 'Renovation Conditions: Not Suitable';
         }
 
-        var detail = rw.detail ? esc(rw.detail) : '';
+        var detail = rw.detail || '';
         var window = (rw.windowStart || '') + (rw.windowEnd && rw.windowEnd !== rw.windowStart ? ' – ' + rw.windowEnd : '');
 
         return [
@@ -1440,42 +1765,66 @@
 
     function collectRecommendations(cm, shade) {
         var recs = [];
-        var growth = cm ? (cm.growth || {}) : {};
-        var stress = cm ? (cm.stress || {}) : {};
-        var gp = growth.weighted;
-        var heat = stress.heat || {};
-        var cold = stress.cold || {};
+        var growth    = cm ? (cm.growth || {}) : {};
+        var stress    = cm ? (cm.stress || {}) : {};
+        var heat      = stress.heat || {};
+        var cold      = stress.cold || {};
+        var grassType = detectGrassType(shade);
+        var cfg       = global.GAIP_HUB_CONFIG || {};
+        var _specRaw3 = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
+        var speciesLabel = _specRaw3 ? capitalize(_specRaw3) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
+        var recGrassNames = grassNamesForMixed(cfg);
 
-        // GP-based
-        if (gp !== null && gp !== undefined) {
+        // ── Growth potential ─────────────────────────────────────────────────
+        function gpRec(gp, prefix) {
+            if (gp === null || gp === undefined) return;
             if (gp < 40) {
-                recs.push({ priority: 'critical', text: 'Growth potential is critically low (' + fmt(gp, 0) + '%). Defer aggressive cultural practices. Focus on stress recovery.' });
+                recs.push({ priority: 'critical', text: prefix + 'growth potential critically low (' + fmt(gp, 0) + '%). Defer aggressive cultural practices — focus on stress recovery.' });
             } else if (gp < 70) {
-                recs.push({ priority: 'week', text: 'Growth potential is moderate (' + fmt(gp, 0) + '%). Reduce nitrogen applications and monitor recovery.' });
+                recs.push({ priority: 'week', text: prefix + 'growth potential moderate (' + fmt(gp, 0) + '%). Reduce nitrogen and monitor recovery.' });
             } else {
-                recs.push({ priority: 'monitor', text: 'Growth potential is good (' + fmt(gp, 0) + '%). Maintain current program.' });
+                recs.push({ priority: 'monitor', text: prefix + 'growth potential good (' + fmt(gp, 0) + '%). Maintain current program.' });
             }
         }
 
-        // Heat stress
+        if (grassType === 'mixed') {
+            // Mixed stand: separate rec for each component — blended number is misleading
+            gpRec(growth.c3 != null ? growth.c3 : null, (recGrassNames.c3 || 'Cool-season') + ' (C3) ');
+            gpRec(growth.c4 != null ? growth.c4 : null, (recGrassNames.c4 || 'Warm-season') + ' (C4) ');
+        } else if (grassType === 'c3') {
+            var label3 = speciesLabel ? speciesLabel + ' (C3) ' : 'C3 ';
+            gpRec(growth.c3 != null ? growth.c3 : growth.weighted, label3);
+        } else {
+            var label4 = speciesLabel ? speciesLabel + ' (C4) ' : 'C4 ';
+            gpRec(growth.c4 != null ? growth.c4 : growth.weighted, label4);
+        }
+
+        // ── Heat stress ──────────────────────────────────────────────────────
         if (heat.days > 0) {
-            var msg = 'Heat event forecast (' + heat.days + ' day' + (heat.days !== 1 ? 's' : '') + ', peak ' + fmt(heat.maxTemp, 1) + '°C). Increase irrigation frequency and reduce traffic.';
-            recs.push({ priority: heat.maxTemp > 35 ? 'critical' : 'week', text: msg });
+            // Heat damages C3; note which grasses are affected
+            var heatTarget = (grassType === 'mixed') ? ' — C3 cool-season grasses most affected'
+                           : (grassType === 'c3')    ? ''
+                           : ' — monitor ' + (speciesLabel || 'warm-season') + ' for heat stress';
+            var heatMsg = 'Heat event forecast (' + heat.days + ' day' + (heat.days !== 1 ? 's' : '') + ', peak ' + fmt(heat.maxTemp, 1) + '°C)' + heatTarget + '. Increase irrigation frequency and reduce traffic.';
+            recs.push({ priority: heat.maxTemp > 35 ? 'critical' : 'week', text: heatMsg });
         }
 
-        // Cold / frost
+        // ── Cold / frost ─────────────────────────────────────────────────────
         if (cold.frostDays > 0) {
-            recs.push({ priority: 'week', text: 'Frost risk detected (' + cold.frostDays + ' day' + (cold.frostDays !== 1 ? 's' : '') + ', min ' + fmt(cold.minTemp, 1) + '°C). Avoid mowing or traffic during frost events.' });
+            var coldTarget = (grassType === 'c4' || grassType === 'mixed') ? ' — warm-season grasses at dormancy risk' : '';
+            recs.push({ priority: 'week', text: 'Frost risk detected (' + cold.frostDays + ' day' + (cold.frostDays !== 1 ? 's' : '') + ', min ' + fmt(cold.minTemp, 1) + '°C)' + coldTarget + '. Avoid mowing or traffic during frost events.' });
         }
 
-        // Shade / DLI
+        // ── Shade / DLI ──────────────────────────────────────────────────────
         if (shade) {
-            var dliStatus = shade.effectiveStatus;
+            var dliStatusRaw = shade.effectiveStatus || '';
+            var dliStatusKey = dliStatusRaw.toLowerCase().split('(')[0].trim();
             var dli = getDLI(shade);
-            if (dliStatus === 'critical') {
-                recs.push({ priority: 'critical', text: 'DLI critically deficient (' + fmt(dli, 1) + ' mol/m²/day). Consider canopy management or LED supplementation.' });
-            } else if (dliStatus === 'deficient') {
-                recs.push({ priority: 'week', text: 'DLI below species minimum (' + fmt(dli, 1) + ' mol/m²/day). Review shading sources and reduce nitrogen load.' });
+            var dliSpecies = speciesLabel ? ' for ' + speciesLabel : '';
+            if (dliStatusKey === 'critical') {
+                recs.push({ priority: 'critical', text: 'DLI critically deficient' + dliSpecies + ' (' + fmt(dli, 1) + ' mol/m²/day). Consider canopy management or LED supplementation.' });
+            } else if (dliStatusKey === 'deficient') {
+                recs.push({ priority: 'week', text: 'DLI below species minimum' + dliSpecies + ' (' + fmt(dli, 1) + ' mol/m²/day). Review shading sources and reduce nitrogen load.' });
             }
 
             // PGR caution
@@ -1485,17 +1834,21 @@
                 recs.push({ priority: 'week', text: 'PGR Caution: ' + shade.pgrGuidance.warning });
             }
 
-            // Fungal risk
-            if (shade.fungalClass === 'critical') {
-                recs.push({ priority: 'critical', text: 'Fungal risk is critical. Apply preventative fungicide and improve air circulation.' });
-            } else if (shade.fungalClass === 'concern') {
-                recs.push({ priority: 'week', text: 'Fungal risk is elevated. Monitor canopy moisture and consider curative application.' });
+            // Fungal risk (targets C3 grasses primarily in humid shade)
+            if (shade.fungalClass) {
+                var fungalSev = (shade.fungalClass.severity || shade.fungalClass || '').toLowerCase();
+                var fungalTarget = (grassType === 'mixed' || grassType === 'c3') ? ' — cool-season (C3) areas most susceptible' : '';
+                if (fungalSev === 'critical') {
+                    recs.push({ priority: 'critical', text: 'Fungal risk critical' + fungalTarget + '. Apply preventative fungicide and improve air circulation.' });
+                } else if (fungalSev === 'concern') {
+                    recs.push({ priority: 'week', text: 'Fungal risk elevated' + fungalTarget + '. Monitor canopy moisture and consider curative application.' });
+                }
             }
 
             // Mowing HOC
             if (shade.mowingGuidance && shade.mowingGuidance.recommendedHOC && shade.mowingGuidance.currentHOC) {
-                var diff = shade.mowingGuidance.recommendedHOC - shade.mowingGuidance.currentHOC;
-                if (diff > 0) {
+                var hocDiff = shade.mowingGuidance.recommendedHOC - shade.mowingGuidance.currentHOC;
+                if (hocDiff > 0) {
                     recs.push({ priority: 'week', text: 'Raise mowing height to ' + shade.mowingGuidance.recommendedHOC + ' mm (currently ' + shade.mowingGuidance.currentHOC + ' mm) to support leaf area under shade.' });
                 }
             }
@@ -1508,11 +1861,20 @@
             // Renovation window
             var rw = shade.recoveryWindow;
             if (rw && rw.windowStart && rw.windowEnd) {
-                var rwSeverity = rw.severity || '';
-                if (rwSeverity === 'good') {
-                    recs.push({ priority: 'monitor', text: 'Renovation window open: ' + rw.windowStart + ' – ' + rw.windowEnd + '. ' + (rw.detail || 'Conditions are favourable for renovation and overseeding.') });
-                } else if (rw.flag && rw.flag !== 'outside') {
-                    recs.push({ priority: 'week', text: 'Renovation planning: ' + rw.windowStart + ' – ' + rw.windowEnd + '. ' + (rw.detail || '') });
+                var rwWindow = rw.windowStart + ' – ' + rw.windowEnd;
+                var rwDetail = rw.detail || 'Conditions are favourable for renovation and overseeding.';
+                var rwPriority = (rw.severity || '') === 'good' ? 'monitor' : 'week';
+                if (grassType === 'mixed') {
+                    var _c4Label = recGrassNames.c4 || 'Warm-season (C4)';
+                    var c4gp = growth.c4;
+                    // Only add a C4 rec when it's dormant — a genuine warning that overrides the card's "Suitable".
+                    // Otherwise the renovation card's detail already covers C4 overseed suitability.
+                    if (c4gp != null && c4gp < 20) {
+                        recs.push({ priority: 'week', text: 'Renovation — ' + _c4Label + ' (C4): Not suitable. Growth potential critically low (' + fmt(c4gp, 0) + '%) — dormant or near-dormant. Defer overseeding.' });
+                    }
+                } else {
+                    var rwSuffix = speciesLabel ? ' (' + speciesLabel + ')' : '';
+                    recs.push({ priority: rwPriority, text: 'Renovation' + rwSuffix + ': ' + rwWindow + '. ' + rwDetail });
                 }
             }
         }
@@ -1576,11 +1938,11 @@
         var html = [
             renderHeader(cm, shade),
             '<div class="gl-body">',
-            renderGrowthBlock(cm, soilTemp, shade),
-            renderLightBlock(cm, shade),
-            renderStressBlock(cm),
-            renderResearchBlock(shade),
             renderRecommendations(cm, shade),
+            renderGrowthBlock(cm, soilTemp, shade),
+            renderStressBlock(cm, shade),
+            renderLightBlock(cm, shade),
+            renderResearchBlock(shade),
             '</div>'
         ].join('\n');
 

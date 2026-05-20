@@ -463,6 +463,16 @@
             _savedForSite:   _snapSiteId || null
         };
 
+        // Preserve settings-form fields that have no hub DOM element.
+        // Without this, every hub analysis sync erases them from the DB.
+        (function () {
+            var SM_p = global.GAIP_SampleManager;
+            var _pSiteId = SM_p && typeof SM_p.getActiveSiteId === 'function' ? SM_p.getActiveSiteId() : null;
+            var _pExisting = (_pSiteId && _configs[_pSiteId] && _configs[_pSiteId].turf) || {};
+            if (_pExisting.warmBase)    turf.warmBase    = _pExisting.warmBase;
+            if (_pExisting.coolOverseed && !turf.coolOverseed) turf.coolOverseed = _pExisting.coolOverseed;
+        })();
+
         return {
             turf: turf,
             location: location,
@@ -571,7 +581,9 @@
                     }
 
                     // Overseed species/variety — skip on GSSH pages (venue data is authority)
-                    if (!skipTurfIdentity && turf.overseedSpecies) setDomVal('.gaip-cool-overseed', turf.overseedSpecies);
+                    // coolOverseed is the settings-form key; overseedSpecies is the hub key — accept either.
+                    var _overseedVal = turf.overseedSpecies || turf.coolOverseed || '';
+                    if (!skipTurfIdentity && _overseedVal) setDomVal('.gaip-cool-overseed', _overseedVal);
                     setTimeout(function() {
                         if (!skipTurfIdentity && turf.overseedVariety) setDomVal('.gaip-overseed-variety', turf.overseedVariety);
                         

@@ -24,6 +24,7 @@
             hubMode:          "agronomic",
             savedLocation:    @json($savedLocation),
             turfSpecies:      @json($turfSpecies),
+            overseedSpecies:  @json($overseedSpecies),
             turfMethodology:  @json($turfMethodology),
             percentC3Cover:   @json($percentC3Cover)
         });

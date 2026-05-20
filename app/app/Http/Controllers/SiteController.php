@@ -55,7 +55,7 @@ class SiteController extends Controller
         SiteConfig::query()->create([
             'site_id' => $site->id,
             'namespace' => 'gaip',
-            'config' => [],
+            'config' => (object)[],
             'synced_at' => now(),
         ]);
 
@@ -113,7 +113,7 @@ class SiteController extends Controller
                     'namespace' => 'gaip',
                 ],
                 [
-                    'config' => [],
+                    'config' => (object)[],
                     'synced_at' => now(),
                 ]
             );

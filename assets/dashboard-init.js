@@ -962,19 +962,20 @@
         var insightText = (function() {
             if (todayTemp == null) return null;
             var t = todayTemp;
+            var sp = speciesName || (isWarm ? 'warm-season grass' : 'cool-season grass');
             if (isWarm) {
-                if (t > 38)   return 'Extreme heat — growth is starting to suffer.';
-                if (t >= 28)  return 'Optimal conditions — expect strong growth.';
-                if (t >= 20)  return 'Warm conditions — growth is picking up.';
-                if (t >= 10)  return 'Cool conditions — warm-season grass growth is suppressed.';
-                return 'Cold — grass is dormant.';
+                if (t > 38)   return 'Extreme heat — ' + sp + ' growth is starting to suffer.';
+                if (t >= 28)  return 'Optimal conditions — expect strong ' + sp + ' growth.';
+                if (t >= 20)  return 'Warm conditions — ' + sp + ' growth is picking up.';
+                if (t >= 10)  return 'Cool conditions — ' + sp + ' growth is suppressed.';
+                return sp + ' is dormant.';
             } else {
-                if (t > 30)   return 'Heat stress — growth has nearly stopped.';
-                if (t >= 25)  return 'Warm conditions — grass growth is slowing.';
-                if (t >= 15)  return 'Optimal conditions — expect strong growth.';
-                if (t >= 10)  return 'Cool conditions — growth is slower, improving as it warms.';
-                if (t >= 5)   return 'Cold — growth is very slow.';
-                return 'Very cold — growth has stopped.';
+                if (t > 30)   return 'Heat stress — ' + sp + ' growth has nearly stopped.';
+                if (t >= 25)  return 'Warm conditions — ' + sp + ' growth is slowing.';
+                if (t >= 15)  return 'Optimal conditions — expect strong ' + sp + ' growth.';
+                if (t >= 10)  return 'Cool conditions — ' + sp + ' growth is slower, improving as it warms.';
+                if (t >= 5)   return 'Cold — ' + sp + ' growth is very slow.';
+                return sp + ' growth has stopped.';
             }
         })();
 
@@ -1003,9 +1004,12 @@
             var currentRow = todayGP != null
                 ? '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span style="font-size:22px;font-weight:700;color:var(--gaip-text,#1a2b23)">' + todayGP + '%</span><span style="font-size:12px;color:var(--gaip-text-muted,#6b8878)">today</span></div>'
                 : '';
+            var tempPrefix = tempStr ? '<strong>' + tempStr + ' air</strong>' : '';
+            var soilPrefix = stVal != null ? '<strong>' + Math.round(stVal) + '°C soil</strong>' : '';
+            var prefixStr  = [tempPrefix, soilPrefix].filter(Boolean).join(' &middot; ');
             var insightRow = insightText
                 ? '<div style="padding:8px 10px;border-radius:6px;background:' + insightBg + ';font-size:12px;color:' + insightColor + ';line-height:1.5">' +
-                  (tempStr ? '<strong>' + tempStr + '</strong> &mdash; ' : '') + insightText + '</div>'
+                  (prefixStr ? prefixStr + ' &mdash; ' : '') + insightText + '</div>'
                 : '';
             html += panelSection('Current Conditions', currentRow + insightRow);
         }

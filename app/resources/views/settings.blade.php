@@ -243,7 +243,13 @@
                 <div class="stg-panel stg-hidden" id="stg-tab-turf" role="tabpanel">
                     @php
                         $turf = is_array($activeGaipConfig['turf'] ?? null) ? $activeGaipConfig['turf'] : [];
-                        $turfVal = fn(string $k, $fallback = '') => $turf[$k] ?? $fallback;
+                        // coolOverseed (settings key) and overseedSpecies (hub key) are synonyms — accept either.
+                        $turfVal = function(string $k, $fallback = '') use ($turf) {
+                            if (isset($turf[$k]) && $turf[$k] !== '') return $turf[$k];
+                            if ($k === 'coolOverseed' && isset($turf['overseedSpecies']) && $turf['overseedSpecies'] !== '') return $turf['overseedSpecies'];
+                            if ($k === 'overseedSpecies' && isset($turf['coolOverseed']) && $turf['coolOverseed'] !== '') return $turf['coolOverseed'];
+                            return $fallback;
+                        };
 
                         $speciesGroups = [
                             'Warm-season (C4)' => [
@@ -409,20 +415,46 @@
                         <div class="stg-card" style="margin-bottom:24px">
                             <div class="stg-card-head">
                                 <div class="stg-card-title">Stand composition</div>
-                                <div class="stg-card-desc">For mixed or blended stands only. Leave at 0 for pure monocultures.</div>
+                                <div class="stg-card-desc">Only needed for mixed or overseeded stands. For a pure monoculture leave Overseed blank and set C3 cover to 0 or 100.</div>
                             </div>
                             <div class="stg-form-grid">
                                 <div class="stg-field">
-                                    <label for="stg-turf-poa">Poa annua content (%)</label>
-                                    <input type="number" id="stg-turf-poa" name="poaPercent"
-                                           value="{{ $turfVal('poaPercent', '0') }}" min="0" max="100" step="1" placeholder="0">
-                                    <p class="stg-field-hint">Estimated Poa annua percentage in the stand.</p>
+                                    <label for="stg-turf-cool-overseed">Overseed species</label>
+                                    <select id="stg-turf-cool-overseed" name="overseedSpecies">
+                                        <option value="">— none —</option>
+                                        @foreach([
+                                            'Warm-season (C4)' => ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
+                                            'Cool-season (C3)' => ['Perennial Ryegrass', 'Annual Ryegrass', 'Tall Fescue', 'Fine Fescue', 'Kentucky Bluegrass', 'Creeping Bentgrass'],
+                                        ] as $overseedGroup => $overseedSpecies)
+                                        <optgroup label="{{ $overseedGroup }}">
+                                            @foreach($overseedSpecies as $sp)
+                                            <option value="{{ $sp }}" {{ $turfVal('overseedSpecies') === $sp ? 'selected' : '' }}>{{ $sp }}</option>
+                                            @endforeach
+                                        </optgroup>
+                                        @endforeach
+                                    </select>
+                                    <p class="stg-field-hint">The grass species overseeded onto the base. Typically cool-season (C3) overseeded onto warm-season (C4) for winter play.</p>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-turf-overseed-status">Overseed status</label>
+                                    <select id="stg-turf-overseed-status" name="overseedStatus">
+                                        @foreach(['none' => 'None / not overseeded', 'establishing' => 'Establishing', 'established' => 'Established', 'dominant' => 'Dominant'] as $v => $l)
+                                        <option value="{{ $v }}" {{ $turfVal('overseedStatus', 'none') === $v ? 'selected' : '' }}>{{ $l }}</option>
+                                        @endforeach
+                                    </select>
+                                    <p class="stg-field-hint">Current state of the overseed component.</p>
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-turf-c3">C3 cover (%)</label>
                                     <input type="number" id="stg-turf-c3" name="c3Cover"
                                            value="{{ $turfVal('c3Cover', '0') }}" min="0" max="100" step="1" placeholder="0">
-                                    <p class="stg-field-hint">For overseed or mixed C3/C4 stands — percentage of C3 grass.</p>
+                                    <p class="stg-field-hint">Percentage of surface covered by cool-season (C3) grass. 0 = pure C4, 100 = pure C3.</p>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-turf-poa">Poa annua content (%)</label>
+                                    <input type="number" id="stg-turf-poa" name="poaPercent"
+                                           value="{{ $turfVal('poaPercent', '0') }}" min="0" max="100" step="1" placeholder="0">
+                                    <p class="stg-field-hint">Estimated Poa annua percentage in the stand.</p>
                                 </div>
                             </div>
                         </div>

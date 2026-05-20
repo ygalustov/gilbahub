@@ -908,6 +908,18 @@
             }
         }
 
+        // Save physics-model soil temp for growth-light analysis page.
+        // GAIP_SOIL_TEMP is set by climate-module-v2-ui.js renderSoilTempPanel() during hub run.
+        // Save only .summary (depths + thermalProps) — not the raw hourly arrays which are large.
+        if (global.GAIP_SOIL_TEMP && global.GAIP_SOIL_TEMP.summary && global.GAIP_SOIL_TEMP.summary.available) {
+            cache.computed = Object.assign({}, cache.computed || {});
+            cache.computed.soilTempPhysics = {
+                summary:     global.GAIP_SOIL_TEMP.summary,
+                profileType: global.GAIP_SOIL_TEMP.profileType,
+                computed:    global.GAIP_SOIL_TEMP.computed
+            };
+        }
+
         // Augment computed.climate with Climate V2 dual metrics (daily GP chips + trend text).
         // GAIP_CLIMATE_V2_RESULT.dualMetrics has .daily[], .trajectory, .current, .outlook
         // which are not captured by the orchestrator's computed state.

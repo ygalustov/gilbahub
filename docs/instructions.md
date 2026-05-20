@@ -54,12 +54,19 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 **GH-12** Enhance growth light analysis by adding percent C3 cover to the AnalysisController and updating the view to include turf species, methodology, and C3 cover data. Improve JavaScript insights for climate metrics and refine CSS styles for better layout and usability.
 **GH-13** Refine growth light analysis insights by updating temperature-related messages for clarity on grass type impacts. Enhance CSS for improved layout and adjust growth potential descriptions for better user understanding.
 **GH-14** Enhance dashboard and growth potential insights by updating the growth potential description for clarity, adjusting the display style in the dashboard view, and refining temperature-related messages in the growth light analysis for improved user understanding.
-
+**GH-15** Enhance growth light analysis by adding overseed species handling in AnalysisController and updating views to reflect new turf management options. Improve settings initialization for overseed options and refine JavaScript insights for better user experience. 
 
 
 
 ## Backlog
 
+
+Look grath looks different for cool season grass and warm. It should be like cool season (blue one)
+
+----
+
+
+Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?
 
 - Check why irrigation 6mm in the old site is highlighted with orange and on the new one with green. Check all thresholds for all blocks on the new site to be the same as on old one. 
 
@@ -81,18 +88,6 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - How often data should be pulled from sensors?
 
 - Soil temperature take from sensor ? 
-
-- Check settings update. Looks like it is not saving data. Ex - C3 cover. 
-
-
-
-
-are you sure that 66% it is only based on the temperature? because on the old site it said Thermal Breakdown
-Cool (C3)
-99
-Weighted
-66
-
 
 Why 85 is moderate? what all options do you have on old site?
 
@@ -116,25 +111,6 @@ else → "Transition zone - both grass types moderately active."
 "Cold — C3 growth very slow." (t 5-10)
 Все C4-специфичные тексты ("Optimal C4 growth range...", "Warm conditions — C4 growth accelerating...")
 Старый сайт показывал один текст для любой ситуации (не разделяя C3/C4). Хочешь оставить наши дополнения или сократить до точных текстов старого сайта?
-
-
----
-
-
-Чтобы настроить mixed stand в GAIP settings, нужно одновременно заполнить несколько полей — движок (calculateC3C4Fractions) определяет смешанный травостой только когда есть обе компоненты:
-
-1. Primary species → C4 тёплосезонная трава
-Выбери что-то из: Couch / Bermuda / Kikuyu / Zoysia / Buffalo. Это устанавливает warmBase в настройках сайта.
-
-2. Overseed field → C3 холодносезонная трава
-Выбери: Perennial Ryegrass / Fescue / Bluegrass / Annual Ryegrass. Это пишется в поле coolOverseed.
-
-3. C3 Cover (%) → реальная доля C3
-Например: если 40% площади покрыто подсевом — ставь 40. Движок использует это число как пропорцию blend.
-
-4. Overseed Status → не "none"
-Должен быть "established" или "dominant" (иначе движок считает, что подсева нет).
-
 
 
 
