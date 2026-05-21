@@ -116,7 +116,7 @@
             </svg>
         </a>
 
-        <a href="{{ route('analysis.growth-light') }}" class="db-nav-item" title="Analysis">
+        <a href="{{ route('analysis') }}" class="db-nav-item" title="Analysis">
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 17l4-4 4 3 4-6 4-2"/>
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 21h18"/>

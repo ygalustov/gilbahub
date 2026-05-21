@@ -270,16 +270,6 @@
             '.gl-metric-split-row{display:flex;align-items:baseline;gap:5px}',
             '.gl-metric-type-tag{font-size:9px;font-weight:800;color:#9ca3af;min-width:16px;letter-spacing:.04em}',
             '.gl-metric-split-val{font-size:14px;font-weight:700}',
-            '.gl-tabs-bar{display:flex;align-items:stretch;background:#fff;border-bottom:1px solid #d8e0dc;padding:0 24px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}',
-            '.gl-tabs-bar::-webkit-scrollbar{display:none}',
-            '.gl-tab{display:inline-flex;align-items:center;gap:5px;padding:0 16px;height:42px;font-size:13px;font-weight:500;color:#5b6a65;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;transition:color 0.15s,border-color 0.15s}',
-            '.gl-tab:hover{color:#17231f;border-bottom-color:#d8e0dc}',
-            '.gl-tab.active{color:#236b4a;border-bottom-color:#236b4a;font-weight:600}',
-            '.gl-tab-badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;margin-left:2px}',
-            '.gl-tab-badge.high{background:#fef2f2;color:#dc2626}',
-            '.gl-tab-badge.moderate{background:#fffbeb;color:#d97706}',
-            '.gl-tab-badge.ok{background:#f0fdf4;color:#16a34a}',
-            '.gl-tab-accuracy{margin-left:auto;display:inline-flex;align-items:center;height:42px;font-size:13px;font-weight:700;color:#236b4a;white-space:nowrap}',
             '.gl-hero-row{display:flex;gap:24px;align-items:flex-start;margin-bottom:20px;flex-wrap:wrap}',
             '.gl-hero-left{flex:0 0 auto;min-width:180px;display:flex;flex-direction:column;gap:10px}',
             '.gl-hero-right{flex:1;min-width:240px}',
@@ -547,18 +537,23 @@
         }
     };
 
+    // Merge this page's glossary into the shared global so the single popover
+    // handler (whichever module initialises it first) can serve all tab namespaces.
+    global.GAIP_GLOSSARY = Object.assign(global.GAIP_GLOSSARY || {}, GL_GLOSSARY);
+
     function initInfoPopovers() {
         var popover  = document.getElementById('db-info-popover');
+        if (!popover || popover._gaipReady) return;
+        popover._gaipReady = true;
         var popTitle = document.getElementById('db-info-popover-title');
         var popBody  = document.getElementById('db-info-popover-body');
         var popClose = document.getElementById('db-info-popover-close');
         var popArrow = document.getElementById('db-info-popover-arrow');
-        if (!popover) return;
 
         var currentAnchor = null;
 
         function showPopover(anchor) {
-            var entry = GL_GLOSSARY[anchor.dataset.info];
+            var entry = (global.GAIP_GLOSSARY || GL_GLOSSARY)[anchor.dataset.info];
             if (!entry) return;
             popTitle.textContent = entry.title;
             popBody.textContent  = entry.body;
@@ -1712,20 +1707,19 @@
             return '<div class="gl-rec ' + cls + '"><div class="gl-rec-priority">' + label + '</div>' + esc(r.text) + '</div>';
         }
 
-        var allHtml = critical.concat(week, monitor).map(recHtml).join('\n');
-
         var renoHtml = renderRenovationStatus(shade);
+        var allItems = (renoHtml ? [renoHtml] : []).concat(critical.concat(week, monitor).map(recHtml));
+        var totalCount = recs.length + (renoHtml ? 1 : 0);
 
         return [
             '<div class="gl-block">',
             '  <div class="gl-block-header">',
             '    <div class="gl-block-accent" style="background:#236b4a"></div>',
             '    <div class="gl-block-title">Recommendations</div>',
-            '    <div class="gl-block-sub">' + recs.length + ' action' + (recs.length !== 1 ? 's' : '') + '</div>',
+            '    <div class="gl-block-sub">' + totalCount + ' action' + (totalCount !== 1 ? 's' : '') + '</div>',
             '  </div>',
             '  <div class="gl-block-body">',
-            renoHtml,
-            recs.length ? '<div class="gl-rec-list">' + allHtml + '</div>' : '',
+            '<div class="gl-rec-list">' + allItems.join('\n') + '</div>',
             '  </div>',
             '</div>'
         ].join('\n');
@@ -1736,31 +1730,27 @@
         if (!rw || !rw.windowStart) return '';
 
         var flag = (rw.flag || '').toLowerCase();
-        var suitable   = flag === 'optimal' || flag === 'good';
+        var suitable    = flag === 'optimal' || flag === 'good';
         var conditional = flag === 'conditional' || flag === 'approaching';
 
-        var bg, border, color, icon, statusText;
+        var cls, icon, statusText;
         if (suitable) {
-            bg = '#f0fdf4'; border = '#86efac'; color = '#14532d'; icon = '✓'; statusText = 'Renovation Conditions: Suitable';
+            cls = 'monitor'; icon = '✓'; statusText = 'Renovation conditions: Suitable';
         } else if (conditional) {
-            bg = '#fffbeb'; border = '#fde68a'; color = '#78350f'; icon = '◷'; statusText = 'Renovation Conditions: Conditional';
+            cls = 'week'; icon = '◷'; statusText = 'Renovation conditions: Conditional';
         } else {
-            bg = '#f9fafb'; border = '#d1d5db'; color = '#374151'; icon = '✕'; statusText = 'Renovation Conditions: Not Suitable';
+            cls = 'critical'; icon = '✕'; statusText = 'Renovation conditions: Not Suitable';
         }
 
+        var win    = (rw.windowStart || '') + (rw.windowEnd && rw.windowEnd !== rw.windowStart ? ' – ' + rw.windowEnd : '');
         var detail = rw.detail || '';
-        var window = (rw.windowStart || '') + (rw.windowEnd && rw.windowEnd !== rw.windowStart ? ' – ' + rw.windowEnd : '');
 
-        return [
-            '<div class="gl-reno-box" style="background:' + bg + ';border:1px solid ' + border + ';color:' + color + ';margin-bottom:16px">',
-            '  <div class="gl-reno-icon">' + icon + '</div>',
-            '  <div>',
-            '    <div class="gl-reno-status">' + statusText + '</div>',
-            window ? '<div class="gl-reno-detail" style="margin-bottom:4px;font-weight:500">' + esc(window) + '</div>' : '',
-            detail ? '<div class="gl-reno-detail">' + detail + '</div>' : '',
-            '  </div>',
-            '</div>'
-        ].join('\n');
+        return '<div class="gl-rec ' + cls + '">' +
+            '<div class="gl-rec-priority">Renovation</div>' +
+            icon + ' ' + esc(statusText) +
+            (win    ? ' · <span style="font-weight:600">' + esc(win) + '</span>' : '') +
+            (detail ? '<div style="margin-top:4px;opacity:.8">' + esc(detail) + '</div>' : '') +
+            '</div>';
     }
 
     function collectRecommendations(cm, shade) {
@@ -1983,35 +1973,6 @@
             }
         }
 
-        // --- Tab badges (Disease Risk, Stress) from climate data ---
-        if (cm) {
-            var diseaseBadge = document.getElementById('gl-badge-disease');
-            var stressBadge = document.getElementById('gl-badge-stress');
-            var accEl = document.getElementById('gl-tab-accuracy');
-
-            if (diseaseBadge) {
-                var disease = cm.disease || {};
-                var diseaseRisk = disease.riskLevel || null;
-                if (diseaseRisk) {
-                    diseaseBadge.textContent = diseaseRisk.charAt(0).toUpperCase() + diseaseRisk.slice(1);
-                    diseaseBadge.className = 'gl-tab-badge ' + (diseaseRisk === 'high' ? 'high' : diseaseRisk === 'moderate' ? 'moderate' : 'ok');
-                    diseaseBadge.hidden = false;
-                }
-            }
-            if (stressBadge) {
-                var stress = cm.stress || {};
-                var stressLevel = stress.level || null;
-                if (stressLevel) {
-                    stressBadge.textContent = stressLevel.charAt(0).toUpperCase() + stressLevel.slice(1);
-                    stressBadge.className = 'gl-tab-badge ' + (stressLevel === 'high' ? 'high' : stressLevel === 'moderate' ? 'moderate' : 'ok');
-                    stressBadge.hidden = false;
-                }
-            }
-            if (accEl && cm.confidence) {
-                accEl.textContent = 'Accuracy ' + fmt(cm.confidence, 0) + '%';
-                accEl.hidden = false;
-            }
-        }
     }
 
     // =========================================================================
@@ -2026,10 +1987,14 @@
         initInfoPopovers();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    // In SPA mode (analysis-router.js sets this flag before loading page scripts)
+    // skip auto-init — the router will call init() at the right moment.
+    if (!global.GAIP_ANALYSIS_ROUTER) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     }
 
     // =========================================================================

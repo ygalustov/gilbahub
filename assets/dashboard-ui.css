@@ -1093,3 +1093,62 @@ body { margin: 0; padding: 0; }
 .db-irr-schedule-row:last-child { border-bottom: none; }
 .db-irr-schedule-day { font-weight: 600; color: var(--gaip-text, #1a2b23); }
 .db-irr-schedule-mm  { font-weight: 700; color: var(--gaip-accent, #2da85e); }
+
+/* ---------- Analysis tabs bar (SPA shell) ---------- */
+.gl-tabs-bar {
+    display: flex;
+    align-items: stretch;
+    background: #fff;
+    border-bottom: 1px solid #d8e0dc;
+    padding: 0 24px 0 0;
+    flex-shrink: 0;
+}
+.gl-tabs-inner {
+    flex: 1;
+    display: flex;
+    align-items: stretch;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-left: 24px;
+}
+.gl-tabs-inner::-webkit-scrollbar { display: none; }
+.gl-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 16px;
+    height: 42px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #5b6a65;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+.gl-tab:hover { color: #17231f; border-bottom-color: #d8e0dc; }
+.gl-tab.active { color: #236b4a; border-bottom-color: #236b4a; font-weight: 600; }
+.gl-tab-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 2px;
+}
+.gl-tab-badge.high     { background: #fef2f2; color: #dc2626; }
+.gl-tab-badge.moderate { background: #fffbeb; color: #d97706; }
+.gl-tab-badge.ok       { background: #f0fdf4; color: #16a34a; }
+.gl-tab-accuracy {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    height: 42px;
+    padding: 0 20px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #236b4a;
+    white-space: nowrap;
+}

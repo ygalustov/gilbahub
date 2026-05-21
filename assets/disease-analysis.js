@@ -8,16 +8,21 @@
 
     var style = document.createElement('style');
     style.textContent = [
-        /* tab bar */
-        '.gl-tabs-bar{display:flex;align-items:stretch;background:#fff;border-bottom:1px solid #d8e0dc;padding:0 24px;flex-shrink:0;overflow-x:auto;scrollbar-width:none}',
-        '.gl-tabs-bar::-webkit-scrollbar{display:none}',
-        '.gl-tab{display:inline-flex;align-items:center;gap:5px;padding:0 16px;height:42px;font-size:13px;font-weight:500;color:#5b6a65;border-bottom:2px solid transparent;cursor:pointer;white-space:nowrap;text-decoration:none;transition:color 0.15s,border-color 0.15s}',
-        '.gl-tab:hover{color:#17231f;border-bottom-color:#d8e0dc}',
-        '.gl-tab.active{color:#236b4a;border-bottom-color:#236b4a;font-weight:600}',
-        '.gl-tab-badge{display:inline-flex;align-items:center;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:700;margin-left:2px}',
         /* info icon */
         '.db-info-icon{display:inline-flex;width:15px;height:15px;border-radius:50%;background:#eef2f0;color:#6b8878;font-size:10px;font-weight:700;font-style:italic;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;user-select:none;border:none;line-height:1;vertical-align:middle}',
         '.db-info-icon:hover{background:#ccd9d2;color:#1a2b23}',
+        /* header panel (shared pattern with growth-light) */
+        '.gl-header{background:#fff;border-bottom:1px solid #d8e0dc;padding:0}',
+        '.gl-header-inner{max-width:1100px;margin:0 auto;padding:18px 20px}',
+        '.gl-title{font-size:18px;font-weight:700;color:#17231f;margin:0 0 2px}',
+        '.gl-subtitle{font-size:12px;color:#5b6a65;margin:0 0 16px}',
+        '.gl-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px}',
+        '@media(max-width:700px){.gl-kpi-grid{grid-template-columns:1fr}}',
+        '.gl-kpi-card{border-radius:8px;padding:14px 18px 13px;border:1px solid #d8e0dc;border-left-width:4px}',
+        '.gl-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5b6a65;margin-bottom:8px}',
+        '.gl-kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:4px}',
+        '.gl-kpi-unit{font-size:12px;color:#5b6a65;margin-bottom:2px}',
+        '.gl-weather-live{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#16a34a;flex-shrink:0}',
         /* layout */
         '.gl-body{max-width:1100px;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;gap:20px}',
         '.gl-block{background:var(--panel,#fff);border:1px solid var(--border,#d8e0dc);border-radius:10px;overflow:hidden}',
@@ -29,10 +34,12 @@
         '.gl-section-label{font-size:11px;font-weight:700;color:var(--muted,#5b6a65);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 10px;display:flex;align-items:center;gap:4px}',
         '.gl-section-label:first-child{margin-top:0}',
         '.gl-section-sep{border:none;border-top:1px solid var(--border,#d8e0dc);margin:16px 0}',
+        '.gl-rec-list{display:flex;flex-direction:column;gap:10px}',
         '.gl-rec{border-radius:8px;padding:12px 16px;font-size:13px;border-left:4px solid;line-height:1.5}',
         '.gl-rec.critical{background:#fef2f2;border-color:#dc2626;color:#7f1d1d}',
         '.gl-rec.week{background:#fff7ed;border-color:#f97316;color:#7c2d12}',
         '.gl-rec.monitor{background:#f0fdf4;border-color:#16a34a;color:#14532d}',
+        '.gl-rec-priority{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;opacity:.7}',
         /* master-detail split */
         '.dr-split{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}',
         '@media(max-width:800px){.dr-split{grid-template-columns:1fr}}',
@@ -173,18 +180,21 @@
         return '<button class="db-info-icon" data-info="' + key + '" tabindex="0" aria-label="Learn more" onclick="event.stopPropagation()">i</button>';
     }
 
+    global.GAIP_GLOSSARY = Object.assign(global.GAIP_GLOSSARY || {}, DR_GLOSSARY);
+
     function initInfoPopovers() {
         var popover  = document.getElementById('db-info-popover');
+        if (!popover || popover._gaipReady) return;
+        popover._gaipReady = true;
         var popTitle = document.getElementById('db-info-popover-title');
         var popBody  = document.getElementById('db-info-popover-body');
         var popClose = document.getElementById('db-info-popover-close');
         var popArrow = document.getElementById('db-info-popover-arrow');
-        if (!popover) return;
 
         var currentAnchor = null;
 
         function showPopover(anchor) {
-            var entry = DR_GLOSSARY[anchor.dataset.info];
+            var entry = (global.GAIP_GLOSSARY || DR_GLOSSARY)[anchor.dataset.info];
             if (!entry) return;
             popTitle.textContent = entry.title;
             popBody.textContent  = entry.body;
@@ -640,6 +650,173 @@
             '</div>';
     }
 
+    // ── Render: page header (summary KPI panel) ───────────────────────────────
+
+    function renderDiseaseHeader(d, diseases) {
+        var score   = d.overallScore != null ? Math.round(d.overallScore) : null;
+        var level   = d.riskLevel || 'none';
+        var c       = riskColor(level);
+
+        var topThreat  = diseases[0] || null;
+        var topName    = topThreat ? (topThreat.displayName || topThreat.disease || topThreat.name || '') : null;
+        var topScore   = topThreat ? (topThreat.adjustedRisk != null ? Math.round(topThreat.adjustedRisk) : (topThreat.riskScore != null ? Math.round(topThreat.riskScore) : (topThreat.risk != null ? Math.round(topThreat.risk) : null))) : null;
+        var topLevel   = topThreat ? (topThreat.riskLevel || topThreat.level || '') : '';
+        var tc         = riskColor(topLevel);
+
+        var aw         = d.applicationWindow;
+        var env        = d.environment || {};
+        var curTemp    = numVal(env.temperature);
+        var precipProb = env.precipProbability != null ? env.precipProbability : (env.precipProb != null ? env.precipProb : null);
+        var curWind    = numVal(env.wind) != null ? numVal(env.wind) : numVal(env.windSpeed);
+        var tempMin    = aw ? (aw.tempMin != null ? aw.tempMin : 10) : 10;
+        var tempMax    = aw ? (aw.tempMax != null ? aw.tempMax : 30) : 30;
+        var windMax    = aw ? (aw.windMaxKph != null ? aw.windMaxKph : (aw.windMax != null ? aw.windMax : 15)) : 15;
+        var appOptimal = aw ? (aw.currentlyOptimal != null ? aw.currentlyOptimal : (curTemp != null ? curTemp >= tempMin && curTemp <= tempMax && (precipProb == null || precipProb <= 50) && (curWind == null || curWind < windMax) : null)) : null;
+
+        function hexToRgb(hex) {
+            var h = hex.replace('#', '');
+            return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
+        }
+
+        function kpiCard(label, value, unit, statusHtml, color) {
+            var rgb = hexToRgb(color);
+            var bg     = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.07)';
+            var border = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.25)';
+            return [
+                '<div class="gl-kpi-card" style="background:' + bg + ';border-color:' + border + ';border-left-color:' + color + '">',
+                '  <div class="gl-kpi-label">' + label + ' ' + infoBtn('dr-overall') + '</div>',
+                '  <div class="gl-kpi-value" style="color:' + color + '">' + value + '</div>',
+                unit       ? '  <div class="gl-kpi-unit">' + unit + '</div>' : '',
+                statusHtml ? '  <div>' + statusHtml + '</div>' : '',
+                '</div>'
+            ].join('');
+        }
+
+        function kpiCardPlain(label, value, unit, statusHtml, color) {
+            var rgb = hexToRgb(color);
+            var bg     = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.07)';
+            var border = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.25)';
+            return [
+                '<div class="gl-kpi-card" style="background:' + bg + ';border-color:' + border + ';border-left-color:' + color + '">',
+                '  <div class="gl-kpi-label">' + label + '</div>',
+                '  <div class="gl-kpi-value" style="color:' + color + '">' + value + '</div>',
+                unit       ? '  <div class="gl-kpi-unit">' + unit + '</div>' : '',
+                statusHtml ? '  <div>' + statusHtml + '</div>' : '',
+                '</div>'
+            ].join('');
+        }
+
+        var cards = [];
+        cards.push(kpiCard(
+            'Overall Risk',
+            score != null ? score + '%' : (capitalize(level) || '—'),
+            '',
+            riskBadge(level),
+            c.badge || '#9ca3af'
+        ));
+
+        if (topThreat) {
+            cards.push(kpiCardPlain(
+                'Top Threat',
+                topScore != null ? topScore + '%' : '—',
+                esc(topName || ''),
+                riskBadge(topLevel),
+                tc.badge || '#9ca3af'
+            ));
+        }
+
+        if (aw || appOptimal !== null) {
+            var appColor  = appOptimal === true ? '#16a34a' : appOptimal === false ? '#d97706' : '#9ca3af';
+            var appValue  = appOptimal === true ? 'Open' : appOptimal === false ? 'Watch' : '—';
+            var appStatus = appOptimal === true
+                ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#dcfce7;color:#15803d;border:1px solid #86efac">Suitable</span>'
+                : appOptimal === false
+                ? '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:#fff7ed;color:#c2410c;border:1px solid #fdba74">Check forecast</span>'
+                : '';
+            cards.push(kpiCardPlain('Application Window', appValue, '', appStatus, appColor));
+        }
+
+        return [
+            '<div class="gl-header">',
+            '  <div class="gl-header-inner">',
+            '    <div style="display:flex;align-items:center;margin-bottom:2px">',
+            '      <h1 class="gl-title">Disease Risk Analysis</h1>',
+            '      <span class="gl-weather-live" style="margin-left:auto">&#9679; Live weather</span>',
+            '    </div>',
+            '    <div class="gl-subtitle">Disease pressure, pathogen models and spray timing</div>',
+            '    <div class="gl-kpi-grid">',
+            cards.join(''),
+            '    </div>',
+            '  </div>',
+            '</div>'
+        ].join('\n');
+    }
+
+    // ── Render: recommendations block ─────────────────────────────────────────
+
+    function renderDiseaseRecommendations(diseases) {
+        if (!diseases || diseases.length === 0) {
+            return [
+                '<div class="gl-block">',
+                '  <div class="gl-block-header">',
+                '    <div class="gl-block-accent"></div>',
+                '    <div class="gl-block-title">Recommendations</div>',
+                '  </div>',
+                '  <div class="gl-block-body" style="color:#5b6a65;font-style:italic;text-align:center;padding:24px 20px">',
+                '    No active disease threats — continue regular scouting.',
+                '  </div>',
+                '</div>'
+            ].join('\n');
+        }
+
+        var items = [];
+        diseases.forEach(function (disease) {
+            var name  = disease.displayName || disease.disease || disease.name || 'Unknown';
+            var level = (disease.riskLevel || disease.level || '').toLowerCase();
+            var rec   = disease.recommendation;
+
+            var action, headline, timing;
+            if (rec) {
+                action   = (rec.action || '').toLowerCase();
+                headline = rec.headline || rec.text || '';
+                timing   = rec.timing || '';
+            } else {
+                action   = (level === 'severe' || level === 'high') ? 'curative' : level === 'moderate' ? 'preventive' : 'monitor';
+                headline = '';
+                timing   = '';
+            }
+
+            var cls      = ACTION_REC_CLASS[action] || 'monitor';
+            var icon     = ACTION_ICON[action] || '✓';
+            var products = rec && Array.isArray(rec.products) && rec.products.length ? rec.products : [];
+
+            items.push(
+                '<div class="gl-rec ' + cls + '">' +
+                '<div class="gl-rec-priority">' + esc(name) + '</div>' +
+                icon + ' ' + capitalize(rec ? (rec.action || 'Monitor') : action) +
+                (timing ? ' <span style="font-weight:400;opacity:.75">· ' + esc(timing) + '</span>' : '') +
+                (headline ? '<div style="margin-top:4px;opacity:.85">' + esc(headline) + '</div>' : '') +
+                (products.length ? '<div style="margin-top:4px;font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(products.join(', ')) + '</div>' : '') +
+                '</div>'
+            );
+        });
+
+        return [
+            '<div class="gl-block">',
+            '  <div class="gl-block-header">',
+            '    <div class="gl-block-accent"></div>',
+            '    <div class="gl-block-title">Recommendations</div>',
+            '    <div class="gl-block-sub">' + items.length + ' action' + (items.length !== 1 ? 's' : '') + '</div>',
+            '  </div>',
+            '  <div class="gl-block-body">',
+            '    <div class="gl-rec-list">',
+            items.join('\n'),
+            '    </div>',
+            '  </div>',
+            '</div>'
+        ].join('\n');
+    }
+
     // ── State & render ────────────────────────────────────────────────────────
 
     var _selectedIdx = 0;
@@ -654,9 +831,32 @@
         var container = document.getElementById('dr-page-content');
         if (!container) return;
 
+        var data = global.GAIP_DASHBOARD_DATA;
         var d = getDiseaseData();
+
+        // Notification bar
+        var notice = document.getElementById('db-analysis-notice');
+        var noticeText = document.getElementById('db-analysis-notice-text');
+        var noticeDismiss = document.getElementById('db-analysis-notice-dismiss');
+        if (notice && noticeText) {
+            var msg = null;
+            if (!data || !d) {
+                msg = 'No analysis data found — run analysis from the hub to populate this page.';
+            } else if (data.analyzedAt) {
+                var ageMs = Date.now() - new Date(data.analyzedAt).getTime();
+                if (ageMs / (1000 * 60 * 60 * 24) > 2) {
+                    msg = 'Analysis data is ' + Math.floor(ageMs / (1000 * 60 * 60 * 24)) + ' days old — re-run for the latest conditions.';
+                }
+            }
+            if (msg) {
+                noticeText.textContent = msg;
+                notice.style.display = 'flex';
+                if (noticeDismiss) noticeDismiss.onclick = function () { notice.style.display = 'none'; };
+            }
+        }
+
         if (!d) {
-            container.innerHTML = '<div class="gl-body"><div style="padding:40px;text-align:center;color:#5b6a65">No analysis data. Run analysis first.</div></div>';
+            container.innerHTML = '<div style="padding:40px;text-align:center;color:#5b6a65">No analysis data. Run analysis first.</div>';
             return;
         }
 
@@ -664,12 +864,16 @@
         if (_selectedIdx >= _diseases.length) _selectedIdx = 0;
         var selectedDisease = _diseases[_selectedIdx] || null;
 
+        var headerHtml   = renderDiseaseHeader(d, _diseases);
+        var recsHtml     = renderDiseaseRecommendations(_diseases);
         var alertHtml    = renderAlertBar(_diseases);
         var forecastHtml = renderForecastChart(d);
         var appHtml      = renderAppWindow(d);
 
         container.innerHTML =
+            headerHtml +
             '<div class="gl-body">' +
+            recsHtml +
             (alertHtml ? alertHtml : '') +
             '<div class="dr-split">' +
             '  <div id="dr-left">'  + renderLeft(d, _selectedIdx) + '</div>' +
@@ -680,7 +884,7 @@
             '</div>';
 
         // Update analysis timestamp
-        var ts = global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.analyzedAt;
+        var ts = data && data.analyzedAt;
         if (ts) {
             var el = document.getElementById('db-analysis-ts');
             if (el) {
@@ -699,10 +903,14 @@
         initInfoPopovers();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', boot);
-    } else {
-        boot();
+    if (!global.GAIP_ANALYSIS_ROUTER) {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', boot);
+        } else {
+            boot();
+        }
     }
+
+    global.GAIP_DiseaseAnalysis = { boot: boot };
 
 }(window));
