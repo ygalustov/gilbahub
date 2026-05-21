@@ -64,13 +64,41 @@ class DataController extends Controller
             }
         }
 
+        $turfSpecies     = null;
+        $turfMethodology = null;
+        $locationName    = null;
+        $analysisCache   = null;
+
+        if ($activeSite) {
+            $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
+            $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
+            $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
+            $turfMethodology = isset($gaipConfig['turf']['methodology'])
+                ? strtoupper($gaipConfig['turf']['methodology'])
+                : null;
+            $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
+
+            $cacheRecord = $activeSite->configs()->where('namespace', 'analysis_cache')->first();
+            if ($cacheRecord) {
+                $analysisCache = [
+                    'metrics'    => $cacheRecord->config['metrics'] ?? null,
+                    'computed'   => $cacheRecord->config['computed'] ?? null,
+                    'analyzedAt' => $cacheRecord->synced_at?->toISOString(),
+                ];
+            }
+        }
+
         return view('data', [
-            'section'    => $section,
-            'activeSite' => $activeSite,
-            'allSites'   => $allSites,
-            'tabDates'   => $tabDates,
-            'rows'       => $rows,
-            'total'      => $total,
+            'section'         => $section,
+            'activeSite'      => $activeSite,
+            'allSites'        => $allSites,
+            'tabDates'        => $tabDates,
+            'rows'            => $rows,
+            'total'           => $total,
+            'turfSpecies'     => $turfSpecies,
+            'turfMethodology' => $turfMethodology,
+            'locationName'    => $locationName,
+            'analysisCache'   => $analysisCache,
         ]);
     }
 }

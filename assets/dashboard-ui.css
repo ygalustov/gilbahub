@@ -1152,3 +1152,65 @@ body { margin: 0; padding: 0; }
     color: #236b4a;
     white-space: nowrap;
 }
+
+/* ---------- Analysis pages — shared layout ---------- */
+:root {
+    --brand:      #236b4a;
+    --brand-dark: #185139;
+    --bg:         #f5f7f6;
+    --panel:      #ffffff;
+    --border:     #d8e0dc;
+    --text:       #17231f;
+    --muted:      #5b6a65;
+}
+.db-info-icon       { display: inline-flex; width: 15px; height: 15px; border-radius: 50%; background: #eef2f0; color: #6b8878; font-size: 10px; font-weight: 700; font-style: italic; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; user-select: none; border: none; line-height: 1; vertical-align: middle; }
+.db-info-icon:hover { background: #ccd9d2; color: #1a2b23; }
+
+.gl-header       { background: #fff; border-bottom: 1px solid #d8e0dc; padding: 0; }
+.gl-header-inner { max-width: 1100px; margin: 0 auto; padding: 18px 20px; }
+.gl-title        { font-size: 18px; font-weight: 700; color: #17231f; margin: 0 0 2px; }
+.gl-subtitle     { font-size: 12px; color: #5b6a65; margin: 0 0 16px; }
+
+.gl-kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 12px; }
+.gl-kpi-card {
+    border-radius: 8px;
+    padding: 14px 18px 13px;
+    border: 1px solid #d8e0dc;
+    border-left-width: 4px;
+    min-height: 130px;
+    display: flex;
+    flex-direction: column;
+}
+.gl-kpi-label    { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; color: #5b6a65; margin-bottom: 8px; display: flex; align-items: center; gap: 4px; }
+.gl-kpi-value    { font-size: 36px; font-weight: 800; line-height: 1; margin-bottom: 4px; flex: 1; }
+.gl-kpi-unit     { font-size: 12px; color: #5b6a65; margin-bottom: 4px; }
+.gl-kpi-status   { font-size: 11px; font-weight: 700; display: inline-block; padding: 2px 8px; border-radius: 20px; letter-spacing: .03em; }
+.gl-kpi-insight  { padding: 10px 14px; border-radius: 8px; font-size: 13px; line-height: 1.5; display: flex; align-items: flex-start; gap: 8px; }
+.gl-weather-live { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: #16a34a; flex-shrink: 0; }
+
+.gl-body { max-width: 1100px; margin: 0 auto; padding: 24px 20px; display: flex; flex-direction: column; gap: 24px; }
+
+.gl-block        { background: #fff; border: 1px solid #d8e0dc; border-radius: 10px; overflow: hidden; }
+.gl-block-header { padding: 16px 20px 12px; border-bottom: 1px solid #d8e0dc; display: flex; align-items: center; gap: 10px; }
+.gl-block-accent { width: 4px; height: 22px; border-radius: 2px; background: #236b4a; flex-shrink: 0; }
+.gl-block-title  { font-size: 16px; font-weight: 700; color: #17231f; }
+.gl-block-sub    { font-size: 12px; color: #5b6a65; margin-left: auto; }
+.gl-block-body   { padding: 20px; }
+
+.gl-section-label             { font-size: 11px; font-weight: 700; color: #5b6a65; text-transform: uppercase; letter-spacing: .05em; margin: 16px 0 10px; display: flex; align-items: center; gap: 4px; }
+.gl-section-label:first-child { margin-top: 0; }
+.gl-section-sep               { border: none; border-top: 1px solid #d8e0dc; margin: 16px 0; }
+
+.gl-rec-list     { display: flex; flex-direction: column; gap: 10px; }
+.gl-rec          { border-radius: 8px; padding: 12px 16px; font-size: 13px; border-left: 4px solid; line-height: 1.5; }
+.gl-rec.critical { background: #fef2f2; border-color: #dc2626; color: #7f1d1d; }
+.gl-rec.week     { background: #fff7ed; border-color: #f97316; color: #7c2d12; }
+.gl-rec.monitor  { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
+.gl-rec-priority { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; opacity: .7; }
+
+@media (max-width: 768px) {
+    .gl-header-inner { padding: 14px 12px; }
+    .gl-kpi-grid     { grid-template-columns: 1fr; gap: 8px; }
+    .gl-kpi-value    { font-size: 28px; }
+    .gl-body         { padding: 16px 12px; }
+}

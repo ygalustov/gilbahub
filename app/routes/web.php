@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AnalysisCacheController;
 use App\Http\Controllers\AnalysisController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\DashboardController;
@@ -53,8 +54,8 @@ Route::middleware('auth')->group(function () {
     Route::view('/field-log', 'field-log')->name('field-log');
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
-    Route::view('/plan', 'plan')->name('plan');
-    Route::view('/reports', 'reports')->name('reports');
+    Route::get('/plan', [PageController::class, 'plan'])->name('plan');
+    Route::get('/reports', [PageController::class, 'reports'])->name('reports');
     Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {

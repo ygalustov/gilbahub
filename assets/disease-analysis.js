@@ -8,38 +8,6 @@
 
     var style = document.createElement('style');
     style.textContent = [
-        /* info icon */
-        '.db-info-icon{display:inline-flex;width:15px;height:15px;border-radius:50%;background:#eef2f0;color:#6b8878;font-size:10px;font-weight:700;font-style:italic;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;user-select:none;border:none;line-height:1;vertical-align:middle}',
-        '.db-info-icon:hover{background:#ccd9d2;color:#1a2b23}',
-        /* header panel (shared pattern with growth-light) */
-        '.gl-header{background:#fff;border-bottom:1px solid #d8e0dc;padding:0}',
-        '.gl-header-inner{max-width:1100px;margin:0 auto;padding:18px 20px}',
-        '.gl-title{font-size:18px;font-weight:700;color:#17231f;margin:0 0 2px}',
-        '.gl-subtitle{font-size:12px;color:#5b6a65;margin:0 0 16px}',
-        '.gl-kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:4px}',
-        '@media(max-width:700px){.gl-kpi-grid{grid-template-columns:1fr}}',
-        '.gl-kpi-card{border-radius:8px;padding:14px 18px 13px;border:1px solid #d8e0dc;border-left-width:4px}',
-        '.gl-kpi-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#5b6a65;margin-bottom:8px}',
-        '.gl-kpi-value{font-size:36px;font-weight:800;line-height:1;margin-bottom:4px}',
-        '.gl-kpi-unit{font-size:12px;color:#5b6a65;margin-bottom:2px}',
-        '.gl-weather-live{display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#16a34a;flex-shrink:0}',
-        /* layout */
-        '.gl-body{max-width:1100px;margin:0 auto;padding:24px 20px;display:flex;flex-direction:column;gap:20px}',
-        '.gl-block{background:var(--panel,#fff);border:1px solid var(--border,#d8e0dc);border-radius:10px;overflow:hidden}',
-        '.gl-block-header{padding:16px 20px 12px;border-bottom:1px solid var(--border,#d8e0dc);display:flex;align-items:center;gap:10px}',
-        '.gl-block-accent{width:4px;height:22px;border-radius:2px;background:var(--brand,#236b4a);flex-shrink:0}',
-        '.gl-block-title{font-size:16px;font-weight:700;color:var(--text,#17231f)}',
-        '.gl-block-sub{font-size:12px;color:var(--muted,#5b6a65);margin-left:auto}',
-        '.gl-block-body{padding:20px}',
-        '.gl-section-label{font-size:11px;font-weight:700;color:var(--muted,#5b6a65);text-transform:uppercase;letter-spacing:.05em;margin:16px 0 10px;display:flex;align-items:center;gap:4px}',
-        '.gl-section-label:first-child{margin-top:0}',
-        '.gl-section-sep{border:none;border-top:1px solid var(--border,#d8e0dc);margin:16px 0}',
-        '.gl-rec-list{display:flex;flex-direction:column;gap:10px}',
-        '.gl-rec{border-radius:8px;padding:12px 16px;font-size:13px;border-left:4px solid;line-height:1.5}',
-        '.gl-rec.critical{background:#fef2f2;border-color:#dc2626;color:#7f1d1d}',
-        '.gl-rec.week{background:#fff7ed;border-color:#f97316;color:#7c2d12}',
-        '.gl-rec.monitor{background:#f0fdf4;border-color:#16a34a;color:#14532d}',
-        '.gl-rec-priority{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;opacity:.7}',
         /* master-detail split */
         '.dr-split{display:grid;grid-template-columns:300px 1fr;gap:20px;align-items:start}',
         '@media(max-width:800px){.dr-split{grid-template-columns:1fr}}',
@@ -874,26 +842,15 @@
             headerHtml +
             '<div class="gl-body">' +
             recsHtml +
+            appHtml +
             (alertHtml ? alertHtml : '') +
             '<div class="dr-split">' +
             '  <div id="dr-left">'  + renderLeft(d, _selectedIdx) + '</div>' +
             '  <div id="dr-right">' + renderRight(selectedDisease) + '</div>' +
             '</div>' +
             forecastHtml +
-            appHtml +
             '</div>';
 
-        // Update analysis timestamp
-        var ts = data && data.analyzedAt;
-        if (ts) {
-            var el = document.getElementById('db-analysis-ts');
-            if (el) {
-                var d2 = new Date(ts);
-                el.textContent = 'Analysis: ' +
-                    d2.toLocaleDateString('en-AU', { day: 'numeric', month: 'short' }) + ' ' +
-                    d2.toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' });
-            }
-        }
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────

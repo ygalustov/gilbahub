@@ -66,12 +66,11 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - Updated navigation links in the dashboard, data, plan, reports, and settings views to point to the new analysis index route.
 - Refactored routing in web.php to consolidate analysis routes and redirect legacy routes to the new structure.
 - Enhanced the analysis view with a notification bar for stale data and improved tab badges for disease and stress metrics.
-
+**GH-19**
 
 
 
 ## Backlog
-Также сделай, чтобы при переключении между, например, дашборд, потом дата, анализ, чтобы верхняя панелька всегда была тоже одна и та же, как на страничке дашборд.
 
 
 Ещё неудобно всё-таки переключать между разными болезнями. То есть, когда ты одну выбираешь болезнь, одна выводится, вторую болезнь выбираешь, выводятся по ней детали. То есть нет возможности сразу всё посмотреть. Давай какой-то вариант, когда можно сразу всё посмотреть. Ну и вот я думаю, может быть, под recommendations spray application window тоже добавить сразу после recommendations, чтобы опять самое важное наверху, а внизу уже детали.

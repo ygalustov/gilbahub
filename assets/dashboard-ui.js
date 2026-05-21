@@ -135,10 +135,24 @@
 
     // ── Boot ──────────────────────────────────────────────────────────────────
 
+    function initAnalysisTimestamp() {
+        var data = global.GAIP_DASHBOARD_DATA;
+        var ts = data && data.analyzedAt;
+        if (!ts) return;
+        var el = document.getElementById('db-analysis-ts');
+        if (!el) return;
+        var d = new Date(ts);
+        if (isNaN(d.getTime())) return;
+        var label = d.toLocaleDateString('en', { month: 'short', day: 'numeric' }) + ' ' +
+                    d.toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit', hour12: false });
+        el.textContent = 'Analysis: ' + label;
+    }
+
     function boot() {
         initSiteSwitcher();
         initRerun();
         initTabBadges();
+        initAnalysisTimestamp();
     }
 
     if (document.readyState === 'loading') {
