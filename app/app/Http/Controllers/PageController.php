@@ -27,6 +27,7 @@ class PageController extends Controller
         $turfMethodology = null;
         $locationName    = null;
         $analysisCache   = null;
+        $gaipConfig      = [];
 
         if ($activeSite) {
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
@@ -47,6 +48,15 @@ class PageController extends Controller
             }
         }
 
-        return compact('activeSite', 'allSites', 'turfSpecies', 'turfMethodology', 'locationName', 'analysisCache');
+        $savedLocation = [
+            'lat' => $activeSite?->latitude  ?? '',
+            'lon' => $activeSite?->longitude ?? '',
+            'name' => $locationName ?? '',
+        ];
+
+        return compact(
+            'activeSite', 'allSites', 'turfSpecies', 'turfMethodology',
+            'locationName', 'analysisCache', 'gaipConfig', 'savedLocation'
+        );
     }
 }
