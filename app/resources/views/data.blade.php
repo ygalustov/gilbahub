@@ -811,6 +811,202 @@
             : '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Compare';
     }
 
+    // ── Compare ───────────────────────────────────────────────────────────
+    var compareBtn = document.getElementById('dat-compare-btn');
+    if (compareBtn) {
+        compareBtn.addEventListener('click', function () {
+            var rows = [];
+            document.querySelectorAll('.dat-row-check:checked').forEach(function (cb) {
+                var tr = cb.closest('.dat-row');
+                if (!tr) return;
+                try { rows.push(JSON.parse(tr.dataset.row)); } catch (e) {}
+            });
+            if (rows.length < 2) return;
+            openCompare(rows);
+        });
+    }
+
+    var CMP_FIELDS = {
+        soil: [
+            { keys:['pH','ph','PH'],                                          label:'pH',              unit:'' },
+            { keys:['EC','ec','Salinity','salinity'],                          label:'EC',              unit:'dS/m' },
+            { keys:['CEC','cec'],                                              label:'CEC',             unit:'meq/100g' },
+            { keys:['OM','om','organic_matter','OrganicMatter','LOI'],         label:'Organic Matter',  unit:'%' },
+            { keys:['K','k','potassium','Potassium'],                          label:'Potassium (K)',   unit:'ppm' },
+            { keys:['P','p','phosphorus','Phosphorus'],                        label:'Phosphorus (P)',  unit:'ppm' },
+            { keys:['Ca','ca','calcium','Calcium'],                            label:'Calcium (Ca)',    unit:'ppm' },
+            { keys:['Mg','mg','magnesium','Magnesium'],                        label:'Magnesium (Mg)', unit:'ppm' },
+            { keys:['S','s','sulfur','Sulfur','sulphur'],                      label:'Sulfur (S)',      unit:'ppm' },
+            { keys:['Fe','fe','iron','Iron'],                                  label:'Iron (Fe)',       unit:'ppm' },
+            { keys:['Mn','mn','manganese','Manganese'],                        label:'Manganese (Mn)', unit:'ppm' },
+            { keys:['Cu','cu','copper','Copper'],                              label:'Copper (Cu)',     unit:'ppm' },
+            { keys:['Zn','zn','zinc','Zinc'],                                  label:'Zinc (Zn)',       unit:'ppm' },
+            { keys:['B','b','boron','Boron'],                                  label:'Boron (B)',       unit:'ppm' },
+            { keys:['Na','na','sodium','Sodium'],                              label:'Sodium (Na)',     unit:'ppm' },
+            { keys:['N','n','nitrogen','Nitrogen'],                            label:'Nitrogen (N)',    unit:'ppm' },
+            { keys:['BS','base_saturation','BaseSaturation','base_sat'],       label:'Base Saturation', unit:'%' },
+        ],
+        tissue: [
+            { keys:['N','n','nitrogen','Nitrogen','N_total'],   label:'Nitrogen (N)',    unit:'%' },
+            { keys:['P','p','phosphorus','Phosphorus'],          label:'Phosphorus (P)',  unit:'%' },
+            { keys:['K','k','potassium','Potassium'],            label:'Potassium (K)',   unit:'%' },
+            { keys:['Ca','ca','calcium','Calcium'],              label:'Calcium (Ca)',    unit:'%' },
+            { keys:['Mg','mg','magnesium','Magnesium'],          label:'Magnesium (Mg)', unit:'%' },
+            { keys:['S','s','sulfur','Sulfur'],                  label:'Sulfur (S)',      unit:'%' },
+            { keys:['Fe','fe','iron','Iron'],                    label:'Iron (Fe)',       unit:'mg/kg' },
+            { keys:['Mn','mn','manganese','Manganese'],          label:'Manganese (Mn)', unit:'mg/kg' },
+            { keys:['Zn','zn','zinc','Zinc'],                    label:'Zinc (Zn)',       unit:'mg/kg' },
+            { keys:['Cu','cu','copper','Copper'],                label:'Copper (Cu)',     unit:'mg/kg' },
+            { keys:['B','b','boron','Boron'],                    label:'Boron (B)',       unit:'mg/kg' },
+            { keys:['Mo','mo','molybdenum','Molybdenum'],        label:'Molybdenum (Mo)',unit:'mg/kg' },
+            { keys:['Na','na','sodium','Sodium'],                label:'Sodium (Na)',     unit:'%' },
+            { keys:['Cl','cl','chloride','Chloride'],            label:'Chloride (Cl)',   unit:'%' },
+        ],
+        water: [
+            { keys:['pH','ph','PH'],                                   label:'pH',              unit:'' },
+            { keys:['EC','ec','Salinity','salinity','ecw','EC_dSm'],    label:'EC / Salinity',   unit:'dS/m' },
+            { keys:['Ca','ca','calcium','Calcium'],                     label:'Calcium (Ca)',    unit:'ppm' },
+            { keys:['Mg','mg','magnesium','Magnesium'],                 label:'Magnesium (Mg)', unit:'ppm' },
+            { keys:['Na','na','sodium','Sodium'],                       label:'Sodium (Na)',     unit:'ppm' },
+            { keys:['K','k','potassium','Potassium'],                   label:'Potassium (K)',   unit:'ppm' },
+            { keys:['Cl','cl','chloride','Chloride'],                   label:'Chloride (Cl)',   unit:'ppm' },
+            { keys:['SO4','so4','sulfate','Sulfate'],                   label:'Sulfate (SO4)',   unit:'ppm' },
+            { keys:['HCO3','hco3','bicarbonate','Bicarbonate'],         label:'Bicarbonate',     unit:'ppm' },
+            { keys:['CO3','co3','carbonate','Carbonate'],               label:'Carbonate',       unit:'ppm' },
+            { keys:['B','b','boron','Boron'],                           label:'Boron (B)',       unit:'ppm' },
+            { keys:['Fe','fe','iron','Iron'],                           label:'Iron (Fe)',       unit:'ppm' },
+            { keys:['Mn','mn','manganese','Manganese'],                 label:'Manganese (Mn)', unit:'ppm' },
+            { keys:['SAR','sar'],                                       label:'SAR',             unit:'' },
+            { keys:['Hardness','hardness'],                             label:'Hardness',        unit:'ppm' },
+        ],
+        loi: [
+            { keys:['OM','om','organic_matter','OrganicMatter','LOI'],  label:'Organic Matter',  unit:'%' },
+            { keys:['loi_0_2','LOI_0_2','OM_0_2'],                      label:'OM 0–2 cm',       unit:'%' },
+            { keys:['loi_2_4','LOI_2_4','OM_2_4'],                      label:'OM 2–4 cm',       unit:'%' },
+            { keys:['loi_4_6','LOI_4_6','OM_4_6'],                      label:'OM 4–6 cm',       unit:'%' },
+            { keys:['thatch','Thatch','THATCH'],                         label:'Thatch',          unit:'%' },
+            { keys:['moisture','Moisture'],                              label:'Moisture',        unit:'%' },
+        ],
+    };
+
+    function openCompare(rows) {
+        var section = rows[0].section;
+        var fields  = CMP_FIELDS[section] || [];
+
+        // Build comparison matrix — one entry per field, skip fields with no data
+        var matrix = fields.map(function (f) {
+            var vals = rows.map(function (row) {
+                var v = gv(row.payload || {}, f.keys);
+                if (v === null) return null;
+                var n = parseFloat(v);
+                return isNaN(n) ? null : n;
+            });
+            var nums = vals.filter(function (v) { return v !== null; });
+            var mn   = nums.length ? Math.min.apply(null, nums) : null;
+            var mx   = nums.length ? Math.max.apply(null, nums) : null;
+            var avg  = nums.length ? nums.reduce(function (a, b) { return a + b; }, 0) / nums.length : null;
+            var cv   = null;
+            if (nums.length > 1 && avg && avg > 0) {
+                var variance = nums.reduce(function (s, v) { return s + Math.pow(v - avg, 2); }, 0) / nums.length;
+                cv = Math.sqrt(variance) / avg * 100;
+            }
+            return { f: f, vals: vals, min: mn, max: mx, avg: avg, cv: cv };
+        }).filter(function (m) {
+            return m.vals.some(function (v) { return v !== null; });
+        });
+
+        if (!matrix.length) {
+            alert('No comparable numeric data found in the selected samples.');
+            return;
+        }
+
+        var sectionNames = { soil: 'Soil', tissue: 'Tissue', water: 'Water', loi: 'LOI / OM' };
+        var title = 'Compare ' + (sectionNames[section] || section) + ' Samples';
+
+        // Table header — one column per sample
+        var headCells = rows.map(function (r) {
+            return '<th class="dat-cmp-th-sample">'
+                + '<div class="dat-cmp-sample-name">' + esc(r.name || 'Sample') + '</div>'
+                + (r.date ? '<div class="dat-cmp-sample-date">' + esc(fmtDate(r.date)) + '</div>' : '')
+                + '</th>';
+        }).join('');
+
+        // Table body — one row per field
+        var bodyRows = matrix.map(function (m) {
+            var singleVal = m.min !== null && m.max !== null && m.min === m.max;
+            var cells = m.vals.map(function (v) {
+                if (v === null) return '<td class="dat-cmp-td dat-cmp-na">—</td>';
+                var cls = '';
+                if (!singleVal) {
+                    if (v === m.min) cls = ' dat-cmp-cell-min';
+                    else if (v === m.max) cls = ' dat-cmp-cell-max';
+                }
+                var unit = m.f.unit ? ' <span class="dat-cmp-unit">' + esc(m.f.unit) + '</span>' : '';
+                return '<td class="dat-cmp-td' + cls + '">' + fmtNum(v) + unit + '</td>';
+            }).join('');
+
+            var cvCls = m.cv === null ? '' : m.cv < 10 ? ' dat-cmp-cv-low' : m.cv < 25 ? ' dat-cmp-cv-med' : ' dat-cmp-cv-high';
+            var unitTag = m.f.unit ? '<span class="dat-cmp-param-unit"> (' + esc(m.f.unit) + ')</span>' : '';
+
+            return '<tr>'
+                + '<td class="dat-cmp-td-param">' + esc(m.f.label) + unitTag + '</td>'
+                + cells
+                + '<td class="dat-cmp-td-stat">' + (m.min !== null ? fmtNum(m.min) : '—') + '</td>'
+                + '<td class="dat-cmp-td-stat">' + (m.max !== null ? fmtNum(m.max) : '—') + '</td>'
+                + '<td class="dat-cmp-td-stat">' + (m.avg !== null ? fmtNum(m.avg) : '—') + '</td>'
+                + '<td class="dat-cmp-td-stat dat-cmp-td-cv' + cvCls + '">' + (m.cv !== null ? m.cv.toFixed(1) + '%' : '—') + '</td>'
+                + '</tr>';
+        }).join('');
+
+        var html = '<div class="dat-cmp-overlay" id="dat-cmp-overlay">'
+            + '<div class="dat-cmp-modal">'
+            + '<div class="dat-cmp-hd">'
+            + '<div class="dat-cmp-title">' + esc(title) + '</div>'
+            + '<button class="dat-cmp-close" id="dat-cmp-close" aria-label="Close">×</button>'
+            + '</div>'
+            + '<div class="dat-cmp-body">'
+            + '<div class="dat-cmp-table-card">'
+            + '<div class="dat-cmp-table-wrap">'
+            + '<table class="dat-cmp-table">'
+            + '<thead><tr>'
+            + '<th class="dat-cmp-th-param">Parameter</th>'
+            + headCells
+            + '<th class="dat-cmp-th-stat">Min</th>'
+            + '<th class="dat-cmp-th-stat">Max</th>'
+            + '<th class="dat-cmp-th-stat">Avg</th>'
+            + '<th class="dat-cmp-th-stat">CV%</th>'
+            + '</tr></thead>'
+            + '<tbody>' + bodyRows + '</tbody>'
+            + '</table>'
+            + '</div>'
+            + '</div>'
+            + '<div class="dat-cmp-legend">'
+            + '<span class="dat-cmp-legend-item"><span class="dat-cmp-leg-min"></span> Lowest value</span>'
+            + '<span class="dat-cmp-legend-item"><span class="dat-cmp-leg-max"></span> Highest value</span>'
+            + '<span class="dat-cmp-legend-item">CV% — coefficient of variation: how much samples differ from each other</span>'
+            + '</div>'
+            + '</div>'
+            + '</div>'
+            + '</div>';
+
+        var wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        var overlay = wrapper.firstChild;
+
+        overlay.querySelector('#dat-cmp-close').addEventListener('click', function () { overlay.remove(); });
+        overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+
+        function onEsc(e) {
+            if (e.key === 'Escape' && document.getElementById('dat-cmp-overlay')) {
+                overlay.remove();
+                document.removeEventListener('keydown', onEsc);
+            }
+        }
+        document.addEventListener('keydown', onEsc);
+
+        document.body.appendChild(overlay);
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────────
     function fmtDate(str) {
         if (!str) return '—';
@@ -819,6 +1015,12 @@
     }
     function esc(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function fmtNum(v) {
+        if (v === null || v === undefined) return '—';
+        if (v >= 100) return v.toFixed(0);
+        if (v >= 10)  return v.toFixed(1);
+        return v.toFixed(2);
     }
 
 }());

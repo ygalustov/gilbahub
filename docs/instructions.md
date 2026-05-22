@@ -76,9 +76,20 @@ Improved the shared layout for consistency across analysis-related pages.
 - Refactored routing in web.php to support the new analysis tabs and ensure proper redirection.
 - Added JavaScript functionality for initializing the new analysis components and handling data loading.
 - Enhanced the data view with a modal for adding data, improving user interaction and data entry experience.
+**GH-21** Implement comparison functionality and modal for data analysis views
+- Added JavaScript functionality to enable comparison of selected data rows, enhancing user interaction.
+- Introduced a new modal design for displaying comparison results, improving data visibility and user experience.
+- Updated CSS styles for the comparison modal to ensure a consistent and user-friendly interface.
+- Defined comparison fields for soil, tissue, water, and organic matter, facilitating detailed analysis.
+
+
 
 
 ## Backlog
+
+
+Также посмотри, почему для всех вкладок «Земля», «Вода» информация с деталями выводится в одном формате, а для «Spray log» выводится в другом формате, и кнопка даже называется по-другому.  кнопка называется по-другому. И сам внешний вид окна, который открывается после tap on view, выглядит по-другому.
+----
 
 
 vmay be we add it to KPI - same as on the soil page? 
