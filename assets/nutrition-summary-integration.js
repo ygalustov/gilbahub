@@ -1231,7 +1231,12 @@
             log('b35fix329: skipping legacy GAIP_NUTRITION_SOIL_CACHE engine-output write. ' +
                 'Word export consumes engine results directly (data.engineInputs path).');
         }
-        
+
+        // Expose monthlyN for hub-persistence.js to pick up during analysis cache save.
+        if (Array.isArray(monthlyNData) && monthlyNData.length === 12) {
+            global.__GAIP_MONTHLY_N__ = monthlyNData;
+        }
+
         let html = renderDeficitSummary(requirements);
         html += renderNDistributionTable(annualN, monthlyGP, nAllocations, turfConfig, overseedConfig, monthlyC3Fractions);
         

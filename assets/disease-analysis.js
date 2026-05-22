@@ -31,6 +31,14 @@
         '.dr-forecast-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151}',
         '.dr-forecast-legend-line{width:18px;height:3px;border-radius:2px;flex-shrink:0}',
         '.dr-forecast-peak{font-size:12px;color:#5b6a65;margin-top:8px}',
+        /* forecast tooltip */
+        '.dr-chart-wrap{position:relative}',
+        '.dr-chart-tooltip{position:absolute;background:#fff;color:#17231f;border-radius:8px;padding:9px 13px;font-size:12px;white-space:nowrap;pointer-events:none;box-shadow:0 4px 16px rgba(0,0,0,.12);border:1px solid #d8e0dc;z-index:60;display:none;line-height:1.5}',
+        '.dr-chart-tooltip-day{font-weight:700;font-size:11px;color:#5b6a65;margin-bottom:5px;text-transform:uppercase;letter-spacing:.05em}',
+        '.dr-chart-tooltip-row{display:flex;align-items:center;gap:7px;margin-bottom:2px}',
+        '.dr-chart-tooltip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}',
+        '.dr-chart-tooltip-name{flex:1;color:#374151}',
+        '.dr-chart-tooltip-val{font-weight:700;color:#17231f}',
         /* application window */
         '.dr-app-status{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;margin-bottom:16px}',
         '.dr-app-status.ok{background:#f0fdf4;color:#15803d;border:1px solid #86efac}',
@@ -145,7 +153,7 @@
     };
 
     function infoBtn(key) {
-        return '<button class="db-info-icon" data-info="' + key + '" tabindex="0" aria-label="Learn more" onclick="event.stopPropagation()">i</button>';
+        return '<button class="db-info-icon" data-info="' + key + '" tabindex="0" aria-label="Learn more">i</button>';
     }
 
     global.GAIP_GLOSSARY = Object.assign(global.GAIP_GLOSSARY || {}, DR_GLOSSARY);
@@ -407,7 +415,7 @@
 
     // ── Render: forecast chart ────────────────────────────────────────────────
 
-    var CHART_COLORS = ['#ef4444', '#8b5cf6', '#f97316', '#ec4899', '#06b6d4', '#eab308', '#64748b'];
+    var CHART_COLORS = ['#ef4444', '#2563eb', '#16a34a', '#f97316', '#7c3aed', '#0891b2', '#ca8a04'];
 
     function buildForecastSeries(diseases, forecastArr) {
         var series = [];
@@ -838,6 +846,16 @@
         var forecastHtml = renderForecastChart(d);
         var appHtml      = renderAppWindow(d);
 
+        // If no static forecast data, render a placeholder that initForecastChart() will fill
+        var forecastBlock = forecastHtml ||
+            '<div id="dr-forecast-wrap" class="gl-block">' +
+            '<div class="gl-block-header"><div class="gl-block-accent"></div>' +
+            '<div class="gl-block-title">Disease Risk Forecast</div>' +
+            '<span class="gl-block-sub">7–14 day projection</span>' +
+            '</div>' +
+            '<div class="gl-block-body" style="padding:40px;text-align:center;color:#9ca3af;font-size:13px">Loading forecast…</div>' +
+            '</div>';
+
         container.innerHTML =
             headerHtml +
             '<div class="gl-body">' +
@@ -848,9 +866,308 @@
             '  <div id="dr-left">'  + renderLeft(d, _selectedIdx) + '</div>' +
             '  <div id="dr-right">' + renderRight(selectedDisease) + '</div>' +
             '</div>' +
-            forecastHtml +
+            forecastBlock +
             '</div>';
 
+    }
+
+    // ── Forecast chart (async, Open Meteo + DiseaseForecast) ─────────────────
+
+    function initForecastChart() {
+        var diseaseData = getDiseaseData();
+        if (!diseaseData) return;
+
+        // If static forecast already rendered, nothing to do
+        if (!document.getElementById('dr-forecast-wrap')) return;
+
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        var loc = cfg.savedLocation;
+        if (!loc || !loc.lat || !loc.lon) {
+            document.getElementById('dr-forecast-wrap').innerHTML =
+                '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No location set — forecast unavailable.</div>';
+            return;
+        }
+
+        var url = 'https://api.open-meteo.com/v1/forecast' +
+            '?latitude='  + loc.lat +
+            '&longitude=' + loc.lon +
+            '&hourly=temperature_2m,relative_humidity_2m,precipitation' +
+            '&timezone=auto' +
+            '&forecast_days=8';
+
+        fetch(url)
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function (data) {
+                if (!data.hourly || !data.hourly.time) return;
+
+                // Expose hourly data for disease-forecast.js buildDailyPatternFallback
+                var hourly = data.hourly;
+                global.rawWeatherData = { forecast: { hourly: hourly } };
+
+                var rh     = hourly.relative_humidity_2m || [];
+                var times  = hourly.time || [];
+                var hoursPerDay = 24;
+                var numForecastDays = Math.min(Math.ceil(times.length / hoursPerDay), 8);
+
+                // Build per-day humidity averages for moisture.dailyPattern
+                // (matches what the climate engine does with live hourly data)
+                var moistureDaily = [];
+                var allRhSum = 0, allRhCount = 0;
+                for (var di = 0; di < numForecastDays; di++) {
+                    var start = di * hoursPerDay;
+                    var end   = Math.min(start + hoursPerDay, rh.length);
+                    var dayRhSum = 0, dayRhCount = 0;
+                    for (var hi = start; hi < end; hi++) {
+                        if (rh[hi] != null) {
+                            dayRhSum   += rh[hi];
+                            dayRhCount++;
+                            allRhSum   += rh[hi];
+                            allRhCount++;
+                        }
+                    }
+                    moistureDaily.push({ humidity: dayRhCount > 0 ? dayRhSum / dayRhCount : null });
+                }
+                var meanHumidity = allRhCount > 0 ? allRhSum / allRhCount : null;
+
+                // Use stored climate from the analysis run — same as what the old site
+                // passes as window.GAIP_STATE.climateMetrics (= computed.climate from
+                // getAuthoritativeClimate).
+                var storedClimate = (global.GAIP_DASHBOARD_DATA &&
+                                     global.GAIP_DASHBOARD_DATA.computed &&
+                                     global.GAIP_DASHBOARD_DATA.computed.climate) || {};
+
+                // Expose stored dew result for leaf-wetness-sensitive diseases.
+                if (global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed && global.GAIP_DASHBOARD_DATA.computed.dew) {
+                    global.GAIP_DEW_RESULT = global.GAIP_DEW_RESULT || global.GAIP_DASHBOARD_DATA.computed.dew;
+                }
+
+                // Shallow-copy stored climate so we can strip temperature.dailyPattern.
+                // hub-persistence.js adds dailyPattern to the saved cache (from rawWeatherData),
+                // but the old site's window.climateMetrics never has it. If dailyPattern is
+                // present, generateForecast uses it directly instead of calling
+                // buildDailyPatternFallback — which on the analysis page would give stale
+                // historical lookback temperatures instead of current/forecast ones.
+                var climateForForecast = Object.assign({}, storedClimate);
+                if (climateForForecast.temperature) {
+                    climateForForecast.temperature = Object.assign({}, climateForForecast.temperature);
+                    delete climateForForecast.temperature.dailyPattern;
+                }
+                // Add fresh per-day humidity from the OM fetch so buildDailyClimate gives
+                // realistic day-by-day values (mirrors old site's P.moisture.dailyPattern).
+                climateForForecast.moisture = Object.assign({}, climateForForecast.moisture || {}, {
+                    humidity: climateForForecast.moisture && climateForForecast.moisture.humidity
+                        ? climateForForecast.moisture.humidity
+                        : (climateForForecast.humidity || { mean: meanHumidity }),
+                    dailyPattern: moistureDaily.length ? moistureDaily : null,
+                });
+
+                var state = {
+                    climateMetrics: climateForForecast,
+                    turf: { grassSpecies: cfg.turfSpecies || 'perennialRyegrass' }
+                };
+
+                if (typeof global.DiseaseForecast === 'undefined') return;
+                var result = global.DiseaseForecast.generateForecast(state);
+                if (result.error || !result.diseases || result.diseases.length === 0) {
+                    document.getElementById('dr-forecast-wrap').innerHTML =
+                        '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant disease risk forecast.</div>';
+                    return;
+                }
+
+                // Build series from DiseaseForecast result
+                var series = [];
+                result.diseases.forEach(function (disease, i) {
+                    if (!Array.isArray(disease.forecast) || disease.forecast.length < 2) return;
+                    series.push({
+                        name:   disease.name,
+                        color:  CHART_COLORS[i % CHART_COLORS.length],
+                        values: disease.forecast.map(function (f) { return f.risk; }),
+                        beta:   !!disease.beta,
+                    });
+                });
+                if (series.length === 0) return;
+
+                var forecastArr  = result.diseases[0].forecast;
+                var labels       = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
+                var chartDays    = result.forecastDays || forecastArr.length;
+                var peakData     = result.summary || null;
+                var chartHtml    = renderForecastChartFromSeries(series, labels, chartDays, peakData);
+                var wrap = document.getElementById('dr-forecast-wrap');
+                if (wrap) {
+                    wrap.outerHTML = chartHtml;
+                    attachForecastTooltip(renderForecastChartFromSeries._pending);
+                }
+            })
+            .catch(function () {
+                var wrap = document.getElementById('dr-forecast-wrap');
+                if (wrap) wrap.innerHTML =
+                    '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">Forecast unavailable.</div>';
+            });
+    }
+
+    var _chartSeq = 0;
+
+    function renderForecastChartFromSeries(series, forecastLabels, numDays, peakData) {
+        var numPoints = series[0].values.length;
+        var days      = numDays || numPoints;
+        var chartId   = 'dr-fc-' + (++_chartSeq);
+
+        // Peak text for header
+        var peakHtml = '';
+        if (peakData && peakData.topThreat && peakData.peakRisk > 0) {
+            var peakDay = peakData.peakDay != null ? peakData.peakDay : null;
+            var peakStr = 'Peak: <strong>' + esc(peakData.topThreat) + ' ' + Math.round(peakData.peakRisk) + '%</strong>' +
+                (peakDay === 0 ? ' today' : peakDay != null ? ' on day ' + peakDay : '');
+            peakHtml = '<span class="gl-block-sub" style="margin-left:auto">' + peakStr + '</span>';
+        }
+
+        var VW = 620, VH = 190;
+        var PL = 52, PR = 16, PT = 14, PB = 36;
+        var CW = VW - PL - PR, CH = VH - PT - PB;
+
+        function xPos(i)   { return PL + (numPoints === 1 ? CW / 2 : i * CW / (numPoints - 1)); }
+        function yPos(val) { return PT + CH - (val / 100) * CH; }
+
+        // Y-axis: 25%, 50%, 70%, 85% — matching old site
+        var gridLines = '';
+        [25, 50, 70, 85].forEach(function (pct) {
+            var y = yPos(pct);
+            gridLines += '<line x1="' + PL + '" y1="' + y + '" x2="' + (PL + CW) + '" y2="' + y +
+                '" stroke="#e5e7eb" stroke-width="1" stroke-dasharray="4,3"/>';
+            gridLines += '<text x="' + (PL - 6) + '" y="' + (y + 4) + '" text-anchor="end" ' +
+                'font-size="10" fill="#9ca3af">' + pct + '%</text>';
+        });
+
+        // Y-axis label "Disease Risk" (rotated)
+        var yAxisLabel = '<text x="' + (-VH / 2) + '" y="13" text-anchor="middle" ' +
+            'font-size="10" fill="#9ca3af" transform="rotate(-90)">Disease Risk</text>';
+
+        // X-axis labels — show every 2 days
+        var xLabels = '';
+        var labelEvery = Math.max(1, Math.ceil(numPoints / 5));
+        for (var i = 0; i < numPoints; i++) {
+            if (i % labelEvery !== 0 && i !== numPoints - 1) continue;
+            var lbl = forecastLabels[i] || (i === 0 ? 'Today' : '+' + i + 'd');
+            xLabels += '<text x="' + xPos(i) + '" y="' + (VH - 4) + '" text-anchor="middle" font-size="10" fill="#9ca3af">' + esc(lbl) + '</text>';
+        }
+
+        // Series lines — dashed for beta
+        var seriesSvg = '';
+        series.forEach(function (s) {
+            var pts = s.values.map(function (v, i) { return xPos(i) + ',' + yPos(v); }).join(' ');
+            var dash = s.beta ? ' stroke-dasharray="6,4"' : '';
+            seriesSvg += '<polyline points="' + pts + '" fill="none" stroke="' + s.color +
+                '" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"' + dash + '/>';
+        });
+
+        // Vertical cursor line (shown on hover via JS)
+        var cursorLine = '<line id="' + chartId + '-cur" x1="' + PL + '" y1="' + PT + '" x2="' + PL + '" y2="' + (PT + CH) +
+            '" stroke="#6b7280" stroke-width="1" stroke-dasharray="3,3" style="display:none" pointer-events="none"/>';
+
+        // Transparent hover overlay for mouse tracking
+        var overlay = '<rect id="' + chartId + '-ov" x="' + PL + '" y="' + PT +
+            '" width="' + CW + '" height="' + CH + '" fill="transparent" style="cursor:crosshair"/>';
+
+        var svg = '<svg id="' + chartId + '" viewBox="0 0 ' + VW + ' ' + VH +
+            '" style="width:100%;height:auto;display:block;overflow:visible" aria-hidden="true">' +
+            yAxisLabel + gridLines + xLabels + seriesSvg + cursorLine + overlay + '</svg>';
+
+        // Legend — asterisk for beta
+        var legend = '<div class="dr-forecast-legend">';
+        series.forEach(function (s) {
+            var dashStyle = s.beta
+                ? 'background:none;border-top:2px dashed ' + s.color + ';height:0;margin-top:6px'
+                : 'background:' + s.color;
+            legend += '<div class="dr-forecast-legend-item">' +
+                '<span class="dr-forecast-legend-line" style="' + dashStyle + '"></span>' +
+                esc(s.name) + (s.beta ? '<sup style="font-size:9px;color:#9ca3af"> *</sup>' : '') +
+                '</div>';
+        });
+        legend += '</div>';
+
+        // Store params for tooltip attachment keyed by chartId
+        renderForecastChartFromSeries._pending = {
+            chartId: chartId, series: series, forecastLabels: forecastLabels,
+            numPoints: numPoints, VW: VW, VH: VH, PL: PL, PR: PR, PT: PT, PB: PB, CW: CW, CH: CH
+        };
+
+        return '<div class="gl-block">' +
+            '<div class="gl-block-header">' +
+            '  <div class="gl-block-accent"></div>' +
+            '  <div class="gl-block-title">Disease Risk Forecast (' + days + ' days)</div>' +
+            '  ' + infoBtn('dr-forecast') +
+            peakHtml +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            '  <div class="dr-chart-wrap">' + svg + '</div>' +
+            legend +
+            '</div>' +
+            '</div>';
+    }
+
+    function attachForecastTooltip(p) {
+        var svg = document.getElementById(p.chartId);
+        var ov  = document.getElementById(p.chartId + '-ov');
+        var cur = document.getElementById(p.chartId + '-cur');
+        if (!svg || !ov) return;
+
+        var wrap = svg.closest('.dr-chart-wrap');
+        if (!wrap) return;
+
+        // Tooltip element
+        var tip = document.createElement('div');
+        tip.className = 'dr-chart-tooltip';
+        wrap.appendChild(tip);
+
+        function getActiveDay(e) {
+            var rect   = svg.getBoundingClientRect();
+            var scaleX = p.VW / rect.width;
+            var svgX   = (e.clientX - rect.left) * scaleX;
+            if (svgX < p.PL || svgX > p.PL + p.CW) return -1;
+            var frac   = (svgX - p.PL) / p.CW;
+            return Math.max(0, Math.min(p.numPoints - 1, Math.round(frac * (p.numPoints - 1))));
+        }
+
+        ov.addEventListener('mousemove', function (e) {
+            var day = getActiveDay(e);
+            if (day < 0) { tip.style.display = 'none'; if (cur) cur.style.display = 'none'; return; }
+
+            // Move cursor line
+            if (cur) {
+                var cx = p.PL + (p.numPoints === 1 ? p.CW / 2 : day * p.CW / (p.numPoints - 1));
+                cur.setAttribute('x1', cx);
+                cur.setAttribute('x2', cx);
+                cur.style.display = '';
+            }
+
+            // Build tooltip
+            var label = p.forecastLabels[day] || (day === 0 ? 'Today' : '+' + day + 'd');
+            var html  = '<div class="dr-chart-tooltip-day">' + esc(label) + '</div>';
+            p.series.forEach(function (s) {
+                var val = Math.round(s.values[day] || 0);
+                html += '<div class="dr-chart-tooltip-row">' +
+                    '<span class="dr-chart-tooltip-dot" style="background:' + s.color + '"></span>' +
+                    '<span class="dr-chart-tooltip-name">' + esc(s.name) + '</span>' +
+                    '<span class="dr-chart-tooltip-val">' + val + '%</span>' +
+                    '</div>';
+            });
+            tip.innerHTML = html;
+            tip.style.display = 'block';
+
+            // Position — prefer right of cursor, flip left if too close to edge
+            var wrapRect = wrap.getBoundingClientRect();
+            var tx = e.clientX - wrapRect.left + 14;
+            var ty = e.clientY - wrapRect.top  - tip.offsetHeight / 2;
+            if (tx + tip.offsetWidth > wrapRect.width - 4) tx = e.clientX - wrapRect.left - tip.offsetWidth - 14;
+            ty = Math.max(4, Math.min(ty, wrapRect.height - tip.offsetHeight - 4));
+            tip.style.left = tx + 'px';
+            tip.style.top  = ty + 'px';
+        });
+
+        ov.addEventListener('mouseleave', function () {
+            tip.style.display = 'none';
+            if (cur) cur.style.display = 'none';
+        });
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────
@@ -858,6 +1175,7 @@
     function boot() {
         renderPage();
         initInfoPopovers();
+        initForecastChart();
     }
 
     if (!global.GAIP_ANALYSIS_ROUTER) {

@@ -148,7 +148,8 @@
                     </button>
                     @endif
                     @if($section !== 'sensors')
-                    <button type="button" class="dat-add-btn" disabled>
+                    <button type="button" class="dat-add-btn" id="dat-add-btn"
+                        @if(!$activeSite) disabled title="No active site selected" @endif>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                         </svg>
@@ -548,6 +549,26 @@
 
         </div>{{-- /dat-body --}}
 
+        {{-- ADD DATA MODAL --}}
+        @if($section !== 'sensors')
+        <div id="dat-add-modal" class="dat-modal-overlay" style="display:none" aria-modal="true" role="dialog">
+            <div class="dat-modal">
+                <div class="dat-modal-hd">
+                    <div class="dat-modal-title" id="dat-modal-title">Add {{ $sectionTitles[$section] ?? 'Data' }}</div>
+                    <button class="dat-modal-x" id="dat-modal-close" aria-label="Close">×</button>
+                </div>
+                <div id="dat-modal-body" class="dat-modal-bd">
+                    {{-- Filled by JS --}}
+                </div>
+                <div class="dat-modal-ft">
+                    <span class="dat-modal-msg" id="dat-modal-msg"></span>
+                    <button type="button" class="dat-modal-cancel" id="dat-modal-cancel">Cancel</button>
+                    <button type="button" class="dat-modal-save" id="dat-modal-save">Save</button>
+                </div>
+            </div>
+        </div>
+        @endif
+
 @endsection
 
 @section('scripts')
@@ -802,6 +823,597 @@
 
 }());
 </script>
+
+{{-- ── ADD DATA MODAL JS ────────────────────────────────────────── --}}
+@if($section !== 'sensors')
+<script>
+(function () {
+    'use strict';
+
+    var SECTION  = '{{ $section }}';
+    var SITE_ID  = '{{ $activeSite?->id ?? '' }}';
+    var CSRF     = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+    // ── CSV field mappings (column header → payload key) ─────────
+    var CSV_MAPS = {
+        soil: {
+            'pH': 'pH', 'ph': 'pH', 'pH_Water': 'pH',
+            'K': 'K', 'K_ppm': 'K', 'potassium': 'K', 'Potassium': 'K',
+            'P': 'P', 'P_ppm': 'P', 'phosphorus': 'P', 'Phosphorus': 'P',
+            'Ca': 'Ca', 'Ca_ppm': 'Ca', 'calcium': 'Ca', 'Calcium': 'Ca',
+            'Mg': 'Mg', 'Mg_ppm': 'Mg', 'magnesium': 'Mg', 'Magnesium': 'Mg',
+            'S': 'S', 'S_ppm': 'S', 'sulfur': 'S', 'sulphur': 'S',
+            'Fe': 'Fe', 'Fe_ppm': 'Fe', 'iron': 'Fe', 'Iron': 'Fe',
+            'Mn': 'Mn', 'Mn_ppm': 'Mn', 'manganese': 'Mn',
+            'Zn': 'Zn', 'Zn_ppm': 'Zn', 'zinc': 'Zn',
+            'Cu': 'Cu', 'Cu_ppm': 'Cu', 'copper': 'Cu',
+            'B': 'B', 'B_ppm': 'B', 'boron': 'B',
+            'Na': 'Na', 'Na_ppm': 'Na', 'sodium': 'Na',
+            'CEC': 'CEC', 'cec': 'CEC', 'CEC_meq100g': 'CEC',
+            'EC': 'EC', 'ec': 'EC', 'EC_dSm': 'EC', 'EC_1_5': 'EC',
+            'OM': 'OM', 'om': 'OM', 'OM_Percent': 'OM', 'LOI': 'LOI',
+            'organic_matter': 'OM', 'Organic Matter': 'OM',
+            'Zone': 'zone', 'zone': 'zone',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid', 'sample_id': '__uid',
+            'Date': '__date', 'date': '__date', 'Sample_Date': '__date',
+            'Lab': '__lab', 'lab': '__lab', 'Lab_Name': '__lab',
+        },
+        tissue: {
+            'N': 'N', 'N_Percent': 'N', 'nitrogen': 'N', 'Nitrogen': 'N',
+            'P': 'P', 'P_Percent': 'P', 'phosphorus': 'P',
+            'K': 'K', 'K_Percent': 'K', 'potassium': 'K',
+            'Ca': 'Ca', 'Ca_Percent': 'Ca', 'calcium': 'Ca',
+            'Mg': 'Mg', 'Mg_Percent': 'Mg', 'magnesium': 'Mg',
+            'S': 'S', 'S_Percent': 'S', 'sulfur': 'S',
+            'Fe': 'Fe', 'Fe_mgkg': 'Fe', 'iron': 'Fe',
+            'Mn': 'Mn', 'Mn_mgkg': 'Mn', 'manganese': 'Mn',
+            'Zn': 'Zn', 'Zn_mgkg': 'Zn', 'zinc': 'Zn',
+            'Cu': 'Cu', 'Cu_mgkg': 'Cu', 'copper': 'Cu',
+            'B': 'B', 'B_mgkg': 'B', 'boron': 'B',
+            'Zone': 'zone', 'zone': 'zone',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Date': '__date', 'date': '__date',
+            'Lab': '__lab', 'Lab_Name': '__lab',
+        },
+        water: {
+            'pH': 'pH', 'ph': 'pH',
+            'EC': 'EC', 'ec': 'EC', 'EC_dSm': 'EC', 'ECw': 'EC',
+            'HCO3': 'HCO3', 'hco3': 'HCO3', 'bicarbonate': 'HCO3', 'Bicarbonate': 'HCO3',
+            'Ca': 'Ca', 'Ca_mgL': 'Ca', 'calcium': 'Ca',
+            'Mg': 'Mg', 'Mg_mgL': 'Mg', 'magnesium': 'Mg',
+            'Na': 'Na', 'Na_mgL': 'Na', 'sodium': 'Na',
+            'K': 'K', 'K_mgL': 'K', 'potassium': 'K',
+            'Cl': 'Cl', 'Cl_mgL': 'Cl', 'chloride': 'Cl',
+            'SO4': 'SO4', 'SO4_mgL': 'SO4', 'sulfate': 'SO4',
+            'SAR': 'SAR', 'sar': 'SAR',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Date': '__date', 'date': '__date',
+            'Lab': '__lab', 'Lab_Name': '__lab',
+        },
+        loi: {
+            'OM': 'OM', 'om': 'OM', 'OM_Percent': 'OM', 'LOI': 'OM', 'organic_matter': 'OM',
+            'OrganicMatter': 'OM', 'Organic Matter': 'OM',
+            'thatch': 'thatch', 'Thatch': 'thatch', 'THATCH': 'thatch',
+            'moisture': 'moisture', 'Moisture': 'moisture',
+            'Zone': 'zone', 'zone': 'zone',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Date': '__date', 'date': '__date',
+            'Lab': '__lab', 'Lab_Name': '__lab',
+        },
+    };
+
+    // ── Manual form field definitions ─────────────────────────────
+    var MANUAL_FORMS = {
+        soil: {
+            meta: [
+                { id: 'uid',    label: 'Sample Name / ID', placeholder: 'e.g. Green #1' },
+                { id: 'zone',   label: 'Zone',             type: 'zone' },
+                { id: 'date',   label: 'Date Collected',   type: 'date' },
+                { id: 'lab',    label: 'Lab Name',         placeholder: 'Optional' },
+                { id: 'labref', label: 'Lab Reference',    placeholder: 'Optional' },
+            ],
+            nutrients: [
+                { id: 'pH', label: 'pH',          unit: '',       placeholder: '6.5' },
+                { id: 'K',  label: 'K',           unit: 'ppm',    placeholder: '' },
+                { id: 'P',  label: 'P',           unit: 'ppm',    placeholder: '' },
+                { id: 'Ca', label: 'Ca',          unit: 'ppm',    placeholder: '' },
+                { id: 'Mg', label: 'Mg',          unit: 'ppm',    placeholder: '' },
+                { id: 'S',  label: 'S',           unit: 'ppm',    placeholder: '' },
+                { id: 'Na', label: 'Na',          unit: 'ppm',    placeholder: '' },
+                { id: 'Fe', label: 'Fe',          unit: 'ppm',    placeholder: '' },
+                { id: 'Mn', label: 'Mn',          unit: 'ppm',    placeholder: '' },
+                { id: 'Zn', label: 'Zn',          unit: 'ppm',    placeholder: '' },
+                { id: 'Cu', label: 'Cu',          unit: 'ppm',    placeholder: '' },
+                { id: 'B',  label: 'B',           unit: 'ppm',    placeholder: '' },
+                { id: 'CEC',label: 'CEC',         unit: 'meq/100g', placeholder: '' },
+                { id: 'EC', label: 'EC',          unit: 'dS/m',   placeholder: '' },
+                { id: 'OM', label: 'OM / LOI',    unit: '%',      placeholder: '' },
+            ],
+        },
+        tissue: {
+            meta: [
+                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Greens clipping' },
+                { id: 'zone', label: 'Zone',             type: 'zone' },
+                { id: 'date', label: 'Date Collected',   type: 'date' },
+                { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
+            ],
+            nutrients: [
+                { id: 'N',  label: 'N',  unit: '%',   placeholder: '' },
+                { id: 'P',  label: 'P',  unit: '%',   placeholder: '' },
+                { id: 'K',  label: 'K',  unit: '%',   placeholder: '' },
+                { id: 'Ca', label: 'Ca', unit: '%',   placeholder: '' },
+                { id: 'Mg', label: 'Mg', unit: '%',   placeholder: '' },
+                { id: 'S',  label: 'S',  unit: '%',   placeholder: '' },
+                { id: 'Fe', label: 'Fe', unit: 'ppm', placeholder: '' },
+                { id: 'Mn', label: 'Mn', unit: 'ppm', placeholder: '' },
+                { id: 'Zn', label: 'Zn', unit: 'ppm', placeholder: '' },
+                { id: 'Cu', label: 'Cu', unit: 'ppm', placeholder: '' },
+            ],
+        },
+        water: {
+            meta: [
+                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Bore water' },
+                { id: 'date', label: 'Date Collected',   type: 'date' },
+                { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
+            ],
+            nutrients: [
+                { id: 'pH',   label: 'pH',          unit: '',      placeholder: '' },
+                { id: 'EC',   label: 'EC',          unit: 'dS/m', placeholder: '' },
+                { id: 'HCO3', label: 'HCO3',        unit: 'ppm',  placeholder: '' },
+                { id: 'Ca',   label: 'Ca',          unit: 'ppm',  placeholder: '' },
+                { id: 'Mg',   label: 'Mg',          unit: 'ppm',  placeholder: '' },
+                { id: 'Na',   label: 'Na',          unit: 'ppm',  placeholder: '' },
+                { id: 'K',    label: 'K',           unit: 'ppm',  placeholder: '' },
+                { id: 'Cl',   label: 'Cl',          unit: 'ppm',  placeholder: '' },
+                { id: 'SO4',  label: 'SO4',         unit: 'ppm',  placeholder: '' },
+                { id: 'SAR',  label: 'SAR',         unit: '',     placeholder: '' },
+            ],
+        },
+        loi: {
+            meta: [
+                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Green centre' },
+                { id: 'zone', label: 'Zone',             type: 'zone' },
+                { id: 'date', label: 'Date Collected',   type: 'date' },
+                { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
+            ],
+            nutrients: [
+                { id: 'OM',       label: 'OM / LOI',  unit: '%', placeholder: '' },
+                { id: 'thatch',   label: 'Thatch',    unit: '%', placeholder: '' },
+                { id: 'moisture', label: 'Moisture',  unit: '%', placeholder: '' },
+            ],
+        },
+    };
+
+    var ZONES = ['Greens','Tees','Fairways','Surrounds','Roughs','Other'];
+    var SPRAY_CATS = [
+        { id: 'fungicide',    label: 'Fungicide' },
+        { id: 'pgr',          label: 'PGR' },
+        { id: 'nutrition',    label: 'Nutrition / Fertiliser' },
+        { id: 'wetting_agent',label: 'Wetting Agent' },
+        { id: 'pre_emergent', label: 'Pre-emergent' },
+        { id: 'insecticide',  label: 'Insecticide' },
+        { id: 'herbicide',    label: 'Herbicide' },
+        { id: 'other',        label: 'Other' },
+    ];
+    var RATE_UNITS = ['L/ha','kg/ha','mL/100m²','g/100m²','mL/ha','g/ha'];
+
+    // ── Modal state ───────────────────────────────────────────────
+    var _parsedCSV = null; // { payload, uid, date, lab }
+    var _activeTab = 'upload';
+
+    // ── Helpers ───────────────────────────────────────────────────
+    function q(id) { return document.getElementById(id); }
+    function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function setMsg(text, cls) {
+        var el = q('dat-modal-msg');
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'dat-modal-msg' + (cls ? ' ' + cls : '');
+    }
+    function todayISO() { return new Date().toISOString().split('T')[0]; }
+
+    // ── CSV parser (no dependencies) ──────────────────────────────
+    function parseCSVLine(line) {
+        var result = [], cur = '', inQ = false;
+        for (var i = 0; i < line.length; i++) {
+            var c = line[i];
+            if (c === '"') { inQ = !inQ; }
+            else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+            else { cur += c; }
+        }
+        result.push(cur);
+        return result;
+    }
+
+    function parseCSV(text) {
+        var lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) return null;
+        var headers = parseCSVLine(lines[0]).map(function(h) { return h.trim(); });
+        var rows = [];
+        for (var i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            var vals = parseCSVLine(lines[i]);
+            var row = {};
+            for (var j = 0; j < headers.length; j++) {
+                row[headers[j]] = (vals[j] || '').trim();
+            }
+            rows.push(row);
+        }
+        return { headers: headers, rows: rows };
+    }
+
+    function csvToPayload(section, row) {
+        var map = CSV_MAPS[section];
+        if (!map) return null;
+        var payload = {}, uid = '', date = '', lab = '';
+        Object.keys(row).forEach(function(col) {
+            var val = row[col];
+            if (!val || val === '') return;
+            var key = map[col];
+            if (!key) {
+                // Try case-insensitive fallback
+                var colL = col.toLowerCase();
+                Object.keys(map).forEach(function(mk) {
+                    if (mk.toLowerCase() === colL) key = map[mk];
+                });
+            }
+            if (!key) return;
+            if (key === '__uid')  { uid  = val; return; }
+            if (key === '__date') { date = val; return; }
+            if (key === '__lab')  { lab  = val; return; }
+            payload[key] = val;
+        });
+        return { payload: payload, uid: uid, date: date, lab: lab };
+    }
+
+    // ── Open / close ──────────────────────────────────────────────
+    function openModal() {
+        var modal = q('dat-add-modal');
+        if (!modal) return;
+        _parsedCSV = null;
+        _activeTab = SECTION === 'spray-log' ? 'manual' : 'upload';
+        q('dat-modal-body').innerHTML = SECTION === 'spray-log' ? buildSprayBody() : buildLabBody();
+        setMsg('');
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        wireModalBody();
+    }
+
+    function closeModal() {
+        var modal = q('dat-add-modal');
+        if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
+        _parsedCSV = null;
+    }
+
+    // ── Lab form builder ──────────────────────────────────────────
+    function buildLabBody() {
+        var def = MANUAL_FORMS[SECTION];
+        if (!def) return '<p>No form available for this section.</p>';
+
+        var html = '<div class="dat-modal-tabs">'
+            + '<button class="dat-modal-tab' + (_activeTab==='upload'?' active':'') + '" data-tab="upload">Upload CSV</button>'
+            + '<button class="dat-modal-tab' + (_activeTab==='manual'?' active':'') + '" data-tab="manual">Enter Manually</button>'
+            + '</div>';
+
+        if (_activeTab === 'upload') {
+            html += buildUploadTab();
+        } else {
+            html += buildManualTab(def);
+        }
+        return html;
+    }
+
+    function buildUploadTab() {
+        var html = '<div class="dat-upload-zone" id="dat-drop-zone">'
+            + '<div class="dat-upload-zone-icon">📂</div>'
+            + '<div class="dat-upload-zone-text">Drop your CSV file here or click to browse</div>'
+            + '<div class="dat-upload-zone-sub">Supports CSV format from any lab</div>'
+            + '</div>'
+            + '<input type="file" id="dat-csv-file" accept=".csv" style="display:none">'
+            + '<div id="dat-upload-result"></div>';
+        return html;
+    }
+
+    function buildManualTab(def) {
+        var zoneOpts = ZONES.map(function(z) {
+            return '<option value="' + z + '">' + z + '</option>';
+        }).join('');
+
+        // Meta fields
+        var metaHTML = '<div class="dat-mf-grid">';
+        def.meta.forEach(function(f) {
+            metaHTML += '<div class="dat-mf-field">';
+            metaHTML += '<label class="dat-mf-label">' + esc(f.label) + '</label>';
+            if (f.type === 'zone') {
+                metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone —</option>' + zoneOpts + '</select>';
+            } else if (f.type === 'date') {
+                metaHTML += '<input type="date" class="dat-mf-input" id="dat-f-' + f.id + '" value="' + todayISO() + '">';
+            } else {
+                metaHTML += '<input type="text" class="dat-mf-input" id="dat-f-' + f.id + '" placeholder="' + esc(f.placeholder||'') + '">';
+            }
+            metaHTML += '</div>';
+        });
+        metaHTML += '</div>';
+
+        // Nutrient fields
+        var nutHTML = '<div class="dat-mf-grid g3">';
+        nutHTML += '<div class="dat-mf-sec">Measurements</div>';
+        def.nutrients.forEach(function(f) {
+            nutHTML += '<div class="dat-mf-field">';
+            var lbl = esc(f.label) + (f.unit ? ' <span style="font-weight:400;text-transform:none">(' + esc(f.unit) + ')</span>' : '');
+            nutHTML += '<label class="dat-mf-label">' + lbl + '</label>';
+            nutHTML += '<input type="number" step="any" class="dat-mf-input" id="dat-n-' + f.id + '" placeholder="' + esc(f.placeholder||'') + '">';
+            nutHTML += '</div>';
+        });
+        nutHTML += '</div>';
+
+        // Notes
+        var notesHTML = '<div class="dat-mf-field"><label class="dat-mf-label">Notes</label><textarea class="dat-mf-textarea" id="dat-f-notes" rows="2"></textarea></div>';
+
+        return metaHTML + nutHTML + notesHTML;
+    }
+
+    // ── Spray log form builder ────────────────────────────────────
+    function buildSprayBody() {
+        var catOpts = SPRAY_CATS.map(function(c) {
+            return '<option value="' + c.id + '">' + esc(c.label) + '</option>';
+        }).join('');
+        var unitOpts = RATE_UNITS.map(function(u) {
+            return '<option value="' + u + '">' + esc(u) + '</option>';
+        }).join('');
+        var zonePills = ZONES.map(function(z) {
+            return '<span class="dat-zone-pill" data-zone="' + z.toLowerCase() + '">' + esc(z) + '</span>';
+        }).join('');
+
+        return '<div class="dat-mf-grid">'
+            + '<div class="dat-mf-field"><label class="dat-mf-label">Date</label><input type="date" class="dat-mf-input" id="dat-sl-date" value="' + todayISO() + '"></div>'
+            + '<div class="dat-mf-field"><label class="dat-mf-label">Category</label><select class="dat-mf-select" id="dat-sl-cat">' + catOpts + '</select></div>'
+            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Product Name</label><input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. Heritage Maxx"></div>'
+            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Active Ingredient</label><input type="text" class="dat-mf-input" id="dat-sl-ai" placeholder="e.g. azoxystrobin"></div>'
+            + '<div class="dat-mf-field"><label class="dat-mf-label">Rate</label><input type="number" step="any" class="dat-mf-input" id="dat-sl-rate" placeholder="0.0"></div>'
+            + '<div class="dat-mf-field"><label class="dat-mf-label">Unit</label><select class="dat-mf-select" id="dat-sl-unit">' + unitOpts + '</select></div>'
+            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Target (pest / disease)</label><input type="text" class="dat-mf-input" id="dat-sl-target" placeholder="e.g. Dollar Spot"></div>'
+            + '</div>'
+            + '<div class="dat-mf-field" style="margin-bottom:12px"><label class="dat-mf-label">Zones Applied</label><div class="dat-zone-pills" id="dat-sl-zones">' + zonePills + '</div></div>'
+            + '<div class="dat-mf-field"><label class="dat-mf-label">Notes</label><textarea class="dat-mf-textarea" id="dat-sl-notes" rows="2"></textarea></div>';
+    }
+
+    // ── Wire modal events ─────────────────────────────────────────
+    function wireModalBody() {
+        // Tabs
+        document.querySelectorAll('.dat-modal-tab').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                _activeTab = this.dataset.tab;
+                _parsedCSV = null;
+                q('dat-modal-body').innerHTML = buildLabBody();
+                wireModalBody();
+            });
+        });
+
+        // Zone pills (spray log)
+        document.querySelectorAll('.dat-zone-pill').forEach(function(pill) {
+            pill.addEventListener('click', function() { this.classList.toggle('sel'); });
+        });
+
+        // CSV drop zone
+        var dropZone = q('dat-drop-zone');
+        var fileInput = q('dat-csv-file');
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('click', function() { fileInput.click(); });
+            dropZone.addEventListener('dragover', function(e) { e.preventDefault(); this.classList.add('drag'); });
+            dropZone.addEventListener('dragleave', function() { this.classList.remove('drag'); });
+            dropZone.addEventListener('drop', function(e) {
+                e.preventDefault(); this.classList.remove('drag');
+                var file = e.dataTransfer.files[0];
+                if (file) handleCSVFile(file);
+            });
+            fileInput.addEventListener('change', function() {
+                if (this.files[0]) handleCSVFile(this.files[0]);
+            });
+        }
+    }
+
+    // ── Handle CSV file ───────────────────────────────────────────
+    function handleCSVFile(file) {
+        var resultEl = q('dat-upload-result');
+        if (!resultEl) return;
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            resultEl.innerHTML = '<div class="dat-upload-msg err">Only CSV files are supported. Please save your spreadsheet as CSV and try again.</div>';
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                var parsed = parseCSV(e.target.result);
+                if (!parsed || !parsed.rows.length) {
+                    resultEl.innerHTML = '<div class="dat-upload-msg err">CSV is empty or could not be parsed. Check the file and try again.</div>';
+                    return;
+                }
+                var extracted = csvToPayload(SECTION, parsed.rows[0]);
+                if (!extracted) {
+                    resultEl.innerHTML = '<div class="dat-upload-msg err">No recognisable columns found. Check the file matches the expected format.</div>';
+                    return;
+                }
+                _parsedCSV = extracted;
+                var fieldCount = Object.keys(extracted.payload).length;
+                if (!fieldCount) {
+                    resultEl.innerHTML = '<div class="dat-upload-msg err">No nutrient/measurement columns matched. Check column headers match the expected format.</div>';
+                    return;
+                }
+
+                var previewRows = '';
+                if (extracted.uid)  previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Sample Name</span><span class="dat-upload-prev-val">' + esc(extracted.uid) + '</span></div>';
+                if (extracted.date) previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Date</span><span class="dat-upload-prev-val">' + esc(extracted.date) + '</span></div>';
+                if (extracted.lab)  previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Lab</span><span class="dat-upload-prev-val">' + esc(extracted.lab) + '</span></div>';
+                Object.keys(extracted.payload).slice(0, 12).forEach(function(key) {
+                    previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">' + esc(key) + '</span><span class="dat-upload-prev-val">' + esc(extracted.payload[key]) + '</span></div>';
+                });
+                if (Object.keys(extracted.payload).length > 12) {
+                    previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name" style="color:var(--gaip-text-muted)">+ ' + (Object.keys(extracted.payload).length - 12) + ' more fields…</span></div>';
+                }
+                var rowLabel = parsed.rows.length > 1 ? (parsed.rows.length + ' rows — using row 1') : '1 row';
+                resultEl.innerHTML = '<div class="dat-upload-msg ok">✓ Parsed successfully · ' + fieldCount + ' fields · ' + rowLabel + '</div>'
+                    + '<div class="dat-upload-preview"><div class="dat-upload-prev-title">Preview — Row 1</div>' + previewRows + '</div>';
+            } catch(err) {
+                resultEl.innerHTML = '<div class="dat-upload-msg err">Parse error: ' + esc(err.message) + '</div>';
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // ── Collect form data ─────────────────────────────────────────
+    function collectLabData() {
+        if (_activeTab === 'upload') {
+            if (!_parsedCSV) { setMsg('Please upload and parse a CSV file first.', 'err'); return null; }
+            return {
+                sample_type: SECTION,
+                site_id: SITE_ID,
+                client_uid: _parsedCSV.uid || null,
+                lab_name:   _parsedCSV.lab || null,
+                lab_date:   _parsedCSV.date || null,
+                payload:    _parsedCSV.payload,
+            };
+        }
+        // Manual tab
+        var def = MANUAL_FORMS[SECTION];
+        var payload = {};
+        def.nutrients.forEach(function(f) {
+            var el = q('dat-n-' + f.id);
+            if (el && el.value.trim() !== '') payload[f.id] = el.value.trim();
+        });
+        var zoneEl = q('dat-f-zone');
+        if (zoneEl && zoneEl.value) payload.zone = zoneEl.value;
+
+        var uid   = (q('dat-f-uid')    || {}).value || '';
+        var date  = (q('dat-f-date')   || {}).value || null;
+        var lab   = (q('dat-f-lab')    || {}).value || null;
+        var labRef= (q('dat-f-labref') || {}).value || null;
+        var notes = (q('dat-f-notes')  || {}).value || null;
+
+        if (!uid && !Object.keys(payload).length) {
+            setMsg('Please enter at least a sample name or some measurements.', 'err');
+            return null;
+        }
+
+        return {
+            sample_type: SECTION,
+            site_id: SITE_ID,
+            client_uid: uid || null,
+            lab_name:   lab  || null,
+            lab_ref:    labRef || null,
+            lab_date:   date || null,
+            sample_date:date || null,
+            payload:    payload,
+            notes:      notes,
+        };
+    }
+
+    function collectSprayData() {
+        var product = (q('dat-sl-product') || {}).value || '';
+        var date    = (q('dat-sl-date')    || {}).value || '';
+        if (!product.trim()) { setMsg('Product name is required.', 'err'); return null; }
+        if (!date)           { setMsg('Date is required.', 'err'); return null; }
+
+        var selectedZones = [];
+        document.querySelectorAll('.dat-zone-pill.sel').forEach(function(pill) {
+            selectedZones.push(pill.dataset.zone);
+        });
+        if (!selectedZones.length) { setMsg('Please select at least one zone.', 'err'); return null; }
+
+        var rate = (q('dat-sl-rate') || {}).value;
+
+        return {
+            site_id:           SITE_ID,
+            application_date:  date,
+            product_name:      product.trim(),
+            product_category:  (q('dat-sl-cat')    || {}).value || 'other',
+            active_ingredient: ((q('dat-sl-ai')     || {}).value || '').trim() || null,
+            rate:              rate ? parseFloat(rate) : null,
+            rate_unit:         (q('dat-sl-unit')   || {}).value || null,
+            target:            ((q('dat-sl-target') || {}).value || '').trim() || null,
+            notes:             ((q('dat-sl-notes')  || {}).value || '').trim() || null,
+            source: 'manual',
+            zones: selectedZones,
+        };
+    }
+
+    // ── Submit ────────────────────────────────────────────────────
+    async function handleSave() {
+        setMsg('');
+        var saveBtn = q('dat-modal-save');
+        if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
+
+        try {
+            var data, url;
+            if (SECTION === 'spray-log') {
+                data = collectSprayData();
+                url  = '/api/spray-log';
+            } else {
+                data = collectLabData();
+                url  = '/api/samples';
+            }
+            if (!data) {
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                return;
+            }
+
+            var r = await fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': CSRF,
+                },
+                body: JSON.stringify(data),
+            });
+
+            var json;
+            try { json = await r.json(); } catch(_) { json = {}; }
+
+            if (r.ok) {
+                closeModal();
+                window.location.reload();
+            } else {
+                var errMsg = json.message || json.error || (json.errors ? Object.values(json.errors).flat().join('; ') : 'Save failed (HTTP ' + r.status + ')');
+                setMsg(errMsg, 'err');
+                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+            }
+        } catch(err) {
+            setMsg('Network error: ' + err.message, 'err');
+            if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+        }
+    }
+
+    // ── Bootstrap ─────────────────────────────────────────────────
+    function init() {
+        var addBtn    = q('dat-add-btn');
+        var closeBtn  = q('dat-modal-close');
+        var cancelBtn = q('dat-modal-cancel');
+        var saveBtn   = q('dat-modal-save');
+        var overlay   = q('dat-add-modal');
+
+        if (addBtn)    addBtn.addEventListener('click', openModal);
+        if (closeBtn)  closeBtn.addEventListener('click', closeModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        if (saveBtn)   saveBtn.addEventListener('click', handleSave);
+        if (overlay)   overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) closeModal();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') closeModal();
+        });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+}());
+</script>
+@endif
 
 @if($section === 'sensors')
 <script>

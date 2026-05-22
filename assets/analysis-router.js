@@ -9,7 +9,7 @@ window.GAIP_ANALYSIS_ROUTER = true;
 (function (global) {
     'use strict';
 
-    var TAB_IDS = ['disease', 'growth-light'];
+    var TAB_IDS = ['disease', 'growth-light', 'soil-nutrition', 'water-balance'];
     var rendered = {};
     var currentTab = null;
 
@@ -47,6 +47,10 @@ window.GAIP_ANALYSIS_ROUTER = true;
                 global.GAIP_DiseaseAnalysis.boot();
             } else if (tabId === 'growth-light' && global.GAIP_GrowthLightAnalysis) {
                 global.GAIP_GrowthLightAnalysis.init();
+            } else if (tabId === 'soil-nutrition' && global.GAIP_SoilNutritionAnalysis) {
+                global.GAIP_SoilNutritionAnalysis.init();
+            } else if (tabId === 'water-balance' && global.GAIP_WaterBalanceAnalysis) {
+                global.GAIP_WaterBalanceAnalysis.init();
             }
         }
     }

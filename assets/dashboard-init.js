@@ -64,7 +64,8 @@
         var currentAnchor = null;
 
         function showPopover(anchor) {
-            var entry = INFO_GLOSSARY[anchor.dataset.info];
+            var key = anchor.dataset.info;
+            var entry = INFO_GLOSSARY[key] || (global.GAIP_GLOSSARY && global.GAIP_GLOSSARY[key]);
             if (!entry) return;
             popTitle.textContent = entry.title;
             popBody.textContent  = entry.body;

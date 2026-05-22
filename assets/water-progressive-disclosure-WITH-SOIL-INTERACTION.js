@@ -49,6 +49,8 @@ function renderWaterProgressiveDisclosure(waterResults, state) {
     
     // Calculate values directly
     const diagnostics = calculateWaterDiagnostics(ions, ecw, pH);
+    // Expose globally so hub-persistence can save to analysis cache
+    window.__GAIP_WATER_DIAGNOSTICS__ = diagnostics;
     
     // Add soil-water interaction analysis
     const soilWaterInteraction = analyzeSoilWaterInteraction(state);

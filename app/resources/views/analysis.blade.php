@@ -44,8 +44,8 @@
                     </svg>
                     Growth &amp; Light
                 </a>
-                <a href="#" class="gl-tab">Soil &amp; Nutrition</a>
-                <a href="#" class="gl-tab">Water Balance</a>
+                <a href="#soil-nutrition" class="gl-tab" data-tab="soil-nutrition">Soil &amp; Nutrition</a>
+                <a href="#water-balance" class="gl-tab" data-tab="water-balance">Water Balance</a>
                 <a href="#" class="gl-tab">PGR &amp; Irrigation</a>
                 <a href="#" class="gl-tab">Pre-emergent</a>
             </div>
@@ -65,6 +65,18 @@
             </div>
         </div>
 
+        <div id="analysis-tab-soil-nutrition" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+            <div id="sn-page-content">
+                <div style="padding:40px;text-align:center;color:#5b6a65">Loading soil &amp; nutrition analysis…</div>
+            </div>
+        </div>
+
+        <div id="analysis-tab-water-balance" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+            <div id="wb-page-content">
+                <div style="padding:40px;text-align:center;color:#5b6a65">Loading water balance analysis…</div>
+            </div>
+        </div>
+
 @endsection
 
 @section('overlays')
@@ -79,6 +91,11 @@
 @section('scripts')
 {{-- Router MUST be first so GAIP_ANALYSIS_ROUTER is set before page scripts run --}}
 <script src="{{ $legacyAssetUrl('analysis-router.js') }}"></script>
+{{-- Disease engine must load before disease-forecast.js so generateForecast uses the full engine --}}
+<script src="{{ $legacyAssetUrl('disease-engine-pure.js') }}"></script>
+<script src="{{ $legacyAssetUrl('disease-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
+<script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
+<script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
 @endsection

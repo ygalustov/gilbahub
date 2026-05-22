@@ -66,16 +66,29 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 - Updated navigation links in the dashboard, data, plan, reports, and settings views to point to the new analysis index route.
 - Refactored routing in web.php to consolidate analysis routes and redirect legacy routes to the new structure.
 - Enhanced the analysis view with a notification bar for stale data and improved tab badges for disease and stress metrics.
-**GH-19**
-
+**GH-19** Enhance Data and Settings Views with Turf Management Options
+Added turf species, methodology, location name, and analysis cache data to the DataController and SettingsController for improved site-specific configurations.
+Updated the data and settings views to display new turf management options, enhancing user experience and data visibility.
+Refactored routing in web.php to ensure proper handling of the new configurations.
+Improved the shared layout for consistency across analysis-related pages.
+**GH-20** Enhance Analysis and Data Views with New Soil and Water Tabs
+- Updated the analysis view to include new tabs for soil nutrition and water balance, improving user navigation and data accessibility.
+- Refactored routing in web.php to support the new analysis tabs and ensure proper redirection.
+- Added JavaScript functionality for initializing the new analysis components and handling data loading.
+- Enhanced the data view with a modal for adding data, improving user interaction and data entry experience.
 
 
 ## Backlog
 
 
-Ещё неудобно всё-таки переключать между разными болезнями. То есть, когда ты одну выбираешь болезнь, одна выводится, вторую болезнь выбираешь, выводятся по ней детали. То есть нет возможности сразу всё посмотреть. Давай какой-то вариант, когда можно сразу всё посмотреть. Ну и вот я думаю, может быть, под recommendations spray application window тоже добавить сразу после recommendations, чтобы опять самое важное наверху, а внизу уже детали.
+vmay be we add it to KPI - same as on the soil page? 
 
-----
+Irrigation Water Quality: Acceptable
+
+
+Посмотри, вот на старом сайте написано, где про болезни, написано, что анализ сделан дляBentgrass, для какой-то конкретной травы, которая у нас основная species идёт. И написан какой-то процент. Вот что это за процент и где нам можно это вывести тоже? 
+Analysis for: Bentgrass 85%
+--
 
 
 Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?

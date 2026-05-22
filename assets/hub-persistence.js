@@ -986,6 +986,439 @@
             }
         }
 
+        // Save soil nutrition + tissue data for /analysis#soil-nutrition tab.
+        // hub-orchestrator sets GAIP_STATE = _hubState with shape { inputs: { soil, ... }, computed: { mlsn, ... } }.
+        // Older hub-tissue-v3 used flat shape { soil, mlsnResults }.  Support both.
+        var _gaipState = global.GAIP_STATE;
+        // Resolve soil inputs and MLSN HTML from either architecture shape
+        var _soilIn   = (_gaipState && _gaipState.inputs && _gaipState.inputs.soil)
+                     || (_gaipState && _gaipState.soil)
+                     || null;
+        var _mlsnHtml = (_gaipState && _gaipState.computed && typeof _gaipState.computed.mlsn === 'string' && _gaipState.computed.mlsn)
+                     || (_gaipState && typeof _gaipState.mlsnResults === 'string' && _gaipState.mlsnResults)
+                     || '';
+        var _turfState = (_gaipState && _gaipState.turf)
+                      || (_gaipState && _gaipState.inputs && _gaipState.inputs.turf)
+                      || null;
+        cache.computed = Object.assign({}, cache.computed || {});
+        if (_gaipState && (_mlsnHtml || _soilIn)) {
+            try {
+                var _nutrients = [];
+                if (_mlsnHtml) {
+                    try {
+                        var _parser = new DOMParser();
+                        var _doc    = _parser.parseFromString(_mlsnHtml, 'text/html');
+                        var _rows   = _doc.querySelectorAll('.gaip-mlsn-table tbody tr');
+                        _rows.forEach(function(row) {
+                            var cells = row.querySelectorAll('td');
+                            if (cells.length >= 7) {
+                                _nutrients.push({
+                                    nutrient:       cells[0].textContent.trim(),
+                                    actual:         cells[1].textContent.trim(),
+                                    mlsn:           cells[2].textContent.trim(),
+                                    uptakePpm:      cells[3].textContent.trim(),
+                                    targetPpm:      cells[4].textContent.trim(),
+                                    status:         cells[5].textContent.trim(),
+                                    statusClass:    row.className.replace('status-', ''),
+                                    recommendation: cells[6].textContent.trim()
+                                });
+                            } else if (cells.length >= 5) {
+                                _nutrients.push({
+                                    nutrient:       cells[0].textContent.trim(),
+                                    actual:         cells[1].textContent.trim(),
+                                    mlsn:           cells[2].textContent.trim(),
+                                    status:         cells[3].textContent.trim(),
+                                    statusClass:    row.className.replace('status-', ''),
+                                    recommendation: cells[4].textContent.trim()
+                                });
+                            }
+                        });
+                    } catch(e) {
+                        console.warn('[GilbaPersist] Failed to parse MLSN HTML:', e);
+                    }
+                }
+                // Derive verdict from nutrient status classes
+                var _soilVerdict = 'NO DATA';
+                if (_nutrients.length > 0) {
+                    var _hasDeficient = _nutrients.some(function(n) {
+                        var sc = (n.statusClass || '').toLowerCase();
+                        return sc === 'deficient' || sc === 'critical' || n.status === 'LOW' || n.status === 'Very Low';
+                    });
+                    var _hasBorderline = _nutrients.some(function(n) {
+                        return (n.statusClass || '').toLowerCase() === 'borderline';
+                    });
+                    _soilVerdict = _hasDeficient ? 'HIGH_RISK' : _hasBorderline ? 'MONITOR' : 'ACCEPTABLE';
+                }
+                // Mulders flags (if available)
+                var _mulders = null;
+                if (global.GilbaMulders && typeof global.GilbaMulders.analyse === 'function' && _nutrients.length > 0) {
+                    try { _mulders = global.GilbaMulders.analyse(_nutrients, {}); } catch(e) {}
+                }
+                var _si = _soilIn || {};
+                var _depthCm     = parseFloat(_si.depthCm)     || 10;
+                var _bulkDensity = parseFloat(_si.bulkDensity) || 1.4;
+                var _turfType    = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
+                                   ? 'warm-season' : 'cool-season';
+                cache.computed.soilNutrition = {
+                    verdict:      _soilVerdict,
+                    methodology:  _si.methodology || null,
+                    pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || null,
+                    CEC:          _si.CEC || _si.cec || null,
+                    sampleDate:   _si.testDate || null,
+                    sampleLabel:  _si.sampleLabel || null,
+                    depthCm:      _depthCm,
+                    bulkDensity:  _bulkDensity,
+                    turfType:     _turfType,
+                    nutrients:    _nutrients,
+                    mulders:      _mulders ? ((_mulders.flags && Object.keys(_mulders.flags).length > 0) ? _mulders.summaryBanner || null : null) : null,
+                    species:      (_turfState && (_turfState.species || _turfState.grassSpecies)) || null,
+                };
+                // Ratios (Ca:Mg, K:Mg, K:Ca) extracted from MLSN HTML by mlsn-progressive-disclosure.js
+                if (_mlsnHtml && typeof extractRatiosFromHTML === 'function') {
+                    try { cache.computed.soilNutrition.ratios = extractRatiosFromHTML(_mlsnHtml); } catch(e) {}
+                }
+                // Annual demand per nutrient (kg/ha/yr) via N-linked tissue ratios
+                if (typeof calculateAnnualDemand === 'function') {
+                    try {
+                        var _gp   = (global.climateMetrics && global.climateMetrics.growth && global.climateMetrics.growth.weighted) || null;
+                        var _nPrg = (_turfState && _turfState.nProgramKgHaYr) || 0;
+                        cache.computed.soilNutrition.annualDemand = calculateAnnualDemand(_turfType, _gp, _nPrg);
+                    } catch(e) {}
+                }
+                // Tissue results from the last tissue run
+                var _tissue = global.__GAIP_TISSUE_LAST__;
+                if (_tissue) {
+                    cache.computed.soilNutrition.tissue = {
+                        testDate:          _tissue.testDate || null,
+                        speciesGroup:      (_tissue.meta && _tissue.meta.speciesGroup) || null,
+                        growthState:       (_tissue.meta && _tissue.meta.growthState) || null,
+                        sampleType:        (_tissue.meta && _tissue.meta.sampleType) || null,
+                        normalized:        _tissue.normalized || null,
+                        status:            _tissue.status || null,
+                        headline:          _tissue.headline || null,
+                        summary:           _tissue.summary || [],
+                        decisionBias:      _tissue.decisionBias || null,
+                        limitingNutrients: _tissue.limitingNutrients || [],
+                        antagonisms:       _tissue.antagonisms || [],
+                        dilutionFlags:     _tissue.dilutionFlags || [],
+                        stressSignal:      _tissue.stressSignal || false,
+                    };
+                }
+                console.log('[GilbaPersist] Saved soilNutrition to cache, verdict:', _soilVerdict,
+                    '| nutrients:', _nutrients.length,
+                    '| tissue:', !!_tissue);
+            } catch (e) {
+                console.warn('[GilbaPersist] Failed to save soilNutrition to cache:', e);
+            }
+        }
+
+        // Fallback: if hub form was empty (no soil inputs), try latest sample from GAIP_SampleManager
+        if (!cache.computed.soilNutrition && global.GAIP_SampleManager && typeof global.mlsnEngine === 'function') {
+            try {
+                var _smSamples = typeof global.GAIP_SampleManager.getSamples === 'function'
+                    ? global.GAIP_SampleManager.getSamples('soil') : null;
+                if (_smSamples) {
+                    // Pick the most recent sample by date
+                    var _smLatestId = null, _smLatestDate = '';
+                    Object.keys(_smSamples).forEach(function(sid) {
+                        var d = _smSamples[sid].date || '';
+                        if (!_smLatestId || d > _smLatestDate) { _smLatestId = sid; _smLatestDate = d; }
+                    });
+                    if (_smLatestId) {
+                        var _smSample = _smSamples[_smLatestId];
+                        var _smRaw = _smSample.rawData || {};
+                        // Map {K_ppm: 100, ...} → {K: 100, ...} for mlsnEngine
+                        var _smPpm = {};
+                        Object.keys(_smRaw).forEach(function(k) {
+                            var clean = k.replace(/_ppm$/i, '').replace(/_me$/i, '');
+                            var v = parseFloat(_smRaw[k]);
+                            if (!isNaN(v)) _smPpm[clean] = v;
+                        });
+                        var _smState = {
+                            soil: {
+                                ppm:         _smPpm,
+                                methodology: _smRaw.methodology || 'mlsn',
+                                depthCm:     _smRaw.depth_mm ? _smRaw.depth_mm / 10 : 10,
+                                bulkDensity: _smRaw.bulkDensity || 1.4,
+                            },
+                            turf: _turfState || {},
+                        };
+                        var _smHtml = global.mlsnEngine(_smState, global.rawWeatherData || null);
+                        if (_smHtml && typeof _smHtml === 'string') {
+                            var _smNutrients = [];
+                            try {
+                                var _smP = new DOMParser();
+                                var _smD = _smP.parseFromString(_smHtml, 'text/html');
+                                _smD.querySelectorAll('.gaip-mlsn-table tbody tr').forEach(function(row) {
+                                    var cells = row.querySelectorAll('td');
+                                    if (cells.length >= 7) {
+                                        _smNutrients.push({
+                                            nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
+                                            mlsn: cells[2].textContent.trim(), uptakePpm: cells[3].textContent.trim(),
+                                            targetPpm: cells[4].textContent.trim(), status: cells[5].textContent.trim(),
+                                            statusClass: row.className.replace('status-', ''),
+                                            recommendation: cells[6].textContent.trim()
+                                        });
+                                    } else if (cells.length >= 5) {
+                                        _smNutrients.push({
+                                            nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
+                                            mlsn: cells[2].textContent.trim(), status: cells[3].textContent.trim(),
+                                            statusClass: row.className.replace('status-', ''),
+                                            recommendation: cells[4].textContent.trim()
+                                        });
+                                    }
+                                });
+                            } catch(e) {}
+                            var _smVerdict = 'NO DATA';
+                            if (_smNutrients.length > 0) {
+                                var _smDef = _smNutrients.some(function(n) { return (n.statusClass || '').toLowerCase() === 'deficient' || (n.statusClass || '').toLowerCase() === 'critical'; });
+                                var _smBord = _smNutrients.some(function(n) { return (n.statusClass || '').toLowerCase() === 'borderline'; });
+                                _smVerdict = _smDef ? 'HIGH_RISK' : _smBord ? 'MONITOR' : 'ACCEPTABLE';
+                            }
+                            var _smDepth = _smRaw.depth_mm ? _smRaw.depth_mm / 10 : (_smRaw.depthCm || 10);
+                            var _smBD    = parseFloat(_smRaw.bulkDensity) || 1.4;
+                            var _smTurfType = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
+                                             ? 'warm-season' : 'cool-season';
+                            cache.computed.soilNutrition = {
+                                verdict:     _smVerdict,
+                                methodology: _smRaw.methodology || null,
+                                pH:          _smRaw.pH_Water || _smRaw.pH || _smRaw.ph || null,
+                                CEC:         _smRaw.CEC || _smRaw.cec || null,
+                                sampleDate:  _smSample.date || null,
+                                sampleLabel: _smSample.label || _smLatestId,
+                                depthCm:     _smDepth,
+                                bulkDensity: _smBD,
+                                turfType:    _smTurfType,
+                                nutrients:   _smNutrients,
+                                species:     (_turfState && (_turfState.species || _turfState.grassSpecies)) || null,
+                                fromSample:  true,
+                            };
+                            // Ratios from MLSN HTML
+                            if (_smHtml && typeof extractRatiosFromHTML === 'function') {
+                                try { cache.computed.soilNutrition.ratios = extractRatiosFromHTML(_smHtml); } catch(e) {}
+                            }
+                            // Annual demand
+                            if (typeof calculateAnnualDemand === 'function') {
+                                try {
+                                    var _smGp  = (global.climateMetrics && global.climateMetrics.growth && global.climateMetrics.growth.weighted) || null;
+                                    var _smNPr = (_turfState && _turfState.nProgramKgHaYr) || 0;
+                                    cache.computed.soilNutrition.annualDemand = calculateAnnualDemand(_smTurfType, _smGp, _smNPr);
+                                } catch(e) {}
+                            }
+                            var _tissue2 = global.__GAIP_TISSUE_LAST__;
+                            if (_tissue2) {
+                                cache.computed.soilNutrition.tissue = {
+                                    testDate: _tissue2.testDate || null, speciesGroup: (_tissue2.meta && _tissue2.meta.speciesGroup) || null,
+                                    growthState: (_tissue2.meta && _tissue2.meta.growthState) || null,
+                                    sampleType: (_tissue2.meta && _tissue2.meta.sampleType) || null,
+                                    normalized: _tissue2.normalized || null, status: _tissue2.status || null,
+                                    headline: _tissue2.headline || null, summary: _tissue2.summary || [],
+                                    decisionBias: _tissue2.decisionBias || null, limitingNutrients: _tissue2.limitingNutrients || [],
+                                    antagonisms: _tissue2.antagonisms || [], dilutionFlags: _tissue2.dilutionFlags || [],
+                                    stressSignal: _tissue2.stressSignal || false,
+                                };
+                            }
+                            console.log('[GilbaPersist] soilNutrition from sample:', _smLatestId, '| verdict:', _smVerdict, '| nutrients:', _smNutrients.length);
+                        }
+                    }
+                }
+            } catch(e) {
+                console.warn('[GilbaPersist] soilNutrition sample fallback failed:', e);
+            }
+        }
+
+        // Attach input-range validation warnings to soilNutrition
+        if (cache.computed.soilNutrition && global.GAIP_INPUT_VALIDATION) {
+            var _iv = global.GAIP_INPUT_VALIDATION;
+            cache.computed.soilNutrition.validation = {
+                errors:   [].concat((_iv.soil && _iv.soil.errors) || [], (_iv.water && _iv.water.errors) || []),
+                warnings: [].concat((_iv.soil && _iv.soil.warnings) || [], (_iv.water && _iv.water.warnings) || []),
+            };
+        }
+
+        // Zone data: all soil samples for zone comparison chart
+        if (cache.computed.soilNutrition && global.GAIP_SampleManager &&
+            typeof global.GAIP_SampleManager.getSamples === 'function') {
+            try {
+                var _allSoil = global.GAIP_SampleManager.getSamples('soil');
+                if (_allSoil && Object.keys(_allSoil).length > 1) {
+                    // Build MLSN threshold lookup from primary nutrients array
+                    var _mlsnThresh = {};
+                    (cache.computed.soilNutrition.nutrients || []).forEach(function(n) {
+                        var t = parseFloat(n.mlsn);
+                        if (!isNaN(t)) _mlsnThresh[n.nutrient] = t;
+                    });
+                    // Collect all samples, then deduplicate by zone label keeping latest date
+                    var _zoneMap  = {}; // label → sample entry (latest date wins)
+                    var _ZONE_NUTS = ['K','P','Ca','Mg','S','Fe','Mn','Zn','Cu','B','Na'];
+                    Object.keys(_allSoil).forEach(function(sid) {
+                        var s   = _allSoil[sid];
+                        var raw = s.rawData || s;
+                        var ppm = {};
+                        _ZONE_NUTS.forEach(function(nut) {
+                            var v = parseFloat(raw[nut + '_ppm'] != null ? raw[nut + '_ppm'] : raw[nut]);
+                            if (!isNaN(v) && v > 0) ppm[nut] = v;
+                        });
+                        if (!Object.keys(ppm).length) return; // skip empty samples
+                        var label = s.label || sid;
+                        var date  = s.date  || '';
+                        // Keep only the most recent sample per zone label
+                        if (!_zoneMap[label] || date > (_zoneMap[label].date || '')) {
+                            _zoneMap[label] = {
+                                id:    sid,
+                                label: label,
+                                date:  date || null,
+                                ppm:   ppm,
+                                pH:    parseFloat(raw.pH_Water || raw.pH || raw.pH_cacl2) || null,
+                                CEC:   parseFloat(raw.CEC || raw.cec) || null,
+                            };
+                        }
+                    });
+                    // Convert map to array, compute alerts, sort
+                    var _zoneList = Object.keys(_zoneMap).map(function(label) {
+                        var z = _zoneMap[label];
+                        z.alerts = Object.keys(_mlsnThresh).filter(function(nut) {
+                            return z.ppm[nut] != null && z.ppm[nut] < _mlsnThresh[nut];
+                        });
+                        return z;
+                    });
+                    if (_zoneList.length > 0) {
+                        // Sort: alert zones first, then alphabetically
+                        _zoneList.sort(function(a, b) {
+                            if (a.alerts.length !== b.alerts.length) return b.alerts.length - a.alerts.length;
+                            return (a.label || '').localeCompare(b.label || '');
+                        });
+                        cache.computed.soilNutrition.zones = _zoneList;
+                    }
+                }
+            } catch(e) {
+                console.warn('[GilbaPersist] Zone data capture failed:', e);
+            }
+        }
+
+        // Monthly N distribution from nutrition-summary-integration (exposed via __GAIP_MONTHLY_N__)
+        if (cache.computed.soilNutrition) {
+            var _monthlyN = global.__GAIP_MONTHLY_N__;
+            if (Array.isArray(_monthlyN) && _monthlyN.length === 12) {
+                cache.computed.soilNutrition.monthlyN = _monthlyN;
+            }
+        }
+
+        // Water Balance data for /analysis#water-balance tab.
+        try {
+            // GAIP_STATE.water is only set for blended water (hub-tissue-v3 line 5621).
+            // For regular water the water engine captures state in __GAIP_WATER_STATE__.water.
+            var _waterIn = (_gaipState && _gaipState.inputs && _gaipState.inputs.water)
+                        || (_gaipState && _gaipState.water)
+                        || (global.__GAIP_WATER_STATE__ && global.__GAIP_WATER_STATE__.water)
+                        || null;
+            var _ions = (_waterIn && _waterIn.ions) || {};
+
+            // meq/L conversion factors (EW = MW / valence)
+            var _mgToMeq = { Ca: 20.04, Mg: 12.15, Na: 23.0, K: 39.1, HCO3: 61.0, CO3: 30.0, Cl: 35.45, SO4: 48.0 };
+            function _meq(ion) { var f = _mgToMeq[ion]; return f ? (parseFloat(_ions[ion]) || 0) / f : 0; }
+
+            var _ecw    = parseFloat((_waterIn && _waterIn.ecw) || (_waterIn && _waterIn.ec)) || null;
+            var _pH     = parseFloat((_waterIn && _waterIn.pH) || (_waterIn && _waterIn.ph)) || null;
+            var _source = (_waterIn && _waterIn.source) || null;
+            var _label  = (_waterIn && _waterIn.sourceLabel) || null;
+            var _date   = (_waterIn && _waterIn.testDate) || null;
+            var _recycled = (_waterIn && !!_waterIn.recycledWater) || false;
+
+            var _Ca   = _meq('Ca'),  _Mg = _meq('Mg'), _Na = _meq('Na'), _K = _meq('K');
+            var _HCO3 = _meq('HCO3'), _CO3 = _meq('CO3'), _Cl = _meq('Cl'), _SO4 = _meq('SO4');
+            var _B    = parseFloat(_ions.B)  || null;
+            var _Fe   = parseFloat(_ions.Fe) || null;
+
+            // SAR = Na / sqrt((Ca + Mg) / 2)
+            var _SAR = null, _SARadj = null, _RSC = null;
+            if (_Ca + _Mg > 0 && _Na >= 0) {
+                _SAR = _Na / Math.sqrt((_Ca + _Mg) / 2);
+                _SAR = Math.round(_SAR * 100) / 100;
+            }
+            // SARadj: simplified Suarez — reduce Ca if bicarbonate > Ca+Mg (calcite precipitation)
+            if (_SAR !== null) {
+                var _Cax = _Ca;
+                if (_HCO3 + _CO3 > _Ca + _Mg && _Ca > 0) {
+                    _Cax = Math.max(0.1, _Ca - 0.5 * ((_HCO3 + _CO3) - (_Ca + _Mg)));
+                }
+                _SARadj = (_Cax + _Mg) > 0
+                    ? Math.round(_Na / Math.sqrt((_Cax + _Mg) / 2) * 100) / 100
+                    : _SAR;
+            }
+            // RSC = (HCO3 + CO3) - (Ca + Mg)
+            if (_Ca >= 0 || _Mg >= 0) {
+                _RSC = Math.round((_HCO3 + _CO3 - _Ca - _Mg) * 100) / 100;
+            }
+            // Na% = Na / (Na + Ca + Mg + K) × 100
+            var _naPct = (_Na + _Ca + _Mg + _K) > 0
+                ? Math.round(_Na / (_Na + _Ca + _Mg + _K) * 1000) / 10
+                : null;
+
+            // Leaching fraction from ECw (FAO 29 thresholds)
+            var _LF = null;
+            if (_ecw !== null) {
+                _LF = _ecw < 0.5 ? 10 : _ecw < 1 ? 12 : _ecw < 2 ? 15 : _ecw < 3 ? 20 : _ecw < 4 ? 25 : 30;
+            }
+
+            // Langelier Saturation Index (scale/corrosion risk)
+            var _LSI = null;
+            if (_pH !== null && _Ca > 0 && (_HCO3 + _CO3) > 0 && _ecw !== null) {
+                var _TDS = _ecw * 640;
+                var _pHs = 9.3 + (Math.log10(Math.max(_TDS, 100)) - 1) / 10 + 0.6
+                    - (Math.log10(_Ca * 40.08 * 2.497) + Math.log10(_HCO3 * 61 * 0.82 + _CO3 * 60 * 1.67));
+                _LSI = Math.round((_pH - _pHs) * 100) / 100;
+            }
+
+            // Irrigation need from live globals or dashboard
+            var _irr = global.GAIP_IrrigationResults || global.GAIP_IRRIGATION_RESULT;
+            var _weeklyNeed    = _irr ? (_irr.weeklyNeed != null ? _irr.weeklyNeed
+                : (_irr.summary && _irr.summary.totalIrrigation != null ? _irr.summary.totalIrrigation : null)) : null;
+            var _netDeficit    = _irr && _irr.summary ? _irr.summary.netDeficit : null;
+            var _wb            = _irr && _irr.waterBalance;
+            var _irr7          = _irr && Array.isArray(_irr.schedule) ? _irr.schedule.slice(0, 7) : null;
+
+            // Salinity engine result
+            var _salinityResult = global.GAIP_SALINITY_RESULT || null;
+
+            // Save whenever water input state exists
+            if (_waterIn !== null) {
+                cache.computed.waterBalance = {
+                    // Source info
+                    sourceLabel:  _label,
+                    source:       _source,
+                    testDate:     _date,
+                    recycled:     _recycled,
+                    // Core quality
+                    ecw:          _ecw,
+                    pH:           _pH,
+                    SAR:          _SAR,
+                    SARadj:       _SARadj,
+                    RSC:          _RSC,
+                    naPct:        _naPct,
+                    leachingFraction: _LF,
+                    LSI:          _LSI,
+                    // Ions (meq/L)
+                    ions: { Ca: _Ca, Mg: _Mg, Na: _Na, K: _K, HCO3: _HCO3, CO3: _CO3, Cl: _Cl, SO4: _SO4 },
+                    // Toxicity raw (mg/L)
+                    B:            _B,
+                    Fe:           _Fe,
+                    // Irrigation balance
+                    weeklyNeed:   _weeklyNeed,
+                    netDeficit:   _netDeficit,
+                    waterBalance: _wb || null,
+                    schedule7:    _irr7 || null,
+                    // Salinity impact
+                    salinity:     _salinityResult || null,
+                    // Structured per-metric diagnostics from calculateWaterDiagnostics()
+                    diagnostics:  Array.isArray(global.__GAIP_WATER_DIAGNOSTICS__) ? global.__GAIP_WATER_DIAGNOSTICS__ : null,
+                };
+                console.log('[GilbaPersist] Saved waterBalance to cache | ECw:', _ecw, '| pH:', _pH, '| SAR:', _SAR, '| LF:', _LF, '| source:', _waterIn ? 'found' : 'null');
+            }
+        } catch(e) {
+            console.warn('[GilbaPersist] Failed to save waterBalance:', e);
+        }
+
         return cache;
     }
 

@@ -49,6 +49,7 @@ Route::middleware('auth')->group(function () {
     // Legacy routes redirect to the SPA with the appropriate hash
     Route::get('/analysis/disease', fn() => redirect('/analysis#disease'))->name('analysis.disease');
     Route::get('/analysis/growth-light', fn() => redirect('/analysis#growth-light'))->name('analysis.growth-light');
+    Route::get('/analysis/soil-nutrition', fn() => redirect('/analysis#soil-nutrition'))->name('analysis.soil-nutrition');
     Route::get('/data', [DataController::class, 'show'])->name('data');
     Route::get('/data/{section}', [DataController::class, 'show'])->name('data.section');
     Route::view('/field-log', 'field-log')->name('field-log');

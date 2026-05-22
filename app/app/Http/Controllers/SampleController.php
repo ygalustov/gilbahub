@@ -54,7 +54,7 @@ class SampleController extends Controller
             'sample_date' => ['nullable', 'date'],
             'lab_date' => ['nullable', 'date'],
             'depth_mm' => ['nullable', 'integer', 'min:0', 'max:5000'],
-            'payload' => ['required', 'array'],
+            'payload' => ['present', 'array'],
             'notes' => ['nullable', 'string'],
         ]);
 
@@ -213,20 +213,21 @@ class SampleController extends Controller
 
     private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta): Sample
     {
-        $attributes = [
-            'site_id' => $site->id,
-            'sample_type' => $sampleType,
-        ];
-
         if ($clientUid !== null && $clientUid !== '') {
-            $attributes['client_uid'] = $clientUid;
-        }
-
-        $sample = Sample::query()->withTrashed()->firstOrNew($attributes);
-        if ($sample->trashed()) {
-            $sample->restore();
-        }
-        if (! $sample->exists) {
+            $attributes = [
+                'site_id' => $site->id,
+                'sample_type' => $sampleType,
+                'client_uid' => $clientUid,
+            ];
+            $sample = Sample::query()->withTrashed()->firstOrNew($attributes);
+            if ($sample->trashed()) {
+                $sample->restore();
+            }
+            if (! $sample->exists) {
+                $sample->created_by_user_id = $userId;
+            }
+        } else {
+            $sample = new Sample();
             $sample->created_by_user_id = $userId;
         }
 
