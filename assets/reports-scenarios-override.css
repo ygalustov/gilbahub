@@ -1,0 +1,258 @@
+/**
+ * Scenario Comparison page — What-If UI light-theme override
+ * Overrides the dark built-in styles of gaip-whatif-ui.js to match the new hub design system.
+ */
+
+/* ── Panel shell ────────────────────────────────────────────────────────── */
+.gaip-whatif-panel {
+    background: var(--gaip-surface) !important;
+    color: var(--gaip-text) !important;
+    border: 1px solid var(--gaip-border) !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+}
+
+.gaip-whatif-title {
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--gaip-text) !important;
+    margin: 0 !important;
+    padding: 18px 22px 0 !important;
+    letter-spacing: 0 !important;
+}
+
+.gaip-whatif-subtitle {
+    font-size: 12px !important;
+    color: var(--gaip-text-secondary) !important;
+    margin: 2px 0 0 !important;
+    padding: 0 22px 16px !important;
+    border-bottom: 1px solid var(--gaip-border) !important;
+}
+
+/* ── Two-column layout ──────────────────────────────────────────────────── */
+.gaip-whatif-sections {
+    padding: 16px 22px !important;
+    gap: 16px !important;
+    align-items: flex-start !important;
+}
+
+.gaip-whatif-section {
+    background: var(--gaip-surface-muted) !important;
+    border: 1px solid var(--gaip-border) !important;
+    border-radius: 8px !important;
+    padding: 14px 16px !important;
+}
+
+.gaip-whatif-section h4 {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+    color: var(--gaip-text-secondary) !important;
+    margin: 0 0 8px !important;
+}
+
+.gaip-section-note {
+    font-size: 11px !important;
+    color: var(--gaip-text-secondary) !important;
+    margin: 0 0 10px !important;
+}
+
+.gaip-whatif-arrow {
+    color: var(--gaip-accent) !important;
+    font-size: 20px !important;
+}
+
+/* ── Preset buttons ─────────────────────────────────────────────────────── */
+.gaip-presets strong,
+.gaip-param-controls strong {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+    color: var(--gaip-text-secondary) !important;
+}
+
+.gaip-preset-btn {
+    background: var(--gaip-surface) !important;
+    border: 1px solid var(--gaip-border) !important;
+    color: var(--gaip-text) !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    padding: 5px 10px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: background .15s, border-color .15s !important;
+}
+
+.gaip-preset-btn:hover {
+    background: var(--gaip-accent-light) !important;
+    border-color: var(--gaip-accent) !important;
+    color: var(--gaip-accent-dark) !important;
+}
+
+.gaip-preset-btn.active,
+.gaip-preset-btn.gaip-active-preset {
+    background: var(--gaip-accent-light) !important;
+    border-color: var(--gaip-accent) !important;
+    color: var(--gaip-accent-dark) !important;
+    font-weight: 700 !important;
+}
+
+.gaip-reset-btn {
+    background: var(--gaip-critical-bg, #fef2f2) !important;
+    border: 1px solid #fca5a5 !important;
+    color: #991b1b !important;
+    font-size: 11px !important;
+    padding: 4px 10px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+}
+
+.gaip-reset-btn:hover {
+    background: #fee2e2 !important;
+}
+
+/* ── Parameter inputs ───────────────────────────────────────────────────── */
+.gaip-param-item label {
+    font-size: 11px !important;
+    color: var(--gaip-text-secondary) !important;
+    font-weight: 600 !important;
+}
+
+.gaip-param-input-group input,
+.gaip-param-input-group select {
+    background: var(--gaip-surface) !important;
+    border: 1px solid var(--gaip-border) !important;
+    color: var(--gaip-text) !important;
+    font-size: 12px !important;
+    border-radius: 5px !important;
+}
+
+.gaip-param-input-group input:focus,
+.gaip-param-input-group select:focus {
+    border-color: var(--gaip-accent) !important;
+    outline: none !important;
+}
+
+.gaip-param-input-group select option {
+    background: var(--gaip-surface) !important;
+    color: var(--gaip-text) !important;
+}
+
+.gaip-param-unit {
+    font-size: 10px !important;
+    color: var(--gaip-text-secondary) !important;
+}
+
+/* ── Compare button ─────────────────────────────────────────────────────── */
+.gaip-run-comparison-btn {
+    background: var(--gaip-accent) !important;
+    border: none !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border-radius: 7px !important;
+    padding: 10px 16px !important;
+    cursor: pointer !important;
+    transition: opacity .15s !important;
+    box-shadow: none !important;
+}
+
+.gaip-run-comparison-btn:hover {
+    opacity: .88 !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* ── Results area ───────────────────────────────────────────────────────── */
+.gaip-whatif-results {
+    background: var(--gaip-surface-muted) !important;
+    border-top: 1px solid var(--gaip-border) !important;
+    border-radius: 0 0 10px 10px !important;
+    padding: 16px 22px !important;
+    margin: 0 !important;
+}
+
+.gaip-results-placeholder {
+    color: var(--gaip-text-secondary) !important;
+    font-size: 13px !important;
+}
+
+.gaip-results-error {
+    background: var(--gaip-critical-bg, #fef2f2) !important;
+    border: 1px solid #fca5a5 !important;
+    border-radius: 8px !important;
+}
+
+.gaip-results-error strong {
+    color: #991b1b !important;
+}
+
+/* ── Recommendation cards ───────────────────────────────────────────────── */
+.gaip-recommendation.positive {
+    background: var(--gaip-good-bg, #f0fdf4) !important;
+    border: 1px solid #86efac !important;
+    color: #065f46 !important;
+}
+
+.gaip-recommendation.negative {
+    background: var(--gaip-warning-bg, #fffbeb) !important;
+    border: 1px solid #fde68a !important;
+    color: #92400e !important;
+}
+
+.gaip-recommendation.neutral {
+    background: var(--gaip-surface) !important;
+    border: 1px solid var(--gaip-border) !important;
+    color: var(--gaip-text-secondary) !important;
+}
+
+/* ── Delta table ────────────────────────────────────────────────────────── */
+.gaip-delta-table h4 {
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+    text-transform: uppercase !important;
+    color: var(--gaip-text-secondary) !important;
+}
+
+.gaip-delta-table table th {
+    background: var(--gaip-surface-muted) !important;
+    color: var(--gaip-text-secondary) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid var(--gaip-border) !important;
+    padding: 7px 10px !important;
+    text-transform: uppercase !important;
+    letter-spacing: .04em !important;
+}
+
+.gaip-delta-table table td {
+    color: var(--gaip-text) !important;
+    font-size: 12px !important;
+    border-bottom: 1px solid var(--gaip-border) !important;
+    padding: 7px 10px !important;
+    background: var(--gaip-surface) !important;
+}
+
+.gaip-delta-positive { color: var(--gaip-good, #059669) !important; font-weight: 600 !important; }
+.gaip-delta-negative { color: var(--gaip-critical, #dc2626) !important; font-weight: 600 !important; }
+.gaip-delta-neutral  { color: var(--gaip-text-secondary) !important; }
+
+/* ── Baseline summary text ──────────────────────────────────────────────── */
+#gaip-baseline-summary,
+#gaip-whatif-results {
+    color: var(--gaip-text) !important;
+}
+
+#gaip-baseline-summary p,
+#gaip-whatif-results p {
+    color: var(--gaip-text-secondary) !important;
+    font-size: 12px !important;
+}
+
+#gaip-baseline-summary strong,
+#gaip-whatif-results strong {
+    color: var(--gaip-text) !important;
+}

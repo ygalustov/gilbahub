@@ -435,6 +435,19 @@ overview: "Детальное описание страницы /plan — Unifie
 
 ---
 
+## ЭКСПОРТ
+
+Кнопка **Export to Calendar (.ics)** — фиксированная, в верхнем правом углу страницы рядом с заголовком.
+
+Экспортирует в iCal формат (совместим с Google Calendar, Apple Calendar, Outlook):
+- PGR reapplication reminder — дата из GDD расчёта
+- Pre-emergent timing alerts — только AMBER и RED виды (с датой окна применения)
+- Spray log записи — последние 90 дней (исторический контекст)
+
+**Источник:** `gaip-ical-export.js`
+
+---
+
 ## Навигация между страницами
 
 | Analysis страница          | Link на /plan               |
@@ -463,6 +476,8 @@ overview: "Детальное описание страницы /plan — Unifie
 | `generateRecoveryCalendar()` (hub-tissue-v3) | ② Recovery Calendar | ✓ переносится |
 | `wear-recovery-engine-pure.js`        | ② Recovery Calendar (modifiers) | ✓ переносится |
 | `wear-recovery-integration.js`        | ② Compaction Risk, Effective Load, Stress Factors | ✓ переносится |
+| `gaip-ical-export.js`                | Export to Calendar (.ics) кнопка на /plan               | ✓ переносится |
 | `event-planner-engine.js`            | **Не в /plan** — отдельная `/events` страница (вне scope) | — |
+| `irrigation-scheduler-ui.js`         | **Не в /plan** — 7-day schedule на Dashboard (Tier 2 Vital Signs) | — |
 | `nutrition-au-fertiliser-integration.js` | ③ Nutrition Program (AU products) | ✓ доступно |
 | `nutrition-uk-fertiliser-integration.js` | ③ Nutrition Program (UK products) | ✓ доступно |

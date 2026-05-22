@@ -30,25 +30,33 @@ class PredictionController extends Controller
                 continue;
             }
 
-            DB::table('predictions')->insert([
-                'user_id' => $request->user()->id,
-                'site_identifier' => $siteIdentifier,
-                'cascade_id' => $this->nullableString($prediction['cascade_id'] ?? null, 80),
-                'module' => substr($module, 0, 32),
-                'sub_key' => $this->nullableString($prediction['sub_key'] ?? null, 120) ?? '',
-                'predicted_label' => $this->nullableString($prediction['predicted_label'] ?? null),
-                'prediction_type' => $this->nullableString($prediction['prediction_type'] ?? null, 32) ?? 'numeric',
-                'predicted_value' => $this->encodeJson($prediction['predicted_value'] ?? null),
-                'predicted_category' => $this->nullableString($prediction['predicted_category'] ?? null, 80),
-                'confidence' => $this->nullableNumeric($prediction['confidence'] ?? null),
-                'predicted_at' => $this->nullableTimestamp($prediction['predicted_at'] ?? null) ?? $timestamp,
-                'outcome_window_start' => $this->nullableTimestamp($prediction['outcome_window_start'] ?? null),
-                'outcome_window_end' => $this->nullableTimestamp($prediction['outcome_window_end'] ?? null),
-                'input_snapshot' => $this->encodeJson($prediction['input_snapshot'] ?? null),
-                'status' => 'pending',
-                'created_at' => $timestamp,
-                'updated_at' => $timestamp,
-            ]);
+            // Upsert by unique day key — prevents duplicates when the hidden hub
+            // re-runs analysis on report pages (forensic/scenarios/export).
+            DB::table('predictions')->upsert(
+                [[
+                    'user_id' => $request->user()->id,
+                    'site_identifier' => $siteIdentifier,
+                    'cascade_id' => $this->nullableString($prediction['cascade_id'] ?? null, 80),
+                    'module' => substr($module, 0, 32),
+                    'sub_key' => $this->nullableString($prediction['sub_key'] ?? null, 120) ?? '',
+                    'predicted_label' => $this->nullableString($prediction['predicted_label'] ?? null),
+                    'prediction_type' => $this->nullableString($prediction['prediction_type'] ?? null, 32) ?? 'numeric',
+                    'predicted_value' => $this->encodeJson($prediction['predicted_value'] ?? null),
+                    'predicted_category' => $this->nullableString($prediction['predicted_category'] ?? null, 80),
+                    'confidence' => $this->nullableNumeric($prediction['confidence'] ?? null),
+                    'predicted_at' => $this->nullableTimestamp($prediction['predicted_at'] ?? null) ?? $timestamp,
+                    'outcome_window_start' => $this->nullableTimestamp($prediction['outcome_window_start'] ?? null),
+                    'outcome_window_end' => $this->nullableTimestamp($prediction['outcome_window_end'] ?? null),
+                    'input_snapshot' => $this->encodeJson($prediction['input_snapshot'] ?? null),
+                    'status' => 'pending',
+                    'created_at' => $timestamp,
+                    'updated_at' => $timestamp,
+                ]],
+                ['user_id', 'site_identifier', 'module', 'sub_key', 'predicted_date'],
+                ['cascade_id', 'predicted_label', 'predicted_value', 'predicted_category',
+                 'confidence', 'outcome_window_start', 'outcome_window_end',
+                 'input_snapshot', 'updated_at'],
+            );
 
             $written++;
         }
@@ -61,11 +69,19 @@ class PredictionController extends Controller
 
     public function pending(Request $request, string $siteIdentifier): JsonResponse
     {
+        // Deduplicate: keep only the latest prediction per (module, sub_key, date).
+        // The hub re-stores predictions on every analysis run, producing duplicates.
+        $latestIds = DB::table('predictions')
+            ->where('user_id', $request->user()->id)
+            ->where('site_identifier', $siteIdentifier)
+            ->where('status', 'pending')
+            ->selectRaw('MAX(id) as id')
+            ->groupByRaw('module, sub_key, DATE(predicted_at)')
+            ->pluck('id');
+
         $pending = DB::table('predictions')
             ->leftJoin('prediction_outcomes', 'prediction_outcomes.prediction_id', '=', 'predictions.id')
-            ->where('predictions.user_id', $request->user()->id)
-            ->where('predictions.site_identifier', $siteIdentifier)
-            ->where('predictions.status', 'pending')
+            ->whereIn('predictions.id', $latestIds)
             ->whereNull('prediction_outcomes.id')
             ->orderByDesc('predictions.predicted_at')
             ->limit(250)
@@ -103,6 +119,46 @@ class PredictionController extends Controller
         return response()->json([
             'count' => count($pending),
             'pending' => $pending,
+        ]);
+    }
+
+    public function history(Request $request, string $siteIdentifier): JsonResponse
+    {
+        $data = $request->validate([
+            'days'  => ['nullable', 'integer', 'min:1', 'max:3650'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:500'],
+        ]);
+
+        $days  = (int) ($data['days'] ?? 90);
+        $limit = (int) ($data['limit'] ?? 200);
+
+        $outcomes = DB::table('predictions')
+            ->join('prediction_outcomes', 'prediction_outcomes.prediction_id', '=', 'predictions.id')
+            ->where('predictions.user_id', $request->user()->id)
+            ->where('predictions.site_identifier', $siteIdentifier)
+            ->where('predictions.predicted_at', '>=', now()->subDays($days))
+            ->orderByDesc('predictions.predicted_at')
+            ->limit($limit)
+            ->get([
+                'predictions.module',
+                'predictions.sub_key',
+                'predictions.predicted_at',
+                'prediction_outcomes.qualitative',
+                'prediction_outcomes.observed_at',
+            ])
+            ->map(fn (object $row): array => [
+                'module'       => (string) $row->module,
+                'sub_key'      => (string) $row->sub_key,
+                'predicted_at' => $row->predicted_at ? Carbon::parse($row->predicted_at)->toISOString() : null,
+                'observed_at'  => $row->observed_at  ? Carbon::parse($row->observed_at)->toISOString()  : null,
+                'qualitative'  => (string) $row->qualitative,
+            ])
+            ->values();
+
+        return response()->json([
+            'success'  => true,
+            'count'    => $outcomes->count(),
+            'outcomes' => $outcomes->all(),
         ]);
     }
 

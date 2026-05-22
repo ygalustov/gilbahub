@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnalysisCacheController;
 use App\Http\Controllers\AnalysisController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DataController;
 use App\Http\Controllers\DashboardController;
@@ -56,7 +57,11 @@ Route::middleware('auth')->group(function () {
     Route::view('/morning-briefing', 'morning-briefing')->name('morning-briefing');
     Route::view('/stadium', 'stadium')->name('stadium');
     Route::get('/plan', [PageController::class, 'plan'])->name('plan');
-    Route::get('/reports', [PageController::class, 'reports'])->name('reports');
+    Route::redirect('/reports', '/reports/export')->name('reports');
+    Route::get('/reports/export', [ReportsController::class, 'export'])->name('reports.export');
+    Route::get('/reports/forensic', [ReportsController::class, 'forensic'])->name('reports.forensic');
+    Route::get('/reports/scenarios', [ReportsController::class, 'scenarios'])->name('reports.scenarios');
+    Route::get('/reports/accuracy', [ReportsController::class, 'accuracy'])->name('reports.accuracy');
     Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
 
     Route::prefix('api')->name('api.')->group(function () {
@@ -90,6 +95,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/predictions', [PredictionController::class, 'store'])->name('predictions.store');
         Route::get('/predictions/pending/{siteIdentifier}', [PredictionController::class, 'pending'])->name('predictions.pending');
         Route::post('/outcomes', [PredictionController::class, 'storeOutcome'])->name('outcomes.store');
+        Route::get('/outcomes/history/{siteIdentifier}', [PredictionController::class, 'history'])->name('outcomes.history');
         Route::post('/interpretations/soil', [InterpretationController::class, 'soil'])->name('interpretations.soil');
         Route::post('/interpretations/water', [InterpretationController::class, 'water'])->name('interpretations.water');
         Route::post('/interpretations/synthesis', [InterpretationController::class, 'synthesis'])->name('interpretations.synthesis');

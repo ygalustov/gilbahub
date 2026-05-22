@@ -81,15 +81,16 @@ Improved the shared layout for consistency across analysis-related pages.
 - Introduced a new modal design for displaying comparison results, improving data visibility and user experience.
 - Updated CSS styles for the comparison modal to ensure a consistent and user-friendly interface.
 - Defined comparison fields for soil, tissue, water, and organic matter, facilitating detailed analysis.
-
+**GH-22** Implement Reports section — 4 sub-pages, UI fixes, deduplication
+New pages (/reports/*):
+/reports/export — Export Centre: Word, Combined multi-site, iCal, LED export cards; branding panel (org name, logo); hidden hub runner for background analysis
+/reports/forensic — Forensic Decision Record: renders FORENSIC_RECORD after analysis, per-engine cards (expandable), input snapshot, PDF/copy buttons
+/reports/scenarios — Scenario Comparison: mounts gaip-whatif-ui.js into new light-theme UI with how-to hint; restyled с reports-scenarios-override.css
+/reports/accuracy — Forecast Accuracy: server-side confidence badges, Pending Outcomes (outcome-capture-ui.js), Accuracy History chart (benchmark-chart.js + Chart.js + date adapter)
 
 
 
 ## Backlog
-
-
-Также посмотри, почему для всех вкладок «Земля», «Вода» информация с деталями выводится в одном формате, а для «Spray log» выводится в другом формате, и кнопка даже называется по-другому.  кнопка называется по-другому. И сам внешний вид окна, который открывается после tap on view, выглядит по-другому.
-----
 
 
 vmay be we add it to KPI - same as on the soil page? 

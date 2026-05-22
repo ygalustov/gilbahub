@@ -523,7 +523,7 @@
                             @endif
                         </td>
                         <td style="color:var(--gaip-text-muted,#6b8878);font-size:12px">{{ $row->target ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View</button></td>
+                        <td><button class="dat-view-btn" type="button">View Details</button></td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -763,20 +763,30 @@
     }
 
     function buildSpray(data) {
-        var rows = [
-            ['Date',              data.date ? fmtDate(data.date) : '—'],
-            ['Zone',              data.zone || '—'],
-            ['Product',           data.product || '—'],
-            ['Category',          data.category ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : '—'],
-            ['Active Ingredient', data.active_ingredient || '—'],
-            ['Rate',              data.rate !== null && data.rate !== undefined ? data.rate + (data.rate_unit ? ' ' + data.rate_unit : '') : '—'],
-            ['Target',            data.target || '—'],
+        var pairs = [
+            ['Date',              data.date ? fmtDate(data.date) : null],
+            ['Zone',              data.zone && data.zone !== '—' ? data.zone : null],
+            ['Product',           data.product && data.product !== '—' ? data.product : null],
+            ['Category',          data.category && data.category !== '—' ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : null],
+            ['Active Ingredient', data.active_ingredient || null],
+            ['Rate',              (data.rate !== null && data.rate !== undefined) ? String(data.rate) + (data.rate_unit ? ' ' + data.rate_unit : '') : null],
+            ['Target',            data.target && data.target !== '—' ? data.target : null],
             ['Source',            data.source || 'manual'],
         ];
-        var html = '<div class="dat-spray-grid">' +
-            rows.map(function (r) {
-                return '<div class="dat-spray-row"><span class="dat-spray-label">' + r[0] + '</span><span class="dat-spray-value">' + esc(String(r[1])) + '</span></div>';
-            }).join('') + '</div>';
+        var cells = pairs
+            .filter(function (p) { return p[1]; })
+            .map(function (p) {
+                return '<div class="dat-spec-cell">'
+                    + '<div class="dat-spec-label">' + esc(p[0]) + '</div>'
+                    + '<div class="dat-spec-value">' + esc(String(p[1])) + '</div>'
+                    + '</div>';
+            }).join('');
+        var html = cells
+            ? '<div class="dat-spectrum">'
+                + '<div class="dat-spectrum-title">Application Details</div>'
+                + '<div class="dat-spec-grid" style="grid-template-columns:repeat(auto-fill,minmax(190px,1fr))">' + cells + '</div>'
+              + '</div>'
+            : '';
         return html + notesHtml(data.notes);
     }
 
