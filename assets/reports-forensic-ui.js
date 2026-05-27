@@ -13,11 +13,11 @@
     var CONTAINER_ID = 'gaip-forensic-report-panel';
 
     var SEVERITY_COLORS = {
-        ACCEPTABLE:       { color: '#065f46', bg: 'var(--gaip-good-bg)',     border: '#10b981', symbol: '✅' },
-        NO_DATA:          { color: 'var(--gaip-text-secondary)', bg: 'var(--gaip-surface-hover)', border: 'var(--gaip-border)', symbol: '❓' },
-        MONITOR:          { color: '#92400e', bg: 'var(--gaip-warning-bg)',  border: '#f59e0b', symbol: '⚠️' },
-        HIGH_RISK:        { color: '#991b1b', bg: 'var(--gaip-critical-bg)', border: '#ef4444', symbol: '🔴' },
-        IMMINENT_FAILURE: { color: '#7f1d1d', bg: 'var(--gaip-critical-bg)', border: '#dc2626', symbol: '⛔' },
+        ACCEPTABLE:       { color: '#065f46', bg: 'var(--gaip-good-bg)',         border: '#10b981', dot: '#10b981' },
+        NO_DATA:          { color: 'var(--gaip-text-secondary)', bg: 'var(--gaip-surface-hover)', border: 'var(--gaip-border)', dot: '#a3b8b0' },
+        MONITOR:          { color: '#92400e', bg: 'var(--gaip-warning-bg)',       border: '#f59e0b', dot: '#f59e0b' },
+        HIGH_RISK:        { color: '#991b1b', bg: 'var(--gaip-critical-bg)',      border: '#ef4444', dot: '#ef4444' },
+        IMMINENT_FAILURE: { color: '#7f1d1d', bg: 'var(--gaip-critical-bg)',      border: '#dc2626', dot: '#dc2626' },
     };
 
     function severityStyle(sev) {
@@ -103,7 +103,7 @@
                     // Header row (always visible)
                     '  <div onclick="var d=document.getElementById(\'' + detailId + '\');d.style.display=d.style.display===\'none\'?\'block\':\'none\'" ',
                     '       style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;user-select:none">',
-                    '    <span style="font-size:16px;flex-shrink:0">' + sev.symbol + '</span>',
+                    '    <span style="flex-shrink:0;width:10px;height:10px;border-radius:50%;background:' + sev.dot + ';display:inline-block;margin-top:2px"></span>',
                     '    <div style="flex:1;min-width:0">',
                     '      <span style="font-size:13px;font-weight:700;color:var(--gaip-text)">' + esc(engineKey) + '</span>',
                     '      <span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:8px;background:' + sev.bg + ';color:' + sev.color + ';border:1px solid ' + sev.border + '">' + esc(det.severity || '—') + '</span>',

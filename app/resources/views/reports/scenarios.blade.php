@@ -29,15 +29,15 @@
             <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-bottom:10px">How it works</div>
             <div style="display:flex;flex-direction:column;gap:8px">
                 <div style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--gaip-text-secondary)">
-                    <span style="font-size:15px;flex-shrink:0">1️⃣</span>
+                    <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--gaip-accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">1</span>
                     <span><strong style="color:var(--gaip-text)">Current Baseline</strong> — your site's current analysis state (auto-loaded from last analysis run).</span>
                 </div>
                 <div style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--gaip-text-secondary)">
-                    <span style="font-size:15px;flex-shrink:0">2️⃣</span>
+                    <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--gaip-accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">2</span>
                     <span><strong style="color:var(--gaip-text)">Scenario B</strong> — choose a quick preset (e.g. "Poor Water Quality") or adjust individual parameters manually.</span>
                 </div>
                 <div style="display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--gaip-text-secondary)">
-                    <span style="font-size:15px;flex-shrink:0">3️⃣</span>
+                    <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--gaip-accent);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:1px">3</span>
                     <span>Click <strong style="color:var(--gaip-text)">Compare Scenarios</strong> to see how the change affects disease risk, growth potential, stress index, and other metrics.</span>
                 </div>
             </div>
@@ -167,7 +167,11 @@
 (function () {
     function mountScenarioPanel() {
         if (window.GAIP_WhatIfUI && typeof GAIP_WhatIfUI.mount === 'function') {
-            GAIP_WhatIfUI.mount('gaip-whatif-container');
+            var ok = GAIP_WhatIfUI.mount('gaip-whatif-container');
+            if (ok !== false) {
+                var hint = document.getElementById('rp-scenario-hint');
+                if (hint) hint.style.display = 'none';
+            }
             if (typeof GAIP_WhatIfUI.loadBaseline === 'function') {
                 GAIP_WhatIfUI.loadBaseline();
             }

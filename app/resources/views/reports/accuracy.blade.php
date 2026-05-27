@@ -64,14 +64,14 @@
                     @php
                         $metrics = $analysisCache['metrics'];
                         $engines = [
-                            'Disease Risk'     => ['key' => 'disease',    'icon' => '🦠'],
-                            'Growth Potential' => ['key' => 'growth',     'icon' => '🌱'],
-                            'Stress Index'     => ['key' => 'stress',     'icon' => '🌡️'],
-                            'Irrigation / VWC' => ['key' => 'irrigation', 'icon' => '💧'],
-                            'Soil Nutrition'   => ['key' => 'soil',       'icon' => '🧪'],
-                            'PGR'              => ['key' => 'pgr',        'icon' => '📐'],
-                            'Water Quality'    => ['key' => 'water',      'icon' => '🌊'],
-                            'Pre-emergent'     => ['key' => 'preemergent','icon' => '🌿'],
+                            'Disease Risk'     => ['key' => 'disease'],
+                            'Growth Potential' => ['key' => 'growth'],
+                            'Stress Index'     => ['key' => 'stress'],
+                            'Irrigation / VWC' => ['key' => 'irrigation'],
+                            'Soil Nutrition'   => ['key' => 'soil'],
+                            'PGR'              => ['key' => 'pgr'],
+                            'Water Quality'    => ['key' => 'water'],
+                            'Pre-emergent'     => ['key' => 'preemergent'],
                         ];
                         $hasAny = false;
                         foreach ($engines as $label => $cfg) {
@@ -96,7 +96,6 @@
                             @endphp
                             @if($level)
                             <div class="rp-confidence-row">
-                                <span style="font-size:16px;width:22px;flex-shrink:0">{{ $cfg['icon'] }}</span>
                                 <span class="rp-engine-name">{{ $label }}</span>
                                 <span class="rp-conf-badge {{ $badgeClass }}">{{ ucfirst($level) }}</span>
                                 @if($reason)

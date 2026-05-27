@@ -539,7 +539,7 @@
         var content = '<div class="db-aq-card-chips">' + chips + '</div>' +
             '<div class="db-aq-card-title">' + opts.title + '</div>';
         if (opts.reason)      content += '<div class="db-aq-card-reason">' + opts.reason + '</div>';
-        if (opts.window)      content += '<div class="db-aq-card-window">🔒 ' + opts.window + '</div>';
+        if (opts.window)      content += '<div class="db-aq-card-window">' + opts.window + '</div>';
         if (opts.consequence) content += '<div class="db-aq-card-consequence">If delayed: ' + opts.consequence + '</div>';
 
         var sidebar = '<button class="db-btn-commit' + (opts.btnCls ? ' ' + opts.btnCls : '') + '">' + (opts.commitLabel || 'Commit') + '</button>' +

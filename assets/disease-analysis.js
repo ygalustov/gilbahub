@@ -254,7 +254,7 @@
         var score = severe[0].adjustedRisk != null ? Math.round(severe[0].adjustedRisk) : null;
 
         return '<div class="dr-alert-bar">' +
-            '<span style="font-size:20px;flex-shrink:0">🚨</span>' +
+            '<span style="flex-shrink:0;width:10px;height:10px;border-radius:50%;background:#dc2626;display:inline-block;margin-top:2px"></span>' +
             '<span class="dr-alert-name">' + esc(names) + ' — Severe risk' +
                 (score != null ? ' (' + score + '%)' : '') + '</span>' +
             '<span class="dr-alert-action">Action required</span>' +

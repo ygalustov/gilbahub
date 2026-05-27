@@ -120,15 +120,23 @@
 
     // ── Empty state HTML ──────────────────────────────────────────────────────
 
-    function emptyState(icon, title, body, steps) {
+    var EMPTY_ICONS = {
+        'pre-emergent': '<svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>',
+        'pgr':          '<svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M9 9h1.5a1.5 1.5 0 010 3H9m0 3h4"/></svg>',
+        'recovery':     '<svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+        'nutrition':    '<svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>',
+    };
+
+    function emptyState(iconKey, title, body, steps) {
         var stepsHtml = '';
         if (steps && steps.length) {
             stepsHtml = '<ul class="plan-empty-steps">' +
                 steps.map(function (s) { return '<li>' + s + '</li>'; }).join('') +
                 '</ul>';
         }
+        var iconHtml = EMPTY_ICONS[iconKey] || EMPTY_ICONS['nutrition'];
         return '<div class="plan-empty">' +
-            '<div class="plan-empty-icon">' + icon + '</div>' +
+            '<div class="plan-empty-icon" style="color:#c8d5cf">' + iconHtml + '</div>' +
             '<div class="plan-empty-title">' + esc(title) + '</div>' +
             '<div class="plan-empty-body">' + body + stepsHtml + '</div>' +
             '</div>';
@@ -144,7 +152,7 @@
         var pe = computed && computed.preEmergent;
 
         if (!pe || !pe.success || !pe.results || !pe.results.length) {
-            body.innerHTML = emptyState('🌱', 'No pre-emergent data',
+            body.innerHTML = emptyState('pre-emergent', 'No pre-emergent data',
                 'Pre-emergent timing calculates automatically when analysis is run.',
                 ['Run the Hub analysis to generate pre-emergent timing recommendations.']
             );
@@ -447,7 +455,7 @@
         }
         if (combined && combined.combinedSuppressionPct >= 70) {
             html += '<div style="margin-top:10px;padding:8px 12px;background:var(--gaip-critical-bg);border:1px solid var(--gaip-critical-border);border-radius:var(--gaip-radius-sm);font-size:11px;color:var(--gaip-critical);font-weight:600">' +
-                '⚠ Combined PGR + DMI suppression: ' + Math.round(combined.combinedSuppressionPct) + '% — monitor for phytotoxicity' +
+                'Combined PGR + DMI suppression: ' + Math.round(combined.combinedSuppressionPct) + '% — monitor for phytotoxicity' +
                 '</div>';
         }
 
@@ -468,7 +476,7 @@
         var sessionsPerWeek = safeNum(turf && (turf.sessionsPerWeek || turf.sessions_per_week || turf.sessionsWeek), 0);
 
         if (!wear && !matchesPerWeek && !sessionsPerWeek) {
-            body.innerHTML = emptyState('🗓', 'No traffic data configured',
+            body.innerHTML = emptyState('recovery', 'No traffic data configured',
                 'Recovery windows calculate from match and training schedule.',
                 [
                     'Enter weekly matches and sessions in <a href="/settings">Site Profile → Settings</a>',
@@ -533,9 +541,9 @@
             // Stress factors
             var adj = wear.adjustedRecovery;
             if (adj && adj.adjustments && adj.adjustments.length) {
-                var icons = { shade: '☁️', salinity: '💧', temperature: '🌡️', compound: '⚠️' };
+                var icons = { shade: '—', salinity: '—', temperature: '—', compound: '—' };
                 html += '<div class="plan-stress-factors">' +
-                    '<div class="plan-stress-title">⚠ Stress Factors Affecting Recovery</div>' +
+                    '<div class="plan-stress-title">Stress Factors Affecting Recovery</div>' +
                     adj.adjustments.map(function (a) {
                         return '<div class="plan-stress-item">' +
                             (icons[a.factor] || '•') + ' ' + esc(a.modification || a.factor) +
@@ -599,9 +607,9 @@
             var aer = wear.aerationSchedule || {};
             html += '<div style="font-size:12px;font-weight:700;color:var(--gaip-text);margin:14px 0 8px">Maintenance Windows</div>' +
                 '<div class="plan-maint-list">' +
-                '<div class="plan-maint-item"><div class="plan-maint-icon">🔧</div><div class="plan-maint-name">Aeration</div><div class="plan-maint-detail">Based on compaction risk and recovery window</div><div class="plan-maint-window">' + (aer.recommendedWeeks ? 'Every ' + aer.recommendedWeeks + ' weeks' : 'See recommendations') + '</div></div>' +
-                '<div class="plan-maint-item"><div class="plan-maint-icon">🌱</div><div class="plan-maint-name">Topdressing</div><div class="plan-maint-detail">Schedule with aeration where possible</div><div class="plan-maint-window">With aeration</div></div>' +
-                '<div class="plan-maint-item"><div class="plan-maint-icon">✂</div><div class="plan-maint-name">Verticutting</div><div class="plan-maint-detail">Complete during high-GP periods for faster recovery</div><div class="plan-maint-window">High GP window</div></div>' +
+                '<div class="plan-maint-item"><div class="plan-maint-name">Aeration</div><div class="plan-maint-detail">Based on compaction risk and recovery window</div><div class="plan-maint-window">' + (aer.recommendedWeeks ? 'Every ' + aer.recommendedWeeks + ' weeks' : 'See recommendations') + '</div></div>' +
+                '<div class="plan-maint-item"><div class="plan-maint-name">Topdressing</div><div class="plan-maint-detail">Schedule with aeration where possible</div><div class="plan-maint-window">With aeration</div></div>' +
+                '<div class="plan-maint-item"><div class="plan-maint-name">Verticutting</div><div class="plan-maint-detail">Complete during high-GP periods for faster recovery</div><div class="plan-maint-window">High GP window</div></div>' +
                 '</div>';
 
             // Recommendations
@@ -858,7 +866,7 @@
         var opt         = sn && sn.annualDemand && sn.annualDemand.opt;
 
         if (!baseOptimum && !opt) {
-            body.innerHTML = emptyState('🧪', 'Soil test required',
+            body.innerHTML = emptyState('nutrition', 'Soil test required',
                 'Seasonal N plan calculates from N diagnostics in the soil test.',
                 ['Import soil test results in the Soil Tests section',
                  'After import, run analysis to generate the seasonal plan']

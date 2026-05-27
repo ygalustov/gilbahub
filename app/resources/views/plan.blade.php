@@ -627,7 +627,6 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                     </div>
                     <div id="plan-pe-body">
                         <div class="plan-empty">
-                            <div class="plan-empty-icon">🌱</div>
                             <div class="plan-empty-title">Loading…</div>
                         </div>
                     </div>
@@ -645,7 +644,6 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                     </div>
                     <div id="plan-pgr-body">
                         <div class="plan-empty">
-                            <div class="plan-empty-icon">💊</div>
                             <div class="plan-empty-title">Loading…</div>
                         </div>
                     </div>
@@ -671,7 +669,6 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                 </div>
                 <div id="plan-rec-body">
                     <div class="plan-empty">
-                        <div class="plan-empty-icon">🗓</div>
                         <div class="plan-empty-title">Loading…</div>
                     </div>
                 </div>
@@ -758,7 +755,6 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                 </div>
                 <div id="plan-seasonal-body">
                     <div class="plan-empty">
-                        <div class="plan-empty-icon">🧪</div>
                         <div class="plan-empty-title">Loading…</div>
                     </div>
                 </div>

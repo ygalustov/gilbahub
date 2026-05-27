@@ -1318,7 +1318,7 @@
 
     function buildUploadTab() {
         var html = '<div class="dat-upload-zone" id="dat-drop-zone">'
-            + '<div class="dat-upload-zone-icon">📂</div>'
+            + '<div class="dat-upload-zone-icon"><svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg></div>'
             + '<div class="dat-upload-zone-text">Drop your CSV file here or click to browse</div>'
             + '<div class="dat-upload-zone-sub">Supports CSV format from any lab</div>'
             + '</div>'

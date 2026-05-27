@@ -39,7 +39,7 @@
                 <div class="db-conditions-current">
                     <div class="db-conditions-label">Current</div>
                     <div class="db-conditions-main">
-                        <div class="db-weather-icon" id="db-weather-icon">🌫️</div>
+                        <div class="db-weather-icon" id="db-weather-icon"></div>
                         <div class="db-temp" id="db-temp">—°C</div>
                     </div>
                     <div class="db-weather-desc" id="db-weather-desc">Loading…</div>

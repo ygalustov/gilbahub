@@ -1245,7 +1245,7 @@
         const modified = currentState.modifiedState;
         
         let html = '<div class="gaip-results-basic" style="padding: 16px;">';
-        html += '<h4 style="margin: 0 0 12px 0; color: #1e3a5f;">📊 Scenario Comparison</h4>';
+        html += '<h4 style="margin: 0 0 12px 0; color: #1e3a5f;">Scenario Comparison</h4>';
         
         // Collect all changes
         const changes = [];
@@ -1414,7 +1414,7 @@
         let html = '<div class="gaip-presets">';
         html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
         html += '<strong>Quick Presets:</strong>';
-        html += '<button class="gaip-reset-btn" onclick="GAIP_WhatIfUI.resetToBaseline()" title="Clear all changes and reset to baseline">🔄 Reset</button>';
+        html += '<button class="gaip-reset-btn" onclick="GAIP_WhatIfUI.resetToBaseline()" title="Clear all changes and reset to baseline">Reset</button>';
         html += '</div>';
         html += '<div class="gaip-preset-grid">';
         
