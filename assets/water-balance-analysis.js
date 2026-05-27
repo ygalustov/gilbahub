@@ -666,6 +666,90 @@
     }
 
     // =========================================================================
+    // SOIL STRUCTURE RISK
+    // =========================================================================
+
+    function renderSoilStructureRisk(wb) {
+        var sar    = parseFloat(wb.SAR);
+        var saradj = parseFloat(wb.SARadj);
+        var ecw    = parseFloat(wb.ecw);
+        var rsc    = parseFloat(wb.RSC);
+
+        if (isNaN(sar) && isNaN(saradj)) return '';
+
+        var effSar = (!isNaN(saradj) && saradj > sar) ? saradj : sar;
+
+        // Risk classification
+        var riskLevel, riskColor, riskBg, riskBorder, gypsumRange, timeline, infiltration;
+        if (effSar >= 18) {
+            riskLevel = 'Severe'; riskColor = '#7f1d1d'; riskBg = '#fef2f2'; riskBorder = '#f87171';
+            gypsumRange = '3–6'; timeline = 'Rapid — structural collapse within months without treatment';
+            infiltration = 'Severely impaired — waterlogging and surface ponding likely';
+        } else if (effSar >= 9) {
+            riskLevel = 'High'; riskColor = '#991b1b'; riskBg = '#fef2f2'; riskBorder = '#fca5a5';
+            gypsumRange = '2–4'; timeline = 'Progressive — measurable degradation within 6–18 months';
+            infiltration = 'Impaired — reduced infiltration rate, compaction risk elevated';
+        } else if (effSar >= 3) {
+            riskLevel = 'Moderate'; riskColor = '#854d0e'; riskBg = '#fffbeb'; riskBorder = '#fde68a';
+            gypsumRange = '0.5–2'; timeline = 'Slow — gradual degradation over 2–5 years';
+            infiltration = 'Minor restriction — monitor infiltration rates seasonally';
+        } else {
+            riskLevel = 'Low'; riskColor = '#15803d'; riskBg = '#f0fdf4'; riskBorder = '#86efac';
+            gypsumRange = null; timeline = 'No structural risk at current sodium levels';
+            infiltration = 'No restriction';
+        }
+
+        // Bicarbonate aggravation note
+        var bicarbNote = (!isNaN(saradj) && !isNaN(sar) && (saradj - sar) > 0.5)
+            ? 'SARadj (' + fmt(saradj, 1) + ') > SAR (' + fmt(sar, 1) + '): bicarbonate aggravates sodium hazard — effective risk is higher than basic SAR suggests.'
+            : null;
+
+        // RSC note
+        var rscNote = (!isNaN(rsc) && rsc > 0)
+            ? 'RSC ' + fmt(rsc, 2) + ' meq/L — residual sodium carbonate positive; acidification may be needed alongside gypsum.'
+            : null;
+
+        var gypsumHtml = '';
+        if (gypsumRange) {
+            gypsumHtml = '<div style="margin-top:12px;padding:10px 12px;background:#f5f3ff;border:1px solid #c4b5fd;border-radius:8px">' +
+                '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#5b21b6;margin-bottom:4px">Gypsum Recommendation</div>' +
+                '<div style="font-size:14px;font-weight:700;color:#4c1d95">' + gypsumRange + ' t/ha</div>' +
+                '<div style="font-size:11px;color:#6d28d9;margin-top:2px">Apply as surface broadcast, water in immediately (≥10mm). Retest SAR 3 months after application.</div>' +
+                '</div>';
+        }
+
+        var metaRows = [
+            { label: 'Effective SAR', value: fmt(effSar, 1), sub: effSar !== sar ? 'Adjusted for bicarbonate' : 'Standard SAR' },
+            { label: 'Structural Risk', value: riskLevel, sub: timeline },
+            { label: 'Infiltration', value: infiltration, sub: null },
+        ];
+        var metaHtml = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:12px">' +
+            metaRows.map(function (r) {
+                return '<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px">' +
+                    '<div style="font-size:11px;color:#6b7280;margin-bottom:2px">' + esc(r.label) + '</div>' +
+                    '<div style="font-size:14px;font-weight:700;color:#111827">' + esc(r.value) + '</div>' +
+                    (r.sub ? '<div style="font-size:11px;color:#9ca3af;margin-top:2px">' + esc(r.sub) + '</div>' : '') +
+                    '</div>';
+            }).join('') + '</div>';
+
+        var notesHtml = [bicarbNote, rscNote].filter(Boolean).map(function (n) {
+            return '<div style="font-size:12px;color:#6b7280;padding:6px 0;border-top:1px solid #f3f4f6">' + esc(n) + '</div>';
+        }).join('');
+
+        return '<div class="gl-block">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent" style="background:' + riskColor + '"></div>' +
+            '<div class="gl-block-title">Soil Structure Risk</div>' +
+            '<div class="gl-block-sub">Sodium-driven degradation outlook based on SAR — ' + riskLevel + '</div>' +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            metaHtml +
+            gypsumHtml +
+            (notesHtml ? '<div style="margin-top:8px">' + notesHtml + '</div>' : '') +
+            '</div></div>';
+    }
+
+    // =========================================================================
     // 6. RECOMMENDATIONS
     // =========================================================================
 
@@ -871,8 +955,9 @@
         var salHtml     = renderSalinity(wb);
         var diagHtml    = renderDiagnostics(wb);
         var irrHtml     = renderIrrigationBalance(wb);
+        var structHtml  = renderSoilStructureRisk(wb);
 
-        var bodyContent = verdictHtml + recHtml + diagHtml + qualityHtml + ionHtml + salHtml + irrHtml;
+        var bodyContent = verdictHtml + recHtml + diagHtml + qualityHtml + ionHtml + salHtml + structHtml + irrHtml;
 
         container.innerHTML =
             '<div class="wb-page">'+

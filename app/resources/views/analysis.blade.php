@@ -35,7 +35,7 @@
                     </svg>
                     Disease Risk <span class="gl-tab-badge" id="gl-badge-disease"></span>
                 </a>
-                <a href="#" class="gl-tab">
+                <a href="#stress" class="gl-tab" data-tab="stress">
                     Stress <span class="gl-tab-badge" id="gl-badge-stress"></span>
                 </a>
                 <a href="#growth-light" class="gl-tab" data-tab="growth-light">
@@ -75,6 +75,12 @@
             </div>
         </div>
 
+        <div id="analysis-tab-stress" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+            <div id="stress-page-content">
+                <div style="padding:40px;text-align:center;color:#5b6a65">Loading stress analysis…</div>
+            </div>
+        </div>
+
 
 @endsection
 
@@ -97,4 +103,5 @@
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
+<script src="{{ $legacyAssetUrl('stress-analysis.js') }}"></script>
 @endsection

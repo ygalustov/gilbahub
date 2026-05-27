@@ -843,6 +843,71 @@
     }
 
     // =========================================================================
+    // 10b. CORRECTION PROGRAM
+    // =========================================================================
+
+    var CORRECTION_SOURCES = {
+        K:  { product: 'Muriate of Potash (MOP)',    pct: 41.5, unit: 'kg/ha', note: '0-0-60, granular. Alternatively Sulfate of Potash (SOP) where chloride sensitivity is a concern.' },
+        P:  { product: 'Monoammonium Phosphate (MAP)', pct: 26.5, unit: 'kg/ha', note: '12-26-0, granular. Also supplies nitrogen — account for N contribution in annual budget.' },
+        Ca: { product: 'Agricultural Lime (CaCO₃)',  pct: 40,   unit: 'kg/ha', note: 'Also raises pH. Use gypsum (CaSO₄, 23% Ca) when pH correction is not needed.' },
+        Mg: { product: 'Kieserite (MgSO₄)',          pct: 13,   unit: 'kg/ha', note: 'Also supplies sulfur. Dolomite (12% Mg, 22% Ca) is an option if Ca is also needed.' },
+        S:  { product: 'Elemental Sulfur',            pct: 90,   unit: 'kg/ha', note: 'Apply early season — requires oxidation by soil bacteria. Gypsum is a faster-acting option.' },
+        Fe: { product: 'Iron Sulfate (FeSO₄·7H₂O)', pct: 20,   unit: 'kg/ha', note: 'Apply as foliar for rapid greening. Also available as chelated iron (EDTA/DTPA) for liquid programs.' },
+        Mn: { product: 'Manganese Sulfate',           pct: 26,   unit: 'kg/ha', note: 'Foliar application preferred at 2–5 kg Mn/ha. Soil apply at higher rates when pH > 6.5.' },
+        Cu: { product: 'Copper Sulfate',              pct: 25,   unit: 'kg/ha', note: 'Apply with caution — Cu accumulates in soil. Do not exceed 0.5 kg Cu/ha/yr on fine turf.' },
+        Zn: { product: 'Zinc Sulfate',                pct: 23,   unit: 'kg/ha', note: 'Foliar preferred for rapid correction. Soil apply at 1–3 kg Zn/ha for longer residual.' },
+        B:  { product: 'Borax (Na₂B₄O₇·10H₂O)',     pct: 11,   unit: 'kg/ha', note: 'Very narrow safe range — excess causes toxicity. Apply at 0.2–0.5 kg B/ha maximum.' },
+    };
+
+    function renderCorrectionProgram(sn) {
+        var nutrients  = sn.nutrients || [];
+        var depthFactor = (sn.depthCm || 10) * (sn.bulkDensity || 1.4) * 0.1;
+
+        var deficient = nutrients.filter(function(n) {
+            var sc = statusClass(n.statusClass || n.status || '');
+            return sc === 'deficient' || sc === 'borderline';
+        });
+
+        if (!deficient.length) return '';
+
+        var rows = deficient.map(function(n) {
+            var src   = CORRECTION_SOURCES[n.nutrient];
+            if (!src) return '';
+
+            var actual = parseFloat(n.actual);
+            var mlsn   = parseFloat(n.mlsn);
+            var deficit = (!isNaN(actual) && !isNaN(mlsn) && mlsn > actual)
+                ? Math.max(0, mlsn - actual) : null;
+
+            // Correction dose: deficit ppm × depthFactor / (src.pct / 100)
+            var deficitKgHa = (deficit != null && depthFactor) ? deficit * depthFactor : null;
+            var productKgHa = (deficitKgHa != null) ? Math.ceil(deficitKgHa / (src.pct / 100)) : null;
+
+            var sc = statusClass(n.statusClass || n.status || '');
+            var scColor = sc === 'deficient' ? '#991b1b' : '#854d0e';
+            var scBg    = sc === 'deficient' ? '#fef2f2' : '#fffbeb';
+            var scBd    = sc === 'deficient' ? '#fca5a5' : '#fde68a';
+
+            return '<div style="border:1px solid ' + scBd + ';background:' + scBg + ';border-radius:8px;padding:12px 14px;margin-bottom:8px">' +
+                '<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">' +
+                '<div style="font-size:13px;font-weight:700;color:' + scColor + '">' + esc(n.nutrient) + ' — ' + esc(NUTRIENT_NAMES[n.nutrient] || n.nutrient) + '</div>' +
+                '<div style="font-size:11px;color:' + scColor + ';font-weight:600">' + esc(capitalize(n.status || sc)) + '</div>' +
+                (deficit != null ? '<div style="font-size:11px;color:#6b7280;margin-left:auto">Deficit: ' + deficit.toFixed(1) + ' ppm (' + (deficitKgHa ? deficitKgHa.toFixed(1) : '—') + ' kg/ha)</div>' : '') +
+                '</div>' +
+                '<div style="font-size:12px;font-weight:600;color:#374151;margin-bottom:2px">' + esc(src.product) + '</div>' +
+                (productKgHa != null ? '<div style="font-size:14px;font-weight:800;color:#1e3a2f;margin-bottom:4px">' + productKgHa + ' kg/ha <span style="font-size:11px;font-weight:400;color:#6b7280">to reach MLSN threshold</span></div>' : '') +
+                '<div style="font-size:11px;color:#6b7280;line-height:1.5">' + esc(src.note) + '</div>' +
+                '</div>';
+        }).filter(Boolean).join('');
+
+        if (!rows) return '';
+
+        return '<div class="sn-section"><div class="sn-section-title">Correction Program</div>' +
+            '<div style="font-size:12px;color:#5b6a65;margin-top:4px;margin-bottom:12px">Deficient nutrients only · Doses calculated to reach MLSN threshold from current levels</div></div>' +
+            rows;
+    }
+
+    // =========================================================================
     // 11. MONTHLY N DISTRIBUTION
     // =========================================================================
 
@@ -1082,6 +1147,7 @@
         var ratiosHtml           = sn.ratios       ? renderRatios(sn)               : '';
         var phHtml               = (sn.pH||sn.CEC)
             ? '<div class="sn-section"><div class="sn-section-title">pH &amp; CEC</div></div>'+renderPhCec(sn) : '';
+        var correctionHtml       =                   renderCorrectionProgram(sn);
         var annualHtml           =                   renderAnnualRequirements(sn);
         var monthlyHtml          =                   renderMonthlyN(sn);
         var tissueHtml           = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results</div></div>'+renderTissue(sn.tissue);
@@ -1100,6 +1166,7 @@
             (mulderHtml ? '<div style="padding-bottom:12px">'+mulderHtml+'</div>' : '')+
             ratiosHtml+
             phHtml+
+            correctionHtml+
             annualHtml+
             monthlyHtml+
             tissueHtml+

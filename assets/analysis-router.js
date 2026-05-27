@@ -9,7 +9,7 @@ window.GAIP_ANALYSIS_ROUTER = true;
 (function (global) {
     'use strict';
 
-    var TAB_IDS = ['disease', 'growth-light', 'soil-nutrition', 'water-balance'];
+    var TAB_IDS = ['disease', 'growth-light', 'soil-nutrition', 'water-balance', 'stress'];
     var rendered = {};
     var currentTab = null;
 
@@ -51,6 +51,8 @@ window.GAIP_ANALYSIS_ROUTER = true;
                 global.GAIP_SoilNutritionAnalysis.init();
             } else if (tabId === 'water-balance' && global.GAIP_WaterBalanceAnalysis) {
                 global.GAIP_WaterBalanceAnalysis.init();
+            } else if (tabId === 'stress' && global.GAIP_StressAnalysis) {
+                global.GAIP_StressAnalysis.init();
             }
         }
     }

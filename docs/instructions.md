@@ -96,7 +96,17 @@ Enhanced the analysis router to initialize the PGR & Irrigation analysis compone
 **GH-25** Fix Soil & Nutrition analysis page showing empty state despite samples existing in DB.
 Root cause: `hub-persistence.js` was calling `GAIP_SampleManager.restoreFromPersistence()` from localStorage 200ms after init, overwriting the correct `burns_gc` site context that `sample-persistence.js` had established via server fetch. Additionally `sample-persistence.js` was restoring `_currentSite = 'default'` instead of the PHP-injected active site UUID after server sync.
 Fix: `sample-persistence.js` now switches SampleManager to `GAIP_HUB_CONFIG.activeSiteId` after loading samples from server. `hub-persistence.js` now skips its own `restoreSamples` call when `_gaipSamplePersistenceReady` is already true, avoiding the site context overwrite.
-**GH-26**
+**GH-26** Remove PGR & Irrigation tab and related functionality from analysis view. Updated JavaScript to exclude PGR analysis initialization and cleaned up associated scripts. This change simplifies the analysis interface and removes unused components.
+**GH-27** Fix pgr-irrigation-analysis.js render() missing event wiring.
+`initPgrInputCard(container)` and `initInfoPopovers()` were never called after `container.innerHTML` assignment in `render()`, leaving the "Save & Re-run" button non-functional when PGR data was already populated. Fixed by adding both calls immediately after innerHTML.
+**GH-28** Move PGR input form from Analysis tab to Plan page.
+Architecture cleanup: Analysis = "What is happening now?" (diagnostics only). Plan = "What should I do?" (schedules, decisions). Added `renderPgrInputForm()`, `initPgrInputForm()`, `readSavedPgr()` and `PGR_PRODUCTS` to `plan-ui.js`. Both the empty-state and populated-state paths in `renderPGR()` now render the PGR input form inline before the results table.
+**GH-29** Implement Stress Index Analysis tab (`stress-analysis.js`).
+New tab on Analysis page (`#stress`) rendering: ESI verdict hero (score, level badge, peak forecast, primary stressor, growth modifier), 6 factor cards (thermal, light, moisture, traffic, nutrition, biotic) with weighted scores from `stressTrajectory.currentComponents`, compound stress effects panel (only when multiplier > 1.0), 14-day trajectory CSS grid bar chart coloured by stress level, intervention windows list, and horizontal component breakdown bars. Wired into `analysis-router.js` (TAB_IDS updated) and `analysis.blade.php`.
+**GH-30** Add Soil Structure Risk block to Water Balance analysis.
+New `renderSoilStructureRisk(wb)` function in `water-balance-analysis.js`. Uses existing `SAR`, `SARadj`, `RSC`, `ecw` from `computed.waterBalance`. Four risk levels (Low / Moderate / High / Severe) with effective SAR thresholds (3 / 9 / 18), gypsum dose ranges, bicarbonate aggravation note (when SARadj > SAR + 0.5), and RSC alkalinity note (when RSC > 0). Block inserted between salinity and irrigation recommendation sections.
+**GH-31** Add Correction Program block to Soil & Nutrition analysis.
+New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filters to deficient + borderline nutrients, calculates deficit in kg/ha using `depthFactor = depthCm × bulkDensity × 0.1`, maps to 10 standard fertilizer products (`CORRECTION_SOURCES`) with concentration-based product dose (kg/ha). Renders one coloured card per deficient nutrient with product name, dose, and application notes. Block inserted before the annual demand section.
 
 
 
