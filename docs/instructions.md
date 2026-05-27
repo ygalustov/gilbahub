@@ -111,12 +111,14 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 - Removed outdated CSS styles related to the verdict block and replaced them with a new KPI card structure for better visual representation.
 - Introduced helper functions for color handling and KPI card generation, improving code readability and maintainability.
 - Updated the rendering logic to include a more structured layout for stress index analysis, enhancing user experience.
-
-
+**GH-33** Refactor stress analysis rendering to improve KPI display and layout. Updated color handling with a new palette and enhanced the trajectory chart's visual representation. Simplified HTML structure for better maintainability and user experience.
+**GH-34** Refactor Plan view layout and UI components. Updated styles for tabs and headers, introduced a new KPI card structure, and enhanced JavaScript functions for rendering plan details. Improved user experience with a more organized layout and dynamic content loading.
 
 ## Backlog
 
-look how it looks like - difficult to understand - just lines
+Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
+
+
 ----
 
 

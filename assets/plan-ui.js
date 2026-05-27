@@ -326,7 +326,17 @@
         var pgr = computed && computed.pgr;
 
         if (!pgr || !pgr.success) {
-            body.innerHTML = renderPgrInputForm(readSavedPgr(), false);
+            var saved = readSavedPgr();
+            var hasPartial = saved && saved.productType;
+            body.innerHTML =
+                '<div style="padding:10px 0 6px">' +
+                '<div style="font-size:13px;color:var(--gaip-text-secondary);margin-bottom:14px;line-height:1.5">' +
+                (hasPartial
+                    ? 'Last saved: <strong>' + esc(saved.productType) + '</strong>' + (saved.applicationDate ? ' applied ' + esc(saved.applicationDate) : '') + '. Re-run analysis to update the schedule.'
+                    : 'Enter your last PGR application to track GDD accumulation and get a reapplication forecast.') +
+                '</div>' +
+                renderPgrInputForm(saved, false) +
+                '</div>';
             initPgrInputForm();
             return;
         }
@@ -914,6 +924,109 @@
         body.innerHTML = html;
     }
 
+    // ── PAGE HEADER (gl-header pattern matching Analysis tabs) ────────────────
+
+    function renderPlanHeader(computed, siteConfig) {
+        var el = document.getElementById('plan-header-content');
+        if (!el) return;
+
+        function hexToRgb(hex) {
+            var h = (hex || '#2d6a4f').replace('#','');
+            return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
+        }
+        function kpi(label, value, unit, badgeHtml, color) {
+            var rgb = hexToRgb(color);
+            var bg     = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.07)';
+            var border = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.25)';
+            return '<div class="gl-kpi-card" style="background:'+bg+';border-color:'+border+';border-left-color:'+color+'">' +
+                '<div class="gl-kpi-label">'+esc(label)+'</div>' +
+                '<div class="gl-kpi-value" style="color:'+color+'">'+esc(String(value))+'</div>' +
+                '<div class="gl-kpi-unit">'+esc(unit)+'</div>' +
+                '<div>'+badgeHtml+'</div>' +
+                '</div>';
+        }
+        function badge(text, cls) {
+            var colors = {
+                green:  { bg:'#f0fdf4', color:'#15803d', border:'#86efac' },
+                amber:  { bg:'#fffbeb', color:'#854d0e', border:'#fde68a' },
+                red:    { bg:'#fef2f2', color:'#991b1b', border:'#fca5a5' },
+                grey:   { bg:'#f9fafb', color:'#6b7280', border:'#e5e7eb' },
+            };
+            var c = colors[cls] || colors.grey;
+            return '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:'+c.bg+';color:'+c.color+';border:1px solid '+c.border+'">'+esc(text)+'</span>';
+        }
+
+        var cards = [];
+
+        // Card 1: PGR status
+        var pgr = computed.pgr;
+        if (pgr && pgr.success && pgr.gdd) {
+            var pgrPct = Math.round((pgr.gdd.progress || 0) * 100);
+            var pgrStatus = pgr.effect && pgr.effect.reapplicationStatus || 'active';
+            var pgrCls = pgrStatus === 'due_now' ? 'red' : pgrStatus === 'approaching' ? 'amber' : 'green';
+            var pgrLabel = pgrStatus === 'due_now' ? 'Reapply now' : pgrStatus === 'approaching' ? 'Due soon' : 'On track';
+            cards.push(kpi('PGR Progress', pgrPct+'%', 'GDD consumed', badge(pgrLabel, pgrCls),
+                pgrCls === 'red' ? '#dc2626' : pgrCls === 'amber' ? '#d97706' : '#15803d'));
+        } else {
+            cards.push(kpi('PGR', 'No data', '', badge('Not set', 'grey'), '#6b7280'));
+        }
+
+        // Card 2: Pre-emergent
+        var pe = computed.preEmergent;
+        if (pe && pe.success) {
+            var peAlerts = (pe.summary && pe.summary.activeAlerts) || 0;
+            var peAggCls = pe.aggregateStatus === 'RED_EARLY' || pe.aggregateStatus === 'RED_MISSED' ? 'red'
+                : pe.aggregateStatus === 'AMBER' ? 'amber' : 'green';
+            cards.push(kpi('Pre-emergent', peAlerts > 0 ? peAlerts : '✓', peAlerts > 0 ? 'active alert'+(peAlerts>1?'s':'') : 'All clear',
+                badge(peAlerts > 0 ? peAlerts+' alert'+(peAlerts>1?'s':'') : 'All clear', peAggCls),
+                peAggCls === 'red' ? '#dc2626' : peAggCls === 'amber' ? '#d97706' : '#15803d'));
+        } else {
+            cards.push(kpi('Pre-emergent', '—', '', badge('No data', 'grey'), '#6b7280'));
+        }
+
+        // Card 3: Recovery / wear
+        var wear = computed.wear;
+        if (wear) {
+            var recovDays = Math.round((wear.recoveryCapacity && wear.recoveryCapacity.days) || wear.recoveryWindow || 0);
+            var wearScore = Math.round(((wear.wearResistance && wear.wearResistance.score) || 0) * 10) / 10;
+            var wearCls   = wearScore >= 7 ? 'green' : wearScore >= 5 ? 'amber' : 'red';
+            cards.push(kpi('Wear Resistance', wearScore.toFixed(1)+'/10', recovDays > 0 ? 'Recovery: '+recovDays+'d' : '',
+                badge(wearScore >= 7 ? 'Good' : wearScore >= 5 ? 'Moderate' : 'Poor', wearCls),
+                wearCls === 'red' ? '#dc2626' : wearCls === 'amber' ? '#d97706' : '#15803d'));
+        } else {
+            cards.push(kpi('Wear / Recovery', '—', '', badge('No traffic data', 'grey'), '#6b7280'));
+        }
+
+        // Card 4: Seasonal N this quarter
+        var gp = computed.growthLight || computed.growth;
+        var soilN = computed.soilNutrition;
+        if (soilN && soilN.annualDemand) {
+            var monthlyN = safeNum(soilN.annualDemand.n, 0) / 12;
+            var nCls = monthlyN > 20 ? 'red' : monthlyN > 10 ? 'amber' : 'green';
+            cards.push(kpi('Monthly N Need', Math.round(monthlyN)+'', 'kg N/ha this month',
+                badge(monthlyN > 20 ? 'High demand' : monthlyN > 10 ? 'Moderate' : 'Low', nCls),
+                nCls === 'red' ? '#dc2626' : nCls === 'amber' ? '#d97706' : '#15803d'));
+        } else {
+            cards.push(kpi('Nutrition', '—', 'Run analysis for N demand', badge('No soil data', 'grey'), '#6b7280'));
+        }
+
+        el.innerHTML = [
+            '<div class="gl-header">',
+            '<div class="gl-header-inner">',
+            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">',
+            '<h1 class="gl-title">Management Plan</h1>',
+            '<button class="plan-ical-btn" id="plan-ical-btn" title="Export planning schedule to calendar app">',
+            '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+            'Export to Calendar',
+            '</button>',
+            '</div>',
+            '<div class="gl-subtitle">Timely windows, recovery schedule and annual nutrition programme</div>',
+            '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'+cards.join('')+'</div>',
+            '</div>',
+            '</div>',
+        ].join('\n');
+    }
+
     // ── iCal Export ───────────────────────────────────────────────────────────
 
     function initICalExport(computed) {
@@ -1011,12 +1124,63 @@
         var computed   = data.computed  || {};
         var siteConfig = global.GAIP_SITE_CONFIG || {};
 
-        renderPreEmergent(computed);
-        renderPGR(computed);
-        renderRecovery(computed, siteConfig);
-        initNutritionForm(computed, siteConfig);
-        renderSeasonalN(computed, siteConfig);
+        renderPlanHeader(computed, siteConfig);
         initICalExport(computed);
+
+        // ── Tab routing (mirrors analysis-router.js pattern) ──────────────
+        var TABS = ['timing', 'recovery', 'nutrition'];
+        var currentTab = null;
+        var rendered   = {};
+
+        function getHash() {
+            var h = (global.location.hash || '').slice(1);
+            return TABS.indexOf(h) !== -1 ? h : 'timing';
+        }
+
+        function showTab(tabId) {
+            if (TABS.indexOf(tabId) === -1) tabId = 'timing';
+            if (tabId === currentTab) return;
+            currentTab = tabId;
+
+            if (global.location.hash !== '#' + tabId) {
+                global.history.pushState(null, '', '#' + tabId);
+            }
+
+            document.querySelectorAll('.gl-tab[data-tab]').forEach(function (el) {
+                el.classList.toggle('active', el.dataset.tab === tabId);
+            });
+
+            TABS.forEach(function (id) {
+                var w = document.getElementById('plan-tab-' + id);
+                if (w) w.style.display = id === tabId ? 'block' : 'none';
+            });
+
+            if (!rendered[tabId]) {
+                rendered[tabId] = true;
+                if (tabId === 'timing') {
+                    renderPreEmergent(computed);
+                    renderPGR(computed);
+                } else if (tabId === 'recovery') {
+                    renderRecovery(computed, siteConfig);
+                } else if (tabId === 'nutrition') {
+                    initNutritionForm(computed, siteConfig);
+                    renderSeasonalN(computed, siteConfig);
+                }
+            }
+        }
+
+        document.addEventListener('click', function (e) {
+            var tab = e.target.closest('.gl-tab[data-tab]');
+            if (!tab) return;
+            e.preventDefault();
+            showTab(tab.dataset.tab);
+        });
+
+        global.addEventListener('popstate', function () {
+            showTab(getHash());
+        });
+
+        showTab(getHash());
     }
 
     if (document.readyState === 'loading') {

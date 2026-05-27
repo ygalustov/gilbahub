@@ -14,23 +14,11 @@
 @section('styles')
 <style>
 /* ── Plan page layout ─────────────────────────────────────────────────── */
-.plan-page-header {
+.plan-tab-body {
+    padding: 16px 20px 32px;
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 4px;
-}
-.plan-page-title {
-    font-size: 20px;
-    font-weight: 700;
-    color: var(--gaip-text);
-    margin: 0 0 2px;
-    line-height: 1.2;
-}
-.plan-page-sub {
-    font-size: 12px;
-    color: var(--gaip-text-muted);
+    flex-direction: column;
+    gap: 16px;
 }
 .plan-ical-btn {
     display: inline-flex;
@@ -599,184 +587,186 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
 @endsection
 
 @section('content')
-<div class="db-body">
 
-    {{-- ── PAGE HEADER ──────────────────────────────────────────────── --}}
-    <div class="plan-page-header">
-        <div>
-            <h1 class="plan-page-title">Plan</h1>
-            <div class="plan-page-sub" id="plan-page-sub">
-                @if($turfSpecies){{ $turfSpecies }}@endif
-                @if($turfSpecies && $turfMethodology) · @endif
-                @if($turfMethodology){{ $turfMethodology }}@endif
-                @if($turfSpecies || $turfMethodology) · @endif
-                Schedules &amp; programmes
-            </div>
+    {{-- ── PAGE HEADER (rendered by plan-ui.js → renderPlanHeader) ─── --}}
+    <div id="plan-header-content"></div>
+
+    {{-- ── TABS BAR ─────────────────────────────────────────────────── --}}
+    <nav class="gl-tabs-bar">
+        <div class="gl-tabs-inner">
+            <a href="#timing" class="gl-tab" data-tab="timing">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 6v6l4 2"/></svg>
+                Timing
+                <span class="gl-tab-badge" id="gl-badge-timing"></span>
+            </a>
+            <a href="#recovery" class="gl-tab" data-tab="recovery">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                Recovery
+            </a>
+            <a href="#nutrition" class="gl-tab" data-tab="nutrition">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
+                Nutrition
+            </a>
         </div>
-        <button class="plan-ical-btn" id="plan-ical-btn" title="Export planning schedule to calendar app">
-            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-            </svg>
-            Export to Calendar
-        </button>
+    </nav>
+
+    {{-- ── TAB: TIMING ─────────────────────────────────────────────── --}}
+    <div id="plan-tab-timing" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+        <div class="plan-tab-body">
+            <div class="plan-windows-grid">
+
+                {{-- Pre-emergent Timing --}}
+                <div class="plan-card" id="plan-pe-card">
+                    <div class="plan-card-header">
+                        <div class="plan-card-title">
+                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-good)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
+                            Pre-emergent Timing
+                            <span class="db-info-icon" data-info="pre-emergent" tabindex="0" role="button" aria-label="About Pre-emergent Timing">i</span>
+                        </div>
+                        <span class="plan-badge" id="plan-pe-badge" style="display:none"></span>
+                    </div>
+                    <div id="plan-pe-body">
+                        <div class="plan-empty">
+                            <div class="plan-empty-icon">🌱</div>
+                            <div class="plan-empty-title">Loading…</div>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- PGR Schedule --}}
+                <div class="plan-card" id="plan-pgr-card">
+                    <div class="plan-card-header">
+                        <div class="plan-card-title">
+                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-info)"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M9 9h1.5a1.5 1.5 0 010 3H9m0 3h4"/></svg>
+                            PGR Schedule
+                            <span class="db-info-icon" data-info="pgr-schedule" tabindex="0" role="button" aria-label="About PGR Schedule">i</span>
+                        </div>
+                        <span class="plan-badge" id="plan-pgr-badge" style="display:none"></span>
+                    </div>
+                    <div id="plan-pgr-body">
+                        <div class="plan-empty">
+                            <div class="plan-empty-icon">💊</div>
+                            <div class="plan-empty-title">Loading…</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>{{-- /plan-windows-grid --}}
+        </div>{{-- /plan-tab-body --}}
     </div>
 
-    {{-- ── SECTION 1: TIME-SENSITIVE WINDOWS ──────────────────────── --}}
-    <div>
-        <div class="db-section-heading">Time-Sensitive Windows</div>
-        <div class="plan-windows-grid">
-
-            {{-- Pre-emergent Timing --}}
-            <div class="plan-card" id="plan-pe-card">
+    {{-- ── TAB: RECOVERY ────────────────────────────────────────────── --}}
+    <div id="plan-tab-recovery" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+        <div class="plan-tab-body">
+            <div class="plan-card" id="plan-rec-card">
                 <div class="plan-card-header">
                     <div class="plan-card-title">
-                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-good)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
-                        Pre-emergent Timing
-                        <span class="db-info-icon" data-info="pre-emergent" tabindex="0" role="button" aria-label="About Pre-emergent Timing">i</span>
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-warning)"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                        Recovery Calendar
+                        <span class="db-info-icon" data-info="recovery-calendar" tabindex="0" role="button" aria-label="About Recovery Calendar">i</span>
                     </div>
-                    <span class="plan-badge" id="plan-pe-badge" style="display:none"></span>
+                    <a href="{{ route('settings') }}" style="font-size:11px;color:var(--gaip-text-muted);text-decoration:none" id="plan-rec-settings-link" hidden>
+                        Edit traffic schedule →
+                    </a>
                 </div>
-                <div id="plan-pe-body">
+                <div id="plan-rec-body">
                     <div class="plan-empty">
-                        <div class="plan-empty-icon">🌱</div>
+                        <div class="plan-empty-icon">🗓</div>
+                        <div class="plan-empty-title">Loading…</div>
+                    </div>
+                </div>
+            </div>
+        </div>{{-- /plan-tab-body --}}
+    </div>
+
+    {{-- ── TAB: NUTRITION ───────────────────────────────────────────── --}}
+    <div id="plan-tab-nutrition" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+        <div class="plan-tab-body">
+
+            {{-- Nutrition Program --}}
+            <div class="plan-card" id="plan-nut-card">
+                <div class="plan-card-header">
+                    <div class="plan-card-title">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-accent)"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
+                        Nutrition Program
+                        <span class="db-info-icon" data-info="nutrition-program" tabindex="0" role="button" aria-label="About Nutrition Program">i</span>
+                    </div>
+                    <button class="plan-btn-secondary" id="plan-nut-csv-btn" style="display:none" title="Export nutrition program as CSV">
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        Export CSV
+                    </button>
+                </div>
+
+                <div id="plan-nut-form-wrap">
+                    <form class="plan-form" id="plan-nut-form" autocomplete="off">
+                        <div class="plan-form-row">
+                            <div class="plan-form-group">
+                                <label class="plan-form-label" for="plan-nut-annual-n">
+                                    Annual N Target
+                                    <span class="db-info-icon" data-info="annual-n-target" tabindex="0" role="button">i</span>
+                                </label>
+                                <input class="plan-form-input" type="number" id="plan-nut-annual-n" min="0" max="600" step="1" placeholder="e.g. 120">
+                                <div class="plan-form-hint">kg N/ha/yr · Greens: 80–150 · Tees: 120–180 · Sports: 180–350</div>
+                            </div>
+                            <div class="plan-form-group">
+                                <label class="plan-form-label" for="plan-nut-max-n">
+                                    Max N per Application
+                                    <span class="db-info-icon" data-info="max-n-app" tabindex="0" role="button">i</span>
+                                </label>
+                                <input class="plan-form-input" type="number" id="plan-nut-max-n" min="0" max="50" step="0.5" placeholder="e.g. 15">
+                                <div class="plan-form-hint">kg N/ha per single application</div>
+                            </div>
+                        </div>
+                        <div class="plan-form-row">
+                            <div class="plan-form-group">
+                                <label class="plan-form-label" for="plan-nut-distribution">Distribution Method</label>
+                                <select class="plan-form-select" id="plan-nut-distribution">
+                                    <option value="gp">GP-Weighted (recommended)</option>
+                                    <option value="even">Even Distribution</option>
+                                    <option value="front">Front-loaded (spring emphasis)</option>
+                                </select>
+                            </div>
+                            <div class="plan-form-group">
+                                <label class="plan-form-label" for="plan-nut-clipping">Clipping Management</label>
+                                <select class="plan-form-select" id="plan-nut-clipping">
+                                    <option value="collected">Collected (removed)</option>
+                                    <option value="returned">Returned (mulched)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div>
+                            <button type="submit" class="plan-generate-btn" id="plan-nut-generate-btn">
+                                Generate Nutrition Program
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <hr class="plan-form-divider" id="plan-nut-divider" style="display:none">
+                <div id="plan-nut-results" style="display:none"></div>
+
+            </div>{{-- /plan-nut-card --}}
+
+            {{-- Seasonal N Plan --}}
+            <div class="plan-card" id="plan-seasonal-card">
+                <div class="plan-card-header">
+                    <div class="plan-card-title">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-info)"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                        Seasonal N Plan
+                        <span class="db-info-icon" data-info="seasonal-n" tabindex="0" role="button" aria-label="About Seasonal N Plan">i</span>
+                    </div>
+                </div>
+                <div id="plan-seasonal-body">
+                    <div class="plan-empty">
+                        <div class="plan-empty-icon">🧪</div>
                         <div class="plan-empty-title">Loading…</div>
                     </div>
                 </div>
             </div>
 
-            {{-- PGR Schedule --}}
-            <div class="plan-card" id="plan-pgr-card">
-                <div class="plan-card-header">
-                    <div class="plan-card-title">
-                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-info)"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M9 9h1.5a1.5 1.5 0 010 3H9m0 3h4"/></svg>
-                        PGR Schedule
-                        <span class="db-info-icon" data-info="pgr-schedule" tabindex="0" role="button" aria-label="About PGR Schedule">i</span>
-                    </div>
-                    <span class="plan-badge" id="plan-pgr-badge" style="display:none"></span>
-                </div>
-                <div id="plan-pgr-body">
-                    <div class="plan-empty">
-                        <div class="plan-empty-icon">💊</div>
-                        <div class="plan-empty-title">Loading…</div>
-                    </div>
-                </div>
-            </div>
-
-        </div>{{-- /plan-windows-grid --}}
+        </div>{{-- /plan-tab-body --}}
     </div>
 
-    {{-- ── SECTION 2: RECOVERY CALENDAR ────────────────────────────── --}}
-    <div>
-        <div class="db-section-heading">Recovery Calendar</div>
-        <div class="plan-card" id="plan-rec-card">
-            <div class="plan-card-header">
-                <div class="plan-card-title">
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-warning)"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-                    Recovery Calendar
-                    <span class="db-info-icon" data-info="recovery-calendar" tabindex="0" role="button" aria-label="About Recovery Calendar">i</span>
-                </div>
-                <a href="{{ route('settings') }}" style="font-size:11px;color:var(--gaip-text-muted);text-decoration:none" id="plan-rec-settings-link" hidden>
-                    Edit traffic schedule →
-                </a>
-            </div>
-            <div id="plan-rec-body">
-                <div class="plan-empty">
-                    <div class="plan-empty-icon">🗓</div>
-                    <div class="plan-empty-title">Loading…</div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    {{-- ── SECTION 3: NUTRITION PROGRAM ────────────────────────────── --}}
-    <div>
-        <div class="db-section-heading">Annual Programme</div>
-        <div class="plan-card" id="plan-nut-card">
-            <div class="plan-card-header">
-                <div class="plan-card-title">
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-accent)"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg>
-                    Nutrition Program
-                    <span class="db-info-icon" data-info="nutrition-program" tabindex="0" role="button" aria-label="About Nutrition Program">i</span>
-                </div>
-                <button class="plan-btn-secondary" id="plan-nut-csv-btn" style="display:none" title="Export nutrition program as CSV">
-                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                    Export CSV
-                </button>
-            </div>
-
-            {{-- INPUT FORM (always visible) --}}
-            <div id="plan-nut-form-wrap">
-                <form class="plan-form" id="plan-nut-form" autocomplete="off">
-                    <div class="plan-form-row">
-                        <div class="plan-form-group">
-                            <label class="plan-form-label" for="plan-nut-annual-n">
-                                Annual N Target
-                                <span class="db-info-icon" data-info="annual-n-target" tabindex="0" role="button">i</span>
-                            </label>
-                            <input class="plan-form-input" type="number" id="plan-nut-annual-n" min="0" max="600" step="1" placeholder="e.g. 120">
-                            <div class="plan-form-hint">kg N/ha/yr · Greens: 80–150 · Tees: 120–180 · Sports: 180–350</div>
-                        </div>
-                        <div class="plan-form-group">
-                            <label class="plan-form-label" for="plan-nut-max-n">
-                                Max N per Application
-                                <span class="db-info-icon" data-info="max-n-app" tabindex="0" role="button">i</span>
-                            </label>
-                            <input class="plan-form-input" type="number" id="plan-nut-max-n" min="0" max="50" step="0.5" placeholder="e.g. 15">
-                            <div class="plan-form-hint">kg N/ha per single application</div>
-                        </div>
-                    </div>
-                    <div class="plan-form-row">
-                        <div class="plan-form-group">
-                            <label class="plan-form-label" for="plan-nut-distribution">Distribution Method</label>
-                            <select class="plan-form-select" id="plan-nut-distribution">
-                                <option value="gp">GP-Weighted (recommended)</option>
-                                <option value="even">Even Distribution</option>
-                                <option value="front">Front-loaded (spring emphasis)</option>
-                            </select>
-                        </div>
-                        <div class="plan-form-group">
-                            <label class="plan-form-label" for="plan-nut-clipping">Clipping Management</label>
-                            <select class="plan-form-select" id="plan-nut-clipping">
-                                <option value="collected">Collected (removed)</option>
-                                <option value="returned">Returned (mulched)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <button type="submit" class="plan-generate-btn" id="plan-nut-generate-btn">
-                            Generate Nutrition Program
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <hr class="plan-form-divider" id="plan-nut-divider" style="display:none">
-
-            {{-- RESULTS (hidden until generated) --}}
-            <div id="plan-nut-results" style="display:none"></div>
-
-        </div>{{-- /plan-nut-card --}}
-
-        {{-- Seasonal N Plan --}}
-        <div class="plan-card" style="margin-top:16px" id="plan-seasonal-card">
-            <div class="plan-card-header">
-                <div class="plan-card-title">
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-info)"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                    Seasonal N Plan
-                    <span class="db-info-icon" data-info="seasonal-n" tabindex="0" role="button" aria-label="About Seasonal N Plan">i</span>
-                </div>
-            </div>
-            <div id="plan-seasonal-body">
-                <div class="plan-empty">
-                    <div class="plan-empty-icon">🧪</div>
-                    <div class="plan-empty-title">Loading…</div>
-                </div>
-            </div>
-        </div>
-
-    </div>
-
-</div>{{-- /db-body --}}
 @endsection
 
 @section('overlays')
