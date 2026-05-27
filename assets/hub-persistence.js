@@ -1113,12 +1113,10 @@
         }
 
         // Fallback: if hub form was empty (no soil inputs), try latest sample from GAIP_SampleManager
-        console.log('[GilbaPersist] soilNutrition fallback check | hasSoilNutrition:', !!cache.computed.soilNutrition, '| hasSM:', !!global.GAIP_SampleManager, '| hasMlsnEngine:', typeof global.mlsnEngine === 'function');
         if (!cache.computed.soilNutrition && global.GAIP_SampleManager && typeof global.mlsnEngine === 'function') {
             try {
                 var _smSamples = typeof global.GAIP_SampleManager.getSamples === 'function'
                     ? global.GAIP_SampleManager.getSamples('soil') : null;
-                console.log('[GilbaPersist] getSamples(soil) result:', _smSamples ? _smSamples.length : 'null', 'activeSite:', global.GAIP_SampleManager.getActiveSiteId && global.GAIP_SampleManager.getActiveSiteId());
                 if (_smSamples) {
                     // Pick the most recent sample by date
                     var _smLatestId = null, _smLatestDate = '';

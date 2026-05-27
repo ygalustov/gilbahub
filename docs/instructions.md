@@ -93,7 +93,9 @@ Added a new tab for PGR & Irrigation analysis in the analysis view, enhancing us
 Introduced PGR application inputs in the legacy hub markup, allowing users to specify product details and application dates.
 Updated JavaScript to handle the new PGR analysis functionality, including data persistence and loading states.
 Enhanced the analysis router to initialize the PGR & Irrigation analysis component.
-**GH-25** Enhance hub and sample persistence with improved logging and site context handling. Added console logs for debugging sample fetching and ensured correct site context is maintained when restoring samples from persistence. Updated JavaScript to prevent overwriting site context if samples are already loaded.
+**GH-25** Fix Soil & Nutrition analysis page showing empty state despite samples existing in DB.
+Root cause: `hub-persistence.js` was calling `GAIP_SampleManager.restoreFromPersistence()` from localStorage 200ms after init, overwriting the correct `burns_gc` site context that `sample-persistence.js` had established via server fetch. Additionally `sample-persistence.js` was restoring `_currentSite = 'default'` instead of the PHP-injected active site UUID after server sync.
+Fix: `sample-persistence.js` now switches SampleManager to `GAIP_HUB_CONFIG.activeSiteId` after loading samples from server. `hub-persistence.js` now skips its own `restoreSamples` call when `_gaipSamplePersistenceReady` is already true, avoiding the site context overwrite.
 
 
 ## Backlog
