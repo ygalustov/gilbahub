@@ -1419,6 +1419,44 @@
             console.warn('[GilbaPersist] Failed to save waterBalance:', e);
         }
 
+        // PGR result for /analysis#pgr-irrigation tab
+        try {
+            var _pgr = global.GAIP_PGR_RESULT;
+            if (_pgr && !_pgr.error && _pgr.gdd) {
+                cache.computed.pgr = {
+                    applicationDate:  _pgr.applicationDate || null,
+                    daysSince:        _pgr.daysSinceApplication || 0,
+                    product: _pgr.product ? {
+                        name:            _pgr.product.name,
+                        type:            _pgr.product.type,
+                        activeIngredient: _pgr.product.activeIngredient,
+                    } : null,
+                    gdd: {
+                        accumulated:  _pgr.gdd.accumulated,
+                        threshold:    _pgr.gdd.threshold,
+                        remaining:    _pgr.gdd.remaining,
+                        progressPct:  _pgr.gdd.progressPct,
+                        days:         _pgr.gdd.days,
+                        base:         _pgr.gdd.base || _pgr.gdd.baseTemp,
+                        isOverdue:    !!_pgr.gdd.isOverdue,
+                    },
+                    effect: _pgr.effect ? {
+                        suppressionPct:       _pgr.effect.suppressionPct,
+                        phase:                _pgr.effect.phase,
+                        phaseDescription:     _pgr.effect.phaseDescription,
+                        reapplicationStatus:  _pgr.effect.reapplicationStatus,
+                        isInRebound:          !!_pgr.effect.isInRebound,
+                    } : null,
+                    recommendation: _pgr.recommendation || null,
+                    species: _pgr.species ? { key: _pgr.species.key, class: _pgr.species.class } : null,
+                    surface: _pgr.surface || null,
+                };
+                console.log('[GilbaPersist] Saved pgr to cache | phase:', _pgr.effect && _pgr.effect.phase, '| progressPct:', _pgr.gdd.progressPct);
+            }
+        } catch(e) {
+            console.warn('[GilbaPersist] Failed to save pgr:', e);
+        }
+
         return cache;
     }
 

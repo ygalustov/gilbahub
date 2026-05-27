@@ -173,7 +173,6 @@
             '.sn-context-val{font-weight:600;text-align:right}',
             /* empty state */
             '.sn-empty{padding:40px 20px;text-align:center;color:#5b6a65}',
-            '.sn-empty-icon{font-size:32px;margin-bottom:12px}',
             '.sn-empty-title{font-size:15px;font-weight:600;color:#374151;margin-bottom:6px}',
             '.sn-empty-body{font-size:13px;line-height:1.6;max-width:420px;margin:0 auto}',
         ].join('');
@@ -1050,8 +1049,7 @@
 
     function renderEmpty() {
         return '<div class="sn-empty">'+
-            '<div class="sn-empty-icon">🌱</div>'+
-            '<div class="sn-empty-title">No Soil & Nutrition Data</div>'+
+            '<div class="sn-empty-title">No Soil &amp; Nutrition Data</div>'+
             '<div class="sn-empty-body">Add soil test data and run the analysis to see results here.</div>'+
             '</div>';
     }

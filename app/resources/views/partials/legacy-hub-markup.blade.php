@@ -775,7 +775,46 @@
                     <input type="number" class="gaip-c3-cover" value="0">
                     <small style="color:#666;">For warm-season turf with cool-season overseed during transition</small>
                     
-                    <!-- PGR/DMI inputs removed — b35fix233. Engine reads from GAIP_LAST_PGR (spray log). Enter via Programmes tab. -->
+                    <!-- PGR application inputs -->
+                    <div style="margin-top:14px;padding:12px;background:#f5f3ff;border:1px solid #ddd6fe;border-radius:8px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                            <label class="gaip-module-toggle" style="margin:0">
+                                <input type="checkbox" class="gaip-enable-pgr">
+                                <span style="font-weight:600;color:#6d28d9">PGR Application</span>
+                            </label>
+                        </div>
+                        <div class="gaip-pgr-inputs" style="display:none">
+                            <label style="font-size:12px;color:#4b5563">Product</label>
+                            <select class="gaip-pgr-product" style="width:100%;margin-bottom:8px;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px">
+                                <option value="">-- Select product --</option>
+                                <optgroup label="Trinexapac-ethyl">
+                                    <option value="TE250">TE 250g/L (Primo)</option>
+                                    <option value="TE175">TE 175g/L (Amigo 175 / Marvel 175)</option>
+                                    <option value="TE120">TE 120g/L (Amigo 120 / Primo Maxx 120)</option>
+                                </optgroup>
+                                <optgroup label="Paclobutrazol">
+                                    <option value="PBZ200">Paclobutrazol 200g/L</option>
+                                    <option value="PBZ250">Paclobutrazol 250g/L</option>
+                                </optgroup>
+                                <optgroup label="Ethephon">
+                                    <option value="ETH">Ethephon 480g/L</option>
+                                </optgroup>
+                            </select>
+                            <label style="font-size:12px;color:#4b5563">Last application date</label>
+                            <input type="date" class="gaip-pgr-date" style="width:100%;margin-bottom:8px;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px">
+                            <label style="font-size:12px;color:#4b5563">Rate (L/ha)</label>
+                            <input type="number" step="0.1" class="gaip-pgr-rate" placeholder="e.g. 0.4" style="width:100%;padding:5px 8px;border:1px solid #d1d5db;border-radius:4px;font-size:13px">
+                        </div>
+                    </div>
+                    <script>
+                    (function(){
+                        var cb = document.querySelector('.gaip-enable-pgr');
+                        var inputs = document.querySelector('.gaip-pgr-inputs');
+                        if (!cb || !inputs) return;
+                        cb.addEventListener('change', function(){ inputs.style.display = cb.checked ? 'block' : 'none'; });
+                        if (cb.checked) inputs.style.display = 'block';
+                    })();
+                    </script>
 
 
                     <div class="gaip-note" style="margin-top:12px; padding-top:8px; border-top:1px solid #ddd;">
