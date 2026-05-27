@@ -25,7 +25,7 @@
 .rp-btn-primary:hover:not(:disabled) { opacity: .88; }
 .rp-btn-secondary:hover:not(:disabled) { background: var(--gaip-surface-hover); }
 .rp-notice { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-radius: 8px; background: var(--gaip-warning-bg,#fff8e7); border: 1px solid var(--gaip-warning-border,#f5c842); font-size: 12px; color: var(--gaip-text-secondary); margin-bottom: 16px; }
-.rp-branding-toggle { font-size: 12px; color: var(--gaip-accent); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 12px; }
+.rp-branding-toggle { font-size: 12px; color: var(--gaip-accent); cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-bottom: 12px; background: none; border: none; padding: 0; font-family: inherit; }
 .rp-branding-panel { display: none; padding: 14px; background: var(--gaip-surface-muted); border-radius: 8px; margin-bottom: 12px; }
 .rp-branding-panel.open { display: block; }
 .rp-branding-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -63,16 +63,14 @@
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;margin-top:1px">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
-            <div>No analysis cache found. Export will work once an analysis has been run on this site.
-                <a href="{{ route('hub') }}" style="color:var(--gaip-accent);font-weight:600"> Open Hub →</a>
-            </div>
+            <div>No analysis found for this site. Click <strong>Re-run</strong> in the top bar to generate one, then return here to export.</div>
         </div>
         @endif
 
         {{-- ─── BRANDING (shared across all Word exports) ─── --}}
-        <a class="rp-branding-toggle" onclick="document.getElementById('rp-branding').classList.toggle('open');this.textContent=document.getElementById('rp-branding').classList.contains('open')?'▲ Hide branding settings':'▼ Branding settings'">
+        <button type="button" class="rp-branding-toggle" onclick="document.getElementById('rp-branding').classList.toggle('open');this.textContent=document.getElementById('rp-branding').classList.contains('open')?'▲ Hide branding settings':'▼ Branding settings'">
             ▼ Branding settings
-        </a>
+        </button>
         <div id="rp-branding" class="rp-branding-panel">
             <div class="rp-branding-row">
                 <span class="rp-branding-label">Organisation</span>
