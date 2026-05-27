@@ -41,18 +41,18 @@
         debug: false,
         containerId: 'gaip-outcome-capture',
         moduleLabels: {
-            soil:    { icon: '🧪', label: 'Soil & Nutrition' },
-            disease: { icon: '🦠', label: 'Disease Risk' },
-            pgr:     { icon: '📐', label: 'PGR Timing' },
-            stress:  { icon: '🌡️', label: 'Stress Forecast' },
-            water:   { icon: '💧', label: 'Water Quality' },
-            climate: { icon: '☁️', label: 'Climate' }
+            soil:    { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8l-5-5H9zm0 0v5h10"/></svg>', label: 'Soil & Nutrition' },
+            disease: { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L3 8v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V8z"/></svg>', label: 'Disease Risk' },
+            pgr:     { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20V4M5 11l7-7 7 7"/></svg>', label: 'PGR Timing' },
+            stress:  { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>', label: 'Stress Forecast' },
+            water:   { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2c0 0-7 9-7 13a7 7 0 0014 0c0-4-7-13-7-13z"/></svg>', label: 'Water Quality' },
+            climate: { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>', label: 'Climate' }
         },
         moduleOrder: ['disease', 'stress', 'pgr', 'soil', 'water', 'climate'],
         qualitativeOptions: [
-            { value: 'better_than_expected', label: 'Better', icon: '✅' },
-            { value: 'as_expected',          label: 'As predicted', icon: '🎯' },
-            { value: 'worse_than_expected',  label: 'Worse',  icon: '⚠️' }
+            { value: 'better_than_expected', label: 'Better',       icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#059669" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' },
+            { value: 'as_expected',          label: 'As predicted', icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#6366f1" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>' },
+            { value: 'worse_than_expected',  label: 'Worse',        icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#d97706" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>' }
         ],
         actionOptions: [
             { value: 'followed',       label: 'Followed recommendation' },
@@ -278,7 +278,7 @@
 '.gaip-oc-summary.gaip-oc-empty {',
 '  background:var(--gaip-good-bg); border-color:var(--gaip-good-bg); cursor:default;',
 '}',
-'.gaip-oc-summary-icon { font-size:20px; flex-shrink:0; }',
+'.gaip-oc-summary-icon { flex-shrink:0; display:flex; align-items:center; }',
 '.gaip-oc-summary-text { flex:1; font-size:14px; font-weight:500; color:#92400e; }',
 '.gaip-oc-summary.gaip-oc-empty .gaip-oc-summary-text { color:#166534; }',
 '.gaip-oc-summary-count {',
@@ -339,7 +339,7 @@
 '  display:flex; align-items:center; gap:8px; flex-wrap:wrap;',
 '  padding:12px 16px;',
 '}',
-'.gaip-oc-module-icon { font-size:16px; }',
+'.gaip-oc-module-icon { display:flex; align-items:center; flex-shrink:0; }',
 '.gaip-oc-module-label { font-size:14px; font-weight:600; color:var(--gaip-text); }',
 '.gaip-oc-module-count {',
 '  font-size:12px; color:var(--gaip-text-secondary); font-weight:400; margin-right:auto;',
@@ -428,11 +428,11 @@
 
         if (count === 0) {
             bar.innerHTML =
-                '<span class="gaip-oc-summary-icon">✅</span>' +
+                '<span class="gaip-oc-summary-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#059669" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' +
                 '<span class="gaip-oc-summary-text">No predictions awaiting review</span>';
         } else {
             bar.innerHTML =
-                '<span class="gaip-oc-summary-icon">📋</span>' +
+                '<span class="gaip-oc-summary-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#92400e" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg></span>' +
                 '<span class="gaip-oc-summary-text">' +
                     count + ' prediction' + (count !== 1 ? 's' : '') +
                     ' ready for outcome review' +
@@ -452,8 +452,9 @@
 
         bar.innerHTML =
             '<span class="gaip-oc-quick-label">Quick review:</span>' +
-            '<button class="gaip-oc-quick-btn primary" id="gaip-oc-all-expected">' +
-                '🎯 All tracked as expected' +
+            '<button class="gaip-oc-quick-btn primary" id="gaip-oc-all-expected" style="display:flex;align-items:center;gap:6px">' +
+                '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>' +
+                'All tracked as expected' +
             '</button>' +
             '<button class="gaip-oc-quick-btn" id="gaip-oc-dismiss-all">' +
                 'Skip all for now' +
@@ -472,7 +473,7 @@
     }
 
     function buildModuleGroup(moduleName, predictions) {
-        var modConfig = CONFIG.moduleLabels[moduleName] || { icon: '📊', label: moduleName };
+        var modConfig = CONFIG.moduleLabels[moduleName] || { icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>', label: moduleName };
         var group = document.createElement('div');
         group.className = 'gaip-oc-module';
         group.id = 'gaip-oc-module-' + moduleName;
@@ -781,7 +782,7 @@
         if (summary) {
             summary.className = 'gaip-oc-summary gaip-oc-empty';
             summary.innerHTML =
-                '<span class="gaip-oc-summary-icon">✅</span>' +
+                '<span class="gaip-oc-summary-icon"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#059669" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg></span>' +
                 '<span class="gaip-oc-summary-text">All predictions reviewed</span>';
             summary.removeEventListener('click', toggleExpanded);
         }

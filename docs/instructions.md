@@ -115,7 +115,7 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-34** Refactor Plan view layout and UI components. Updated styles for tabs and headers, introduced a new KPI card structure, and enhanced JavaScript functions for rendering plan details. Improved user experience with a more organized layout and dynamic content loading.
 **GH-35** Enhance report views with improved messaging and UI elements. Updated export view to clarify analysis requirements and changed branding toggle from a link to a button for better accessibility. Refined forensic and scenarios views with updated loading messages and styles for improved user experience.
 **GH-36** Refactor UI elements across multiple views to enhance user experience. Removed outdated icons and replaced them with SVGs for better scalability and accessibility. Updated loading messages and styles in the dashboard, data, plan, and report views to improve clarity and visual consistency.
-
+**GH-37** Refactor UI elements in outcome capture and scenario reports. Updated labels and icons for improved clarity and accessibility, replacing outdated icons with SVGs. Enhanced CSS styles for better visual consistency and user experience across various components.
 
 
 

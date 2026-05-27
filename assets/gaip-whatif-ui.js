@@ -90,7 +90,7 @@
                 label: 'Grass Species', 
                 type: 'select', 
                 options: [
-                    { value: '', label: ', No change,' },
+                    { value: '', label: 'No change' },
                     { value: 'Perennial Ryegrass', label: 'Perennial Ryegrass' },
                     { value: 'Kikuyu', label: 'Kikuyu' },
                     { value: 'Couch', label: 'Couch (Bermuda)' },
@@ -110,7 +110,7 @@
                 label: 'PGR Product', 
                 type: 'select', 
                 options: [
-                    { value: '', label: ', None,' },
+                    { value: '', label: 'None' },
                     { value: 'TE250', label: 'Primo 250EC (TE 250g/L)' },
                     { value: 'TE175', label: 'Indigo Amigo (TE 175g/L)' },
                     { value: 'TE120', label: 'Indigo Amigo (TE 120g/L)' },
@@ -170,7 +170,7 @@
     const PRESETS = {
         // Water Quality Scenarios
         poorWater: {
-            name: '💧 Poor Water Quality',
+            name: 'Poor Water Quality',
             description: 'Simulate switching to saline/high sodium water',
             changes: {
                 'water.ecw': 2.5,
@@ -179,7 +179,7 @@
             }
         },
         goodWater: {
-            name: '💧 Good Water Quality',
+            name: 'Good Water Quality',
             description: 'Simulate switching to better quality water',
             changes: {
                 'water.ecw': 0.5,
@@ -188,7 +188,7 @@
             }
         },
         highBicarbWater: {
-            name: '💧 High Bicarbonate Water',
+            name: 'High Bicarbonate Water',
             description: 'Test impact of high bicarb recycled water',
             changes: {
                 'water.ecw': 1.2,
@@ -203,7 +203,7 @@
         
         // LED Scenarios
         addLED: {
-            name: '💡 Add LED Grow Lights',
+            name: 'Add LED Grow Lights',
             description: 'Simulate adding LED supplemental lighting',
             changes: {
                 'turf.ledPPFD': 600,
@@ -211,7 +211,7 @@
             }
         },
         maxLED: {
-            name: '💡 Maximum LED Output',
+            name: 'Maximum LED Output',
             description: 'Full LED supplementation for severe shade',
             changes: {
                 'turf.ledPPFD': 1000,
@@ -219,7 +219,7 @@
             }
         },
         reduceLED: {
-            name: '💡 Remove LED Lights',
+            name: 'Remove LED Lights',
             description: 'See impact of removing LED supplementation',
             changes: {
                 'turf.ledPPFD': 0,
@@ -229,7 +229,7 @@
         
         // Traffic Scenarios
         heavyTraffic: {
-            name: '🏟️ Heavy Match Schedule',
+            name: 'Heavy Match Schedule',
             description: 'Increase match frequency',
             changes: {
                 'traffic.matchesPerWeek': 3,
@@ -237,7 +237,7 @@
             }
         },
         lightTraffic: {
-            name: '🏟️ Reduced Schedule',
+            name: 'Reduced Schedule',
             description: 'Decrease match frequency',
             changes: {
                 'traffic.matchesPerWeek': 1,
@@ -245,7 +245,7 @@
             }
         },
         restPeriod: {
-            name: '🏟️ Recovery Period',
+            name: 'Recovery Period',
             description: 'Simulate a rest period with minimal traffic',
             changes: {
                 'traffic.matchesPerWeek': 0,
@@ -257,7 +257,7 @@
         // Shade Scenarios
         // Note: SVF (Sky View Factor) = 1.0 is full sun, 0.5 is heavily shaded
         improveShade: {
-            name: '🌳 Reduce Shade (Tree Pruning)',
+            name: 'Reduce Shade (Tree Pruning)',
             description: 'Simulate removing shade - sets SVF to 0.95 (near full sun)',
             changes: {
                 'shade.svf': 0.95,          // Near full sun
@@ -269,7 +269,7 @@
             }
         },
         worseShade: {
-            name: '🌳 Increased Shade',
+            name: 'Increased Shade',
             description: 'Test impact of new structures - 50% sky visible',
             changes: {
                 'shade.svf': 0.5,
@@ -283,14 +283,14 @@
         
         // Nutrition Scenarios
         increaseN: {
-            name: '🌱 Increase N Program (+50%)',
+            name: 'Increase N Program (+50%)',
             description: 'Test higher nitrogen rates',
             changes: {
                 'turf.nProgramKgHaYr': 250
             }
         },
         decreaseN: {
-            name: '🌱 Reduce N Program (-30%)',
+            name: 'Reduce N Program (-30%)',
             description: 'Test lower nitrogen rates',
             changes: {
                 'turf.nProgramKgHaYr': 120
@@ -299,7 +299,7 @@
         
         // PGR Scenarios - NEW
         addPGR: {
-            name: '🌿 Add PGR Program',
+            name: 'Add PGR Program',
             description: 'Start Primo 250EC program at standard rate',
             changes: {
                 'pgr.product': 'TE250',
@@ -307,7 +307,7 @@
             }
         },
         removePGR: {
-            name: '🌿 Remove PGR',
+            name: 'Remove PGR',
             description: 'See impact of stopping PGR applications',
             changes: {
                 'pgr.product': '',
@@ -317,7 +317,7 @@
         
         // Combined Scenarios
         winterStress: {
-            name: '❄️ Winter Stress Scenario',
+            name: 'Winter Stress Scenario',
             description: 'Simulate challenging winter conditions',
             changes: {
                 'shade.svf': 0.6,
@@ -326,7 +326,7 @@
             }
         },
         summerPeak: {
-            name: '☀️ Summer Peak Usage',
+            name: 'Summer Peak Usage',
             description: 'Heavy summer schedule with good conditions',
             changes: {
                 'traffic.matchesPerWeek': 4,
@@ -337,35 +337,35 @@
         
         // Species Comparison Scenarios
         switchToKikuyu: {
-            name: '🌿 Switch to Kikuyu',
+            name: 'Switch to Kikuyu',
             description: 'Compare performance with Kikuyu grass',
             changes: {
                 'turf.grassSpecies': 'Kikuyu'
             }
         },
         switchToCouch: {
-            name: '🌿 Switch to Couch',
+            name: 'Switch to Couch',
             description: 'Compare performance with Couch/Bermuda',
             changes: {
                 'turf.grassSpecies': 'Couch'
             }
         },
         switchToRyegrass: {
-            name: '🌿 Switch to Ryegrass',
+            name: 'Switch to Ryegrass',
             description: 'Compare performance with Perennial Ryegrass',
             changes: {
                 'turf.grassSpecies': 'Perennial Ryegrass'
             }
         },
         switchToZoysia: {
-            name: '🌿 Switch to Zoysia',
+            name: 'Switch to Zoysia',
             description: 'Compare performance with Zoysia grass',
             changes: {
                 'turf.grassSpecies': 'Zoysia'
             }
         },
         switchToBuffalo: {
-            name: '🌿 Switch to Buffalo',
+            name: 'Switch to Buffalo',
             description: 'Compare performance with Buffalo/St. Augustine',
             changes: {
                 'turf.grassSpecies': 'Buffalo'
@@ -451,19 +451,19 @@
         let html = '<div class="gaip-baseline-details" style="font-size: 12px; color: var(--gaip-text);">';
         
         if (state.turf?.grassSpecies) {
-            html += `<div>🌱 Species: ${state.turf.grassSpecies}</div>`;
+            html += `<div>Species: ${state.turf.grassSpecies}</div>`;
         }
         if (state.water?.ecw !== undefined) {
-            html += `<div>💧 Water EC: ${state.water.ecw} dS/m</div>`;
+            html += `<div>Water EC: ${state.water.ecw} dS/m</div>`;
         }
         if (state.climate?.temperature !== undefined) {
-            html += `<div>🌡️ Temp: ${state.climate.temperature}°C</div>`;
+            html += `<div>Temp: ${state.climate.temperature}°C</div>`;
         }
         if (state.shade?.svf !== undefined) {
-            html += `<div>☀️ SVF: ${(state.shade.svf * 100).toFixed(0)}%</div>`;
+            html += `<div>SVF: ${(state.shade.svf * 100).toFixed(0)}%</div>`;
         }
         if (state.traffic?.matchesPerWeek !== undefined) {
-            html += `<div>🏟️ Matches: ${state.traffic.matchesPerWeek}/week</div>`;
+            html += `<div>Matches: ${state.traffic.matchesPerWeek}/week</div>`;
         }
         
         if (html === '<div class="gaip-baseline-details" style="font-size: 12px; color: var(--gaip-text);">') {
@@ -825,7 +825,7 @@
             console.error('[WhatIfUI] Cannot compare - missing state');
             const container = document.getElementById('gaip-whatif-results');
             if (container) {
-                container.innerHTML = '<div class="gaip-results-error"><strong>❌ Cannot Compare</strong><p>Please run analysis first to establish baseline state.</p></div>';
+                container.innerHTML = '<div class="gaip-results-error"><strong>Cannot Compare</strong><p>Please run analysis first to establish baseline state.</p></div>';
             }
             return;
         }
@@ -1276,13 +1276,13 @@
             });
             
             const categoryLabels = {
-                water: '💧 Water Quality',
-                light: '☀️ Light & Shade',
-                traffic: '🏟️ Traffic',
-                turf: '🌱 Turf',
-                pgr: '🧪 PGR',
-                nutrition: '🥬 Nutrition',
-                soil: '🪨 Soil'
+                water: 'Water Quality',
+                light: 'Light & Shade',
+                traffic: 'Traffic',
+                turf: 'Turf',
+                pgr: 'PGR',
+                nutrition: 'Nutrition',
+                soil: 'Soil'
             };
             
             html += '<table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
@@ -1323,7 +1323,7 @@
             
             // Add impact summary
             html += '<div style="margin-top: 16px; padding: 12px; background: var(--gaip-info-bg); border-radius: 8px; border-left: 4px solid #0ea5e9;">';
-            html += '<strong style="color: #0369a1;">💡 Impact Assessment</strong>';
+            html += '<strong style="color: #0369a1;">Impact Assessment</strong>';
             html += '<p style="margin: 8px 0 0 0; font-size: 12px; color: var(--gaip-text);">';
             
             // Generate simple impact statements
@@ -1378,12 +1378,12 @@
         return `
             <div class="${CONFIG.panelClass}">
                 <style>${getStyles()}</style>
-                <h3 class="gaip-whatif-title">🔄 What-If Scenario Analysis</h3>
+                <h3 class="gaip-whatif-title">What-If Scenario Analysis</h3>
                 <p class="gaip-whatif-subtitle">Compare how changes affect turf performance</p>
                 
                 <div class="gaip-whatif-sections">
                     <div class="gaip-whatif-section gaip-baseline-section">
-                        <h4>📍 Current Baseline</h4>
+                        <h4>Current Baseline</h4>
                         <p class="gaip-section-note">Based on your current analysis inputs</p>
                         <div id="gaip-baseline-summary"></div>
                     </div>
@@ -1391,14 +1391,14 @@
                     <div class="gaip-whatif-arrow">→</div>
                     
                     <div class="gaip-whatif-section gaip-scenario-section">
-                        <h4>🎯 Scenario B</h4>
+                        <h4>Scenario B</h4>
                         <p class="gaip-section-note">Modify parameters below or use presets</p>
                         
                         ${renderPresets()}
                         ${renderParameterControls()}
                         
                         <button class="gaip-run-comparison-btn" onclick="GAIP_WhatIfUI.runComparison()">
-                            ▶️ Compare Scenarios
+                            Compare Scenarios
                         </button>
                     </div>
                 </div>
@@ -1410,23 +1410,71 @@
         `;
     }
 
+    var PRESET_GROUPS = [
+        {
+            label: 'Water Quality', color: '#0ea5e9',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2c0 0-7 9-7 13a7 7 0 0014 0c0-4-7-13-7-13z"/></svg>',
+            keys: ['poorWater', 'goodWater', 'highBicarbWater']
+        },
+        {
+            label: 'Light & LED', color: '#f59e0b',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><circle cx="12" cy="12" r="4"/><path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>',
+            keys: ['addLED', 'maxLED', 'reduceLED']
+        },
+        {
+            label: 'Traffic', color: '#10b981',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="3" y="11" width="18" height="10" rx="2"/><path stroke-linecap="round" d="M7 11V7a5 5 0 0110 0v4"/></svg>',
+            keys: ['heavyTraffic', 'lightTraffic', 'restPeriod']
+        },
+        {
+            label: 'Shade', color: '#6b7280',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1M5 8h14M7 8c0 5 3 9 5 9s5-4 5-9"/><path stroke-linecap="round" d="M12 17v4M9 21h6"/></svg>',
+            keys: ['improveShade', 'worseShade']
+        },
+        {
+            label: 'Nutrition', color: '#22c55e',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6 8 4 13 4 16a8 8 0 0016 0c0-3-2-8-8-14z"/><path stroke-linecap="round" d="M12 22V12"/></svg>',
+            keys: ['increaseN', 'decreaseN']
+        },
+        {
+            label: 'PGR', color: '#8b5cf6',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20V4M5 11l7-7 7 7"/></svg>',
+            keys: ['addPGR', 'removePGR']
+        },
+        {
+            label: 'Combined', color: '#64748b',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><rect x="2" y="2" width="9" height="9" rx="1"/><rect x="13" y="2" width="9" height="9" rx="1"/><rect x="2" y="13" width="9" height="9" rx="1"/><rect x="13" y="13" width="9" height="9" rx="1"/></svg>',
+            keys: ['winterStress', 'summerPeak']
+        },
+        {
+            label: 'Species', color: '#84cc16',
+            icon: '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 22V12c0-4-4-8-8-8M12 12c0-4 4-8 8-8"/></svg>',
+            keys: ['switchToKikuyu', 'switchToCouch', 'switchToRyegrass', 'switchToZoysia', 'switchToBuffalo']
+        },
+    ];
+
     function renderPresets() {
         let html = '<div class="gaip-presets">';
-        html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">';
-        html += '<strong>Quick Presets:</strong>';
-        html += '<button class="gaip-reset-btn" onclick="GAIP_WhatIfUI.resetToBaseline()" title="Clear all changes and reset to baseline">Reset</button>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+        html += '<strong>Quick Presets</strong>';
+        html += '<button class="gaip-reset-btn" onclick="GAIP_WhatIfUI.resetToBaseline()" title="Clear all changes and reset to baseline">Reset to Baseline</button>';
         html += '</div>';
-        html += '<div class="gaip-preset-grid">';
-        
-        for (const [key, preset] of Object.entries(PRESETS)) {
-            html += `
-                <button class="gaip-preset-btn" onclick="GAIP_WhatIfUI.applyPreset('${key}')" title="${preset.description}">
-                    ${preset.name}
-                </button>
-            `;
+
+        for (const group of PRESET_GROUPS) {
+            html += '<div class="gaip-preset-group">';
+            html += '<div class="gaip-preset-group-label" style="color:' + group.color + '">';
+            html += '<span style="display:flex;align-items:center;gap:5px;color:' + group.color + '">' + group.icon + group.label + '</span>';
+            html += '</div>';
+            html += '<div class="gaip-preset-group-btns">';
+            for (const key of group.keys) {
+                const preset = PRESETS[key];
+                if (!preset) continue;
+                html += '<button class="gaip-preset-btn" style="border-color:' + group.color + '33;color:inherit" onclick="GAIP_WhatIfUI.applyPreset(\'' + key + '\')" title="' + preset.description + '">' + preset.name + '</button>';
+            }
+            html += '</div></div>';
         }
-        
-        html += '</div></div>';
+
+        html += '</div>';
         return html;
     }
 
@@ -1457,7 +1505,7 @@
                         html += `<option value="${option.value}">${option.label}</option>`;
                     } else {
                         // Legacy format: array of strings
-                        const displayVal = option || ', No change,';
+                        const displayVal = option || 'No change';
                         html += `<option value="${option}">${displayVal}</option>`;
                     }
                 }
@@ -1471,7 +1519,7 @@
                                min="${config.min}" 
                                max="${config.max}" 
                                step="${config.step}"
-                               placeholder=","
+                               placeholder=""
                                onchange="GAIP_WhatIfUI.updateParameter('${path}', this.value)">`;
                 
                 if (config.unit) {
@@ -1535,7 +1583,7 @@
         const confColors = {
             'high': { bg: 'rgba(5, 150, 105, 0.15)', border: '#059669', icon: '✓', label: 'High Confidence' },
             'medium': { bg: 'rgba(217, 119, 6, 0.15)', border: '#d97706', icon: '◐', label: 'Medium Confidence' },
-            'low': { bg: 'rgba(220, 38, 38, 0.15)', border: '#dc2626', icon: '⚠', label: 'Low Confidence' },
+            'low': { bg: 'rgba(220, 38, 38, 0.15)', border: '#dc2626', icon: '!', label: 'Low Confidence' },
             'indicative': { bg: 'rgba(107, 114, 128, 0.15)', border: 'var(--gaip-text-secondary)', icon: '○', label: 'Indicative Only' },
             'insufficient': { bg: 'rgba(107, 114, 128, 0.15)', border: 'var(--gaip-text-secondary)', icon: '?', label: 'Insufficient Data' }
         };
@@ -1578,7 +1626,7 @@
             html += `<div style="font-size: 12px; color: #d97706; margin-top: 4px;">`;
             warnings.forEach(w => {
                 const warnText = typeof w === 'string' ? w : (w.message || w.reason || String(w));
-                html += `<div>⚠ ${warnText}</div>`;
+                html += `<div>Warning: ${warnText}</div>`;
             });
             html += `</div>`;
         }
@@ -1588,7 +1636,7 @@
             html += `<div style="font-size: 12px; color: #dc2626; margin-top: 4px;">`;
             blockers.forEach(b => {
                 const blockText = typeof b === 'string' ? b : (b.message || b.reason || String(b));
-                html += `<div>⛔ ${blockText}</div>`;
+                html += `<div>Blocked: ${blockText}</div>`;
             });
             html += `</div>`;
         }
@@ -1621,7 +1669,7 @@
         if (!comparison || comparison.error || !comparison.scenarioA || !comparison.scenarioB) {
             return `
                 <div class="gaip-results-error">
-                    <strong>❌ Comparison Failed</strong>
+                    <strong>Comparison Failed</strong>
                     <p>${comparison?.error || 'Unable to run comparison - check console for details'}</p>
                 </div>
             `;
@@ -1642,13 +1690,13 @@
                 <!-- Summary Cards -->
                 <div class="gaip-results-summary">
                     <div class="gaip-recommendation ${comp.concerns.length === 0 ? 'positive' : comp.improvements.length === 0 ? 'negative' : 'neutral'}">
-                        <strong>📋 Recommendation:</strong> ${comp.recommendation}
+                        <strong>Recommendation:</strong> ${comp.recommendation}
                     </div>
                 </div>
                 
                 <!-- Delta Table -->
                 <div class="gaip-delta-table">
-                    <h4>📊 Key Metric Changes</h4>
+                    <h4>Key Metric Changes</h4>
                     <table>
                         <thead>
                             <tr>
@@ -1660,7 +1708,7 @@
                         </thead>
                         <tbody>
                             <!-- Water Quality -->
-                            <tr class="gaip-section-header-row"><td colspan="4">💧 Water Quality</td></tr>
+                            ${renderSectionHead('Water Quality', 'water')}
                             ${renderDeltaRow('Water EC', 
                                 rA.water?.ecw?.toFixed(1) || '0',
                                 rB.water?.ecw?.toFixed(1) || '0',
@@ -1679,7 +1727,7 @@
                                 Math.round(deltas.water?.riskScore || 0), '', false)}
                             
                             <!-- Light/Shade -->
-                            <tr class="gaip-section-header-row"><td colspan="4">☀️ Light & Shade</td></tr>
+                            ${renderSectionHead('Light & Shade', 'light')}
                             ${renderDeltaRow('Total DLI', 
                                 rA.shade?.DLI_total?.toFixed(1) || '-',
                                 rB.shade?.DLI_total?.toFixed(1) || '-',
@@ -1694,7 +1742,7 @@
                                 (deltas.shade?.deficit || 0).toFixed(1), ' mol/m²', false)}
                             
                             <!-- Disease -->
-                            <tr class="gaip-section-header-row"><td colspan="4">🦠 Disease Risk</td></tr>
+                            ${renderSectionHead('Disease Risk', 'disease')}
                             ${renderDeltaRow('Overall Score', 
                                 rA.disease?.overallScore || 0,
                                 rB.disease?.overallScore || 0,
@@ -1709,7 +1757,7 @@
                                 '', '', true)}
                             
                             <!-- Traffic/Wear -->
-                            <tr class="gaip-section-header-row"><td colspan="4">🏟️ Traffic & Recovery</td></tr>
+                            ${renderSectionHead('Traffic & Recovery', 'traffic')}
                             ${renderDeltaRow('Total Load', 
                                 rA.traffic?.totalLoad?.toFixed(1) || '0',
                                 rB.traffic?.totalLoad?.toFixed(1) || '0',
@@ -1728,7 +1776,7 @@
                                 '', '', true)}
                             
                             <!-- Irrigation -->
-                            <tr class="gaip-section-header-row"><td colspan="4">💦 Irrigation</td></tr>
+                            ${renderSectionHead('Irrigation', 'irrig')}
                             ${renderDeltaRow('Weekly Need', 
                                 Math.round(rA.irrigation?.weeklyNeed || 0),
                                 Math.round(rB.irrigation?.weeklyNeed || 0),
@@ -1740,7 +1788,7 @@
                             
                             <!-- PGR -->
                             ${rA.pgr?.active || rB.pgr?.active ? `
-                            <tr class="gaip-section-header-row"><td colspan="4">🌱 PGR</td></tr>
+                            ${renderSectionHead('PGR', 'pgr')}
                             ${renderDeltaRow('Effect Remaining', 
                                 rA.pgr?.effectRemaining || 0,
                                 rB.pgr?.effectRemaining || 0,
@@ -1752,7 +1800,7 @@
                             ` : ''}
                             
                             <!-- N Optimization -->
-                            <tr class="gaip-section-header-row"><td colspan="4">🧪 Nitrogen</td></tr>
+                            ${renderSectionHead('Nitrogen', 'nitrogen')}
                             ${renderDeltaRow('Recommended N', 
                                 rA.nOpt?.recommendedAnnual || 0,
                                 rB.nOpt?.recommendedAnnual || 0,
@@ -1763,7 +1811,7 @@
                                 '', '', true)}
                             
                             <!-- Stress Trajectory -->
-                            <tr class="gaip-section-header-row"><td colspan="4">📈 14-Day Outlook</td></tr>
+                            ${renderSectionHead('14-Day Outlook', 'outlook')}
                             ${renderDeltaRow('Peak Stress', 
                                 rA.stressTrajectory?.peakScore || 0,
                                 rB.stressTrajectory?.peakScore || 0,
@@ -1785,16 +1833,16 @@
                 <div class="gaip-changes-lists">
                     ${comp.improvements.length > 0 ? `
                     <div class="gaip-improvements">
-                        <h4>✅ Improvements</h4>
+                        <h4 style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#059669" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg> Improvements</h4>
                         <ul>
                             ${comp.improvements.map(i => `<li>${i}</li>`).join('')}
                         </ul>
                     </div>
                     ` : ''}
-                    
+
                     ${comp.concerns.length > 0 ? `
                     <div class="gaip-concerns">
-                        <h4>⚠️ Concerns</h4>
+                        <h4 style="display:flex;align-items:center;gap:6px"><svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="#d97706" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4M12 17h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg> Concerns</h4>
                         <ul>
                             ${comp.concerns.map(c => `<li>${c}</li>`).join('')}
                         </ul>
@@ -1804,6 +1852,24 @@
                 ` : ''}
             </div>
         `;
+    }
+
+    var METRIC_CATS = {
+        water:    { color: '#0ea5e9', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2c0 0-7 9-7 13a7 7 0 0014 0c0-4-7-13-7-13z"/></svg>' },
+        light:    { color: '#f59e0b', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3.5"/><path stroke-linecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>' },
+        disease:  { color: '#ef4444', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2L3 8v6c0 5 4 8.5 9 10 5-1.5 9-5 9-10V8z"/></svg>' },
+        traffic:  { color: '#10b981', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="10" rx="2"/><path stroke-linecap="round" d="M7 11V7a5 5 0 0110 0v4"/></svg>' },
+        irrig:    { color: '#06b6d4', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>' },
+        pgr:      { color: '#8b5cf6', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 20V4M5 11l7-7 7 7"/></svg>' },
+        nitrogen: { color: '#22c55e', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8l-5-5H9zm0 0v5h10"/></svg>' },
+        outlook:  { color: '#6366f1', icon: '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path stroke-linecap="round" d="M16 2v4M8 2v4M3 10h18"/><path stroke-linecap="round" stroke-linejoin="round" d="M8 14l3 3 5-5"/></svg>' },
+    };
+
+    function renderSectionHead(label, catKey) {
+        var cat = METRIC_CATS[catKey] || { color: '#6b7280', icon: '' };
+        return '<tr><td colspan="4" style="padding:7px 12px;background:' + cat.color + '1a;border-left:3px solid ' + cat.color + ';color:' + cat.color + ';font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-bottom:none">' +
+            '<span style="display:flex;align-items:center;gap:6px">' + cat.icon + label + '</span>' +
+            '</td></tr>';
     }
 
     function renderDeltaRow(label, valA, valB, delta, unit, higherIsBetter) {
@@ -1892,34 +1958,49 @@
             .gaip-presets {
                 margin-bottom: 16px;
             }
-            
+
             .gaip-presets strong {
                 display: block;
                 font-size: 12px;
                 color: var(--gaip-text);
                 margin-bottom: 8px;
             }
-            
-            .gaip-preset-grid {
+
+            .gaip-preset-group {
+                margin-bottom: 10px;
+            }
+
+            .gaip-preset-group-label {
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: .05em;
+                text-transform: uppercase;
+                margin-bottom: 5px;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+
+            .gaip-preset-group-btns {
                 display: flex;
                 flex-wrap: wrap;
-                gap: 6px;
+                gap: 5px;
             }
-            
+
             .gaip-preset-btn {
-                background: rgba(99, 102, 241, 0.2);
-                border: 1px solid rgba(99, 102, 241, 0.3);
-                color: #a5b4fc;
-                padding: 6px 10px;
-                border-radius: 6px;
+                background: rgba(255,255,255,0.06);
+                border: 1px solid rgba(255,255,255,0.15);
+                color: inherit;
+                padding: 5px 9px;
+                border-radius: 5px;
                 font-size: 11px;
                 cursor: pointer;
-                transition: all 0.2s;
+                transition: background 0.15s, border-color 0.15s;
+                font-family: inherit;
             }
-            
+
             .gaip-preset-btn:hover {
-                background: rgba(99, 102, 241, 0.4);
-                border-color: rgba(99, 102, 241, 0.6);
+                background: rgba(255,255,255,0.13);
             }
             
             .gaip-reset-btn {
@@ -2113,14 +2194,9 @@
                 color: #fbbf24;
             }
             
-            .gaip-section-header-row td {
-                background: rgba(99, 102, 241, 0.15);
-                color: #a5b4fc !important;
-                font-weight: 600;
-                font-size: 12px;
-                padding: 6px 12px !important;
-                border-bottom: none !important;
-            }
+            .gaip-preset-group { margin-bottom: 12px; }
+            .gaip-preset-group-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 5px; }
+            .gaip-preset-group-btns { display: flex; flex-wrap: wrap; gap: 5px; }
             
             .gaip-changes-lists {
                 display: grid;
