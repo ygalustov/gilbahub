@@ -88,7 +88,13 @@ New pages (/reports/*):
 /reports/scenarios — Scenario Comparison: mounts gaip-whatif-ui.js into new light-theme UI with how-to hint; restyled с reports-scenarios-override.css
 /reports/accuracy — Forecast Accuracy: server-side confidence badges, Pending Outcomes (outcome-capture-ui.js), Accuracy History chart (benchmark-chart.js + Chart.js + date adapter)
 **GH-23** Enhance PageController and Plan view with new data handling and UI updates. Added saved location data to the topbar and integrated GAIP configuration into the Plan view's JavaScript. Updated CSS for improved layout and user experience on the Plan page.
-**GH-24**
+**GH-24** Implement PGR & Irrigation Analysis Tab and Inputs
+Added a new tab for PGR & Irrigation analysis in the analysis view, enhancing user navigation.
+Introduced PGR application inputs in the legacy hub markup, allowing users to specify product details and application dates.
+Updated JavaScript to handle the new PGR analysis functionality, including data persistence and loading states.
+Enhanced the analysis router to initialize the PGR & Irrigation analysis component.
+**GH-25** Enhance hub and sample persistence with improved logging and site context handling. Added console logs for debugging sample fetching and ensured correct site context is maintained when restoring samples from persistence. Updated JavaScript to prevent overwriting site context if samples are already loaded.
+
 
 ## Backlog
 

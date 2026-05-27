@@ -340,9 +340,12 @@
             return;
         }
 
-        apiFetchJson(base.replace(/\/?$/, '/') + 'samples?limit=200')
+        var _url = base.replace(/\/?$/, '/') + 'samples?limit=200';
+        console.log('[SamplePersistence] fetchSamplesFromServer → GET', _url);
+        apiFetchJson(_url)
             .then(function(data) {
                 var samples = (data && data.data) || [];
+                console.log('[SamplePersistence] fetchSamplesFromServer response: samples.length=', samples.length, '| types:', samples.map(function(s){return s.sample_type;}).join(',').slice(0,80));
                 if (!samples.length) {
                     onComplete(false);
                     return;
@@ -383,8 +386,14 @@
                     restored++;
                 });
 
-                if (typeof SM.setActiveSite === 'function' && originalSite) {
-                    SM.setActiveSite(originalSite);
+                // After syncing from DB, switch to the PHP-injected active site UUID
+                // (GAIP_HUB_CONFIG.activeSiteId) so getSamples() returns samples for
+                // the correct site. Without this, _currentSite stays 'default' and
+                // getSamples() returns empty even though samples exist under their UUID.
+                var configSiteId = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || null;
+                var targetSite = configSiteId || originalSite;
+                if (typeof SM.setActiveSite === 'function' && targetSite) {
+                    SM.setActiveSite(targetSite);
                 }
 
                 if (restored > 0) {
@@ -394,7 +403,7 @@
                     } catch (e) {}
                 }
 
-                log('SERVER SYNC: Restored ' + restored + ' samples from MySQL');
+                console.log('[SamplePersistence] fetchSamplesFromServer done: restored=', restored, '| activeSite now:', SM.getActiveSiteId && SM.getActiveSiteId());
                 onComplete(restored > 0);
             })
             .catch(function(err) {

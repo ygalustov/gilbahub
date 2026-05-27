@@ -1113,10 +1113,12 @@
         }
 
         // Fallback: if hub form was empty (no soil inputs), try latest sample from GAIP_SampleManager
+        console.log('[GilbaPersist] soilNutrition fallback check | hasSoilNutrition:', !!cache.computed.soilNutrition, '| hasSM:', !!global.GAIP_SampleManager, '| hasMlsnEngine:', typeof global.mlsnEngine === 'function');
         if (!cache.computed.soilNutrition && global.GAIP_SampleManager && typeof global.mlsnEngine === 'function') {
             try {
                 var _smSamples = typeof global.GAIP_SampleManager.getSamples === 'function'
                     ? global.GAIP_SampleManager.getSamples('soil') : null;
+                console.log('[GilbaPersist] getSamples(soil) result:', _smSamples ? _smSamples.length : 'null', 'activeSite:', global.GAIP_SampleManager.getActiveSiteId && global.GAIP_SampleManager.getActiveSiteId());
                 if (_smSamples) {
                     // Pick the most recent sample by date
                     var _smLatestId = null, _smLatestDate = '';
@@ -1764,11 +1766,22 @@
                 }, 100);
             }
             
-            // Restore samples from persistence
+            // Restore samples from persistence — only if sample-persistence.js
+            // has NOT already loaded samples from the server. If it has
+            // (_gaipSamplePersistenceReady = true), calling restoreFromPersistence
+            // here would overwrite the correct site context (burns_gc → default).
             const samples = safeJsonParse(storageGet(CONFIG.keys.samples));
             if (samples) {
-                // Delay to ensure SampleManager is initialized
                 setTimeout(() => {
+                    if (global._gaipSamplePersistenceReady) {
+                        // sample-persistence already set up SampleManager correctly.
+                        // Just ensure the active site matches PHP config.
+                        var _cfgSite = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+                        if (_cfgSite && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.setActiveSite === 'function') {
+                            global.GAIP_SampleManager.setActiveSite(_cfgSite);
+                        }
+                        return;
+                    }
                     restoreSamples(samples);
                 }, 200);
             }
