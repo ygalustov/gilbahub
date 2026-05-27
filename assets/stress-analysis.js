@@ -133,15 +133,6 @@
         var el = document.createElement('style');
         el.id = 'stress-styles';
         el.textContent = [
-            /* Verdict */
-            '.st-verdict{display:flex;align-items:flex-start;gap:16px;padding:20px 22px;border-radius:10px;border:1px solid;margin-bottom:4px}',
-            '.st-verdict-score{font-size:52px;font-weight:900;line-height:1;min-width:70px;text-align:center}',
-            '.st-verdict-title{font-size:17px;font-weight:700;margin-bottom:3px}',
-            '.st-verdict-sub{font-size:13px;opacity:.85;line-height:1.5}',
-            '.st-verdict-rows{margin-top:10px;display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}',
-            '@media(max-width:600px){.st-verdict-rows{grid-template-columns:1fr}}',
-            '.st-verdict-row{font-size:12px;line-height:1.5}',
-            '.st-verdict-row strong{text-transform:uppercase;font-size:10px;letter-spacing:.06em;opacity:.7;display:block}',
             /* Factor grid */
             '.st-factor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}',
             '@media(max-width:700px){.st-factor-grid{grid-template-columns:repeat(2,1fr)}}',
@@ -175,12 +166,36 @@
     }
 
     // =========================================================================
-    // VERDICT BLOCK
+    // VERDICT BLOCK (gl-header + gl-kpi-grid — mirrors water-balance pattern)
     // =========================================================================
+
+    function hexToRgb(hex) {
+        var h = (hex || '#2d6a4f').replace('#', '');
+        return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
+    }
+
+    function kpiCard(label, value, unit, statusHtml, color) {
+        var rgb    = hexToRgb(color);
+        var bg     = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.07)';
+        var border = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.25)';
+        return [
+            '<div class="gl-kpi-card" style="background:'+bg+';border-color:'+border+';border-left-color:'+color+'">',
+            '  <div class="gl-kpi-label">'+esc(label)+'</div>',
+            '  <div class="gl-kpi-value" style="color:'+color+'">'+esc(String(value))+'</div>',
+            '  <div class="gl-kpi-unit">'+esc(unit)+'</div>',
+            '  <div>'+statusHtml+'</div>',
+            '</div>',
+        ].join('');
+    }
+
+    function levelBadge(meta) {
+        return '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;' +
+            'background:'+meta.bg+';color:'+meta.color+';border:1px solid '+meta.border+'">'+esc(meta.label)+'</span>';
+    }
 
     function renderVerdict(stress, traj) {
         var score = (traj && traj.summary && traj.summary.currentScore != null)
-            ? traj.summary.currentScore
+            ? Math.round(traj.summary.currentScore)
             : (stress && stress.environmentalStressIndex != null ? Math.round(stress.environmentalStressIndex) : null);
         var levelKey = (traj && traj.summary && traj.summary.currentLevel)
             || (stress && SEVERITY_LEVEL[stress.severity])
@@ -189,34 +204,38 @@
 
         var peakScore = traj && traj.summary && traj.summary.peakScore != null ? Math.round(traj.summary.peakScore) : null;
         var peakDate  = traj && traj.summary && traj.summary.peakDate ? fmtDate(traj.summary.peakDate) : null;
-        var peakMeta  = traj && traj.summary && traj.summary.peakLevel ? levelMeta(traj.summary.peakLevel) : null;
+        var peakMeta  = traj && traj.summary && traj.summary.peakLevel ? levelMeta(traj.summary.peakLevel) : meta;
 
-        var daysAboveWarning  = traj && traj.summary ? (traj.summary.daysAboveWarning  || 0) : 0;
-        var daysAboveCritical = traj && traj.summary ? (traj.summary.daysAboveCritical || 0) : 0;
         var primary = traj && traj.summary && traj.summary.primaryStressor ? traj.summary.primaryStressor : null;
-        var rec     = traj && traj.summary && traj.summary.recommendation ? traj.summary.recommendation : null;
-
-        var growthMod = stress && stress.combinedGrowthModifier != null
-            ? Math.round(stress.combinedGrowthModifier * 100) + '%'
+        var rec     = traj && traj.summary && traj.summary.recommendation
+            ? (typeof traj.summary.recommendation === 'string'
+                ? traj.summary.recommendation
+                : (traj.summary.recommendation.message || ''))
+            : null;
+        var growthPct = stress && stress.combinedGrowthModifier != null
+            ? Math.round(stress.combinedGrowthModifier * 100)
             : null;
 
-        return '<div class="st-verdict" style="background:' + meta.bg + ';border-color:' + meta.border + ';color:' + meta.color + '">' +
-            '<div>' +
-            '<div class="st-verdict-score" style="color:' + meta.color + '">' + (score != null ? score : '—') + '</div>' +
-            '<div style="font-size:11px;font-weight:700;text-align:center;margin-top:2px;letter-spacing:.04em">' + esc(meta.label) + '</div>' +
-            '</div>' +
-            '<div style="flex:1">' +
-            '<div class="st-verdict-title">Stress Index: ' + esc(meta.label) + '</div>' +
-            (rec ? '<div class="st-verdict-sub">' + esc(rec) + '</div>' : '') +
-            '<div class="st-verdict-rows">' +
-            (peakScore != null ? '<div class="st-verdict-row"><strong>14-day peak</strong>' + peakScore + (peakMeta ? ' — ' + peakMeta.label : '') + (peakDate ? ' (' + peakDate + ')' : '') + '</div>' : '') +
-            (daysAboveWarning > 0 ? '<div class="st-verdict-row"><strong>Days at Warning+</strong>' + daysAboveWarning + ' of 14</div>' : '') +
-            (daysAboveCritical > 0 ? '<div class="st-verdict-row"><strong>Days at Critical+</strong>' + daysAboveCritical + ' of 14</div>' : '') +
-            (primary ? '<div class="st-verdict-row"><strong>Primary stressor</strong>' + esc(capitalize(primary)) + '</div>' : '') +
-            (growthMod ? '<div class="st-verdict-row"><strong>Growth modifier</strong>' + growthMod + ' of potential</div>' : '') +
-            '</div>' +
-            '</div>' +
-            '</div>';
+        var cards = [
+            kpiCard('Stress Index',      score != null ? score : '—',                  '/100',      levelBadge(meta),                   meta.color),
+            kpiCard('14-Day Peak',       peakScore != null ? peakScore : '—',          '/100',      levelBadge(peakMeta),                peakMeta.color),
+            kpiCard('Primary Stressor',  primary ? capitalize(primary) : '—',          '',          '',                                  '#6b7280'),
+            kpiCard('Growth Modifier',   growthPct != null ? growthPct + '%' : '—',    'of potential', '',                              growthPct != null && growthPct < 70 ? '#d97706' : '#15803d'),
+        ];
+
+        return [
+            '<div class="gl-header">',
+            '<div class="gl-header-inner">',
+            '<div style="display:flex;align-items:center;margin-bottom:2px">',
+            '<h1 class="gl-title">Stress Index Analysis</h1>',
+            '</div>',
+            '<div class="gl-subtitle">Environmental stress index, contributing factors and 14-day trajectory</div>',
+            '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'+cards.join('')+'</div>',
+            rec ? '<div style="margin-top:10px;padding:10px 14px;border-radius:8px;background:'+meta.bg+
+                ';border:1px solid '+meta.border+';font-size:13px;color:'+meta.color+';font-weight:500">'+esc(rec)+'</div>' : '',
+            '</div>',
+            '</div>',
+        ].join('\n');
     }
 
     function capitalize(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
@@ -521,21 +540,10 @@
 
         initInfoPopovers();
 
-        var levelKey = (traj && traj.summary && traj.summary.currentLevel)
-            || (stress && SEVERITY_LEVEL[stress.severity])
-            || 'normal';
-        var score = (traj && traj.summary && traj.summary.currentScore != null)
-            ? Math.round(traj.summary.currentScore)
-            : (stress && stress.environmentalStressIndex != null ? Math.round(stress.environmentalStressIndex) : null);
-
         container.innerHTML =
             '<div class="wb-page">' +
-            '<div class="gl-page-header">' +
-            '<div class="gl-page-title">Stress Index</div>' +
-            (score != null ? '<div class="gl-page-sub">ESI ' + score + ' — ' + capitalize(levelKey) + '</div>' : '') +
-            '</div>' +
-            '<div class="gl-body">' +
             renderVerdict(stress, traj) +
+            '<div class="gl-body">' +
             renderFactorCards(stress, traj) +
             renderCompound(stress, traj) +
             renderTrajectory(traj) +

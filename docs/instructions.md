@@ -113,6 +113,9 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 
 ## Backlog
 
+look how it looks like - difficult to understand - just lines
+----
+
 
 vmay be we add it to KPI - same as on the soil page? 
 
