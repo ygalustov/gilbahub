@@ -557,10 +557,115 @@
 
     function renderEmpty(container) {
         container.innerHTML =
-            '<div class="pgr-empty">'+
-            '<div class="pgr-empty-title">No PGR Data</div>'+
-            '<div class="pgr-empty-body">Enable PGR tracking in the Hub, enter your application date and product, then re-run the analysis to see results here.</div>'+
+            '<div class="wb-page"><div class="gl-page-header"><div class="gl-page-title">PGR &amp; Irrigation</div></div>'+
+            '<div class="gl-body">'+renderPgrInputCard(readSavedPgr())+'</div></div>';
+        initPgrInputCard(container);
+    }
+
+    // =========================================================================
+    // PGR INPUT CARD
+    // =========================================================================
+
+    function getPgrStateKey() {
+        var uid = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.userId;
+        return 'gilba_hub_state' + (uid ? '_' + uid : '');
+    }
+
+    function readSavedPgr() {
+        try {
+            var raw = localStorage.getItem(getPgrStateKey());
+            var state = raw ? JSON.parse(raw) : null;
+            return (state && state.pgr) || null;
+        } catch(e) { return null; }
+    }
+
+    var PGR_PRODUCTS = [
+        { value:'TE250',  label:'TE 250g/L (Primo)',              group:'Trinexapac-ethyl' },
+        { value:'TE175',  label:'TE 175g/L (Amigo 175 / Marvel)', group:'Trinexapac-ethyl' },
+        { value:'TE120',  label:'TE 120g/L (Primo Maxx 120)',     group:'Trinexapac-ethyl' },
+        { value:'PBZ200', label:'Paclobutrazol 200g/L',           group:'Paclobutrazol' },
+        { value:'PBZ250', label:'Paclobutrazol 250g/L',           group:'Paclobutrazol' },
+        { value:'ETH',    label:'Ethephon 480g/L',                group:'Ethephon' },
+    ];
+
+    function renderPgrInputCard(saved) {
+        var enabled = saved && saved.enabled;
+        var product = (saved && saved.productType) || '';
+        var date    = (saved && saved.applicationDate) || '';
+        var rate    = (saved && saved.rateLperHa) || '';
+
+        var groups = {}, groupOrder = [];
+        PGR_PRODUCTS.forEach(function(p) {
+            if (!groups[p.group]) { groups[p.group] = []; groupOrder.push(p.group); }
+            groups[p.group].push(p);
+        });
+        var opts = '<option value="">— Select product —</option>';
+        groupOrder.forEach(function(g) {
+            opts += '<optgroup label="'+esc(g)+'">';
+            groups[g].forEach(function(p) {
+                opts += '<option value="'+esc(p.value)+'"'+(p.value===product?' selected':'')+'>'+esc(p.label)+'</option>';
+            });
+            opts += '</optgroup>';
+        });
+
+        return '<div class="pgr-input-card" id="pgr-input-card" style="background:var(--db-card-bg,#1a2920);border:1px solid var(--db-border,#2d3d35);border-radius:10px;padding:16px 20px;margin-bottom:16px">'+
+            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">'+
+            '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--db-text,#d4e8de)">'+
+            '<input type="checkbox" id="pgr-enable-cb"'+(enabled?' checked':'')+' style="width:15px;height:15px;cursor:pointer">'+
+            'PGR Application</label></div>'+
+            '<div id="pgr-fields" style="display:'+(enabled?'block':'none')+'">'+
+            '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">'+
+            '<div><label style="font-size:11px;color:var(--db-text-muted,#8a9e95);display:block;margin-bottom:4px">Product</label>'+
+            '<select id="pgr-product-sel" style="width:100%;background:var(--db-bg,#111c17);border:1px solid var(--db-border,#2d3d35);border-radius:6px;color:var(--db-text,#d4e8de);padding:6px 8px;font-size:13px">'+opts+'</select></div>'+
+            '<div><label style="font-size:11px;color:var(--db-text-muted,#8a9e95);display:block;margin-bottom:4px">Rate (L/ha)</label>'+
+            '<input type="number" id="pgr-rate-inp" step="0.1" min="0" placeholder="e.g. 0.4" value="'+esc(rate)+'" style="width:100%;background:var(--db-bg,#111c17);border:1px solid var(--db-border,#2d3d35);border-radius:6px;color:var(--db-text,#d4e8de);padding:6px 8px;font-size:13px;box-sizing:border-box"></div>'+
+            '</div>'+
+            '<div style="margin-bottom:12px"><label style="font-size:11px;color:var(--db-text-muted,#8a9e95);display:block;margin-bottom:4px">Last application date</label>'+
+            '<input type="date" id="pgr-date-inp" value="'+esc(date)+'" style="width:100%;background:var(--db-bg,#111c17);border:1px solid var(--db-border,#2d3d35);border-radius:6px;color:var(--db-text,#d4e8de);padding:6px 8px;font-size:13px;box-sizing:border-box"></div>'+
+            '</div>'+
+            '<button id="pgr-save-btn" style="background:#166534;color:#d4e8de;border:none;border-radius:6px;padding:8px 16px;font-size:13px;font-weight:600;cursor:pointer;width:100%">Save &amp; Re-run Analysis</button>'+
+            '<div id="pgr-save-msg" style="display:none;margin-top:8px;font-size:12px;color:var(--db-text-muted,#8a9e95);text-align:center"></div>'+
             '</div>';
+    }
+
+    function initPgrInputCard(container) {
+        var cb      = container.querySelector('#pgr-enable-cb');
+        var fields  = container.querySelector('#pgr-fields');
+        var saveBtn = container.querySelector('#pgr-save-btn');
+        var msg     = container.querySelector('#pgr-save-msg');
+        if (!cb || !saveBtn) return;
+
+        cb.addEventListener('change', function() {
+            fields.style.display = cb.checked ? 'block' : 'none';
+        });
+
+        saveBtn.addEventListener('click', function() {
+            var enabled = cb.checked;
+            var pgr = {
+                enabled:         enabled,
+                productType:     enabled ? (container.querySelector('#pgr-product-sel') || {}).value || '' : '',
+                applicationDate: enabled ? (container.querySelector('#pgr-date-inp') || {}).value || '' : null,
+                rateLperHa:      enabled ? (container.querySelector('#pgr-rate-inp') || {}).value || '' : null,
+            };
+
+            try {
+                var key   = getPgrStateKey();
+                var state = JSON.parse(localStorage.getItem(key) || '{}');
+                state.pgr = pgr;
+                localStorage.setItem(key, JSON.stringify(state));
+            } catch(e) {}
+
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saved — running analysis…';
+            if (msg) { msg.style.display = 'block'; msg.textContent = 'Analysis running in background. Page will reload when complete.'; }
+
+            var rerunBtn = document.getElementById('db-rerun-btn');
+            if (rerunBtn) {
+                rerunBtn.click();
+            } else {
+                setTimeout(function() { global.location.reload(); }, 3000);
+            }
+        });
     }
 
     // =========================================================================
@@ -616,30 +721,35 @@
 
         injectStyles();
 
-        if (!pgr) { renderEmpty(container); return; }
+        if (!pgr && !wb) { renderEmpty(container); return; }
 
         initInfoPopovers();
 
-        var headerHtml   = renderPageHeader(pgr);
-        var verdictHtml  = renderVerdict(pgr);
-        var kpiHtml      = renderKpis(pgr);
-        var gddHtml      = renderGddProgress(pgr);
-        var soilHtml     = renderSoilConditions(wb, soilTemp);
-        var irrHtml      = renderIrrigationSchedule(wb);
-        var timingHtml   = renderTiming(pgr);
+        var headerHtml = renderPageHeader(pgr);
+        var soilHtml   = renderSoilConditions(wb, soilTemp);
+        var irrHtml    = renderIrrigationSchedule(wb);
+
+        var pgrHtml = renderPgrInputCard(readSavedPgr());
+        if (pgr) {
+            pgrHtml +=
+                renderVerdict(pgr) +
+                renderKpis(pgr) +
+                renderGddProgress(pgr) +
+                renderTiming(pgr);
+        }
 
         container.innerHTML =
             '<div class="wb-page">'+
             headerHtml+
             '<div class="gl-body">'+
-            verdictHtml +
-            kpiHtml +
-            gddHtml +
+            pgrHtml +
             soilHtml +
             irrHtml +
-            timingHtml +
             '</div>'+
             '</div>';
+
+        initPgrInputCard(container);
+        initInfoPopovers();
     }
 
     // =========================================================================

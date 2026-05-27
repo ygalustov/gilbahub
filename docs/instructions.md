@@ -96,6 +96,9 @@ Enhanced the analysis router to initialize the PGR & Irrigation analysis compone
 **GH-25** Fix Soil & Nutrition analysis page showing empty state despite samples existing in DB.
 Root cause: `hub-persistence.js` was calling `GAIP_SampleManager.restoreFromPersistence()` from localStorage 200ms after init, overwriting the correct `burns_gc` site context that `sample-persistence.js` had established via server fetch. Additionally `sample-persistence.js` was restoring `_currentSite = 'default'` instead of the PHP-injected active site UUID after server sync.
 Fix: `sample-persistence.js` now switches SampleManager to `GAIP_HUB_CONFIG.activeSiteId` after loading samples from server. `hub-persistence.js` now skips its own `restoreSamples` call when `_gaipSamplePersistenceReady` is already true, avoiding the site context overwrite.
+**GH-26**
+
+
 
 
 ## Backlog

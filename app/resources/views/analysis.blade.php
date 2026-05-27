@@ -46,8 +46,6 @@
                 </a>
                 <a href="#soil-nutrition" class="gl-tab" data-tab="soil-nutrition">Soil &amp; Nutrition</a>
                 <a href="#water-balance" class="gl-tab" data-tab="water-balance">Water Balance</a>
-                <a href="#pgr-irrigation" class="gl-tab" data-tab="pgr-irrigation">PGR &amp; Irrigation</a>
-                <a href="#" class="gl-tab">Pre-emergent</a>
             </div>
             <span class="gl-tab-accuracy" id="gl-tab-accuracy" hidden></span>
         </nav>
@@ -77,11 +75,6 @@
             </div>
         </div>
 
-        <div id="analysis-tab-pgr-irrigation" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
-            <div id="pgr-page-content">
-                <div style="padding:40px;text-align:center;color:#5b6a65">Loading PGR &amp; irrigation analysis…</div>
-            </div>
-        </div>
 
 @endsection
 
@@ -104,5 +97,4 @@
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
-<script src="{{ $legacyAssetUrl('pgr-irrigation-analysis.js') }}"></script>
 @endsection
