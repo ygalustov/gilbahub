@@ -107,7 +107,10 @@ New tab on Analysis page (`#stress`) rendering: ESI verdict hero (score, level b
 New `renderSoilStructureRisk(wb)` function in `water-balance-analysis.js`. Uses existing `SAR`, `SARadj`, `RSC`, `ecw` from `computed.waterBalance`. Four risk levels (Low / Moderate / High / Severe) with effective SAR thresholds (3 / 9 / 18), gypsum dose ranges, bicarbonate aggravation note (when SARadj > SAR + 0.5), and RSC alkalinity note (when RSC > 0). Block inserted between salinity and irrigation recommendation sections.
 **GH-31** Add Correction Program block to Soil & Nutrition analysis.
 New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filters to deficient + borderline nutrients, calculates deficit in kg/ha using `depthFactor = depthCm × bulkDensity × 0.1`, maps to 10 standard fertilizer products (`CORRECTION_SOURCES`) with concentration-based product dose (kg/ha). Renders one coloured card per deficient nutrient with product name, dose, and application notes. Block inserted before the annual demand section.
-
+**GH-32** Refactor Stress Index Analysis rendering and enhance KPI display
+- Removed outdated CSS styles related to the verdict block and replaced them with a new KPI card structure for better visual representation.
+- Introduced helper functions for color handling and KPI card generation, improving code readability and maintainability.
+- Updated the rendering logic to include a more structured layout for stress index analysis, enhancing user experience.
 
 
 

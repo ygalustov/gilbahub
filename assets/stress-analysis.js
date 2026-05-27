@@ -344,48 +344,33 @@
         if (!traj || !traj.trajectory || !traj.trajectory.length) return '';
 
         var days = traj.trajectory;
-        var maxScore = Math.max.apply(null, days.map(function (d) { return d.totalScore; })) || 100;
-        maxScore = Math.max(maxScore, 30);
 
-        var LEVEL_COLORS = {
-            normal:   '#22c55e',
-            caution:  '#f59e0b',
-            warning:  '#f97316',
-            critical: '#ef4444',
-            failure:  '#991b1b',
+        var LEVEL_PALETTE = {
+            normal:   { bg: '#dcfce7', border: '#86efac', score: '#15803d', label: '#16a34a' },
+            caution:  { bg: '#fef9c3', border: '#fde047', score: '#854d0e', label: '#a16207' },
+            warning:  { bg: '#ffedd5', border: '#fdba74', score: '#9a3412', label: '#c2410c' },
+            critical: { bg: '#fee2e2', border: '#fca5a5', score: '#991b1b', label: '#dc2626' },
+            failure:  { bg: '#fce7f3', border: '#f9a8d4', score: '#7f1d1d', label: '#be185d' },
         };
 
-        var barWidth = 'calc((100% - ' + (days.length - 1) * 3 + 'px) / ' + days.length + ')';
-
-        var barsHtml = days.map(function (d, i) {
-            var pct     = Math.round(d.totalScore / maxScore * 100);
-            var color   = LEVEL_COLORS[d.level] || '#9ca3af';
+        var cellsHtml = days.map(function (d, i) {
+            var pal     = LEVEL_PALETTE[d.level] || LEVEL_PALETTE.normal;
             var dayDate = new Date(d.date + 'T12:00:00');
-            var dayLabel = isNaN(dayDate.getTime()) ? d.date :
-                dayDate.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric' });
-            var title = dayLabel + ': ' + d.totalScore + ' (' + (d.level || '') + ')';
-            return '<div class="st-traj-bar" style="height:' + pct + '%;background:' + color + ';width:' + barWidth + '" title="' + esc(title) + '"></div>';
+            var isToday = (i === 0);
+            var weekday = isNaN(dayDate.getTime()) ? '' : dayDate.toLocaleDateString('en-AU', { weekday: 'short' });
+            var dayNum  = isNaN(dayDate.getTime()) ? '' : dayDate.getDate();
+            var score   = Math.round(d.totalScore);
+            var levelLabel = (d.level || 'normal').charAt(0).toUpperCase() + (d.level || 'normal').slice(1);
+            return '<div style="border-radius:8px;border:1px solid ' + pal.border + ';background:' + pal.bg + ';' +
+                'padding:8px 4px 6px;text-align:center;' +
+                (isToday ? 'box-shadow:0 0 0 2px ' + pal.score + ';' : '') +
+                '">' +
+                '<div style="font-size:18px;font-weight:800;color:' + pal.score + ';line-height:1">' + score + '</div>' +
+                '<div style="font-size:9px;font-weight:700;color:' + pal.label + ';text-transform:uppercase;letter-spacing:.04em;margin:2px 0 4px">' + esc(levelLabel) + '</div>' +
+                '<div style="font-size:9px;font-weight:600;color:#6b7280;line-height:1.2">' + esc(weekday) + '</div>' +
+                '<div style="font-size:9px;color:#9ca3af">' + dayNum + '</div>' +
+                '</div>';
         }).join('');
-
-        var labelsHtml = days.map(function (d) {
-            var dayDate = new Date(d.date + 'T12:00:00');
-            var label = isNaN(dayDate.getTime()) ? '' :
-                dayDate.toLocaleDateString('en-AU', { weekday: 'short' });
-            return '<div class="st-traj-label" style="width:' + barWidth + '">' + esc(label) + '</div>';
-        }).join('');
-
-        var legendItems = [
-            { color: '#22c55e', label: 'Normal' },
-            { color: '#f59e0b', label: 'Caution' },
-            { color: '#f97316', label: 'Warning' },
-            { color: '#ef4444', label: 'Critical' },
-        ];
-        var legendHtml = '<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:#6b7280">' +
-            legendItems.map(function (l) {
-                return '<span style="display:flex;align-items:center;gap:5px">' +
-                    '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:' + l.color + '"></span>' + esc(l.label) +
-                    '</span>';
-            }).join('') + '</div>';
 
         var summary = traj.summary || {};
         var subText = 'Peak: ' + fmt(summary.peakScore, 0) +
@@ -399,9 +384,7 @@
             '<div class="gl-block-sub">' + esc(subText) + '</div>' +
             '</div>' +
             '<div class="gl-block-body">' +
-            '<div class="st-traj-grid" style="grid-template-columns:repeat(' + days.length + ',1fr)">' + barsHtml + '</div>' +
-            '<div class="st-traj-labels" style="grid-template-columns:repeat(' + days.length + ',1fr)">' + labelsHtml + '</div>' +
-            legendHtml +
+            '<div style="display:grid;grid-template-columns:repeat(14,1fr);gap:4px">' + cellsHtml + '</div>' +
             '</div></div>';
     }
 
