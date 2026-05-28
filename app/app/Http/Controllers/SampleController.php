@@ -127,6 +127,18 @@ class SampleController extends Controller
                             continue;
                         }
 
+                        // Preserve zone metadata alongside nutrient values so the
+                        // API round-trip can restore human-readable labels and zone
+                        // types (previously lost because only rawData was stored).
+                        $sampleLabel = isset($sampleData['label']) ? (string) $sampleData['label'] : null;
+                        $sampleZone  = isset($sampleData['zoneType']) ? (string) $sampleData['zoneType'] : null;
+                        if ($sampleLabel !== null && $sampleLabel !== '') {
+                            $payload['_label'] = $sampleLabel;
+                        }
+                        if ($sampleZone !== null && $sampleZone !== '') {
+                            $payload['_zone'] = $sampleZone;
+                        }
+
                         $clientUid = (string) ($sampleData['id'] ?? $sampleKey ?? '');
                         if ($clientUid === '') {
                             continue;

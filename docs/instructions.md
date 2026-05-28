@@ -116,11 +116,34 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-35** Enhance report views with improved messaging and UI elements. Updated export view to clarify analysis requirements and changed branding toggle from a link to a button for better accessibility. Refined forensic and scenarios views with updated loading messages and styles for improved user experience.
 **GH-36** Refactor UI elements across multiple views to enhance user experience. Removed outdated icons and replaced them with SVGs for better scalability and accessibility. Updated loading messages and styles in the dashboard, data, plan, and report views to improve clarity and visual consistency.
 **GH-37** Refactor UI elements in outcome capture and scenario reports. Updated labels and icons for improved clarity and accessibility, replacing outdated icons with SVGs. Enhanced CSS styles for better visual consistency and user experience across various components.
-
+**GH-38** Enhance SampleController and report export functionality. Added preservation of zone metadata alongside nutrient values in SampleController for improved API round-trip accuracy. Updated report export view to include a loading spinner and refined button behavior, ensuring the export button is only enabled after analysis completion and weather data readiness. Supplemented sample data handling in nutrient trend logic to merge samples from the 'default' site for better trend analysis. Improved sample persistence to resolve label and zone type handling for older records.
 
 
 
 ## Backlog
+
+
+Missing this info:
+Cultivar Performance Profile
+Penncross  (Cultivar)
+Data source: NTEP 2020 multi-location
+Trial Performance Ratings
+
+
+Performance Modifiers
+These modifiers adjust baseline species calculations in the Hub analysis:
+Cold Tolerance: Average, Baseline for species
+NTEP benchmark variety 2003-2008 and historical: Standard cold hardiness reference for creeping bentgrass across all US cold locations
+Spring Greenup: Slow, 7 days later than standard
+NTEP 2020 - slowest greenup
+
+Disease Resistance Profile
+
+
+
+------
+
+
 
 Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 

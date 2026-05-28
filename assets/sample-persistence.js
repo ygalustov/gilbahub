@@ -372,13 +372,19 @@
                         return;
                     }
 
+                    // _label/_zone: stored by sync() alongside rawData since b35fix-label-roundtrip.
+                    // Falls back to legacy fields (payload.label, payload.zone) for older records.
+                    var pld = sample.payload || {};
+                    var resolvedLabel = pld._label || pld.label || sampleId;
+                    var resolvedZone  = pld._zone  || pld.zone  || 'other';
+
                     SM.addSample(sample.sample_type, {
                         id: sampleId,
-                        label: (sample.payload && sample.payload.label) || sampleId,
+                        label: resolvedLabel,
                         date: sample.lab_date || sample.sample_date || null,
                         notes: sample.notes || '',
-                        zoneType: (sample.payload && sample.payload.zone) || 'other',
-                        values: sample.payload
+                        zoneType: resolvedZone,
+                        values: pld
                     });
                     restored++;
                 });

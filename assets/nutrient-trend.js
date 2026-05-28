@@ -134,6 +134,49 @@
             samples ? samples.length : 'null',
             samples ? samples.map(function(s) { return (s.label || s.id) + ' (' + s.date + ')'; }) : []);
 
+        // Supplement samples from the 'default' site bucket.
+        //
+        // Background: hub-persistence.js calls setActiveSite(PHP_UUID) after
+        // sample-persistence.js has already loaded historical samples into
+        // 'default' (the localStorage fallback path sets _currentSite from
+        // the stored snapshot, then hub-persistence overrides it with the
+        // server-injected UUID). The result: some samples end up under 'default'
+        // and some under the PHP UUID depending on when they were imported.
+        // Without the supplement, zones with < 2 samples under the active UUID
+        // produce no trend, even though older samples for the same zone exist
+        // under 'default'.
+        //
+        // Only 'default' is merged — named non-default sites represent distinct
+        // physical locations where the same zone name ("Green 4") means different
+        // things, so we must NOT merge them.
+        var activeSiteId = global.GAIP_SampleManager.getActiveSiteId ? global.GAIP_SampleManager.getActiveSiteId() : null;
+        if (activeSiteId && activeSiteId !== 'default') {
+            var allSnap = global.GAIP_SampleManager.getAllSamples ? global.GAIP_SampleManager.getAllSamples() : null;
+            var defaultStore = allSnap && allSnap.allSites && allSnap.allSites['default'];
+            if (defaultStore && defaultStore[dataType]) {
+                var defaultSamples = Object.values(defaultStore[dataType]);
+                if (defaultSamples.length > 0) {
+                    // Build a set of IDs already in samples to avoid duplicates
+                    var seenIds = {};
+                    var baseSamples = samples || [];
+                    for (var bi = 0; bi < baseSamples.length; bi++) {
+                        seenIds[baseSamples[bi].id] = true;
+                    }
+                    var added = 0;
+                    for (var di = 0; di < defaultSamples.length; di++) {
+                        if (!seenIds[defaultSamples[di].id]) {
+                            baseSamples.push(defaultSamples[di]);
+                            added++;
+                        }
+                    }
+                    if (added > 0) {
+                        console.log('[NutrientTrend] buildTemporalIndex: supplemented', added, 'samples from "default" site');
+                        samples = baseSamples;
+                    }
+                }
+            }
+        }
+
         if (!samples || samples.length === 0) return {};
 
         var index = {};

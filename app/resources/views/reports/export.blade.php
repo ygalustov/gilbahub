@@ -35,6 +35,7 @@
 .rp-logo-status { font-size: 11px; color: var(--gaip-text-secondary); }
 /* hidden hub runs analysis silently */
 #rp-hub-runner { display: none !important; position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; pointer-events: none; }
+@keyframes rp-spin { to { transform: rotate(360deg); } }
 @include('reports._hub-suppress')
 </style>
 @endsection
@@ -98,7 +99,7 @@
                 </div>
                 <div>
                     <div class="rp-card-title">Full Analysis Report</div>
-                    <div class="rp-card-subtitle">Word (.docx) — current site only, 12–18 pages</div>
+                    <div class="rp-card-subtitle">Word (.docx) — current site, all modules</div>
                 </div>
             </div>
             <div class="rp-card-sections">
@@ -114,8 +115,26 @@
                 <span class="rp-tag">AI Interpretation</span>
                 <span class="rp-tag">Forensic Record</span>
             </div>
-            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary"
-                    onclick="if(window.GAIP_WordExport){GAIP_WordExport.export()}else{alert('Analysis not yet loaded — please wait a moment and try again.')}">
+            {{-- Analysis status shown while hidden runner is computing --}}
+            <div id="rp-analysis-status" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--gaip-text-secondary)">
+                <svg id="rp-analysis-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;animation:rp-spin 1s linear infinite">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8"/>
+                </svg>
+                <span id="rp-analysis-status-text">Running analysis — please wait before downloading…</span>
+            </div>
+            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" disabled
+                    onclick="(function(){
+                        var SM = window.GAIP_SampleManager;
+                        if(SM){
+                            var s=SM.getSamples('soil')||[];
+                            var all=SM.getAllSamples&&SM.getAllSamples();
+                            console.log('[ExportDiag] activeSiteId=', SM.getActiveSiteId&&SM.getActiveSiteId(), 'GAIP_HUB_CONFIG.activeSiteId=', window.GAIP_HUB_CONFIG&&window.GAIP_HUB_CONFIG.activeSiteId);
+                            console.log('[ExportDiag] getSamples(soil):', s.length, s.map(function(x){return (x.label||x.id)+' ('+x.date+')';}));
+                            if(all&&all.allSites){Object.keys(all.allSites).forEach(function(k){var ss=all.allSites[k]&&all.allSites[k].soil;console.log('[ExportDiag] allSites['+k+'].soil:', ss?Object.keys(ss).length:0);});}
+                        }
+                        if(window.GilbaNutrientTrend){var td=window.GilbaNutrientTrend.getTrendExportData('soil');console.log('[ExportDiag] getTrendExportData(soil) keys:', Object.keys(td||{}));}
+                        if(window.GAIP_WordExport){GAIP_WordExport.export();}else{alert('Analysis not yet loaded — please wait a moment and try again.');}
+                    })()">
                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
@@ -319,4 +338,82 @@
         <script src="{{ $legacyAssetUrl($script) }}" @if(!in_array($script,$headLike)) defer @endif></script>
     @endif
 @endforeach
+
+{{-- Unlock the Word export button only after a real analysis + weather data are ready --}}
+<script defer>
+(function () {
+    var btn   = document.getElementById('rp-export-word-btn');
+    var stext = document.getElementById('rp-analysis-status-text');
+    var spin  = document.getElementById('rp-analysis-spinner');
+
+    var _unlocked      = false;
+    var _analysisRan   = false;  // gaip:analysis-complete (hub-tissue ran a real analysis)
+    var _weatherDone   = false;  // gaip:weather-ready (live weather for disease engine)
+    var _samplesReady  = false;  // gaip:samples-persistence-ready (server sample history loaded)
+    var _waitTimer     = null;
+
+    function unlock(label) {
+        if (_unlocked) return;
+        _unlocked = true;
+        clearTimeout(_waitTimer);
+        if (!btn) return;
+        btn.disabled = false;
+        if (spin) {
+            spin.style.animation = 'none';
+            spin.setAttribute('stroke', '#059669');
+            spin.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>';
+        }
+        if (stext) { stext.textContent = label || 'Analysis complete — ready to download.'; stext.style.color = '#059669'; }
+    }
+
+    function tryUnlock() {
+        // Only unlock if real analysis ran, weather done (or timed out), samples loaded (or timed out)
+        if (_analysisRan && _weatherDone && _samplesReady) {
+            unlock('Analysis complete — ready to download.');
+        }
+    }
+
+    // Real analysis completed (hub-tissue click, not early safety-net computeAll)
+    document.addEventListener('gaip:analysis-complete', function () {
+        _analysisRan = true;
+        if (stext) stext.textContent = 'Computing disease risk, irrigation and PGR modules…';
+        tryUnlock();
+    });
+
+    // Live weather available — disease engine can use accurate conditions
+    document.addEventListener('gaip:weather-ready', function () {
+        _weatherDone = true;
+        if (stext && !_unlocked) stext.textContent = 'Applying live weather to disease model…';
+        tryUnlock();
+    });
+
+    // Historical sample data loaded from server — nutrient trends available
+    document.addEventListener('gaip:samples-persistence-ready', function () {
+        _samplesReady = true;
+        if (stext && !_unlocked) stext.textContent = 'Sample history loaded — finalising…';
+        tryUnlock();
+    });
+
+    // Orchestrator complete — only act if real analysis has run.
+    // If weather/samples not yet ready, the 10 s fallback unlocks regardless.
+    document.addEventListener('gaip:orchestrator-complete', function () {
+        if (!_analysisRan) return;  // ignore early site-change computeAll
+
+        if (_weatherDone && _samplesReady) {
+            unlock('Analysis complete — ready to download.');
+        } else {
+            // Start/reset the fallback: covers slow weather fetch or sample API call
+            clearTimeout(_waitTimer);
+            _waitTimer = setTimeout(function () {
+                _weatherDone = true;   // accept whatever we have
+                _samplesReady = true;
+                unlock('Analysis complete — ready to download.');
+            }, 10000);
+        }
+    });
+
+    // Absolute hard timeout: 50 s — users are never permanently stuck
+    setTimeout(function () { unlock('Analysis timed out — partial data may be included.'); }, 50000);
+}());
+</script>
 @endsection
