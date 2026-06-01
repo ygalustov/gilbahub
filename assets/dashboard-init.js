@@ -32,8 +32,8 @@
 
     var INFO_GLOSSARY = {
         'growth-potential': {
-            title: '16-Day Average Growth Potential',
-            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the full 16-day weather forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming weeks. Use it to plan fertiliser applications, overseeding, and recovery work.'
+            title: '8-Day Average Growth Potential',
+            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the next 8 days of forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming week. Use it to plan fertiliser applications, overseeding, and recovery work.'
         },
         'disease-risk': {
             title: 'Disease Risk',
@@ -974,10 +974,17 @@
         var gpObj   = c && c.climate && c.climate.growth;
         var climate = c && c.climate;
 
-        // 16-day average (what the dashboard card shows)
-        var avgRaw  = m && m.growthPotential != null ? m.growthPotential
-                    : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
-        var avgGP   = avgRaw != null ? (avgRaw > 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100)) : null;
+        // 8-day average (matches old hub: days 0–7 of forecast)
+        var avgGP = null;
+        var dailyArr = gpObj && Array.isArray(gpObj.dailyGrowthPotential) ? gpObj.dailyGrowthPotential : null;
+        if (dailyArr && dailyArr.length > 0) {
+            var eightDay = dailyArr.slice(0, 8);
+            avgGP = Math.round(eightDay.reduce(function (a, b) { return a + b; }, 0) / eightDay.length);
+        } else {
+            var avgRaw = m && m.growthPotential != null ? m.growthPotential
+                       : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
+            if (avgRaw != null) avgGP = avgRaw > 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100);
+        }
 
         // Today's GP
         var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
@@ -1044,7 +1051,7 @@
         }
 
         // Hero: 16-day average (matches dashboard card)
-        html += panelHero(avgGP != null ? avgGP + '%' : '—', avgCls, '16-Day Average Growth Potential');
+        html += panelHero(avgGP != null ? avgGP + '%' : '—', avgCls, '8-Day Average Growth Potential');
 
         // Current GP + insight
         if (todayGP != null || insightText) {

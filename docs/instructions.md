@@ -121,7 +121,7 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-40** Enhance Settings view with new overseed variety and summer management intent fields. Updated JavaScript to capture new form values for overseed variety and summer intent, improving data handling for turf management. Added descriptive hints for better user guidance.
 **GH-41** Refactor Sensors integration UI and enhance functionality. Updated the layout for sensor provider cards and status indicators, improving clarity on integration status. Added a new empty state message for unconfigured sensors and enhanced the settings view with improved API key input handling. Updated CSS for better responsiveness and visual consistency across sensor-related components.
 **GH-42** Enhance stress analysis display by rounding score values for improved clarity. Updated the rendering logic to show rounded scores in both factor cards and component rows, ensuring a more precise visual representation of data.
-
+**GH-43** Update growth potential metrics to reflect 8-day averages instead of 16-day averages. Modified relevant titles and descriptions in both dashboard and growth light analysis files for consistency and clarity. Adjusted calculation logic to align with the new 8-day forecast approach.
 
 ## Backlog
 

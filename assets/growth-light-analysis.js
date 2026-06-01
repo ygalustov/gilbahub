@@ -386,8 +386,8 @@
 
     var GL_GLOSSARY = {
         'gl-gp': {
-            title: '16-Day Average Growth Potential',
-            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the full 16-day weather forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming weeks. Use it to plan fertiliser applications, overseeding, and recovery work.'
+            title: '8-Day Average Growth Potential',
+            body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the next 8 days of forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming week. Use it to plan fertiliser applications, overseeding, and recovery work.'
         },
         'gl-gp-today': {
             title: 'Current Growth Potential',
@@ -624,7 +624,7 @@
 
         var cards = [];
         if (gp !== null) {
-            cards.push(kpiCard('16-Day Avg GP', fmt(gp, 0) + '%', '', esc(gpStatus || ''), gpColor(gp), 'gl-gp'));
+            cards.push(kpiCard('8-Day Avg GP', fmt(gp, 0) + '%', '', esc(gpStatus || ''), gpColor(gp), 'gl-gp'));
         }
         if (dli !== null) {
             cards.push(kpiCard('Light (DLI)', fmt(dli, 1), 'mol/m²/day', esc(dliStatus || ''), dliColor(dliStatus), 'gl-dli'));
@@ -695,7 +695,7 @@
         var gpStatus = growth.status || 'Unknown';
         var avgTemp  = temp.todayMean;
         var grassType = detectGrassType(shade);
-        var dailyPattern = (growth.dailyPattern || []).slice(0, 16);
+        var dailyPattern = (growth.dailyPattern || []).slice(0, 9); // today + 8 forecast days
         var cfg = global.GAIP_HUB_CONFIG || {};
         var _specRaw = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
         var speciesLabel = _specRaw ? capitalize(_specRaw) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
@@ -784,7 +784,7 @@
             renderBellCurve(cm, shade, grassType)
         ].join('\n');
 
-        // SECTION 2: 16-day average row + daily chips
+        // SECTION 2: 8-day average row + daily chips
         var avgSectionHtml = '';
         if (gp != null) {
             // GP trend: compare today's GP to the forecast average
@@ -831,7 +831,7 @@
                 '<hr class="gl-section-sep">',
                 '<div class="gl-gp-row">',
                 '  <div class="gl-gp-row-left">',
-                '    <div class="gl-hero-section-label">16-Day Average GP ' + infoBtn('gl-gp') + '</div>',
+                '    <div class="gl-hero-section-label">8-Day Average GP ' + infoBtn('gl-gp') + '</div>',
                 '    <div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
                 '      <span class="gl-gp-big" style="color:' + gpColor(gp) + '">' + fmt(gp, 0, '—') + '%</span>',
                 '      ' + statusBadge(esc(gpStatus), gpColor(gp)),
