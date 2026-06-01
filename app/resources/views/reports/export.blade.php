@@ -120,7 +120,7 @@
                 <svg id="rp-analysis-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;animation:rp-spin 1s linear infinite">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8"/>
                 </svg>
-                <span id="rp-analysis-status-text">Running analysis — please wait before downloading…</span>
+                <span id="rp-analysis-status-text">Loading…</span>
             </div>
             <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" disabled
                     onclick="(function(){
@@ -376,21 +376,18 @@
     // Real analysis completed (hub-tissue click, not early safety-net computeAll)
     document.addEventListener('gaip:analysis-complete', function () {
         _analysisRan = true;
-        if (stext) stext.textContent = 'Computing disease risk, irrigation and PGR modules…';
         tryUnlock();
     });
 
     // Live weather available — disease engine can use accurate conditions
     document.addEventListener('gaip:weather-ready', function () {
         _weatherDone = true;
-        if (stext && !_unlocked) stext.textContent = 'Applying live weather to disease model…';
         tryUnlock();
     });
 
     // Historical sample data loaded from server — nutrient trends available
     document.addEventListener('gaip:samples-persistence-ready', function () {
         _samplesReady = true;
-        if (stext && !_unlocked) stext.textContent = 'Sample history loaded — finalising…';
         tryUnlock();
     });
 

@@ -12,6 +12,7 @@
             restUrl:      "{{ url('/api') }}/",
             userId:       {{ auth()->id() ?? 0 }},
             activeSiteId: @json($activeSite?->id),
+            siteType:     @json($activeSite?->site_type),
             siteUrl:      "{{ url('/') }}",
             hubUrl:       "{{ route('hub') }}",
             hubMode:      "agronomic",

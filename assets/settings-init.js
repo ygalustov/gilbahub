@@ -67,6 +67,8 @@
                 return;
             }
 
+            var elevEl = siteForm.querySelector('#stg-elevation');
+
             var payload = {
                 name:                 name,
                 location_name:        siteForm.querySelector('#stg-location-name').value.trim() || null,
@@ -78,12 +80,56 @@
                                           ? parseFloat(siteForm.querySelector('#stg-longitude').value) : null,
             };
 
+            // Irrigation system + weather override → gaip config (location/irrigation/weatherOverride keys)
+            var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
+            if (Array.isArray(cfg)) cfg = {};
+
+            cfg.location = Object.assign({}, cfg.location || {}, {
+                name:      siteForm.querySelector('#stg-location-name').value.trim() || '',
+                elevation: elevEl && elevEl.value !== '' ? parseInt(elevEl.value, 10) : null,
+            });
+
+            var irrigMethodEl     = siteForm.querySelector('#stg-irrig-method');
+            var irrigEffEl        = siteForm.querySelector('#stg-irrig-efficiency');
+            var irrigRainEl       = siteForm.querySelector('#stg-irrig-rain');
+            var irrigCostEl       = siteForm.querySelector('#stg-irrig-cost');
+            if (irrigMethodEl) {
+                cfg.irrigation = {
+                    method:            irrigMethodEl.value || '',
+                    efficiency:        irrigEffEl   && irrigEffEl.value   !== '' ? parseInt(irrigEffEl.value, 10)   : null,
+                    effectiveRainfall: irrigRainEl  && irrigRainEl.value  !== '' ? parseInt(irrigRainEl.value, 10)  : null,
+                    costPerKl:         irrigCostEl  && irrigCostEl.value  !== '' ? parseFloat(irrigCostEl.value)    : null,
+                };
+            }
+
+            var wxTminEl     = siteForm.querySelector('#stg-wx-tmin');
+            var wxTmaxEl     = siteForm.querySelector('#stg-wx-tmax');
+            var wxHumEl      = siteForm.querySelector('#stg-wx-humidity');
+            var wxRainEl     = siteForm.querySelector('#stg-wx-rain');
+            var wxSoilEl     = siteForm.querySelector('#stg-wx-soiltemp');
+            var wxEt0El      = siteForm.querySelector('#stg-wx-et0');
+            if (wxTminEl) {
+                cfg.weatherOverride = {
+                    tmin:     wxTminEl.value !== '' ? parseFloat(wxTminEl.value) : null,
+                    tmax:     wxTmaxEl && wxTmaxEl.value !== '' ? parseFloat(wxTmaxEl.value) : null,
+                    humidity: wxHumEl  && wxHumEl.value  !== '' ? parseFloat(wxHumEl.value)  : null,
+                    rainfall: wxRainEl && wxRainEl.value !== '' ? parseFloat(wxRainEl.value) : null,
+                    soilTemp: wxSoilEl && wxSoilEl.value !== '' ? parseFloat(wxSoilEl.value) : null,
+                    et0:      wxEt0El  && wxEt0El.value  !== '' ? parseFloat(wxEt0El.value)  : null,
+                };
+            }
+
             setSaving(siteSaveBtn, true);
             setMsg(siteMsg, '', '');
 
-            apiFetch('PATCH', '/sites/' + siteId, payload)
-                .then(function (data) {
+            Promise.all([
+                apiFetch('PATCH', '/sites/' + siteId, payload),
+                apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: cfg }),
+            ])
+                .then(function (results) {
+                    var data = results[0];
                     if (data && data.data && data.data.name) {
+                        D.gaipConfig = cfg;
                         setMsg(siteMsg, 'Saved.', 'ok');
                     } else {
                         var err = (data && data.message) ? data.message : 'Save failed.';
@@ -340,6 +386,26 @@
                 overseedStatus:  document.getElementById('stg-turf-overseed-status').value || 'none',
             };
 
+            var yearsEl     = document.getElementById('stg-turf-years');
+            var thatchEl    = document.getElementById('stg-turf-thatch');
+            var winterEl    = document.getElementById('stg-turf-wintermin');
+            if (yearsEl || thatchEl || winterEl) {
+                turf.siteHistory = {
+                    yearsEstablished: yearsEl  && yearsEl.value  !== '' ? parseInt(yearsEl.value,  10) : null,
+                    thatchDepth:      thatchEl && thatchEl.value !== '' ? parseInt(thatchEl.value, 10) : null,
+                    winterMinTemp:    winterEl && winterEl.value !== '' ? parseFloat(winterEl.value)   : null,
+                };
+            }
+
+            var ledPpfdEl  = document.getElementById('stg-turf-led-ppfd');
+            var ledHoursEl = document.getElementById('stg-turf-led-hours');
+            if (ledPpfdEl || ledHoursEl) {
+                turf.led = {
+                    ppfd:  ledPpfdEl  && ledPpfdEl.value  !== '' ? parseInt(ledPpfdEl.value,  10) : null,
+                    hours: ledHoursEl && ledHoursEl.value !== '' ? parseFloat(ledHoursEl.value)   : null,
+                };
+            }
+
             // Merge into existing gaip config — preserve all fields not shown in this form
             // (aaTexture, overseedSpecies, summerIntent, trafficEnabled, wizard, pgr, etc.)
             var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
@@ -557,6 +623,138 @@
             setMsg(scMsg, 'API key saved.', 'ok');
         });
     }
+
+    /* ── Info popovers ───────────────────────────────────────── */
+    var STG_GLOSSARY = {
+        'elevation': {
+            title: 'Elevation',
+            body:  'Height above sea level in metres. Affects ET₀ calculation and weather-adjusted growth potential. Leave blank or set to 0 if unknown.',
+        },
+        'irrig-method': {
+            title: 'Irrigation method',
+            body:  'Affects how water delivery losses are calculated. Overhead sprinklers lose more to wind and evaporation than drip systems.',
+        },
+        'irrig-efficiency': {
+            title: 'System efficiency',
+            body:  'Percentage of water actually delivered to the rootzone. Typical ranges: Sprinklers 70–80 %, drip/sub-surface 85–95 %.',
+        },
+        'irrig-rain': {
+            title: 'Effective rainfall',
+            body:  'Fraction of rainfall that actually infiltrates the rootzone rather than running off or evaporating. Typically 70–90 % for well-drained turf.',
+        },
+        'irrig-cost': {
+            title: 'Water cost',
+            body:  'Cost per kilolitre (1 000 L) of irrigation water. Used to calculate water cost estimates in irrigation scheduling reports.',
+        },
+        'wx-soiltemp': {
+            title: 'Soil temperature @ 10 cm',
+            body:  'Used by disease risk models (Pythium, dollar spot, brown patch). Optional — estimated from air temperature if left blank.',
+        },
+        'wx-et0': {
+            title: 'Reference ET₀ (mm/day)',
+            body:  'Reference evapotranspiration — the water demand of a standard grass surface. If left blank, calculated from temperature and humidity using the Penman-Monteith equation.',
+        },
+        'poa-percent': {
+            title: 'Poa annua content',
+            body:  'Estimated percentage of Poa annua in the stand. A higher Poa % increases disease susceptibility (particularly dollar spot and Pythium) and raises irrigation demand due to shallower rooting.',
+        },
+        'c3-cover': {
+            title: 'C3 cover',
+            body:  'Percentage of the surface area covered by cool-season (C3) grass. Used during transition periods to weight the growth potential calculation between the warm-season base and the cool-season component.',
+        },
+        'site-years': {
+            title: 'Years established',
+            body:  'Number of years since the surface was established. Peak risk for some soil-borne diseases (e.g. SDS, Pythium root rot) occurs 3–7 years after establishment when organic matter accumulates in the rootzone.',
+        },
+        'site-thatch': {
+            title: 'Thatch depth',
+            body:  'Thickness of the thatch layer in millimetres. Thatch creates a moist, warm microclimate close to the soil surface that favours fungal disease. Target: <12 mm. Typically measured by a soil core.',
+        },
+        'site-wintermin': {
+            title: 'Winter minimum temperature',
+            body:  'The average minimum temperature (°C) at this site during the coldest month. Used to assess cold-stress disease risk (e.g. Pythium blight increases when winter lows are mild and wet).',
+        },
+        'led-ppfd': {
+            title: 'LED PPFD',
+            body:  'Photosynthetic Photon Flux Density — the intensity of your supplemental LED system in µmol/m²/s. Typical stadium grow-light systems: 800–1 200 µmol/m²/s. Used to calculate total DLI when natural light is insufficient.',
+        },
+        'led-hours': {
+            title: 'LED hours per day',
+            body:  'Average daily hours the LED system is active during the growing season. Combined with PPFD to calculate the supplemental DLI contribution.',
+        },
+    };
+
+    (function initStgInfoPopovers() {
+        var popover  = document.getElementById('stg-info-popover');
+        var popTitle = document.getElementById('stg-info-popover-title');
+        var popBody  = document.getElementById('stg-info-popover-body');
+        var popClose = document.getElementById('stg-info-popover-close');
+        var popArrow = document.getElementById('stg-info-popover-arrow');
+        if (!popover) return;
+
+        var _anchor = null;
+
+        function showPopover(anchor) {
+            var key   = anchor.dataset.stgInfo;
+            var entry = STG_GLOSSARY[key];
+            if (!entry) return;
+            popTitle.textContent = entry.title;
+            popBody.textContent  = entry.body;
+            popover.style.visibility = 'hidden';
+            popover.style.display    = 'block';
+
+            var rect  = anchor.getBoundingClientRect();
+            var pw    = popover.offsetWidth;
+            var ph    = popover.offsetHeight;
+            var viewW = window.innerWidth;
+            var viewH = window.innerHeight;
+
+            var left = Math.round(rect.left + rect.width / 2 - pw / 2);
+            left = Math.max(8, Math.min(left, viewW - pw - 8));
+
+            var top, flipped = false;
+            if (rect.bottom + 10 + ph > viewH - 8) {
+                top = Math.round(rect.top - 10 - ph);
+                flipped = true;
+            } else {
+                top = Math.round(rect.bottom + 10);
+            }
+
+            popover.style.left       = left + 'px';
+            popover.style.top        = top  + 'px';
+            popover.style.visibility = '';
+
+            if (popArrow) {
+                var arrowLeft = Math.round(rect.left + rect.width / 2 - left - 5);
+                arrowLeft = Math.max(12, Math.min(arrowLeft, pw - 22));
+                popArrow.style.left   = arrowLeft + 'px';
+                popArrow.style.top    = flipped ? (ph - 1) + 'px' : '-6px';
+                popArrow.style.bottom = '';
+                popArrow.style.transform = flipped ? 'none' : '';
+            }
+            _anchor = anchor;
+        }
+
+        function hidePopover() {
+            popover.style.display = 'none';
+            _anchor = null;
+        }
+
+        document.addEventListener('click', function (e) {
+            if (e.target.closest('.stg-info-icon')) {
+                var icon = e.target.closest('.stg-info-icon');
+                if (_anchor === icon) { hidePopover(); return; }
+                showPopover(icon);
+                e.stopPropagation();
+                return;
+            }
+            if (!e.target.closest('#stg-info-popover')) {
+                hidePopover();
+            }
+        });
+
+        if (popClose) popClose.addEventListener('click', hidePopover);
+    }());
 
     /* ── Import from old portal (JSON file) ──────────────────── */
 

@@ -583,6 +583,62 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
 .plan-seasonal-n { font-size: 20px; font-weight: 800; color: var(--gaip-accent); }
 .plan-seasonal-n-unit { font-size: 11px; color: var(--gaip-text-muted); margin-left: 2px; }
 .plan-seasonal-note { font-size: 11px; color: var(--gaip-text-secondary); margin-top: 6px; line-height: 1.4; }
+
+/* ── Plan primary button ──────────────────────────────────────────────── */
+.plan-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    border-radius: var(--gaip-radius-pill);
+    border: none;
+    background: var(--gaip-accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.plan-btn-primary:hover { background: var(--gaip-accent-hover); }
+.plan-btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* ── Plan collapsible (details/summary) ──────────────────────────────── */
+.plan-collapsible {
+    border: 1px solid var(--gaip-border);
+    border-radius: var(--gaip-radius-sm);
+    overflow: hidden;
+    margin-top: 14px;
+}
+.plan-collapsible-summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-text-secondary);
+    background: var(--gaip-surface-muted);
+    list-style: none;
+    user-select: none;
+}
+.plan-collapsible-summary::-webkit-details-marker { display: none; }
+.plan-collapsible-summary svg { transition: transform 0.2s; flex-shrink: 0; }
+details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
+.plan-collapsible-body {
+    padding: 14px;
+    border-top: 1px solid var(--gaip-border);
+}
+
+/* ── Traffic & Wear 4-column history grid ─────────────────────────────── */
+@media (max-width: 700px) {
+    .plan-form-row-4 { grid-template-columns: 1fr 1fr; }
+}
+.plan-form-row-4 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 10px;
+}
 </style>
 @endsection
 
@@ -649,6 +705,25 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                     </div>
                 </div>
 
+                {{-- GDD Pest Timing --}}
+                <div class="plan-card" id="plan-pest-card">
+                    <div class="plan-card-header">
+                        <div class="plan-card-title">
+                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-warning)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            GDD Pest Timing
+                            <span class="db-info-icon" data-info="pest-timing" tabindex="0" role="button" aria-label="About GDD Pest Timing">i</span>
+                        </div>
+                    </div>
+                    <div style="padding:4px 0 8px">
+                        <p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 12px">GDD-based timing for key turf pests. Integrated pest tracking is coming — for now use the links below for site-specific GDD calculations.</p>
+                        <div id="plan-pest-body">
+                            <div class="plan-empty">
+                                <div class="plan-empty-title">Loading pest timing…</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>{{-- /plan-windows-grid --}}
         </div>{{-- /plan-tab-body --}}
     </div>
@@ -656,6 +731,175 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
     {{-- ── TAB: RECOVERY ────────────────────────────────────────────── --}}
     <div id="plan-tab-recovery" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
         <div class="plan-tab-body">
+
+            {{-- Traffic & Wear (sports fields only — hidden for golf/lawns by plan-ui.js) --}}
+            <div class="plan-card" id="plan-traffic-card" style="display:none">
+                <div class="plan-card-header">
+                    <div class="plan-card-title">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-critical)"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0"/></svg>
+                        Traffic &amp; Wear
+                        <span class="db-info-icon" data-info="traffic-wear" tabindex="0" role="button" aria-label="About Traffic & Wear">i</span>
+                    </div>
+                    <span class="plan-badge" id="plan-traffic-badge" style="display:none"></span>
+                </div>
+
+                <form class="plan-form" id="plan-traffic-form" autocomplete="off">
+                    <p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 14px">Traffic data drives the wear recovery model. The more accurate your schedule, the better the recovery probability forecast.</p>
+
+                    {{-- Current conditions --}}
+                    <div class="plan-form-row">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-moisture">Current soil moisture</label>
+                            <select class="plan-form-select" id="plan-tw-moisture">
+                                <option value="dry">Dry</option>
+                                <option value="slightly_dry">Slightly Dry</option>
+                                <option value="optimal" selected>Optimal</option>
+                                <option value="moist">Moist</option>
+                                <option value="wet">Wet</option>
+                                <option value="saturated">Saturated</option>
+                            </select>
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-root-depth">Est. root depth (mm)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-root-depth" min="20" max="300" step="5" placeholder="100">
+                        </div>
+                    </div>
+
+                    {{-- Match schedule --}}
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gaip-text-secondary);margin:12px 0 8px">Match schedule</div>
+                    <div class="plan-form-row">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-sport">Sport</label>
+                            <select class="plan-form-select" id="plan-tw-sport">
+                                <option value="soccer">Soccer</option>
+                                <option value="afl">AFL</option>
+                                <option value="rugby_union">Rugby Union</option>
+                                <option value="rugby_league">Rugby League</option>
+                                <option value="cricket">Cricket</option>
+                            </select>
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-matches">Matches per week</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-matches" min="0" max="14" step="1" placeholder="2">
+                        </div>
+                    </div>
+                    <div class="plan-form-row">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-match-dur">Match duration (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-match-dur" min="0.5" max="4" step="0.25" placeholder="1.5">
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-age-group">
+                                Player age group
+                                <span class="db-info-icon" data-info="player-age-group" tabindex="0" role="button">i</span>
+                            </label>
+                            <select class="plan-form-select" id="plan-tw-age-group">
+                                <option value="junior">Junior (U12)</option>
+                                <option value="youth">Youth (12–17)</option>
+                                <option value="adult" selected>Adult (18–35)</option>
+                                <option value="masters">Masters (35+)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {{-- Training schedule --}}
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gaip-text-secondary);margin:12px 0 8px">Training schedule</div>
+                    <div class="plan-form-row">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-train-type">Training type</label>
+                            <select class="plan-form-select" id="plan-tw-train-type">
+                                <option value="full">Full training / match sim</option>
+                                <option value="skills" selected>Skills &amp; Drills</option>
+                                <option value="light">Light training</option>
+                            </select>
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-sessions">Sessions per week</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-sessions" min="0" max="14" step="1" placeholder="3">
+                        </div>
+                    </div>
+                    <div class="plan-form-row">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-session-dur">Session duration (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-session-dur" min="0.25" max="4" step="0.25" placeholder="1.5">
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-area-pct">
+                                Training area used (%)
+                                <span class="db-info-icon" data-info="training-area" tabindex="0" role="button">i</span>
+                            </label>
+                            <input class="plan-form-input" type="number" id="plan-tw-area-pct" min="10" max="100" step="5" placeholder="100">
+                        </div>
+                    </div>
+
+                    {{-- Prior usage history --}}
+                    <div style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--gaip-text-secondary);margin:12px 0 8px">
+                        Prior usage history
+                        <span class="db-info-icon" data-info="prior-usage" tabindex="0" role="button" style="font-weight:400;text-transform:none;letter-spacing:0">i</span>
+                    </div>
+                    <div class="plan-form-row-4">
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-h1">Last week (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-h1" min="0" step="0.5" placeholder="optional">
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-h2">2 weeks ago (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-h2" min="0" step="0.5" placeholder="optional">
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-h3">3 weeks ago (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-h3" min="0" step="0.5" placeholder="optional">
+                        </div>
+                        <div class="plan-form-group">
+                            <label class="plan-form-label" for="plan-tw-h4">4 weeks ago (hrs)</label>
+                            <input class="plan-form-input" type="number" id="plan-tw-h4" min="0" step="0.5" placeholder="optional">
+                        </div>
+                    </div>
+
+                    {{-- Clegg Hammer --}}
+                    <details class="plan-collapsible" id="plan-clegg-details">
+                        <summary class="plan-collapsible-summary">
+                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                            Surface hardness (Clegg hammer) — optional
+                        </summary>
+                        <div class="plan-collapsible-body">
+                            <p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px">Clegg hammer readings help assess surface safety and playing quality. Does not block analysis.</p>
+                            <div class="plan-form-row">
+                                <div class="plan-form-group">
+                                    <label class="plan-form-label" for="plan-clegg-mean">
+                                        Mean Gmax
+                                        <span class="db-info-icon" data-info="clegg-mean" tabindex="0" role="button">i</span>
+                                    </label>
+                                    <input class="plan-form-input" type="number" id="plan-clegg-mean" min="0" max="300" step="1" placeholder="e.g. 75">
+                                </div>
+                                <div class="plan-form-group">
+                                    <label class="plan-form-label" for="plan-clegg-hard">
+                                        Hardest zone
+                                        <span class="db-info-icon" data-info="clegg-zones" tabindex="0" role="button">i</span>
+                                    </label>
+                                    <input class="plan-form-input" type="number" id="plan-clegg-hard" min="0" max="300" step="1" placeholder="e.g. goalmouth">
+                                </div>
+                                <div class="plan-form-group">
+                                    <label class="plan-form-label" for="plan-clegg-soft">Softest zone</label>
+                                    <input class="plan-form-input" type="number" id="plan-clegg-soft" min="0" max="300" step="1" placeholder="e.g. wing area">
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <div style="margin-top:16px;display:flex;align-items:center;gap:12px">
+                        <button type="submit" class="plan-btn-primary" id="plan-traffic-save-btn">Save &amp; recalculate</button>
+                        <span id="plan-traffic-save-msg" style="display:none;font-size:12px;color:var(--gaip-good)"></span>
+                    </div>
+                </form>
+
+                <div id="plan-traffic-result" style="display:none;margin-top:16px;border-top:1px solid var(--gaip-border);padding-top:16px">
+                    <div class="plan-empty">
+                        <div class="plan-empty-title">Loading recovery forecast…</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="plan-card" id="plan-rec-card">
                 <div class="plan-card-header">
                     <div class="plan-card-title">
@@ -729,6 +973,16 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
                                     <option value="collected">Collected (removed)</option>
                                     <option value="returned">Returned (mulched)</option>
                                 </select>
+                            </div>
+                        </div>
+                        <div class="plan-form-row">
+                            <div class="plan-form-group">
+                                <label class="plan-form-label" for="plan-nut-monthly-n">
+                                    Current Monthly N Rate
+                                    <span class="db-info-icon" data-info="monthly-n-rate" tabindex="0" role="button">i</span>
+                                </label>
+                                <input class="plan-form-input" type="number" id="plan-nut-monthly-n" min="0" max="100" step="0.1" placeholder="kg/ha/month">
+                                <div class="plan-form-hint">Your actual monthly application — compared against growth-limited N uptake capacity from the analysis.</div>
                             </div>
                         </div>
                         <div>

@@ -867,8 +867,122 @@
             '  <div id="dr-right">' + renderRight(selectedDisease) + '</div>' +
             '</div>' +
             forecastBlock +
+            renderCultivarBlock() +
+            renderDewForecastBlock() +
             '</div>';
 
+    }
+
+    // ── Cultivar performance block ───────────────────────────────────────────
+
+    function renderCultivarBlock() {
+        var siteConfig = global.GAIP_SITE_CONFIG || {};
+        var turf       = siteConfig.turf || {};
+        var hubCfg     = global.GAIP_HUB_CONFIG || {};
+        var species    = turf.species || hubCfg.turfSpecies || '';
+        var variety    = turf.variety || 'generic';
+        var vt         = global.GAIP_VARIETY_TRAITS;
+
+        if (!species) return '';
+
+        // Map species to traits key
+        var speciesKeyMap = {
+            'Creeping Bentgrass (Greens)': 'bentgrass', 'Creeping Bentgrass (Fairway)': 'bentgrass',
+            'Creeping Bentgrass': 'bentgrass', 'Colonial Bentgrass': 'bentgrass',
+            'Browntop Bent': 'browntopBent', 'Perennial Ryegrass': 'perennialRyegrass',
+            'Kentucky Bluegrass': 'kentuckyBluegrass', 'Tall Fescue': 'tallFescue',
+            'Fine Fescue': 'fineFescue', 'Chewings Fescue': 'chewingsFescue',
+            'Poa annua': null, 'Couch': 'couch', 'Bermuda': 'couch', 'Kikuyu': 'kikuyu',
+            'Zoysia': 'zoysia', 'Seashore Paspalum': 'seashore_paspalum', 'Buffalo': 'buffalo',
+        };
+        var speciesKey = speciesKeyMap[species] || null;
+        var traitData  = (vt && speciesKey && vt[speciesKey] && vt[speciesKey][variety]) ? vt[speciesKey][variety] : null;
+        if (!traitData && vt && speciesKey && vt[speciesKey]) traitData = vt[speciesKey]['_default'] || null;
+
+        var diseaseResist = traitData && traitData.diseaseResistance;
+
+        var rows = '';
+        if (diseaseResist && typeof diseaseResist === 'object') {
+            Object.keys(diseaseResist).forEach(function (disease) {
+                var val = diseaseResist[disease];
+                var rating = typeof val === 'number' ? val : (val && val.rating);
+                if (typeof rating !== 'number') return;
+                var pct     = Math.round(rating * 10);
+                var cls     = pct >= 70 ? 'good' : pct >= 40 ? 'warning' : 'bad';
+                var label   = pct >= 70 ? 'Resistant' : pct >= 40 ? 'Moderate' : 'Susceptible';
+                rows += '<div style="display:grid;grid-template-columns:1fr 90px 60px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
+                    '<span style="font-size:12px;color:var(--gaip-text)">' + esc(disease) + '</span>' +
+                    '<div style="height:6px;border-radius:3px;background:var(--gaip-border-light,#e8eeeb);overflow:hidden">' +
+                    '<div style="height:100%;width:' + pct + '%;background:var(--gaip-' + cls + ',#059669)"></div></div>' +
+                    '<span style="font-size:11px;font-weight:600;color:var(--gaip-' + cls + ',#059669);text-align:right">' + label + '</span>' +
+                    '</div>';
+            });
+        }
+
+        if (!rows) {
+            rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">Detailed resistance data not available for ' + esc(variety === 'generic' ? species : variety) + '. Check product literature for disease susceptibility notes.</div>';
+        }
+
+        return '<div class="gl-block" style="margin-top:16px">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent" style="background:var(--gaip-info)"></div>' +
+            '<div class="gl-block-title">Cultivar Performance' +
+            '<button class="db-info-icon" data-info="cultivar-performance" tabindex="0" style="margin-left:6px">i</button>' +
+            '</div>' +
+            '<span class="gl-block-sub">' + esc(variety === 'generic' ? species : variety) + ' — disease resistance profile</span>' +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px">Resistance ratings for your selected cultivar across key diseases. A low rating means your turf is genetically susceptible — this raises the risk threshold used in the model.</p>' +
+            rows +
+            '</div></div>';
+    }
+
+    // ── Dew forecast block ───────────────────────────────────────────────────
+
+    function renderDewForecastBlock() {
+        var siteConfig = global.GAIP_SITE_CONFIG || {};
+        var turf       = siteConfig.turf || {};
+        var turfType   = turf.turfType || (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) || '';
+
+        var dew = global.GAIP_DEW_RESULT;
+
+        var hasForecast = dew && Array.isArray(dew.forecast) && dew.forecast.length > 0;
+
+        // Show block for golf/sports (with or without data).
+        // If we have real forecast data, show it for any turf type.
+        if (!hasForecast && turfType !== 'golf' && turfType !== 'sports') return '';
+
+        var forecast = hasForecast ? dew.forecast : [];
+        var rows = '';
+        forecast.slice(0, 7).forEach(function (day) {
+            var risk    = day.risk || 'low';
+            var cls     = risk === 'high' ? 'critical' : risk === 'moderate' ? 'warning' : 'good';
+            var dewTime = day.dewOnset || '—';
+            var wetHrs  = typeof day.wetHours === 'number' ? day.wetHours.toFixed(1) + ' hrs' : '—';
+            rows += '<div style="display:grid;grid-template-columns:90px 1fr 80px 80px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
+                '<span style="font-size:12px;font-weight:600;color:var(--gaip-text)">' + esc(day.label || '') + '</span>' +
+                '<span style="font-size:11px;color:var(--gaip-text-secondary)">Dew onset: ' + esc(dewTime) + '</span>' +
+                '<span style="font-size:11px;color:var(--gaip-text-secondary);text-align:right">' + esc(wetHrs) + '</span>' +
+                '<span style="font-size:11px;font-weight:700;color:var(--gaip-' + cls + ');text-align:right;text-transform:capitalize">' + esc(risk) + '</span>' +
+                '</div>';
+        });
+
+        if (!rows) {
+            rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">Dew forecast unavailable — run analysis with live weather to populate.</div>';
+        }
+
+        return '<div class="gl-block" style="margin-top:16px">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent" style="background:var(--gaip-info)"></div>' +
+            '<div class="gl-block-title">Dew Forecast &amp; Match Conditions' +
+            '<button class="db-info-icon" data-info="dew-forecast" tabindex="0" style="margin-left:6px">i</button>' +
+            '</div>' +
+            '<span class="gl-block-sub">Leaf wetness risk for the next 7 days</span>' +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px">Dew periods create ideal conditions for fungal infection spread. Schedule early-morning irrigation and improve air movement to reduce risk on high-pressure days.</p>' +
+            rows +
+            '</div></div>';
     }
 
     // ── Forecast chart (async, Open Meteo + DiseaseForecast) ─────────────────
@@ -877,14 +991,18 @@
         var diseaseData = getDiseaseData();
         if (!diseaseData) return;
 
-        // If static forecast already rendered, nothing to do
-        if (!document.getElementById('dr-forecast-wrap')) return;
+        // staticChart = static forecast was already rendered (no placeholder needed),
+        // but we still fetch Open-Meteo to compute dew forecast.
+        var staticChart = !document.getElementById('dr-forecast-wrap');
 
         var cfg = global.GAIP_HUB_CONFIG || {};
         var loc = cfg.savedLocation;
         if (!loc || !loc.lat || !loc.lon) {
-            document.getElementById('dr-forecast-wrap').innerHTML =
-                '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No location set — forecast unavailable.</div>';
+            if (!staticChart) {
+                var wrapEl = document.getElementById('dr-forecast-wrap');
+                if (wrapEl) wrapEl.innerHTML =
+                    '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No location set — forecast unavailable.</div>';
+            }
             return;
         }
 
@@ -966,15 +1084,57 @@
                     turf: { grassSpecies: cfg.turfSpecies || 'perennialRyegrass' }
                 };
 
+                // ── 1. Dew forecast (always, independent of chart) ──────────────
+                if (!global.GAIP_DEW_RESULT || !Array.isArray(global.GAIP_DEW_RESULT.forecast) || global.GAIP_DEW_RESULT.forecast.length === 0) {
+                    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                    var dewForecast = [];
+                    var totalWet = 0, totalDays = 0;
+                    for (var fd = 0; fd < Math.min(numForecastDays, 7); fd++) {
+                        var fStart = fd * hoursPerDay;
+                        var fEnd   = Math.min(fStart + hoursPerDay, rh.length);
+                        var wetHrs = 0, onsetHour = null;
+                        for (var fh = fStart; fh < fEnd; fh++) {
+                            var hourOfDay = fh % hoursPerDay;
+                            var precip    = (hourly.precipitation || [])[fh] || 0;
+                            var rhVal     = rh[fh] || 0;
+                            if (rhVal >= 90 || precip > 0.1) {
+                                wetHrs++;
+                                if ((hourOfDay < 8 || hourOfDay >= 20) && onsetHour === null) onsetHour = hourOfDay;
+                            }
+                        }
+                        var risk = wetHrs >= 8 ? 'high' : wetHrs >= 4 ? 'moderate' : 'low';
+                        var dateTs = times[fStart] ? new Date(times[fStart]) : new Date(Date.now() + fd * 86400000);
+                        var dayLabel = fd === 0 ? 'Today' : fd === 1 ? 'Tomorrow' : dayNames[dateTs.getDay()];
+                        var onsetStr = onsetHour !== null ? (onsetHour < 10 ? '0' : '') + onsetHour + ':00' : '—';
+                        dewForecast.push({ label: dayLabel, wetHours: wetHrs, dewOnset: onsetStr, risk: risk });
+                        totalWet += wetHrs; totalDays++;
+                    }
+                    global.GAIP_DEW_RESULT = {
+                        applicable: true,
+                        forecast:   dewForecast,
+                        leafWetness: { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 },
+                    };
+                    var glBody = document.querySelector('.gl-body');
+                    if (glBody) {
+                        var dewHtml = renderDewForecastBlock();
+                        if (dewHtml) {
+                            var tmp = document.createElement('div');
+                            tmp.innerHTML = dewHtml;
+                            while (tmp.firstChild) glBody.appendChild(tmp.firstChild);
+                        }
+                    }
+                }
+
+                // ── 2. Disease forecast chart (only when placeholder exists) ────
+                if (staticChart) return;
                 if (typeof global.DiseaseForecast === 'undefined') return;
                 var result = global.DiseaseForecast.generateForecast(state);
                 if (result.error || !result.diseases || result.diseases.length === 0) {
-                    document.getElementById('dr-forecast-wrap').innerHTML =
-                        '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant disease risk forecast.</div>';
+                    var fw = document.getElementById('dr-forecast-wrap');
+                    if (fw) fw.innerHTML = '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant disease risk forecast.</div>';
                     return;
                 }
 
-                // Build series from DiseaseForecast result
                 var series = [];
                 result.diseases.forEach(function (disease, i) {
                     if (!Array.isArray(disease.forecast) || disease.forecast.length < 2) return;
@@ -987,11 +1147,9 @@
                 });
                 if (series.length === 0) return;
 
-                var forecastArr  = result.diseases[0].forecast;
-                var labels       = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
-                var chartDays    = result.forecastDays || forecastArr.length;
-                var peakData     = result.summary || null;
-                var chartHtml    = renderForecastChartFromSeries(series, labels, chartDays, peakData);
+                var forecastArr = result.diseases[0].forecast;
+                var labels      = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
+                var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, result.summary || null);
                 var wrap = document.getElementById('dr-forecast-wrap');
                 if (wrap) {
                     wrap.outerHTML = chartHtml;
@@ -1173,6 +1331,14 @@
     // ── Boot ──────────────────────────────────────────────────────────────────
 
     function boot() {
+        // Pre-populate GAIP_DEW_RESULT from cached analysis so renderDewForecastBlock()
+        // has data on first render (initForecastChart sets it again after the async fetch).
+        if (!global.GAIP_DEW_RESULT &&
+            global.GAIP_DASHBOARD_DATA &&
+            global.GAIP_DASHBOARD_DATA.computed &&
+            global.GAIP_DASHBOARD_DATA.computed.dew) {
+            global.GAIP_DEW_RESULT = global.GAIP_DASHBOARD_DATA.computed.dew;
+        }
         renderPage();
         initInfoPopovers();
         initForecastChart();

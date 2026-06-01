@@ -50,6 +50,54 @@
         'irrigation-plan': {
             title: 'Irrigation Plan',
             body:  'Calculated weekly irrigation requirement based on Penman-Monteith reference ET₀ and crop coefficient (Kc). Cool-season Kc = 0.85, warm-season = 0.75.'
+        },
+        'monthly-n-rate': {
+            title: 'Current Monthly N Rate',
+            body:  'Optional. Enter the kg N/ha you applied last month. After generating the nutrition program, this is compared against the growth-limited N uptake capacity — if your rate exceeds the capacity, the excess cannot be utilised and increases leaching risk.'
+        },
+        'pgr-last-date': {
+            title: 'Last application date',
+            body:  'GDD accumulation is counted from this date to estimate remaining suppression activity and suggest the next application window.'
+        },
+        'pgr-rate': {
+            title: 'Application rate (L/ha)',
+            body:  'Used to calibrate expected growth suppression duration. Higher rates extend residual activity. Check label rates for your product.'
+        },
+        'pest-timing': {
+            title: 'GDD Pest Timing',
+            body:  'Growing Degree Days (GDD) accumulated from a biofix date predict when pest life stages occur. Armyworm and ground pearl are the primary targets. Integrated tracking is coming — links to external GDD calculators are shown in the meantime.'
+        },
+        'traffic-wear': {
+            title: 'Traffic & Wear',
+            body:  'Enter your match and training schedule to drive the wear recovery model. Recovery probability is calculated from cumulative wear load, current soil conditions, and species-specific recovery rate. Available for sports fields only.'
+        },
+        'player-age-group': {
+            title: 'Player age group',
+            body:  'Heavier players and higher training intensity cause greater surface stress per hour. Age group is used to weight the wear load calculation. Adult = base load; Masters and youth are adjusted accordingly.'
+        },
+        'training-area': {
+            title: 'Training area used (%)',
+            body:  'If you rotate training to different areas of the field, enter the average percentage of the total surface used per session. 100% = whole field every session, 50% = half-field rotation.'
+        },
+        'prior-usage': {
+            title: 'Prior usage history',
+            body:  'Recent wear history shapes the recovery curve. High load over the past 4 weeks reduces the predicted recovery window. Leave blank if not recorded — the model uses schedule data only.'
+        },
+        'clegg-mean': {
+            title: 'Mean Gmax (Clegg hammer)',
+            body:  'Standard 2.25 kg hammer dropped from 450 mm. Typical range: 60–90 Gmax. Below 60 = too soft, above 100 = too hard for safe play. Measured at the surface after mowing.'
+        },
+        'clegg-zones': {
+            title: 'Zone readings',
+            body:  'Record the highest reading (e.g. goalmouth or centre circle) and the lowest (e.g. wing area) to assess surface uniformity. A large spread between zones indicates inconsistent moisture or compaction.'
+        },
+        'cultivar-performance': {
+            title: 'Cultivar performance profile',
+            body:  'Disease resistance ratings for your selected species and variety across key pathogens. Ratings are sourced from published cultivar trial data and adjusted for your climate. A low resistance rating means your turf is genetically susceptible — this raises the disease risk threshold used in the model.'
+        },
+        'dew-forecast': {
+            title: 'Dew forecast',
+            body:  'Estimated dew onset time and surface wetness duration for the next 7 days. Dew periods create ideal conditions for fungal infection spread — particularly dollar spot and Pythium. High-risk match windows are highlighted in red.'
         }
     };
 
