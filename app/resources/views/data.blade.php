@@ -159,74 +159,34 @@
                 </div>
             </div>
 
-            {{-- ── SENSORS: configuration UI ── --}}
+            {{-- ── SENSORS ── --}}
             @if($section === 'sensors')
             <div class="sens-wrap" id="sens-wrap">
 
-                <div class="sens-section-head">
-                    <div class="sens-section-name">Sensor Integrations</div>
-                    <div class="sens-section-sub">Connect your soil sensor provider to feed live VWC, EC and soil temperature into GAIP engines.</div>
+                {{-- Provider status bar --}}
+                <div class="sens-provider-status" id="sens-provider-status">
+                    <div class="sens-pstatus-item">
+                        <span class="sens-pstatus-dot" id="dat-hs-dot"></span>
+                        <span class="sens-pstatus-name">Hydrosight</span>
+                        <span class="sens-pstatus-val" id="dat-hs-status">Not configured</span>
+                    </div>
+                    <div class="sens-pstatus-sep"></div>
+                    <div class="sens-pstatus-item">
+                        <span class="sens-pstatus-dot" id="dat-sc-dot"></span>
+                        <span class="sens-pstatus-name">SpecConnect</span>
+                        <span class="sens-pstatus-val" id="dat-sc-status">Not configured</span>
+                    </div>
+                    <a class="sens-pstatus-link" href="{{ route('settings') }}#integrations">Manage in Settings</a>
                 </div>
 
-                <div class="sens-providers">
-
-                    {{-- Hydrosight --}}
-                    <div class="sens-provider-card">
-                        <div class="sens-provider-header">
-                            <div class="sens-provider-icon">
-                                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-2.667-5.596a3 3 0 014.334 0M5.636 12.364a9.5 9.5 0 0112.728 0"/>
-                                </svg>
-                            </div>
-                            <div class="sens-provider-info">
-                                <div class="sens-provider-name">Hydrosight</div>
-                                <div class="sens-provider-desc">Wireless buried TDR sensors. Reads VWC, EC and soil temperature per zone.</div>
-                            </div>
-                            <span class="sens-status-badge" id="sens-hs-badge">Not configured</span>
-                        </div>
-                        <div class="sens-provider-body" id="sens-hs-body">
-                            <label class="sens-label" for="sens-hs-key">API Key</label>
-                            <div class="sens-key-row">
-                                <input type="password" class="sens-input" id="sens-hs-key" placeholder="Enter your Hydrosight API key" autocomplete="new-password" spellcheck="false">
-                                <button class="sens-test-btn" id="sens-hs-test" type="button">Test &amp; Save</button>
-                            </div>
-                            <div class="sens-field-msg" id="sens-hs-msg"></div>
-                            <button class="sens-disconnect-btn" id="sens-hs-disconnect" type="button" style="display:none">Disconnect</button>
-                        </div>
-                        <div class="sens-sensor-list" id="sens-hs-list" style="display:none">
-                            <div class="sens-sensor-list-head">Connected Sensors</div>
-                        </div>
-                    </div>
-
-                    {{-- SpecConnect --}}
-                    <div class="sens-provider-card">
-                        <div class="sens-provider-header">
-                            <div class="sens-provider-icon">
-                                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
-                                </svg>
-                            </div>
-                            <div class="sens-provider-info">
-                                <div class="sens-provider-name">SpecConnect</div>
-                                <div class="sens-provider-desc">TDR 350/300 FieldScout spatial readings. Session-based soil scanning via portable probe.</div>
-                            </div>
-                            <span class="sens-status-badge" id="sens-sc-badge">Not configured</span>
-                        </div>
-                        <div class="sens-provider-body" id="sens-sc-body">
-                            <label class="sens-label" for="sens-sc-key">API Key</label>
-                            <div class="sens-key-row">
-                                <input type="password" class="sens-input" id="sens-sc-key" placeholder="Enter your SpecConnect API key" autocomplete="new-password" spellcheck="false">
-                                <button class="sens-test-btn" id="sens-sc-test" type="button">Test &amp; Save</button>
-                            </div>
-                            <div class="sens-field-msg" id="sens-sc-msg"></div>
-                            <button class="sens-disconnect-btn" id="sens-sc-disconnect" type="button" style="display:none">Disconnect</button>
-                        </div>
-                        <div class="sens-sensor-list" id="sens-sc-list" style="display:none">
-                            <div class="sens-sensor-list-head">Connected Equipment</div>
-                        </div>
-                    </div>
-
-                </div>{{-- /sens-providers --}}
+                {{-- Empty state: no providers configured --}}
+                <div class="sens-no-integration" id="sens-no-integration" style="display:none">
+                    <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gaip-border,#ccd9d2)">
+                        <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-2.667-5.596a3 3 0 014.334 0M5.636 12.364a9.5 9.5 0 0112.728 0"/>
+                    </svg>
+                    <div class="sens-no-integration-title">No sensor integrations configured</div>
+                    <div class="sens-no-integration-sub">Connect your sensor provider in <a href="{{ route('settings') }}#integrations">Settings → Integrations</a> to enable live readings.</div>
+                </div>
 
                 {{-- Live readings --}}
                 <div class="sens-readings-section" id="sens-readings" style="display:none">
@@ -235,10 +195,13 @@
                             <span class="sens-readings-title">Live Readings</span>
                             <span class="sens-last-updated" id="sens-last-updated"></span>
                         </div>
-                        <button class="sens-refresh-btn" id="sens-refresh-btn" type="button">↻ Refresh</button>
+                        <button class="sens-refresh-btn" id="sens-refresh-btn" type="button">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-1px;margin-right:4px"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                            Refresh
+                        </button>
                     </div>
                     <div class="sens-zone-grid" id="sens-zone-grid">
-                        <div class="sens-no-readings">No readings cached yet — refresh to fetch live data.</div>
+                        <div class="sens-no-readings">No readings cached yet — click Refresh to fetch live data.</div>
                     </div>
                 </div>
 
@@ -1636,23 +1599,14 @@
     var SITE_ID = '{{ $activeSite?->id ?? 'default' }}';
 
     // ── localStorage helpers ─────────────────────────────────────────────
-    function lsGet(key) {
-        try { return localStorage.getItem(key); } catch (e) { return null; }
-    }
-    function lsSet(key, val) {
-        try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
-    }
-    function lsDel(key) {
-        try { localStorage.removeItem(key); } catch (e) {}
-    }
-    function lsJson(key) {
-        var raw = lsGet(key); if (!raw) return null;
-        try { return JSON.parse(raw); } catch (e) { return null; }
-    }
+    function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function lsSet(key, val) { try { localStorage.setItem(key, val); return true; } catch (e) { return false; } }
+    function lsJson(key) { var raw = lsGet(key); if (!raw) return null; try { return JSON.parse(raw); } catch (e) { return null; } }
 
-    // ── Hydrosight storage key (site-scoped) ─────────────────────────────
     function hsKey() { return 'gaip_hydrosight_config_' + SITE_ID; }
     function scKey() { return 'gilba_specconnect_config'; }
+    function hsLoad() { return lsJson(hsKey()) || {}; }
+    function scLoad() { return lsJson(scKey()) || {}; }
 
     // ── Proxy call ───────────────────────────────────────────────────────
     async function proxyCall(provider, endpoint, apiKey) {
@@ -1668,21 +1622,17 @@
         } catch (networkErr) {
             throw new Error('Network error — check your connection.');
         }
-
-        // Handle auth/CSRF failures from Laravel before the controller runs
         if (r.status === 419) throw new Error('Session expired — please refresh the page.');
         if (r.status === 401) throw new Error('Not authenticated — please log in again.');
         if (r.status === 403) throw new Error('Request blocked (403) — please refresh the page and try again.');
-
         var text = await r.text();
         var json;
         try { json = JSON.parse(text); } catch (_) {
             throw new Error('Unexpected response (HTTP ' + r.status + ') — please refresh the page.');
         }
-
         if (!json.success) {
-            var msg = (json.data && json.data.message) ? json.data.message : ('HTTP ' + r.status);
-            throw new Error(msg);
+            var errMsg = (json.data && json.data.message) ? json.data.message : ('HTTP ' + r.status);
+            throw new Error(errMsg);
         }
         return json.data;
     }
@@ -1703,260 +1653,34 @@
             .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    // ────────────────────────────────────────────────────────────────────
-    // HYDROSIGHT
-    // ────────────────────────────────────────────────────────────────────
-    var _hsCfg = null;
-
-    function hsLoad() {
-        _hsCfg = lsJson(hsKey()) || {};
-        return _hsCfg;
-    }
-
-    function hsSave(cfg) {
-        _hsCfg = Object.assign(_hsCfg || {}, cfg);
-        lsSet(hsKey(), JSON.stringify(_hsCfg));
-    }
-
-    function hsRender() {
-        var cfg    = hsLoad();
-        var badge  = document.getElementById('sens-hs-badge');
-        var keyIn  = document.getElementById('sens-hs-key');
-        var disc   = document.getElementById('sens-hs-disconnect');
-        var list   = document.getElementById('sens-hs-list');
-
-        if (cfg.keyConfigured || cfg.apiKey) {
-            badge.textContent = 'Connected';
-            badge.className   = 'sens-status-badge connected';
-            if (keyIn) keyIn.placeholder = '••••••••••••••••';
-            if (disc) disc.style.display = '';
-            hsRenderSensors(cfg, list);
-        } else {
-            badge.textContent = 'Not configured';
-            badge.className   = 'sens-status-badge';
-            if (disc) disc.style.display = 'none';
-            if (list) list.style.display = 'none';
-        }
-    }
-
-    function hsRenderSensors(cfg, list) {
-        if (!list) return;
-        var cache = lsJson('gilba_sensor_last_fetch');
-        var locations = (cache && cache.provider === 'Hydrosight' && cache.locations) || [];
-
-        // Try loading from the hydrosight readings cache
-        var readingsCache = lsJson('gaip_hydrosight_readings_cache_' + SITE_ID) || {};
-        var readings = readingsCache.data || [];
-
-        var html = '<div class="sens-sensor-list-head">Connected Sensors</div>';
-        if (!readings.length && !locations.length) {
-            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Use Refresh to fetch live data.</div>';
-        } else {
-            var zones = ['Greens','Fairways','Tees','Roughs','Other'];
-            var items = readings.length ? readings : locations;
-            items.slice(0, 12).forEach(function (item) {
-                var name = item.name || item.sensorId || item.id || '—';
-                var vwc  = item.vwc != null ? item.vwc.toFixed(1) : null;
-                var ec   = item.ec  != null ? item.ec.toFixed(2)  : null;
-                var tmp  = item.soilTemp != null ? item.soilTemp.toFixed(1) : null;
-                var mapping = (cfg.sensorZoneMapping || {})[item.sensorId || item.id] || '';
-                html += '<div class="sens-sensor-row">'
-                    + '<span class="sens-sensor-dot' + (vwc ? ' live' : '') + '"></span>'
-                    + '<span class="sens-sensor-name">' + esc(name) + '</span>'
-                    + '<span class="sens-sensor-readings">'
-                    + (vwc ? '<span class="sens-sensor-val"><span>' + vwc + '%</span> VWC</span>' : '')
-                    + (ec  ? '<span class="sens-sensor-val"><span>' + ec  + '</span> EC</span>' : '')
-                    + (tmp ? '<span class="sens-sensor-val"><span>' + tmp + '°C</span></span>' : '')
-                    + '</span>'
-                    + '<select class="sens-zone-select" data-sensor-id="' + esc(item.sensorId || item.id) + '">'
-                    + '<option value="">Zone…</option>'
-                    + zones.map(function (z) { return '<option value="' + z + '"' + (mapping === z ? ' selected' : '') + '>' + z + '</option>'; }).join('')
-                    + '</select>'
-                    + '</div>';
-            });
-        }
-        list.innerHTML = html;
-        list.style.display = '';
-
-        // Zone mapping change handler
-        list.querySelectorAll('.sens-zone-select').forEach(function (sel) {
-            sel.addEventListener('change', function () {
-                var sensorId = sel.dataset.sensorId;
-                var cfg2 = hsLoad();
-                cfg2.sensorZoneMapping = cfg2.sensorZoneMapping || {};
-                if (sel.value) cfg2.sensorZoneMapping[sensorId] = sel.value;
-                else delete cfg2.sensorZoneMapping[sensorId];
-                hsSave(cfg2);
-            });
-        });
-    }
-
-    async function hsTestAndSave() {
-        var keyIn  = document.getElementById('sens-hs-key');
-        var msg    = document.getElementById('sens-hs-msg');
-        var badge  = document.getElementById('sens-hs-badge');
-        var btn    = document.getElementById('sens-hs-test');
-        var apiKey = (keyIn && keyIn.value.trim()) || (_hsCfg && _hsCfg.apiKey) || '';
-
-        if (!apiKey) { setMsg(msg, 'Enter an API key first.', 'err'); return; }
-
-        btn.disabled = true; btn.textContent = 'Testing…';
-        badge.textContent = 'Testing…'; badge.className = 'sens-status-badge testing';
-        setMsg(msg, 'Connecting to Hydrosight…', 'info');
-
-        try {
-            // Verify connectivity via /locations
-            var locData  = await proxyCall('hydrosight', '/locations', apiKey);
-            var locCount = (locData && locData.items) ? locData.items.length : 0;
-
-            // Fetch sensor list so the UI populates immediately
-            var senData  = await proxyCall('hydrosight', '/sensors', apiKey);
-            var sensors  = (senData && senData.items) || [];
-            var sensorStubs = sensors.map(function (s) {
-                return { sensorId: s.sensorId, name: s.name || s.sensorId, vwc: null, ec: null, soilTemp: null };
-            });
-            lsSet('gilba_sensor_last_fetch', JSON.stringify({
-                fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: sensorStubs
-            }));
-
-            hsSave({ apiKey: apiKey, keyConfigured: true, enabled: true });
-            setMsg(msg, 'Connected — ' + locCount + ' location' + (locCount === 1 ? '' : 's') + ', ' + sensors.length + ' sensor' + (sensors.length === 1 ? '' : 's') + ' found.', 'ok');
-            hsRender();
-            updateReadingsSection();
-        } catch (e) {
-            setMsg(msg, 'Failed: ' + e.message, 'err');
-            badge.textContent = 'Error'; badge.className = 'sens-status-badge error';
-        } finally {
-            btn.disabled = false; btn.textContent = 'Test & Save';
-        }
-    }
-
-    function hsDisconnect() {
-        lsDel(hsKey());
-        _hsCfg = null;
-        var msg = document.getElementById('sens-hs-msg');
-        var keyIn = document.getElementById('sens-hs-key');
-        setMsg(msg, 'Disconnected.', 'info');
-        if (keyIn) keyIn.value = '';
-        hsRender();
-        updateReadingsSection();
-    }
-
-    // ────────────────────────────────────────────────────────────────────
-    // SPECCONNECT
-    // ────────────────────────────────────────────────────────────────────
-    var _scCfg = null;
-
-    function scLoad() {
-        _scCfg = lsJson(scKey()) || {};
-        return _scCfg;
-    }
-
-    function scSave(cfg) {
-        _scCfg = Object.assign(_scCfg || {}, cfg);
-        lsSet(scKey(), JSON.stringify(_scCfg));
-    }
-
-    function scRender() {
-        var cfg   = scLoad();
-        var badge = document.getElementById('sens-sc-badge');
-        var keyIn = document.getElementById('sens-sc-key');
-        var disc  = document.getElementById('sens-sc-disconnect');
-        var list  = document.getElementById('sens-sc-list');
-
-        if (cfg.apiKey) {
-            badge.textContent = 'Connected';
-            badge.className   = 'sens-status-badge connected';
-            if (keyIn) keyIn.placeholder = '••••••••••••••••';
-            if (disc) disc.style.display = '';
-            scRenderEquipment(cfg, list);
-        } else {
-            badge.textContent = 'Not configured';
-            badge.className   = 'sens-status-badge';
-            if (disc) disc.style.display = 'none';
-            if (list) list.style.display = 'none';
-        }
-    }
-
-    function scRenderEquipment(cfg, list) {
-        if (!list) return;
-        var cache = lsJson('gilba_specconnect_cache_' + SITE_ID);
-        var items = (cache && cache.data) ? cache.data : [];
-
-        var html = '<div class="sens-sensor-list-head">Connected Equipment</div>';
-        if (!items.length) {
-            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Use Refresh to fetch live data.</div>';
-        } else {
-            items.slice(0, 12).forEach(function (item) {
-                var name = item.surfaceName || item.collectionName || item.SerialNumber || '—';
-                var vwc  = item.vwc  != null ? item.vwc.toFixed(1)  : null;
-                var tmp  = item.soilTemp != null ? item.soilTemp.toFixed(1) : null;
-                html += '<div class="sens-sensor-row">'
-                    + '<span class="sens-sensor-dot' + (vwc ? ' live' : '') + '"></span>'
-                    + '<span class="sens-sensor-name">' + esc(name) + '</span>'
-                    + '<span class="sens-sensor-readings">'
-                    + (vwc ? '<span class="sens-sensor-val"><span>' + vwc + '%</span> VWC</span>' : '')
-                    + (tmp ? '<span class="sens-sensor-val"><span>' + tmp + '°C</span></span>' : '')
-                    + '</span>'
-                    + '</div>';
-            });
-        }
-        list.innerHTML = html;
-        list.style.display = '';
-    }
-
-    async function scTestAndSave() {
-        var keyIn  = document.getElementById('sens-sc-key');
-        var msg    = document.getElementById('sens-sc-msg');
-        var badge  = document.getElementById('sens-sc-badge');
-        var btn    = document.getElementById('sens-sc-test');
-        var apiKey = (keyIn && keyIn.value.trim()) || (_scCfg && _scCfg.apiKey) || '';
-
-        if (!apiKey) { setMsg(msg, 'Enter an API key first.', 'err'); return; }
-
-        btn.disabled = true; btn.textContent = 'Testing…';
-        badge.textContent = 'Testing…'; badge.className = 'sens-status-badge testing';
-        setMsg(msg, 'Connecting to SpecConnect…', 'info');
-
-        try {
-            var ep  = '/api/Customer/GetCustomerEquipment?customerApiKey={key}&optUnits=1';
-            var data = await proxyCall('specconnect', ep, apiKey);
-            var count = Array.isArray(data) ? data.length : 0;
-            scSave({ apiKey: apiKey, enabled: true });
-            setMsg(msg, 'Connected — ' + count + ' device' + (count === 1 ? '' : 's') + ' found.', 'ok');
-            scRender();
-            updateReadingsSection();
-        } catch (e) {
-            setMsg(msg, 'Failed: ' + e.message, 'err');
-            badge.textContent = 'Error'; badge.className = 'sens-status-badge error';
-        } finally {
-            btn.disabled = false; btn.textContent = 'Test & Save';
-        }
-    }
-
-    function scDisconnect() {
-        lsDel(scKey());
-        _scCfg = null;
-        var msg   = document.getElementById('sens-sc-msg');
-        var keyIn = document.getElementById('sens-sc-key');
-        setMsg(msg, 'Disconnected.', 'info');
-        if (keyIn) keyIn.value = '';
-        scRender();
-        updateReadingsSection();
-    }
-
-    // ────────────────────────────────────────────────────────────────────
-    // LIVE READINGS
-    // ────────────────────────────────────────────────────────────────────
-    function updateReadingsSection() {
+    // ── Provider status bar ──────────────────────────────────────────────
+    function updateProviderStatus() {
         var hsCfg = hsLoad();
         var scCfg = scLoad();
-        var hasAny = !!(hsCfg.keyConfigured || hsCfg.apiKey || scCfg.apiKey);
+        var hsOn  = !!(hsCfg.keyConfigured || hsCfg.apiKey);
+        var scOn  = !!(scCfg.apiKey);
+
+        var hsDot    = document.getElementById('dat-hs-dot');
+        var hsStatus = document.getElementById('dat-hs-status');
+        var scDot    = document.getElementById('dat-sc-dot');
+        var scStatus = document.getElementById('dat-sc-status');
+
+        if (hsDot)    hsDot.className      = 'sens-pstatus-dot' + (hsOn ? ' active' : '');
+        if (hsStatus) hsStatus.textContent = hsOn ? 'Connected' : 'Not configured';
+        if (scDot)    scDot.className      = 'sens-pstatus-dot' + (scOn ? ' active' : '');
+        if (scStatus) scStatus.textContent = scOn ? 'Connected' : 'Not configured';
+
+        return hsOn || scOn;
+    }
+
+    // ── Live Readings ────────────────────────────────────────────────────
+    function updateReadingsSection() {
+        var hasAny  = updateProviderStatus();
         var section = document.getElementById('sens-readings');
-        if (!section) return;
-        if (!hasAny) { section.style.display = 'none'; return; }
-        section.style.display = '';
-        renderZoneGrid();
+        var empty   = document.getElementById('sens-no-integration');
+        if (section) section.style.display = hasAny ? '' : 'none';
+        if (empty)   empty.style.display   = hasAny ? 'none' : '';
+        if (hasAny) renderZoneGrid();
     }
 
     function renderZoneGrid() {
@@ -1964,31 +1688,31 @@
         var updated = document.getElementById('sens-last-updated');
         if (!grid) return;
 
-        // Aggregate zone readings from both providers
-        var hsCfg  = hsLoad();
-        var zoneMap = hsCfg.sensorZoneMapping || {};
+        var hsCfg    = hsLoad();
+        var zoneMap  = hsCfg.sensorZoneMapping || {};
+        var excluded = hsCfg.excludedSensors   || {};
 
         var readingsCache = lsJson('gaip_hydrosight_readings_cache_' + SITE_ID) || {};
         var readings = readingsCache.data || [];
-
-        // Also try last fetch
         var lastFetch = lsJson('gilba_sensor_last_fetch');
-
         var ts = readingsCache.timestamp || (lastFetch && lastFetch.fetchedAt ? new Date(lastFetch.fetchedAt).getTime() : 0);
         if (updated) updated.textContent = ts ? '— ' + timeAgo(ts) : '';
 
-        // Build zone aggregates
         var zones = {};
         readings.forEach(function (r) {
+            if (excluded[r.sensorId]) return;
             var z = zoneMap[r.sensorId] || r.zone || 'Other';
-            if (!zones[z]) zones[z] = { vwcVals: [], ecVals: [], tmpVals: [] };
-            if (r.vwc  != null) zones[z].vwcVals.push(r.vwc);
-            if (r.ec   != null) zones[z].ecVals.push(r.ec);
+            if (!zones[z]) zones[z] = { sensors: [], vwcVals: [], ecVals: [], tmpVals: [] };
+            zones[z].sensors.push(r);
+            if (r.vwc      != null) zones[z].vwcVals.push(r.vwc);
+            if (r.ec       != null) zones[z].ecVals.push(r.ec);
             if (r.soilTemp != null) zones[z].tmpVals.push(r.soilTemp);
         });
 
+        var avg = function (arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; };
+
         var zoneOrder = ['Greens','Fairways','Tees','Roughs','Other'];
-        var rendered = zoneOrder.filter(function (z) { return zones[z] && zones[z].vwcVals.length; });
+        var rendered  = zoneOrder.filter(function (z) { return zones[z] && zones[z].vwcVals.length; });
 
         if (!rendered.length) {
             grid.innerHTML = '<div class="sens-no-readings">No readings cached yet — click Refresh to fetch live data.</div>';
@@ -1997,39 +1721,56 @@
 
         grid.innerHTML = rendered.map(function (z) {
             var zd  = zones[z];
-            var avg = function (arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; };
             var vwc = avg(zd.vwcVals);
             var ec  = avg(zd.ecVals);
             var tmp = avg(zd.tmpVals);
             var pct = Math.min(100, Math.max(0, (vwc || 0) / 60 * 100));
             var barColor = vwc == null ? '#ccd9d2' : (vwc < 20 ? '#dc2626' : vwc < 30 ? '#f59e0b' : '#2da85e');
+
+            // Individual sensor rows within this zone
+            var sensorRows = zd.sensors.map(function (r) {
+                var sVwc = r.vwc      != null ? r.vwc.toFixed(1)      : null;
+                var sEc  = r.ec       != null ? r.ec.toFixed(2)        : null;
+                var sTmp = r.soilTemp != null ? r.soilTemp.toFixed(1)  : null;
+                var sDot = sVwc ? ' live' : '';
+                return '<div class="sens-zone-sensor">'
+                    + '<span class="sens-sensor-dot' + sDot + '" style="flex-shrink:0"></span>'
+                    + '<span class="sens-zone-sensor-name">' + esc(r.name || r.sensorId || '—') + '</span>'
+                    + '<span class="sens-zone-sensor-vals">'
+                    + (sVwc ? sVwc + '% ' : '—% ')
+                    + (sEc  ? '· ' + sEc + ' dS/m ' : '')
+                    + (sTmp ? '· ' + sTmp + '°C'   : '')
+                    + '</span>'
+                    + '</div>';
+            }).join('');
+
             return '<div class="sens-zone-card">'
-                + '<div class="sens-zone-label">' + esc(z) + '</div>'
+                + '<div class="sens-zone-header">'
+                + '<div class="sens-zone-label">' + esc(z) + ' <span class="sens-zone-count">(' + zd.sensors.length + ' sensor' + (zd.sensors.length !== 1 ? 's' : '') + ')</span></div>'
+                + '<div class="sens-zone-avg-label">avg</div>'
+                + '</div>'
                 + '<div class="sens-zone-vwc">' + (vwc != null ? vwc.toFixed(1) : '—') + '<span class="sens-zone-vwc-unit">%</span></div>'
                 + '<div class="sens-zone-vwc-bar"><div class="sens-zone-vwc-fill" style="width:' + pct.toFixed(1) + '%;background:' + barColor + '"></div></div>'
                 + '<div class="sens-zone-meta">'
                 + (ec  != null ? '<span>' + ec.toFixed(2) + ' dS/m</span>' : '')
-                + (tmp != null ? '<span>' + tmp.toFixed(1) + '°C</span>' : '')
+                + (tmp != null ? '<span>' + tmp.toFixed(1) + '°C</span>'   : '')
                 + '</div>'
+                + '<div class="sens-zone-sensors">' + sensorRows + '</div>'
                 + '</div>';
         }).join('');
     }
 
     async function refreshReadings() {
-        var btn = document.getElementById('sens-refresh-btn');
-        if (btn) { btn.disabled = true; btn.textContent = '↻ Fetching…'; }
-
+        var btn    = document.getElementById('sens-refresh-btn');
         var hsCfg  = hsLoad();
         var apiKey = hsCfg.apiKey;
 
+        if (btn) { btn.disabled = true; btn.querySelector('svg') && (btn.style.opacity = '0.5'); }
+
         if (apiKey) {
             try {
-                // 1. Get full sensor list
                 var listData = await proxyCall('hydrosight', '/sensors', apiKey);
                 var sensors  = (listData && listData.items) || [];
-
-                // 2. Fetch each sensor individually to get lastReadings
-                if (btn) btn.textContent = '↻ Fetching ' + sensors.length + ' sensors…';
                 var readings = [];
                 for (var i = 0; i < sensors.length; i++) {
                     var s = sensors[i];
@@ -2039,6 +1780,7 @@
                         var vwc = parseFloat(lr.moisture);
                         var ec  = parseFloat(lr.ec);
                         var tmp = parseFloat(lr.temperature);
+                        console.log('[Hydrosight] sensor', detail.sensorId || s.sensorId, '| raw lastReadings:', lr, '| parsed vwc:', vwc);
                         readings.push({
                             sensorId: detail.sensorId || s.sensorId,
                             name:     detail.name || s.name || s.sensorId,
@@ -2051,59 +1793,24 @@
                         readings.push({ sensorId: s.sensorId, name: s.name || s.sensorId, vwc: null, ec: null, soilTemp: null });
                     }
                 }
-
                 lsSet('gaip_hydrosight_readings_cache_' + SITE_ID, JSON.stringify({ timestamp: Date.now(), data: readings }));
                 lsSet('gilba_sensor_last_fetch', JSON.stringify({
                     fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: readings
                 }));
-                hsRenderSensors(hsCfg, document.getElementById('sens-hs-list'));
             } catch (e) {
                 console.warn('[Sensors] Hydrosight refresh failed:', e.message);
             }
         }
 
         renderZoneGrid();
-        if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
-    }
-
-    // ── Utility ──────────────────────────────────────────────────────────
-    function setMsg(el, text, cls) {
-        if (!el) return;
-        el.textContent = text;
-        el.className   = 'sens-field-msg' + (cls ? ' ' + cls : '');
+        if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }
 
     // ── Init ─────────────────────────────────────────────────────────────
     function init() {
-        hsRender();
-        scRender();
         updateReadingsSection();
-
-        var hsTest = document.getElementById('sens-hs-test');
-        if (hsTest) hsTest.addEventListener('click', hsTestAndSave);
-
-        var hsDisc = document.getElementById('sens-hs-disconnect');
-        if (hsDisc) hsDisc.addEventListener('click', hsDisconnect);
-
-        var scTest = document.getElementById('sens-sc-test');
-        if (scTest) scTest.addEventListener('click', scTestAndSave);
-
-        var scDisc = document.getElementById('sens-sc-disconnect');
-        if (scDisc) scDisc.addEventListener('click', scDisconnect);
-
         var refresh = document.getElementById('sens-refresh-btn');
         if (refresh) refresh.addEventListener('click', refreshReadings);
-
-        // Allow Enter in key inputs to trigger test
-        ['sens-hs-key', 'sens-sc-key'].forEach(function (id) {
-            var el = document.getElementById(id);
-            if (el) el.addEventListener('keydown', function (e) {
-                if (e.key === 'Enter') {
-                    var btn = document.getElementById(id === 'sens-hs-key' ? 'sens-hs-test' : 'sens-sc-test');
-                    if (btn) btn.click();
-                }
-            });
-        });
     }
 
     if (document.readyState === 'loading') {

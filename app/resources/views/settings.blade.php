@@ -9,6 +9,7 @@
 
 @section('styles')
 <link rel="stylesheet" href="{{ $legacyAssetUrl('settings-ui.css') }}">
+<link rel="stylesheet" href="{{ $legacyAssetUrl('data-ui.css') }}">
 @endsection
 
 @section('content')
@@ -650,48 +651,65 @@
                 {{-- ── Integrations ─────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-integrations" role="tabpanel">
 
-                    {{-- Hydrosight --}}
-                    <div class="stg-card" style="margin-bottom:16px">
-                        <div class="stg-card-head stg-card-head-row">
-                            <div>
-                                <div class="stg-card-title">Hydrosight</div>
-                                <div class="stg-card-desc">Connect your Hydrosight account to pull live soil moisture readings into the dashboard.</div>
-                            </div>
-                            <span class="stg-integration-badge" id="stg-hs-badge" hidden>Connected</span>
-                        </div>
-                        <form id="stg-hydrosight-form" class="stg-form" novalidate>
-                            <div class="stg-field stg-field-narrow">
-                                <label for="stg-hs-key">API key</label>
-                                <input type="password" id="stg-hs-key" name="apiKey"
-                                       autocomplete="off" placeholder="Paste your Hydrosight API key">
-                                <p class="stg-field-hint">Find your API key in the Hydrosight portal under Account → API.</p>
-                            </div>
-                            <div class="stg-actions">
-                                <button type="submit" class="stg-btn-primary" id="stg-hs-save">Save key</button>
-                                <button type="button" class="stg-btn-secondary" id="stg-hs-test">Test connection</button>
-                                <span class="stg-msg" id="stg-hs-msg" hidden></span>
-                            </div>
-                        </form>
-                    </div>
+                    <div class="sens-providers">
 
-                    {{-- SpecConnect --}}
-                    <div class="stg-card">
-                        <div class="stg-card-head">
-                            <div class="stg-card-title">SpecConnect</div>
-                            <div class="stg-card-desc">Connect SpecConnect for additional sensor data.</div>
+                        {{-- Hydrosight --}}
+                        <div class="sens-provider-card">
+                            <div class="sens-provider-header">
+                                <div class="sens-provider-icon">
+                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-2.667-5.596a3 3 0 014.334 0M5.636 12.364a9.5 9.5 0 0112.728 0"/>
+                                    </svg>
+                                </div>
+                                <div class="sens-provider-info">
+                                    <div class="sens-provider-name">Hydrosight</div>
+                                    <div class="sens-provider-desc">Wireless buried TDR sensors. Reads VWC, EC and soil temperature per zone.</div>
+                                </div>
+                                <span class="sens-status-badge" id="sens-hs-badge">Not configured</span>
+                            </div>
+                            <div class="sens-provider-body" id="sens-hs-body">
+                                <label class="sens-label" for="sens-hs-key">API Key</label>
+                                <div class="sens-key-row">
+                                    <input type="password" class="sens-input" id="sens-hs-key" placeholder="Enter your Hydrosight API key" autocomplete="new-password" spellcheck="false">
+                                    <button class="sens-test-btn" id="sens-hs-test" type="button">Test &amp; Save</button>
+                                </div>
+                                <div class="sens-field-msg" id="sens-hs-msg"></div>
+                                <button class="sens-disconnect-btn" id="sens-hs-disconnect" type="button" style="display:none">Disconnect</button>
+                            </div>
+                            <div class="sens-sensor-list" id="sens-hs-list" style="display:none">
+                                <div class="sens-sensor-list-head">Connected Sensors</div>
+                            </div>
                         </div>
-                        <form id="stg-specconnect-form" class="stg-form" novalidate>
-                            <div class="stg-field stg-field-narrow">
-                                <label for="stg-sc-key">API key</label>
-                                <input type="password" id="stg-sc-key" name="apiKey"
-                                       autocomplete="off" placeholder="Paste your SpecConnect API key">
+
+                        {{-- SpecConnect --}}
+                        <div class="sens-provider-card">
+                            <div class="sens-provider-header">
+                                <div class="sens-provider-icon">
+                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/>
+                                    </svg>
+                                </div>
+                                <div class="sens-provider-info">
+                                    <div class="sens-provider-name">SpecConnect</div>
+                                    <div class="sens-provider-desc">TDR 350/300 FieldScout spatial readings. Session-based soil scanning via portable probe.</div>
+                                </div>
+                                <span class="sens-status-badge" id="sens-sc-badge">Not configured</span>
                             </div>
-                            <div class="stg-actions">
-                                <button type="submit" class="stg-btn-primary" id="stg-sc-save">Save key</button>
-                                <span class="stg-msg" id="stg-sc-msg" hidden></span>
+                            <div class="sens-provider-body" id="sens-sc-body">
+                                <label class="sens-label" for="sens-sc-key">API Key</label>
+                                <div class="sens-key-row">
+                                    <input type="password" class="sens-input" id="sens-sc-key" placeholder="Enter your SpecConnect API key" autocomplete="new-password" spellcheck="false">
+                                    <button class="sens-test-btn" id="sens-sc-test" type="button">Test &amp; Save</button>
+                                </div>
+                                <div class="sens-field-msg" id="sens-sc-msg"></div>
+                                <button class="sens-disconnect-btn" id="sens-sc-disconnect" type="button" style="display:none">Disconnect</button>
                             </div>
-                        </form>
-                    </div>
+                            <div class="sens-sensor-list" id="sens-sc-list" style="display:none">
+                                <div class="sens-sensor-list-head">Connected Equipment</div>
+                            </div>
+                        </div>
+
+                    </div>{{-- /sens-providers --}}
 
                 </div>{{-- /integrations panel --}}
 

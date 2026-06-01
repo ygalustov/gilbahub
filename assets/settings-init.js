@@ -9,21 +9,31 @@
     var zones    = (D.zones && Array.isArray(D.zones)) ? D.zones.slice() : [];
 
     /* ── Tab switching ───────────────────────────────────────── */
-    document.querySelectorAll('.stg-tab').forEach(function (tab) {
-        tab.addEventListener('click', function () {
-            document.querySelectorAll('.stg-tab').forEach(function (t) {
-                t.classList.remove('active');
-                t.setAttribute('aria-selected', 'false');
-            });
-            document.querySelectorAll('.stg-panel').forEach(function (p) {
-                p.classList.add('stg-hidden');
-            });
-            tab.classList.add('active');
-            tab.setAttribute('aria-selected', 'true');
-            var panel = document.getElementById('stg-tab-' + tab.dataset.tab);
-            if (panel) panel.classList.remove('stg-hidden');
+    function activateTab(tabKey) {
+        document.querySelectorAll('.stg-tab').forEach(function (t) {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
         });
+        document.querySelectorAll('.stg-panel').forEach(function (p) {
+            p.classList.add('stg-hidden');
+        });
+        var tab = document.querySelector('.stg-tab[data-tab="' + tabKey + '"]');
+        if (tab) { tab.classList.add('active'); tab.setAttribute('aria-selected', 'true'); }
+        var panel = document.getElementById('stg-tab-' + tabKey);
+        if (panel) panel.classList.remove('stg-hidden');
+    }
+
+    document.querySelectorAll('.stg-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () { activateTab(tab.dataset.tab); });
     });
+
+    // Activate tab from URL hash (e.g. /settings#integrations)
+    if (location.hash) {
+        var hashKey = location.hash.slice(1);
+        if (document.querySelector('.stg-tab[data-tab="' + hashKey + '"]')) {
+            activateTab(hashKey);
+        }
+    }
 
     /* ── Helpers ─────────────────────────────────────────────── */
     function setMsg(el, text, type) {
@@ -525,106 +535,323 @@
         });
     }
 
-    /* ── Hydrosight integration ───────────────────────────────── */
-    var HS_STORAGE_KEY = 'gaip_hydrosight_config' + (siteId ? '_' + siteId : '');
+    /* ── Sensor integrations (Hydrosight + SpecConnect) ─────────── */
+    // localStorage helpers
+    function lsGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+    function lsSet(key, val) { try { localStorage.setItem(key, val); return true; } catch (e) { return false; } }
+    function lsDel(key) { try { localStorage.removeItem(key); } catch (e) {} }
+    function lsJson(key) { var raw = lsGet(key); if (!raw) return null; try { return JSON.parse(raw); } catch (e) { return null; } }
 
-    var hsForm   = document.getElementById('stg-hydrosight-form');
-    var hsKeyEl  = document.getElementById('stg-hs-key');
-    var hsTest   = document.getElementById('stg-hs-test');
-    var hsMsg    = document.getElementById('stg-hs-msg');
+    function hsKey() { return 'gaip_hydrosight_config_' + (siteId || 'default'); }
+    function scKey() { return 'gilba_specconnect_config'; }
 
-    function hsLoad() {
+    function setSensMsg(el, text, cls) {
+        if (!el) return;
+        el.textContent = text;
+        el.className   = 'sens-field-msg' + (cls ? ' ' + cls : '');
+    }
+
+    async function proxyCall(provider, endpoint, apiKey) {
+        var url = '/api/sensors/' + provider + '/proxy';
+        var r;
         try {
-            var raw = localStorage.getItem(HS_STORAGE_KEY);
-            if (raw) {
-                var cfg = JSON.parse(raw);
-                if (cfg && cfg.apiKey && hsKeyEl) {
-                    hsKeyEl.value = cfg.apiKey;
+            r = await fetch(url, {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ endpoint: endpoint, api_key: apiKey }),
+            });
+        } catch (networkErr) {
+            throw new Error('Network error — check your connection.');
+        }
+        if (r.status === 419) throw new Error('Session expired — please refresh the page.');
+        if (r.status === 401) throw new Error('Not authenticated — please log in again.');
+        if (r.status === 403) throw new Error('Request blocked (403) — please refresh the page and try again.');
+        var text = await r.text();
+        var json;
+        try { json = JSON.parse(text); } catch (_) {
+            throw new Error('Unexpected response (HTTP ' + r.status + ') — please refresh the page.');
+        }
+        if (!json.success) {
+            var msg = (json.data && json.data.message) ? json.data.message : ('HTTP ' + r.status);
+            throw new Error(msg);
+        }
+        return json.data;
+    }
+
+    function esc(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ── Hydrosight ────────────────────────────────────────────────────────
+    var _hsCfg = null;
+
+    function hsLoad() { _hsCfg = lsJson(hsKey()) || {}; return _hsCfg; }
+
+    function hsSave(cfg) {
+        _hsCfg = Object.assign(_hsCfg || {}, cfg);
+        lsSet(hsKey(), JSON.stringify(_hsCfg));
+    }
+
+    function hsRender() {
+        var cfg   = hsLoad();
+        var badge = document.getElementById('sens-hs-badge');
+        var keyIn = document.getElementById('sens-hs-key');
+        var disc  = document.getElementById('sens-hs-disconnect');
+        var list  = document.getElementById('sens-hs-list');
+        if (!badge) return;
+        if (cfg.keyConfigured || cfg.apiKey) {
+            badge.textContent = 'Connected'; badge.className = 'sens-status-badge connected';
+            if (keyIn) keyIn.placeholder = '••••••••••••••••';
+            if (disc) disc.style.display = '';
+            hsRenderSensors(cfg, list);
+        } else {
+            badge.textContent = 'Not configured'; badge.className = 'sens-status-badge';
+            if (disc) disc.style.display = 'none';
+            if (list) list.style.display = 'none';
+        }
+    }
+
+    function hsRenderSensors(cfg, list) {
+        if (!list) return;
+        var readingsCache = lsJson('gaip_hydrosight_readings_cache_' + (siteId || 'default')) || {};
+        var readings = readingsCache.data || [];
+        var cache = lsJson('gilba_sensor_last_fetch');
+        var locations = (cache && cache.provider === 'Hydrosight' && cache.locations) || [];
+        var excluded = cfg.excludedSensors || {};
+
+        var html = '<div class="sens-sensor-list-head">Connected Sensors</div>'
+            + '<div class="sens-sensor-list-hint">Excluded sensors are removed from zone averages and engine calculations — use this for replaced units.</div>';
+        if (!readings.length && !locations.length) {
+            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Go to Sensor Data to fetch live data.</div>';
+        } else {
+            var zones = ['Greens','Fairways','Tees','Roughs','Other'];
+            var items = readings.length ? readings : locations;
+            items.slice(0, 12).forEach(function (item) {
+                var sid  = item.sensorId || item.id;
+                var name = item.name || sid || '—';
+                var vwc  = item.vwc  != null ? item.vwc.toFixed(1)  : null;
+                var ec   = item.ec   != null ? item.ec.toFixed(2)   : null;
+                var tmp  = item.soilTemp != null ? item.soilTemp.toFixed(1) : null;
+                var mapping  = (cfg.sensorZoneMapping || {})[sid] || '';
+                var isExcl   = !!excluded[sid];
+                var rowCls   = 'sens-sensor-row' + (isExcl ? ' sens-sensor-row--excluded' : '');
+                var dotCls   = 'sens-sensor-dot' + (!isExcl && vwc ? ' live' : '');
+                html += '<div class="' + rowCls + '">'
+                    + '<span class="' + dotCls + '"></span>'
+                    + '<span class="sens-sensor-name">' + esc(name) + '</span>'
+                    + '<span class="sens-sensor-readings">'
+                    + (vwc ? '<span class="sens-sensor-val"><span>' + vwc + '%</span> VWC</span>' : '')
+                    + (ec  ? '<span class="sens-sensor-val"><span>' + ec  + '</span> EC</span>' : '')
+                    + (tmp ? '<span class="sens-sensor-val"><span>' + tmp + '°C</span></span>' : '')
+                    + '</span>'
+                    + (isExcl
+                        ? '<span class="sens-excl-label">Excluded</span>'
+                        : '<select class="sens-zone-select" data-sensor-id="' + esc(sid) + '">'
+                          + '<option value="">Zone…</option>'
+                          + zones.map(function (z) { return '<option value="' + z + '"' + (mapping === z ? ' selected' : '') + '>' + z + '</option>'; }).join('')
+                          + '</select>'
+                      )
+                    + '<button class="sens-excl-btn" data-sensor-id="' + esc(sid) + '" title="' + (isExcl ? 'Include in calculations' : 'Exclude from calculations') + '">'
+                    + (isExcl ? 'Include' : 'Exclude')
+                    + '</button>'
+                    + '</div>';
+            });
+        }
+        list.innerHTML = html;
+        list.style.display = '';
+
+        list.querySelectorAll('.sens-zone-select').forEach(function (sel) {
+            sel.addEventListener('change', function () {
+                var cfg2 = hsLoad();
+                cfg2.sensorZoneMapping = cfg2.sensorZoneMapping || {};
+                if (sel.value) cfg2.sensorZoneMapping[sel.dataset.sensorId] = sel.value;
+                else delete cfg2.sensorZoneMapping[sel.dataset.sensorId];
+                hsSave(cfg2);
+            });
+        });
+
+        list.querySelectorAll('.sens-excl-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var cfg2 = hsLoad();
+                cfg2.excludedSensors = cfg2.excludedSensors || {};
+                var sid = btn.dataset.sensorId;
+                if (cfg2.excludedSensors[sid]) {
+                    delete cfg2.excludedSensors[sid];
+                } else {
+                    cfg2.excludedSensors[sid] = true;
                 }
-            }
-        } catch (e) {}
+                hsSave(cfg2);
+                hsRenderSensors(cfg2, list);
+            });
+        });
     }
 
-    function hsSaveKey(key) {
+    async function hsTestAndSave() {
+        var keyIn  = document.getElementById('sens-hs-key');
+        var msg    = document.getElementById('sens-hs-msg');
+        var badge  = document.getElementById('sens-hs-badge');
+        var btn    = document.getElementById('sens-hs-test');
+        var apiKey = (keyIn && keyIn.value.trim()) || (_hsCfg && _hsCfg.apiKey) || '';
+
+        if (!apiKey) { setSensMsg(msg, 'Enter an API key first.', 'err'); return; }
+
+        btn.disabled = true; btn.textContent = 'Testing…';
+        badge.textContent = 'Testing…'; badge.className = 'sens-status-badge testing';
+        setSensMsg(msg, 'Connecting to Hydrosight…', 'info');
+
         try {
-            var existing = {};
-            try { existing = JSON.parse(localStorage.getItem(HS_STORAGE_KEY) || '{}'); } catch (e) {}
-            existing.apiKey = key;
-            existing.keyConfigured = !!key;
-            localStorage.setItem(HS_STORAGE_KEY, JSON.stringify(existing));
-            /* also write to legacy global key for backwards compat */
-            localStorage.setItem('gaip_hydrosight_config', JSON.stringify(existing));
-        } catch (e) {}
+            var locData  = await proxyCall('hydrosight', '/locations', apiKey);
+            var locCount = (locData && locData.items) ? locData.items.length : 0;
+            var senData  = await proxyCall('hydrosight', '/sensors', apiKey);
+            var sensors  = (senData && senData.items) || [];
+            var sensorStubs = sensors.map(function (s) {
+                return { sensorId: s.sensorId, name: s.name || s.sensorId, vwc: null, ec: null, soilTemp: null };
+            });
+            lsSet('gilba_sensor_last_fetch', JSON.stringify({
+                fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: sensorStubs
+            }));
+            hsSave({ apiKey: apiKey, keyConfigured: true, enabled: true });
+            setSensMsg(msg, 'Connected — ' + locCount + ' location' + (locCount === 1 ? '' : 's') + ', ' + sensors.length + ' sensor' + (sensors.length === 1 ? '' : 's') + ' found.', 'ok');
+            hsRender();
+        } catch (e) {
+            setSensMsg(msg, 'Failed: ' + e.message, 'err');
+            badge.textContent = 'Error'; badge.className = 'sens-status-badge error';
+        } finally {
+            btn.disabled = false; btn.textContent = 'Test & Save';
+        }
     }
 
-    if (hsKeyEl) hsLoad();
-
-    if (hsForm) {
-        hsForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var key = hsKeyEl ? hsKeyEl.value.trim() : '';
-            hsSaveKey(key);
-            setMsg(hsMsg, 'API key saved.', 'ok');
-        });
+    function hsDisconnect() {
+        lsDel(hsKey());
+        _hsCfg = null;
+        var msg   = document.getElementById('sens-hs-msg');
+        var keyIn = document.getElementById('sens-hs-key');
+        setSensMsg(msg, 'Disconnected.', 'info');
+        if (keyIn) keyIn.value = '';
+        hsRender();
     }
 
-    if (hsTest && hsKeyEl) {
-        hsTest.addEventListener('click', function () {
-            var key = hsKeyEl.value.trim();
-            if (!key) { setMsg(hsMsg, 'Enter an API key first.', 'err'); return; }
+    // ── SpecConnect ───────────────────────────────────────────────────────
+    var _scCfg = null;
 
-            hsTest.disabled = true;
-            setMsg(hsMsg, 'Testing…', '');
+    function scLoad() { _scCfg = lsJson(scKey()) || {}; return _scCfg; }
 
-            apiFetch('POST', '/sensors/hydrosight/proxy', {
-                endpoint: '/sites',
-                api_key: key,
-            })
-                .then(function (data) {
-                    if (data && data.success) {
-                        setMsg(hsMsg, 'Connection successful.', 'ok');
-                    } else {
-                        var msg = (data && data.data && data.data.message) ? data.data.message : 'Connection failed.';
-                        setMsg(hsMsg, msg, 'err');
-                    }
-                })
-                .catch(function () { setMsg(hsMsg, 'Network error.', 'err'); })
-                .finally(function () { hsTest.disabled = false; });
-        });
+    function scSave(cfg) {
+        _scCfg = Object.assign(_scCfg || {}, cfg);
+        lsSet(scKey(), JSON.stringify(_scCfg));
     }
 
-    /* ── SpecConnect integration ──────────────────────────────── */
-    var SC_STORAGE_KEY = 'gaip_specconnect_config' + (siteId ? '_' + siteId : '');
+    function scRender() {
+        var cfg   = scLoad();
+        var badge = document.getElementById('sens-sc-badge');
+        var keyIn = document.getElementById('sens-sc-key');
+        var disc  = document.getElementById('sens-sc-disconnect');
+        var list  = document.getElementById('sens-sc-list');
+        if (!badge) return;
+        if (cfg.apiKey) {
+            badge.textContent = 'Connected'; badge.className = 'sens-status-badge connected';
+            if (keyIn) keyIn.placeholder = '••••••••••••••••';
+            if (disc) disc.style.display = '';
+            scRenderEquipment(list);
+        } else {
+            badge.textContent = 'Not configured'; badge.className = 'sens-status-badge';
+            if (disc) disc.style.display = 'none';
+            if (list) list.style.display = 'none';
+        }
+    }
 
-    var scForm  = document.getElementById('stg-specconnect-form');
-    var scKeyEl = document.getElementById('stg-sc-key');
-    var scMsg   = document.getElementById('stg-sc-msg');
+    function scRenderEquipment(list) {
+        if (!list) return;
+        var cache = lsJson('gilba_specconnect_cache_' + (siteId || 'default'));
+        var items = (cache && cache.data) ? cache.data : [];
 
-    function scLoad() {
+        var html = '<div class="sens-sensor-list-head">Connected Equipment</div>';
+        if (!items.length) {
+            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Go to Sensor Data to fetch live data.</div>';
+        } else {
+            items.slice(0, 12).forEach(function (item) {
+                var name = item.surfaceName || item.collectionName || item.SerialNumber || '—';
+                var vwc  = item.vwc  != null ? item.vwc.toFixed(1)  : null;
+                var tmp  = item.soilTemp != null ? item.soilTemp.toFixed(1) : null;
+                html += '<div class="sens-sensor-row">'
+                    + '<span class="sens-sensor-dot' + (vwc ? ' live' : '') + '"></span>'
+                    + '<span class="sens-sensor-name">' + esc(name) + '</span>'
+                    + '<span class="sens-sensor-readings">'
+                    + (vwc ? '<span class="sens-sensor-val"><span>' + vwc + '%</span> VWC</span>' : '')
+                    + (tmp ? '<span class="sens-sensor-val"><span>' + tmp + '°C</span></span>' : '')
+                    + '</span>'
+                    + '</div>';
+            });
+        }
+        list.innerHTML = html;
+        list.style.display = '';
+    }
+
+    async function scTestAndSave() {
+        var keyIn  = document.getElementById('sens-sc-key');
+        var msg    = document.getElementById('sens-sc-msg');
+        var badge  = document.getElementById('sens-sc-badge');
+        var btn    = document.getElementById('sens-sc-test');
+        var apiKey = (keyIn && keyIn.value.trim()) || (_scCfg && _scCfg.apiKey) || '';
+
+        if (!apiKey) { setSensMsg(msg, 'Enter an API key first.', 'err'); return; }
+
+        btn.disabled = true; btn.textContent = 'Testing…';
+        badge.textContent = 'Testing…'; badge.className = 'sens-status-badge testing';
+        setSensMsg(msg, 'Connecting to SpecConnect…', 'info');
+
         try {
-            var raw = localStorage.getItem(SC_STORAGE_KEY);
-            if (raw) {
-                var cfg = JSON.parse(raw);
-                if (cfg && cfg.apiKey && scKeyEl) scKeyEl.value = cfg.apiKey;
-            }
-        } catch (e) {}
+            var ep   = '/api/Customer/GetCustomerEquipment?customerApiKey={key}&optUnits=1';
+            var data = await proxyCall('specconnect', ep, apiKey);
+            var count = Array.isArray(data) ? data.length : 0;
+            scSave({ apiKey: apiKey, enabled: true });
+            setSensMsg(msg, 'Connected — ' + count + ' device' + (count === 1 ? '' : 's') + ' found.', 'ok');
+            scRender();
+        } catch (e) {
+            setSensMsg(msg, 'Failed: ' + e.message, 'err');
+            badge.textContent = 'Error'; badge.className = 'sens-status-badge error';
+        } finally {
+            btn.disabled = false; btn.textContent = 'Test & Save';
+        }
     }
 
-    if (scKeyEl) scLoad();
+    function scDisconnect() {
+        lsDel(scKey());
+        _scCfg = null;
+        var msg   = document.getElementById('sens-sc-msg');
+        var keyIn = document.getElementById('sens-sc-key');
+        setSensMsg(msg, 'Disconnected.', 'info');
+        if (keyIn) keyIn.value = '';
+        scRender();
+    }
 
-    if (scForm) {
-        scForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var key = scKeyEl ? scKeyEl.value.trim() : '';
-            try {
-                var existing = {};
-                try { existing = JSON.parse(localStorage.getItem(SC_STORAGE_KEY) || '{}'); } catch (ex) {}
-                existing.apiKey = key;
-                localStorage.setItem(SC_STORAGE_KEY, JSON.stringify(existing));
-            } catch (ex) {}
-            setMsg(scMsg, 'API key saved.', 'ok');
+    // Init sensor integration UI
+    (function initSensors() {
+        if (!document.getElementById('sens-hs-badge')) return; // not on integrations panel
+        hsRender();
+        scRender();
+
+        var hsTestBtn = document.getElementById('sens-hs-test');
+        if (hsTestBtn) hsTestBtn.addEventListener('click', hsTestAndSave);
+        var hsDiscBtn = document.getElementById('sens-hs-disconnect');
+        if (hsDiscBtn) hsDiscBtn.addEventListener('click', hsDisconnect);
+        var scTestBtn = document.getElementById('sens-sc-test');
+        if (scTestBtn) scTestBtn.addEventListener('click', scTestAndSave);
+        var scDiscBtn = document.getElementById('sens-sc-disconnect');
+        if (scDiscBtn) scDiscBtn.addEventListener('click', scDisconnect);
+
+        ['sens-hs-key', 'sens-sc-key'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') {
+                    var btn = document.getElementById(id === 'sens-hs-key' ? 'sens-hs-test' : 'sens-sc-test');
+                    if (btn) btn.click();
+                }
+            });
         });
-    }
+    }());
 
     /* ── Info popovers ───────────────────────────────────────── */
     var STG_GLOSSARY = {
