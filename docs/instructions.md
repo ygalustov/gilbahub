@@ -118,6 +118,9 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-37** Refactor UI elements in outcome capture and scenario reports. Updated labels and icons for improved clarity and accessibility, replacing outdated icons with SVGs. Enhanced CSS styles for better visual consistency and user experience across various components.
 **GH-38** Enhance SampleController and report export functionality. Added preservation of zone metadata alongside nutrient values in SampleController for improved API round-trip accuracy. Updated report export view to include a loading spinner and refined button behavior, ensuring the export button is only enabled after analysis completion and weather data readiness. Supplemented sample data handling in nutrient trend logic to merge samples from the 'default' site for better trend analysis. Improved sample persistence to resolve label and zone type handling for older records.
 **GH-39** Enhance Plan and Settings views with new UI components and functionality. Added primary button styles and collapsible sections in the Plan view for improved user interaction. Updated Settings view to include additional fields for site elevation and irrigation system details, along with info icons for better guidance. Enhanced JavaScript functionality for traffic and wear form handling, ensuring saved values are restored correctly. Improved CSS for consistency and accessibility across components.
+**GH-40** Enhance Settings view with new overseed variety and summer management intent fields. Updated JavaScript to capture new form values for overseed variety and summer intent, improving data handling for turf management. Added descriptive hints for better user guidance.
+
+
 
 
 ## Backlog

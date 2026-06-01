@@ -381,9 +381,11 @@
                 c3Cover:        document.getElementById('stg-turf-c3').value || '0',
                 // Save under both keys: overseedSpecies (hub persistence layer) and
                 // coolOverseed (engine internal name read by hub-tissue-v3, hub-orchestrator, etc.)
-                overseedSpecies: document.getElementById('stg-turf-cool-overseed').value || '',
-                coolOverseed:    document.getElementById('stg-turf-cool-overseed').value || '',
-                overseedStatus:  document.getElementById('stg-turf-overseed-status').value || 'none',
+                overseedSpecies:  document.getElementById('stg-turf-cool-overseed').value || '',
+                coolOverseed:     document.getElementById('stg-turf-cool-overseed').value || '',
+                overseedVariety:  document.getElementById('stg-turf-overseed-variety').value || 'generic',
+                overseedStatus:   document.getElementById('stg-turf-overseed-status').value || 'none',
+                summerIntent:     document.getElementById('stg-turf-summer-intent').value || 'transition',
             };
 
             var yearsEl     = document.getElementById('stg-turf-years');
@@ -661,6 +663,10 @@
         'c3-cover': {
             title: 'C3 cover',
             body:  'Percentage of the surface area covered by cool-season (C3) grass. Used during transition periods to weight the growth potential calculation between the warm-season base and the cool-season component.',
+        },
+        'summer-intent': {
+            title: 'Summer management intent',
+            body:  'Tells the model how you plan to manage the overseed as temperatures rise.\n\nTransition: standard — allow the cool-season grass to fade as heat increases and prioritise base grass recovery. The disease and nutrition models reduce protection for the overseed component.\n\nMaintain: choose this if your base grass is sparse and the surface relies on the overseed for playability through summer. The model adjusts fungicide and nitrogen targets to protect the remaining cool-season component.',
         },
         'site-years': {
             title: 'Years established',

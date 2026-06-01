@@ -446,6 +446,29 @@
                                     <p class="stg-field-hint">The grass species overseeded onto the base. Typically cool-season (C3) overseeded onto warm-season (C4) for winter play.</p>
                                 </div>
                                 <div class="stg-field">
+                                    <label for="stg-turf-overseed-variety">Overseed variety</label>
+                                    <select id="stg-turf-overseed-variety" name="overseedVariety">
+                                        @php $overseedVar = $turfVal('overseedVariety', 'generic'); @endphp
+                                        @foreach([
+                                            'generic'          => 'Generic / Unknown',
+                                            'RPR'              => 'RPR (Regenerating)',
+                                            'Slugger 3GL'      => 'Slugger 3GL',
+                                            'Derby Xtreme'     => 'Derby Xtreme',
+                                            'SR 4700'          => 'SR 4700',
+                                            'Karma'            => 'Karma',
+                                            'Barolympic'       => 'Barolympic',
+                                            'Barorlando'       => 'Barorlando',
+                                            'Pinnacle 3'       => 'Pinnacle 3',
+                                            'Premier 3'        => 'Premier 3',
+                                            'Intense'          => 'Intense',
+                                            'Grand Slam GLS'   => 'Grand Slam GLS',
+                                            'APS'              => 'APS',
+                                        ] as $v => $l)
+                                        <option value="{{ $v }}" {{ $overseedVar === $v ? 'selected' : '' }}>{{ $l }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="stg-field">
                                     <label for="stg-turf-overseed-status">Overseed status</label>
                                     <select id="stg-turf-overseed-status" name="overseedStatus">
                                         @foreach(['none' => 'None / not overseeded', 'establishing' => 'Establishing', 'established' => 'Established', 'dominant' => 'Dominant'] as $v => $l)
@@ -453,6 +476,18 @@
                                         @endforeach
                                     </select>
                                     <p class="stg-field-hint">Current state of the overseed component.</p>
+                                </div>
+                                <div class="stg-field" style="grid-column:1/-1">
+                                    <label for="stg-turf-summer-intent">
+                                        Summer management intent
+                                        <button type="button" class="stg-info-icon" data-stg-info="summer-intent" aria-label="About summer management intent">i</button>
+                                    </label>
+                                    <select id="stg-turf-summer-intent" name="summerIntent">
+                                        @php $summerIntent = $turfVal('summerIntent', 'transition'); @endphp
+                                        <option value="transition" {{ $summerIntent === 'transition' ? 'selected' : '' }}>Transition — let overseed fade, support base grass recovery</option>
+                                        <option value="maintain"   {{ $summerIntent === 'maintain'   ? 'selected' : '' }}>Maintain — keep overseed through summer (poor base coverage)</option>
+                                    </select>
+                                    <p class="stg-field-hint">Only relevant when overseed is active. Choose Maintain if base grass coverage is poor and the surface needs the overseed for playability.</p>
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-turf-poa">
