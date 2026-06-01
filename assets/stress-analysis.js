@@ -271,6 +271,7 @@
         var cards = keys.map(function (key) {
             var meta  = FACTOR_META[key];
             var score = components ? (components[key] || 0) : 0;
+            var scoreRounded = Math.round(score * 10) / 10;
             var fac   = factorByType[key] || null;
             var colors = factorBg(score);
             var barColor = score >= 66 ? '#ef4444' : score >= 51 ? '#f97316' : score >= 31 ? '#f59e0b' : '#22c55e';
@@ -285,7 +286,7 @@
 
             return '<div class="st-factor-card" style="background:' + colors.bg + ';border-color:' + colors.border + '">' +
                 '<div class="st-factor-label">' + esc(meta.label) + ' <span style="opacity:.6">(' + meta.weight + '%)</span>' + infoBtn(meta.infoKey) + '</div>' +
-                '<div class="st-factor-val" style="color:' + valColor + '">' + score + '</div>' +
+                '<div class="st-factor-val" style="color:' + valColor + '">' + scoreRounded + '</div>' +
                 '<div class="st-factor-bar-track"><div class="st-factor-bar-fill" style="width:' + Math.min(score, 100) + '%;background:' + barColor + '"></div></div>' +
                 (noteText ? '<div class="st-factor-note">' + esc(noteText) + '</div>' : '') +
                 '</div>';
@@ -431,12 +432,13 @@
         var rowsHtml = keys.map(function (key) {
             var meta  = FACTOR_META[key];
             var score = comps[key] || 0;
+            var scoreRounded = Math.round(score * 10) / 10;
             var color = score >= 66 ? '#ef4444' : score >= 51 ? '#f97316' : score >= 31 ? '#f59e0b' : '#22c55e';
             return '<div class="st-component-row">' +
                 '<div class="st-component-name">' + esc(meta.label) + '</div>' +
                 '<div style="font-size:11px;color:#9ca3af;min-width:30px;text-align:right">' + meta.weight + '%</div>' +
                 '<div class="st-component-track"><div class="st-component-fill" style="width:' + Math.min(score, 100) + '%;background:' + color + '"></div></div>' +
-                '<div class="st-component-val" style="color:' + color + '">' + score + '</div>' +
+                '<div class="st-component-val" style="color:' + color + '">' + scoreRounded + '</div>' +
                 '</div>';
         }).join('');
 
