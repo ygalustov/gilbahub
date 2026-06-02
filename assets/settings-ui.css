@@ -599,12 +599,22 @@
     gap: 8px;
     white-space: nowrap;
 }
-.stg-st-active-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: var(--gaip-accent, #2da85e);
-    flex-shrink: 0;
+.stg-set-active-btn {
+    padding: 3px 10px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid #c6d4cd;
+    border-radius: 6px;
+    color: #4b6458;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.stg-set-active-btn:hover {
+    background: #f0f6f3;
+    border-color: #2da85e;
+    color: #1a2b23;
 }
 .stg-st-name {
     font-weight: 600;

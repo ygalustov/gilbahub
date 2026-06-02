@@ -127,6 +127,13 @@
         });
 
         /* ── Render table ── */
+        var STATUS_COLORS = { green: '#16a34a', amber: '#d97706', red: '#dc2626' };
+
+        function statusDotHtml(status) {
+            var bg = status ? (STATUS_COLORS[status] || '#9ca3af') : '#d1d5db';
+            return '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + bg + ';flex-shrink:0"></span>';
+        }
+
         function renderTable() {
             sortData();
             if (!sitesData.length) {
@@ -134,15 +141,14 @@
                 return;
             }
             tbody.innerHTML = sitesData.map(function (s) {
-                var activeDot  = s.is_active ? '<span class="stg-st-active-dot"></span>' : '<span style="width:7px;display:inline-block"></span>';
                 var typeLabel  = TYPE_LABELS[s.site_type] || s.site_type || 'General';
                 var speciesStr = s.species ? esc(s.species) + (s.hoc != null ? ' <span class="stg-st-muted">· ' + s.hoc + ' mm</span>' : '') : '<span class="stg-st-muted">—</span>';
                 var isSelected = openSiteId === s.id;
                 var actionCell = s.is_active
-                    ? '<td><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--gaip-accent,#2da85e)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0"></span>Active</span></td>'
-                    : '<td><button type="button" class="stg-set-active-btn dat-view-btn" data-site-id="' + esc(s.id) + '">Set active</button></td>';
+                    ? '<td><span style="font-size:12px;font-weight:600;color:var(--gaip-accent,#2da85e)">Active</span></td>'
+                    : '<td><button type="button" class="stg-set-active-btn" data-site-id="' + esc(s.id) + '">Set active</button></td>';
                 return '<tr class="stg-row-main' + (isSelected ? ' stg-row-expanded' : '') + '" data-site-id="' + esc(s.id) + '">' +
-                    '<td><div class="stg-st-name-wrap">' + activeDot + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
+                    '<td><div class="stg-st-name-wrap">' + statusDotHtml(s.status) + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
                     '<td>' + (s.location ? esc(s.location) : '<span class="stg-st-muted">—</span>') + '</td>' +
                     '<td>' + speciesStr + '</td>' +
                     '<td class="dat-td-num">' + (s.soil || 0) + '</td>' +

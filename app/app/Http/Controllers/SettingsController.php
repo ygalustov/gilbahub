@@ -89,6 +89,14 @@ class SettingsController extends Controller
             $species = $gaip['turf']['species'] ?? null;
             $hoc     = $gaip['turf']['hoc'] ?? null;
 
+            $cacheData = is_array($cacheConfig?->config) ? $cacheConfig->config : [];
+            $gpRaw     = $cacheData['metrics']['growthPotential'] ?? null;
+            $status    = null;
+            if ($gpRaw !== null) {
+                $gp     = (float) $gpRaw > 1 ? (float) $gpRaw : (float) $gpRaw * 100;
+                $status = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
+            }
+
             return [
                 'id'         => $site->id,
                 'name'       => $site->name,
@@ -100,6 +108,7 @@ class SettingsController extends Controller
                 'water'      => (int) ($waterCounts[$site->id] ?? 0),
                 'last_run'   => $cacheConfig?->synced_at?->toISOString(),
                 'is_active'  => $site->id === $activeSiteId,
+                'status'     => $status,
             ];
         })->values()->all();
     }

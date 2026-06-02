@@ -123,6 +123,7 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-42** Enhance stress analysis display by rounding score values for improved clarity. Updated the rendering logic to show rounded scores in both factor cards and component rows, ensuring a more precise visual representation of data.
 **GH-43** Update growth potential metrics to reflect 8-day averages instead of 16-day averages. Modified relevant titles and descriptions in both dashboard and growth light analysis files for consistency and clarity. Adjusted calculation logic to align with the new 8-day forecast approach.
 **GH-44** Implement Sites tab in Settings view with add site functionality and site details display. Updated SettingsController to build sites table data, including soil and water sample counts. Enhanced JavaScript for dynamic site management and integrated new UI components for better user interaction. Added CSS styles for improved layout and visual consistency across the Sites tab.
+**GH-45** Enhance site status display in Settings and topbar. Updated SettingsController to include growth potential status in site data. Modified AppServiceProvider to pass site status to the topbar view. Improved topbar and settings UI to visually represent site status with color-coded indicators. Added CSS for status dots and refined JavaScript for rendering site status in the table.
 
 ## Backlog
 

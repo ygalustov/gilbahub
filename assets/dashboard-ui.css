@@ -85,6 +85,19 @@ body { margin: 0; padding: 0; }
     width: 100%;
 }
 
+/* Site status dots — topbar dropdown + settings table */
+.db-site-status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.25);
+}
+.db-site-status-dot--green { background: #16a34a; }
+.db-site-status-dot--amber { background: #d97706; }
+.db-site-status-dot--red   { background: #dc2626; }
+
 .db-site-switcher {
     display: flex;
     align-items: center;
