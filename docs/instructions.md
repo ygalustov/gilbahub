@@ -133,11 +133,7 @@ delete added data logs
 
 Re-run for all pages
 
-
-
-
-
-Важное (ухудшает работу)
+--
 
 Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную.
 
@@ -148,24 +144,13 @@ Decision Panel — логика выбора действий (почему та
 
 Evidence Panel — визуализация источников данных и уверенности в расчётах (Soil → Water → Tissue → Spray chain).
 
-
-Функция	Старый	Новый	Статус
-Location Map	✅	⚠️	Упрощён
-Morning Briefing	✅	⚠️	Не в навигации
-Decision/Evidence Panel	✅	❌	Отсутствует
-
-
 --
 
-
-
 MOBILE VERSION
-
 
 -----
 
 Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
-
 
 ----
 

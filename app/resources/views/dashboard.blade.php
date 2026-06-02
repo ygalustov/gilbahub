@@ -150,8 +150,8 @@
                     </div>
                     <div class="db-aq-meta" id="db-aq-resolved"></div>
                 </div>
-                <div id="db-aq-body" style="color:var(--gaip-text-muted);font-size:13px;padding:16px 0">
-                    Run analysis in Hub to see action recommendations
+                <div id="db-aq-body" style="color:var(--gaip-text-muted);font-size:13px;padding:16px 0;text-align:center">
+                    Run analysis to see action recommendations
                 </div>
             </div>
 
@@ -193,7 +193,7 @@
                     </div>
                     <div class="db-sources-empty-msg">No lab data imported yet</div>
                     <div class="db-sources-empty-sub">Import a soil, tissue, or water test to enable analysis</div>
-                    <a href="{{ route('hub') }}" class="db-sources-import-btn">Import Data →</a>
+                    <a href="{{ route('data.section', 'soil') }}" class="db-sources-import-btn">Import Data →</a>
                 </div>
                 @else
                 <div class="db-sources-grid" id="db-sources-grid">
@@ -213,7 +213,7 @@
                             @if($sampleDates['soil'])<span class="db-source-sub">{{ $sampleDates['soil'] }}</span>@endif
                         </div>
                         <span class="db-source-status-text {{ $soilCls }}">{{ $soilAge }}</span>
-                        @if($soilCls === 'warning')<a class="db-source-action" href="{{ route('hub') }}">Import</a>@endif
+                        @if($soilCls === 'warning')<a class="db-source-action" href="{{ route('data.section', 'soil') }}">Import</a>@endif
                     </div>
 
                     <div class="db-source-row" data-source="tissue">
@@ -223,7 +223,7 @@
                             @if($sampleDates['tissue'])<span class="db-source-sub">{{ $sampleDates['tissue'] }}</span>@endif
                         </div>
                         <span class="db-source-status-text {{ $tissueCls }}">{{ $tissueAge }}</span>
-                        @if($tissueCls === 'warning')<a class="db-source-action" href="{{ route('hub') }}">Import</a>@endif
+                        @if($tissueCls === 'warning')<a class="db-source-action" href="{{ route('data.section', 'tissue') }}">Import</a>@endif
                     </div>
 
                     <div class="db-source-row" data-source="sensors">
@@ -242,7 +242,7 @@
                             @if($sampleDates['water'])<span class="db-source-sub">{{ $sampleDates['water'] }}</span>@endif
                         </div>
                         <span class="db-source-status-text {{ $waterCls }}">{{ $waterAge }}</span>
-                        @if($waterCls === 'warning')<a class="db-source-action" href="{{ route('hub') }}">Import</a>@endif
+                        @if($waterCls === 'warning')<a class="db-source-action" href="{{ route('data.section', 'water') }}">Import</a>@endif
                     </div>
 
                     <div class="db-source-row" data-source="spray">

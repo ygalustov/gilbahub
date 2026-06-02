@@ -34,16 +34,14 @@
 
     function renderNoRecord() {
         return [
-            '<div style="padding:48px;text-align:center;color:var(--gaip-text-secondary)">',
-            '  <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#c8d5cf" stroke-width="1.5" style="margin:0 auto 12px;display:block">',
+            '<div class="db-empty-state">',
+            '  <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="#c8d5cf" stroke-width="1.5">',
             '    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>',
             '    <rect x="9" y="3" width="6" height="4" rx="1"/>',
             '    <path stroke-linecap="round" d="M9 12h6M9 16h4"/>',
             '  </svg>',
-            '  <div style="font-size:14px;font-weight:600;color:var(--gaip-text);margin-bottom:8px">No forensic record yet</div>',
-            '  <div style="font-size:12px;max-width:340px;margin:0 auto;line-height:1.6">',
-            '    The record is generated when an analysis runs.',
-            '  </div>',
+            '  <div class="db-empty-title">No forensic record yet</div>',
+            '  <div class="db-empty-sub">The record is generated when an analysis runs.</div>',
             '</div>',
         ].join('\n');
     }

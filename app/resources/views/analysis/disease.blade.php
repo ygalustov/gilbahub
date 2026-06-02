@@ -174,7 +174,7 @@
 
         {{-- PAGE BODY --}}
         <div id="dr-page-content" style="flex:1;overflow-y:auto;">
-            <div style="text-align:center;color:#5b6a65;padding:40px;">Loading disease analysis…</div>
+            <div class="db-empty-state"><div class="db-empty-title" style="font-weight:400;color:var(--gaip-text-secondary)">Loading disease analysis…</div></div>
         </div>
 
     </div>

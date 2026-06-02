@@ -179,7 +179,7 @@
 
         {{-- PAGE BODY --}}
         <div id="gl-page-content" style="flex:1;overflow-y:auto;">
-            <div style="padding:40px;text-align:center;color:#5b6a65;">Loading growth &amp; light analysis…</div>
+            <div class="db-empty-state"><div class="db-empty-title" style="font-weight:400;color:var(--gaip-text-secondary)">Loading growth &amp; light analysis…</div></div>
         </div>
 
     </div>{{-- /.db-main --}}

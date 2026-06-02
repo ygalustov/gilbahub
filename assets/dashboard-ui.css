@@ -1227,3 +1227,19 @@ body { margin: 0; padding: 0; }
     .gl-kpi-value    { font-size: 28px; }
     .gl-body         { padding: 16px 12px; }
 }
+
+/* ---------- Shared empty state (all db-shell pages) ---------- */
+.db-empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 24px;
+    gap: 10px;
+    min-height: 240px;
+    color: var(--gaip-text-secondary, #5b6a65);
+}
+.db-empty-state svg   { display: block; margin: 0 auto 4px; }
+.db-empty-title       { font-size: 15px; font-weight: 600; color: var(--gaip-text, #1a2b23); margin: 0; }
+.db-empty-sub         { font-size: 13px; color: var(--gaip-text-muted, #6b8878); max-width: 360px; line-height: 1.6; margin: 0; }

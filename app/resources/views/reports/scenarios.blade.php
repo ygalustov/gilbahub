@@ -45,12 +45,12 @@
 
         {{-- What-if panel: gaip-whatif-ui.js mounts here --}}
         <div id="gaip-whatif-container">
-            <div style="padding:40px 24px;text-align:center;color:var(--gaip-text-secondary)">
-                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#c8d5cf" stroke-width="1.5" style="margin:0 auto 12px;display:block">
+            <div class="db-empty-state">
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#c8d5cf" stroke-width="1.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M4 17H0m0 0l4 4m-4-4l4-4"/>
                 </svg>
-                <div style="font-size:14px;font-weight:600;color:var(--gaip-text);margin-bottom:6px">Running analysis…</div>
-                <div style="font-size:12px;line-height:1.7;max-width:360px;margin:0 auto">
+                <div class="db-empty-title">Running analysis…</div>
+                <div class="db-empty-sub">
                     Building the baseline scenario from your site data.<br>
                     This typically takes 5–15 seconds. If nothing appears after 20 seconds, click <strong>Re-run</strong> in the top bar.
                 </div>
