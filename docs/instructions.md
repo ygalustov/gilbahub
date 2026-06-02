@@ -124,16 +124,20 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-43** Update growth potential metrics to reflect 8-day averages instead of 16-day averages. Modified relevant titles and descriptions in both dashboard and growth light analysis files for consistency and clarity. Adjusted calculation logic to align with the new 8-day forecast approach.
 **GH-44** Implement Sites tab in Settings view with add site functionality and site details display. Updated SettingsController to build sites table data, including soil and water sample counts. Enhanced JavaScript for dynamic site management and integrated new UI components for better user interaction. Added CSS styles for improved layout and visual consistency across the Sites tab.
 **GH-45** Enhance site status display in Settings and topbar. Updated SettingsController to include growth potential status in site data. Modified AppServiceProvider to pass site status to the topbar view. Improved topbar and settings UI to visually represent site status with color-coded indicators. Added CSS for status dots and refined JavaScript for rendering site status in the table.
+**GH-46** Implement FieldScout sensor data import functionality. Added UI components for manual CSV upload, including a drop zone and results table. Updated JavaScript to parse and display imported data, enhancing the data view with real-time updates and improved layout. Added CSS styles for new elements to ensure visual consistency.
+
 
 ## Backlog
 
 delete added data logs 
 
+Re-run for all pages
+
+
+
 
 
 Важное (ухудшает работу)
-
-Sensor Import (TDR 350) — в старом хабе был в разделе Water. В новом нет в Settings.
 
 Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную.
 
@@ -144,66 +148,38 @@ Decision Panel — логика выбора действий (почему та
 
 Evidence Panel — визуализация источников данных и уверенности в расчётах (Soil → Water → Tissue → Spray chain).
 
-Интегрированный вид анализа — в старом всё на одной странице после нажатия Run. В новом разбито по табам (может быть намеренно, но пользователь не видит картину целиком).
 
-Итоговая таблица
 Функция	Старый	Новый	Статус
 Location Map	✅	⚠️	Упрощён
-Sensor Import	✅	❌	Нет в Settings
 Morning Briefing	✅	⚠️	Не в навигации
 Decision/Evidence Panel	✅	❌	Отсутствует
 
 
-
+--
 
 
 
 MOBILE VERSION
 
 
-
-
-
-
-Missing this info:
-Cultivar Performance Profile
-Penncross  (Cultivar)
-Data source: NTEP 2020 multi-location
-Trial Performance Ratings
-
-
-Performance Modifiers
-These modifiers adjust baseline species calculations in the Hub analysis:
-Cold Tolerance: Average, Baseline for species
-NTEP benchmark variety 2003-2008 and historical: Standard cold hardiness reference for creeping bentgrass across all US cold locations
-Spring Greenup: Slow, 7 days later than standard
-NTEP 2020 - slowest greenup
-
-Disease Resistance Profile
-
-
-
-------
-
-
+-----
 
 Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 
 
 ----
 
-
 vmay be we add it to KPI - same as on the soil page? 
 
-Irrigation Water Quality: Acceptable
-
-
+----
 Посмотри, вот на старом сайте написано, где про болезни, написано, что анализ сделан дляBentgrass, для какой-то конкретной травы, которая у нас основная species идёт. И написан какой-то процент. Вот что это за процент и где нам можно это вывести тоже? 
 Analysis for: Bentgrass 85%
 --
 
 
 Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?
+
+---
 
 - Check why irrigation 6mm in the old site is highlighted with orange and on the new one with green. Check all thresholds for all blocks on the new site to be the same as on old one. 
 

@@ -178,6 +178,12 @@
                         <span class="sens-pstatus-name">SpecConnect</span>
                         <span class="sens-pstatus-val" id="dat-sc-status">Not configured</span>
                     </div>
+                    <div class="sens-pstatus-sep"></div>
+                    <div class="sens-pstatus-item">
+                        <span class="sens-pstatus-dot" id="dat-tdr-dot"></span>
+                        <span class="sens-pstatus-name">FieldScout</span>
+                        <span class="sens-pstatus-val" id="dat-tdr-status">No import</span>
+                    </div>
                     <a class="sens-pstatus-link" href="{{ route('settings') }}#integrations">Manage in Settings</a>
                 </div>
 
@@ -194,7 +200,7 @@
                 <div class="sens-readings-section" id="sens-readings" style="display:none">
                     <div class="sens-readings-head">
                         <div>
-                            <span class="sens-readings-title">Live Readings</span>
+                            <span class="sens-readings-title">Real-time Data</span>
                             <span class="sens-last-updated" id="sens-last-updated"></span>
                         </div>
                         <button class="sens-refresh-btn" id="sens-refresh-btn" type="button">
@@ -204,6 +210,46 @@
                     </div>
                     <div class="sens-zone-grid" id="sens-zone-grid">
                         <div class="sens-no-readings">No readings cached yet — click Refresh to fetch live data.</div>
+                    </div>
+                </div>
+
+                {{-- FieldScout sensor data import --}}
+                <div class="sens-tdr-section" id="sens-tdr-section">
+                    <div class="sens-readings-head">
+                        <div>
+                            <span class="sens-readings-title">Manual Import</span>
+                            <span class="sens-last-updated" id="tdr-last-updated"></span>
+                        </div>
+                        <div style="display:flex;gap:8px;align-items:center">
+                            <button type="button" class="sens-refresh-btn" id="tdr-clear-btn" style="display:none;color:#c0392b;border-color:#f5c6c6">Clear</button>
+                            <label class="sens-refresh-btn" for="tdr-file-input" style="cursor:pointer">Upload CSV</label>
+                            <input type="file" id="tdr-file-input" accept=".csv" style="display:none">
+                        </div>
+                    </div>
+                    <div id="tdr-drop-zone" class="tdr-drop-zone">
+                        <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gaip-border,#ccd9d2)">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                        <div class="tdr-drop-title">Drop CSV here or click Upload CSV</div>
+                        <div class="tdr-drop-hint">Supports FieldScout TDR 350/300 exports and compatible formats</div>
+                    </div>
+                    <div id="tdr-results" style="display:none">
+                        <div id="tdr-device-header" class="tdr-device-header"></div>
+                        <div class="dat-table-wrap" style="margin:0">
+                            <table class="dat-table" id="tdr-zone-table">
+                                <thead><tr>
+                                    <th>Zone</th>
+                                    <th class="dat-td-num">VWC %</th>
+                                    <th class="dat-td-num">EC</th>
+                                    <th class="dat-td-num">Soil °C</th>
+                                    <th>Status</th>
+                                    <th class="dat-td-num">Required</th>
+                                    <th></th>
+                                </tr></thead>
+                                <tbody id="tdr-zone-tbody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -1872,11 +1918,182 @@
         if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }
 
+    // ── TDR 350/300 ──────────────────────────────────────────────────────
+    function tdrKey() { return 'gaip_tdr_session_' + SITE_ID; }
+    function tdrLoad() { return lsJson(tdrKey()); }
+
+    function splitCsvRow(line) {
+        var cols = [], cur = '', inQ = false;
+        for (var i = 0; i < line.length; i++) {
+            var c = line[i];
+            if (c === '"') { inQ = !inQ; }
+            else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+            else { cur += c; }
+        }
+        cols.push(cur.trim());
+        return cols;
+    }
+
+    function parseTdrCsv(text) {
+        var lines = text.trim().split(/\r?\n/);
+        if (lines.length < 2) return null;
+        var headers = lines[0].split(',').map(function (h) { return h.trim().replace(/^"|"$/g, '').toLowerCase(); });
+        var isFieldScout = headers.some(function (h) { return h === 'vwc%' || h === 'temp_soil'; });
+
+        function findCol() {
+            var terms = Array.prototype.slice.call(arguments);
+            return headers.findIndex(function (h) { return terms.some(function (t) { return h.indexOf(t) !== -1; }); });
+        }
+
+        var idxVwc  = isFieldScout ? headers.indexOf('vwc%')     : findCol('vwc', 'moisture');
+        var idxEc   = findCol('ec');
+        var idxTemp = isFieldScout ? findCol('temp_soil')        : findCol('temp');
+        var idxZone = isFieldScout ? -1                          : findCol('zone', 'location', 'area', 'section');
+        if (idxVwc === -1) return null;
+
+        var zones = {}, rowCount = 0;
+        var avg   = function (arr) { return arr.length ? arr.reduce(function (a, b) { return a + b; }, 0) / arr.length : null; };
+
+        for (var i = 1; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!line) continue;
+            var cols = splitCsvRow(line);
+            var vwc  = parseFloat(cols[idxVwc]);
+            if (isNaN(vwc) || vwc < 0 || vwc > 100) continue;
+            var ec   = idxEc   >= 0 ? parseFloat(cols[idxEc])   : NaN;
+            var temp = idxTemp >= 0 ? parseFloat(cols[idxTemp]) : NaN;
+            var zone = (idxZone >= 0 && cols[idxZone] ? cols[idxZone].trim() : '') || 'All zones';
+            if (!isNaN(ec) && ec > 10) ec = ec / 10;
+            if (!zones[zone]) zones[zone] = { vwcVals: [], ecVals: [], tmpVals: [] };
+            zones[zone].vwcVals.push(vwc);
+            if (!isNaN(ec))   zones[zone].ecVals.push(ec);
+            if (!isNaN(temp)) zones[zone].tmpVals.push(temp);
+            rowCount++;
+        }
+        if (!rowCount) return null;
+
+        return {
+            source:     isFieldScout ? 'FieldScout' : 'TDR 350/300',
+            importedAt: Date.now(),
+            rowCount:   rowCount,
+            zones: Object.keys(zones).map(function (name) {
+                var z = zones[name];
+                return { name: name, vwc: avg(z.vwcVals), vwcMin: Math.min.apply(null, z.vwcVals), vwcMax: Math.max.apply(null, z.vwcVals), ec: avg(z.ecVals), temp: avg(z.tmpVals), count: z.vwcVals.length };
+            }),
+        };
+    }
+
+    function tdrIrrigationStatus(vwc) {
+        if (vwc === null) return { text: '—', cls: '' };
+        if (vwc >= 40)  return { text: 'Wet',      cls: 'tdr-status-wet' };
+        if (vwc >= 28)  return { text: 'OK',        cls: 'tdr-status-ok' };
+        if (vwc >= 20)  return { text: 'Soon',      cls: 'tdr-status-soon' };
+        if (vwc >= 14)  return { text: 'Needed',    cls: 'tdr-status-needed' };
+        return                 { text: 'Critical',  cls: 'tdr-status-critical' };
+    }
+
+    function tdrRequiredMm(vwc) {
+        if (vwc === null || vwc >= 30) return '—';
+        var mm = Math.round((30 - vwc) * 10) / 10;
+        return mm > 0 ? mm + ' mm' : '—';
+    }
+
+    function renderTdrSection(data) {
+        var dot      = document.getElementById('dat-tdr-dot');
+        var statusEl = document.getElementById('dat-tdr-status');
+        var dropZone = document.getElementById('tdr-drop-zone');
+        var results  = document.getElementById('tdr-results');
+        var clearBtn = document.getElementById('tdr-clear-btn');
+        var lastEl   = document.getElementById('tdr-last-updated');
+
+        if (!data) {
+            if (dot)      dot.className         = 'sens-pstatus-dot';
+            if (statusEl) statusEl.textContent  = 'No import';
+            if (dropZone) dropZone.style.display = '';
+            if (results)  results.style.display  = 'none';
+            if (clearBtn) clearBtn.style.display  = 'none';
+            if (lastEl)   lastEl.textContent     = '';
+            return;
+        }
+
+        if (dot)      dot.className        = 'sens-pstatus-dot active';
+        if (statusEl) statusEl.textContent = data.rowCount + ' readings · ' + data.zones.length + ' zone' + (data.zones.length !== 1 ? 's' : '');
+        if (lastEl)   lastEl.textContent   = '— ' + timeAgo(data.importedAt);
+        if (dropZone) dropZone.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = '';
+        if (!results) return;
+        results.style.display = '';
+
+        var devHeader = document.getElementById('tdr-device-header');
+        if (devHeader) devHeader.innerHTML = '<span class="tdr-device-badge">' + esc(data.source) + '</span>';
+
+        var tbody = document.getElementById('tdr-zone-tbody');
+        if (!tbody) return;
+        tbody.innerHTML = data.zones.map(function (z) {
+            var st  = tdrIrrigationStatus(z.vwc);
+            var req = tdrRequiredMm(z.vwc);
+            var badge = st.cls ? '<span class="tdr-status-badge ' + st.cls + '">' + st.text + '</span>' : st.text;
+            return '<tr>'
+                + '<td><strong>' + esc(z.name) + '</strong><br><span style="font-size:11px;color:var(--gaip-text-muted)">' + z.count + ' reading' + (z.count !== 1 ? 's' : '') + '</span></td>'
+                + '<td class="dat-td-num">' + (z.vwc  != null ? z.vwc.toFixed(1) + '%'   : '—') + '</td>'
+                + '<td class="dat-td-num">' + (z.ec   != null ? z.ec.toFixed(2) + ' dS/m' : '—') + '</td>'
+                + '<td class="dat-td-num">' + (z.temp != null ? z.temp.toFixed(1) + '°'   : '—') + '</td>'
+                + '<td>' + badge + '</td>'
+                + '<td class="dat-td-num">' + req + '</td>'
+                + '<td><button type="button" class="tdr-select-zone-btn dat-view-btn" data-zone="' + esc(z.name) + '">Select</button></td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    function handleTdrFile(file) {
+        if (!file || !file.name.toLowerCase().endsWith('.csv')) {
+            alert('Please select a CSV file exported from FieldScout TDR 350/300 or compatible device.');
+            return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            var data = parseTdrCsv(e.target.result);
+            if (!data || !data.zones.length) {
+                alert('Could not parse sensor data. Make sure this is a FieldScout TDR 350/300 CSV export with a VWC column.');
+                return;
+            }
+            lsSet(tdrKey(), JSON.stringify(data));
+            renderTdrSection(data);
+        };
+        reader.readAsText(file);
+    }
+
     // ── Init ─────────────────────────────────────────────────────────────
     function init() {
         updateReadingsSection();
         var refresh = document.getElementById('sens-refresh-btn');
         if (refresh) refresh.addEventListener('click', refreshReadings);
+
+        // TDR
+        renderTdrSection(tdrLoad());
+        var fileInput = document.getElementById('tdr-file-input');
+        var dropZone  = document.getElementById('tdr-drop-zone');
+        var clearBtn  = document.getElementById('tdr-clear-btn');
+
+        if (fileInput) fileInput.addEventListener('change', function () {
+            if (fileInput.files[0]) handleTdrFile(fileInput.files[0]);
+            fileInput.value = '';
+        });
+        if (dropZone) {
+            dropZone.addEventListener('click',     function ()  { if (fileInput) fileInput.click(); });
+            dropZone.addEventListener('dragover',  function (e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+            dropZone.addEventListener('dragleave', function ()  { dropZone.classList.remove('drag-over'); });
+            dropZone.addEventListener('drop',      function (e) {
+                e.preventDefault(); dropZone.classList.remove('drag-over');
+                var f = e.dataTransfer && e.dataTransfer.files[0];
+                if (f) handleTdrFile(f);
+            });
+        }
+        if (clearBtn) clearBtn.addEventListener('click', function () {
+            if (!confirm('Clear TDR session data?')) return;
+            try { localStorage.removeItem(tdrKey()); } catch (_) {}
+            renderTdrSection(null);
+        });
     }
 
     if (document.readyState === 'loading') {
