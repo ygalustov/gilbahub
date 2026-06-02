@@ -126,6 +126,9 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-45** Enhance site status display in Settings and topbar. Updated SettingsController to include growth potential status in site data. Modified AppServiceProvider to pass site status to the topbar view. Improved topbar and settings UI to visually represent site status with color-coded indicators. Added CSS for status dots and refined JavaScript for rendering site status in the table.
 **GH-46** Implement FieldScout sensor data import functionality. Added UI components for manual CSV upload, including a drop zone and results table. Updated JavaScript to parse and display imported data, enhancing the data view with real-time updates and improved layout. Added CSS styles for new elements to ensure visual consistency.
 **GH-47** Enhance data view with info popovers and glossary entries. Updated the TDR results table layout for better readability and added interactive info icons for irrigation status and required water metrics. Implemented shared info popover functionality across pages for improved user guidance. Adjusted CSS for consistent styling of new elements.
+**GH-48** Refactor dashboard and analysis views to improve loading states and UI consistency. Updated loading messages to use a shared empty state design across various components, enhancing visual clarity. Adjusted import links in the dashboard to direct to specific data sections instead of the hub. Added new CSS styles for the empty state layout.
+**GH-49** Update sensor icons in data view for improved visual representation. Enhanced the empty state SVG in the no integration section to provide clearer graphics for unconfigured sensors.
+
 
 ## Backlog
 

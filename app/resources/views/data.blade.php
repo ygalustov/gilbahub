@@ -98,7 +98,7 @@
                 [
                     'key'   => 'sensors',
                     'label' => 'Sensors',
-                    'icon'  => '<path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-2.667-5.596a3 3 0 014.334 0M5.636 12.364a9.5 9.5 0 0112.728 0"/>',
+                    'icon'  => '<path stroke-linecap="round" d="M1.42 9a16 16 0 0 1 21.16 0"/><path stroke-linecap="round" d="M5 12.55a11 11 0 0 1 14.08 0"/><path stroke-linecap="round" d="M8.53 16.11a6 6 0 0 1 6.95 0"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/>',
                 ],
                 [
                     'key'   => 'spray-log',
@@ -190,7 +190,10 @@
                 {{-- Empty state: no providers configured --}}
                 <div class="sens-no-integration" id="sens-no-integration" style="display:none">
                     <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color:var(--gaip-border,#ccd9d2)">
-                        <path d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-2.667-5.596a3 3 0 014.334 0M5.636 12.364a9.5 9.5 0 0112.728 0"/>
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                        <circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/>
                     </svg>
                     <div class="sens-no-integration-title">No sensor integrations configured</div>
                     <div class="sens-no-integration-sub">Connect your sensor provider in <a href="{{ route('settings') }}#integrations">Settings → Integrations</a> to enable live readings.</div>
