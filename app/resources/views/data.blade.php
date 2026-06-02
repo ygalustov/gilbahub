@@ -237,15 +237,22 @@
                     <div id="tdr-results" style="display:none">
                         <div id="tdr-device-header" class="tdr-device-header"></div>
                         <div class="dat-table-wrap" style="margin:0">
-                            <table class="dat-table" id="tdr-zone-table">
+                            <table class="dat-table" id="tdr-zone-table" style="table-layout:fixed">
+                                <colgroup>
+                                    <col style="width:35%">
+                                    <col style="width:90px">
+                                    <col style="width:110px">
+                                    <col style="width:90px">
+                                    <col style="width:120px">
+                                    <col style="width:110px">
+                                </colgroup>
                                 <thead><tr>
                                     <th>Zone</th>
-                                    <th class="dat-td-num">VWC %</th>
-                                    <th class="dat-td-num">EC</th>
-                                    <th class="dat-td-num">Soil °C</th>
-                                    <th>Status</th>
-                                    <th class="dat-td-num">Required</th>
-                                    <th></th>
+                                    <th class="dat-th-num">VWC %</th>
+                                    <th class="dat-th-num">EC</th>
+                                    <th class="dat-th-num">Soil °C</th>
+                                    <th>Status <span class="db-info-icon" data-info="tdr-status" tabindex="0" role="button" aria-label="About Status">i</span></th>
+                                    <th class="dat-th-num">Required <span class="db-info-icon" data-info="tdr-required" tabindex="0" role="button" aria-label="About Required">i</span></th>
                                 </tr></thead>
                                 <tbody id="tdr-zone-tbody"></tbody>
                             </table>
@@ -1918,6 +1925,11 @@
         if (btn) { btn.disabled = false; btn.style.opacity = ''; }
     }
 
+    // ── TDR glossary entries ─────────────────────────────────────────────
+    window.GAIP_GLOSSARY = window.GAIP_GLOSSARY || {};
+    window.GAIP_GLOSSARY['tdr-status']   = { title: 'Irrigation Status', body: 'Urgency based on measured VWC:\n\nCritical — below 14% (near wilting point, irrigate immediately)\nNeeded — 14–20% (below trigger threshold)\nSoon — 20–28% (approaching trigger)\nOK — 28–40% (adequate moisture)\nWet — above 40% (at or above field capacity)' };
+    window.GAIP_GLOSSARY['tdr-required'] = { title: 'Required (mm)', body: 'Estimated millimetres of water needed to return to field capacity (30% VWC).\n\nAssumes 100mm root depth. Formula: (30% − current VWC) × root depth.' };
+
     // ── TDR 350/300 ──────────────────────────────────────────────────────
     function tdrKey() { return 'gaip_tdr_session_' + SITE_ID; }
     function tdrLoad() { return lsJson(tdrKey()); }
@@ -2040,7 +2052,6 @@
                 + '<td class="dat-td-num">' + (z.temp != null ? z.temp.toFixed(1) + '°'   : '—') + '</td>'
                 + '<td>' + badge + '</td>'
                 + '<td class="dat-td-num">' + req + '</td>'
-                + '<td><button type="button" class="tdr-select-zone-btn dat-view-btn" data-zone="' + esc(z.name) + '">Select</button></td>'
                 + '</tr>';
         }).join('');
     }
@@ -2094,6 +2105,7 @@
             try { localStorage.removeItem(tdrKey()); } catch (_) {}
             renderTdrSection(null);
         });
+
     }
 
     if (document.readyState === 'loading') {

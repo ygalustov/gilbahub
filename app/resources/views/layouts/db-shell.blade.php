@@ -40,6 +40,14 @@
 
 </div>
 
+{{-- Shared info popover — used by db-info-icon on all pages --}}
+<div id="db-info-popover" class="db-info-popover" style="display:none" role="tooltip" aria-live="polite">
+    <div class="db-info-popover-arrow" id="db-info-popover-arrow"></div>
+    <button class="db-info-popover-close" id="db-info-popover-close" aria-label="Close">×</button>
+    <div class="db-info-popover-title" id="db-info-popover-title"></div>
+    <div class="db-info-popover-body" id="db-info-popover-body" style="white-space:pre-line"></div>
+</div>
+
 @yield('overlays')
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
 @yield('scripts')

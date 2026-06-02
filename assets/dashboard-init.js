@@ -108,6 +108,7 @@
         var popClose = document.getElementById('db-info-popover-close');
         var popArrow = document.getElementById('db-info-popover-arrow');
         if (!popover) return;
+        popover.dataset.initialized = '1';
 
         var currentAnchor = null;
 

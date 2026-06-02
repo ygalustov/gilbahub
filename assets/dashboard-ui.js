@@ -148,11 +148,90 @@
         el.textContent = 'Analysis: ' + label;
     }
 
+    // ── Info popovers (db-info-icon) — shared across all pages ───────────
+    function initInfoPopover() {
+        var popover  = document.getElementById('db-info-popover');
+        if (!popover || popover.dataset.initialized) return; // dashboard-init.js handles it there
+        popover.dataset.initialized = '1';
+        var popTitle = document.getElementById('db-info-popover-title');
+        var popBody  = document.getElementById('db-info-popover-body');
+        var popClose = document.getElementById('db-info-popover-close');
+        var popArrow = document.getElementById('db-info-popover-arrow');
+        if (!popover) return;
+
+        var currentAnchor = null;
+
+        function showPopover(anchor) {
+            var key   = anchor.dataset.info;
+            var store = global.GAIP_GLOSSARY || {};
+            var entry = store[key];
+            if (!entry) return;
+            popTitle.textContent = entry.title || '';
+            popBody.textContent  = entry.body  || '';
+            popover.style.visibility = 'hidden';
+            popover.style.display    = 'block';
+
+            var rect  = anchor.getBoundingClientRect();
+            var pw    = popover.offsetWidth;
+            var ph    = popover.offsetHeight;
+            var viewW = window.innerWidth;
+            var viewH = window.innerHeight;
+
+            var left = Math.round(rect.left + rect.width / 2 - pw / 2);
+            left = Math.max(8, Math.min(left, viewW - pw - 8));
+
+            var top, flipped = false;
+            if (rect.bottom + 10 + ph > viewH - 8) {
+                top = Math.round(rect.top - 10 - ph);
+                flipped = true;
+            } else {
+                top = Math.round(rect.bottom + 10);
+            }
+
+            popover.style.position   = 'fixed';
+            popover.style.left       = left + 'px';
+            popover.style.top        = top  + 'px';
+            popover.style.visibility = '';
+
+            if (popArrow) {
+                var arrowLeft = Math.round(rect.left + rect.width / 2 - left - 5);
+                arrowLeft = Math.max(12, Math.min(arrowLeft, pw - 22));
+                popArrow.style.left      = arrowLeft + 'px';
+                popArrow.style.top       = flipped ? ''     : '-6px';
+                popArrow.style.bottom    = flipped ? '-6px' : '';
+                popArrow.style.transform = flipped ? 'rotate(225deg)' : 'rotate(45deg)';
+            }
+            currentAnchor = anchor;
+        }
+
+        function hidePopover() { popover.style.display = 'none'; currentAnchor = null; }
+
+        document.addEventListener('click', function (e) {
+            var icon = e.target.closest('.db-info-icon');
+            if (icon) {
+                e.stopPropagation();
+                if (currentAnchor === icon) { hidePopover(); } else { showPopover(icon); }
+                return;
+            }
+            if (!popover.contains(e.target)) hidePopover();
+        });
+
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') hidePopover(); });
+        if (popClose) popClose.addEventListener('click', function (e) { e.stopPropagation(); hidePopover(); });
+
+        document.querySelectorAll('.db-info-icon[data-info]').forEach(function (icon) {
+            icon.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showPopover(icon); }
+            });
+        });
+    }
+
     function boot() {
         initSiteSwitcher();
         initRerun();
         initTabBadges();
         initAnalysisTimestamp();
+        initInfoPopover();
     }
 
     if (document.readyState === 'loading') {
