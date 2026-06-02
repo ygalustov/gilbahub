@@ -709,7 +709,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                 <div class="plan-card" id="plan-pest-card">
                     <div class="plan-card-header">
                         <div class="plan-card-title">
-                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-warning)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-accent)"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3 2"/></svg>
                             GDD Pest Timing
                             <span class="db-info-icon" data-info="pest-timing" tabindex="0" role="button" aria-label="About GDD Pest Timing">i</span>
                         </div>

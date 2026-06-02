@@ -190,6 +190,29 @@ class SiteController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, string $site): JsonResponse
+    {
+        $site = $this->resolveAccessibleSite($request, $site);
+        $this->abortUnlessMember($request, $site);
+
+        $user = $request->user();
+        $remainingCount = $user->sites()->where('sites.id', '!=', $site->id)->count();
+
+        if ($remainingCount === 0) {
+            return response()->json(['message' => 'Cannot delete the only site.'], 422);
+        }
+
+        if ($user->last_active_site_id === $site->id) {
+            $next = $user->sites()->where('sites.id', '!=', $site->id)->orderBy('sites.name')->first();
+            $user->forceFill(['last_active_site_id' => $next?->id])->save();
+        }
+
+        $site->configs()->delete();
+        $site->delete();
+
+        return response()->json(['deleted' => true]);
+    }
+
     public function updateConfig(Request $request, string $site, string $namespace = 'gaip'): JsonResponse
     {
         $site = $this->resolveAccessibleSite($request, $site);

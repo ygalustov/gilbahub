@@ -122,7 +122,7 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-41** Refactor Sensors integration UI and enhance functionality. Updated the layout for sensor provider cards and status indicators, improving clarity on integration status. Added a new empty state message for unconfigured sensors and enhanced the settings view with improved API key input handling. Updated CSS for better responsiveness and visual consistency across sensor-related components.
 **GH-42** Enhance stress analysis display by rounding score values for improved clarity. Updated the rendering logic to show rounded scores in both factor cards and component rows, ensuring a more precise visual representation of data.
 **GH-43** Update growth potential metrics to reflect 8-day averages instead of 16-day averages. Modified relevant titles and descriptions in both dashboard and growth light analysis files for consistency and clarity. Adjusted calculation logic to align with the new 8-day forecast approach.
-**GH-44** 
+**GH-44** Implement Sites tab in Settings view with add site functionality and site details display. Updated SettingsController to build sites table data, including soil and water sample counts. Enhanced JavaScript for dynamic site management and integrated new UI components for better user interaction. Added CSS styles for improved layout and visual consistency across the Sites tab.
 
 ## Backlog
 
@@ -132,15 +132,11 @@ delete added data logs
 
 Важное (ухудшает работу)
 
-Profile Save/Load — сохранение/загрузка профилей Turf Profile полностью отсутствует.
-
-Site Switcher — в старом хабе видимый UI вверху формы (выбор сайта, +/✎/удалить). В новом неочевидно где переключать сайты.
-
 Sensor Import (TDR 350) — в старом хабе был в разделе Water. В новом нет в Settings.
 
 Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную.
 
-Morning Briefing — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
+Morning Briefing  — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
 
 Архитектурные отличия (возможно намеренные)
 Decision Panel — логика выбора действий (почему та или иная рекомендация). В старом хабе была отдельная панель.
@@ -151,9 +147,6 @@ Evidence Panel — визуализация источников данных и
 
 Итоговая таблица
 Функция	Старый	Новый	Статус
-PGR Input	✅	⚠️	Раздроблен
-Profile Save/Load	✅	❌	Отсутствует
-Site Switcher	✅	⚠️	Неочевиден
 Location Map	✅	⚠️	Упрощён
 Sensor Import	✅	❌	Нет в Settings
 Morning Briefing	✅	⚠️	Не в навигации
@@ -163,6 +156,8 @@ Decision/Evidence Panel	✅	❌	Отсутствует
 
 
 
+
+MOBILE VERSION
 
 
 

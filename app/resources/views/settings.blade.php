@@ -29,15 +29,76 @@
 
                 {{-- ── Tabs ──────────────────────────────────────────── --}}
                 <div class="stg-tabs" role="tablist">
-                    <button class="stg-tab active" role="tab" data-tab="site"         aria-selected="true" >Site</button>
+                    <button class="stg-tab active" role="tab" data-tab="sites"        aria-selected="true" >Sites</button>
+                    <button class="stg-tab"         role="tab" data-tab="site"         aria-selected="false">Site settings</button>
                     <button class="stg-tab"         role="tab" data-tab="turf"         aria-selected="false">Turf profile</button>
                     <button class="stg-tab"         role="tab" data-tab="zones"        aria-selected="false">Zones</button>
                     <button class="stg-tab"         role="tab" data-tab="import"       aria-selected="false">Import</button>
                     <button class="stg-tab"         role="tab" data-tab="integrations" aria-selected="false">Integrations</button>
                 </div>
 
-                {{-- ── Site ─────────────────────────────────────────── --}}
-                <div class="stg-panel" id="stg-tab-site" role="tabpanel">
+                {{-- ── Sites ────────────────────────────────────────── --}}
+                <div class="stg-panel" id="stg-tab-sites" role="tabpanel">
+                    <div class="stg-sites-head">
+                        <h2 class="stg-sites-title">All sites</h2>
+                        <button type="button" class="stg-btn-primary stg-sites-add-btn" id="stg-add-site-btn">
+                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                            Add site
+                        </button>
+                    </div>
+
+                    {{-- Add-site inline form (hidden by default) --}}
+                    <div class="stg-add-site-form stg-hidden" id="stg-add-site-form">
+                        <div class="stg-add-site-form-inner">
+                            <input type="text" id="stg-new-site-name" class="stg-input" placeholder="Site name" maxlength="255">
+                            <select id="stg-new-site-type" class="stg-select">
+                                <option value="precinct">General</option>
+                                <option value="golf">Golf</option>
+                                <option value="sports">Sports</option>
+                                <option value="bowls">Bowls</option>
+                                <option value="lawns">Lawns</option>
+                            </select>
+                            <button type="button" class="stg-btn-primary" id="stg-add-site-save-btn">Create</button>
+                            <button type="button" class="stg-btn-ghost" id="stg-add-site-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
+
+                    <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                        <table class="dat-table stg-sites-table" id="stg-sites-table">
+                            <thead>
+                                <tr>
+                                    <th class="stg-st-sortable" data-col="name">Site <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable" data-col="location">Location <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable" data-col="species">Grass <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable dat-th-num" data-col="soil">Soil <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable dat-th-num" data-col="water">Water <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable" data-col="last_run">Last run <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th style="width:44px"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="stg-sites-tbody">
+                                {{-- Rendered by JS --}}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {{-- Detail panel (same pattern as Data page) --}}
+                    <div id="stg-site-detail" class="dat-detail" style="display:none" aria-live="polite">
+                        <div class="dat-detail-header">
+                            <div>
+                                <div class="dat-detail-title" id="stg-detail-title">—</div>
+                                <div class="dat-detail-subtitle" id="stg-detail-subtitle"></div>
+                            </div>
+                            <div class="dat-detail-actions">
+                                <button class="dat-detail-close" id="stg-detail-close" aria-label="Close">×</button>
+                            </div>
+                        </div>
+                        <div id="stg-detail-body" class="dat-detail-body"></div>
+                    </div>
+                </div>
+
+                {{-- ── Site settings ────────────────────────────────── --}}
+                <div class="stg-panel stg-hidden" id="stg-tab-site" role="tabpanel">
                     <form id="stg-site-form" class="stg-form" novalidate>
 
                         {{-- Block 1: Site details --}}
@@ -732,11 +793,12 @@
 @if($activeSite)
 <script>
 window.STG_DATA = {
-    activeSiteId: @json($activeSite->id),
-    zones:        @json($activeSite->attributes_json['zones'] ?? []),
-    csrfToken:    @json(csrf_token()),
-    apiBase:      @json(url('/api')),
-    gaipConfig:   @json($activeGaipConfig),
+    activeSiteId:   @json($activeSite->id),
+    zones:          @json($activeSite->attributes_json['zones'] ?? []),
+    csrfToken:      @json(csrf_token()),
+    apiBase:        @json(url('/api')),
+    gaipConfig:     @json($activeGaipConfig),
+    sitesTableData: @json($sitesTableData ?? []),
 };
 </script>
 <script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>

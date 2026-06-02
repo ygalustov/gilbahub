@@ -35,6 +35,189 @@
         }
     }
 
+    /* ── Sites tab ───────────────────────────────────────────── */
+    (function initSitesTab() {
+        var sitesData    = (D.sitesTableData && Array.isArray(D.sitesTableData)) ? D.sitesTableData.slice() : [];
+        var tbody        = document.getElementById('stg-sites-tbody');
+        var detailPanel  = document.getElementById('stg-site-detail');
+        var detailTitle  = document.getElementById('stg-detail-title');
+        var detailSub    = document.getElementById('stg-detail-subtitle');
+        var detailBody   = document.getElementById('stg-detail-body');
+        var detailClose  = document.getElementById('stg-detail-close');
+        var addBtn       = document.getElementById('stg-add-site-btn');
+        var addForm      = document.getElementById('stg-add-site-form');
+        var addNameEl    = document.getElementById('stg-new-site-name');
+        var addTypeEl    = document.getElementById('stg-new-site-type');
+        var addSaveBtn   = document.getElementById('stg-add-site-save-btn');
+        var addCancelBtn = document.getElementById('stg-add-site-cancel-btn');
+
+        if (!tbody) return;
+
+        var sortCol  = 'name', sortDir = 1;
+        var openSiteId = null;
+
+        var TYPE_LABELS = { golf: 'Golf', sports: 'Sports', bowls: 'Bowls', lawns: 'Lawns', precinct: 'General' };
+
+        function esc(s) {
+            return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function fmtLastRun(iso) {
+            if (!iso) return '<span class="stg-st-muted">Never</span>';
+            var d = new Date(iso), now = new Date();
+            var diff = Math.floor((now - d) / 1000);
+            var str = diff < 60 ? diff + 's ago' : diff < 3600 ? Math.floor(diff/60) + 'm ago' : diff < 86400 ? Math.floor(diff/3600) + 'h ago' : Math.floor(diff/86400) + 'd ago';
+            return '<span title="' + d.toLocaleString() + '">' + str + '</span>';
+        }
+
+        function sortData() {
+            sitesData.sort(function (a, b) {
+                var av = a[sortCol] != null ? a[sortCol] : '', bv = b[sortCol] != null ? b[sortCol] : '';
+                if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * sortDir;
+                return String(av).localeCompare(String(bv)) * sortDir;
+            });
+        }
+
+        /* ── Detail panel ── */
+        function openDetail(s) {
+            openSiteId = s.id;
+            if (detailTitle) detailTitle.textContent = s.name;
+            if (detailSub)   detailSub.textContent   = (TYPE_LABELS[s.site_type] || s.site_type || 'General') + (s.location ? ' · ' + s.location : '');
+            var lastRunFull = s.last_run ? new Date(s.last_run).toLocaleString() : 'Never';
+            if (detailBody) detailBody.innerHTML =
+                '<div class="dat-metric-grid">' +
+                '<div class="dat-metric-card"><div class="stg-detail-label">Location</div><div class="stg-detail-value">' + (s.location ? esc(s.location) : '—') + '</div></div>' +
+                '<div class="dat-metric-card"><div class="stg-detail-label">Grass</div><div class="stg-detail-value">' + (s.species ? esc(s.species) : '—') + '</div>' + (s.hoc != null ? '<div class="stg-detail-sub">HOC ' + s.hoc + ' mm</div>' : '') + '</div>' +
+                '<div class="dat-metric-card"><div class="stg-detail-label">Soil samples</div><div class="stg-detail-value">' + (s.soil || 0) + '</div></div>' +
+                '<div class="dat-metric-card"><div class="stg-detail-label">Water samples</div><div class="stg-detail-value">' + (s.water || 0) + '</div></div>' +
+                '</div>' +
+                '<div style="font-size:12px;color:var(--gaip-text-muted);margin-bottom:16px">Last analysis run: ' + esc(lastRunFull) + '</div>' +
+                (sitesData.length > 1
+                    ? '<button type="button" class="stg-detail-delete-btn" data-site-id="' + esc(s.id) + '" style="padding:6px 14px;font-size:12px;font:inherit;font-weight:500;background:transparent;border:1px solid #f5c6c6;border-radius:7px;color:#c0392b;cursor:pointer">Delete this site</button>'
+                    : '<span style="font-size:12px;color:var(--gaip-text-muted)">Cannot delete the only site.</span>');
+            if (detailPanel) { detailPanel.style.display = ''; detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+            tbody.querySelectorAll('tr.stg-row-main').forEach(function (r) { r.classList.toggle('stg-row-expanded', r.dataset.siteId === s.id); });
+        }
+
+        function closeDetail() {
+            openSiteId = null;
+            if (detailPanel) detailPanel.style.display = 'none';
+            tbody.querySelectorAll('tr.stg-row-main').forEach(function (r) { r.classList.remove('stg-row-expanded'); });
+        }
+
+        if (detailClose) detailClose.addEventListener('click', closeDetail);
+
+        /* Delete — delegated from detail body */
+        if (detailBody) detailBody.addEventListener('click', function (e) {
+            var btn = e.target.closest('.stg-detail-delete-btn');
+            if (!btn) return;
+            var id = btn.dataset.siteId;
+            if (!id) return;
+            var site = sitesData.find(function (s) { return s.id === id; });
+            if (!confirm('Delete site "' + (site ? site.name : id) + '"? This cannot be undone.')) return;
+            fetch(apiBase + '/sites/' + id, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+            }).then(function (r) { return r.ok ? r.json() : r.json().then(function (d) { return Promise.reject(d); }); })
+              .then(function () {
+                  sitesData = sitesData.filter(function (s) { return s.id !== id; });
+                  closeDetail();
+                  renderTable();
+              }).catch(function (d) { alert((d && d.message) || 'Failed to delete site.'); });
+        });
+
+        /* ── Render table ── */
+        function renderTable() {
+            sortData();
+            if (!sitesData.length) {
+                tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites yet</td></tr>';
+                return;
+            }
+            tbody.innerHTML = sitesData.map(function (s) {
+                var activeDot  = s.is_active ? '<span class="stg-st-active-dot"></span>' : '<span style="width:7px;display:inline-block"></span>';
+                var typeLabel  = TYPE_LABELS[s.site_type] || s.site_type || 'General';
+                var speciesStr = s.species ? esc(s.species) + (s.hoc != null ? ' <span class="stg-st-muted">· ' + s.hoc + ' mm</span>' : '') : '<span class="stg-st-muted">—</span>';
+                var isSelected = openSiteId === s.id;
+                var actionCell = s.is_active
+                    ? '<td><span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--gaip-accent,#2da85e)"><span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0"></span>Active</span></td>'
+                    : '<td><button type="button" class="stg-set-active-btn dat-view-btn" data-site-id="' + esc(s.id) + '">Set active</button></td>';
+                return '<tr class="stg-row-main' + (isSelected ? ' stg-row-expanded' : '') + '" data-site-id="' + esc(s.id) + '">' +
+                    '<td><div class="stg-st-name-wrap">' + activeDot + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
+                    '<td>' + (s.location ? esc(s.location) : '<span class="stg-st-muted">—</span>') + '</td>' +
+                    '<td>' + speciesStr + '</td>' +
+                    '<td class="dat-td-num">' + (s.soil || 0) + '</td>' +
+                    '<td class="dat-td-num">' + (s.water || 0) + '</td>' +
+                    '<td>' + fmtLastRun(s.last_run) + '</td>' +
+                    actionCell + '</tr>';
+            }).join('');
+        }
+
+        /* ── Column sort ── */
+        document.querySelectorAll('.stg-st-sortable').forEach(function (th) {
+            th.addEventListener('click', function () {
+                var col = th.dataset.col;
+                if (sortCol === col) { sortDir = -sortDir; } else { sortCol = col; sortDir = 1; }
+                document.querySelectorAll('.stg-st-sortable').forEach(function (h) { h.classList.remove('sort-asc', 'sort-desc'); });
+                th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+                renderTable();
+            });
+        });
+
+        /* ── Row clicks ── */
+        tbody.addEventListener('click', function (e) {
+            // "Set active" button in row
+            var setActiveBtn = e.target.closest('.stg-set-active-btn');
+            if (setActiveBtn) {
+                e.stopPropagation();
+                var id = setActiveBtn.dataset.siteId;
+                fetch(apiBase + '/active-site', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    body: JSON.stringify({ site_id: id }),
+                }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+                  .then(function () {
+                      sitesData.forEach(function (s) { s.is_active = s.id === id; });
+                      var site = sitesData.find(function (s) { return s.id === id; });
+                      var nameEl = document.getElementById('db-site-name');
+                      if (nameEl && site) nameEl.textContent = site.name;
+                      if (openSiteId) { var s2 = sitesData.find(function (s) { return s.id === openSiteId; }); if (s2) openDetail(s2); }
+                      renderTable();
+                  }).catch(function () { alert('Failed to set active site.'); });
+                return;
+            }
+            // Row click — toggle detail
+            var row = e.target.closest('tr.stg-row-main');
+            if (!row) return;
+            var id = row.dataset.siteId;
+            var site = sitesData.find(function (s) { return s.id === id; });
+            if (!site) return;
+            if (openSiteId === id) { closeDetail(); } else { openDetail(site); }
+        });
+
+        /* ── Add site ── */
+        if (addBtn) addBtn.addEventListener('click', function () { addForm.classList.remove('stg-hidden'); if (addNameEl) addNameEl.focus(); });
+        if (addCancelBtn) addCancelBtn.addEventListener('click', function () { addForm.classList.add('stg-hidden'); if (addNameEl) addNameEl.value = ''; });
+        if (addSaveBtn) addSaveBtn.addEventListener('click', function () {
+            var name = addNameEl ? addNameEl.value.trim() : '';
+            var type = addTypeEl ? addTypeEl.value : 'precinct';
+            if (!name) { if (addNameEl) addNameEl.focus(); return; }
+            addSaveBtn.disabled = true;
+            fetch(apiBase + '/sites', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                body: JSON.stringify({ name: name, site_type: type }),
+            }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
+              .then(function (resp) {
+                  var s = resp.data;
+                  sitesData.push({ id: s.id, name: s.name, site_type: s.site_type, location: s.location_name || null, species: null, hoc: null, soil: 0, water: 0, last_run: null, is_active: false });
+                  addForm.classList.add('stg-hidden'); if (addNameEl) addNameEl.value = '';
+                  addSaveBtn.disabled = false; renderTable();
+              }).catch(function () { addSaveBtn.disabled = false; alert('Failed to create site.'); });
+        });
+
+        renderTable();
+    })();
+
     /* ── Helpers ─────────────────────────────────────────────── */
     function setMsg(el, text, type) {
         if (!el) return;
