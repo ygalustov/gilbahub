@@ -1424,6 +1424,7 @@
             var _pgr = global.GAIP_PGR_RESULT;
             if (_pgr && !_pgr.error && _pgr.gdd) {
                 cache.computed.pgr = {
+                    success:          true,
                     applicationDate:  _pgr.applicationDate || null,
                     daysSince:        _pgr.daysSinceApplication || 0,
                     product: _pgr.product ? {

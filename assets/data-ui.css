@@ -78,6 +78,11 @@
     font-size: 13px;
     color: var(--gaip-text-muted, #6b8878);
 }
+.dat-section-sub {
+    font-size: 12px;
+    color: var(--gaip-text-muted, #6b8878);
+    font-weight: 400;
+}
 .dat-table-actions {
     display: flex;
     align-items: center;

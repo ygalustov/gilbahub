@@ -204,7 +204,10 @@ class SprayLogController extends Controller
         $entries = $rows->map(fn (object $row): array => $this->mapEntry($row))->values();
         $fungicides = $entries->filter(fn (array $entry): bool => $entry['product_category'] === 'fungicide')->values();
 
-        $lastPgr = $entries->first(fn (array $entry): bool => $entry['product_category'] === 'pgr');
+        $lastPgrEntry = $entries->first(fn (array $entry): bool => $entry['product_category'] === 'pgr');
+        $lastPgr = $lastPgrEntry !== null
+            ? array_merge($lastPgrEntry, ['product_key' => $this->pgrProductKey((string) ($lastPgrEntry['product_name'] ?? ''))])
+            : null;
         $lastFungicide = $fungicides->first();
         $dmiApplications = $fungicides->filter(fn (array $entry): bool => (string) ($entry['frac_group'] ?? '') === '3')->values()->all();
         $fracHistory = $fungicides
@@ -385,6 +388,29 @@ class SprayLogController extends Controller
         }
 
         return array_values(array_unique($items));
+    }
+
+    private function pgrProductKey(string $productName): ?string
+    {
+        $map = [
+            'primo 250ec' => 'TE250', 'primo 250 ec' => 'TE250',
+            'primo maxx' => 'TE120', 'primo maxx 120' => 'TE120', 'primo maxx 1ec' => 'TE175',
+            'te250' => 'TE250', 'te175' => 'TE175', 'te120' => 'TE120',
+            'trinexapac-ethyl' => 'TE250', 'trinexapac ethyl' => 'TE250',
+            'indigo amigo' => 'TE175', 'indigo amigo 250' => 'TE250',
+            'indigo amigo 175' => 'TE175', 'indigo amigo 120' => 'TE120',
+            'amigo' => 'TE175', 'amigo 175' => 'TE175', 'amigo 250' => 'TE250', 'amigo 120' => 'TE120',
+            'marvel 175' => 'TE175', 'marvel' => 'TE175',
+            'indigo marvel 175' => 'TE175', 'indigo marvel' => 'TE175',
+            'paclobutrazol' => 'PBZ200', 'paclobutrazol 200sc' => 'PBZ200',
+            'paclobutrazol 200g/l' => 'PBZ200', 'paclobutrazol 250g/l' => 'PBZ250',
+            'trimmit' => 'PBZ200', 'trimmit 2sc' => 'PBZ200',
+            'indigo regulate' => 'PBZ200',
+            'anuew' => 'ANUEW', 'prohexadione-calcium' => 'ANUEW', 'prohexadione calcium' => 'ANUEW',
+            'ethephon' => 'ETH', 'ethephon 480g/l' => 'ETH',
+            'indigo incognito' => 'ETH', 'proxy' => 'ETH',
+        ];
+        return $map[strtolower(trim($productName))] ?? null;
     }
 
     private function detectFracGroup(string $activeIngredient, string $productName, string $productType): ?string

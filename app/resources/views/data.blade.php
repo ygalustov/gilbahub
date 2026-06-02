@@ -134,7 +134,9 @@
             <div class="dat-table-head">
                 <div class="dat-table-title">
                     <span class="dat-section-name">{{ $sectionTitles[$section] }}</span>
-                    @if($total > 0)
+                    @if($section === 'spray-log')
+                        <span class="dat-section-sub">Fungicides · PGR · Wetting Agents · Pre-emergent · Insecticides</span>
+                    @elseif($total > 0)
                         <span class="dat-count">{{ $total }} {{ $total === 1 ? 'record' : 'records' }}</span>
                     @endif
                 </div>
@@ -1172,6 +1174,61 @@
     ];
     var RATE_UNITS = ['L/ha','kg/ha','mL/100m²','g/100m²','mL/ha','g/ha'];
 
+    var SPRAY_PRODUCT_PRESETS = {
+        // Names must match keys in spray-log-cascade.js PGR_PRODUCT_MAP (lowercase lookup)
+        pgr: [
+            { name: 'Primo 250EC',          ai: 'Trinexapac-ethyl', rate: 0.4, unit: 'L/ha' },
+            { name: 'Primo Maxx 120',       ai: 'Trinexapac-ethyl', rate: 0.5, unit: 'L/ha' },
+            { name: 'Amigo 175',            ai: 'Trinexapac-ethyl', rate: 0.5, unit: 'L/ha' },
+            { name: 'Marvel 175',           ai: 'Trinexapac-ethyl', rate: 0.5, unit: 'L/ha' },
+            { name: 'Paclobutrazol 200g/L', ai: 'Paclobutrazol',    rate: 1.0, unit: 'L/ha' },
+            { name: 'Paclobutrazol 250g/L', ai: 'Paclobutrazol',    rate: 0.8, unit: 'L/ha' },
+            { name: 'Ethephon 480g/L',      ai: 'Ethephon',         rate: 1.0, unit: 'L/ha' },
+        ],
+    };
+
+    function renderSlProductField(cat) {
+        var presets = SPRAY_PRODUCT_PRESETS[cat];
+        if (presets && presets.length) {
+            var opts = '<option value="">— Select product —</option>'
+                + presets.map(function(p) {
+                    return '<option value="' + esc(p.name) + '" data-ai="' + esc(p.ai) + '" data-rate="' + p.rate + '" data-unit="' + esc(p.unit) + '">' + esc(p.name) + '</option>';
+                }).join('')
+                + '<option value="__other__">— Enter manually —</option>';
+            return '<select class="dat-mf-select" id="dat-sl-product" style="width:100%">' + opts + '</select>'
+                + '<input type="text" class="dat-mf-input" id="dat-sl-product-custom" placeholder="Product name" style="display:none;margin-top:6px">';
+        }
+        return '<input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. Heritage Maxx">';
+    }
+
+    function updateSlProductField(cat) {
+        var wrap = document.getElementById('dat-sl-product-wrap');
+        if (!wrap) return;
+        wrap.innerHTML = renderSlProductField(cat);
+        var sel = document.getElementById('dat-sl-product');
+        if (sel && sel.tagName === 'SELECT') {
+            sel.addEventListener('change', function() {
+                var opt = this.options[this.selectedIndex];
+                var customEl = document.getElementById('dat-sl-product-custom');
+                if (this.value === '__other__') {
+                    if (customEl) { customEl.style.display = ''; customEl.focus(); }
+                    return;
+                }
+                if (customEl) customEl.style.display = 'none';
+                var aiEl   = document.getElementById('dat-sl-ai');
+                var rateEl = document.getElementById('dat-sl-rate');
+                var unitEl = document.getElementById('dat-sl-unit');
+                if (aiEl   && opt.dataset.ai)   aiEl.value = opt.dataset.ai;
+                if (rateEl && opt.dataset.rate)  rateEl.value = opt.dataset.rate;
+                if (unitEl && opt.dataset.unit) {
+                    for (var i = 0; i < unitEl.options.length; i++) {
+                        if (unitEl.options[i].value === opt.dataset.unit) { unitEl.selectedIndex = i; break; }
+                    }
+                }
+            });
+        }
+    }
+
     // ── Modal state ───────────────────────────────────────────────
     var _parsedCSV = null; // { payload, uid, date, lab }
     var _activeTab = 'upload';
@@ -1344,7 +1401,7 @@
         return '<div class="dat-mf-grid">'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Date</label><input type="date" class="dat-mf-input" id="dat-sl-date" value="' + todayISO() + '"></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Category</label><select class="dat-mf-select" id="dat-sl-cat">' + catOpts + '</select></div>'
-            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Product Name</label><input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. Heritage Maxx"></div>'
+            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Product</label><div id="dat-sl-product-wrap">' + renderSlProductField('fungicide') + '</div></div>'
             + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Active Ingredient</label><input type="text" class="dat-mf-input" id="dat-sl-ai" placeholder="e.g. azoxystrobin"></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Rate</label><input type="number" step="any" class="dat-mf-input" id="dat-sl-rate" placeholder="0.0"></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Unit</label><select class="dat-mf-select" id="dat-sl-unit">' + unitOpts + '</select></div>'
@@ -1365,6 +1422,12 @@
                 wireModalBody();
             });
         });
+
+        // Category change → update product field
+        var slCat = document.getElementById('dat-sl-cat');
+        if (slCat) {
+            slCat.addEventListener('change', function() { updateSlProductField(this.value); });
+        }
 
         // Zone pills (spray log)
         document.querySelectorAll('.dat-zone-pill').forEach(function(pill) {
@@ -1485,8 +1548,11 @@
     }
 
     function collectSprayData() {
-        var product = (q('dat-sl-product') || {}).value || '';
-        var date    = (q('dat-sl-date')    || {}).value || '';
+        var productEl  = q('dat-sl-product');
+        var customEl   = q('dat-sl-product-custom');
+        var product    = productEl ? productEl.value : '';
+        if (product === '__other__') product = customEl ? customEl.value : '';
+        var date    = (q('dat-sl-date') || {}).value || '';
         if (!product.trim()) { setMsg('Product name is required.', 'err'); return null; }
         if (!date)           { setMsg('Date is required.', 'err'); return null; }
 

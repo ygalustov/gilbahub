@@ -224,106 +224,6 @@
         body.innerHTML = '<div class="plan-pe-list">' + speciesHtml + '</div>' + footerHtml;
     }
 
-    // ── PGR INPUT FORM ───────────────────────────────────────────────────────
-
-    var PGR_PRODUCTS = [
-        { value:'TE250',  label:'TE 250g/L (Primo)',              group:'Trinexapac-ethyl' },
-        { value:'TE175',  label:'TE 175g/L (Amigo 175 / Marvel)', group:'Trinexapac-ethyl' },
-        { value:'TE120',  label:'TE 120g/L (Primo Maxx 120)',     group:'Trinexapac-ethyl' },
-        { value:'PBZ200', label:'Paclobutrazol 200g/L',           group:'Paclobutrazol' },
-        { value:'PBZ250', label:'Paclobutrazol 250g/L',           group:'Paclobutrazol' },
-        { value:'ETH',    label:'Ethephon 480g/L',                group:'Ethephon' },
-    ];
-
-    function getPgrStateKey() {
-        var uid = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.userId;
-        return 'gilba_hub_state' + (uid ? '_' + uid : '');
-    }
-
-    function readSavedPgr() {
-        try {
-            var raw = localStorage.getItem(getPgrStateKey());
-            var state = raw ? JSON.parse(raw) : null;
-            return (state && state.pgr) || null;
-        } catch(e) { return null; }
-    }
-
-    function renderPgrInputForm(saved, compact) {
-        var enabled = saved && saved.enabled;
-        var product = (saved && saved.productType) || '';
-        var date    = (saved && saved.applicationDate) || '';
-        var rate    = (saved && saved.rateLperHa) || '';
-
-        var groups = {}, groupOrder = [];
-        PGR_PRODUCTS.forEach(function(p) {
-            if (!groups[p.group]) { groups[p.group] = []; groupOrder.push(p.group); }
-            groups[p.group].push(p);
-        });
-        var opts = '<option value="">— Select product —</option>';
-        groupOrder.forEach(function(g) {
-            opts += '<optgroup label="' + esc(g) + '">';
-            groups[g].forEach(function(p) {
-                opts += '<option value="' + esc(p.value) + '"' + (p.value === product ? ' selected' : '') + '>' + esc(p.label) + '</option>';
-            });
-            opts += '</optgroup>';
-        });
-
-        var inputStyle = 'padding:7px 10px;border:1px solid var(--gaip-border);border-radius:var(--gaip-radius-sm);background:var(--gaip-surface);color:var(--gaip-text);font-size:13px;font-family:var(--gaip-font);width:100%;box-sizing:border-box';
-
-        return '<div id="plan-pgr-input" style="' + (compact ? 'margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--gaip-border-light)' : '') + '">' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:' + (enabled ? '10px' : '0') + '">' +
-            '<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;font-weight:600;color:var(--gaip-text)">' +
-            '<input type="checkbox" id="plan-pgr-enable-cb"' + (enabled ? ' checked' : '') + ' style="width:15px;height:15px;cursor:pointer">' +
-            'PGR Applied</label></div>' +
-            '<div id="plan-pgr-fields" style="display:' + (enabled ? 'grid' : 'none') + ';grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">' +
-            '<div><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gaip-text-muted);display:block;margin-bottom:4px">Product</label>' +
-            '<select id="plan-pgr-product-sel" style="' + inputStyle + '">' + opts + '</select></div>' +
-            '<div><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gaip-text-muted);display:block;margin-bottom:4px">Rate (L/ha)</label>' +
-            '<input type="number" id="plan-pgr-rate-inp" step="0.1" min="0" placeholder="e.g. 0.4" value="' + esc(rate) + '" style="' + inputStyle + '"></div>' +
-            '<div style="grid-column:1/-1"><label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--gaip-text-muted);display:block;margin-bottom:4px">Last application date</label>' +
-            '<input type="date" id="plan-pgr-date-inp" value="' + esc(date) + '" style="' + inputStyle + '"></div>' +
-            '</div>' +
-            '<button id="plan-pgr-save-btn" style="width:100%;padding:9px 20px;border-radius:var(--gaip-radius-pill);border:none;background:var(--gaip-accent);color:#fff;font-size:13px;font-weight:700;cursor:pointer">Save &amp; Re-run Analysis</button>' +
-            '<div id="plan-pgr-save-msg" style="display:none;margin-top:6px;font-size:12px;color:var(--gaip-text-muted);text-align:center"></div>' +
-            '</div>';
-    }
-
-    function initPgrInputForm() {
-        var cb      = document.getElementById('plan-pgr-enable-cb');
-        var fields  = document.getElementById('plan-pgr-fields');
-        var saveBtn = document.getElementById('plan-pgr-save-btn');
-        var msg     = document.getElementById('plan-pgr-save-msg');
-        if (!cb || !saveBtn) return;
-
-        cb.addEventListener('change', function() {
-            fields.style.display = cb.checked ? 'grid' : 'none';
-        });
-
-        saveBtn.addEventListener('click', function() {
-            var enabled = cb.checked;
-            var pgr = {
-                enabled:         enabled,
-                productType:     enabled ? ((document.getElementById('plan-pgr-product-sel') || {}).value || '') : '',
-                applicationDate: enabled ? ((document.getElementById('plan-pgr-date-inp') || {}).value || '') : null,
-                rateLperHa:      enabled ? ((document.getElementById('plan-pgr-rate-inp') || {}).value || '') : null,
-            };
-            try {
-                var key   = getPgrStateKey();
-                var state = JSON.parse(localStorage.getItem(key) || '{}');
-                state.pgr = pgr;
-                localStorage.setItem(key, JSON.stringify(state));
-            } catch(e) {}
-
-            saveBtn.disabled = true;
-            saveBtn.textContent = 'Saved — running analysis…';
-            if (msg) { msg.style.display = 'block'; msg.textContent = 'Analysis running in background. Page will reload when complete.'; }
-
-            var rerunBtn = document.getElementById('db-rerun-btn');
-            if (rerunBtn) rerunBtn.click();
-            else setTimeout(function() { global.location.reload(); }, 3000);
-        });
-    }
-
     // ── SECTION: PGR ─────────────────────────────────────────────────────────
 
     function renderPGR(computed) {
@@ -333,19 +233,13 @@
 
         var pgr = computed && computed.pgr;
 
-        if (!pgr || !pgr.success) {
-            var saved = readSavedPgr();
-            var hasPartial = saved && saved.productType;
-            body.innerHTML =
-                '<div style="padding:10px 0 6px">' +
-                '<div style="font-size:13px;color:var(--gaip-text-secondary);margin-bottom:14px;line-height:1.5">' +
-                (hasPartial
-                    ? 'Last saved: <strong>' + esc(saved.productType) + '</strong>' + (saved.applicationDate ? ' applied ' + esc(saved.applicationDate) : '') + '. Re-run analysis to update the schedule.'
-                    : 'Enter your last PGR application to track GDD accumulation and get a reapplication forecast.') +
-                '</div>' +
-                renderPgrInputForm(saved, false) +
-                '</div>';
-            initPgrInputForm();
+        if (!pgr || !pgr.gdd) {
+            body.innerHTML = emptyState(
+                'pgr',
+                'No PGR application recorded',
+                'Log a PGR application in <a href="/data/spray-log" style="color:var(--gaip-accent)">Data → Spray Log</a> — select <strong>PGR</strong> as the category, then re-run the analysis. The GDD schedule will appear here.',
+                []
+            );
             return;
         }
 
@@ -361,8 +255,12 @@
         badge.textContent = statusInfo.label;
         badge.style.display = '';
 
-        // GDD progress
-        var progress  = clamp(safeNum(gdd.progress, 0) * 100, 0, 100);
+        // GDD progress — hub-persistence saves progressPct (0-100); fall back to progress*100 (0-1 legacy)
+        var progress  = clamp(
+            gdd.progressPct != null ? safeNum(gdd.progressPct, 0)
+                                    : safeNum(gdd.progress, 0) * 100,
+            0, 100
+        );
         var remaining = safeNum(gdd.remaining, 0);
         var thresh    = safeNum(gdd.threshold, 0);
         var accum     = safeNum(gdd.accumulated, 0);
@@ -370,7 +268,12 @@
         var barColor = progress >= 75 ? 'var(--gaip-critical)' :
                        progress >= 60 ? 'var(--gaip-warning)'  : 'var(--gaip-accent)';
 
-        var suppression = safeNum(effect.suppression, 0);
+        // hub-persistence saves suppressionPct (0-100); fall back to suppression*100 (0-1 legacy)
+        var suppression = safeNum(
+            effect.suppressionPct != null ? effect.suppressionPct
+                                          : (effect.suppression || 0) * 100,
+            0
+        );
         var adjSupp     = safeNum(effect.adjustedSuppression || suppression, 0);
         var hasAdj      = (effect.adjustedSuppression != null) && (Math.abs(adjSupp - suppression) > 0.5);
 
@@ -378,8 +281,9 @@
         var appDate = inp.applicationDate || pgr.applicationDate || '';
         var appDateFmt = appDate ? appDate : '—';
 
-        // Days estimate to reapplication
-        var dailyGDD    = gdd.dailyGDDRate || gdd.avgDailyGDD || null;
+        // Days estimate to reapplication — derive daily rate from accumulated/days if not stored directly
+        var dailyGDD    = gdd.dailyGDDRate || gdd.avgDailyGDD ||
+                          (gdd.days > 0 && accum > 0 ? accum / gdd.days : null);
         var daysToWin   = (dailyGDD && remaining > 0) ? Math.ceil(remaining / dailyGDD) : null;
         var reapplyText = daysToWin != null ? '~' + daysToWin + ' day' + (daysToWin !== 1 ? 's' : '') : '—';
 
@@ -459,8 +363,7 @@
                 '</div>';
         }
 
-        body.innerHTML = renderPgrInputForm(readSavedPgr(), true) + html;
-        initPgrInputForm();
+        body.innerHTML = html;
     }
 
     // ── SECTION: Recovery Calendar ────────────────────────────────────────────
