@@ -1293,11 +1293,99 @@
         }
     }
 
+    // ── Getting Started floating panel ───────────────────────────────────────
+    var GS_STEPS = ['soil', 'water', 'tissue', 'sensors', 'analysis'];
+    var GS_TOTAL = GS_STEPS.length;
+    var GS_CLOSED_KEY    = 'gilba_getting_started_closed';    // sessionStorage: closed this session
+
+    function gsIsDone(key, serverSteps, siteId) {
+        if (key === 'sensors') {
+            // Sensors configured client-side only — check API keys or manual TDR import
+            var id = siteId || 'default';
+            try {
+                var hs  = JSON.parse(localStorage.getItem('gaip_hydrosight_config_' + id) || '{}');
+                var sc  = JSON.parse(localStorage.getItem('gaip_specconnect_config_' + id) || '{}');
+                var tdr = localStorage.getItem('gaip_tdr_session_' + id);
+                return !!(hs.apiKey || sc.apiKey || tdr);
+            } catch (e) { return false; }
+        }
+        return !!serverSteps[key];
+    }
+
+    function gsRenderUI(panel, serverSteps, siteId, dismissedKey) {
+        var doneCount = 0;
+        GS_STEPS.forEach(function (key) {
+            var item = panel.querySelector('.db-gs-item[data-key="' + key + '"]');
+            if (!item) return;
+            var done = gsIsDone(key, serverSteps, siteId);
+            if (done) { item.classList.add('done'); doneCount++; }
+            else item.classList.remove('done');
+        });
+        var fill  = document.getElementById('db-gs-fill');
+        var label = document.getElementById('db-gs-label');
+        if (fill)  fill.style.width = (doneCount / GS_TOTAL * 100) + '%';
+        if (label) label.textContent = doneCount + ' of ' + GS_TOTAL + ' done';
+        // Auto-dismiss if everything done
+        if (doneCount >= GS_TOTAL) {
+            setTimeout(function () {
+                localStorage.setItem(dismissedKey, '1');
+                panel.style.display = 'none';
+            }, 1200);
+        }
+    }
+
+    function initGettingStarted() {
+        var panel = document.getElementById('db-gs-panel');
+        if (!panel) return;
+
+        var cfg         = (global.GAIP_HUB_CONFIG || {});
+        var serverSteps = cfg.gettingStartedSteps || {};
+        var siteId      = cfg.activeSiteId || 'default';
+        var GS_DISMISSED_KEY = 'gilba_gs_dismissed_' + siteId; // per-site
+
+        // Show if there is an active site and not yet permanently dismissed
+        var shouldShow = !!cfg.activeSiteId &&
+                         !localStorage.getItem(GS_DISMISSED_KEY) &&
+                         !sessionStorage.getItem(GS_CLOSED_KEY);
+        if (!shouldShow) return;
+
+        panel.style.display = 'block';
+        gsRenderUI(panel, serverSteps, siteId, GS_DISMISSED_KEY);
+
+        // "Run first analysis" — trigger re-run; page reload will update server state
+        var runBtn = document.getElementById('db-gs-run');
+        if (runBtn) {
+            runBtn.addEventListener('click', function () {
+                var rerun = document.getElementById('db-rerun-btn');
+                if (rerun) rerun.click();
+            });
+        }
+
+        // Close — hides for this browser session only
+        var closeBtn = document.getElementById('db-gs-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function () {
+                sessionStorage.setItem(GS_CLOSED_KEY, '1');
+                panel.style.display = 'none';
+            });
+        }
+
+        // Skip All — permanently dismiss
+        var skipBtn = document.getElementById('db-gs-skip-all');
+        if (skipBtn) {
+            skipBtn.addEventListener('click', function () {
+                localStorage.setItem(GS_DISMISSED_KEY, '1');
+                panel.style.display = 'none';
+            });
+        }
+    }
+
     // =========================================================================
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
+        document.addEventListener('DOMContentLoaded', function () { init(); initGettingStarted(); });
     } else {
         init();
+        initGettingStarted();
     }
 
 })(typeof window !== 'undefined' ? window : this);

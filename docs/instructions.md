@@ -133,16 +133,16 @@ UI — single row: Each row in the data table gets a "Delete" button in the Acti
 UI — bulk delete: A "Delete (N)" button sits in the toolbar next to Compare. Always visible but `disabled`. Becomes active when 1+ checkboxes are checked (same activation logic as the Compare button). Click → `window.confirm('Delete N records? This cannot be undone.')` → deletes all selected → removes rows from DOM → resets checkboxes and disables the button again.
 Backend: New route `DELETE /data/entry/{id}` handled by `DataController::destroy()`. Validates that the Sample belongs to the user's active site before deleting. Spray-log uses existing `SprayLogController::destroy` (`spray-log.destroy` route) — only needs UI wiring.
 Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via existing `spray_logs` table route.
-
+**GH-51** Implement Getting Started panel in Dashboard and Settings. Added a floating panel to guide users through initial setup steps, including soil, water, tissue tests, and analysis. Updated JavaScript for dynamic UI rendering and session management. Enhanced CSS for the new panel layout and styles. Show onboarding prompt after site creation in Settings for improved user experience.
 
 
 ## Backlog
 
-Re-run for all pages
+- Just noticed - after adding a new site and setting it active - all settings are still related to the previous site. they are not changing to the set as active site. 
 
---
 
-Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную.
+- Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
+Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.
 
 Morning Briefing  — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
 

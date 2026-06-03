@@ -63,6 +63,16 @@
                         </div>
                     </div>
 
+                    {{-- Onboarding prompt — shown after new site is created --}}
+                    <div id="stg-onboard-prompt" class="stg-hidden" style="margin-bottom:12px;padding:14px 16px;background:var(--gaip-surface-muted,#f3f7f5);border:1px solid var(--gaip-border,#d1dbd6);border-radius:8px;display:flex;align-items:center;gap:12px">
+                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="var(--gaip-accent,#2da85e)" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+                        <div style="flex:1;font-size:13px;color:var(--gaip-text,#17231f)">
+                            Site created. Would you like to configure it now?
+                        </div>
+                        <button type="button" id="stg-onboard-yes" class="stg-btn-primary" style="white-space:nowrap">Quick Setup</button>
+                        <button type="button" id="stg-onboard-no"  class="stg-btn-ghost"  style="white-space:nowrap">Do it later</button>
+                    </div>
+
                     <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
                         <table class="dat-table stg-sites-table" id="stg-sites-table">
                             <thead>

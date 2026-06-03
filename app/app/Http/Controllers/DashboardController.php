@@ -73,16 +73,25 @@ class DashboardController extends Controller
             'analyzedAt' => $analysisCacheRecord->synced_at?->toISOString(),
         ] : null;
 
+        $gettingStartedSteps = [
+            'soil'    => !is_null($sampleDates['soil']),
+            'water'   => !is_null($sampleDates['water']),
+            'tissue'  => !is_null($sampleDates['tissue']),
+            'analysis' => !is_null($analysisCache),
+            // 'sensors' resolved client-side (API key in localStorage)
+        ];
+
         return view('dashboard', [
-            'activeSite'      => $activeSite,
-            'allSites'        => $allSites,
-            'savedLocation'   => $savedLocation,
-            'sampleDates'     => $sampleDates,
-            'lastSprayDate'   => $lastSprayDate,
-            'turfSpecies'     => $turfSpecies,
-            'turfMethodology' => $turfMethodology,
-            'locationName'    => $locationName,
-            'analysisCache'   => $analysisCache,
+            'activeSite'          => $activeSite,
+            'allSites'            => $allSites,
+            'savedLocation'       => $savedLocation,
+            'sampleDates'         => $sampleDates,
+            'lastSprayDate'       => $lastSprayDate,
+            'turfSpecies'         => $turfSpecies,
+            'turfMethodology'     => $turfMethodology,
+            'locationName'        => $locationName,
+            'analysisCache'       => $analysisCache,
+            'gettingStartedSteps' => $gettingStartedSteps,
         ]);
     }
 }

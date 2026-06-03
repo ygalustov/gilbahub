@@ -17,7 +17,12 @@
 
 @section('head')
 <script>
-    Object.assign(window.GAIP_HUB_CONFIG, { savedLocation: @json($savedLocation) });
+    Object.assign(window.GAIP_HUB_CONFIG, {
+        savedLocation:       @json($savedLocation),
+        turfSpecies:         @json($turfSpecies),
+        wizardComplete:      @json(!is_null($turfSpecies)),
+        gettingStartedSteps: @json($gettingStartedSteps),
+    });
 </script>
 @endsection
 
@@ -294,9 +299,49 @@
     </div>
     <div class="db-panel-body" id="db-panel-body"></div>
 </aside>
+
+{{-- Getting Started floating panel --}}
+<div id="db-gs-panel" class="db-gs-panel" style="display:none" aria-label="Getting Started">
+    <div class="db-gs-header">
+        <span class="db-gs-title">Getting Started</span>
+        <div class="db-gs-header-actions">
+            <button id="db-gs-skip-all" type="button" class="db-gs-skip">Skip All</button>
+            <button id="db-gs-close" type="button" class="db-gs-close" title="Close">
+                <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+    </div>
+    <div class="db-gs-progress-row">
+        <div class="db-gs-progress-bar"><div class="db-gs-progress-fill" id="db-gs-fill"></div></div>
+        <span class="db-gs-progress-label" id="db-gs-label">0 of 5 done</span>
+    </div>
+    <ul class="db-gs-list" id="db-gs-list">
+        <li class="db-gs-item" data-key="soil">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <a href="{{ route('data.section', 'soil') }}" class="db-gs-link" data-key="soil">Add your soil test</a>
+        </li>
+        <li class="db-gs-item" data-key="water">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <a href="{{ route('data.section', 'water') }}" class="db-gs-link" data-key="water">Add your water test</a>
+        </li>
+        <li class="db-gs-item" data-key="tissue">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <a href="{{ route('data.section', 'tissue') }}" class="db-gs-link" data-key="tissue">Add your tissue test</a>
+        </li>
+        <li class="db-gs-item" data-key="sensors">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <a href="{{ route('data.section', 'sensors') }}" class="db-gs-link" data-key="sensors">Add sensor data</a>
+        </li>
+        <li class="db-gs-item" data-key="analysis">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <button type="button" class="db-gs-link" id="db-gs-run" data-key="analysis">Run your first analysis</button>
+        </li>
+    </ul>
+</div>
 @endsection
 
 @section('scripts')
 <script src="{{ $legacyAssetUrl('gilba-storage-ns.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
+<script src="{{ $legacyAssetUrl('onboarding-wizard.js') }}" defer></script>
 @endsection
