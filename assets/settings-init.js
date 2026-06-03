@@ -181,14 +181,8 @@
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
                     body: JSON.stringify({ site_id: id }),
                 }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
-                  .then(function () {
-                      sitesData.forEach(function (s) { s.is_active = s.id === id; });
-                      var site = sitesData.find(function (s) { return s.id === id; });
-                      var nameEl = document.getElementById('db-site-name');
-                      if (nameEl && site) nameEl.textContent = site.name;
-                      if (openSiteId) { var s2 = sitesData.find(function (s) { return s.id === openSiteId; }); if (s2) openDetail(s2); }
-                      renderTable();
-                  }).catch(function () { alert('Failed to set active site.'); });
+                  .then(function () { window.location.reload(); })
+                  .catch(function () { alert('Failed to set active site.'); });
                 return;
             }
             // Row click — toggle detail
