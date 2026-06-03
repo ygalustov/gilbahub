@@ -23,7 +23,7 @@ use App\Http\Controllers\StadiumAnalysisController;
 use App\Http\Controllers\StadiumVenueProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/hub');
+Route::redirect('/', '/dashboard');
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
