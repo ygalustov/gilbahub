@@ -52,5 +52,15 @@
                 <circle cx="12" cy="12" r="3"/>
             </svg>
         </a>
+
+        <form method="POST" action="{{ route('logout') }}" style="margin:0">
+            @csrf
+            <button type="submit" class="db-nav-item" title="Sign out"
+                    style="width:100%;border:0;background:transparent;cursor:pointer;font:inherit;padding:0">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                </svg>
+            </button>
+        </form>
     </div>
 </nav>

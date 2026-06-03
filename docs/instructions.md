@@ -136,7 +136,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-51** Implement Getting Started panel in Dashboard and Settings. Added a floating panel to guide users through initial setup steps, including soil, water, tissue tests, and analysis. Updated JavaScript for dynamic UI rendering and session management. Enhanced CSS for the new panel layout and styles. Show onboarding prompt after site creation in Settings for improved user experience.
 **GH-52** Fix site activation logic in settings-init.js to reload the page upon setting a site as active, ensuring the UI reflects the current active site. Removed outdated code that updated site details dynamically, addressing issues with settings not changing after site activation.
 **GH-53** Update redirect route from '/' to '/dashboard' in web.php for improved navigation.
-
+**GH-54** Refactor login view and update AuthController redirect. Replaced the login page layout with a new design, enhancing user experience with improved styling and structure. Updated the redirect route after login from 'hub' to 'dashboard' for better navigation consistency.
 
 ## Backlog
 
