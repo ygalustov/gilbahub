@@ -233,6 +233,62 @@
 }
 .dat-view-btn:hover { text-decoration: underline; }
 
+/* ---------- Actions cell ---------- */
+.dat-td-actions {
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+.dat-td-actions .dat-del-row-btn {
+    margin-left: 16px;
+    padding-left: 16px;
+    border-left: 1px solid var(--gaip-border, #d1dbd6);
+}
+
+/* ---------- Row delete button ---------- */
+.dat-del-row-btn {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gaip-danger, #dc2626);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 3px 0;
+    font-family: inherit;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+.dat-row:hover .dat-del-row-btn { opacity: 1; }
+.dat-del-row-btn:hover { text-decoration: underline; }
+
+/* ---------- Bulk delete toolbar button ---------- */
+.dat-delete-bulk-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    border: 1px solid var(--gaip-danger, #dc2626);
+    color: var(--gaip-danger, #dc2626);
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+.dat-delete-bulk-btn:disabled {
+    border-color: var(--gaip-border, #d1dbd6);
+    color: var(--gaip-text-muted, #6b8878);
+    cursor: default;
+    opacity: 0.55;
+}
+.dat-delete-bulk-btn:not(:disabled):hover {
+    background: var(--gaip-danger, #dc2626);
+    color: #fff;
+}
+
 /* ---------- Empty state ---------- */
 .dat-empty-state {
     display: flex;

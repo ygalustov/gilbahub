@@ -150,6 +150,14 @@
                     </button>
                     @endif
                     @if($section !== 'sensors')
+                    <button class="dat-delete-bulk-btn" id="dat-delete-bulk-btn" disabled>
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Delete
+                    </button>
+                    @endif
+                    @if($section !== 'sensors')
                     <button type="button" class="dat-add-btn" id="dat-add-btn"
                         @if(!$activeSite) disabled title="No active site selected" @endif>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
@@ -333,7 +341,10 @@
                         <td class="dat-td-num">{{ $ph ?? '—' }}</td>
                         <td class="dat-td-num">{{ $k ?? '—' }}</td>
                         <td class="dat-td-num">{{ $p ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View Details</button></td>
+                        <td class="dat-td-actions">
+                            <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="soil">Delete</button>
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -384,7 +395,10 @@
                         <td class="dat-td-num">{{ $n ?? '—' }}</td>
                         <td class="dat-td-num">{{ $k ?? '—' }}</td>
                         <td class="dat-td-num">{{ $p ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View Details</button></td>
+                        <td class="dat-td-actions">
+                            <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="tissue">Delete</button>
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -432,7 +446,10 @@
                         <td class="dat-td-num">{{ $ph ?? '—' }}</td>
                         <td class="dat-td-num">{{ $ec ?? '—' }}</td>
                         <td class="dat-td-num">{{ $hco3 ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View Details</button></td>
+                        <td class="dat-td-actions">
+                            <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="water">Delete</button>
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -480,7 +497,10 @@
                         <td><span class="dat-status dat-status-{{ $statusCls($date) }}">{{ $statusLabel($date) }}</span></td>
                         <td class="dat-td-num">{{ $om ?? '—' }}</td>
                         <td class="dat-td-num">{{ $thatch ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View Details</button></td>
+                        <td class="dat-td-actions">
+                            <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="loi">Delete</button>
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -544,7 +564,10 @@
                             @endif
                         </td>
                         <td style="color:var(--gaip-text-muted,#6b8878);font-size:12px">{{ $row->target ?? '—' }}</td>
-                        <td><button class="dat-view-btn" type="button">View Details</button></td>
+                        <td class="dat-td-actions">
+                            <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="spray-log">Delete</button>
+                        </td>
                     </tr>
                     @endforeach
                     </tbody>
@@ -636,6 +659,7 @@
     if (table) {
         table.addEventListener('click', function (e) {
             if (e.target.matches('input[type="checkbox"]')) return;
+            if (e.target.closest('.dat-del-row-btn')) return;
             var btn = e.target.closest('.dat-view-btn');
             var row = e.target.closest('.dat-row');
             if (!row) return;
@@ -832,14 +856,21 @@
     });
     function syncCompare() {
         var btn = document.getElementById('dat-compare-btn');
-        if (!btn) return;
+        var delBtn = document.getElementById('dat-delete-bulk-btn');
         var n = document.querySelectorAll('.dat-row-check:checked').length;
-        btn.disabled = n < 2;
-        btn.querySelector('svg + *') || btn.lastChild;
-        btn.textContent = '';
-        btn.innerHTML = n >= 2
-            ? '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Compare (' + n + ')'
-            : '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Compare';
+        if (btn) {
+            btn.disabled = n < 2;
+            btn.textContent = '';
+            btn.innerHTML = n >= 2
+                ? '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Compare (' + n + ')'
+                : '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Compare';
+        }
+        if (delBtn) {
+            delBtn.disabled = n < 1;
+            delBtn.innerHTML = n >= 1
+                ? '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Delete (' + n + ')'
+                : '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> Delete';
+        }
     }
 
     // ── Compare ───────────────────────────────────────────────────────────
@@ -854,6 +885,75 @@
             });
             if (rows.length < 2) return;
             openCompare(rows);
+        });
+    }
+
+    // ── Delete ────────────────────────────────────────────────────────────
+    var CSRF_DELETE = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+    var countEl = document.querySelector('.dat-count');
+
+    function updateCount(delta) {
+        if (!countEl) return;
+        var n = parseInt(countEl.textContent, 10);
+        if (isNaN(n)) return;
+        n = Math.max(0, n + delta);
+        countEl.textContent = n + ' ' + (n === 1 ? 'record' : 'records');
+    }
+
+    function deleteEntry(id, section, trEl) {
+        var url;
+        if (section === 'spray-log') {
+            url = '{{ url("/api/spray-log") }}/' + id;
+        } else {
+            url = '{{ url("/api/data/entry") }}/' + id;
+        }
+        return fetch(url, {
+            method: 'DELETE',
+            headers: { 'X-CSRF-TOKEN': CSRF_DELETE, 'Accept': 'application/json' }
+        }).then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            if (trEl) trEl.remove();
+            updateCount(-1);
+            syncCompare();
+        });
+    }
+
+    document.querySelectorAll('.dat-del-row-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var id      = btn.dataset.id;
+            var section = btn.dataset.section;
+            var tr      = btn.closest('.dat-row');
+            if (!window.confirm('Delete this record? This cannot be undone.')) return;
+            btn.disabled = true;
+            deleteEntry(id, section, tr).catch(function () {
+                btn.disabled = false;
+                alert('Failed to delete. Please try again.');
+            });
+        });
+    });
+
+    var deleteBulkBtn = document.getElementById('dat-delete-bulk-btn');
+    if (deleteBulkBtn) {
+        deleteBulkBtn.addEventListener('click', function () {
+            var checked = document.querySelectorAll('.dat-row-check:checked');
+            if (!checked.length) return;
+            var n = checked.length;
+            if (!window.confirm('Delete ' + n + ' selected record' + (n > 1 ? 's' : '') + '? This cannot be undone.')) return;
+            deleteBulkBtn.disabled = true;
+            var promises = [];
+            checked.forEach(function (cb) {
+                var tr      = cb.closest('.dat-row');
+                var id      = tr ? tr.dataset.id : null;
+                var section = tr ? tr.dataset.section : null;
+                if (id && section) promises.push(deleteEntry(id, section, tr));
+            });
+            Promise.all(promises).then(function () {
+                syncCompare();
+            }).catch(function () {
+                syncCompare();
+                alert('Some records could not be deleted.');
+            });
         });
     }
 

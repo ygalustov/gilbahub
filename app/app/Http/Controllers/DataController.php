@@ -101,4 +101,15 @@ class DataController extends Controller
             'analysisCache'   => $analysisCache,
         ]);
     }
+
+    public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
+    {
+        $sample = Sample::where('id', $id)
+            ->where('site_id', $request->user()->activeSite?->id)
+            ->firstOrFail();
+
+        $sample->delete();
+
+        return response()->json(['success' => true]);
+    }
 }

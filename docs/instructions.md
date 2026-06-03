@@ -128,11 +128,15 @@ New `renderCorrectionProgram(sn)` function in `soil-nutrition-analysis.js`. Filt
 **GH-47** Enhance data view with info popovers and glossary entries. Updated the TDR results table layout for better readability and added interactive info icons for irrigation status and required water metrics. Implemented shared info popover functionality across pages for improved user guidance. Adjusted CSS for consistent styling of new elements.
 **GH-48** Refactor dashboard and analysis views to improve loading states and UI consistency. Updated loading messages to use a shared empty state design across various components, enhancing visual clarity. Adjusted import links in the dashboard to direct to specific data sections instead of the hub. Added new CSS styles for the empty state layout.
 **GH-49** Update sensor icons in data view for improved visual representation. Enhanced the empty state SVG in the no integration section to provide clearer graphics for unconfigured sensors.
+**GH-50** Add delete functionality to Data page records (soil, tissue, water, LOI/OM, spray-log tabs).
+UI — single row: Each row in the data table gets a "Delete" button in the Actions column alongside "View Details". Click → `window.confirm('Delete this record? This cannot be undone.')` → if confirmed: fetch DELETE → row removed from DOM. Same pattern as site deletion in Settings (GH-44).
+UI — bulk delete: A "Delete (N)" button sits in the toolbar next to Compare. Always visible but `disabled`. Becomes active when 1+ checkboxes are checked (same activation logic as the Compare button). Click → `window.confirm('Delete N records? This cannot be undone.')` → deletes all selected → removes rows from DOM → resets checkboxes and disables the button again.
+Backend: New route `DELETE /data/entry/{id}` handled by `DataController::destroy()`. Validates that the Sample belongs to the user's active site before deleting. Spray-log uses existing `SprayLogController::destroy` (`spray-log.destroy` route) — only needs UI wiring.
+Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via existing `spray_logs` table route.
+
 
 
 ## Backlog
-
-delete added data logs 
 
 Re-run for all pages
 

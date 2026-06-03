@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/spray-log', [SprayLogController::class, 'store'])->name('spray-log.store');
         Route::put('/spray-log/{logId}', [SprayLogController::class, 'update'])->name('spray-log.update');
         Route::delete('/spray-log/{logId}', [SprayLogController::class, 'destroy'])->name('spray-log.destroy');
+        Route::delete('/data/entry/{id}', [DataController::class, 'destroy'])->name('data.destroy');
         Route::post('/media', [MediaUploadController::class, 'store'])->name('media.store');
         Route::get('/media/{mediaUpload}', [MediaUploadController::class, 'show'])->name('media.show');
         Route::post('/alerts/check', [AlertController::class, 'check'])->name('alerts.check');
