@@ -28,6 +28,8 @@ jobs:
           tar \
             --exclude=.git \
             --exclude=.github \
+            --exclude=app/storage \
+            --exclude=app/bootstrap/cache \
             --exclude=app/node_modules \
             -czf /tmp/gilba-release.tgz .
 
