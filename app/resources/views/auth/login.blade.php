@@ -170,7 +170,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/>
             </svg>
         </div>
-        <div class="login-brand">The Gilba Turf Agronomy Hub</div>
+        <div class="login-brand">The Gilba<br>Turf Agronomy Hub</div>
         <p class="login-tagline">Agronomic intelligence<br>for turf management.</p>
         <div class="login-aside-footer">&copy; {{ date('Y') }} The Gilba Turf Agronomy Hub</div>
     </aside>
