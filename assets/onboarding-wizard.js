@@ -93,9 +93,7 @@
 
         // ── Init ─────────────────────────────────────────────────────────────
         init: function () {
-            if (cfg.wizardComplete && cfg.turfSpecies) return;
-            if (localStorage.getItem('gilba_wizard_complete') && cfg.turfSpecies) return;
-            this.show();
+            // Never auto-show — wizard is triggered explicitly via a button
         },
 
         show: function () {

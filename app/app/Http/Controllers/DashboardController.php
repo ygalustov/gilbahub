@@ -11,7 +11,7 @@ class DashboardController extends Controller
 {
     public function show(Request $request): View
     {
-        $user       = $request->user();
+        $user       = $request->user()?->fresh();
         $activeSite = $user?->activeSite;
 
         $allSites = $user?->sites()->orderBy('name')->get() ?? collect();

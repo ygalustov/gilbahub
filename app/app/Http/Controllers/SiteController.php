@@ -59,9 +59,7 @@ class SiteController extends Controller
             'synced_at' => now(),
         ]);
 
-        if ($request->user()->last_active_site_id === null) {
-            $request->user()->forceFill(['last_active_site_id' => $site->id])->save();
-        }
+        $request->user()->forceFill(['last_active_site_id' => $site->id])->save();
 
         return response()->json([
             'data' => $this->sitePayload($site->load('configs')),

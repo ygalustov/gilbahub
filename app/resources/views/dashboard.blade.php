@@ -8,7 +8,7 @@
         return $days . 'd ago';
     };
     $ageClass = function(?string $dateStr): string {
-        if (!$dateStr) return 'warning';
+        if (!$dateStr) return 'none';
         $days = (int) now()->diffInDays($dateStr, false) * -1;
         return $days > 30 ? 'warning' : 'ok';
     };
@@ -20,6 +20,7 @@
     Object.assign(window.GAIP_HUB_CONFIG, {
         savedLocation:       @json($savedLocation),
         turfSpecies:         @json($turfSpecies),
+        turfMethodology:     @json($turfMethodology),
         wizardComplete:      @json(!is_null($turfSpecies)),
         gettingStartedSteps: @json($gettingStartedSteps),
     });
@@ -28,12 +29,26 @@
 
 @section('content')
 
+        {{-- Site setup banner — shown for sites that have not been configured yet --}}
+        @if(!$turfSpecies)
+        <div id="db-setup-banner" style="display:flex;align-items:center;gap:12px;padding:12px 20px;background:#1a2b23;color:rgba(255,255,255,0.9);font-size:13px;font-family:inherit">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#2da85e">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span style="flex:1">This site hasn't been set up yet. Configure turf type, species and location to run your first analysis.</span>
+            <button id="db-setup-btn" type="button"
+                    style="flex-shrink:0;padding:7px 14px;background:#2da85e;color:#fff;border:0;border-radius:6px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">
+                Set up this site
+            </button>
+        </div>
+        @endif
+
         {{-- VERDICT BAR (Tier 0) --}}
-        <div class="db-verdict critical" id="db-verdict-bar">
+        <div class="db-verdict critical" id="db-verdict-bar" style="display:none">
             <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
-            <span id="db-verdict-text">Dollar Spot risk HIGH — forecast 69% tomorrow</span>
+            <span id="db-verdict-text"></span>
         </div>
 
         {{-- PAGE BODY --}}
@@ -316,6 +331,10 @@
         <span class="db-gs-progress-label" id="db-gs-label">0 of 5 done</span>
     </div>
     <ul class="db-gs-list" id="db-gs-list">
+        <li class="db-gs-item" data-key="setup">
+            <span class="db-gs-check" aria-hidden="true"></span>
+            <button type="button" class="db-gs-link" id="db-gs-setup" data-key="setup">Set up site</button>
+        </li>
         <li class="db-gs-item" data-key="soil">
             <span class="db-gs-check" aria-hidden="true"></span>
             <a href="{{ route('data.section', 'soil') }}" class="db-gs-link" data-key="soil">Add your soil test</a>

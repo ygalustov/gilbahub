@@ -530,7 +530,11 @@
     // =========================================================================
 
     function populateVerdict(m) {
-        if (!m || m.diseaseRisk == null) return;
+        var bar = el('db-verdict-bar');
+        if (!m || m.diseaseRisk == null) {
+            if (bar) bar.style.display = 'none';
+            return;
+        }
         var risk    = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
         var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
         var disease = m.topDisease || 'Disease';
@@ -542,8 +546,7 @@
             txt += ' — forecast ' + peak + '% in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '');
         }
         setText('db-verdict-text', txt);
-        var bar = el('db-verdict-bar');
-        if (bar) bar.className = 'db-verdict ' + cls;
+        if (bar) { bar.className = 'db-verdict ' + cls; bar.style.display = ''; }
     }
 
     // =========================================================================
@@ -553,7 +556,7 @@
     function populatePills(siteId) {
         var configs = safeJson(_ls.getItem('gilba_hub_site_configs'));
         if (!configs || !siteId) return;
-        var cfg = configs[siteId] || configs['default'];
+        var cfg = configs[siteId];
         if (!cfg) return;
         var species = (cfg.turf && cfg.turf.species) ? cfg.turf.species : null;
         var region  = (cfg.location && (cfg.location.region || cfg.location.name)) ? (cfg.location.region || cfg.location.name) : null;
@@ -1271,6 +1274,10 @@
                         || _ls.getItem('gilba_hub_cache')
                         || localStorage.getItem('gilba_hub_cache');
             var cache    = safeJson(cacheRaw);
+            // Discard cache if it belongs to a different site
+            if (cache && cache.siteId && cache.siteId !== (config.activeSiteId || 'default')) {
+                cache = null;
+            }
             metrics  = cache && cache.dashboard ? cache.dashboard : null;
             computed = cache && cache.computed  ? cache.computed  : null;
             ts       = metrics ? (metrics.timestamp || (cache && cache.cachedAt)) : null;
@@ -1294,11 +1301,16 @@
     }
 
     // ── Getting Started floating panel ───────────────────────────────────────
-    var GS_STEPS = ['soil', 'water', 'tissue', 'sensors', 'analysis'];
+    var GS_STEPS = ['setup', 'soil', 'water', 'tissue', 'sensors', 'analysis'];
     var GS_TOTAL = GS_STEPS.length;
     var GS_CLOSED_KEY    = 'gilba_getting_started_closed';    // sessionStorage: closed this session
 
     function gsIsDone(key, serverSteps, siteId) {
+        if (key === 'setup') {
+            var cfg = global.GAIP_HUB_CONFIG || {};
+            var loc = cfg.savedLocation || {};
+            return !!(cfg.turfSpecies && cfg.turfMethodology && loc.lat && loc.lon);
+        }
         if (key === 'sensors') {
             // Sensors configured client-side only — check API keys or manual TDR import
             var id = siteId || 'default';
@@ -1380,12 +1392,24 @@
         }
     }
 
+    function initSetupBanner() {
+        var btn = document.getElementById('db-setup-btn');
+        if (btn) btn.addEventListener('click', function () {
+            if (window.GilbaWizard) window.GilbaWizard.show();
+        });
+        var gsSetup = document.getElementById('db-gs-setup');
+        if (gsSetup) gsSetup.addEventListener('click', function () {
+            if (window.GilbaWizard) window.GilbaWizard.show();
+        });
+    }
+
     // =========================================================================
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () { init(); initGettingStarted(); });
+        document.addEventListener('DOMContentLoaded', function () { init(); initGettingStarted(); initSetupBanner(); });
     } else {
         init();
         initGettingStarted();
+        initSetupBanner();
     }
 
 })(typeof window !== 'undefined' ? window : this);

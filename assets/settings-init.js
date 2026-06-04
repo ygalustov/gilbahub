@@ -209,37 +209,19 @@
             }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); })
               .then(function (resp) {
                   var s = resp.data;
-                  sitesData.push({ id: s.id, name: s.name, site_type: s.site_type, location: null, species: null, hoc: null, soil: 0, water: 0, last_run: null, is_active: false });
+                  sitesData.forEach(function (site) { site.is_active = false; });
+                  sitesData.push({ id: s.id, name: s.name, site_type: s.site_type, location: null, species: null, hoc: null, soil: 0, water: 0, last_run: null, is_active: true });
                   addForm.classList.add('stg-hidden');
                   if (addNameEl) addNameEl.value = '';
                   addSaveBtn.disabled = false;
                   renderTable();
 
-                  // Show onboarding prompt
-                  var prompt  = document.getElementById('stg-onboard-prompt');
-                  var yesBtn  = document.getElementById('stg-onboard-yes');
-                  var noBtn   = document.getElementById('stg-onboard-no');
-                  if (prompt) {
-                      prompt.classList.remove('stg-hidden');
-                      prompt.style.display = 'flex';
-                  }
-                  if (yesBtn) {
-                      yesBtn.onclick = function () {
-                          yesBtn.disabled = true;
-                          fetch(apiBase + '/active-site', {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
-                              body: JSON.stringify({ site_id: s.id }),
-                          }).catch(function () {}).then(function () {
-                              window.location.href = '/dashboard';
-                          });
-                      };
-                  }
-                  if (noBtn) {
-                      noBtn.onclick = function () {
-                          if (prompt) prompt.style.display = 'none';
-                      };
-                  }
+                  var prompt = document.getElementById('stg-onboard-prompt');
+                  var yesBtn = document.getElementById('stg-onboard-yes');
+                  var noBtn  = document.getElementById('stg-onboard-no');
+                  if (prompt) { prompt.classList.remove('stg-hidden'); prompt.style.display = 'flex'; }
+                  if (yesBtn) { yesBtn.onclick = function () { window.location.href = '/dashboard'; }; }
+                  if (noBtn)  { noBtn.onclick  = function () { if (prompt) prompt.style.display = 'none'; }; }
               }).catch(function () { addSaveBtn.disabled = false; alert('Failed to create site.'); });
         });
 
