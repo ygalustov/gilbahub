@@ -139,7 +139,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-54** Refactor login view and update AuthController redirect. Replaced the login page layout with a new design, enhancing user experience with improved styling and structure. Updated the redirect route after login from 'hub' to 'dashboard' for better navigation consistency.
 **GH-55** Update login view branding for improved readability. 
 **GH-56** Enhance dashboard and site setup experience. Updated DashboardController to refresh user data, simplified site activation logic in SiteController, and improved dashboard view with a setup banner for unconfigured sites. Added JavaScript functionality for setup interactions and refined CSS for better UI presentation.
-
+**GH-57** Update onboarding wizard and settings initialization for improved setup experience. Added logic to auto-show the onboarding wizard based on URL parameters and modified the yes button action to include a setup query parameter for seamless navigation to the dashboard.
 
 
 ## Backlog

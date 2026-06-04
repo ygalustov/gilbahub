@@ -93,7 +93,9 @@
 
         // ── Init ─────────────────────────────────────────────────────────────
         init: function () {
-            // Never auto-show — wizard is triggered explicitly via a button
+            if (new URLSearchParams(window.location.search).get('setup') === '1') {
+                this.show();
+            }
         },
 
         show: function () {

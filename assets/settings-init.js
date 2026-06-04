@@ -220,7 +220,7 @@
                   var yesBtn = document.getElementById('stg-onboard-yes');
                   var noBtn  = document.getElementById('stg-onboard-no');
                   if (prompt) { prompt.classList.remove('stg-hidden'); prompt.style.display = 'flex'; }
-                  if (yesBtn) { yesBtn.onclick = function () { window.location.href = '/dashboard'; }; }
+                  if (yesBtn) { yesBtn.onclick = function () { window.location.href = '/dashboard?setup=1'; }; }
                   if (noBtn)  { noBtn.onclick  = function () { if (prompt) prompt.style.display = 'none'; }; }
               }).catch(function () { addSaveBtn.disabled = false; alert('Failed to create site.'); });
         });
