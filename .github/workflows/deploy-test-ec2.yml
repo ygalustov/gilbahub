@@ -1,0 +1,79 @@
+name: Deploy Test EC2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/test-ec2
+          chmod 600 ~/.ssh/test-ec2
+          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Package release
+        shell: bash
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.github \
+            --exclude=app/storage \
+            --exclude=app/bootstrap/cache \
+            --exclude=app/node_modules \
+            -czf /tmp/gilba-release.tgz .
+
+      - name: Upload release
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+        run: |
+          scp -i ~/.ssh/test-ec2 /tmp/gilba-release.tgz "$EC2_USER@$EC2_HOST:/tmp/gilba-release.tgz"
+
+      - name: Deploy
+        shell: bash
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_APP_DIR: ${{ secrets.EC2_APP_DIR }}
+        run: |
+          ssh -i ~/.ssh/test-ec2 "$EC2_USER@$EC2_HOST" "
+            set -eu
+            mkdir -p '$EC2_APP_DIR'
+            tar -xzf /tmp/gilba-release.tgz -C '$EC2_APP_DIR'
+            rm -f /tmp/gilba-release.tgz
+            cd '$EC2_APP_DIR'
+            if [ ! -f app/.env ]; then
+              cp app/.env.example app/.env
+            fi
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml up -d --build
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T --user root app sh -lc '
+              mkdir -p \
+                /var/www/html/storage/logs \
+                /var/www/html/storage/framework/cache \
+                /var/www/html/storage/framework/sessions \
+                /var/www/html/storage/framework/views \
+                /var/www/html/bootstrap/cache
+              chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
+              find /var/www/html/storage /var/www/html/bootstrap/cache -type d -exec chmod 775 {} \;
+              find /var/www/html/storage /var/www/html/bootstrap/cache -type f -exec chmod 664 {} \;
+            '
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app composer install --no-dev --optimize-autoloader
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app php artisan migrate --force
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app php artisan storage:link || true
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app npm ci
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app npm run build
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app php artisan optimize:clear
+            docker compose --env-file .env.ec2 -f docker-compose.ec2.yml exec -T app php artisan config:cache
+          "
