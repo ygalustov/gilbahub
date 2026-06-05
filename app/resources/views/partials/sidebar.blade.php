@@ -1,7 +1,7 @@
 <nav class="db-sidebar">
     <div class="db-sidebar-logo">
-        <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/>
+        <svg width="26" height="26" viewBox="0 0 48 48" fill="none">
+            <text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="currentColor">G</text>
         </svg>
     </div>
 

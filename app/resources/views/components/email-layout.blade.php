@@ -30,12 +30,14 @@
             <table role="presentation" cellspacing="0" cellpadding="0" border="0">
               <tr>
                 <td>
-                  {{-- Leaf icon SVG inline --}}
                   <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                     <tr>
-                      <td style="vertical-align:middle;padding-right:10px;">
-                        <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjIiIGhlaWdodD0iMjIiIHZpZXdCb3g9IjAgMCAyMiAyMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cGF0aCBkPSJNMTEgMkM2IDIgMyA2IDMgMTFjMCA1IDQgOSA5IDlzOS00IDktOWMwLTUtMy05LTktOXoiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4xNSkiLz48cGF0aCBkPSJNMTEgNEM3LjEzIDQgNCA3LjEzIDQgMTFjMCAzLjg3IDMuMTMgNyA3IDdzNy0zLjEzIDctN2MwLTMuODctMy4xMy03LTctN3oiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4yKSIvPjxjaXJjbGUgY3g9IjExIiBjeT0iMTEiIHI9IjMiIGZpbGw9IndoaXRlIiBvcGFjaXR5PSIwLjkiLz48L3N2Zz4="
-                             alt="" width="22" height="22" style="display:block;">
+                      <td style="vertical-align:middle;padding-right:12px;">
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                          <tr>
+                            <td style="width:34px;height:34px;background-color:#ffffff;border-radius:8px;text-align:center;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#236b4a;line-height:34px;">G</td>
+                          </tr>
+                        </table>
                       </td>
                       <td style="vertical-align:middle;">
                         <span style="font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:700;color:#ffffff;letter-spacing:-0.2px;line-height:1;">Gilba Hub</span>

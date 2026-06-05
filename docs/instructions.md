@@ -38,6 +38,11 @@ Collects per-site data (grass species, surface type, climate, sensors, lab sampl
 2. **IA and UI redesign**: moving to a decision-first dashboard with a tiered structure (Tier 0–5), Quick Capture FAB, and a Site Switcher with multi-site overview. Details in `docs/superpowers/plans/final-ia-and-ui-redesign.md`.
 
 
+email: yuryg@gethydrosight.com.au
+password: GEAR.smith6
+
+
+
 ## Change log
 
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
@@ -163,20 +168,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
+
+
 ## Backlog
-
-- site logo
-
-
-
-
-
-
-
-email: yuryg@gethydrosight.com.au
-password: GEAR.smith6
-
-
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
 Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.
