@@ -8,6 +8,7 @@ use App\Models\Site;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Mail\InvitationMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -87,12 +88,7 @@ class InvitationController extends Controller
         $actorName   = $actor->name;
         $siteLabel   = count($created) === 1 ? $created[0]->name : $siteNames;
 
-        Mail::raw(
-            "{$actorName} has invited you to access {$siteLabel} on The Gilba Turf Agronomy Hub.\n\nClick the link below to get started:\n\n{$magicUrl}\n\nThis link expires in 48 hours.",
-            fn ($message) => $message
-                ->to($email)
-                ->subject("{$actorName} invited you to {$siteLabel} — Gilba Hub")
-        );
+        Mail::to($email)->send(new InvitationMail($magicUrl, $actorName, $siteLabel));
 
         return response()->json(['data' => ['created' => count($created), 'skipped' => $skipped]], 201);
     }

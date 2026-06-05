@@ -11,6 +11,8 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Mail\AccountApprovedMail;
+use App\Mail\MagicLinkMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -59,13 +61,7 @@ class MagicLinkController extends Controller
 
             $url = route('magic.verify', ['token' => $token]) . ($isPasswordReset ? '?password_reset=1' : '');
 
-            // Send email
-            Mail::raw(
-                "Click this link to sign in to Gilba Hub (expires in 15 minutes):\n\n{$url}\n\nIf you didn't request this, you can ignore this email.",
-                fn ($message) => $message
-                    ->to($email)
-                    ->subject($isPasswordReset ? 'Reset your Gilba Hub password' : 'Sign in to Gilba Hub')
-            );
+            Mail::to($email)->send(new MagicLinkMail($url, $isPasswordReset));
         }
 
         return response()->json(['message' => "If this email is recognized, you'll receive a link shortly."]);
@@ -149,12 +145,7 @@ class MagicLinkController extends Controller
 
         $url = route('magic.verify', ['token' => $token]);
 
-        Mail::raw(
-            "Your Gilba Hub account has been approved! Click this link to sign in (expires in 15 minutes):\n\n{$url}",
-            fn ($message) => $message
-                ->to($email)
-                ->subject('Your Gilba Hub account is approved — sign in now')
-        );
+        Mail::to($email)->send(new AccountApprovedMail($url));
     }
 
     private function provisionFirstSite(User $user): void

@@ -149,6 +149,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-63** Enhance invitation management and magic link functionality. Updated InvitationController to support multiple site invitations, improved user access checks, and added magic link creation for invited users. Modified MagicLink model to include site_id and added migration for database schema update. Enhanced user interface in account view to better manage pending requests and invitations.
 **GH-64** Refactor account view and update site selection logic. Simplified the button styling for site selection in the account view and adjusted JavaScript to ensure proper label updates based on selected sites, enhancing user experience.
 **GH-65** Refactor user management in UsersController and update account view. Enhanced user retrieval to support multiple managed sites for managers, added suspended user handling, and improved invitation query logic. Updated account view to streamline user role visibility and adjusted JavaScript for better tab management and error handling.
+**GH-66** Remove UnsuspendUser command and refactor user management logic. Updated DashboardController to handle non-admin users without sites, modified SiteController to filter active sites, and adjusted UsersController to remove suspended user handling. Added no-access view for users lacking site access and improved email templates for better user communication.
+**GH-67** Refactor email notification logic in AuthController, InvitationController, and MagicLinkController. Replaced raw email content with dedicated Mailable classes for improved maintainability and readability. Removed unused email layout file.
+
 
 
 

@@ -7,6 +7,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use App\Mail\NewRegistrationMail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
@@ -124,12 +125,7 @@ class AuthController extends Controller
         $admins = User::query()->where('is_admin', true)->where('status', 'active')->get();
 
         foreach ($admins as $admin) {
-            Mail::raw(
-                "A new user has requested access to Gilba Hub:\n\nEmail: {$email}\n\nLog in to approve or reject this request in Settings → Users → Pending.",
-                fn ($message) => $message
-                    ->to($admin->email)
-                    ->subject('New user registration request — Gilba Hub')
-            );
+            Mail::to($admin->email)->send(new NewRegistrationMail($email));
         }
     }
 }
