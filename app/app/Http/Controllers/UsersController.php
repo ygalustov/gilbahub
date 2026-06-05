@@ -26,7 +26,7 @@ class UsersController extends Controller
             $query = DB::table('site_user')
                 ->join('users', 'users.id', '=', 'site_user.user_id')
                 ->join('sites', 'sites.id', '=', 'site_user.site_id')
-                ->select('users.id', 'users.name', 'users.email', 'users.status', 'site_user.role', 'sites.id as site_id', 'sites.name as site_name')
+                ->select('users.id', 'users.name', 'users.email', 'users.status', 'users.is_admin', 'site_user.role', 'sites.id as site_id', 'sites.name as site_name')
                 ->orderBy('users.name');
 
             if ($siteId) {
@@ -34,7 +34,7 @@ class UsersController extends Controller
             }
 
             $members = $query->get()->map(function ($m) use ($actor) {
-                $m->can_remove = $actor->id !== $m->id;
+                $m->can_remove = $actor->id !== $m->id && !$m->is_admin;
                 return $m;
             });
             $pending = User::query()->where('status', 'pending')->orderBy('created_at')->get();
@@ -134,6 +134,8 @@ class UsersController extends Controller
         abort_if($actor->id === $user, 403, 'Cannot remove yourself.');
 
         $target = User::query()->findOrFail($user);
+
+        abort_if($target->is_admin, 403, 'Cannot remove an admin user.');
 
         $roleHierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3, 'owner' => 4];
         $actorLevel  = $actor->is_admin ? 99 : ($roleHierarchy[$actor->roleOnSite($siteModel)] ?? 0);

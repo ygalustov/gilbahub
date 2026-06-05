@@ -170,7 +170,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-79** Update MagicLinkController to redirect to account page after password reset instead of settings page. Enhance documentation by adding backlog items for future features and improvements.
 **GH-80** Remove favicon.ico and update routing to redirect favicon requests to favicon.svg for improved asset management.
 **GH-81** Enhance user permissions in UsersController: Implemented logic to determine if a user can remove another based on role hierarchy. Updated front-end to reflect these changes, ensuring only authorized users can see the remove button for site management.
-
+**GH-82** Update UsersController to include 'is_admin' field in user selection and enhance permission checks. Users can only be removed if they are not admins, ensuring better role management in site administration.
 
 
 
