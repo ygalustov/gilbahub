@@ -19,6 +19,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SensorProxyController;
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
@@ -77,6 +78,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/reports/scenarios', [ReportsController::class, 'scenarios'])->name('reports.scenarios');
     Route::get('/reports/accuracy', [ReportsController::class, 'accuracy'])->name('reports.accuracy');
     Route::get('/settings', [SettingsController::class, 'show'])->name('settings');
+    Route::get('/account', [AccountController::class, 'show'])->name('account');
 
     Route::prefix('api')->name('api.')->group(function () {
         Route::get('/sites', [SiteController::class, 'index'])->name('sites.index');
