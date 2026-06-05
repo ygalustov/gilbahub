@@ -1355,6 +1355,9 @@
         var siteId      = cfg.activeSiteId || 'default';
         var GS_DISMISSED_KEY = 'gilba_gs_dismissed_' + siteId; // per-site
 
+        // Viewer cannot complete any steps — hide panel entirely
+        if (cfg.activeSiteRole === 'viewer') return;
+
         // Show if there is an active site and not yet permanently dismissed
         var shouldShow = !!cfg.activeSiteId &&
                          !localStorage.getItem(GS_DISMISSED_KEY) &&

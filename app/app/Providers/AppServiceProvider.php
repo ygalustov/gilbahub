@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Site;
 use App\Models\SiteConfig;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -14,6 +17,13 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Admin bypasses all Gate checks
+        Gate::before(function (User $user) {
+            if ($user->is_admin) {
+                return true;
+            }
+        });
+
         if (config('app.force_https')) {
             URL::forceScheme('https');
             URL::forceRootUrl((string) config('app.url'));
@@ -31,7 +41,10 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            $siteIds = Auth::user()->sites()->pluck('sites.id');
+            $user = Auth::user();
+            $siteIds = $user->is_admin
+                ? Site::pluck('id')
+                : $user->sites()->pluck('sites.id');
 
             $caches = SiteConfig::whereIn('site_id', $siteIds)
                 ->where('namespace', 'analysis_cache')

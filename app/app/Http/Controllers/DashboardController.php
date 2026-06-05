@@ -3,18 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sample;
+use App\Models\Site;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function show(Request $request): View
+    public function show(Request $request): View|RedirectResponse
     {
         $user       = $request->user()?->fresh();
         $activeSite = $user?->activeSite;
 
-        $allSites = $user?->sites()->orderBy('name')->get() ?? collect();
+        $allSites = $user?->is_admin
+            ? Site::query()->orderBy('name')->get()
+            : ($user?->sites()->orderBy('name')->get() ?? collect());
 
         $savedLocation = [
             'name' => $activeSite?->location_name ?? '',
@@ -63,7 +67,7 @@ class DashboardController extends Controller
                 ->value('event_date');
         }
 
-        // Analysis cache — latest engine results, stored in site_configs namespace='analysis_cache'
+        // Analysis cache
         $analysisCacheRecord = $activeSite
             ? $activeSite->configs()->where('namespace', 'analysis_cache')->first()
             : null;
@@ -78,8 +82,18 @@ class DashboardController extends Controller
             'water'   => !is_null($sampleDates['water']),
             'tissue'  => !is_null($sampleDates['tissue']),
             'analysis' => !is_null($analysisCache),
-            // 'sensors' resolved client-side (API key in localStorage)
         ];
+
+        // Role on active site — used by JS for role-aware UI (e.g. Getting Started panel)
+        $activeSiteRole = $activeSite ? $user?->roleOnSite($activeSite) : null;
+
+        // provisionalName — wizard shows Site name field in Welcome step (Flow B)
+        $provisionalName = $activeSite?->provisional_name ?? false;
+
+        // Auto-open setup wizard for first-time users
+        if ($activeSite?->provisional_name && ! $request->has('setup')) {
+            return redirect()->route('dashboard', ['setup' => '1']);
+        }
 
         return view('dashboard', [
             'activeSite'          => $activeSite,
@@ -92,6 +106,8 @@ class DashboardController extends Controller
             'locationName'        => $locationName,
             'analysisCache'       => $analysisCache,
             'gettingStartedSteps' => $gettingStartedSteps,
+            'activeSiteRole'      => $activeSiteRole,
+            'provisionalName'     => $provisionalName,
         ]);
     }
 }

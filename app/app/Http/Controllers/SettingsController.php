@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Sample;
+use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -13,7 +14,9 @@ class SettingsController extends Controller
     {
         $user       = $request->user();
         $activeSite = $user?->activeSite;
-        $allSites   = $user?->sites()->orderBy('name')->get() ?? collect();
+        $allSites   = $user?->is_admin
+            ? Site::query()->orderBy('name')->get()
+            : ($user?->sites()->orderBy('name')->get() ?? collect());
 
         $activeGaipConfig = [];
         if ($activeSite) {
@@ -36,6 +39,7 @@ class SettingsController extends Controller
         ] : null;
 
         $sitesTableData = $this->buildSitesTableData($allSites, $user?->last_active_site_id);
+        $activeSiteRole = $activeSite ? $user?->roleOnSite($activeSite) : null;
 
         return view('settings', [
             'title'            => 'Settings',
@@ -47,6 +51,7 @@ class SettingsController extends Controller
             'turfMethodology'  => $turfMethodology,
             'locationName'     => $locationName,
             'analysisCache'    => $analysisCache,
+            'activeSiteRole'   => $activeSiteRole,
         ]);
     }
 

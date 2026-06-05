@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\View\View;
 
 class AuthController extends Controller
@@ -15,22 +18,44 @@ class AuthController extends Controller
         return view('auth.login');
     }
 
-    public function login(Request $request): RedirectResponse
+    public function login(Request $request): RedirectResponse|\Illuminate\Http\JsonResponse
     {
-        $credentials = $request->validate([
+        $data = $request->validate([
             'email' => ['required', 'email'],
-            'password' => ['required', 'string'],
+            'password' => ['nullable', 'string'],
         ]);
 
-        $remember = $request->boolean('remember');
+        $email = strtolower(trim($data['email']));
+        $password = $data['password'] ?? null;
 
-        if (! Auth::attempt($credentials, $remember)) {
-            throw ValidationException::withMessages([
-                'email' => 'These credentials do not match our records.',
-            ]);
+        if (empty($password)) {
+            $user = User::query()->where('email', $email)->first();
+
+            if (! $user || ! $user->password_hash) {
+                return back()->withErrors(['password' => 'No password set — use Magic Link instead.'])->withInput(['email' => $email]);
+            }
+
+            return back()->withErrors(['password' => 'Please enter your password.'])->withInput(['email' => $email]);
         }
 
+        $ipKey = 'login:ip:' . sha1($request->ip());
+        if (RateLimiter::tooManyAttempts($ipKey, 5)) {
+            return back()->withErrors(['email' => 'Too many login attempts. Please try again later.'])->withInput(['email' => $email]);
+        }
+
+        $user = User::query()->where('email', $email)->first();
+
+        if (! $user || ! $user->password_hash || ! Hash::check($password, $user->password_hash)) {
+            RateLimiter::hit($ipKey, 60);
+            return back()->withErrors(['password' => 'Incorrect password.'])->withInput(['email' => $email]);
+        }
+
+        RateLimiter::clear($ipKey);
+
+        Auth::login($user, $request->boolean('remember'));
         $request->session()->regenerate();
+
+        $this->processPendingInvitations($user);
 
         return redirect()->intended(route('dashboard'));
     }
@@ -38,10 +63,68 @@ class AuthController extends Controller
     public function logout(Request $request): RedirectResponse
     {
         Auth::logout();
-
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('login');
+    }
+
+    public function pending(Request $request): View
+    {
+        return view('auth.pending');
+    }
+
+    public function showRegister(): View
+    {
+        return view('auth.register');
+    }
+
+    public function register(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email', 'max:255'],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+
+        $existingUser = User::query()->where('email', $email)->first();
+
+        if (! $existingUser) {
+            User::query()->create([
+                'name' => explode('@', $email)[0],
+                'email' => $email,
+                'status' => 'pending',
+            ]);
+
+            $this->notifyAdminsOfNewRegistration($email);
+        }
+
+        return back()->with('registration_submitted', true);
+    }
+
+    private function processPendingInvitations(User $user): void
+    {
+        $invitations = \App\Models\Invitation::query()->where('email', $user->email)->get();
+
+        foreach ($invitations as $invitation) {
+            if (! $user->sites()->where('sites.id', $invitation->site_id)->exists()) {
+                $user->sites()->attach($invitation->site_id, ['role' => $invitation->role]);
+            }
+            $invitation->delete();
+        }
+    }
+
+    private function notifyAdminsOfNewRegistration(string $email): void
+    {
+        $admins = User::query()->where('is_admin', true)->where('status', 'active')->get();
+
+        foreach ($admins as $admin) {
+            Mail::raw(
+                "A new user has requested access to Gilba Hub:\n\nEmail: {$email}\n\nLog in to approve or reject this request in Settings → Users → Pending.",
+                fn ($message) => $message
+                    ->to($admin->email)
+                    ->subject('New user registration request — Gilba Hub')
+            );
+        }
     }
 }

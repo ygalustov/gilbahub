@@ -104,8 +104,12 @@ class DataController extends Controller
 
     public function destroy(Request $request, int $id): \Illuminate\Http\JsonResponse
     {
+        $activeSite = $request->user()->activeSite;
+        abort_unless($activeSite, 403);
+        abort_unless($request->user()->canEditSite($activeSite), 403);
+
         $sample = Sample::where('id', $id)
-            ->where('site_id', $request->user()->activeSite?->id)
+            ->where('site_id', $activeSite->id)
             ->firstOrFail();
 
         $sample->delete();

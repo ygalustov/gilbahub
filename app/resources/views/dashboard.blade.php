@@ -23,11 +23,28 @@
         turfMethodology:     @json($turfMethodology),
         wizardComplete:      @json(!is_null($turfSpecies)),
         gettingStartedSteps: @json($gettingStartedSteps),
+        activeSiteRole:      @json($activeSiteRole),
+        provisionalName:     @json($provisionalName),
     });
 </script>
 @endsection
 
 @section('content')
+
+        {{-- Password Setup Banner — shown when password_prompt_shown = false --}}
+        @if(!auth()->user()->password_prompt_shown)
+        <div id="db-password-banner" style="display:flex;align-items:center;gap:12px;padding:12px 20px;background:#1a2b23;color:rgba(255,255,255,0.9);font-size:13px;font-family:'Barlow',-apple-system,sans-serif">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#2da85e">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+            </svg>
+            <span style="flex:1">Want faster sign-in? Set up a password — or keep using Magic Link every time.</span>
+            <button id="db-pw-banner-set" type="button" style="flex-shrink:0;padding:6px 14px;background:#2da85e;color:#fff;border:0;border-radius:6px;font:inherit;font-size:13px;font-weight:600;cursor:pointer">Set password</button>
+            <button id="db-pw-banner-dismiss" type="button" style="flex-shrink:0;padding:6px 12px;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.75);border:1px solid rgba(255,255,255,0.2);border-radius:6px;font:inherit;font-size:13px;cursor:pointer">Not now</button>
+            <button id="db-pw-banner-close" type="button" aria-label="Close" style="flex-shrink:0;background:none;border:none;cursor:pointer;color:rgba(255,255,255,0.4);padding:4px;line-height:1">
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+        @endif
 
         {{-- Site setup banner — shown for sites that have not been configured yet --}}
         @if(!$turfSpecies)
@@ -363,4 +380,34 @@
 <script src="{{ $legacyAssetUrl('gilba-storage-ns.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('onboarding-wizard.js') }}" defer></script>
+<script>
+(function () {
+    var banner = document.getElementById('db-password-banner');
+    if (!banner) return;
+
+    var apiBase = (window.GAIP_HUB_CONFIG || {}).apiBase || '/api';
+    var csrf = document.querySelector('meta[name="csrf-token"]')?.content || @json(csrf_token());
+
+    function dismissBanner(andNavigate) {
+        fetch(apiBase + '/profile/password-prompt', {
+            method: 'PATCH',
+            headers: { 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest' }
+        });
+        banner.remove();
+        if (andNavigate) {
+            window.location.href = '/settings#profile';
+        }
+    }
+
+    document.getElementById('db-pw-banner-set').addEventListener('click', function () {
+        dismissBanner(true);
+    });
+    document.getElementById('db-pw-banner-dismiss').addEventListener('click', function () {
+        dismissBanner(false);
+    });
+    document.getElementById('db-pw-banner-close').addEventListener('click', function () {
+        dismissBanner(false);
+    });
+}());
+</script>
 @endsection

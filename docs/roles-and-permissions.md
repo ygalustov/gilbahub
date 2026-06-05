@@ -19,8 +19,8 @@ Admin (global)
 
 - Видит и управляет всеми сайтами без записи в `site_user`
 - Полный доступ к любому функционалу
-- Может назначать менеджеров на любой сайт
-- Может одобрять/отклонять pending-пользователей
+- Может приглашать и назначать роли **manager / editor / viewer** на любой сайт
+- Может одобрять/отклонять pending-пользователей (self-registration)
 - Флаг выставляется только через Artisan-команду — никогда через API
 
 ### Manager `site_user.role = 'manager'`
@@ -81,6 +81,16 @@ password_hash         VARCHAR(255) NULLABLE        -- null = только Magic 
 password_prompt_shown BOOLEAN NOT NULL DEFAULT FALSE
 ```
 
+### `sites` — добавить колонку
+
+```sql
+provisional_name  BOOLEAN NOT NULL DEFAULT FALSE
+-- true = имя временное (сайт создан автоматически при апруве Flow B)
+--   → wizard показывает поле «Site name» в Welcome step (шаг 0, до Location)
+--   → при сохранении wizard: PATCH sites/{id} { name: ... }, флаг сбрасывается в false
+-- false = имя уже задано (сайт создан вручную через UI), поле в wizard не показывается
+```
+
 ### `site_user` — обновить роли
 
 Текущий дефолт: `'manager'`. Оставить.
@@ -92,11 +102,11 @@ password_prompt_shown BOOLEAN NOT NULL DEFAULT FALSE
 
 ```sql
 id              BIGINT PK
-email           VARCHAR(255)
-role            ENUM('manager','editor','viewer')
+email           VARCHAR(255) NOT NULL
+role            ENUM('manager','editor','viewer') NOT NULL
 site_id         UUID NOT NULL FK → sites.id   -- всегда к конкретному сайту
 invited_by      FK → users.id NOT NULL
-created_at      TIMESTAMP
+created_at      TIMESTAMP NOT NULL
 
 UNIQUE(email, site_id)   -- нельзя пригласить один email дважды на один сайт
 ```
@@ -128,10 +138,21 @@ UNIQUE(email, site_id)   -- нельзя пригласить один email д�
 **Шаг 2 — Пользователь входит:**
 1. Открывает страницу логина
 2. Вводит email → нажимает **Send Magic Link**
-3. Сервер всегда отвечает одинаково: «If this email is registered, you'll receive a link shortly» — не раскрываем есть ли аккаунт
+3. Сервер всегда отвечает одинаково: «If this email is recognized, you'll receive a link shortly» — не раскрываем ни наличие аккаунта, ни наличие инвайта (слово «registered» намеренно не используется — приглашённый без аккаунта тоже получает ссылку)
 4. Если email есть в `invitations` или уже есть аккаунт → реально отправляется Magic Link; если неизвестен → письмо не отправляется, но ответ тот же
-5. Пользователь кликает ссылку → если первый вход: вводит имя → аккаунт создаётся, `status = 'active'`
-6. Все pending инвайты для этого email обрабатываются сразу — пользователь добавляется во все `site_user` записи одновременно (один email мог быть приглашён на несколько сайтов разными менеджерами). После обработки обработанные записи удаляются из `invitations`
+5. Пользователь кликает ссылку → MagicLinkController обрабатывает токен:
+   - Если аккаунт **уже существует** (повторный вход): создаётся полная auth-сессия (`Auth::login($user)`) → сразу на шаг 6
+   - Если аккаунт **не существует** (первый вход): аккаунт ещё не создан, полная auth-сессия невозможна без `user_id` → вместо этого сохраняем email во временный session-ключ: `session(['pending_magic_email' => $email])` → редирект на `/welcome` (без токена в URL):
+   ```
+   Welcome to Gilba!
+   What's your name?
+   [________________]
+   [Continue]
+   ```
+   `/welcome` доступна только если `session('pending_magic_email')` установлен (иначе редирект на логин).
+   После Submit на `/welcome`: аккаунт создаётся (`users` insert), `status = 'active'`, создаётся полная auth-сессия (`Auth::login($newUser)`), временный ключ удаляется
+6. Все pending инвайты для этого email обрабатываются сразу — пользователь добавляется во все `site_user` записи одновременно (один email мог быть приглашён на несколько сайтов разными менеджерами). После обработки обработанные записи удаляются из `invitations`.
+   ⚠️ Обработка pending инвайтов происходит при **любом** успешном входе (Magic Link или пароль) — не только при первом. Если существующий пользователь получил новый инвайт и войдёт по паролю, инвайт должен обработаться так же.
 7. Редирект на dashboard
 
 **Magic Link токен:**
@@ -142,7 +163,7 @@ UNIQUE(email, site_id)   -- нельзя пригласить один email д�
 
 ### Password Setup Banner
 
-После первого входа на dashboard показывается одноразовый banner:
+На dashboard показывается banner при каждом входе пока `password_prompt_shown = false` (не только при первом — игнорирование баннера без клика «Not now»/«×» не сбрасывает флаг):
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -168,33 +189,50 @@ UNIQUE(email, site_id)   -- нельзя пригласить один email д�
 ```
 Email:    [________________]
 Password: [________________]   ← всегда видно; если пароль не установлен — просто не заполнять
+          Forgot password?     ← ссылка рядом с полем пароля
 
 [Sign in]
 
 ── or ──
 
 [Send Magic Link]
+
+Don't have an account? [Register]   ← только если self-registration включена в конфиге
 ```
 Если пользователь ввёл email без пароля и нажал Sign in:
+- Если email не найден в системе → «No password set — use Magic Link instead» (тот же ответ что при отсутствии пароля — не раскрываем что email неизвестен)
 - Если пароль не установлен → «No password set — use Magic Link instead»
 - Если пароль установлен → «Please enter your password»
 
 Если пользователь ввёл неверный пароль → «Incorrect password»
 
 **Сброс пароля:**
-Кнопка «Forgot password?» рядом с полем пароля → тот же механизм Magic Link, но ссылка содержит query-параметр `?password_reset=1`. После клика по ссылке — вместо редиректа на dashboard — пользователь попадает в Settings → Profile, где сразу открывается модал «Set new password» (поля «New password» + «Confirm password», без «Current password» — верификация уже пройдена через Magic Link).
+Кнопка «Forgot password?» рядом с полем пароля — использует email, уже введённый в поле Email выше. Если поле Email пустое → инлайн-подсказка: «Enter your email address first». Если email заполнен → тот же механизм Magic Link, но ссылка содержит query-параметр `?password_reset=1`; пользователь сразу видит инлайн-ответ рядом с кнопкой: «If this email has an account, you'll receive a reset link shortly» (тот же нейтральный ответ независимо от того существует ли аккаунт — anti-enumeration). После клика по ссылке из письма — вместо редиректа на dashboard — пользователь попадает в Settings → Profile, где сразу открывается модал «Set new password» (поля «New password» + «Confirm password», без «Current password» — верификация уже пройдена через Magic Link).
 
 ---
 
-### Flow B — Self-registration + approval (опционально, позже)
 
-1. Пользователь регистрируется самостоятельно → `status = 'pending'`
-2. Видит только экран «Ожидайте одобрения»
-3. Admin получает уведомление → вкладка Pending в Settings → Users
-4. Admin одобряет: выбирает роль + сайт → `status = 'active'`
-5. Пользователь получает письмо с Magic Link для первого входа
+### Flow B — Self-registration + approval
 
-Оба flow могут сосуществовать. Self-registration включается флагом в конфиге.
+Предназначен для новых клиентов, которым нужен свой сайт. Viewer/Editor-доступ к существующим сайтам — только через Flow A (invite от Manager).
+
+1. Пользователь регистрируется на `/register` (email + имя) → `status = 'pending'` → видит страницу-подтверждение прямо на `/register`: «Your request has been submitted. You'll receive an email once your account is approved.» (не `/pending` — это отдельная страница)
+2. Если пользователь пытается войти позже, пока ещё не одобрен → `EnsureUserIsActive` делает редирект на `/pending` (экран ожидания с кнопкой Sign out)
+3. Admin получает уведомление (email) → вкладка Pending в Settings → Users
+4. Admin принимает решение — два взаимоисключающих варианта:
+
+   **Вариант A — Одобряет** (один клик, без выбора роли/сайта) → система автоматически:
+   - создаёт сайт с временным именем («{Имя}'s site»), флаг `provisional_name = true`
+   - назначает пользователя **Manager** этого сайта
+   - устанавливает `status = 'active'`
+   - отправляет письмо с Magic Link для первого входа
+
+5. После одобрения: Пользователь входит → проходит onboarding wizard; DashboardController передаёт флаг в `GAIP_HUB_CONFIG` (аналогично `activeSiteRole`): `provisionalName: true`. Wizard читает `GAIP_HUB_CONFIG.provisionalName` и, если `true`, добавляет поле «Site name» в Welcome step (шаг 0) — пользователь вводит настоящее название сайта (отдельно от location в шаге 1). Поле обязательное — кнопка «Next» заблокирована пока поле пустое. Site name сохраняется сразу при клике «Next» на шаге 0 (до перехода на шаг 1): `PATCH sites/{id} { name }`, `provisional_name → false` — чтобы имя не потерялось если пользователь закроет wizard после шага 0. → попадает на dashboard → видит Getting Started panel
+
+   **Вариант B — Отклоняет** (вместо шагов 4A–5): аккаунт **удаляется** — пользователь может зарегистрироваться снова.
+   ⚠️ При удалении аккаунта: также инвалидировать сессию пользователя (`DB::table('sessions')->where('user_id', $userId)->delete()`), чтобы активная сессия не стала «призраком» с несуществующим user_id.
+
+Flow A (invite) и Flow B (self-registration) сосуществуют. Self-registration включается флагом в конфиге — можно отключить если нужен только invite-only режим.
 
 ---
 
@@ -202,7 +240,7 @@ Password: [________________]   ← всегда видно; если парол�
 
 ### Middleware
 
-**`EnsureUserIsActive`** — на все `auth`-маршруты:
+**`EnsureUserIsActive`** — на все `auth`-маршруты **кроме `/pending` и `/logout`**:
 ```php
 if ($request->user()->status === 'pending') {
     return redirect('/pending'); // страница «Ожидайте одобрения»
@@ -211,6 +249,7 @@ if ($request->user()->status === 'suspended') {
     abort(403, 'Your account has been suspended.');
 }
 ```
+⚠️ Маршрут `/pending` должен быть **исключён** из этого middleware (через `except` или отдельную группу маршрутов) — иначе pending-пользователь попадёт в бесконечный цикл редиректов: `/любой-роут` → `/pending` → middleware → `/pending` → ...
 Suspended блокируется даже если `is_admin = true` — suspension всегда в приоритете.
 ⚠️ Если в системе только один Admin и он suspended — разблокировать можно только через Artisan: `php artisan user:unsuspend {email}`.
 ⚠️ Существующие сессии не уничтожаются в момент suspension — следующий запрос заблокируется middleware. Если нужна немедленная инвалидация всех сессий — `DB::table('sessions')->where('user_id', $userId)->delete()` (при условии database session driver).
@@ -290,10 +329,10 @@ private function assertCanGrantRole(User $actor, Site $site, string $targetRole)
 
 ```sql
 id          BIGINT PK
-token       VARCHAR(64) UNIQUE   -- Str::random(64)
-email       VARCHAR(255)
-expires_at  TIMESTAMP            -- 15 минут
-created_at  TIMESTAMP
+token       VARCHAR(64) UNIQUE NOT NULL   -- Str::random(64)
+email       VARCHAR(255) NOT NULL
+expires_at  TIMESTAMP NOT NULL            -- 15 минут
+created_at  TIMESTAMP NOT NULL
 ```
 
 ### Invitation & Magic Link security
@@ -311,7 +350,6 @@ created_at  TIMESTAMP
 - Минимум 8 символов
 - Хранится как bcrypt hash (`password_hash` в `users`)
 - «Change password» требует подтверждения через текущий пароль ИЛИ Magic Link (если пароль забыт)
-- «Remove password» требует подтверждения через текущий пароль или Magic Link
 - `password_prompt_shown = true` выставляется при: установке пароля, клике «Not now», клике «×» — после этого баннер больше не показывается независимо от того установлен ли пароль
 
 ---
@@ -380,16 +418,18 @@ Users                                              [+ Invite]
  Sarah M.     ·    sarah@example.com    Stadium B     [Viewer]   [•••]
 ```
 
-**[•••] для Admin дополнительно:**
+**[•••] для Admin** (кроме собственной строки — на себе [•••] не показывается):
 ```
- Change role →  ...
+ Change role →  [ Manager ]
+                [ Editor  ]   ← текущая отмечена
+                [ Viewer  ]
  ──────────────
  Remove from site
  ──────────────
  Suspend account      ← если active
  Unsuspend account    ← если suspended (строка выделена серым)
 ```
-«Suspend account» → confirm → `status = 'suspended'`, пользователь теряет доступ ко всем сайтам немедленно.
+«Suspend account» → confirm → `status = 'suspended'`, пользователь теряет доступ при следующем запросе (существующая сессия блокируется middleware; для немедленной инвалидации — удалить сессию через DB, см. раздел Middleware).
 Suspended пользователи показываются в таблице серым цветом с badge [Suspended].
 
 **Вкладки внутри Users (только у Admin):**
@@ -406,12 +446,12 @@ Suspended пользователи показываются в таблице с
  Alex B.     alex@example.com         10 min ago       [Approve]  [Reject]
  Tom C.      tom@example.com          2 hours ago      [Approve]  [Reject]
 ```
-«Approve» → модал: выбрать роль + сайт → `status = 'active'`, пользователь добавляется в `site_user`.
-«Reject» → confirm → аккаунт **удаляется**. Пользователь может зарегистрироваться снова при желании. Не используем `status = 'suspended'` — чтобы не смешивать «самостоятельно зарегистрировался, не одобрен» с «заблокирован за нарушения».
+«Approve» → сайт создаётся автоматически («{Имя}'s site»), пользователь становится Manager, отправляется Magic Link. Без подтверждения — один клик, никакого модала.
+«Reject» → confirm → аккаунт **удаляется**. Пользователь может зарегистрироваться снова. Не используем `status = 'suspended'` — чтобы не смешивать «не одобрен» с «заблокирован за нарушения».
 
 Вкладка **Suspended** — заблокированные пользователи, кнопка [Unsuspend] на каждой строке.
 
-**Pending invitations** — отдельная секция ниже таблицы на вкладке Active (аналогично Manager view), показывает неотвеченные инвайты по всем сайтам.
+**Pending invitations** — отдельная секция ниже таблицы на вкладке Active (аналогично Manager view), показывает неотвеченные инвайты **по всем сайтам** независимо от выбранного Site-фильтра — Admin должен видеть все невостребованные инвайты глобально.
 
 ---
 
@@ -433,7 +473,8 @@ Suspended пользователи показываются в таблице с
 └─────────────────────────────────────────┘
 ```
 После отправки: строка появляется в «Pending invitations», toast «Invitation sent to worker@example.com».
-Если email уже на этом сайте → ошибка инлайн: «This user already has access to this site».
+Если email уже на этом сайте (запись в `site_user`) → ошибка инлайн: «This user already has access to this site».
+Если для этого email уже есть pending invite на этот сайт (запись в `invitations`) → ошибка инлайн: «A pending invitation already exists for this email».
 
 ### Invite modal — Admin (дополнительно выбор сайта)
 
@@ -453,6 +494,7 @@ Suspended пользователи показываются в таблице с
 │  [Send invitation]   [Cancel]           │
 └─────────────────────────────────────────┘
 ```
+Те же ошибки инлайн что и в Manager modal: «This user already has access to this site» и «A pending invitation already exists for this email» — проверка по выбранному Site.
 
 ---
 
@@ -469,13 +511,71 @@ Suspended пользователи показываются в таблице с
 
 ---
 
+## UI — `/register` (Flow B — self-registration)
+
+```
+┌─────────────────────────────────────────┐
+│  Create account                         │
+│                                         │
+│  Name                                   │
+│  [_____________________________]        │
+│                                         │
+│  Email                                  │
+│  [_____________________________]        │
+│                                         │
+│  [Request access]                       │
+│                                         │
+│  Already have an account? [Sign in]     │
+└─────────────────────────────────────────┘
+```
+
+После отправки — варианты:
+- Email свободен → аккаунт создаётся с `status = 'pending'` → страница-подтверждение: «Your request has been submitted. You'll receive an email once your account is approved.»
+- Email уже существует (active или pending) → **не раскрываем** разницу; тот же нейтральный ответ что и при успехе — не говорим есть ли аккаунт (anti-enumeration)
+- Email принадлежит suspended пользователю → тот же нейтральный ответ; аккаунт не создаётся повторно
+
+---
+
+## UI — `/pending` (ожидание одобрения)
+
+Показывается пользователям с `status = 'pending'` при любой попытке зайти в систему (редирект из `EnsureUserIsActive`).
+
+```
+┌─────────────────────────────────────────┐
+│                                         │
+│           [clock icon]                  │
+│                                         │
+│   Your account is pending approval      │
+│                                         │
+│   We've notified our team. You'll       │
+│   receive an email when you're          │
+│   approved.                             │
+│                                         │
+│           [Sign out]                    │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+---
+
 ## UI — Settings → Profile
 
 Profile — последняя вкладка в Settings (после всех остальных), чтобы при открытии Settings всегда открывался список сайтов первым.
 
 Порядок вкладок: Sites → Site settings → Turf profile → Zones → Import → Integrations → Users → **Profile**
 
-Доступна всем пользователям (любая роль). Секция **Security**:
+Доступна всем пользователям (любая роль). Порядок секций:
+
+**1. Account**
+```
+Name
+[________________]   [Save]
+
+Email
+kate@example.com     (read-only — смена email требует верификации, реализовать позже)
+```
+
+**2. Security**
 
 **Если пароль не установлен:**
 ```
@@ -489,14 +589,9 @@ You're signing in with Magic Link only.
 ```
 Password
 Last changed: 3 June 2026
-[Change password]  [Remove password]
+[Change password]
 ```
-- «Change password» → модальное окно: «Current password» + «New password» + «Confirm password»
-- «Remove password» → подтверждение → пароль удаляется, вход только через Magic Link
-
-**Также в Profile:**
-- Имя (редактировать)
-- Email (только просмотр — смена email требует верификации, реализовать позже)
+- «Change password» → модальное окно: «Current password» + «New password» + «Confirm password» + ссылка «Forgot current password? Send Magic Link» (запускает тот же flow что и «Forgot password?» на странице логина)
 
 **DB** — поля `password_hash` и `password_prompt_shown` учтены в секции Database выше.
 
@@ -522,13 +617,15 @@ Last changed: 3 June 2026
 ## Implementation Order
 
 1. Security fixes (выше)
-2. Миграция: `users.is_admin`, `users.status`, `users.password_hash`, `users.password_prompt_shown`, таблицы `invitations` + `magic_links`, нормализация `site_user.role`
+2. Миграция: `users.is_admin`, `users.status`, `users.password_hash`, `users.password_prompt_shown`, `sites.provisional_name`, таблицы `invitations` + `magic_links`, нормализация `site_user.role`
 3. `EnsureUserIsActive` middleware
 4. Helper-методы на User: `roleOnSite`, `canViewSite`, `canEditSite`, `canManageSite`
 5. `Gate::before` для admin
 6. Обновить все контроллеры на role-aware проверки
-7. Artisan-команды: `user:make-admin {email}`, `user:unsuspend {email}`
-8. Magic Link auth: редизайн существующей страницы логина + MagicLinkController + `/magic/{token}` + страница `/pending` для pending users
+7. Artisan-команды: `user:make-admin {email}` (создаёт пользователя если не существует, затем выставляет `is_admin = true` — единственный способ создать первого Admin), `user:unsuspend {email}`
+8. Magic Link auth: редизайн страницы логина (+ ссылка на `/register` если self-reg включена) + MagicLinkController + `/magic/{token}` + страница `/welcome` (ввод имени при первом входе); обновить `AuthController.login()` — пароль опциональный, новые error messages («No password set», «Incorrect password»), обработка pending инвайтов при каждом успешном входе (пароль или Magic Link); Password Setup Banner на dashboard. ⚠️ «Forgot password» redirect в Settings → Profile с модалом «Set new password» зависит от step 11 — реализовать redirect сейчас, модал доделать в step 11
 9. InvitationController + письмо-уведомление при инвайте
 10. Settings → Users UI (manager view, затем admin view)
-11. Self-registration + pending flow (опционально): `/register` route + письмо с Magic Link при одобрении
+11. Settings → Profile UI (Set/Change password, имя)
+12. Getting Started Panel — проверка роли (не показывать Viewer)
+13. Self-registration: `/register` route + страница `/pending` (Flow B) + уведомление Admin при новой регистрации

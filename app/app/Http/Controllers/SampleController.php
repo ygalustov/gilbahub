@@ -23,8 +23,13 @@ class SampleController extends Controller
             'limit' => ['nullable', 'integer', 'min:1', 'max:200'],
         ]);
 
+        $user = $request->user();
+        $siteIds = $user->is_admin
+            ? Site::pluck('id')
+            : $user->sites()->pluck('sites.id');
+
         $query = Sample::query()->with(['site'])
-            ->whereIn('site_id', $request->user()->sites()->pluck('sites.id'))
+            ->whereIn('site_id', $siteIds)
             ->orderByDesc('lab_date')
             ->orderByDesc('id');
 
@@ -59,7 +64,7 @@ class SampleController extends Controller
         ]);
 
         $site = Site::query()->findOrFail($data['site_id']);
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canEditSite($site), 403);
 
         $account = $site->account;
         abort_unless($account, 422, 'Site account is missing.');
@@ -95,7 +100,9 @@ class SampleController extends Controller
         ]);
 
         $user = $request->user();
-        $siteIds = $user->sites()->pluck('sites.id')->all();
+        $siteIds = $user->is_admin
+            ? Site::pluck('id')->all()
+            : $user->sites()->pluck('sites.id')->all();
         $synced = 0;
         $deleted = 0;
 
@@ -182,7 +189,7 @@ class SampleController extends Controller
     public function show(Request $request, Sample $sample): JsonResponse
     {
         $sample->load('site');
-        $this->abortUnlessMember($request, $sample->site);
+        abort_unless($request->user()->canViewSite($sample->site), 403);
 
         return response()->json([
             'data' => $this->samplePayload($sample),
@@ -197,7 +204,7 @@ class SampleController extends Controller
         ]);
 
         $site = Site::query()->findOrFail($data['site_id']);
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canViewSite($site), 403);
 
         $query = SiteSummary::query()
             ->where('site_id', $site->id)
@@ -319,14 +326,6 @@ class SampleController extends Controller
         Sample::query()->whereKey($sampleIds)->delete();
 
         return $sampleIds->count();
-    }
-
-    private function abortUnlessMember(Request $request, Site $site): void
-    {
-        abort_unless(
-            $site->users()->where('users.id', $request->user()->id)->exists(),
-            404
-        );
     }
 
     private function samplePayload(Sample $sample): array

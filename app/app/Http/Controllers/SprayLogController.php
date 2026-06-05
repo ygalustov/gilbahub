@@ -54,7 +54,7 @@ class SprayLogController extends Controller
             'source' => ['nullable', 'string', 'max:40'],
         ]);
 
-        $site = $this->resolveOwnedSite($request, (string) $data['site_id']);
+        $site = $this->resolveOwnedSite($request, (string) $data['site_id'], requireEdit: true);
         $zones = $this->normaliseZones($data['zone'] ?? null, $data['zones'] ?? null);
 
         if ($zones === []) {
@@ -274,28 +274,27 @@ class SprayLogController extends Controller
         ]);
     }
 
-    private function resolveOwnedSite(Request $request, string $siteId): Site
+    private function resolveOwnedSite(Request $request, string $siteId, bool $requireEdit = false): Site
     {
         $site = Site::query()->findOrFail($siteId);
+        $user = $request->user();
 
-        abort_unless(
-            $site->users()->where('users.id', $request->user()->id)->exists(),
-            404
-        );
+        if ($requireEdit) {
+            abort_unless($user->canEditSite($site), 403);
+        } else {
+            abort_unless($user->canViewSite($site), 403);
+        }
 
         return $site;
     }
 
     private function resolveOwnedLog(Request $request, int $logId): object
     {
-        $log = DB::table('spray_logs')
-            ->join('site_user', 'site_user.site_id', '=', 'spray_logs.site_id')
-            ->where('spray_logs.id', $logId)
-            ->where('site_user.user_id', $request->user()->id)
-            ->select('spray_logs.*')
-            ->first();
-
+        $log = DB::table('spray_logs')->where('id', $logId)->first();
         abort_unless($log, 404);
+
+        $site = Site::query()->findOrFail($log->site_id);
+        abort_unless($request->user()->canEditSite($site), 403);
 
         return $log;
     }

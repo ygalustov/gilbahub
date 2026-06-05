@@ -32,6 +32,7 @@ class Site extends Model
         'methodology_override',
         'soil_texture_override',
         'attributes_json',
+        'provisional_name',
         'created_by_user_id',
         'modified_by_user_id',
     ];
@@ -42,6 +43,7 @@ class Site extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'attributes_json' => 'array',
+            'provisional_name' => 'boolean',
         ];
     }
 

@@ -2,18 +2,21 @@
 
 use App\Http\Controllers\AnalysisCacheController;
 use App\Http\Controllers\AnalysisController;
-use App\Http\Controllers\PageController;
-use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\DataController;
+use App\Http\Controllers\BenchmarkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AlertController;
-use App\Http\Controllers\BenchmarkController;
+use App\Http\Controllers\DataController;
 use App\Http\Controllers\FieldLogEntryController;
 use App\Http\Controllers\InterpretationController;
+use App\Http\Controllers\InvitationController;
 use App\Http\Controllers\LabReportParseController;
+use App\Http\Controllers\MagicLinkController;
 use App\Http\Controllers\MediaUploadController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\PredictionController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\SampleController;
 use App\Http\Controllers\SensorProxyController;
 use App\Http\Controllers\SettingsController;
@@ -21,6 +24,7 @@ use App\Http\Controllers\SiteController;
 use App\Http\Controllers\SprayLogController;
 use App\Http\Controllers\StadiumAnalysisController;
 use App\Http\Controllers\StadiumVenueProfileController;
+use App\Http\Controllers\UsersController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/dashboard');
@@ -28,13 +32,23 @@ Route::redirect('/', '/dashboard');
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
+    Route::post('/login/magic', [MagicLinkController::class, 'send'])->name('magic.send');
+    Route::get('/magic/{token}', [MagicLinkController::class, 'verify'])->name('magic.verify');
+    Route::get('/register', [AuthController::class, 'showRegister'])->name('register')->middleware('self-registration');
+    Route::post('/register', [AuthController::class, 'register'])->name('register.store')->middleware('self-registration');
 });
 
 Route::post('/logout', [AuthController::class, 'logout'])
     ->middleware('auth')
     ->name('logout');
 
+// Auth-only routes excluded from EnsureUserIsActive (pending users can access these)
 Route::middleware('auth')->group(function () {
+    Route::get('/pending', [AuthController::class, 'pending'])->name('pending');
+});
+
+// All other authenticated routes require active status
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/legacy-assets/{path}', function (string $path) {
         $base = realpath(base_path('../assets'));
         $file = $base ? realpath($base.DIRECTORY_SEPARATOR.$path) : false;
@@ -111,5 +125,23 @@ Route::middleware('auth')->group(function () {
         Route::post('/stadium/seasonal-plan', [StadiumAnalysisController::class, 'seasonalPlan'])->name('stadium.seasonal-plan');
         Route::get('/stadium/venue-profiles', [StadiumVenueProfileController::class, 'index'])->name('stadium.venue-profiles.index');
         Route::put('/stadium/venue-profiles/{venueId}', [StadiumVenueProfileController::class, 'upsert'])->name('stadium.venue-profiles.upsert');
+
+        // Users management
+        Route::get('/users', [UsersController::class, 'index'])->name('users.index');
+        Route::patch('/users/{user}/role', [UsersController::class, 'updateRole'])->name('users.role.update');
+        Route::delete('/users/{user}/site/{site}', [UsersController::class, 'removeSite'])->name('users.site.remove');
+        Route::patch('/users/{user}/suspend', [UsersController::class, 'suspend'])->name('users.suspend');
+        Route::patch('/users/{user}/unsuspend', [UsersController::class, 'unsuspend'])->name('users.unsuspend');
+        Route::patch('/users/{user}/approve', [UsersController::class, 'approve'])->name('users.approve');
+        Route::delete('/users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
+
+        // Invitations
+        Route::post('/invitations', [InvitationController::class, 'store'])->name('invitations.store');
+        Route::delete('/invitations/{invitation}', [InvitationController::class, 'destroy'])->name('invitations.destroy');
+
+        // Profile
+        Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        Route::post('/profile/password', [ProfileController::class, 'setPassword'])->name('profile.password.set');
+        Route::patch('/profile/password-prompt', [ProfileController::class, 'dismissPasswordPrompt'])->name('profile.password-prompt.dismiss');
     });
 });

@@ -14,14 +14,14 @@ class SiteController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $sites = $request->user()
-            ->sites()
-            ->with('configs')
-            ->orderBy('name')
-            ->get();
+        $user = $request->user();
+
+        $sites = $user->is_admin
+            ? Site::query()->with('configs')->orderBy('name')->get()
+            : $user->sites()->with('configs')->orderBy('name')->get();
 
         return response()->json([
-            'active_site_id' => $request->user()->last_active_site_id,
+            'active_site_id' => $user->last_active_site_id,
             'data' => $sites->map(fn (Site $site) => $this->sitePayload($site))->values(),
         ]);
     }
@@ -50,7 +50,10 @@ class SiteController extends Controller
             'modified_by_user_id' => $request->user()->id,
         ]);
 
-        $site->users()->attach($request->user()->id, ['role' => 'owner']);
+        // Admin sees all sites without site_user record
+        if (! $request->user()->is_admin) {
+            $site->users()->attach($request->user()->id, ['role' => 'manager']);
+        }
 
         SiteConfig::query()->create([
             'site_id' => $site->id,
@@ -73,6 +76,7 @@ class SiteController extends Controller
         ]);
 
         $account = $this->currentAccount($request);
+        $user = $request->user();
         $saved = 0;
 
         foreach ($data['sites'] as $siteId => $siteData) {
@@ -84,10 +88,10 @@ class SiteController extends Controller
             $site = Site::query()->find($siteId);
 
             if ($site) {
-                $this->abortUnlessMember($request, $site);
+                abort_unless($user->canEditSite($site), 403);
                 $site->update([
                     'name' => $name !== '' ? $name : $site->name,
-                    'modified_by_user_id' => $request->user()->id,
+                    'modified_by_user_id' => $user->id,
                 ]);
             } else {
                 $site = new Site();
@@ -98,11 +102,13 @@ class SiteController extends Controller
                     'slug' => $this->uniqueSlug($account->id, $name !== '' ? $name : $siteId),
                     'site_type' => 'precinct',
                     'timezone' => 'Australia/Sydney',
-                    'created_by_user_id' => $request->user()->id,
-                    'modified_by_user_id' => $request->user()->id,
+                    'created_by_user_id' => $user->id,
+                    'modified_by_user_id' => $user->id,
                 ])->save();
 
-                $site->users()->attach($request->user()->id, ['role' => 'owner']);
+                if (! $user->is_admin) {
+                    $site->users()->attach($user->id, ['role' => 'manager']);
+                }
             }
 
             SiteConfig::query()->firstOrCreate(
@@ -129,8 +135,7 @@ class SiteController extends Controller
     public function show(Request $request, string $site): JsonResponse
     {
         $site = $this->resolveAccessibleSite($request, $site);
-
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canViewSite($site), 403);
 
         return response()->json([
             'data' => $this->sitePayload($site->load('configs')),
@@ -140,8 +145,7 @@ class SiteController extends Controller
     public function update(Request $request, string $site): JsonResponse
     {
         $site = $this->resolveAccessibleSite($request, $site);
-
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canEditSite($site), 403);
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -176,7 +180,7 @@ class SiteController extends Controller
         ]);
 
         $site = Site::query()->findOrFail($data['site_id']);
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canViewSite($site), 403);
 
         $request->user()->forceFill([
             'last_active_site_id' => $site->id,
@@ -191,17 +195,22 @@ class SiteController extends Controller
     public function destroy(Request $request, string $site): JsonResponse
     {
         $site = $this->resolveAccessibleSite($request, $site);
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canManageSite($site), 403);
 
         $user = $request->user();
-        $remainingCount = $user->sites()->where('sites.id', '!=', $site->id)->count();
+
+        $remainingCount = $user->is_admin
+            ? Site::query()->where('id', '!=', $site->id)->count()
+            : $user->sites()->where('sites.id', '!=', $site->id)->count();
 
         if ($remainingCount === 0) {
             return response()->json(['message' => 'Cannot delete the only site.'], 422);
         }
 
         if ($user->last_active_site_id === $site->id) {
-            $next = $user->sites()->where('sites.id', '!=', $site->id)->orderBy('sites.name')->first();
+            $next = $user->is_admin
+                ? Site::query()->where('id', '!=', $site->id)->orderBy('name')->first()
+                : $user->sites()->where('sites.id', '!=', $site->id)->orderBy('sites.name')->first();
             $user->forceFill(['last_active_site_id' => $next?->id])->save();
         }
 
@@ -214,8 +223,7 @@ class SiteController extends Controller
     public function updateConfig(Request $request, string $site, string $namespace = 'gaip'): JsonResponse
     {
         $site = $this->resolveAccessibleSite($request, $site);
-
-        $this->abortUnlessMember($request, $site);
+        abort_unless($request->user()->canEditSite($site), 403);
 
         $data = $request->validate([
             'config' => ['present', 'array'],
@@ -257,27 +265,21 @@ class SiteController extends Controller
         );
     }
 
-    private function abortUnlessMember(Request $request, Site $site): void
-    {
-        $isMember = $site->users()
-            ->where('users.id', $request->user()->id)
-            ->exists();
-
-        abort_unless($isMember, 404);
-    }
-
     private function resolveAccessibleSite(Request $request, string $siteIdentifier): Site
     {
-        $site = Site::query()
-            ->where(function ($query) use ($siteIdentifier) {
-                $query->where('id', $siteIdentifier)
-                    ->orWhere('slug', $siteIdentifier);
-            })
-            ->whereHas('users', function ($query) use ($request) {
-                $query->where('users.id', $request->user()->id);
-            })
-            ->first();
+        $user = $request->user();
 
+        $query = Site::query()->where(function ($q) use ($siteIdentifier) {
+            $q->where('id', $siteIdentifier)->orWhere('slug', $siteIdentifier);
+        });
+
+        if (! $user->is_admin) {
+            $query->whereHas('users', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+
+        $site = $query->first();
         abort_unless($site, 404);
 
         return $site;
