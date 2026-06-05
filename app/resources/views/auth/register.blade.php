@@ -80,27 +80,13 @@
                     @csrf
 
                     <div class="login-field">
-                        <label class="login-label" for="name">Name</label>
-                        <input
-                            class="login-input{{ $errors->has('name') ? ' error' : '' }}"
-                            id="name" name="name" type="text"
-                            value="{{ old('name') }}"
-                            autocomplete="name"
-                            autofocus
-                            required
-                        >
-                        @error('name')
-                            <div class="login-error">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div class="login-field">
                         <label class="login-label" for="email">Email</label>
                         <input
                             class="login-input{{ $errors->has('email') ? ' error' : '' }}"
                             id="email" name="email" type="email"
                             value="{{ old('email') }}"
                             autocomplete="email"
+                            autofocus
                             required
                         >
                         @error('email')

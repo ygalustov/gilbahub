@@ -141,7 +141,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-56** Enhance dashboard and site setup experience. Updated DashboardController to refresh user data, simplified site activation logic in SiteController, and improved dashboard view with a setup banner for unconfigured sites. Added JavaScript functionality for setup interactions and refined CSS for better UI presentation.
 **GH-57** Update onboarding wizard and settings initialization for improved setup experience. Added logic to auto-show the onboarding wizard based on URL parameters and modified the yes button action to include a setup query parameter for seamless navigation to the dashboard.
 **GH-58** Prevent auto-showing the onboarding wizard on db-shell pages to ensure proper setup handling by the new onboarding-wizard.js.
-**GH-59** 
+**GH-59** Enhance authentication and user management features in AuthController. Implemented password handling with Magic Link support, improved login validation, and added user registration functionality. Introduced role-based access control for site management and refined user experience with new notifications and banners in the dashboard and settings views.
+**GH-59** Enhance user invitation functionality in settings view. Added input field for invitee name and updated JavaScript to manage user data more effectively, including user email handling for improved user experience.
 
 
 
@@ -151,6 +152,8 @@ email: yuryg@gethydrosight.com.au
 password: GEAR.smith6
 
 - can we invite to several sites?
+
+- site logo
 
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:

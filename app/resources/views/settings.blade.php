@@ -915,6 +915,11 @@
                             </div>
 
                             <div style="margin-bottom:16px">
+                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Name</label>
+                                <input type="text" id="invite-name" class="stg-input" style="width:100%" placeholder="Jane Smith" autocomplete="off">
+                            </div>
+
+                            <div style="margin-bottom:16px">
                                 <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Email</label>
                                 <input type="email" id="invite-email" class="stg-input" style="width:100%" placeholder="colleague@example.com">
                             </div>
@@ -1055,6 +1060,7 @@ window.STG_DATA = {
     passwordPromptShown:  @json(auth()->user()->password_prompt_shown),
     hasPassword:          @json(!empty(auth()->user()->password_hash)),
     openPasswordModal:    @json(session('open_password_modal', false)),
+    userEmail:            @json(auth()->user()->email),
 };
 </script>
 <script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>

@@ -10,7 +10,8 @@
 
     /* ── Tab switching ───────────────────────────────────────── */
     function activateTab(tabKey) {
-        document.querySelectorAll('.stg-tab').forEach(function (t) {
+        if (!tabKey) return;
+        document.querySelectorAll('.stg-tab[data-tab]').forEach(function (t) {
             t.classList.remove('active');
             t.setAttribute('aria-selected', 'false');
         });
@@ -23,7 +24,7 @@
         if (panel) panel.classList.remove('stg-hidden');
     }
 
-    document.querySelectorAll('.stg-tab').forEach(function (tab) {
+    document.querySelectorAll('.stg-tab[data-tab]').forEach(function (tab) {
         tab.addEventListener('click', function () { activateTab(tab.dataset.tab); });
     });
 
@@ -1423,6 +1424,454 @@
 
         return Promise.all(tasks);
     }
+
+    /* ── Users tab ───────────────────────────────────────────────── */
+    (function initUsersTab() {
+        var D = window.STG_DATA || {};
+        var isAdmin = D.activeSiteRole === 'admin';
+
+        var utabBtns       = document.querySelectorAll('[data-utab]');
+        var activePanel    = document.getElementById('users-active-panel');
+        var pendingPanel   = document.getElementById('users-pending-panel');
+        var suspendedPanel = document.getElementById('users-suspended-panel');
+        var tbody          = document.getElementById('users-tbody');
+        var pendingTbody   = document.getElementById('users-pending-tbody');
+        var suspendedTbody = document.getElementById('users-suspended-tbody');
+        var invitationsTbody   = document.getElementById('users-invitations-tbody');
+        var invitationsSection = document.getElementById('users-invitations-section');
+        var emptyState     = document.getElementById('users-empty');
+        var inviteBtn      = document.getElementById('users-invite-btn');
+        var inviteEmptyBtn = document.getElementById('users-invite-empty-btn');
+        var inviteModal    = document.getElementById('users-invite-modal');
+        var inviteClose    = document.getElementById('invite-modal-close');
+        var inviteCancelBtn = document.getElementById('invite-cancel-btn');
+        var inviteSubmitBtn = document.getElementById('invite-submit-btn');
+        var inviteError    = document.getElementById('invite-modal-error');
+        var inviteNameInput  = document.getElementById('invite-name');
+        var inviteEmailInput = document.getElementById('invite-email');
+        var inviteSiteSelect = document.getElementById('invite-site');
+        var searchInput    = document.getElementById('users-search');
+        var siteFilter     = document.getElementById('users-site-filter');
+        var roleFilter     = document.getElementById('users-role-filter');
+        var pendingCountEl = document.getElementById('users-pending-count');
+
+        var _members = [], _pending = [], _suspended = [], _invitations = [];
+
+        function showInviteError(msg) {
+            if (!inviteError) return;
+            inviteError.textContent = msg;
+            inviteError.style.display = msg ? '' : 'none';
+        }
+
+        function switchUtab(tab) {
+            utabBtns.forEach(function (b) {
+                b.classList.toggle('active', b.dataset.utab === tab);
+            });
+            if (activePanel)    activePanel.style.display    = (tab === 'active')    ? '' : 'none';
+            if (pendingPanel)   pendingPanel.style.display   = (tab === 'pending')   ? '' : 'none';
+            if (suspendedPanel) suspendedPanel.style.display = (tab === 'suspended') ? '' : 'none';
+        }
+
+        utabBtns.forEach(function (b) {
+            b.addEventListener('click', function () { switchUtab(b.dataset.utab); });
+        });
+
+        function roleLabel(role) {
+            var map = { manager: 'Manager', editor: 'Editor', viewer: 'Viewer' };
+            return map[role] || role;
+        }
+
+        function getSearchQuery() {
+            var q = searchInput ? searchInput.value.toLowerCase() : '';
+            var rf = roleFilter ? roleFilter.value : '';
+            var sf = siteFilter ? siteFilter.value : '';
+            return { q: q, role: rf, site: sf };
+        }
+
+        function renderMemberRow(u) {
+            var isSelf = u.email === D.userEmail;
+            var canEdit = !isSelf;
+            var roleOptions = ['manager', 'editor', 'viewer'].map(function (r) {
+                return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + roleLabel(r) + '</option>';
+            }).join('');
+            var siteCol = isAdmin ? ('<td>' + escHtml(u.site_name || '') + '</td>') : '';
+            var actions = canEdit && u.site_id
+                ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>' +
+                  (isAdmin ? ' <button class="stg-btn-ghost suspend-btn" style="font-size:12px;padding:3px 8px;color:#dc2626">Suspend</button>' : '')
+                : '';
+            return '<tr data-user-id="' + u.id + '">' +
+                '<td>' + escHtml(u.name || '') + '</td>' +
+                '<td>' + escHtml(u.email) + '</td>' +
+                siteCol +
+                '<td>' +
+                    (canEdit && u.site_id
+                        ? '<select class="stg-select role-select" style="font-size:13px;padding:4px 8px" data-site-id="' + u.site_id + '">' + roleOptions + '</select>'
+                        : '<span>' + roleLabel(u.role) + '</span>') +
+                '</td>' +
+                '<td style="white-space:nowrap">' + actions + '</td>' +
+                '</tr>';
+        }
+
+        function applyFilters(list) {
+            var f = getSearchQuery();
+            return list.filter(function (u) {
+                if (f.q && !(u.name || '').toLowerCase().includes(f.q) && !u.email.toLowerCase().includes(f.q)) return false;
+                if (f.role && u.role !== f.role) return false;
+                if (f.site && u.site_id !== f.site) return false;
+                return true;
+            });
+        }
+
+        function renderMembers() {
+            if (!tbody) return;
+            var filtered = applyFilters(_members);
+            var colspan = isAdmin ? 5 : 4;
+            if (emptyState) emptyState.style.display = (!_members.length) ? '' : 'none';
+            if (!filtered.length) {
+                tbody.innerHTML = '<tr><td colspan="' + colspan + '" style="color:#6b8878;padding:16px 0">No members found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = filtered.map(renderMemberRow).join('');
+        }
+
+        function renderInvitations() {
+            if (!invitationsTbody) return;
+            var inv = _invitations;
+            if (!inv.length) {
+                if (invitationsSection) invitationsSection.style.display = 'none';
+                return;
+            }
+            if (invitationsSection) invitationsSection.style.display = '';
+            invitationsTbody.innerHTML = inv.map(function (i) {
+                return '<tr data-inv-id="' + i.id + '">' +
+                    '<td>' + escHtml(i.name || '') + '</td>' +
+                    '<td>' + escHtml(i.email) + '</td>' +
+                    (isAdmin ? '<td>' + escHtml(i.site_name || '') + '</td>' : '') +
+                    '<td>' + roleLabel(i.role) + '</td>' +
+                    '<td><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 8px">Cancel</button></td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function renderPending() {
+            if (!pendingTbody) return;
+            if (!_pending.length) {
+                pendingTbody.innerHTML = '<tr><td colspan="4" style="color:#6b8878;padding:16px 0">No pending registrations.</td></tr>';
+                return;
+            }
+            pendingTbody.innerHTML = _pending.map(function (u) {
+                return '<tr data-user-id="' + u.id + '">' +
+                    '<td>' + escHtml(u.name || '') + '</td>' +
+                    '<td>' + escHtml(u.email) + '</td>' +
+                    '<td>' + (u.created_at || '') + '</td>' +
+                    '<td style="white-space:nowrap">' +
+                        '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:4px 10px;margin-right:6px">Approve</button>' +
+                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:4px 10px;color:#dc2626">Delete</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function renderSuspended() {
+            if (!suspendedTbody) return;
+            if (!_suspended.length) {
+                suspendedTbody.innerHTML = '<tr><td colspan="3" style="color:#6b8878;padding:16px 0">No suspended accounts.</td></tr>';
+                return;
+            }
+            suspendedTbody.innerHTML = _suspended.map(function (u) {
+                return '<tr data-user-id="' + u.id + '">' +
+                    '<td>' + escHtml(u.name || '') + '</td>' +
+                    '<td>' + escHtml(u.email) + '</td>' +
+                    '<td style="white-space:nowrap">' +
+                        '<button class="stg-btn-ghost unsuspend-btn" style="font-size:12px;padding:4px 10px;margin-right:6px">Restore</button>' +
+                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:4px 10px;color:#dc2626">Delete</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function populateSiteFilterAndSelect(sites) {
+            if (siteFilter) {
+                siteFilter.innerHTML = '<option value="">All sites</option>' +
+                    sites.map(function (s) { return '<option value="' + s.id + '">' + escHtml(s.name) + '</option>'; }).join('');
+            }
+            if (inviteSiteSelect) {
+                inviteSiteSelect.innerHTML = '<option value="">Select site…</option>' +
+                    sites.map(function (s) { return '<option value="' + s.id + '">' + escHtml(s.name) + '</option>'; }).join('');
+            }
+        }
+
+        function loadUsers() {
+            apiFetch('GET', '/users').then(function (data) {
+                _members     = (data && data.members)     || [];
+                _pending     = (data && data.pending)     || [];
+                _suspended   = (data && data.suspended)   || [];
+                _invitations = (data && data.invitations) || [];
+
+                if (data && data.all_sites) populateSiteFilterAndSelect(data.all_sites);
+
+                renderMembers();
+                renderInvitations();
+                renderPending();
+                renderSuspended();
+
+                if (pendingCountEl) {
+                    pendingCountEl.textContent = _pending.length;
+                    pendingCountEl.style.display = _pending.length ? '' : 'none';
+                }
+            }).catch(function () {});
+        }
+
+        if (searchInput) searchInput.addEventListener('input', renderMembers);
+        if (roleFilter)  roleFilter.addEventListener('change', renderMembers);
+        if (siteFilter)  siteFilter.addEventListener('change', renderMembers);
+
+        // Delegated: members table
+        if (tbody) {
+            tbody.addEventListener('click', function (e) {
+                var row = e.target.closest('tr[data-user-id]');
+                if (!row) return;
+                var userId = row.dataset.userId;
+
+                if (e.target.classList.contains('remove-site-btn')) {
+                    var sid = e.target.dataset.siteId;
+                    if (!confirm('Remove this user from the site?')) return;
+                    apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
+                        .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
+                }
+                if (e.target.classList.contains('suspend-btn')) {
+                    if (!confirm('Suspend this user? They will be logged out immediately.')) return;
+                    apiFetch('PATCH', '/users/' + userId + '/suspend')
+                        .then(loadUsers).catch(function () { alert('Failed to suspend user.'); });
+                }
+            });
+            tbody.addEventListener('change', function (e) {
+                if (!e.target.classList.contains('role-select')) return;
+                var row = e.target.closest('tr[data-user-id]');
+                if (!row) return;
+                var userId = row.dataset.userId;
+                var sid = e.target.dataset.siteId;
+                apiFetch('PATCH', '/users/' + userId + '/role', { site_id: sid, role: e.target.value })
+                    .catch(function () { alert('Failed to update role.'); loadUsers(); });
+            });
+        }
+
+        // Delegated: invitations
+        if (invitationsTbody) {
+            invitationsTbody.addEventListener('click', function (e) {
+                if (!e.target.classList.contains('cancel-invite-btn')) return;
+                var row = e.target.closest('tr[data-inv-id]');
+                if (!row) return;
+                var invId = row.dataset.invId;
+                apiFetch('DELETE', '/invitations/' + invId)
+                    .then(loadUsers).catch(function () { alert('Failed to cancel invitation.'); });
+            });
+        }
+
+        // Delegated: pending
+        if (pendingTbody) {
+            pendingTbody.addEventListener('click', function (e) {
+                var row = e.target.closest('tr[data-user-id]');
+                if (!row) return;
+                var userId = row.dataset.userId;
+                if (e.target.classList.contains('approve-btn')) {
+                    apiFetch('PATCH', '/users/' + userId + '/approve')
+                        .then(loadUsers).catch(function () { alert('Failed to approve user.'); });
+                } else if (e.target.classList.contains('delete-btn')) {
+                    if (!confirm('Delete this user?')) return;
+                    apiFetch('DELETE', '/users/' + userId)
+                        .then(loadUsers).catch(function () { alert('Failed to delete user.'); });
+                }
+            });
+        }
+
+        // Delegated: suspended
+        if (suspendedTbody) {
+            suspendedTbody.addEventListener('click', function (e) {
+                var row = e.target.closest('tr[data-user-id]');
+                if (!row) return;
+                var userId = row.dataset.userId;
+                if (e.target.classList.contains('unsuspend-btn')) {
+                    apiFetch('PATCH', '/users/' + userId + '/unsuspend')
+                        .then(loadUsers).catch(function () { alert('Failed to restore user.'); });
+                } else if (e.target.classList.contains('delete-btn')) {
+                    if (!confirm('Delete this user?')) return;
+                    apiFetch('DELETE', '/users/' + userId)
+                        .then(loadUsers).catch(function () { alert('Failed to delete user.'); });
+                }
+            });
+        }
+
+        // Invite modal
+        function openInviteModal() {
+            if (!inviteModal) return;
+            if (inviteNameInput)  inviteNameInput.value  = '';
+            if (inviteEmailInput) inviteEmailInput.value = '';
+            var defaultRole = inviteModal.querySelector('[name="invite-role"][value="editor"]');
+            if (defaultRole) defaultRole.checked = true;
+            showInviteError('');
+            inviteModal.style.display = 'flex';
+        }
+        function closeInviteModal() {
+            if (inviteModal) inviteModal.style.display = 'none';
+        }
+
+        if (inviteBtn)      inviteBtn.addEventListener('click', openInviteModal);
+        if (inviteEmptyBtn) inviteEmptyBtn.addEventListener('click', openInviteModal);
+        if (inviteClose)    inviteClose.addEventListener('click', closeInviteModal);
+        if (inviteCancelBtn) inviteCancelBtn.addEventListener('click', closeInviteModal);
+        if (inviteModal) {
+            inviteModal.addEventListener('click', function (e) {
+                if (e.target === inviteModal) closeInviteModal();
+            });
+        }
+
+        if (inviteSubmitBtn) {
+            inviteSubmitBtn.addEventListener('click', function () {
+                var name  = inviteNameInput  ? inviteNameInput.value.trim()  : '';
+                var email = inviteEmailInput ? inviteEmailInput.value.trim() : '';
+                var roleEl = inviteModal ? inviteModal.querySelector('[name="invite-role"]:checked') : null;
+                var role  = roleEl ? roleEl.value : 'editor';
+                var sid   = inviteSiteSelect ? inviteSiteSelect.value : (D.activeSiteId || '');
+
+                if (!email) { showInviteError('Email is required.'); return; }
+
+                inviteSubmitBtn.disabled = true;
+                showInviteError('');
+
+                apiFetch('POST', '/invitations', { name: name || null, email: email, role: role, site_id: sid })
+                    .then(function () {
+                        loadUsers();
+                        closeInviteModal();
+                    })
+                    .catch(function (err) {
+                        showInviteError((err && err.message) || 'Failed to send invitation.');
+                    })
+                    .finally(function () {
+                        inviteSubmitBtn.disabled = false;
+                    });
+            });
+        }
+
+        // Load on tab show
+        var usersTabTrigger = document.querySelector('[data-tab="users"]');
+        if (usersTabTrigger) {
+            usersTabTrigger.addEventListener('click', loadUsers);
+        }
+        if (document.querySelector('[data-tab="users"].active') || document.querySelector('#stg-tab-users:not(.stg-hidden)')) {
+            loadUsers();
+        }
+    }());
+
+    /* ── Profile tab ─────────────────────────────────────────────── */
+    (function initProfileTab() {
+        var D = window.STG_DATA || {};
+
+        var profileNameInput = document.getElementById('profile-name');
+        var profileNameSave  = document.getElementById('profile-name-save');
+        var profileNameMsg   = document.getElementById('profile-name-msg');
+
+        var pwdModal       = document.getElementById('password-modal');
+        var pwdModalClose  = document.getElementById('pw-modal-close');
+        var pwdCancelBtn   = document.getElementById('pw-cancel-btn');
+        var pwdSubmitBtn   = document.getElementById('pw-submit-btn');
+        var pwdCurrentField = document.getElementById('pw-current-field');
+        var pwdCurrentInput = document.getElementById('pw-current');
+        var pwdNewInput     = document.getElementById('pw-new');
+        var pwdConfirmInput = document.getElementById('pw-confirm');
+        var pwdError        = document.getElementById('pw-modal-error');
+        var pwdSuccess      = document.getElementById('pw-modal-success');
+        var pwdTitle        = document.getElementById('pw-modal-title');
+        var pwdForgotLink   = document.getElementById('pw-forgot-link');
+        var setPwdBtn       = document.getElementById('set-password-btn');
+        var changePwdBtn    = document.getElementById('change-password-btn');
+
+        function showNameMsg(text, ok) {
+            if (!profileNameMsg) return;
+            profileNameMsg.textContent = text;
+            profileNameMsg.style.color = ok ? '#2da85e' : '#dc2626';
+            profileNameMsg.style.display = text ? '' : 'none';
+        }
+
+        function showPwdMsg(errText, okText) {
+            if (pwdError)   { pwdError.textContent = errText || ''; pwdError.style.display = errText ? '' : 'none'; }
+            if (pwdSuccess) { pwdSuccess.textContent = okText || ''; pwdSuccess.style.display = okText ? '' : 'none'; }
+        }
+
+        if (profileNameSave) {
+            profileNameSave.addEventListener('click', function () {
+                var name = profileNameInput ? profileNameInput.value.trim() : '';
+                if (!name) { showNameMsg('Name cannot be empty.', false); return; }
+                profileNameSave.disabled = true;
+                showNameMsg('', false);
+                apiFetch('PATCH', '/profile', { name: name })
+                    .then(function () { showNameMsg('Saved.', true); })
+                    .catch(function (err) { showNameMsg((err && err.message) || 'Failed to save.', false); })
+                    .finally(function () { profileNameSave.disabled = false; });
+            });
+        }
+
+        function openPwdModal(hasPassword) {
+            if (!pwdModal) return;
+            if (pwdCurrentInput) pwdCurrentInput.value = '';
+            if (pwdNewInput)     pwdNewInput.value     = '';
+            if (pwdConfirmInput) pwdConfirmInput.value = '';
+            showPwdMsg('', '');
+            if (pwdCurrentField) pwdCurrentField.style.display = hasPassword ? '' : 'none';
+            if (pwdTitle) pwdTitle.textContent = hasPassword ? 'Change password' : 'Set password';
+            pwdModal.style.display = 'flex';
+        }
+        function closePwdModal() {
+            if (pwdModal) pwdModal.style.display = 'none';
+        }
+
+        if (setPwdBtn)    setPwdBtn.addEventListener('click',    function () { openPwdModal(false); });
+        if (changePwdBtn) changePwdBtn.addEventListener('click', function () { openPwdModal(true); });
+        if (pwdModalClose) pwdModalClose.addEventListener('click', closePwdModal);
+        if (pwdCancelBtn)  pwdCancelBtn.addEventListener('click', closePwdModal);
+        if (pwdModal) {
+            pwdModal.addEventListener('click', function (e) {
+                if (e.target === pwdModal) closePwdModal();
+            });
+        }
+
+        if (pwdSubmitBtn) {
+            pwdSubmitBtn.addEventListener('click', function () {
+                var current = pwdCurrentInput ? pwdCurrentInput.value : '';
+                var newPwd  = pwdNewInput     ? pwdNewInput.value     : '';
+                var confirm = pwdConfirmInput ? pwdConfirmInput.value : '';
+
+                if (newPwd.length < 8) { showPwdMsg('Password must be at least 8 characters.', ''); return; }
+                if (newPwd !== confirm) { showPwdMsg('Passwords do not match.', ''); return; }
+
+                pwdSubmitBtn.disabled = true;
+                showPwdMsg('', '');
+
+                apiFetch('POST', '/profile/password', { current_password: current || null, password: newPwd, password_confirmation: confirm })
+                    .then(function () {
+                        showPwdMsg('', 'Password saved successfully.');
+                        setTimeout(closePwdModal, 1400);
+                    })
+                    .catch(function (err) { showPwdMsg((err && err.message) || 'Failed to set password.', ''); })
+                    .finally(function () { pwdSubmitBtn.disabled = false; });
+            });
+        }
+
+        if (pwdForgotLink) {
+            pwdForgotLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                var email = D.userEmail || '';
+                if (!email) return;
+                apiFetch('POST', '/login/magic', { email: email, password_reset: true })
+                    .then(function () { showPwdMsg('', 'Magic link sent to ' + email + '. Check your inbox.'); })
+                    .catch(function () { showPwdMsg('Failed to send link.', ''); });
+            });
+        }
+
+        if (D.openPasswordModal) {
+            openPwdModal(D.hasPassword);
+        }
+    }());
 
     if (impRunBtn) {
         impRunBtn.addEventListener('click', function () {
