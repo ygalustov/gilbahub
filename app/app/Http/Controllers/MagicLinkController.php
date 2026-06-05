@@ -79,15 +79,24 @@ class MagicLinkController extends Controller
 
         $email = $link->email;
         $isPasswordReset = $request->boolean('password_reset');
+        $invitedSiteId = $link->site_id;
 
         // Delete token immediately (one-time use)
         $link->delete();
 
+        // If user is already logged in with the same email, just process invitations
+        if ($request->user() && $request->user()->email === $email) {
+            $user = $request->user();
+            $this->processPendingInvitations($user);
+            if ($invitedSiteId) {
+                $user->forceFill(['last_active_site_id' => $invitedSiteId])->save();
+            }
+            return redirect()->route('dashboard');
+        }
+
         $user = User::query()->where('email', $email)->first();
 
         if ($user) {
-            $invitedSiteId = $link->site_id;
-
             $this->processPendingInvitations($user);
 
             Auth::login($user, remember: false);

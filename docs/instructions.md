@@ -152,7 +152,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-66** Remove UnsuspendUser command and refactor user management logic. Updated DashboardController to handle non-admin users without sites, modified SiteController to filter active sites, and adjusted UsersController to remove suspended user handling. Added no-access view for users lacking site access and improved email templates for better user communication.
 **GH-67** Refactor email notification logic in AuthController, InvitationController, and MagicLinkController. Replaced raw email content with dedicated Mailable classes for improved maintainability and readability. Removed unused email layout file.
 **GH-68** Add confirmation prompt for site removal in account initialization script. This change ensures users confirm their action before removing a user from a site, enhancing user experience and preventing accidental deletions.
-
+**GH-69** Enhance magic link verification and user invitation handling. Updated MagicLinkController to allow both guests and logged-in users to verify magic links, processing pending invitations for existing sessions. Refactored account view to consolidate user management tables and improve UI for active users, requests, and invitations. Adjusted JavaScript for better tab management and visibility of empty states.
 
 
 ## Backlog
@@ -161,9 +161,6 @@ email: yuryg@gethydrosight.com.au
 password: GEAR.smith6
 
 - site logo
-
-- nice emails 
-create professioanally looking emails templates for our emails
 
 - Sites - number of users and option to add access from this page
 And when click - in the details show list of active users

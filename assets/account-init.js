@@ -278,27 +278,18 @@
     (function initUsersTab() {
         var isAdmin = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
 
-        var utabBtns       = document.querySelectorAll('[data-utab]');
-        var activePanel      = document.getElementById('users-active-panel');
-        var requestsPanel    = document.getElementById('users-requests-panel');
-        var invitationsPanel = document.getElementById('users-invitations-panel');
-        var tbody            = document.getElementById('users-tbody');
-        var pendingTbody     = document.getElementById('users-pending-tbody');
-        var invitationsTbody = document.getElementById('users-invitations-tbody');
-        var allPanel         = document.getElementById('users-all-panel');
-        var allTbody         = document.getElementById('users-all-tbody');
-        var requestsCountEl  = document.getElementById('users-requests-count');
+        var utabBtns           = document.querySelectorAll('[data-utab]');
+        var tbody              = document.getElementById('users-tbody');
+        var requestsCountEl    = document.getElementById('users-requests-count');
         var invitationsCountEl = document.getElementById('users-invitations-count');
-        var emptyState          = document.getElementById('users-empty');
-        var allEmptyState       = document.getElementById('users-all-empty');
-        var allTableWrap        = document.getElementById('users-all-table-wrap');
-        var requestsEmptyState  = document.getElementById('users-requests-empty');
-        var requestsTableWrap   = document.getElementById('users-requests-table-wrap');
+        var activeEmptyState      = document.getElementById('users-active-empty');
+        var requestsEmptyState    = document.getElementById('users-requests-empty');
         var invitationsEmptyState = document.getElementById('users-invitations-empty');
-        var invitationsTableWrap  = document.getElementById('users-invitations-table-wrap');
-        var inviteBtn      = document.getElementById('users-invite-btn');
-        var inviteEmptyBtn = document.getElementById('users-invite-empty-btn');
-        var allInviteEmptyBtn = document.getElementById('users-all-invite-empty-btn');
+        var allEmptyState         = document.getElementById('users-all-empty');
+        var inviteBtn              = document.getElementById('users-invite-btn');
+        var inviteEmptyBtn         = document.getElementById('users-invite-empty-btn');
+        var inviteEmptyBtnInv      = document.getElementById('users-invite-empty-btn-inv');
+        var allInviteEmptyBtn      = document.getElementById('users-all-invite-empty-btn');
         var inviteModal    = document.getElementById('users-invite-modal');
         var inviteClose    = document.getElementById('invite-modal-close');
         var inviteCancelBtn = document.getElementById('invite-cancel-btn');
@@ -324,15 +315,24 @@
             inviteError.style.display = msg ? '' : 'none';
         }
 
+        var currentTab = 'active';
+
+        function hideAllEmpty() {
+            [activeEmptyState, requestsEmptyState, invitationsEmptyState, allEmptyState].forEach(function (el) {
+                if (el) el.style.display = 'none';
+            });
+        }
+
         function switchUtab(tab) {
+            currentTab = tab;
             utabBtns.forEach(function (b) {
                 b.classList.toggle('active', b.dataset.utab === tab);
             });
-            if (activePanel)      activePanel.style.display      = (tab === 'active')      ? '' : 'none';
-            if (requestsPanel)    requestsPanel.style.display    = (tab === 'requests')    ? '' : 'none';
-            if (invitationsPanel) invitationsPanel.style.display = (tab === 'invitations') ? '' : 'none';
-            if (allPanel)         allPanel.style.display         = (tab === 'all')         ? '' : 'none';
-            if (tab === 'all') renderAll();
+            hideAllEmpty();
+            if (tab === 'active')      renderMembers();
+            else if (tab === 'requests')    renderPending();
+            else if (tab === 'invitations') renderInvitations();
+            else if (tab === 'all')         renderAll();
         }
 
         utabBtns.forEach(function (b) {
@@ -353,23 +353,15 @@
 
         function renderMemberRow(u) {
             var isSelf = u.email === D.userEmail;
-            var canEdit = !isSelf;
-            var roleOptions = ['manager', 'editor', 'viewer'].map(function (r) {
-                return '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + roleLabel(r) + '</option>';
-            }).join('');
-            var siteCol = isAdmin ? ('<td>' + escHtml(u.site_name || '') + '</td>') : '';
-            var actions = canEdit && u.site_id
-                ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>'
+            var actions = !isSelf && u.site_id
+                ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>'
                 : '';
             return '<tr data-user-id="' + u.id + '">' +
                 '<td>' + escHtml(u.name || '') + '</td>' +
                 '<td>' + escHtml(u.email) + '</td>' +
-                siteCol +
-                '<td>' +
-                    (canEdit && u.site_id
-                        ? '<select class="stg-select role-select" style="font-size:13px;padding:4px 8px" data-site-id="' + u.site_id + '">' + roleOptions + '</select>'
-                        : '<span>' + roleLabel(u.role) + '</span>') +
-                '</td>' +
+                '<td>' + escHtml(u.site_name || '—') + '</td>' +
+                '<td>' + roleLabel(u.role) + '</td>' +
+                '<td>' + STATUS_BADGE.active + '</td>' +
                 '<td style="white-space:nowrap">' + actions + '</td>' +
                 '</tr>';
         }
@@ -387,53 +379,9 @@
         function renderMembers() {
             if (!tbody) return;
             var filtered = applyFilters(_members).filter(function (u) { return u.email !== D.userEmail; });
-            var colspan = 5;
             var othersExist = _members.some(function (u) { return u.email !== D.userEmail; });
-            if (emptyState) emptyState.style.display = (!othersExist) ? '' : 'none';
-            if (!filtered.length) {
-                tbody.innerHTML = '';
-                return;
-            }
+            if (activeEmptyState) activeEmptyState.style.display = (!othersExist) ? '' : 'none';
             tbody.innerHTML = filtered.map(renderMemberRow).join('');
-        }
-
-        function renderPending() {
-            if (!pendingTbody) return;
-            var hasItems = _pending.length > 0;
-            if (requestsEmptyState) requestsEmptyState.style.display = hasItems ? 'none' : '';
-            pendingTbody.innerHTML = hasItems
-                ? _pending.map(function (u) {
-                    var date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '';
-                    return '<tr data-user-id="' + u.id + '">' +
-                        '<td>' + escHtml(u.name || '—') + '</td>' +
-                        '<td>' + escHtml(u.email) + '</td>' +
-                        '<td style="color:#6b8878;font-size:13px">' + date + '</td>' +
-                        '<td style="white-space:nowrap">' +
-                            '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:6px">Approve</button>' +
-                            '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626">Decline</button>' +
-                        '</td>' +
-                        '</tr>';
-                }).join('')
-                : '';
-        }
-
-        function renderInvitations() {
-            if (!invitationsTbody) return;
-            var hasItems = _invitations.length > 0;
-            if (invitationsEmptyState) invitationsEmptyState.style.display = hasItems ? 'none' : '';
-            invitationsTbody.innerHTML = hasItems
-                ? _invitations.map(function (i) {
-                    var date = i.created_at ? new Date(i.created_at).toLocaleDateString() : '';
-                    return '<tr data-inv-id="' + i.id + '">' +
-                        '<td>' + escHtml(i.name || '—') + '</td>' +
-                        '<td>' + escHtml(i.email) + '</td>' +
-                        '<td>' + escHtml(i.site_name || '—') + '</td>' +
-                        '<td>' + roleLabel(i.role) + '</td>' +
-                        '<td style="color:#6b8878;font-size:13px">' + date + '</td>' +
-                        '<td><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px">Cancel</button></td>' +
-                        '</tr>';
-                }).join('')
-                : '';
         }
 
         var STATUS_BADGE = {
@@ -442,12 +390,50 @@
             requested: '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fef3c7;color:#92400e">Requested</span>',
         };
 
-        function renderAll() {
-            if (!allTbody) return;
-            var rows = [];
+        function renderPending() {
+            if (!tbody) return;
+            var filtered = applyFilters(_pending);
+            var isEmpty = _pending.length === 0;
+            if (requestsEmptyState) requestsEmptyState.style.display = isEmpty ? '' : 'none';
+            tbody.innerHTML = filtered.map(function (u) {
+                return '<tr data-user-id="' + u.id + '">' +
+                    '<td>' + escHtml(u.name || '—') + '</td>' +
+                    '<td>' + escHtml(u.email) + '</td>' +
+                    '<td>—</td>' +
+                    '<td>—</td>' +
+                    '<td>' + STATUS_BADGE.requested + '</td>' +
+                    '<td style="white-space:nowrap">' +
+                        '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:6px">Approve</button>' +
+                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Decline</button>' +
+                    '</td>' +
+                    '</tr>';
+            }).join('');
+        }
 
-            _members.forEach(function (u) {
-                if (u.email === D.userEmail) return;
+        function renderInvitations() {
+            if (!tbody) return;
+            var filtered = applyFilters(_invitations);
+            var isEmpty = _invitations.length === 0;
+            if (invitationsEmptyState) invitationsEmptyState.style.display = isEmpty ? '' : 'none';
+            tbody.innerHTML = filtered.map(function (i) {
+                return '<tr data-inv-id="' + i.id + '">' +
+                    '<td>' + escHtml(i.name || '—') + '</td>' +
+                    '<td>' + escHtml(i.email) + '</td>' +
+                    '<td>' + escHtml(i.site_name || '—') + '</td>' +
+                    '<td>' + roleLabel(i.role) + '</td>' +
+                    '<td>' + STATUS_BADGE.invited + '</td>' +
+                    '<td style="white-space:nowrap"><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Cancel</button></td>' +
+                    '</tr>';
+            }).join('');
+        }
+
+        function renderAll() {
+            if (!tbody) return;
+            var filteredMembers  = applyFilters(_members.filter(function (u) { return u.email !== D.userEmail; }));
+            var filteredInvites  = applyFilters(_invitations);
+            var filteredPending  = applyFilters(_pending);
+            var rows = [];
+            filteredMembers.forEach(function (u) {
                 rows.push('<tr data-user-id="' + u.id + '">' +
                     '<td>' + escHtml(u.name || '—') + '</td>' +
                     '<td>' + escHtml(u.email) + '</td>' +
@@ -455,23 +441,21 @@
                     '<td>' + roleLabel(u.role) + '</td>' +
                     '<td>' + STATUS_BADGE.active + '</td>' +
                     '<td style="white-space:nowrap">' +
-                        (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>' : '') +
+                        (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>' : '') +
                     '</td>' +
                     '</tr>');
             });
-            _invitations.forEach(function (i) {
+            filteredInvites.forEach(function (i) {
                 rows.push('<tr data-inv-id="' + i.id + '">' +
                     '<td>' + escHtml(i.name || '—') + '</td>' +
                     '<td>' + escHtml(i.email) + '</td>' +
                     '<td>' + escHtml(i.site_name || '—') + '</td>' +
                     '<td>' + roleLabel(i.role) + '</td>' +
                     '<td>' + STATUS_BADGE.invited + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                        '<button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px">Cancel</button>' +
-                    '</td>' +
+                    '<td style="white-space:nowrap"><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Cancel</button></td>' +
                     '</tr>');
             });
-            _pending.forEach(function (u) {
+            filteredPending.forEach(function (u) {
                 rows.push('<tr data-user-id="' + u.id + '">' +
                     '<td>' + escHtml(u.name || '—') + '</td>' +
                     '<td>' + escHtml(u.email) + '</td>' +
@@ -480,14 +464,13 @@
                     '<td>' + STATUS_BADGE.requested + '</td>' +
                     '<td style="white-space:nowrap">' +
                         '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:4px">Approve</button>' +
-                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626">Decline</button>' +
+                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Decline</button>' +
                     '</td>' +
                     '</tr>');
             });
-
-            var hasAll = rows.length > 0;
-            if (allEmptyState) allEmptyState.style.display = hasAll ? 'none' : '';
-            allTbody.innerHTML = rows.join('');
+            var hasAll = (_members.filter(function (u) { return u.email !== D.userEmail; }).length + _invitations.length + _pending.length) === 0;
+            if (allEmptyState) allEmptyState.style.display = hasAll ? '' : 'none';
+            tbody.innerHTML = rows.join('');
         }
 
         function getCheckedSiteIds() {
@@ -547,10 +530,7 @@
 
                 if (data && data.all_sites) populateSiteFilterAndSelect(data.all_sites);
 
-                renderMembers();
-                renderPending();
-                renderInvitations();
-                renderAll();
+                switchUtab(currentTab);
 
                 if (requestsCountEl) {
                     requestsCountEl.textContent = _pending.length;
@@ -563,83 +543,38 @@
             }).catch(function () {});
         }
 
-        if (searchInput) searchInput.addEventListener('input', renderMembers);
-        if (roleFilter)  roleFilter.addEventListener('change', renderMembers);
-        if (siteFilter)  siteFilter.addEventListener('change', renderMembers);
+        function renderCurrentTab() { switchUtab(currentTab); }
+
+        if (searchInput) searchInput.addEventListener('input', renderCurrentTab);
+        if (roleFilter)  roleFilter.addEventListener('change', renderCurrentTab);
+        if (siteFilter)  siteFilter.addEventListener('change', renderCurrentTab);
 
         if (tbody) {
             tbody.addEventListener('click', function (e) {
-                var row = e.target.closest('tr[data-user-id]');
-                if (!row) return;
-                var userId = row.dataset.userId;
-                if (e.target.classList.contains('remove-site-btn')) {
-                    var sid = e.target.dataset.siteId;
-                    if (!confirm('Remove this user from the site?')) return;
-                    apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
-                        .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
-                }
-            });
-            tbody.addEventListener('change', function (e) {
-                if (!e.target.classList.contains('role-select')) return;
-                var row = e.target.closest('tr[data-user-id]');
-                if (!row) return;
-                var userId = row.dataset.userId;
-                var sid = e.target.dataset.siteId;
-                apiFetch('PATCH', '/users/' + userId + '/role', { site_id: sid, role: e.target.value })
-                    .catch(function () { alert('Failed to update role.'); loadUsers(); });
-            });
-        }
-
-        if (pendingTbody) {
-            pendingTbody.addEventListener('click', function (e) {
-                var row = e.target.closest('tr[data-user-id]');
-                if (!row) return;
-                var userId = row.dataset.userId;
-                if (e.target.classList.contains('approve-btn')) {
-                    apiFetch('PATCH', '/users/' + userId + '/approve')
-                        .then(loadUsers).catch(function () { alert('Failed to approve user.'); });
-                } else if (e.target.classList.contains('delete-btn')) {
-                    if (!confirm('Decline and remove this request?')) return;
-                    apiFetch('DELETE', '/users/' + userId)
-                        .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
-                }
-            });
-        }
-
-        if (invitationsTbody) {
-            invitationsTbody.addEventListener('click', function (e) {
-                if (!e.target.classList.contains('cancel-invite-btn')) return;
-                var row = e.target.closest('tr[data-inv-id]');
-                if (!row) return;
-                apiFetch('DELETE', '/invitations/' + row.dataset.invId)
-                    .then(loadUsers).catch(function () { alert('Failed to cancel invitation.'); });
-            });
-        }
-
-        if (allTbody) {
-            allTbody.addEventListener('click', function (e) {
+                // Invitation row actions
                 var invRow = e.target.closest('tr[data-inv-id]');
                 if (invRow && e.target.classList.contains('cancel-invite-btn')) {
                     apiFetch('DELETE', '/invitations/' + invRow.dataset.invId)
                         .then(loadUsers).catch(function () { alert('Failed to cancel invitation.'); });
                     return;
                 }
+                // User row actions
                 var row = e.target.closest('tr[data-user-id]');
                 if (!row) return;
                 var userId = row.dataset.userId;
-                if (e.target.classList.contains('approve-btn')) {
-                    apiFetch('PATCH', '/users/' + userId + '/approve')
-                        .then(loadUsers).catch(function () { alert('Failed to approve.'); });
-                } else if (e.target.classList.contains('delete-btn')) {
-                    if (!confirm('Decline and remove this request?')) return;
-                    apiFetch('DELETE', '/users/' + userId)
-                        .then(loadUsers).catch(function () { alert('Failed to remove.'); });
-                } else if (e.target.classList.contains('remove-site-btn')) {
+                if (e.target.classList.contains('remove-site-btn')) {
                     var sid = e.target.dataset.siteId;
                     if (!sid) return;
                     if (!confirm('Remove this user from the site?')) return;
                     apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
-                        .then(loadUsers).catch(function () { alert('Failed to remove.'); });
+                        .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
+                } else if (e.target.classList.contains('approve-btn')) {
+                    apiFetch('PATCH', '/users/' + userId + '/approve')
+                        .then(loadUsers).catch(function () { alert('Failed to approve user.'); });
+                } else if (e.target.classList.contains('delete-btn')) {
+                    if (!confirm('Decline and remove this request?')) return;
+                    apiFetch('DELETE', '/users/' + userId)
+                        .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
                 }
             });
         }
@@ -662,9 +597,10 @@
             if (inviteModal) inviteModal.style.display = 'none';
         }
 
-        if (inviteBtn)         inviteBtn.addEventListener('click', openInviteModal);
-        if (inviteEmptyBtn)    inviteEmptyBtn.addEventListener('click', openInviteModal);
-        if (allInviteEmptyBtn) allInviteEmptyBtn.addEventListener('click', openInviteModal);
+        if (inviteBtn)             inviteBtn.addEventListener('click', openInviteModal);
+        if (inviteEmptyBtn)        inviteEmptyBtn.addEventListener('click', openInviteModal);
+        if (inviteEmptyBtnInv)     inviteEmptyBtnInv.addEventListener('click', openInviteModal);
+        if (allInviteEmptyBtn)     allInviteEmptyBtn.addEventListener('click', openInviteModal);
         if (inviteClose)    inviteClose.addEventListener('click', closeInviteModal);
         if (inviteCancelBtn) inviteCancelBtn.addEventListener('click', closeInviteModal);
         if (inviteModal) {

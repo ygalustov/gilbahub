@@ -156,106 +156,59 @@
                             </select>
                         </div>
 
-                        <div id="users-active-panel">
-                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                <table class="dat-table" id="users-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Site</th>
-                                            <th>Role</th>
-                                            <th style="width:40px"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="users-tbody">
-                                        <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div id="users-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
-                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
-                                <div style="font-size:13px">Invite your team to access and manage sites.</div>
-                                <button type="button" class="stg-btn-primary" id="users-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
-                            </div>
+                        {{-- Single shared table for all tabs --}}
+                        <div class="dat-table-wrap" style="padding:0">
+                            <table class="dat-table" style="table-layout:fixed;width:100%">
+                                <colgroup>
+                                    <col style="width:16%">
+                                    <col style="width:26%">
+                                    <col style="width:16%">
+                                    <col style="width:12%">
+                                    <col style="width:14%">
+                                    <col style="width:16%">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Site</th>
+                                        <th>Role</th>
+                                        <th>Status</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-tbody">
+                                    <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
+                                </tbody>
+                            </table>
                         </div>
 
+                        {{-- Empty states (one per tab) --}}
+                        <div id="users-active-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
+                            <div style="font-size:13px">Invite your team to access and manage sites.</div>
+                            <button type="button" class="stg-btn-primary" id="users-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
+                        </div>
                         @if($activeSiteRole === 'admin')
-                        {{-- Requests tab (admin only) --}}
-                        <div id="users-requests-panel" style="display:none">
-                            <div id="users-requests-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                <table class="dat-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Requested</th>
-                                            <th style="width:180px"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="users-pending-tbody"></tbody>
-                                </table>
-                            </div>
-                            <div id="users-requests-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
-                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No pending requests.</div>
-                                <div style="font-size:13px">New access requests will appear here.</div>
-                            </div>
+                        <div id="users-requests-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <div style="font-weight:600;margin-bottom:6px">No pending requests.</div>
+                            <div style="font-size:13px">New access requests will appear here.</div>
                         </div>
                         @endif
-
-                        {{-- Invitations tab --}}
-                        <div id="users-invitations-panel" style="display:none">
-                            <div id="users-invitations-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                <table class="dat-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Site</th>
-                                            <th>Role</th>
-                                            <th>Sent</th>
-                                            <th style="width:80px"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="users-invitations-tbody"></tbody>
-                                </table>
-                            </div>
-                            <div id="users-invitations-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
-                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No pending invitations.</div>
-                                <div style="font-size:13px">Invited users who haven't signed in yet will appear here.</div>
-                            </div>
+                        <div id="users-invitations-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                            <div style="font-weight:600;margin-bottom:6px">No pending invitations.</div>
+                            <div style="font-size:13px">Invited users who haven't signed in yet will appear here.</div>
+                            <button type="button" class="stg-btn-primary" id="users-invite-empty-btn-inv" style="margin-top:16px">+ Invite user</button>
                         </div>
-
                         @if($activeSiteRole === 'admin')
-                        {{-- All tab (admin only) --}}
-                        <div id="users-all-panel" style="display:none">
-                            <div id="users-all-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                <table class="dat-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Site</th>
-                                            <th>Role</th>
-                                            <th>Status</th>
-                                            <th style="width:160px"></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="users-all-tbody">
-                                        <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                            <div id="users-all-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
-                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
-                                <div style="font-size:13px">Invite your team to access and manage sites.</div>
-                                <button type="button" class="stg-btn-primary" id="users-all-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
-                            </div>
+                        <div id="users-all-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                            <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
+                            <div style="font-size:13px">Invite your team to access and manage sites.</div>
+                            <button type="button" class="stg-btn-primary" id="users-all-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
                         </div>
                         @endif
 
