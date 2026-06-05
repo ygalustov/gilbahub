@@ -148,7 +148,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-62** Enhance login flow and setup interactions. Updated AuthController to clear intended URL for setup redirection. Improved dashboard initialization by consolidating setup logic in JavaScript, ensuring the onboarding wizard only displays when necessary. Adjusted redirection after onboarding completion to navigate directly to the dashboard.
 **GH-63** Enhance invitation management and magic link functionality. Updated InvitationController to support multiple site invitations, improved user access checks, and added magic link creation for invited users. Modified MagicLink model to include site_id and added migration for database schema update. Enhanced user interface in account view to better manage pending requests and invitations.
 **GH-64** Refactor account view and update site selection logic. Simplified the button styling for site selection in the account view and adjusted JavaScript to ensure proper label updates based on selected sites, enhancing user experience.
-
+**GH-65** Refactor user management in UsersController and update account view. Enhanced user retrieval to support multiple managed sites for managers, added suspended user handling, and improved invitation query logic. Updated account view to streamline user role visibility and adjusted JavaScript for better tab management and error handling.
 
 
 
@@ -161,7 +161,8 @@ password: GEAR.smith6
 
 - site logo
 
-- Sites - number of users
+- Sites - number of users and option to add access from this page
+And when click - in the details show list of active users
 
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:

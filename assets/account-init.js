@@ -44,7 +44,14 @@
                 'X-CSRF-TOKEN': csrf,
             },
             body: body ? JSON.stringify(body) : undefined,
-        }).then(function (r) { return r.json(); });
+        }).then(function (r) {
+            return r.text().then(function (text) {
+                var data;
+                try { data = JSON.parse(text); } catch (e) { data = {}; }
+                if (!r.ok) return Promise.reject({ _status: r.status, message: data.message || '' });
+                return data;
+            });
+        });
     }
 
     function escHtml(str) {
@@ -269,7 +276,8 @@
 
     /* ── Users tab ───────────────────────────────────────────────── */
     (function initUsersTab() {
-        var isAdmin = D.activeSiteRole === 'admin';
+        var isAdmin      = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
+        var isSiteAdmin  = D.activeSiteRole === 'admin';
 
         var utabBtns       = document.querySelectorAll('[data-utab]');
         var activePanel      = document.getElementById('users-active-panel');
@@ -358,7 +366,7 @@
             var siteCol = isAdmin ? ('<td>' + escHtml(u.site_name || '') + '</td>') : '';
             var actions = canEdit && u.site_id
                 ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>' +
-                  (isAdmin ? ' <button class="stg-btn-ghost suspend-btn" style="font-size:12px;padding:3px 8px;color:#dc2626">Suspend</button>' : '')
+                  (isSiteAdmin ? ' <button class="stg-btn-ghost suspend-btn" style="font-size:12px;padding:3px 8px;color:#dc2626">Suspend</button>' : '')
                 : '';
             return '<tr data-user-id="' + u.id + '">' +
                 '<td>' + escHtml(u.name || '') + '</td>' +
@@ -386,7 +394,7 @@
         function renderMembers() {
             if (!tbody) return;
             var filtered = applyFilters(_members).filter(function (u) { return u.email !== D.userEmail; });
-            var colspan = isAdmin ? 5 : 4;
+            var colspan = 5;
             var othersExist = _members.some(function (u) { return u.email !== D.userEmail; });
             if (emptyState) emptyState.style.display = (!othersExist) ? '' : 'none';
             if (!filtered.length) {
@@ -742,7 +750,13 @@
 
                 apiFetch('POST', '/invitations', { name: name || null, email: email, role: role, site_ids: siteIds })
                     .then(function () { loadUsers(); closeInviteModal(); })
-                    .catch(function (err) { showInviteError((err && err.message) || 'Failed to send invitation.'); })
+                    .catch(function (err) {
+                        var status = err && err._status;
+                        var msg = (status >= 400 && status < 500 && err.message)
+                            ? err.message
+                            : 'Something went wrong. Please try again.';
+                        showInviteError(msg);
+                    })
                     .finally(function () { inviteSubmitBtn.disabled = false; });
             });
         }
@@ -751,8 +765,9 @@
         if (usersTabTrigger) {
             usersTabTrigger.addEventListener('click', loadUsers);
         }
-        // Show "all" panel by default (it's the first tab)
-        switchUtab('all');
+        // Start on whichever tab is marked active in the DOM
+        var firstActiveUtab = document.querySelector('#users-admin-tabs .stg-tab.active');
+        switchUtab(firstActiveUtab ? firstActiveUtab.dataset.utab : 'all');
 
         if (document.querySelector('[data-tab="users"].active') || document.querySelector('#stg-tab-users:not(.stg-hidden)')) {
             loadUsers();

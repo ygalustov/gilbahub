@@ -125,7 +125,6 @@
 
                     <div id="users-root">
 
-                        @if($activeSiteRole === 'admin')
                         <div class="stg-sites-head" style="margin-bottom:16px">
                             <h2 class="stg-sites-title">Users</h2>
                             <button type="button" class="stg-btn-primary" id="users-invite-btn">
@@ -134,29 +133,22 @@
                             </button>
                         </div>
                         <div style="display:flex;gap:4px;margin-bottom:20px" id="users-admin-tabs">
+                            @if($activeSiteRole === 'admin')
                             <button class="stg-tab active" data-utab="all">All</button>
-                            <button class="stg-tab" data-utab="active">Active</button>
+                            @endif
+                            <button class="stg-tab{{ $activeSiteRole !== 'admin' ? ' active' : '' }}" data-utab="active">Active</button>
+                            @if($activeSiteRole === 'admin')
                             <button class="stg-tab" data-utab="requests">Requests <span id="users-requests-count" style="display:none" class="badge"></span></button>
+                            @endif
                             <button class="stg-tab" data-utab="invitations">Invitations <span id="users-invitations-count" style="display:none" class="badge"></span></button>
                             <button class="stg-tab" data-utab="suspended">Suspended</button>
                         </div>
-                        @else
-                        <div class="stg-sites-head" style="margin-bottom:16px">
-                            <h2 class="stg-sites-title">Users</h2>
-                            <button type="button" class="stg-btn-primary" id="users-invite-btn">
-                                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                                Invite
-                            </button>
-                        </div>
-                        @endif
 
                         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap" id="users-filters">
-                            <input type="text" id="users-search" class="stg-input" placeholder="{{ $activeSiteRole === 'admin' ? 'Search by name, email or site…' : 'Search by name or email…' }}" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:320px">
-                            @if($activeSiteRole === 'admin')
+                            <input type="text" id="users-search" class="stg-input" placeholder="Search by name, email or site…" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:320px">
                             <select id="users-site-filter" class="stg-select" style="min-width:160px">
                                 <option value="">All sites</option>
                             </select>
-                            @endif
                             <select id="users-role-filter" class="stg-select">
                                 <option value="">All roles</option>
                                 <option value="manager">Manager</option>
@@ -172,13 +164,13 @@
                                         <tr>
                                             <th>Name</th>
                                             <th>Email</th>
-                                            @if($activeSiteRole === 'admin')<th>Site</th>@endif
+                                            <th>Site</th>
                                             <th>Role</th>
                                             <th style="width:40px"></th>
                                         </tr>
                                     </thead>
                                     <tbody id="users-tbody">
-                                        <tr><td colspan="{{ $activeSiteRole === 'admin' ? 5 : 4 }}" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
+                                        <tr><td colspan="5" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -192,7 +184,7 @@
                         </div>
 
                         @if($activeSiteRole === 'admin')
-                        {{-- Requests tab --}}
+                        {{-- Requests tab (admin only) --}}
                         <div id="users-requests-panel" style="display:none">
                             <div id="users-requests-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
@@ -213,6 +205,7 @@
                                 <div style="font-size:13px">New access requests will appear here.</div>
                             </div>
                         </div>
+                        @endif
 
                         {{-- Invitations tab --}}
                         <div id="users-invitations-panel" style="display:none">
@@ -255,7 +248,8 @@
                             </div>
                         </div>
 
-                        {{-- All tab --}}
+                        @if($activeSiteRole === 'admin')
+                        {{-- All tab (admin only) --}}
                         <div id="users-all-panel" style="display:none">
                             <div id="users-all-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">

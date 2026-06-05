@@ -54,26 +54,51 @@ class UsersController extends Controller
             ]);
         }
 
-        // Manager: users on active site only
-        $site = $actor->activeSite;
-        abort_unless($site, 404);
-        abort_unless($actor->canManageSite($site), 403);
+        // Manager: users across all their managed sites
+        $managedSites = $actor->sites()
+            ->wherePivotIn('role', ['manager'])
+            ->orderBy('name')
+            ->get(['sites.id', 'sites.name']);
 
-        $members = DB::table('site_user')
+        abort_if($managedSites->isEmpty(), 403);
+
+        $siteId = $request->query('site_id');
+        $siteIds = $managedSites->pluck('id')->all();
+
+        $query = DB::table('site_user')
             ->join('users', 'users.id', '=', 'site_user.user_id')
-            ->where('site_user.site_id', $site->id)
-            ->select('users.id', 'users.name', 'users.email', 'users.status', 'site_user.role')
-            ->orderBy('users.name')
-            ->get();
+            ->join('sites', 'sites.id', '=', 'site_user.site_id')
+            ->whereIn('site_user.site_id', $siteIds)
+            ->select('users.id', 'users.name', 'users.email', 'users.status', 'site_user.role', 'sites.id as site_id', 'sites.name as site_name')
+            ->orderBy('users.name');
 
-        $invitations = Invitation::query()
-            ->where('site_id', $site->id)
-            ->orderBy('created_at', 'desc')
+        if ($siteId && in_array($siteId, $siteIds)) {
+            $query->where('site_user.site_id', $siteId);
+        }
+
+        $members = $query->get();
+
+        $invQuery = Invitation::query()
+            ->join('sites', 'sites.id', '=', 'invitations.site_id')
+            ->select('invitations.*', 'sites.name as site_name')
+            ->whereIn('invitations.site_id', $siteIds)
+            ->orderBy('invitations.created_at', 'desc');
+
+        if ($siteId && in_array($siteId, $siteIds)) {
+            $invQuery->where('invitations.site_id', $siteId);
+        }
+
+        $suspended = User::query()
+            ->where('status', 'suspended')
+            ->whereIn('id', DB::table('site_user')->whereIn('site_id', $siteIds)->pluck('user_id'))
+            ->orderBy('name')
             ->get();
 
         return response()->json([
-            'members' => $members,
-            'invitations' => $invitations,
+            'members'     => $members,
+            'invitations' => $invQuery->get(),
+            'suspended'   => $suspended,
+            'all_sites'   => $managedSites,
         ]);
     }
 
