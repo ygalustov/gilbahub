@@ -63,6 +63,13 @@
                         <button type="button" id="stg-onboard-no"  class="stg-btn-ghost"  style="white-space:nowrap">Do it later</button>
                     </div>
 
+                    <div style="display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+                        <input type="text" id="stg-sites-text-search" class="stg-input" placeholder="Search by site name…" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:280px">
+                        <select id="stg-sites-search" class="stg-select" style="min-width:200px">
+                            <option value="">All sites</option>
+                        </select>
+                    </div>
+
                     <div class="dat-table-wrap" style="padding:0;overflow-x:hidden">
                         <table class="dat-table stg-sites-table" id="stg-sites-table" style="min-width:0">
                             <thead>

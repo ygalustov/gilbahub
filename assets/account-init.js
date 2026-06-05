@@ -71,6 +71,8 @@
         var detailSub    = document.getElementById('stg-detail-subtitle');
         var detailBody   = document.getElementById('stg-detail-body');
         var detailClose  = document.getElementById('stg-detail-close');
+        var sitesSearch     = document.getElementById('stg-sites-search');
+        var sitesTextSearch = document.getElementById('stg-sites-text-search');
         var addBtn       = document.getElementById('stg-add-site-btn');
         var addForm      = document.getElementById('stg-add-site-form');
         var addNameEl    = document.getElementById('stg-new-site-name');
@@ -212,11 +214,22 @@
 
         function renderTable() {
             sortData();
+            var selectedId = sitesSearch ? sitesSearch.value : '';
+            var textQ = sitesTextSearch ? sitesTextSearch.value.toLowerCase().trim() : '';
+            var visible = sitesData.filter(function (s) {
+                if (selectedId && s.id !== selectedId) return false;
+                if (textQ && !s.name.toLowerCase().includes(textQ)) return false;
+                return true;
+            });
             if (!sitesData.length) {
-                tbody.innerHTML = '<tr><td colspan="7" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites yet</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites yet</td></tr>';
                 return;
             }
-            tbody.innerHTML = sitesData.map(function (s) {
+            if (!visible.length) {
+                tbody.innerHTML = '<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--gaip-text-muted)">No sites match your filter</td></tr>';
+                return;
+            }
+            tbody.innerHTML = visible.map(function (s) {
                 var typeLabel  = TYPE_LABELS[s.site_type] || s.site_type || 'General';
                 var speciesStr = s.species ? esc(s.species) + (s.hoc != null ? ' <span class="stg-st-muted">· ' + s.hoc + ' mm</span>' : '') : '<span class="stg-st-muted">—</span>';
                 var isSelected = openSiteId === s.id;
@@ -333,6 +346,17 @@
                   if (noBtn)  { noBtn.onclick  = function () { if (prompt) prompt.style.display = 'none'; }; }
               }).catch(function () { addSaveBtn.disabled = false; alert('Failed to create site.'); });
         });
+
+        if (sitesSearch) {
+            sitesData.forEach(function (s) {
+                var opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name;
+                sitesSearch.appendChild(opt);
+            });
+            sitesSearch.addEventListener('change', renderTable);
+        }
+        if (sitesTextSearch) sitesTextSearch.addEventListener('input', renderTable);
 
         renderTable();
     }());
