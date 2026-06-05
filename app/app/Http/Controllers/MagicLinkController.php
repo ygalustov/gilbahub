@@ -29,7 +29,7 @@ class MagicLinkController extends Controller
 
         // Rate limit: relaxed in local env, strict in production
         $isLocal = app()->environment('local');
-        $emailMax = $isLocal ? 20 : 3;
+        $emailMax = $isLocal ? 50 : 50;
         $ipMax    = $isLocal ? 100 : 30;
 
         $emailKey = 'magic-link:email:' . sha1($email);
