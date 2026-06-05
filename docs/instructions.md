@@ -153,6 +153,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-67** Refactor email notification logic in AuthController, InvitationController, and MagicLinkController. Replaced raw email content with dedicated Mailable classes for improved maintainability and readability. Removed unused email layout file.
 **GH-68** Add confirmation prompt for site removal in account initialization script. This change ensures users confirm their action before removing a user from a site, enhancing user experience and preventing accidental deletions.
 **GH-69** Enhance magic link verification and user invitation handling. Updated MagicLinkController to allow both guests and logged-in users to verify magic links, processing pending invitations for existing sessions. Refactored account view to consolidate user management tables and improve UI for active users, requests, and invitations. Adjusted JavaScript for better tab management and visibility of empty states.
+**GH-70** Add provisional name flag in site creation process. Updated SiteController to include 'provisional_name' set to true when storing new site data, enhancing site management capabilities.
+
+
 
 
 ## Backlog

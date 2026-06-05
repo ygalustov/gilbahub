@@ -46,6 +46,7 @@ class SiteController extends Controller
             'account_id' => $account->id,
             'site_type' => $data['site_type'] ?? 'precinct',
             'slug' => $this->uniqueSlug($account->id, $data['name']),
+            'provisional_name' => true,
             'created_by_user_id' => $request->user()->id,
             'modified_by_user_id' => $request->user()->id,
         ]);

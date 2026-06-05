@@ -369,7 +369,7 @@
         function applyFilters(list) {
             var f = getSearchQuery();
             return list.filter(function (u) {
-                if (f.q && !(u.name || '').toLowerCase().includes(f.q) && !u.email.toLowerCase().includes(f.q)) return false;
+                if (f.q && !(u.name || '').toLowerCase().includes(f.q) && !u.email.toLowerCase().includes(f.q) && !(u.site_name || '').toLowerCase().includes(f.q)) return false;
                 if (f.role && u.role !== f.role) return false;
                 if (f.site && u.site_id !== f.site) return false;
                 return true;
@@ -586,7 +586,10 @@
             var defaultRole = inviteModal.querySelector('[name="invite-role"][value="manager"]');
             if (defaultRole) defaultRole.checked = true;
             if (inviteSitesDropdown) {
-                inviteSitesDropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+                var activeSiteFilterId = siteFilter ? siteFilter.value : '';
+                inviteSitesDropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                    cb.checked = activeSiteFilterId ? cb.value === activeSiteFilterId : false;
+                });
                 inviteSitesDropdown.style.display = 'none';
             }
             updateSitesLabel();
