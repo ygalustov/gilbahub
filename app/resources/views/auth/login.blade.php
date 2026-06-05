@@ -229,18 +229,20 @@
                 margin-top: 4px;
                 line-height: 1.4;
             }
+            .login-main {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                padding: 24px 20px 0;
+            }
+            .login-card { flex-shrink: 0; margin-top: auto; margin-bottom: auto; }
             .login-mobile-footer {
                 display: block;
                 text-align: center;
                 font-size: 12px;
                 color: #6b8878;
-                padding: 16px 20px;
-                flex-shrink: 0;
-            }
-
-            .login-main {
-                flex: 1;
-                padding: 24px 20px;
+                padding: 20px;
+                margin-top: auto;
             }
             .login-card { max-width: 100%; }
             .login-heading { font-size: 20px; }
@@ -383,11 +385,11 @@
             </div>
 
         </div>
-    </main>
 
-    <footer class="login-mobile-footer">
-        &copy; {{ date('Y') }} The Gilba Turf Agronomy Hub
-    </footer>
+        <footer class="login-mobile-footer">
+            &copy; {{ date('Y') }} The Gilba Turf Agronomy Hub
+        </footer>
+    </main>
 
     <script>
         const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content
