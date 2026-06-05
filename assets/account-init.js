@@ -526,16 +526,16 @@
         }
 
         function updateSitesLabel() {
-            if (!inviteSitesLabel) return;
+            if (!inviteSitesToggle || !inviteSitesLabel) return;
             var checked = getCheckedSiteIds();
             if (checked.length === 0) {
                 inviteSitesLabel.textContent = 'Select sites…';
-                inviteSitesLabel.style.color = '#6b8878';
+                inviteSitesToggle.style.color = '#6b8878';
             } else {
                 inviteSitesLabel.textContent = checked.length === 1
                     ? inviteSitesDropdown.querySelector('input[value="' + checked[0] + '"]').dataset.name
                     : checked.length + ' sites selected';
-                inviteSitesLabel.style.color = '#1a2b23';
+                inviteSitesToggle.style.color = '#1a2b23';
             }
         }
 

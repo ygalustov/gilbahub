@@ -309,9 +309,8 @@
                             <div style="margin-bottom:16px">
                                 <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Sites</label>
                                 <div id="invite-sites-wrapper" style="position:relative">
-                                    <button type="button" id="invite-sites-toggle" class="stg-select" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#fff;font-family:'Barlow',sans-serif;font-size:14px">
-                                        <span id="invite-sites-label" style="color:#6b8878">Select sites…</span>
-                                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                    <button type="button" id="invite-sites-toggle" class="stg-select" style="width:100%;text-align:left;cursor:pointer;font-family:'Barlow',sans-serif;font-size:14px;color:#6b8878">
+                                        <span id="invite-sites-label">Select sites…</span>
                                     </button>
                                     <div id="invite-sites-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:4px 0" id="invite-sites-list">
                                     </div>
