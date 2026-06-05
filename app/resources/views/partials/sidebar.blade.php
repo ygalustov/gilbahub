@@ -46,10 +46,13 @@
     </a>
 
     <div class="db-sidebar-bottom">
-        <a href="{{ route('account') }}" class="db-nav-item{{ ($currentPage ?? '') === 'account' ? ' active' : '' }}" title="Account">
+        <a href="{{ route('account') }}" class="db-nav-item{{ ($currentPage ?? '') === 'account' ? ' active' : '' }}" title="Account" style="position:relative">
             <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
             </svg>
+            @if(($pendingRequestsCount ?? 0) > 0)
+            <span style="position:absolute;top:4px;right:4px;min-width:16px;height:16px;padding:0 4px;background:#ef4444;border-radius:8px;font-size:10px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;line-height:1;font-family:'Barlow',sans-serif">{{ $pendingRequestsCount }}</span>
+            @endif
         </a>
 
         <a href="{{ route('settings') }}" class="db-nav-item{{ ($currentPage ?? '') === 'settings' ? ' active' : '' }}" title="Settings">

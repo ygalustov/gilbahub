@@ -99,6 +99,30 @@
                 @if(in_array($activeSiteRole, ['admin', 'manager']))
                 {{-- ── Users panel ─────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-users" role="tabpanel">
+
+                    {{-- Current user card --}}
+                    @php
+                        $me = auth()->user();
+                        $myRole = $me->is_admin ? 'Admin' : ucfirst($activeSiteRole ?? 'Viewer');
+                        $initials = collect(explode(' ', trim($me->name ?? $me->email)))
+                            ->take(2)->map(fn($w) => strtoupper(substr($w,0,1)))->implode('');
+                    @endphp
+                    <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;background:#f3f7f5;border:1px solid #d4e3da;border-radius:10px;margin-bottom:24px">
+                        <div style="width:40px;height:40px;border-radius:50%;background:#2da85e;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0;font-family:'Barlow',sans-serif">
+                            {{ $initials }}
+                        </div>
+                        <div style="flex:1;min-width:0">
+                            <div style="font-weight:600;font-size:14px;color:#1a2b23">{{ $me->name ?: $me->email }}</div>
+                            @if($me->name)
+                            <div style="font-size:13px;color:#6b8878;margin-top:2px">{{ $me->email }}</div>
+                            @endif
+                        </div>
+                        <span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:20px;background:{{ $me->is_admin ? '#1a2b23' : '#e4f0e9' }};color:{{ $me->is_admin ? '#fff' : '#2d7a4e' }}">
+                            {{ $myRole }}
+                        </span>
+                        <span style="font-size:12px;color:#6b8878;flex-shrink:0">You</span>
+                    </div>
+
                     <div id="users-root">
 
                         @if($activeSiteRole === 'admin')
@@ -110,8 +134,10 @@
                             </button>
                         </div>
                         <div style="display:flex;gap:4px;margin-bottom:20px" id="users-admin-tabs">
-                            <button class="stg-tab active" data-utab="active">Active</button>
-                            <button class="stg-tab" data-utab="pending">Pending <span id="users-pending-count" style="display:none" class="badge"></span></button>
+                            <button class="stg-tab active" data-utab="all">All</button>
+                            <button class="stg-tab" data-utab="active">Active</button>
+                            <button class="stg-tab" data-utab="requests">Requests <span id="users-requests-count" style="display:none" class="badge"></span></button>
+                            <button class="stg-tab" data-utab="invitations">Invitations <span id="users-invitations-count" style="display:none" class="badge"></span></button>
                             <button class="stg-tab" data-utab="suspended">Suspended</button>
                         </div>
                         @else
@@ -125,7 +151,7 @@
                         @endif
 
                         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap" id="users-filters">
-                            <input type="text" id="users-search" class="stg-input" placeholder="{{ $activeSiteRole === 'admin' ? 'Search by name, email or site…' : 'Search by name or email…' }}" style="flex:1;min-width:180px;max-width:320px">
+                            <input type="text" id="users-search" class="stg-input" placeholder="{{ $activeSiteRole === 'admin' ? 'Search by name, email or site…' : 'Search by name or email…' }}" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:320px">
                             @if($activeSiteRole === 'admin')
                             <select id="users-site-filter" class="stg-select" style="min-width:160px">
                                 <option value="">All sites</option>
@@ -157,32 +183,50 @@
                                 </table>
                             </div>
 
-                            <div id="users-invitations-section" style="margin-top:28px;display:none">
-                                <h3 style="font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:12px">Pending invitations</h3>
-                                <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                    <table class="dat-table">
-                                        <tbody id="users-invitations-tbody"></tbody>
-                                    </table>
-                                </div>
-                            </div>
-
                             <div id="users-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
                                 <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No other users on this site yet.</div>
-                                <div style="font-size:13px">Invite a manager, editor, or viewer to collaborate.</div>
-                                <button type="button" class="stg-btn-primary" id="users-invite-empty-btn" style="margin-top:16px">+ Invite someone</button>
+                                <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
+                                <div style="font-size:13px">Invite your team to access and manage sites.</div>
+                                <button type="button" class="stg-btn-primary" id="users-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
                             </div>
                         </div>
 
                         @if($activeSiteRole === 'admin')
-                        <div id="users-pending-panel" style="display:none">
+                        {{-- Requests tab: self-registered awaiting approval --}}
+                        <div id="users-requests-panel" style="display:none">
                             <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
                                     <thead>
-                                        <tr><th>Name</th><th>Email</th><th>Registered</th><th style="width:160px"></th></tr>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Requested</th>
+                                            <th style="width:180px"></th>
+                                        </tr>
                                     </thead>
                                     <tbody id="users-pending-tbody">
-                                        <tr><td colspan="4" style="text-align:center;padding:24px;color:#6b8878">No pending registrations.</td></tr>
+                                        <tr><td colspan="4" style="text-align:center;padding:24px;color:#6b8878">No pending requests.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {{-- Invitations tab: invited, not yet accepted --}}
+                        <div id="users-invitations-panel" style="display:none">
+                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                                <table class="dat-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Site</th>
+                                            <th>Role</th>
+                                            <th>Sent</th>
+                                            <th style="width:80px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="users-invitations-tbody">
+                                        <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">No pending invitations.</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -196,6 +240,26 @@
                                     </thead>
                                     <tbody id="users-suspended-tbody">
                                         <tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8878">No suspended accounts.</td></tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {{-- All tab --}}
+                        <div id="users-all-panel" style="display:none">
+                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                                <table class="dat-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Site</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th style="width:160px"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="users-all-tbody">
+                                        <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
                                     </tbody>
                                 </table>
                             </div>

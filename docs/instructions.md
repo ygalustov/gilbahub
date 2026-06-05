@@ -144,6 +144,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-59** Enhance authentication and user management features in AuthController. Implemented password handling with Magic Link support, improved login validation, and added user registration functionality. Introduced role-based access control for site management and refined user experience with new notifications and banners in the dashboard and settings views.
 **GH-59** Enhance user invitation functionality in settings view. Added input field for invitee name and updated JavaScript to manage user data more effectively, including user email handling for improved user experience.
 **GH-60** Refactor SettingsController and update settings view. Removed unused site management logic and adjusted the UI to focus on site settings. Added account link in the sidebar for improved navigation. Enhanced CSS for select elements to improve user experience.
+**GH-61** Implement sidebar notifications for pending user requests and enhance account view. Added logic to display the count of pending requests in the sidebar, updated the account view to show the current user's details, and refined user management UI with new tabs and improved search functionality.
+
+
 
 
 ## Backlog

@@ -35,6 +35,18 @@ class AppServiceProvider extends ServiceProvider
             return url('/legacy-assets/'.$asset).$version;
         });
 
+        View::composer('partials.sidebar', function ($view) {
+            if (! Auth::check()) {
+                $view->with('pendingRequestsCount', 0);
+                return;
+            }
+            $user = Auth::user();
+            $count = $user->is_admin
+                ? User::where('status', 'pending')->count()
+                : 0;
+            $view->with('pendingRequestsCount', $count);
+        });
+
         View::composer('partials.topbar', function ($view) {
             if (! Auth::check()) {
                 $view->with('siteStatusMap', []);
