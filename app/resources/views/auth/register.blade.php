@@ -4,6 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Create Account — {{ config('app.name') }}</title>
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link rel="stylesheet" href="{{ $legacyAssetUrl('gaip-design-system.css') }}">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -56,8 +57,8 @@
 <body>
     <aside class="login-aside">
         <div class="login-logo">
-            <svg width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/>
+            <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+                <text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="currentColor">G</text>
             </svg>
         </div>
         <div class="login-brand">The Gilba<br>Turf Agronomy Hub</div>

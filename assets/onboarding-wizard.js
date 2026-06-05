@@ -223,8 +223,9 @@
         _step0_Welcome: function (c) {
             c.innerHTML = [
                 '<div style="text-align:center;padding:8px 0 16px">',
-                '<svg width="40" height="40" fill="none" viewBox="0 0 24 24" stroke="var(--gaip-accent,#2da85e)" stroke-width="1.5" style="display:block;margin:0 auto 14px">',
-                '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/>',
+                '<svg width="44" height="44" viewBox="0 0 48 48" fill="none" style="display:block;margin:0 auto 14px">',
+                '<rect width="48" height="48" rx="10" fill="var(--gaip-accent,#2da85e)"/>',
+                '<text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial,Helvetica,sans-serif" font-size="32" font-weight="700" fill="white">G</text>',
                 '</svg>',
                 '<h2 style="margin:0 0 8px;font-size:21px;font-weight:700;color:var(--gaip-text,#17231f)">Welcome to the Gilba Hub</h2>',
                 '<p style="color:var(--gaip-text-secondary,#4a5e55);font-size:14px;line-height:1.6;margin:0 0 20px">',
