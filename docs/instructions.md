@@ -151,7 +151,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-65** Refactor user management in UsersController and update account view. Enhanced user retrieval to support multiple managed sites for managers, added suspended user handling, and improved invitation query logic. Updated account view to streamline user role visibility and adjusted JavaScript for better tab management and error handling.
 **GH-66** Remove UnsuspendUser command and refactor user management logic. Updated DashboardController to handle non-admin users without sites, modified SiteController to filter active sites, and adjusted UsersController to remove suspended user handling. Added no-access view for users lacking site access and improved email templates for better user communication.
 **GH-67** Refactor email notification logic in AuthController, InvitationController, and MagicLinkController. Replaced raw email content with dedicated Mailable classes for improved maintainability and readability. Removed unused email layout file.
-
+**GH-68** Add confirmation prompt for site removal in account initialization script. This change ensures users confirm their action before removing a user from a site, enhancing user experience and preventing accidental deletions.
 
 
 

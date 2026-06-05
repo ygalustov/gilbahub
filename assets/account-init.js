@@ -637,6 +637,7 @@
                 } else if (e.target.classList.contains('remove-site-btn')) {
                     var sid = e.target.dataset.siteId;
                     if (!sid) return;
+                    if (!confirm('Remove this user from the site?')) return;
                     apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
                         .then(loadUsers).catch(function () { alert('Failed to remove.'); });
                 }
