@@ -152,7 +152,7 @@
                             '</div>';
                     }).join('') + '</div>';
             } else {
-                usersHtml += '<div style="font-size:13px;color:#6b8878;padding:8px 0">No users yet. Invite someone to get started.</div>';
+                usersHtml += '<div style="font-size:13px;color:#6b8878;padding:8px 0">No users yet.</div>';
             }
             usersHtml += '</div>';
 

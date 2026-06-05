@@ -164,7 +164,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-73** Enhance user management in account view by adding status filter and sorting functionality. Updated the account blade template to include a new status filter for user statuses and modified JavaScript to support sorting by name, email, and site. Improved the rendering of user data to enhance visibility and management capabilities.
 **GH-74** Implement site search functionality in account view. Added a text input and dropdown for filtering sites by name and type. Updated JavaScript to handle search input and dynamically populate the site selection options, improving user experience in site management.
 **GH-75** Update authentication views to include favicon and enhance logo representation. Added a favicon link to login, no-access, pending, and register pages. Updated logo SVG in login and register views to display a stylized letter "G" for improved branding consistency.
-
+**GH-76** Update account initialization script to simplify user notification. Removed invitation prompt from the "no users" message for a cleaner user experience.
 
 
 
