@@ -214,6 +214,7 @@ class SiteController extends Controller
             $user->forceFill(['last_active_site_id' => $next?->id])->save();
         }
 
+        $site->users()->detach();
         $site->configs()->delete();
         $site->delete();
 

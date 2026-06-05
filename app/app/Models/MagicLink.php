@@ -8,7 +8,7 @@ class MagicLink extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['token', 'email', 'expires_at', 'created_at'];
+    protected $fillable = ['token', 'email', 'site_id', 'expires_at', 'created_at'];
 
     protected function casts(): array
     {

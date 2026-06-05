@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\Invitation;
+use App\Models\MagicLink;
 use App\Models\Site;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class InvitationController extends Controller
@@ -15,69 +17,89 @@ class InvitationController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'name' => ['nullable', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'role' => ['required', Rule::in(['manager', 'editor', 'viewer'])],
-            'site_id' => ['required', 'string', 'exists:sites,id'],
+            'name'     => ['nullable', 'string', 'max:255'],
+            'email'    => ['required', 'email', 'max:255'],
+            'role'     => ['required', Rule::in(['manager', 'editor', 'viewer'])],
+            'site_ids' => ['required', 'array', 'min:1'],
+            'site_ids.*' => ['required', 'string', 'exists:sites,id'],
         ]);
 
-        $user = $request->user();
-        $site = Site::query()->findOrFail($data['site_id']);
-
-        abort_unless($user->canManageSite($site), 403);
-
-        // assertCanGrantRole check
-        $this->assertCanGrantRole($user, $site, $data['role']);
-
+        $actor = $request->user();
         $email = strtolower(trim($data['email']));
+        $role  = $data['role'];
+        $name  = $data['name'] ?? null;
 
-        // Check if user already has access
+        $sites = Site::query()->findMany($data['site_ids']);
+
+        // Authorisation: actor must be able to manage every selected site
+        foreach ($sites as $site) {
+            abort_unless($actor->canManageSite($site), 403);
+            $this->assertCanGrantRole($actor, $site, $role);
+        }
+
         $existingUser = User::query()->where('email', $email)->first();
-        if ($existingUser && $existingUser->sites()->where('sites.id', $site->id)->exists()) {
-            return response()->json(['message' => 'This user already has access to this site.'], 422);
+        $skipped = [];
+        $created = [];
+
+        foreach ($sites as $site) {
+            // Already has access
+            if ($existingUser && $existingUser->sites()->where('sites.id', $site->id)->exists()) {
+                $skipped[] = $site->name . ' (already has access)';
+                continue;
+            }
+
+            // Duplicate pending invitation
+            if (Invitation::query()->where('email', $email)->where('site_id', $site->id)->exists()) {
+                $skipped[] = $site->name . ' (invitation already sent)';
+                continue;
+            }
+
+            Invitation::query()->create([
+                'name'       => $name,
+                'email'      => $email,
+                'role'       => $role,
+                'site_id'    => $site->id,
+                'invited_by' => $actor->id,
+                'created_at' => now(),
+            ]);
+
+            $created[] = $site;
         }
 
-        // Check for duplicate pending invitation
-        $existingInvitation = Invitation::query()
-            ->where('email', $email)
-            ->where('site_id', $site->id)
-            ->exists();
-
-        if ($existingInvitation) {
-            return response()->json(['message' => 'A pending invitation already exists for this email.'], 422);
+        if (empty($created)) {
+            $reason = implode('; ', $skipped);
+            return response()->json(['message' => "No invitations sent: {$reason}"], 422);
         }
 
-        $invitation = Invitation::query()->create([
-            'name' => $data['name'] ?? null,
-            'email' => $email,
-            'role' => $data['role'],
-            'site_id' => $site->id,
-            'invited_by' => $user->id,
+        // One magic link pointing to the first newly-invited site
+        MagicLink::query()->where('email', $email)->delete();
+        $token = Str::random(64);
+        MagicLink::query()->create([
+            'token'      => $token,
+            'email'      => $email,
+            'site_id'    => $created[0]->id,
+            'expires_at' => now()->addHours(48),
             'created_at' => now(),
         ]);
+        $magicUrl = route('magic.verify', ['token' => $token]);
 
-        // Send invitation email
+        $siteNames   = implode(', ', array_map(fn ($s) => $s->name, $created));
+        $actorName   = $actor->name;
+        $siteLabel   = count($created) === 1 ? $created[0]->name : $siteNames;
+
         Mail::raw(
-            "You've been invited to join {$site->name} on Gilba Hub as {$data['role']}.\n\nSign in at: " . route('login') . "\n\nIf you don't have an account yet, your access will be granted automatically when you first sign in.",
+            "{$actorName} has invited you to access {$siteLabel} on The Gilba Turf Agronomy Hub.\n\nClick the link below to get started:\n\n{$magicUrl}\n\nThis link expires in 48 hours.",
             fn ($message) => $message
                 ->to($email)
-                ->subject("You've been invited to {$site->name} on Gilba Hub")
+                ->subject("{$actorName} invited you to {$siteLabel} — Gilba Hub")
         );
 
-        return response()->json([
-            'data' => [
-                'id' => $invitation->id,
-                'email' => $invitation->email,
-                'role' => $invitation->role,
-                'site_id' => $invitation->site_id,
-                'created_at' => $invitation->created_at?->toISOString(),
-            ],
-        ], 201);
+        return response()->json(['data' => ['created' => count($created), 'skipped' => $skipped]], 201);
     }
 
     public function destroy(Request $request, int $invitation): JsonResponse
     {
-        $inv = Invitation::query()->findOrFail($invitation);
+        $inv  = Invitation::query()->findOrFail($invitation);
         $site = Site::query()->findOrFail($inv->site_id);
 
         abort_unless($request->user()->canManageSite($site), 403);
@@ -91,7 +113,7 @@ class InvitationController extends Controller
     {
         abort_if($targetRole === 'admin', 403);
 
-        $hierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3];
+        $hierarchy  = ['viewer' => 1, 'editor' => 2, 'manager' => 3];
         $actorLevel = $actor->is_admin ? 3 : ($hierarchy[$actor->roleOnSite($site)] ?? 0);
         $targetLevel = $hierarchy[$targetRole] ?? 0;
 

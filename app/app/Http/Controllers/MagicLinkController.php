@@ -90,7 +90,8 @@ class MagicLinkController extends Controller
         $user = User::query()->where('email', $email)->first();
 
         if ($user) {
-            // Process any pending invitations
+            $invitedSiteId = $link->site_id;
+
             $this->processPendingInvitations($user);
 
             Auth::login($user, remember: false);
@@ -100,15 +101,17 @@ class MagicLinkController extends Controller
                 return redirect()->route('settings')->with('open_password_modal', true);
             }
 
-            // First-time login with no site: create provisional site and go to dashboard
             if (! $user->last_active_site_id && $user->sites()->count() === 0) {
                 $this->provisionFirstSite($user);
+            } elseif ($invitedSiteId) {
+                $user->forceFill(['last_active_site_id' => $invitedSiteId])->save();
             }
 
             return redirect()->intended(route('dashboard'));
         }
 
         // No account yet — create from invitation data and log in
+        $invitedSiteId = $link->site_id;
         $invitation = Invitation::query()->where('email', $email)->first();
         $name = $invitation?->name ?? explode('@', $email)[0];
 
@@ -119,7 +122,12 @@ class MagicLinkController extends Controller
         ]);
 
         $this->processPendingInvitations($user);
-        $this->provisionFirstSite($user);
+
+        if ($user->sites()->count() === 0) {
+            $this->provisionFirstSite($user);
+        } elseif ($invitedSiteId) {
+            $user->forceFill(['last_active_site_id' => $invitedSiteId])->save();
+        }
 
         Auth::login($user, remember: false);
         $request->session()->regenerate();
@@ -187,7 +195,6 @@ class MagicLinkController extends Controller
         $invitations = Invitation::query()->where('email', $user->email)->get();
 
         foreach ($invitations as $invitation) {
-            // Add to site_user if not already a member
             if (! $user->sites()->where('sites.id', $invitation->site_id)->exists()) {
                 $user->sites()->attach($invitation->site_id, ['role' => $invitation->role]);
             }

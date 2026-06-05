@@ -24,8 +24,9 @@ class DatabaseSeeder extends Seeder
             ['email' => 'yuryg@gethydrosight.com.au'],
             [
                 'name' => 'Yury',
-                'password' => Hash::make('GEAR.smith6'),
-                'email_verified_at' => now(),
+                'password_hash' => Hash::make('GEAR.smith6'),
+                'status' => 'active',
+                'is_admin' => true,
             ]
         );
 

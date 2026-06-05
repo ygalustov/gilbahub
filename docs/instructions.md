@@ -145,8 +145,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-59** Enhance user invitation functionality in settings view. Added input field for invitee name and updated JavaScript to manage user data more effectively, including user email handling for improved user experience.
 **GH-60** Refactor SettingsController and update settings view. Removed unused site management logic and adjusted the UI to focus on site settings. Added account link in the sidebar for improved navigation. Enhanced CSS for select elements to improve user experience.
 **GH-61** Implement sidebar notifications for pending user requests and enhance account view. Added logic to display the count of pending requests in the sidebar, updated the account view to show the current user's details, and refined user management UI with new tabs and improved search functionality.
-
-
+**GH-62** Enhance login flow and setup interactions. Updated AuthController to clear intended URL for setup redirection. Improved dashboard initialization by consolidating setup logic in JavaScript, ensuring the onboarding wizard only displays when necessary. Adjusted redirection after onboarding completion to navigate directly to the dashboard.
+**GH-63** Enhance invitation management and magic link functionality. Updated InvitationController to support multiple site invitations, improved user access checks, and added magic link creation for invited users. Modified MagicLink model to include site_id and added migration for database schema update. Enhanced user interface in account view to better manage pending requests and invitations.
 
 
 ## Backlog

@@ -192,9 +192,9 @@
                         </div>
 
                         @if($activeSiteRole === 'admin')
-                        {{-- Requests tab: self-registered awaiting approval --}}
+                        {{-- Requests tab --}}
                         <div id="users-requests-panel" style="display:none">
-                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                            <div id="users-requests-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
                                     <thead>
                                         <tr>
@@ -204,16 +204,19 @@
                                             <th style="width:180px"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="users-pending-tbody">
-                                        <tr><td colspan="4" style="text-align:center;padding:24px;color:#6b8878">No pending requests.</td></tr>
-                                    </tbody>
+                                    <tbody id="users-pending-tbody"></tbody>
                                 </table>
+                            </div>
+                            <div id="users-requests-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                <div style="font-weight:600;margin-bottom:6px">No pending requests.</div>
+                                <div style="font-size:13px">New access requests will appear here.</div>
                             </div>
                         </div>
 
-                        {{-- Invitations tab: invited, not yet accepted --}}
+                        {{-- Invitations tab --}}
                         <div id="users-invitations-panel" style="display:none">
-                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                            <div id="users-invitations-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
                                     <thead>
                                         <tr>
@@ -225,28 +228,36 @@
                                             <th style="width:80px"></th>
                                         </tr>
                                     </thead>
-                                    <tbody id="users-invitations-tbody">
-                                        <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">No pending invitations.</td></tr>
-                                    </tbody>
+                                    <tbody id="users-invitations-tbody"></tbody>
                                 </table>
+                            </div>
+                            <div id="users-invitations-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                                <div style="font-weight:600;margin-bottom:6px">No pending invitations.</div>
+                                <div style="font-size:13px">Invited users who haven't signed in yet will appear here.</div>
                             </div>
                         </div>
 
+                        {{-- Suspended tab --}}
                         <div id="users-suspended-panel" style="display:none">
-                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                            <div id="users-suspended-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
                                     <thead>
                                         <tr><th>Name</th><th>Email</th><th style="width:120px"></th></tr>
                                     </thead>
-                                    <tbody id="users-suspended-tbody">
-                                        <tr><td colspan="3" style="text-align:center;padding:24px;color:#6b8878">No suspended accounts.</td></tr>
-                                    </tbody>
+                                    <tbody id="users-suspended-tbody"></tbody>
                                 </table>
                             </div>
+                            <div id="users-suspended-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                                <div style="font-weight:600;margin-bottom:6px">No suspended accounts.</div>
+                                <div style="font-size:13px">Suspended users will appear here.</div>
+                            </div>
                         </div>
+
                         {{-- All tab --}}
                         <div id="users-all-panel" style="display:none">
-                            <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
+                            <div id="users-all-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
                                 <table class="dat-table">
                                     <thead>
                                         <tr>
@@ -262,6 +273,12 @@
                                         <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">Loading…</td></tr>
                                     </tbody>
                                 </table>
+                            </div>
+                            <div id="users-all-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
+                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <div style="font-weight:600;margin-bottom:6px">No other users yet.</div>
+                                <div style="font-size:13px">Invite your team to access and manage sites.</div>
+                                <button type="button" class="stg-btn-primary" id="users-all-invite-empty-btn" style="margin-top:16px">+ Invite user</button>
                             </div>
                         </div>
                         @endif
@@ -290,18 +307,23 @@
 
                             @if($activeSiteRole === 'admin')
                             <div style="margin-bottom:16px">
-                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Site</label>
-                                <select id="invite-site" class="stg-select" style="width:100%">
-                                    <option value="">Select site…</option>
-                                </select>
+                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Sites</label>
+                                <div id="invite-sites-wrapper" style="position:relative">
+                                    <button type="button" id="invite-sites-toggle" class="stg-select" style="width:100%;text-align:left;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:#fff;font-family:'Barlow',sans-serif;font-size:14px">
+                                        <span id="invite-sites-label" style="color:#6b8878">Select sites…</span>
+                                        <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                                    </button>
+                                    <div id="invite-sites-dropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:8px;z-index:100;max-height:200px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,.1);padding:4px 0" id="invite-sites-list">
+                                    </div>
+                                </div>
                             </div>
                             @endif
 
                             <div style="margin-bottom:24px">
                                 <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:10px">Role</label>
                                 <div style="display:flex;flex-direction:column;gap:8px">
-                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="invite-role" value="manager"> Manager</label>
-                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="invite-role" value="editor" checked> Editor</label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="invite-role" value="manager" checked> Manager</label>
+                                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="invite-role" value="editor"> Editor</label>
                                     <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input type="radio" name="invite-role" value="viewer"> Viewer</label>
                                 </div>
                             </div>

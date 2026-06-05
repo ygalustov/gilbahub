@@ -228,6 +228,33 @@
                   addSaveBtn.disabled = false;
                   renderTable();
 
+                  // Update topbar site name
+                  var topbarName = document.getElementById('db-site-name');
+                  if (topbarName) topbarName.textContent = s.name;
+
+                  // Update topbar dropdown: deactivate old, add new site
+                  var dropdown = document.getElementById('db-site-dropdown');
+                  if (dropdown) {
+                      dropdown.querySelectorAll('[data-site-id]').forEach(function (opt) {
+                          opt.classList.remove('active');
+                          opt.style.background = 'transparent';
+                      });
+                      var newOpt = document.createElement('button');
+                      newOpt.type = 'button';
+                      newOpt.className = 'db-site-option active';
+                      newOpt.dataset.siteId = s.id;
+                      newOpt.dataset.siteName = s.name;
+                      newOpt.style.cssText = 'display:flex;align-items:center;gap:8px;width:100%;padding:10px 16px;border:0;background:#e8f3ed;text-align:left;cursor:pointer;font:inherit;font-size:14px;color:#17231f';
+                      var dot = document.createElement('span');
+                      dot.className = 'db-site-status-dot';
+                      newOpt.appendChild(dot);
+                      newOpt.appendChild(document.createTextNode(s.name));
+                      dropdown.appendChild(newOpt);
+                  }
+
+                  // Update GAIP_HUB_CONFIG so other scripts know the active site changed
+                  if (window.GAIP_HUB_CONFIG) window.GAIP_HUB_CONFIG.activeSiteId = s.id;
+
                   var prompt = document.getElementById('stg-onboard-prompt');
                   var yesBtn = document.getElementById('stg-onboard-yes');
                   var noBtn  = document.getElementById('stg-onboard-no');
@@ -257,9 +284,18 @@
         var allTbody         = document.getElementById('users-all-tbody');
         var requestsCountEl  = document.getElementById('users-requests-count');
         var invitationsCountEl = document.getElementById('users-invitations-count');
-        var emptyState     = document.getElementById('users-empty');
+        var emptyState          = document.getElementById('users-empty');
+        var allEmptyState       = document.getElementById('users-all-empty');
+        var allTableWrap        = document.getElementById('users-all-table-wrap');
+        var requestsEmptyState  = document.getElementById('users-requests-empty');
+        var requestsTableWrap   = document.getElementById('users-requests-table-wrap');
+        var invitationsEmptyState = document.getElementById('users-invitations-empty');
+        var invitationsTableWrap  = document.getElementById('users-invitations-table-wrap');
+        var suspendedEmptyState = document.getElementById('users-suspended-empty');
+        var suspendedTableWrap  = document.getElementById('users-suspended-table-wrap');
         var inviteBtn      = document.getElementById('users-invite-btn');
         var inviteEmptyBtn = document.getElementById('users-invite-empty-btn');
+        var allInviteEmptyBtn = document.getElementById('users-all-invite-empty-btn');
         var inviteModal    = document.getElementById('users-invite-modal');
         var inviteClose    = document.getElementById('invite-modal-close');
         var inviteCancelBtn = document.getElementById('invite-cancel-btn');
@@ -267,7 +303,9 @@
         var inviteError    = document.getElementById('invite-modal-error');
         var inviteNameInput  = document.getElementById('invite-name');
         var inviteEmailInput = document.getElementById('invite-email');
-        var inviteSiteSelect = document.getElementById('invite-site');
+        var inviteSitesToggle   = document.getElementById('invite-sites-toggle');
+        var inviteSitesDropdown = document.getElementById('invite-sites-dropdown');
+        var inviteSitesLabel    = document.getElementById('invite-sites-label');
         var searchInput    = document.getElementById('users-search');
         var siteFilter     = document.getElementById('users-site-filter');
         var roleFilter     = document.getElementById('users-role-filter');
@@ -347,11 +385,12 @@
 
         function renderMembers() {
             if (!tbody) return;
-            var filtered = applyFilters(_members);
+            var filtered = applyFilters(_members).filter(function (u) { return u.email !== D.userEmail; });
             var colspan = isAdmin ? 5 : 4;
-            if (emptyState) emptyState.style.display = (!_members.length) ? '' : 'none';
+            var othersExist = _members.some(function (u) { return u.email !== D.userEmail; });
+            if (emptyState) emptyState.style.display = (!othersExist) ? '' : 'none';
             if (!filtered.length) {
-                tbody.innerHTML = '<tr><td colspan="' + colspan + '" style="color:#6b8878;padding:16px 0">No users found.</td></tr>';
+                tbody.innerHTML = '';
                 return;
             }
             tbody.innerHTML = filtered.map(renderMemberRow).join('');
@@ -359,10 +398,10 @@
 
         function renderPending() {
             if (!pendingTbody) return;
-            if (!_pending.length) {
-                pendingTbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:20px;color:#6b8878">No pending requests.</td></tr>';
-            } else {
-                pendingTbody.innerHTML = _pending.map(function (u) {
+            var hasItems = _pending.length > 0;
+            if (requestsEmptyState) requestsEmptyState.style.display = hasItems ? 'none' : '';
+            pendingTbody.innerHTML = hasItems
+                ? _pending.map(function (u) {
                     var date = u.created_at ? new Date(u.created_at).toLocaleDateString() : '';
                     return '<tr data-user-id="' + u.id + '">' +
                         '<td>' + escHtml(u.name || '—') + '</td>' +
@@ -373,16 +412,16 @@
                             '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626">Decline</button>' +
                         '</td>' +
                         '</tr>';
-                }).join('');
-            }
+                }).join('')
+                : '';
         }
 
         function renderInvitations() {
             if (!invitationsTbody) return;
-            if (!_invitations.length) {
-                invitationsTbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:#6b8878">No pending invitations.</td></tr>';
-            } else {
-                invitationsTbody.innerHTML = _invitations.map(function (i) {
+            var hasItems = _invitations.length > 0;
+            if (invitationsEmptyState) invitationsEmptyState.style.display = hasItems ? 'none' : '';
+            invitationsTbody.innerHTML = hasItems
+                ? _invitations.map(function (i) {
                     var date = i.created_at ? new Date(i.created_at).toLocaleDateString() : '';
                     return '<tr data-inv-id="' + i.id + '">' +
                         '<td>' + escHtml(i.name || '—') + '</td>' +
@@ -392,26 +431,26 @@
                         '<td style="color:#6b8878;font-size:13px">' + date + '</td>' +
                         '<td><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px">Cancel</button></td>' +
                         '</tr>';
-                }).join('');
-            }
+                }).join('')
+                : '';
         }
 
         function renderSuspended() {
             if (!suspendedTbody) return;
-            if (!_suspended.length) {
-                suspendedTbody.innerHTML = '<tr><td colspan="3" style="color:#6b8878;padding:16px 0">No suspended accounts.</td></tr>';
-                return;
-            }
-            suspendedTbody.innerHTML = _suspended.map(function (u) {
-                return '<tr data-user-id="' + u.id + '">' +
-                    '<td>' + escHtml(u.name || '') + '</td>' +
-                    '<td>' + escHtml(u.email) + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                        '<button class="stg-btn-ghost unsuspend-btn" style="font-size:12px;padding:4px 10px;margin-right:6px">Restore</button>' +
-                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:4px 10px;color:#dc2626">Delete</button>' +
-                    '</td>' +
-                    '</tr>';
-            }).join('');
+            var hasItems = _suspended.length > 0;
+            if (suspendedEmptyState) suspendedEmptyState.style.display = hasItems ? 'none' : '';
+            suspendedTbody.innerHTML = hasItems
+                ? _suspended.map(function (u) {
+                    return '<tr data-user-id="' + u.id + '">' +
+                        '<td>' + escHtml(u.name || '') + '</td>' +
+                        '<td>' + escHtml(u.email) + '</td>' +
+                        '<td style="white-space:nowrap">' +
+                            '<button class="stg-btn-ghost unsuspend-btn" style="font-size:12px;padding:4px 10px;margin-right:6px">Restore</button>' +
+                            '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:4px 10px;color:#dc2626">Delete</button>' +
+                        '</td>' +
+                        '</tr>';
+                }).join('')
+                : '';
         }
 
         var STATUS_BADGE = {
@@ -426,6 +465,7 @@
             var rows = [];
 
             _members.forEach(function (u) {
+                if (u.email === D.userEmail) return;
                 rows.push('<tr data-user-id="' + u.id + '">' +
                     '<td>' + escHtml(u.name || '—') + '</td>' +
                     '<td>' + escHtml(u.email) + '</td>' +
@@ -475,9 +515,28 @@
                     '</tr>');
             });
 
-            allTbody.innerHTML = rows.length
-                ? rows.join('')
-                : '<tr><td colspan="6" style="text-align:center;padding:24px;color:#6b8878">No users.</td></tr>';
+            var hasAll = rows.length > 0;
+            if (allEmptyState) allEmptyState.style.display = hasAll ? 'none' : '';
+            allTbody.innerHTML = rows.join('');
+        }
+
+        function getCheckedSiteIds() {
+            if (!inviteSitesDropdown) return [];
+            return Array.from(inviteSitesDropdown.querySelectorAll('input[type="checkbox"]:checked')).map(function (cb) { return cb.value; });
+        }
+
+        function updateSitesLabel() {
+            if (!inviteSitesLabel) return;
+            var checked = getCheckedSiteIds();
+            if (checked.length === 0) {
+                inviteSitesLabel.textContent = 'Select sites…';
+                inviteSitesLabel.style.color = '#6b8878';
+            } else {
+                inviteSitesLabel.textContent = checked.length === 1
+                    ? inviteSitesDropdown.querySelector('input[value="' + checked[0] + '"]').dataset.name
+                    : checked.length + ' sites selected';
+                inviteSitesLabel.style.color = '#1a2b23';
+            }
         }
 
         function populateSiteFilterAndSelect(sites) {
@@ -485,11 +544,30 @@
                 siteFilter.innerHTML = '<option value="">All sites</option>' +
                     sites.map(function (s) { return '<option value="' + s.id + '">' + escHtml(s.name) + '</option>'; }).join('');
             }
-            if (inviteSiteSelect) {
-                inviteSiteSelect.innerHTML = '<option value="">Select site…</option>' +
-                    sites.map(function (s) { return '<option value="' + s.id + '">' + escHtml(s.name) + '</option>'; }).join('');
+            if (inviteSitesDropdown) {
+                inviteSitesDropdown.innerHTML = sites.map(function (s) {
+                    return '<label style="display:flex;align-items:center;gap:10px;padding:8px 14px;cursor:pointer;font-family:\'Barlow\',sans-serif;font-size:14px;color:#1a2b23" class="invite-site-option">' +
+                        '<input type="checkbox" value="' + s.id + '" data-name="' + escHtml(s.name) + '" style="width:15px;height:15px;accent-color:#2e6b45;cursor:pointer"> ' +
+                        escHtml(s.name) + '</label>';
+                }).join('');
+                inviteSitesDropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+                    cb.addEventListener('change', updateSitesLabel);
+                });
             }
         }
+
+        if (inviteSitesToggle) {
+            inviteSitesToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var open = inviteSitesDropdown.style.display !== 'none';
+                inviteSitesDropdown.style.display = open ? 'none' : '';
+            });
+        }
+        document.addEventListener('click', function (e) {
+            if (inviteSitesDropdown && !inviteSitesDropdown.contains(e.target) && e.target !== inviteSitesToggle) {
+                inviteSitesDropdown.style.display = 'none';
+            }
+        });
 
         function loadUsers() {
             apiFetch('GET', '/users').then(function (data) {
@@ -623,8 +701,13 @@
             if (!inviteModal) return;
             if (inviteNameInput)  inviteNameInput.value  = '';
             if (inviteEmailInput) inviteEmailInput.value = '';
-            var defaultRole = inviteModal.querySelector('[name="invite-role"][value="editor"]');
+            var defaultRole = inviteModal.querySelector('[name="invite-role"][value="manager"]');
             if (defaultRole) defaultRole.checked = true;
+            if (inviteSitesDropdown) {
+                inviteSitesDropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+                inviteSitesDropdown.style.display = 'none';
+            }
+            updateSitesLabel();
             showInviteError('');
             inviteModal.style.display = 'flex';
         }
@@ -632,8 +715,9 @@
             if (inviteModal) inviteModal.style.display = 'none';
         }
 
-        if (inviteBtn)      inviteBtn.addEventListener('click', openInviteModal);
-        if (inviteEmptyBtn) inviteEmptyBtn.addEventListener('click', openInviteModal);
+        if (inviteBtn)         inviteBtn.addEventListener('click', openInviteModal);
+        if (inviteEmptyBtn)    inviteEmptyBtn.addEventListener('click', openInviteModal);
+        if (allInviteEmptyBtn) allInviteEmptyBtn.addEventListener('click', openInviteModal);
         if (inviteClose)    inviteClose.addEventListener('click', closeInviteModal);
         if (inviteCancelBtn) inviteCancelBtn.addEventListener('click', closeInviteModal);
         if (inviteModal) {
@@ -647,15 +731,16 @@
                 var name   = inviteNameInput  ? inviteNameInput.value.trim()  : '';
                 var email  = inviteEmailInput ? inviteEmailInput.value.trim() : '';
                 var roleEl = inviteModal ? inviteModal.querySelector('[name="invite-role"]:checked') : null;
-                var role   = roleEl ? roleEl.value : 'editor';
-                var sid    = inviteSiteSelect ? inviteSiteSelect.value : (D.activeSiteId || '');
+                var role   = roleEl ? roleEl.value : 'manager';
+                var siteIds = inviteSitesDropdown ? getCheckedSiteIds() : (D.activeSiteId ? [D.activeSiteId] : []);
 
                 if (!email) { showInviteError('Email is required.'); return; }
+                if (inviteSitesDropdown && siteIds.length === 0) { showInviteError('Please select at least one site.'); return; }
 
                 inviteSubmitBtn.disabled = true;
                 showInviteError('');
 
-                apiFetch('POST', '/invitations', { name: name || null, email: email, role: role, site_id: sid })
+                apiFetch('POST', '/invitations', { name: name || null, email: email, role: role, site_ids: siteIds })
                     .then(function () { loadUsers(); closeInviteModal(); })
                     .catch(function (err) { showInviteError((err && err.message) || 'Failed to send invitation.'); })
                     .finally(function () { inviteSubmitBtn.disabled = false; });
