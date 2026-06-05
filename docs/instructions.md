@@ -167,7 +167,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-76** Update account initialization script to simplify user notification. Removed invitation prompt from the "no users" message for a cleaner user experience.
 **GH-77** Update MagicLinkController to adjust email rate limits for local and production environments. Increased maximum emails allowed in local environment from 20 to 50, while maintaining the production limit at 50.
 **GH-78** Update DatabaseSeeder to enhance user creation logic. Added 'status' and 'is_admin' fields for new users, and implemented updateOrCreate for admin user to ensure unique email handling.
-**GH-7** Update MagicLinkController to redirect to account page after password reset instead of settings page. Enhance documentation by adding backlog items for future features and improvements.
+**GH-79** Update MagicLinkController to redirect to account page after password reset instead of settings page. Enhance documentation by adding backlog items for future features and improvements.
+**GH-80** Remove favicon.ico and update routing to redirect favicon requests to favicon.svg for improved asset management.
 
 
 ## Backlog
