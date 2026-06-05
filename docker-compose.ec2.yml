@@ -27,7 +27,6 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-warning}
       MAIL_MAILER: ${MAIL_MAILER:-log}
       MAIL_SCHEME: ${MAIL_SCHEME:-}
-      MAIL_URL: ${MAIL_URL:-}
       MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
