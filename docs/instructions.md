@@ -155,8 +155,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-69** Enhance magic link verification and user invitation handling. Updated MagicLinkController to allow both guests and logged-in users to verify magic links, processing pending invitations for existing sessions. Refactored account view to consolidate user management tables and improve UI for active users, requests, and invitations. Adjusted JavaScript for better tab management and visibility of empty states.
 **GH-70** Add provisional name flag in site creation process. Updated SiteController to include 'provisional_name' set to true when storing new site data, enhancing site management capabilities.
 **GH-71** Enhance account management by adding user details to site data. Updated AccountController to include user count and user information in the site data structure. Modified account view to display user count and added user invitation functionality in the JavaScript. Adjusted CSS for improved layout. This update improves user visibility and management within the site context.
-
-
+**GH-72** Enhance site user management by integrating invitation data into the AccountController. Updated the buildSitesTableData method to include invited users alongside existing site users, improving user visibility. Modified the account view to display user statuses with distinct styles for active and invited users, enhancing the user experience. Adjusted JavaScript for better handling of user data presentation.
+**GH-73** Enhance user management in account view by adding status filter and sorting functionality. Updated the account blade template to include a new status filter for user statuses and modified JavaScript to support sorting by name, email, and site. Improved the rendering of user data to enhance visibility and management capabilities.
 
 ## Backlog
 

@@ -145,8 +145,8 @@
                         </div>
 
                         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap" id="users-filters">
-                            <input type="text" id="users-search" class="stg-input" placeholder="Search by name, email or site…" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:320px">
-                            <select id="users-site-filter" class="stg-select" style="min-width:160px">
+                            <input type="text" id="users-search" class="stg-input" placeholder="Search by name, email or site…" readonly onfocus="this.removeAttribute('readonly')" autocomplete="off" style="flex:1;min-width:180px;max-width:280px">
+                            <select id="users-site-filter" class="stg-select" style="min-width:140px">
                                 <option value="">All sites</option>
                             </select>
                             <select id="users-role-filter" class="stg-select">
@@ -154,6 +154,12 @@
                                 <option value="manager">Manager</option>
                                 <option value="editor">Editor</option>
                                 <option value="viewer">Viewer</option>
+                            </select>
+                            <select id="users-status-filter" class="stg-select">
+                                <option value="">All statuses</option>
+                                <option value="active">Active</option>
+                                <option value="invited">Invited</option>
+                                <option value="requested">Requested</option>
                             </select>
                         </div>
 
@@ -170,9 +176,9 @@
                                 </colgroup>
                                 <thead>
                                     <tr>
-                                        <th>Name</th>
-                                        <th>Email</th>
-                                        <th>Site</th>
+                                        <th class="users-sortable" data-col="name" style="cursor:pointer;user-select:none">Name <svg class="users-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                        <th class="users-sortable" data-col="email" style="cursor:pointer;user-select:none">Email <svg class="users-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                        <th class="users-sortable" data-col="site_name" style="cursor:pointer;user-select:none">Site <svg class="users-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                         <th>Role</th>
                                         <th>Status</th>
                                         <th></th>

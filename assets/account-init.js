@@ -367,7 +367,9 @@
         var searchInput    = document.getElementById('users-search');
         var siteFilter     = document.getElementById('users-site-filter');
         var roleFilter     = document.getElementById('users-role-filter');
+        var statusFilter   = document.getElementById('users-status-filter');
         var pendingCountEl = document.getElementById('users-pending-count');
+        var sortCol = 'name', sortDir = 1;
 
         if (searchInput) { searchInput.value = ''; }
 
@@ -409,10 +411,11 @@
         }
 
         function getSearchQuery() {
-            var q  = searchInput ? searchInput.value.toLowerCase() : '';
-            var rf = roleFilter  ? roleFilter.value  : '';
-            var sf = siteFilter  ? siteFilter.value  : '';
-            return { q: q, role: rf, site: sf };
+            var q  = searchInput  ? searchInput.value.toLowerCase() : '';
+            var rf = roleFilter   ? roleFilter.value   : '';
+            var sf = siteFilter   ? siteFilter.value   : '';
+            var st = statusFilter ? statusFilter.value : '';
+            return { q: q, role: rf, site: sf, status: st };
         }
 
         function renderMemberRow(u) {
@@ -430,19 +433,46 @@
                 '</tr>';
         }
 
-        function applyFilters(list) {
+        function applyFilters(list, implicitStatus) {
             var f = getSearchQuery();
             return list.filter(function (u) {
                 if (f.q && !(u.name || '').toLowerCase().includes(f.q) && !u.email.toLowerCase().includes(f.q) && !(u.site_name || '').toLowerCase().includes(f.q)) return false;
                 if (f.role && u.role !== f.role) return false;
                 if (f.site && u.site_id !== f.site) return false;
+                if (f.status) {
+                    var uStatus = u.status || implicitStatus || 'active';
+                    if (uStatus !== f.status) return false;
+                }
                 return true;
             });
         }
 
+        function applySort(list) {
+            return list.slice().sort(function (a, b) {
+                var av = (a[sortCol] || '').toLowerCase();
+                var bv = (b[sortCol] || '').toLowerCase();
+                return av < bv ? -sortDir : av > bv ? sortDir : 0;
+            });
+        }
+
+        function updateSortHeaders() {
+            document.querySelectorAll('.users-sortable').forEach(function (th) {
+                th.classList.remove('sort-asc', 'sort-desc');
+                if (th.dataset.col === sortCol) th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+            });
+        }
+
+        document.querySelectorAll('.users-sortable').forEach(function (th) {
+            th.addEventListener('click', function () {
+                if (sortCol === th.dataset.col) { sortDir = -sortDir; } else { sortCol = th.dataset.col; sortDir = 1; }
+                updateSortHeaders();
+                renderCurrentTab();
+            });
+        });
+
         function renderMembers() {
             if (!tbody) return;
-            var filtered = applyFilters(_members).filter(function (u) { return u.email !== D.userEmail; });
+            var filtered = applySort(applyFilters(_members, 'active').filter(function (u) { return u.email !== D.userEmail; }));
             var othersExist = _members.some(function (u) { return u.email !== D.userEmail; });
             if (activeEmptyState) activeEmptyState.style.display = (!othersExist) ? '' : 'none';
             tbody.innerHTML = filtered.map(renderMemberRow).join('');
@@ -456,7 +486,7 @@
 
         function renderPending() {
             if (!tbody) return;
-            var filtered = applyFilters(_pending);
+            var filtered = applySort(applyFilters(_pending, 'requested'));
             var isEmpty = _pending.length === 0;
             if (requestsEmptyState) requestsEmptyState.style.display = isEmpty ? '' : 'none';
             tbody.innerHTML = filtered.map(function (u) {
@@ -476,7 +506,7 @@
 
         function renderInvitations() {
             if (!tbody) return;
-            var filtered = applyFilters(_invitations);
+            var filtered = applySort(applyFilters(_invitations, 'invited'));
             var isEmpty = _invitations.length === 0;
             if (invitationsEmptyState) invitationsEmptyState.style.display = isEmpty ? '' : 'none';
             tbody.innerHTML = filtered.map(function (i) {
@@ -493,48 +523,42 @@
 
         function renderAll() {
             if (!tbody) return;
-            var filteredMembers  = applyFilters(_members.filter(function (u) { return u.email !== D.userEmail; }));
-            var filteredInvites  = applyFilters(_invitations);
-            var filteredPending  = applyFilters(_pending);
-            var rows = [];
-            filteredMembers.forEach(function (u) {
-                rows.push('<tr data-user-id="' + u.id + '">' +
-                    '<td>' + escHtml(u.name || '—') + '</td>' +
-                    '<td>' + escHtml(u.email) + '</td>' +
-                    '<td>' + escHtml(u.site_name || '—') + '</td>' +
-                    '<td>' + roleLabel(u.role) + '</td>' +
-                    '<td>' + STATUS_BADGE.active + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                        (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>' : '') +
-                    '</td>' +
-                    '</tr>');
-            });
-            filteredInvites.forEach(function (i) {
-                rows.push('<tr data-inv-id="' + i.id + '">' +
-                    '<td>' + escHtml(i.name || '—') + '</td>' +
-                    '<td>' + escHtml(i.email) + '</td>' +
-                    '<td>' + escHtml(i.site_name || '—') + '</td>' +
-                    '<td>' + roleLabel(i.role) + '</td>' +
-                    '<td>' + STATUS_BADGE.invited + '</td>' +
-                    '<td style="white-space:nowrap"><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Cancel</button></td>' +
-                    '</tr>');
-            });
-            filteredPending.forEach(function (u) {
-                rows.push('<tr data-user-id="' + u.id + '">' +
-                    '<td>' + escHtml(u.name || '—') + '</td>' +
-                    '<td>' + escHtml(u.email) + '</td>' +
-                    '<td>—</td>' +
-                    '<td>—</td>' +
-                    '<td>' + STATUS_BADGE.requested + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                        '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:4px">Approve</button>' +
-                        '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Decline</button>' +
-                    '</td>' +
-                    '</tr>');
-            });
-            var hasAll = (_members.filter(function (u) { return u.email !== D.userEmail; }).length + _invitations.length + _pending.length) === 0;
+            var membersTagged  = _members.filter(function (u) { return u.email !== D.userEmail; }).map(function (u) { return Object.assign({}, u, { _type: 'member', status: 'active' }); });
+            var invitesTagged  = _invitations.map(function (i) { return Object.assign({}, i, { _type: 'invite', status: 'invited' }); });
+            var pendingTagged  = _pending.map(function (u) { return Object.assign({}, u, { _type: 'pending', status: 'requested' }); });
+            var combined = membersTagged.concat(invitesTagged).concat(pendingTagged);
+            var filtered = applySort(applyFilters(combined));
+            var hasAll = combined.length === 0;
             if (allEmptyState) allEmptyState.style.display = hasAll ? '' : 'none';
-            tbody.innerHTML = rows.join('');
+            tbody.innerHTML = filtered.map(function (u) {
+                if (u._type === 'member') {
+                    return '<tr data-user-id="' + u.id + '">' +
+                        '<td>' + escHtml(u.name || '—') + '</td>' +
+                        '<td>' + escHtml(u.email) + '</td>' +
+                        '<td>' + escHtml(u.site_name || '—') + '</td>' +
+                        '<td>' + roleLabel(u.role) + '</td>' +
+                        '<td>' + STATUS_BADGE.active + '</td>' +
+                        '<td style="white-space:nowrap">' + (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>' : '') + '</td>' +
+                        '</tr>';
+                } else if (u._type === 'invite') {
+                    return '<tr data-inv-id="' + u.id + '">' +
+                        '<td>' + escHtml(u.name || '—') + '</td>' +
+                        '<td>' + escHtml(u.email) + '</td>' +
+                        '<td>' + escHtml(u.site_name || '—') + '</td>' +
+                        '<td>' + roleLabel(u.role) + '</td>' +
+                        '<td>' + STATUS_BADGE.invited + '</td>' +
+                        '<td style="white-space:nowrap"><button class="stg-btn-ghost cancel-invite-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Cancel</button></td>' +
+                        '</tr>';
+                } else {
+                    return '<tr data-user-id="' + u.id + '">' +
+                        '<td>' + escHtml(u.name || '—') + '</td>' +
+                        '<td>' + escHtml(u.email) + '</td>' +
+                        '<td>—</td><td>—</td>' +
+                        '<td>' + STATUS_BADGE.requested + '</td>' +
+                        '<td style="white-space:nowrap"><button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:4px">Approve</button><button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626;border-color:#fca5a5">Decline</button></td>' +
+                        '</tr>';
+                }
+            }).join('');
         }
 
         function getCheckedSiteIds() {
@@ -609,9 +633,10 @@
 
         function renderCurrentTab() { switchUtab(currentTab); }
 
-        if (searchInput) searchInput.addEventListener('input', renderCurrentTab);
-        if (roleFilter)  roleFilter.addEventListener('change', renderCurrentTab);
-        if (siteFilter)  siteFilter.addEventListener('change', renderCurrentTab);
+        if (searchInput)   searchInput.addEventListener('input', renderCurrentTab);
+        if (roleFilter)    roleFilter.addEventListener('change', renderCurrentTab);
+        if (siteFilter)    siteFilter.addEventListener('change', renderCurrentTab);
+        if (statusFilter)  statusFilter.addEventListener('change', renderCurrentTab);
 
         if (tbody) {
             tbody.addEventListener('click', function (e) {
