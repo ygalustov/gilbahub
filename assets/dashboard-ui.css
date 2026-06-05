@@ -1382,6 +1382,28 @@ body { margin: 0; padding: 0; }
     .db-vital-card { min-height: 110px; padding: 12px; }
     .db-vital-main { font-size: 26px; }
 
+    /* Data Sources — 2-column grid on mobile */
+    .db-sources-grid { grid-template-columns: 1fr 1fr; }
+    .db-source-row {
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 0;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--gaip-border-light, #dde7e2) !important;
+        border-right: none !important;
+    }
+    .db-source-row:nth-child(odd)       { border-right: 1px solid var(--gaip-border-light, #dde7e2) !important; }
+    .db-source-row:nth-last-child(-n+2) { border-bottom: none !important; }
+    /* Dot stays on line 1, aligned with source name */
+    .db-source-row .db-source-dot { flex-shrink: 0; margin-right: 6px; margin-top: 4px; }
+    /* Label fills rest of line 1 → status wraps to line 2 */
+    .db-source-row .db-source-label { flex: 0 0 calc(100% - 13px); min-width: 0; }
+    /* Status text on line 2, indented under label */
+    .db-source-row .db-source-status-text { margin-left: 13px; margin-top: 2px; font-size: 10px; }
+    .db-source-row .db-source-action      { margin-left: 6px; margin-top: 2px; }
+    /* Footer: stack vertically */
+    .db-sources-footer { flex-direction: column; align-items: flex-start; gap: 6px; }
+
     /* Action queue cards — stack sidebar below content */
     .db-aq-card {
         flex-direction: column;
@@ -1420,7 +1442,8 @@ body { margin: 0; padding: 0; }
 
 @media (max-width: 768px) {
     /* Shell layout */
-    .db-shell   { height: auto; overflow: visible; }
+    body        { overflow-x: hidden; }
+    .db-shell   { height: auto; }
     .db-sidebar { display: none; }
     .db-main    { overflow: visible; }
 
