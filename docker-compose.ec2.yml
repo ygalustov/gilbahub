@@ -25,6 +25,18 @@ services:
       FILESYSTEM_DISK: ${FILESYSTEM_DISK:-local}
       LOG_CHANNEL: ${LOG_CHANNEL:-stack}
       LOG_LEVEL: ${LOG_LEVEL:-warning}
+      MAIL_MAILER: ${MAIL_MAILER:-log}
+      MAIL_SCHEME: ${MAIL_SCHEME:-}
+      MAIL_URL: ${MAIL_URL:-}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_EHLO_DOMAIN: ${MAIL_EHLO_DOMAIN:-}
+      MAIL_SENDMAIL_PATH: ${MAIL_SENDMAIL_PATH:-}
+      MAIL_LOG_CHANNEL: ${MAIL_LOG_CHANNEL:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-}
     depends_on:
       mysql:
         condition: service_healthy
