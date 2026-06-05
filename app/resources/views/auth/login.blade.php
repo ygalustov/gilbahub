@@ -202,7 +202,7 @@
         .login-mobile-footer { display: none; }
 
         @media (max-width: 640px) {
-            body { flex-direction: column; }
+            body { flex-direction: column; height: 100vh; overflow: hidden; }
             .login-aside { display: none; }
 
             .login-mobile-header {

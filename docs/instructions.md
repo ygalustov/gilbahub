@@ -175,9 +175,12 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-84** Refine mobile login styles: Adjusted padding, background colors, and font sizes for improved aesthetics and layout on smaller screens, enhancing the overall user experience.
 **GH-85** Revise mobile login layout: Added mobile footer and tagline, adjusted mobile header styles, and improved font sizes for better readability and user engagement on smaller screens.
 **GH-86** Improve mobile login layout: Added a mobile footer, adjusted padding and margins for better alignment, and refined styles for enhanced user experience on smaller screens.
+**GH-87** Enhance mobile authentication views: Added responsive styles for no-access and pending pages, improved layout for mobile login, and introduced a mobile footer with branding for better user experience on smaller screens.
 
 
 
+
+continue - now for the whole app make mobile version with side menu moved to the bottom as on regular apps
 
 ## Backlog
 1 Address

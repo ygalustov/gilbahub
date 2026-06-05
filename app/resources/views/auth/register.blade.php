@@ -51,10 +51,43 @@
         .login-footer-link a:hover { text-decoration: underline; }
         .success-card { background: #f0f9f4; border: 1px solid #6ee7a4; border-radius: 10px; padding: 24px; text-align: center; margin-top: 28px; }
         .success-card p { font-size: 14px; color: #1a2b23; line-height: 1.6; }
-        @media (max-width: 640px) { .login-aside { display: none; } }
+        .login-mobile-header { display: none; }
+        @media (max-width: 640px) {
+            body { flex-direction: column; height: 100vh; overflow: hidden; }
+            .login-aside { display: none; }
+            .login-mobile-header {
+                display: flex; align-items: center; gap: 10px;
+                padding: 20px 24px; flex-shrink: 0; background: #1a2b23;
+            }
+            .login-mobile-logo {
+                width: 34px; height: 34px; flex-shrink: 0;
+                background: #2da85e; border-radius: 8px;
+                display: flex; align-items: center; justify-content: center; color: #fff;
+            }
+            .login-mobile-brand { font-size: 18px; font-weight: 700; color: #fff; line-height: 1.25; }
+            .login-mobile-tagline { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 4px; line-height: 1.4; }
+            .login-main { flex: 1; display: flex; flex-direction: column; padding: 24px 20px 0; }
+            .login-card { flex-shrink: 0; max-width: 100%; margin-top: auto; margin-bottom: auto; }
+            .login-mobile-footer {
+                display: block; text-align: center; font-size: 12px;
+                color: #6b8878; padding: 20px; margin-top: auto;
+            }
+        }
     </style>
 </head>
 <body>
+    <header class="login-mobile-header">
+        <div class="login-mobile-logo">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none">
+                <text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="currentColor">G</text>
+            </svg>
+        </div>
+        <div>
+            <div class="login-mobile-brand">The Gilba<br>Turf Agronomy Hub</div>
+            <div class="login-mobile-tagline">Agronomic intelligence for turf management.</div>
+        </div>
+    </header>
+
     <aside class="login-aside">
         <div class="login-logo">
             <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
@@ -101,6 +134,10 @@
                 <p class="login-footer-link">Already have an account? <a href="{{ route('login') }}">Sign in</a></p>
             @endif
         </div>
+
+        <footer class="login-mobile-footer">
+            &copy; {{ date('Y') }} The Gilba Turf Agronomy Hub
+        </footer>
     </main>
 </body>
 </html>

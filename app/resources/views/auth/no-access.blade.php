@@ -53,6 +53,10 @@
             transition: background 0.15s;
         }
         button:hover { background: #f0f5f2; }
+        @media (max-width: 640px) {
+            body { padding: 24px 16px; align-items: flex-start; padding-top: 15vh; }
+            .card { padding: 32px 24px; border-radius: 10px; }
+        }
     </style>
 </head>
 <body>
