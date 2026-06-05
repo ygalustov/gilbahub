@@ -197,7 +197,41 @@
         }
         .login-sent-footer button:hover { text-decoration: underline; }
 
-        @media (max-width: 640px) { .login-aside { display: none; } }
+        /* ── Mobile header ── */
+        .login-mobile-header { display: none; }
+
+        @media (max-width: 640px) {
+            body { flex-direction: column; }
+
+            .login-aside { display: none; }
+
+            .login-mobile-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 20px 20px 0;
+                flex-shrink: 0;
+            }
+            .login-mobile-logo {
+                width: 34px; height: 34px; flex-shrink: 0;
+                background: #2da85e;
+                border-radius: 8px;
+                display: flex; align-items: center; justify-content: center;
+                color: #fff;
+            }
+            .login-mobile-brand {
+                font-size: 15px; font-weight: 700;
+                color: #1a2b23; letter-spacing: -0.2px; line-height: 1.2;
+            }
+
+            .login-main {
+                align-items: stretch;
+                justify-content: flex-start;
+                padding: 24px 20px 48px;
+            }
+            .login-card { max-width: 100%; }
+            .login-heading { font-size: 20px; }
+        }
     </style>
 </head>
 <body>
@@ -212,6 +246,15 @@
         <p class="login-tagline">Agronomic intelligence<br>for turf management.</p>
         <div class="login-aside-footer">&copy; {{ date('Y') }} The Gilba Turf Agronomy Hub</div>
     </aside>
+
+    <header class="login-mobile-header">
+        <div class="login-mobile-logo">
+            <svg width="22" height="22" viewBox="0 0 48 48" fill="none">
+                <text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="currentColor">G</text>
+            </svg>
+        </div>
+        <div class="login-mobile-brand">The Gilba<br>Turf Agronomy Hub</div>
+    </header>
 
     <main class="login-main">
         <div class="login-card">
