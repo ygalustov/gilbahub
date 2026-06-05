@@ -1396,14 +1396,17 @@
     }
 
     function initSetupBanner() {
+        function openWizard() {
+            if (!window.GilbaWizard) return;
+            var c = global.GAIP_HUB_CONFIG || {};
+            var loc = c.savedLocation || {};
+            var isSetUp = !!(c.turfSpecies && c.turfMethodology && loc.lat && loc.lon);
+            if (!isSetUp) window.GilbaWizard.show();
+        }
         var btn = document.getElementById('db-setup-btn');
-        if (btn) btn.addEventListener('click', function () {
-            if (window.GilbaWizard) window.GilbaWizard.show();
-        });
+        if (btn) btn.addEventListener('click', openWizard);
         var gsSetup = document.getElementById('db-gs-setup');
-        if (gsSetup) gsSetup.addEventListener('click', function () {
-            if (window.GilbaWizard) window.GilbaWizard.show();
-        });
+        if (gsSetup) gsSetup.addEventListener('click', openWizard);
     }
 
     // =========================================================================

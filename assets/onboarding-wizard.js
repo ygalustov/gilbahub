@@ -93,7 +93,12 @@
 
         // ── Init ─────────────────────────────────────────────────────────────
         init: function () {
+            var loc = cfg.savedLocation || {};
+            var isSetUp = !!(cfg.turfSpecies && cfg.turfMethodology && loc.lat && loc.lon);
+            if (isSetUp) return;
+
             if (new URLSearchParams(window.location.search).get('setup') === '1') {
+                history.replaceState(null, '', window.location.pathname + window.location.hash);
                 this.show();
             }
         },
@@ -573,7 +578,7 @@
                     }));
                     localStorage.setItem('gilba_getting_started', '1');
                     self._close();
-                    window.location.reload();
+                    window.location.href = '/dashboard';
                 })
                 .catch(function (err) {
                     console.warn('[Wizard] Save failed:', err);

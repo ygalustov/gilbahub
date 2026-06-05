@@ -57,6 +57,11 @@ class AuthController extends Controller
 
         $this->processPendingInvitations($user);
 
+        $intended = $request->session()->get('url.intended', '');
+        if (str_contains($intended, 'setup=1')) {
+            $request->session()->forget('url.intended');
+        }
+
         return redirect()->intended(route('dashboard'));
     }
 
