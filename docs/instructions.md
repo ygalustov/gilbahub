@@ -172,7 +172,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-81** Enhance user permissions in UsersController: Implemented logic to determine if a user can remove another based on role hierarchy. Updated front-end to reflect these changes, ensuring only authorized users can see the remove button for site management.
 **GH-82** Update UsersController to include 'is_admin' field in user selection and enhance permission checks. Users can only be removed if they are not admins, ensuring better role management in site administration.
 **GH-83** Enhance mobile login view: Added responsive mobile header with logo and brand name, and adjusted styles for better layout on smaller screens.
-
+**GH-84** Refine mobile login styles: Adjusted padding, background colors, and font sizes for improved aesthetics and layout on smaller screens, enhancing the overall user experience.
 
 
 ## Backlog
