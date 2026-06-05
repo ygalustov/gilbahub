@@ -53,7 +53,7 @@
         .success-card p { font-size: 14px; color: #1a2b23; line-height: 1.6; }
         .login-mobile-header { display: none; }
         @media (max-width: 640px) {
-            body { flex-direction: column; height: 100vh; overflow: hidden; }
+            body { flex-direction: column; min-height: 100vh; min-height: 100svh; }
             .login-aside { display: none; }
             .login-mobile-header {
                 display: flex; align-items: center; gap: 10px;
