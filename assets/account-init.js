@@ -110,6 +110,37 @@
             if (detailTitle) detailTitle.textContent = s.name;
             if (detailSub)   detailSub.textContent   = (TYPE_LABELS[s.site_type] || s.site_type || 'General') + (s.location ? ' · ' + s.location : '');
             var lastRunFull = s.last_run ? new Date(s.last_run).toLocaleString() : 'Never';
+
+            var users = s.users || [];
+            var ROLE_LABELS = { manager: 'Manager', editor: 'Editor', viewer: 'Viewer' };
+            function userInitials(u) {
+                var parts = (u.name || u.email || '').trim().split(/\s+/);
+                return parts.slice(0,2).map(function(p){ return p[0] ? p[0].toUpperCase() : ''; }).join('');
+            }
+            var usersHtml = '<div style="border-top:1px solid #e8efeb;margin-top:16px;padding-top:16px;margin-bottom:16px">' +
+                '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
+                '<div style="font-size:12px;font-weight:700;color:#3d5c4a;text-transform:uppercase;letter-spacing:.5px">Users' + (users.length ? ' <span style="font-weight:400;color:#6b8878">(' + users.length + ')</span>' : '') + '</div>' +
+                '<button type="button" class="stg-site-invite-btn" data-site-id="' + esc(s.id) + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;font-family:\'Barlow\',sans-serif;font-weight:600;background:#2da85e;color:#fff;border:none;border-radius:6px;cursor:pointer">' +
+                '<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Invite</button>' +
+                '</div>';
+            if (users.length) {
+                usersHtml += '<div style="display:flex;flex-direction:column;gap:6px">' +
+                    users.map(function (u) {
+                        var initials = userInitials(u);
+                        return '<div style="display:flex;align-items:center;gap:10px">' +
+                            '<div style="width:30px;height:30px;border-radius:50%;background:#d4e8dc;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2d7a4e;flex-shrink:0;font-family:\'Barlow\',sans-serif">' + esc(initials) + '</div>' +
+                            '<div style="flex:1;min-width:0">' +
+                                '<div style="font-size:13px;font-weight:600;color:#1a2b23;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.name || u.email) + '</div>' +
+                                (u.name ? '<div style="font-size:11px;color:#6b8878;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.email) + '</div>' : '') +
+                            '</div>' +
+                            '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e4f0e9;color:#2d7a4e;flex-shrink:0">' + esc(ROLE_LABELS[u.role] || u.role) + '</span>' +
+                            '</div>';
+                    }).join('') + '</div>';
+            } else {
+                usersHtml += '<div style="font-size:13px;color:#6b8878">No users yet. Invite someone to get started.</div>';
+            }
+            usersHtml += '</div>';
+
             if (detailBody) detailBody.innerHTML =
                 '<div class="dat-metric-grid">' +
                 '<div class="dat-metric-card"><div class="stg-detail-label">Location</div><div class="stg-detail-value">' + (s.location ? esc(s.location) : '—') + '</div></div>' +
@@ -118,6 +149,7 @@
                 '<div class="dat-metric-card"><div class="stg-detail-label">Water samples</div><div class="stg-detail-value">' + (s.water || 0) + '</div></div>' +
                 '</div>' +
                 '<div style="font-size:12px;color:var(--gaip-text-muted);margin-bottom:16px">Last analysis run: ' + esc(lastRunFull) + '</div>' +
+                usersHtml +
                 (sitesData.length > 1
                     ? '<button type="button" class="stg-detail-delete-btn" data-site-id="' + esc(s.id) + '" style="padding:6px 14px;font-size:12px;font:inherit;font-weight:500;background:transparent;border:1px solid #f5c6c6;border-radius:7px;color:#c0392b;cursor:pointer">Delete this site</button>'
                     : '<span style="font-size:12px;color:var(--gaip-text-muted)">Cannot delete the only site.</span>');
@@ -134,6 +166,11 @@
         if (detailClose) detailClose.addEventListener('click', closeDetail);
 
         if (detailBody) detailBody.addEventListener('click', function (e) {
+            var inviteBtn = e.target.closest('.stg-site-invite-btn');
+            if (inviteBtn) {
+                document.dispatchEvent(new CustomEvent('open-invite-for-site', { detail: { siteId: inviteBtn.dataset.siteId } }));
+                return;
+            }
             var btn = e.target.closest('.stg-detail-delete-btn');
             if (!btn) return;
             var id = btn.dataset.siteId;
@@ -168,9 +205,13 @@
                 var typeLabel  = TYPE_LABELS[s.site_type] || s.site_type || 'General';
                 var speciesStr = s.species ? esc(s.species) + (s.hoc != null ? ' <span class="stg-st-muted">· ' + s.hoc + ' mm</span>' : '') : '<span class="stg-st-muted">—</span>';
                 var isSelected = openSiteId === s.id;
+                var sep = '<span class="sens-pstatus-sep"></span>';
+                var inviteRowBtn = '<button type="button" class="stg-btn-ghost stg-site-row-invite-btn" data-site-id="' + esc(s.id) + '" style="font-size:12px;padding:3px 10px">Invite</button>';
+                var activeBtn = '<button disabled class="stg-btn-ghost" style="font-size:12px;padding:3px 0;width:76px;display:inline-flex;align-items:center;justify-content:center;color:#2da85e;border-color:#a8d9bc;cursor:default;opacity:1">Active</button>';
+                var setActiveBtn = '<button type="button" class="stg-btn-ghost stg-set-active-btn" data-site-id="' + esc(s.id) + '" style="font-size:12px;padding:3px 0;width:76px;display:inline-flex;align-items:center;justify-content:center">Set active</button>';
                 var actionCell = s.is_active
-                    ? '<td><span style="font-size:12px;font-weight:600;color:var(--gaip-accent,#2da85e)">Active</span></td>'
-                    : '<td><button type="button" class="stg-set-active-btn" data-site-id="' + esc(s.id) + '">Set active</button></td>';
+                    ? '<td><div style="display:flex;align-items:center;gap:6px">' + activeBtn + sep + inviteRowBtn + '</div></td>'
+                    : '<td><div style="display:flex;align-items:center;gap:6px">' + setActiveBtn + sep + inviteRowBtn + '</div></td>';
                 return '<tr class="stg-row-main' + (isSelected ? ' stg-row-expanded' : '') + '" data-site-id="' + esc(s.id) + '">' +
                     '<td><div class="stg-st-name-wrap">' + statusDotHtml(s.status) + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
                     '<td>' + (s.location ? esc(s.location) : '<span class="stg-st-muted">—</span>') + '</td>' +
@@ -178,6 +219,7 @@
                     '<td class="dat-td-num">' + (s.soil || 0) + '</td>' +
                     '<td class="dat-td-num">' + (s.water || 0) + '</td>' +
                     '<td>' + fmtLastRun(s.last_run) + '</td>' +
+                    '<td class="dat-td-num">' + (s.user_count || 0) + '</td>' +
                     actionCell + '</tr>';
             }).join('');
         }
@@ -193,6 +235,12 @@
         });
 
         tbody.addEventListener('click', function (e) {
+            var inviteRowBtn = e.target.closest('.stg-site-row-invite-btn');
+            if (inviteRowBtn) {
+                e.stopPropagation();
+                document.dispatchEvent(new CustomEvent('open-invite-for-site', { detail: { siteId: inviteRowBtn.dataset.siteId } }));
+                return;
+            }
             var setActiveBtn = e.target.closest('.stg-set-active-btn');
             if (setActiveBtn) {
                 e.stopPropagation();
@@ -579,16 +627,16 @@
             });
         }
 
-        function openInviteModal() {
+        function openInviteModal(preselectedSiteId) {
             if (!inviteModal) return;
             if (inviteNameInput)  inviteNameInput.value  = '';
             if (inviteEmailInput) inviteEmailInput.value = '';
             var defaultRole = inviteModal.querySelector('[name="invite-role"][value="manager"]');
             if (defaultRole) defaultRole.checked = true;
             if (inviteSitesDropdown) {
-                var activeSiteFilterId = siteFilter ? siteFilter.value : '';
+                var preselectId = preselectedSiteId || (siteFilter ? siteFilter.value : '');
                 inviteSitesDropdown.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
-                    cb.checked = activeSiteFilterId ? cb.value === activeSiteFilterId : false;
+                    cb.checked = preselectId ? cb.value === preselectId : false;
                 });
                 inviteSitesDropdown.style.display = 'none';
             }
@@ -596,6 +644,11 @@
             showInviteError('');
             inviteModal.style.display = 'flex';
         }
+
+        document.addEventListener('open-invite-for-site', function (e) {
+            var siteId = e.detail && e.detail.siteId;
+            openInviteModal(siteId);
+        });
         function closeInviteModal() {
             if (inviteModal) inviteModal.style.display = 'none';
         }

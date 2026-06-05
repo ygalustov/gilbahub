@@ -63,8 +63,8 @@
                         <button type="button" id="stg-onboard-no"  class="stg-btn-ghost"  style="white-space:nowrap">Do it later</button>
                     </div>
 
-                    <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                        <table class="dat-table stg-sites-table" id="stg-sites-table">
+                    <div class="dat-table-wrap" style="padding:0;overflow-x:hidden">
+                        <table class="dat-table stg-sites-table" id="stg-sites-table" style="min-width:0">
                             <thead>
                                 <tr>
                                     <th class="stg-st-sortable" data-col="name">Site <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
@@ -73,6 +73,7 @@
                                     <th class="stg-st-sortable dat-th-num" data-col="soil">Soil <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                     <th class="stg-st-sortable dat-th-num" data-col="water">Water <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                     <th class="stg-st-sortable" data-col="last_run">Last run <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
+                                    <th class="stg-st-sortable dat-th-num" data-col="user_count">Users <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                     <th style="width:44px"></th>
                                 </tr>
                             </thead>

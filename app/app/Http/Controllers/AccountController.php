@@ -38,6 +38,14 @@ class AccountController extends Controller
 
         $siteIds = $sites->pluck('id')->all();
 
+        $siteUsersMap = \DB::table('site_user')
+            ->join('users', 'users.id', '=', 'site_user.user_id')
+            ->whereIn('site_user.site_id', $siteIds)
+            ->where('users.is_admin', false)
+            ->select('site_user.site_id', 'site_user.role', 'users.id as user_id', 'users.name', 'users.email')
+            ->get()
+            ->groupBy('site_id');
+
         $allConfigs = \App\Models\SiteConfig::query()
             ->whereIn('site_id', $siteIds)
             ->whereIn('namespace', ['gaip', 'analysis_cache'])
@@ -58,7 +66,7 @@ class AccountController extends Controller
             ->groupBy('site_id')
             ->pluck('cnt', 'site_id');
 
-        return $sites->map(function ($site) use ($allConfigs, $soilCounts, $waterCounts, $activeSiteId): array {
+        return $sites->map(function ($site) use ($allConfigs, $soilCounts, $waterCounts, $activeSiteId, $siteUsersMap): array {
             $siteConfigs = $allConfigs->get($site->id, collect());
             $gaipConfig  = $siteConfigs->firstWhere('namespace', 'gaip');
             $cacheConfig = $siteConfigs->firstWhere('namespace', 'analysis_cache');
@@ -75,18 +83,27 @@ class AccountController extends Controller
                 $status = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
             }
 
+            $siteUsers = $siteUsersMap->get($site->id, collect());
+
             return [
-                'id'        => $site->id,
-                'name'      => $site->name,
-                'site_type' => $site->site_type,
-                'location'  => $site->location_name,
-                'species'   => $species,
-                'hoc'       => $hoc !== null ? (float) $hoc : null,
-                'soil'      => (int) ($soilCounts[$site->id] ?? 0),
-                'water'     => (int) ($waterCounts[$site->id] ?? 0),
-                'last_run'  => $cacheConfig?->synced_at?->toISOString(),
-                'is_active' => $site->id === $activeSiteId,
-                'status'    => $status,
+                'id'         => $site->id,
+                'name'       => $site->name,
+                'site_type'  => $site->site_type,
+                'location'   => $site->location_name,
+                'species'    => $species,
+                'hoc'        => $hoc !== null ? (float) $hoc : null,
+                'soil'       => (int) ($soilCounts[$site->id] ?? 0),
+                'water'      => (int) ($waterCounts[$site->id] ?? 0),
+                'last_run'   => $cacheConfig?->synced_at?->toISOString(),
+                'is_active'  => $site->id === $activeSiteId,
+                'status'     => $status,
+                'user_count' => $siteUsers->count(),
+                'users'      => $siteUsers->map(fn($u) => [
+                    'id'    => $u->user_id,
+                    'name'  => $u->name,
+                    'email' => $u->email,
+                    'role'  => $u->role,
+                ])->values()->all(),
             ];
         })->values()->all();
     }

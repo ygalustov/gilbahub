@@ -154,7 +154,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-68** Add confirmation prompt for site removal in account initialization script. This change ensures users confirm their action before removing a user from a site, enhancing user experience and preventing accidental deletions.
 **GH-69** Enhance magic link verification and user invitation handling. Updated MagicLinkController to allow both guests and logged-in users to verify magic links, processing pending invitations for existing sessions. Refactored account view to consolidate user management tables and improve UI for active users, requests, and invitations. Adjusted JavaScript for better tab management and visibility of empty states.
 **GH-70** Add provisional name flag in site creation process. Updated SiteController to include 'provisional_name' set to true when storing new site data, enhancing site management capabilities.
-
+**GH-71** Enhance account management by adding user details to site data. Updated AccountController to include user count and user information in the site data structure. Modified account view to display user count and added user invitation functionality in the JavaScript. Adjusted CSS for improved layout. This update improves user visibility and management within the site context.
 
 
 
@@ -168,7 +168,7 @@ password: GEAR.smith6
 - Sites - number of users and option to add access from this page
 And when click - in the details show list of active users
 
-also remove should be with confirmation
+
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
 Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.
