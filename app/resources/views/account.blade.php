@@ -141,7 +141,6 @@
                             <button class="stg-tab" data-utab="requests">Requests <span id="users-requests-count" style="display:none" class="badge"></span></button>
                             @endif
                             <button class="stg-tab" data-utab="invitations">Invitations <span id="users-invitations-count" style="display:none" class="badge"></span></button>
-                            <button class="stg-tab" data-utab="suspended">Suspended</button>
                         </div>
 
                         <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap" id="users-filters">
@@ -228,23 +227,6 @@
                                 <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                 <div style="font-weight:600;margin-bottom:6px">No pending invitations.</div>
                                 <div style="font-size:13px">Invited users who haven't signed in yet will appear here.</div>
-                            </div>
-                        </div>
-
-                        {{-- Suspended tab --}}
-                        <div id="users-suspended-panel" style="display:none">
-                            <div id="users-suspended-table-wrap" class="dat-table-wrap" style="padding:0;overflow-x:auto">
-                                <table class="dat-table">
-                                    <thead>
-                                        <tr><th>Name</th><th>Email</th><th style="width:120px"></th></tr>
-                                    </thead>
-                                    <tbody id="users-suspended-tbody"></tbody>
-                                </table>
-                            </div>
-                            <div id="users-suspended-empty" style="display:none;text-align:center;padding:40px 24px;color:#6b8878">
-                                <svg width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" style="margin:0 auto 12px;display:block;color:#a8c4b2"><path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
-                                <div style="font-weight:600;margin-bottom:6px">No suspended accounts.</div>
-                                <div style="font-size:13px">Suspended users will appear here.</div>
                             </div>
                         </div>
 

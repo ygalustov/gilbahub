@@ -18,7 +18,7 @@ class SiteController extends Controller
 
         $sites = $user->is_admin
             ? Site::query()->with('configs')->orderBy('name')->get()
-            : $user->sites()->with('configs')->orderBy('name')->get();
+            : $user->sites()->wherePivot('status', 'active')->with('configs')->orderBy('name')->get();
 
         return response()->json([
             'active_site_id' => $user->last_active_site_id,
@@ -180,9 +180,10 @@ class SiteController extends Controller
         ]);
 
         $site = Site::query()->findOrFail($data['site_id']);
-        abort_unless($request->user()->canViewSite($site), 403);
+        $user = $request->user();
+        abort_unless($user->canViewSite($site), 403);
 
-        $request->user()->forceFill([
+        $user->forceFill([
             'last_active_site_id' => $site->id,
         ])->save();
 

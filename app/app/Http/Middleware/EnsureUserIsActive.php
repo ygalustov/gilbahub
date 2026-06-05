@@ -16,10 +16,6 @@ class EnsureUserIsActive
             return redirect('/pending');
         }
 
-        if ($user && $user->status === 'suspended') {
-            abort(403, 'Your account has been suspended.');
-        }
-
         return $next($request);
     }
 }

@@ -20,6 +20,11 @@ class DashboardController extends Controller
             ? Site::query()->orderBy('name')->get()
             : ($user?->sites()->orderBy('name')->get() ?? collect());
 
+        // Non-admin with no sites → no access page
+        if (! $user?->is_admin && $allSites->isEmpty()) {
+            return redirect()->route('no-access');
+        }
+
         $savedLocation = [
             'name' => $activeSite?->location_name ?? '',
             'lat'  => $activeSite?->latitude ?? '',

@@ -157,13 +157,15 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 email: yuryg@gethydrosight.com.au
 password: GEAR.smith6
 
-- can we invite to several sites?
-
 - site logo
+
+- nice emails 
+create professioanally looking emails templates for our emails
 
 - Sites - number of users and option to add access from this page
 And when click - in the details show list of active users
 
+also remove should be with confirmation
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
 Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.

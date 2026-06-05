@@ -276,17 +276,14 @@
 
     /* ── Users tab ───────────────────────────────────────────────── */
     (function initUsersTab() {
-        var isAdmin      = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
-        var isSiteAdmin  = D.activeSiteRole === 'admin';
+        var isAdmin = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
 
         var utabBtns       = document.querySelectorAll('[data-utab]');
         var activePanel      = document.getElementById('users-active-panel');
         var requestsPanel    = document.getElementById('users-requests-panel');
         var invitationsPanel = document.getElementById('users-invitations-panel');
-        var suspendedPanel   = document.getElementById('users-suspended-panel');
         var tbody            = document.getElementById('users-tbody');
         var pendingTbody     = document.getElementById('users-pending-tbody');
-        var suspendedTbody   = document.getElementById('users-suspended-tbody');
         var invitationsTbody = document.getElementById('users-invitations-tbody');
         var allPanel         = document.getElementById('users-all-panel');
         var allTbody         = document.getElementById('users-all-tbody');
@@ -299,8 +296,6 @@
         var requestsTableWrap   = document.getElementById('users-requests-table-wrap');
         var invitationsEmptyState = document.getElementById('users-invitations-empty');
         var invitationsTableWrap  = document.getElementById('users-invitations-table-wrap');
-        var suspendedEmptyState = document.getElementById('users-suspended-empty');
-        var suspendedTableWrap  = document.getElementById('users-suspended-table-wrap');
         var inviteBtn      = document.getElementById('users-invite-btn');
         var inviteEmptyBtn = document.getElementById('users-invite-empty-btn');
         var allInviteEmptyBtn = document.getElementById('users-all-invite-empty-btn');
@@ -321,7 +316,7 @@
 
         if (searchInput) { searchInput.value = ''; }
 
-        var _members = [], _pending = [], _suspended = [], _invitations = [];
+        var _members = [], _pending = [], _invitations = [];
 
         function showInviteError(msg) {
             if (!inviteError) return;
@@ -336,7 +331,6 @@
             if (activePanel)      activePanel.style.display      = (tab === 'active')      ? '' : 'none';
             if (requestsPanel)    requestsPanel.style.display    = (tab === 'requests')    ? '' : 'none';
             if (invitationsPanel) invitationsPanel.style.display = (tab === 'invitations') ? '' : 'none';
-            if (suspendedPanel)   suspendedPanel.style.display   = (tab === 'suspended')   ? '' : 'none';
             if (allPanel)         allPanel.style.display         = (tab === 'all')         ? '' : 'none';
             if (tab === 'all') renderAll();
         }
@@ -365,8 +359,7 @@
             }).join('');
             var siteCol = isAdmin ? ('<td>' + escHtml(u.site_name || '') + '</td>') : '';
             var actions = canEdit && u.site_id
-                ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>' +
-                  (isSiteAdmin ? ' <button class="stg-btn-ghost suspend-btn" style="font-size:12px;padding:3px 8px;color:#dc2626">Suspend</button>' : '')
+                ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>'
                 : '';
             return '<tr data-user-id="' + u.id + '">' +
                 '<td>' + escHtml(u.name || '') + '</td>' +
@@ -443,29 +436,10 @@
                 : '';
         }
 
-        function renderSuspended() {
-            if (!suspendedTbody) return;
-            var hasItems = _suspended.length > 0;
-            if (suspendedEmptyState) suspendedEmptyState.style.display = hasItems ? 'none' : '';
-            suspendedTbody.innerHTML = hasItems
-                ? _suspended.map(function (u) {
-                    return '<tr data-user-id="' + u.id + '">' +
-                        '<td>' + escHtml(u.name || '') + '</td>' +
-                        '<td>' + escHtml(u.email) + '</td>' +
-                        '<td style="white-space:nowrap">' +
-                            '<button class="stg-btn-ghost unsuspend-btn" style="font-size:12px;padding:4px 10px;margin-right:6px">Restore</button>' +
-                            '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:4px 10px;color:#dc2626">Delete</button>' +
-                        '</td>' +
-                        '</tr>';
-                }).join('')
-                : '';
-        }
-
         var STATUS_BADGE = {
-            active:     '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e4f0e9;color:#2d7a4e">Active</span>',
-            invited:    '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e8f4fd;color:#2563eb">Invited</span>',
-            requested:  '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fef3c7;color:#92400e">Requested</span>',
-            suspended:  '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fee2e2;color:#b91c1c">Suspended</span>',
+            active:    '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e4f0e9;color:#2d7a4e">Active</span>',
+            invited:   '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e8f4fd;color:#2563eb">Invited</span>',
+            requested: '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#fef3c7;color:#92400e">Requested</span>',
         };
 
         function renderAll() {
@@ -481,7 +455,7 @@
                     '<td>' + roleLabel(u.role) + '</td>' +
                     '<td>' + STATUS_BADGE.active + '</td>' +
                     '<td style="white-space:nowrap">' +
-                        '<button class="stg-btn-ghost suspend-btn" style="font-size:12px;padding:3px 10px">Suspend</button>' +
+                        (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px" data-site-id="' + u.site_id + '">Remove</button>' : '') +
                     '</td>' +
                     '</tr>');
             });
@@ -507,18 +481,6 @@
                     '<td style="white-space:nowrap">' +
                         '<button class="stg-btn-primary approve-btn" style="font-size:12px;padding:3px 10px;margin-right:4px">Approve</button>' +
                         '<button class="stg-btn-ghost delete-btn" style="font-size:12px;padding:3px 10px;color:#dc2626">Decline</button>' +
-                    '</td>' +
-                    '</tr>');
-            });
-            _suspended.forEach(function (u) {
-                rows.push('<tr data-user-id="' + u.id + '">' +
-                    '<td>' + escHtml(u.name || '—') + '</td>' +
-                    '<td>' + escHtml(u.email) + '</td>' +
-                    '<td>—</td>' +
-                    '<td>—</td>' +
-                    '<td>' + STATUS_BADGE.suspended + '</td>' +
-                    '<td style="white-space:nowrap">' +
-                        '<button class="stg-btn-ghost unsuspend-btn" style="font-size:12px;padding:3px 10px">Restore</button>' +
                     '</td>' +
                     '</tr>');
             });
@@ -581,7 +543,6 @@
             apiFetch('GET', '/users').then(function (data) {
                 _members     = (data && data.members)     || [];
                 _pending     = (data && data.pending)     || [];
-                _suspended   = (data && data.suspended)   || [];
                 _invitations = (data && data.invitations) || [];
 
                 if (data && data.all_sites) populateSiteFilterAndSelect(data.all_sites);
@@ -589,7 +550,6 @@
                 renderMembers();
                 renderPending();
                 renderInvitations();
-                renderSuspended();
                 renderAll();
 
                 if (requestsCountEl) {
@@ -617,11 +577,6 @@
                     if (!confirm('Remove this user from the site?')) return;
                     apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
                         .then(loadUsers).catch(function () { alert('Failed to remove user.'); });
-                }
-                if (e.target.classList.contains('suspend-btn')) {
-                    if (!confirm('Suspend this user? They will be logged out immediately.')) return;
-                    apiFetch('PATCH', '/users/' + userId + '/suspend')
-                        .then(loadUsers).catch(function () { alert('Failed to suspend user.'); });
                 }
             });
             tbody.addEventListener('change', function (e) {
@@ -661,22 +616,6 @@
             });
         }
 
-        if (suspendedTbody) {
-            suspendedTbody.addEventListener('click', function (e) {
-                var row = e.target.closest('tr[data-user-id]');
-                if (!row) return;
-                var userId = row.dataset.userId;
-                if (e.target.classList.contains('unsuspend-btn')) {
-                    apiFetch('PATCH', '/users/' + userId + '/unsuspend')
-                        .then(loadUsers).catch(function () { alert('Failed to restore user.'); });
-                } else if (e.target.classList.contains('delete-btn')) {
-                    if (!confirm('Delete this user?')) return;
-                    apiFetch('DELETE', '/users/' + userId)
-                        .then(loadUsers).catch(function () { alert('Failed to delete user.'); });
-                }
-            });
-        }
-
         if (allTbody) {
             allTbody.addEventListener('click', function (e) {
                 var invRow = e.target.closest('tr[data-inv-id]');
@@ -695,12 +634,11 @@
                     if (!confirm('Decline and remove this request?')) return;
                     apiFetch('DELETE', '/users/' + userId)
                         .then(loadUsers).catch(function () { alert('Failed to remove.'); });
-                } else if (e.target.classList.contains('suspend-btn')) {
-                    apiFetch('PATCH', '/users/' + userId + '/suspend')
-                        .then(loadUsers).catch(function () { alert('Failed to suspend.'); });
-                } else if (e.target.classList.contains('unsuspend-btn')) {
-                    apiFetch('PATCH', '/users/' + userId + '/unsuspend')
-                        .then(loadUsers).catch(function () { alert('Failed to restore.'); });
+                } else if (e.target.classList.contains('remove-site-btn')) {
+                    var sid = e.target.dataset.siteId;
+                    if (!sid) return;
+                    apiFetch('DELETE', '/users/' + userId + '/site/' + sid)
+                        .then(loadUsers).catch(function () { alert('Failed to remove.'); });
                 }
             });
         }

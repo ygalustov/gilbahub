@@ -46,6 +46,7 @@ Route::post('/logout', [AuthController::class, 'logout'])
 // Auth-only routes excluded from EnsureUserIsActive (pending users can access these)
 Route::middleware('auth')->group(function () {
     Route::get('/pending', [AuthController::class, 'pending'])->name('pending');
+    Route::get('/no-access', fn () => view('auth.no-access'))->name('no-access');
 });
 
 // All other authenticated routes require active status
@@ -132,8 +133,6 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::get('/users', [UsersController::class, 'index'])->name('users.index');
         Route::patch('/users/{user}/role', [UsersController::class, 'updateRole'])->name('users.role.update');
         Route::delete('/users/{user}/site/{site}', [UsersController::class, 'removeSite'])->name('users.site.remove');
-        Route::patch('/users/{user}/suspend', [UsersController::class, 'suspend'])->name('users.suspend');
-        Route::patch('/users/{user}/unsuspend', [UsersController::class, 'unsuspend'])->name('users.unsuspend');
         Route::patch('/users/{user}/approve', [UsersController::class, 'approve'])->name('users.approve');
         Route::delete('/users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
 

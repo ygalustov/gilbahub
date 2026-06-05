@@ -35,7 +35,6 @@ class UsersController extends Controller
 
             $members = $query->get();
             $pending = User::query()->where('status', 'pending')->orderBy('created_at')->get();
-            $suspended = User::query()->where('status', 'suspended')->orderBy('name')->get();
             $allSites = Site::query()->orderBy('name')->get(['id', 'name']);
 
             // Pending invitations (all sites)
@@ -46,11 +45,10 @@ class UsersController extends Controller
                 ->get();
 
             return response()->json([
-                'members' => $members,
-                'pending' => $pending,
-                'suspended' => $suspended,
+                'members'     => $members,
+                'pending'     => $pending,
                 'invitations' => $invitations,
-                'all_sites' => $allSites,
+                'all_sites'   => $allSites,
             ]);
         }
 
@@ -88,16 +86,9 @@ class UsersController extends Controller
             $invQuery->where('invitations.site_id', $siteId);
         }
 
-        $suspended = User::query()
-            ->where('status', 'suspended')
-            ->whereIn('id', DB::table('site_user')->whereIn('site_id', $siteIds)->pluck('user_id'))
-            ->orderBy('name')
-            ->get();
-
         return response()->json([
             'members'     => $members,
             'invitations' => $invQuery->get(),
-            'suspended'   => $suspended,
             'all_sites'   => $managedSites,
         ]);
     }
@@ -134,32 +125,13 @@ class UsersController extends Controller
         $target = User::query()->findOrFail($user);
         $target->sites()->detach($siteModel->id);
 
+        // If removed site was the user's active site, switch to another or clear it
+        if ($target->last_active_site_id === $siteModel->id) {
+            $next = $target->sites()->first();
+            $target->forceFill(['last_active_site_id' => $next?->id])->save();
+        }
+
         return response()->json(['removed' => true]);
-    }
-
-    public function suspend(Request $request, int $user): JsonResponse
-    {
-        abort_unless($request->user()->is_admin, 403);
-
-        $target = User::query()->findOrFail($user);
-        abort_if($target->is_admin, 403, 'Cannot suspend another admin.');
-
-        $target->forceFill(['status' => 'suspended'])->save();
-
-        // Invalidate existing sessions immediately
-        DB::table('sessions')->where('user_id', $target->id)->delete();
-
-        return response()->json(['suspended' => true]);
-    }
-
-    public function unsuspend(Request $request, int $user): JsonResponse
-    {
-        abort_unless($request->user()->is_admin, 403);
-
-        $target = User::query()->findOrFail($user);
-        $target->forceFill(['status' => 'active'])->save();
-
-        return response()->json(['unsuspended' => true]);
     }
 
     public function approve(Request $request, int $user): JsonResponse
