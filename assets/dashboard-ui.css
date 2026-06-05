@@ -136,6 +136,8 @@ body { margin: 0; padding: 0; }
     gap: 12px;
 }
 
+.db-topbar-mobile { display: none; }
+
 .db-analysis-ts {
     display: flex;
     align-items: center;
@@ -1374,6 +1376,27 @@ body { margin: 0; padding: 0; }
     .gl-kpi-grid     { grid-template-columns: 1fr; gap: 8px; }
     .gl-kpi-value    { font-size: 28px; }
     .gl-body         { padding: 16px 12px; }
+
+    /* Field Status — 2-column grid on mobile */
+    .db-vitals { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .db-vital-card { min-height: 110px; padding: 12px; }
+    .db-vital-main { font-size: 26px; }
+
+    /* Action queue cards — stack sidebar below content */
+    .db-aq-card {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+    .db-aq-card-sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .db-aq-card-sidebar .db-btn-commit,
+    .db-aq-card-sidebar .db-btn-defer { width: auto; flex: 1; }
+    .db-aq-card-sidebar .db-btn-details { display: none; }
 }
 
 /* ---------- Shared empty state (all db-shell pages) ---------- */
@@ -1391,3 +1414,76 @@ body { margin: 0; padding: 0; }
 .db-empty-state svg   { display: block; margin: 0 auto 4px; }
 .db-empty-title       { font-size: 15px; font-weight: 600; color: var(--gaip-text, #1a2b23); margin: 0; }
 .db-empty-sub         { font-size: 13px; color: var(--gaip-text-muted, #6b8878); max-width: 360px; line-height: 1.6; margin: 0; }
+
+/* ── Mobile bottom navigation ─────────────────────────────────── */
+.db-bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+    /* Shell layout */
+    .db-shell   { height: auto; overflow: visible; }
+    .db-sidebar { display: none; }
+    .db-main    { overflow: visible; }
+
+    /* Push content above bottom nav */
+    .db-main { padding-bottom: 56px; }
+
+    /* Topbar: hide context pills + analysis timestamp, keep site switcher + rerun + account/settings */
+    .db-context-pills  { display: none; }
+    .db-analysis-ts    { display: none; }
+    .db-topbar         { padding: 0 14px; gap: 8px; }
+    .db-topbar-right   { gap: 6px; }
+    .db-topbar-mobile  { display: flex; align-items: center; gap: 4px; }
+
+    /* Bottom nav bar */
+    .db-bottom-nav {
+        display: flex;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        height: 56px;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: #1a2b23;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        z-index: 900;
+    }
+
+    .db-bottom-nav-item {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        color: rgba(255,255,255,0.4);
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 500;
+        font-family: var(--gaip-font, system-ui, sans-serif);
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        padding: 0;
+        transition: color 0.15s;
+        position: relative;
+    }
+    .db-bottom-nav-item.active { color: #2da85e; }
+    .db-bottom-nav-item:hover  { color: rgba(255,255,255,0.75); }
+    .db-bottom-nav-item.active:hover { color: #2da85e; }
+
+    /* Badge on Account icon */
+    .db-bottom-nav-badge {
+        position: absolute;
+        top: 6px;
+        right: calc(50% - 14px);
+        min-width: 14px; height: 14px;
+        padding: 0 3px;
+        background: #ef4444;
+        border-radius: 7px;
+        font-size: 9px;
+        font-weight: 700;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1;
+    }
+}

@@ -178,7 +178,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-87** Enhance mobile authentication views: Added responsive styles for no-access and pending pages, improved layout for mobile login, and introduced a mobile footer with branding for better user experience on smaller screens.
 **GH-88** Update mobile authentication views: Change body height to min-height for better responsiveness on smaller screens in login and register pages.
 **GH-89** Enhance mobile authentication views: Added consistent font size for login inputs in both login and register pages to improve readability on smaller screens.
-
+**GH-90** Implement mobile navigation enhancements: Added a mobile bottom navigation bar for improved accessibility and user experience on smaller screens, along with mobile-only account and settings icons in the top bar. Updated CSS for responsive design adjustments.
 
 continue - now for the whole app make mobile version with side menu moved to the bottom as on regular apps
 
@@ -191,7 +191,7 @@ continue - now for the whole app make mobile version with side menu moved to the
 
 
 
-
+logout on mobile - add to profile (and in general too)
 
 
 
