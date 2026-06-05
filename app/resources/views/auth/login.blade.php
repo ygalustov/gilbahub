@@ -236,6 +236,7 @@
                 padding: 24px 20px 0;
             }
             .login-card { flex-shrink: 0; margin-top: auto; margin-bottom: auto; }
+            .login-input { font-size: 16px; }
             .login-mobile-footer {
                 display: block;
                 text-align: center;

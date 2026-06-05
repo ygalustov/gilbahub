@@ -68,6 +68,7 @@
             .login-mobile-tagline { font-size: 13px; color: rgba(255,255,255,0.45); margin-top: 4px; line-height: 1.4; }
             .login-main { flex: 1; display: flex; flex-direction: column; padding: 24px 20px 0; }
             .login-card { flex-shrink: 0; max-width: 100%; margin-top: auto; margin-bottom: auto; }
+            .login-input { font-size: 16px; }
             .login-mobile-footer {
                 display: block; text-align: center; font-size: 12px;
                 color: #6b8878; padding: 20px; margin-top: auto;
