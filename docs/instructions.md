@@ -167,10 +167,21 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-76** Update account initialization script to simplify user notification. Removed invitation prompt from the "no users" message for a cleaner user experience.
 **GH-77** Update MagicLinkController to adjust email rate limits for local and production environments. Increased maximum emails allowed in local environment from 20 to 50, while maintaining the production limit at 50.
 **GH-78** Update DatabaseSeeder to enhance user creation logic. Added 'status' and 'is_admin' fields for new users, and implemented updateOrCreate for admin user to ensure unique email handling.
-
+**GH-7** Update MagicLinkController to redirect to account page after password reset instead of settings page. Enhance documentation by adding backlog items for future features and improvements.
 
 
 ## Backlog
+1 Address
++ 2 Role base admin
++ 3 Invite only sign up
+4. There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
+5. Remove Insects model
+
+
+
+
+
+
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
 Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.

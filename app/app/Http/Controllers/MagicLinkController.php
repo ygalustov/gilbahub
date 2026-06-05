@@ -103,7 +103,7 @@ class MagicLinkController extends Controller
             $request->session()->regenerate();
 
             if ($isPasswordReset) {
-                return redirect()->route('settings')->with('open_password_modal', true);
+                return redirect()->route('account')->with('open_password_modal', true);
             }
 
             if (! $user->last_active_site_id && $user->sites()->count() === 0) {
