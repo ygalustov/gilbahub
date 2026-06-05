@@ -46,6 +46,12 @@ class AccountController extends Controller
             ->get()
             ->groupBy('site_id');
 
+        $siteInvitationsMap = \DB::table('invitations')
+            ->whereIn('site_id', $siteIds)
+            ->select('site_id', 'id', 'name', 'email', 'role')
+            ->get()
+            ->groupBy('site_id');
+
         $allConfigs = \App\Models\SiteConfig::query()
             ->whereIn('site_id', $siteIds)
             ->whereIn('namespace', ['gaip', 'analysis_cache'])
@@ -66,7 +72,7 @@ class AccountController extends Controller
             ->groupBy('site_id')
             ->pluck('cnt', 'site_id');
 
-        return $sites->map(function ($site) use ($allConfigs, $soilCounts, $waterCounts, $activeSiteId, $siteUsersMap): array {
+        return $sites->map(function ($site) use ($allConfigs, $soilCounts, $waterCounts, $activeSiteId, $siteUsersMap, $siteInvitationsMap): array {
             $siteConfigs = $allConfigs->get($site->id, collect());
             $gaipConfig  = $siteConfigs->firstWhere('namespace', 'gaip');
             $cacheConfig = $siteConfigs->firstWhere('namespace', 'analysis_cache');
@@ -83,7 +89,24 @@ class AccountController extends Controller
                 $status = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
             }
 
-            $siteUsers = $siteUsersMap->get($site->id, collect());
+            $siteUsers       = $siteUsersMap->get($site->id, collect());
+            $siteInvitations = $siteInvitationsMap->get($site->id, collect());
+
+            $members = $siteUsers->map(fn($u) => [
+                'id'     => $u->user_id,
+                'name'   => $u->name,
+                'email'  => $u->email,
+                'role'   => $u->role,
+                'status' => 'active',
+            ])->values()->all();
+
+            $invited = $siteInvitations->map(fn($i) => [
+                'id'     => $i->id,
+                'name'   => $i->name,
+                'email'  => $i->email,
+                'role'   => $i->role,
+                'status' => 'invited',
+            ])->values()->all();
 
             return [
                 'id'         => $site->id,
@@ -97,13 +120,8 @@ class AccountController extends Controller
                 'last_run'   => $cacheConfig?->synced_at?->toISOString(),
                 'is_active'  => $site->id === $activeSiteId,
                 'status'     => $status,
-                'user_count' => $siteUsers->count(),
-                'users'      => $siteUsers->map(fn($u) => [
-                    'id'    => $u->user_id,
-                    'name'  => $u->name,
-                    'email' => $u->email,
-                    'role'  => $u->role,
-                ])->values()->all(),
+                'user_count' => $siteUsers->count() + $siteInvitations->count(),
+                'users'      => array_merge($members, $invited),
             ];
         })->values()->all();
     }

@@ -113,31 +113,44 @@
 
             var users = s.users || [];
             var ROLE_LABELS = { manager: 'Manager', editor: 'Editor', viewer: 'Viewer' };
+            var STATUS_STYLES = {
+                active:  'background:#e4f0e9;color:#2d7a4e',
+                invited: 'background:#e8f4fd;color:#2563eb',
+            };
             function userInitials(u) {
                 var parts = (u.name || u.email || '').trim().split(/\s+/);
                 return parts.slice(0,2).map(function(p){ return p[0] ? p[0].toUpperCase() : ''; }).join('');
             }
-            var usersHtml = '<div style="border-top:1px solid #e8efeb;margin-top:16px;padding-top:16px;margin-bottom:16px">' +
+            function avatarBg(status) {
+                return status === 'invited' ? '#dbeafe' : '#d4e8dc';
+            }
+            function avatarColor(status) {
+                return status === 'invited' ? '#2563eb' : '#2d7a4e';
+            }
+            var usersHtml = '<div style="border-top:1px solid #e8efeb;margin-top:16px;padding-top:16px;margin-bottom:24px">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
-                '<div style="font-size:12px;font-weight:700;color:#3d5c4a;text-transform:uppercase;letter-spacing:.5px">Users' + (users.length ? ' <span style="font-weight:400;color:#6b8878">(' + users.length + ')</span>' : '') + '</div>' +
+                '<div style="font-size:12px;font-weight:700;color:#3d5c4a;text-transform:uppercase;letter-spacing:.5px">Users' + (users.length ? ' <span style="font-weight:400;color:#6b8878;text-transform:none;letter-spacing:0">(' + users.length + ')</span>' : '') + '</div>' +
                 '<button type="button" class="stg-site-invite-btn" data-site-id="' + esc(s.id) + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;font-family:\'Barlow\',sans-serif;font-weight:600;background:#2da85e;color:#fff;border:none;border-radius:6px;cursor:pointer">' +
                 '<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Invite</button>' +
                 '</div>';
             if (users.length) {
-                usersHtml += '<div style="display:flex;flex-direction:column;gap:6px">' +
+                usersHtml += '<div style="display:flex;flex-direction:column;gap:4px">' +
                     users.map(function (u) {
                         var initials = userInitials(u);
-                        return '<div style="display:flex;align-items:center;gap:10px">' +
-                            '<div style="width:30px;height:30px;border-radius:50%;background:#d4e8dc;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#2d7a4e;flex-shrink:0;font-family:\'Barlow\',sans-serif">' + esc(initials) + '</div>' +
+                        var st = u.status || 'active';
+                        var statusLabel = st.charAt(0).toUpperCase() + st.slice(1);
+                        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;background:#f8fbf9">' +
+                            '<div style="width:28px;height:28px;border-radius:50%;background:' + avatarBg(st) + ';display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:' + avatarColor(st) + ';flex-shrink:0;font-family:\'Barlow\',sans-serif">' + esc(initials) + '</div>' +
                             '<div style="flex:1;min-width:0">' +
                                 '<div style="font-size:13px;font-weight:600;color:#1a2b23;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.name || u.email) + '</div>' +
                                 (u.name ? '<div style="font-size:11px;color:#6b8878;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + esc(u.email) + '</div>' : '') +
                             '</div>' +
-                            '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:20px;background:#e4f0e9;color:#2d7a4e;flex-shrink:0">' + esc(ROLE_LABELS[u.role] || u.role) + '</span>' +
+                            '<span style="font-size:11px;font-weight:600;padding:2px 7px;border-radius:20px;flex-shrink:0;' + (STATUS_STYLES[st] || STATUS_STYLES.active) + '">' + statusLabel + '</span>' +
+                            '<span style="font-size:11px;color:#6b8878;flex-shrink:0">' + esc(ROLE_LABELS[u.role] || u.role) + '</span>' +
                             '</div>';
                     }).join('') + '</div>';
             } else {
-                usersHtml += '<div style="font-size:13px;color:#6b8878">No users yet. Invite someone to get started.</div>';
+                usersHtml += '<div style="font-size:13px;color:#6b8878;padding:8px 0">No users yet. Invite someone to get started.</div>';
             }
             usersHtml += '</div>';
 
@@ -150,9 +163,11 @@
                 '</div>' +
                 '<div style="font-size:12px;color:var(--gaip-text-muted);margin-bottom:16px">Last analysis run: ' + esc(lastRunFull) + '</div>' +
                 usersHtml +
+                '<div style="border-top:1px solid #e8efeb;padding-top:16px">' +
                 (sitesData.length > 1
                     ? '<button type="button" class="stg-detail-delete-btn" data-site-id="' + esc(s.id) + '" style="padding:6px 14px;font-size:12px;font:inherit;font-weight:500;background:transparent;border:1px solid #f5c6c6;border-radius:7px;color:#c0392b;cursor:pointer">Delete this site</button>'
-                    : '<span style="font-size:12px;color:var(--gaip-text-muted)">Cannot delete the only site.</span>');
+                    : '<span style="font-size:12px;color:var(--gaip-text-muted)">Cannot delete the only site.</span>') +
+                '</div>';
             if (detailPanel) { detailPanel.style.display = ''; detailPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
             tbody.querySelectorAll('tr.stg-row-main').forEach(function (r) { r.classList.toggle('stg-row-expanded', r.dataset.siteId === s.id); });
         }
@@ -339,6 +354,7 @@
         var inviteEmptyBtnInv      = document.getElementById('users-invite-empty-btn-inv');
         var allInviteEmptyBtn      = document.getElementById('users-all-invite-empty-btn');
         var inviteModal    = document.getElementById('users-invite-modal');
+        if (inviteModal) document.body.appendChild(inviteModal);
         var inviteClose    = document.getElementById('invite-modal-close');
         var inviteCancelBtn = document.getElementById('invite-cancel-btn');
         var inviteSubmitBtn = document.getElementById('invite-submit-btn');
@@ -700,9 +716,8 @@
         var firstActiveUtab = document.querySelector('#users-admin-tabs .stg-tab.active');
         switchUtab(firstActiveUtab ? firstActiveUtab.dataset.utab : 'all');
 
-        if (document.querySelector('[data-tab="users"].active') || document.querySelector('#stg-tab-users:not(.stg-hidden)')) {
-            loadUsers();
-        }
+        // Always load so invite modal sites dropdown is ready regardless of active tab
+        loadUsers();
     }());
 
     /* ── Profile tab ─────────────────────────────────────────────── */
