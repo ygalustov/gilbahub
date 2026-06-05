@@ -140,9 +140,13 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-55** Update login view branding for improved readability. 
 **GH-56** Enhance dashboard and site setup experience. Updated DashboardController to refresh user data, simplified site activation logic in SiteController, and improved dashboard view with a setup banner for unconfigured sites. Added JavaScript functionality for setup interactions and refined CSS for better UI presentation.
 **GH-57** Update onboarding wizard and settings initialization for improved setup experience. Added logic to auto-show the onboarding wizard based on URL parameters and modified the yes button action to include a setup query parameter for seamless navigation to the dashboard.
-
+**GH-58** Prevent auto-showing the onboarding wizard on db-shell pages to ensure proper setup handling by the new onboarding-wizard.js.
 
 ## Backlog
+
+email: yuryg@gethydrosight.com.au
+password: GEAR.smith6
+
 
 - Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
 Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.

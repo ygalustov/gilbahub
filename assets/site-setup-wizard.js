@@ -1445,6 +1445,9 @@
     // ================================================================
     
     function initWhenReady() {
+        // Don't auto-show on db-shell pages — the new onboarding-wizard.js handles setup there
+        if (document.querySelector('.db-shell')) return;
+
         if (window.GaipTurfProfile && window.GaipTurfProfile.version) {
             // Small delay to let TurfProfile finish its own init
             setTimeout(function() {
