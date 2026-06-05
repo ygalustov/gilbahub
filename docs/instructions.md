@@ -169,6 +169,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-78** Update DatabaseSeeder to enhance user creation logic. Added 'status' and 'is_admin' fields for new users, and implemented updateOrCreate for admin user to ensure unique email handling.
 **GH-79** Update MagicLinkController to redirect to account page after password reset instead of settings page. Enhance documentation by adding backlog items for future features and improvements.
 **GH-80** Remove favicon.ico and update routing to redirect favicon requests to favicon.svg for improved asset management.
+**GH-81** Enhance user permissions in UsersController: Implemented logic to determine if a user can remove another based on role hierarchy. Updated front-end to reflect these changes, ensuring only authorized users can see the remove button for site management.
+
+
+
 
 
 ## Backlog

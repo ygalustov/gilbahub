@@ -444,7 +444,7 @@
 
         function renderMemberRow(u) {
             var isSelf = u.email === D.userEmail;
-            var actions = !isSelf && u.site_id
+            var actions = !isSelf && u.can_remove
                 ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>'
                 : '';
             return '<tr data-user-id="' + u.id + '">' +
@@ -562,7 +562,7 @@
                         '<td>' + escHtml(u.site_name || '—') + '</td>' +
                         '<td>' + roleLabel(u.role) + '</td>' +
                         '<td>' + STATUS_BADGE.active + '</td>' +
-                        '<td style="white-space:nowrap">' + (u.site_id ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>' : '') + '</td>' +
+                        '<td style="white-space:nowrap">' + (u.can_remove ? '<button class="stg-btn-ghost remove-site-btn" style="font-size:12px;padding:3px 8px;color:#dc2626;border-color:#fca5a5" data-site-id="' + u.site_id + '">Remove</button>' : '') + '</td>' +
                         '</tr>';
                 } else if (u._type === 'invite') {
                     return '<tr data-inv-id="' + u.id + '">' +

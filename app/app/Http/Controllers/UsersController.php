@@ -33,7 +33,10 @@ class UsersController extends Controller
                 $query->where('sites.id', $siteId);
             }
 
-            $members = $query->get();
+            $members = $query->get()->map(function ($m) use ($actor) {
+                $m->can_remove = $actor->id !== $m->id;
+                return $m;
+            });
             $pending = User::query()->where('status', 'pending')->orderBy('created_at')->get();
             $allSites = Site::query()->orderBy('name')->get(['id', 'name']);
 
@@ -74,7 +77,15 @@ class UsersController extends Controller
             $query->where('site_user.site_id', $siteId);
         }
 
-        $members = $query->get();
+        $roleHierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3, 'owner' => 4];
+        $actorSiteRoles = $managedSites->keyBy('id')->map(fn($s) => $s->pivot->role);
+
+        $members = $query->get()->map(function ($m) use ($actor, $roleHierarchy, $actorSiteRoles) {
+            $actorLevel  = $roleHierarchy[$actorSiteRoles[$m->site_id] ?? ''] ?? 0;
+            $targetLevel = $roleHierarchy[$m->role] ?? 0;
+            $m->can_remove = $actor->id !== $m->id && $actorLevel > $targetLevel;
+            return $m;
+        });
 
         $invQuery = Invitation::query()
             ->join('sites', 'sites.id', '=', 'invitations.site_id')
@@ -123,6 +134,12 @@ class UsersController extends Controller
         abort_if($actor->id === $user, 403, 'Cannot remove yourself.');
 
         $target = User::query()->findOrFail($user);
+
+        $roleHierarchy = ['viewer' => 1, 'editor' => 2, 'manager' => 3, 'owner' => 4];
+        $actorLevel  = $actor->is_admin ? 99 : ($roleHierarchy[$actor->roleOnSite($siteModel)] ?? 0);
+        $targetLevel = $roleHierarchy[$target->roleOnSite($siteModel)] ?? 0;
+        abort_unless($actorLevel > $targetLevel, 403, 'Cannot remove a user with equal or higher role.');
+
         $target->sites()->detach($siteModel->id);
 
         // If removed site was the user's active site, switch to another or clear it
