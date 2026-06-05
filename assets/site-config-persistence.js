@@ -139,7 +139,7 @@
             var site = byId[siteId];
             if (!site) return;
             payloadSites[siteId] = {
-                label: site.label || site.name || siteId
+                label: site.label || site.name || ''
             };
         });
 

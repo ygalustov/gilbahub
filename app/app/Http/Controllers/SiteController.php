@@ -85,7 +85,7 @@ class SiteController extends Controller
                 continue;
             }
 
-            $name = trim((string) ($siteData['label'] ?? $siteData['name'] ?? $siteId));
+            $name = trim((string) ($siteData['label'] ?? $siteData['name'] ?? ''));
             $site = Site::query()->find($siteId);
 
             if ($site) {
