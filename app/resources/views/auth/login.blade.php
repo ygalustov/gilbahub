@@ -197,8 +197,9 @@
         }
         .login-sent-footer button:hover { text-decoration: underline; }
 
-        /* ── Mobile header ── */
-        .login-mobile-header { display: none; }
+        /* ── Mobile header / footer ── */
+        .login-mobile-header,
+        .login-mobile-footer { display: none; }
 
         @media (max-width: 640px) {
             body { flex-direction: column; }
@@ -219,8 +220,22 @@
                 color: #fff;
             }
             .login-mobile-brand {
-                font-size: 14px; font-weight: 700;
+                font-size: 18px; font-weight: 700;
                 color: #fff; line-height: 1.25;
+            }
+            .login-mobile-tagline {
+                font-size: 13px;
+                color: rgba(255,255,255,0.45);
+                margin-top: 4px;
+                line-height: 1.4;
+            }
+            .login-mobile-footer {
+                display: block;
+                text-align: center;
+                font-size: 12px;
+                color: #6b8878;
+                padding: 16px 20px;
+                flex-shrink: 0;
             }
 
             .login-main {
@@ -251,7 +266,10 @@
                 <text x="24" y="25" text-anchor="middle" dominant-baseline="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="700" fill="currentColor">G</text>
             </svg>
         </div>
-        <div class="login-mobile-brand">The Gilba<br>Turf Agronomy Hub</div>
+        <div>
+            <div class="login-mobile-brand">The Gilba<br>Turf Agronomy Hub</div>
+            <div class="login-mobile-tagline">Agronomic intelligence for turf management.</div>
+        </div>
     </header>
 
     <main class="login-main">
@@ -366,6 +384,10 @@
 
         </div>
     </main>
+
+    <footer class="login-mobile-footer">
+        &copy; {{ date('Y') }} The Gilba Turf Agronomy Hub
+    </footer>
 
     <script>
         const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content
