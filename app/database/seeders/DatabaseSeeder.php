@@ -8,7 +8,6 @@ use App\Models\SiteConfig;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
@@ -24,7 +23,15 @@ class DatabaseSeeder extends Seeder
             ['email' => 'yuryg@gethydrosight.com.au'],
             [
                 'name' => 'Yury',
-                'password_hash' => Hash::make('GEAR.smith6'),
+                'status' => 'active',
+                'is_admin' => true,
+            ]
+        );
+
+        User::query()->updateOrCreate(
+            ['email' => 'herbycides@gmail.com'],
+            [
+                'name' => 'Admin',
                 'status' => 'active',
                 'is_admin' => true,
             ]

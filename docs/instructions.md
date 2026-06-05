@@ -166,7 +166,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-75** Update authentication views to include favicon and enhance logo representation. Added a favicon link to login, no-access, pending, and register pages. Updated logo SVG in login and register views to display a stylized letter "G" for improved branding consistency.
 **GH-76** Update account initialization script to simplify user notification. Removed invitation prompt from the "no users" message for a cleaner user experience.
 **GH-77** Update MagicLinkController to adjust email rate limits for local and production environments. Increased maximum emails allowed in local environment from 20 to 50, while maintaining the production limit at 50.
-
+**GH-78** Update DatabaseSeeder to enhance user creation logic. Added 'status' and 'is_admin' fields for new users, and implemented updateOrCreate for admin user to ensure unique email handling.
 
 
 
