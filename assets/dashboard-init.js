@@ -555,15 +555,8 @@
     // CONTEXT PILLS — species / region from site config
     // =========================================================================
 
-    function populatePills(siteId) {
-        var configs = safeJson(_ls.getItem('gilba_hub_site_configs'));
-        if (!configs || !siteId) return;
-        var cfg = configs[siteId];
-        if (!cfg) return;
-        var species = (cfg.turf && cfg.turf.species) ? cfg.turf.species : null;
-        var region  = (cfg.location && (cfg.location.region || cfg.location.name)) ? (cfg.location.region || cfg.location.name) : null;
-        if (species) setText('db-pill-species', species);
-        if (region)  setText('db-pill-region',  region);
+    function populatePills() {
+        // Pills are rendered server-side from DB; do not overwrite with stale localStorage data.
     }
 
     // =========================================================================

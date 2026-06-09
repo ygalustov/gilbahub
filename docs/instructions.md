@@ -187,19 +187,19 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-96** Enhance dashboard and stress analysis functionality: Added conditional handling for traffic factor based on site type in dashboard-init.js and stress-analysis.js. Updated summary display to show recommendations if available. Refined backlog in instructions.md for clarity and organization.
 **GH-97** Add Google Maps API integration: Introduced Google Maps API key in .env.example, updated services.php to include Google Maps configuration, and implemented geocoding functionality in various JavaScript files for improved location search capabilities. Updated instructions.md to reflect the addition of Google Maps API usage.
 **GH-98** Refactor authentication logic: Updated AuthController and MagicLinkController to always remember user sessions upon login. Enhanced password reset flow by adding session management for trusted resets in ProfileController. Improved password modal UI in account.blade.php and added functionality to toggle password visibility in account-init.js.
-
+**GH-99** Enhance account and site configuration data handling: Updated AccountController and AppServiceProvider to retrieve and inject turf species, methodology, and location name from GAIP configurations. Modified views to utilize these new variables for improved data display. Adjusted JavaScript functions to prevent overwriting server-side rendered data with local storage values.
 
 
 
 
 ## Backlog
 +1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
-+2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98
+2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 - to test!
 +3.⁠ ⁠⁠Invite only sign up 
 +4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green. GH-96
 5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
 +6.⁠ ⁠Change settings don’t update UI. GH-97
-+7.⁠ ⁠⁠Keep users signed in GH-98
++7.⁠ ⁠⁠Keep users signed in. GH-98
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
@@ -221,106 +221,35 @@ That’s what the current layout looks like when it produces the product recomme
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
+- Also regarding change password - if there is no password - is it going to show just window with new password and confirm password?
 
+- Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 
-- to test change password
 - to add Self registration with approval
 
-
-- 4. Ограничить ключ (важно)
-
-Нажать на созданный ключ → Edit
+- Ограничить ключ (важно)-  Нажать на созданный ключ → Edit
 В разделе Application restrictions → выбрать HTTP referrers (websites)
 Добавить ваш домен: https://yourdomain.com/*
 В разделе API restrictions → Restrict key → выбрать только Places API
 Save
 
+- Morning Briefing  — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
 
-
-- Карта для выбора локации — в старом была интерактивная карта (Leaflet). В новом только текстовый поиск + ввод координат вручную. Зачем карта была в старом хабе:
-Пользователь кликал на карту → устанавливались точные lat/lon → эти координаты используются для запроса погодных данных (weather API) для анализа. Точность координат важна — разница в 20 км может дать другую погоду.
-
-Morning Briefing  — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
-
-Архитектурные отличия (возможно намеренные)
+- Архитектурные отличия (возможно намеренные)
 Decision Panel — логика выбора действий (почему та или иная рекомендация). В старом хабе была отдельная панель.
 
-Evidence Panel — визуализация источников данных и уверенности в расчётах (Soil → Water → Tissue → Spray chain).
+- Evidence Panel — визуализация источников данных и уверенности в расчётах (Soil → Water → Tissue → Spray chain).
 
---
-
-MOBILE VERSION
-
------
-
-Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
-
-----
-
-vmay be we add it to KPI - same as on the soil page? 
-
-----
-Посмотри, вот на старом сайте написано, где про болезни, написано, что анализ сделан дляBentgrass, для какой-то конкретной травы, которая у нас основная species идёт. И написан какой-то процент. Вот что это за процент и где нам можно это вывести тоже? 
-Analysis for: Bentgrass 85%
---
-
-
-Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?
-
----
+- Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?
 
 - Check why irrigation 6mm in the old site is highlighted with orange and on the new one with green. Check all thresholds for all blocks on the new site to be the same as on old one. 
 
-
 - Auto re-run - setup minutes or hours - how often to rerun
 
-- Give permissions to users
-
 - Task management
-
-- Onboarding
-
-- In the old site UI I only see 2 methodology SLAN, MLSN. Why do we have 3?
-
-- Where zones are set on the old site?
-
-- The only exception: manually-entered samples with no client_uid (NULL) are preserved, because they're not tracked by the import system - why manually-entered samples are with no client_uid ?
 
 - How often data should be pulled from sensors?
 
 - Soil temperature take from sensor ? 
-
-Why 85 is moderate? what all options do you have on old site?
-
-
----
-
-
-Нашёл точные тексты из старого сайта. Вот сравнение:
-
-Старый сайт (hub-tissue-v3.js):
-
-t >= 15 && t <= 25 → "Optimal C3 growth range - cool-season grasses thriving." ✓
-t > 30 → "C3 grasses are heat-stressed - C4 grasses dominating."
-t < 10 → "C4 grasses are dormant - C3 dominant in mixed stands."
-Heat event → "Heat event forecast (X°C peak) - C3 stress expected."
-else → "Transition zone - both grass types moderately active."
-У нас есть лишнее (наши дополнения):
-
-"Warm conditions — C3 growth declining as temperatures rise." (t 25-30)
-"Cool conditions — approaching optimal C3 range." (t 10-15)
-"Cold — C3 growth very slow." (t 5-10)
-Все C4-специфичные тексты ("Optimal C4 growth range...", "Warm conditions — C4 growth accelerating...")
-Старый сайт показывал один текст для любой ситуации (не разделяя C3/C4). Хочешь оставить наши дополнения или сократить до точных текстов старого сайта?
-
-
-
-
-For information
-1) aaTexture has its own UI, but it lives inside the hub analysis panel (legacy-hub-markup), not in Settings. It appears as a "Rootzone Type (for K/Mg ranges)" dropdown that's dynamically shown/hidden: it only appears when the methodology is set to ammonium_acetate. When any other methodology is selected, it's hidden.
-
-So the answer is: yes, it is in the UI — it shows up in the hub's analysis panel automatically when you switch to the AA methodology. It's not in the Settings tab, which is by design since it's a per-analysis input rather than a site-level setting.
-
-The Settings "Soil texture" dropdown (soil_texture_override) is a separate, always-visible site-level field for granular texture (sand, loamy sand, loam, etc.), and that one is what feeds sample snapshots and soil temperature calculations.
-
-2) On the old website - coordinates doesnot update after import
+ 
+- MOBILE VERSION

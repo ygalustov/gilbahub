@@ -76,6 +76,43 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $view->with('siteStatusMap', $statusMap);
+
+            // Always inject topbar data from DB so all pages (incl. Route::view) have it
+            $activeSite = $user->activeSite;
+            $allSites   = $user->is_admin
+                ? Site::query()->orderBy('name')->get()
+                : ($user->sites()->orderBy('name')->get() ?? collect());
+
+            $turfSpecies     = null;
+            $turfMethodology = null;
+            $locationName    = null;
+            $analysisTs      = null;
+
+            if ($activeSite) {
+                $gaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
+                $gaipConfig = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
+
+                $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
+                $turfMethodology = isset($gaipConfig['turf']['methodology'])
+                    ? strtoupper($gaipConfig['turf']['methodology'])
+                    : null;
+                $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
+
+                $cacheRecord = $caches->get($activeSite->id);
+                if ($cacheRecord?->synced_at) {
+                    $tz = $activeSite->timezone ?: 'UTC';
+                    $analysisTs = $cacheRecord->synced_at->setTimezone($tz)->format('M j H:i');
+                }
+            }
+
+            $view->with([
+                'activeSite'      => $activeSite,
+                'allSites'        => $allSites,
+                'turfSpecies'     => $turfSpecies,
+                'turfMethodology' => $turfMethodology,
+                'locationName'    => $locationName,
+                'analysisTs'      => $analysisTs,
+            ]);
         });
     }
 }

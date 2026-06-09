@@ -21,12 +21,31 @@ class AccountController extends Controller
         $sitesTableData = $this->buildSitesTableData($allSites, $user->last_active_site_id);
         $activeSiteRole = $activeSite ? $user->roleOnSite($activeSite) : null;
 
+        $turfSpecies     = null;
+        $turfMethodology = null;
+        $locationName    = null;
+
+        if ($activeSite) {
+            $gaipRecord = $activeSite->configs()->where('namespace', 'gaip')->first();
+            $gaipConfig = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
+
+            $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
+            $turfMethodology = isset($gaipConfig['turf']['methodology'])
+                ? strtoupper($gaipConfig['turf']['methodology'])
+                : null;
+            $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
+        }
+
         return view('account', [
             'title'          => 'Account',
+            'currentPage'    => 'account',
             'activeSite'     => $activeSite,
             'allSites'       => $allSites,
             'sitesTableData' => $sitesTableData,
             'activeSiteRole' => $activeSiteRole,
+            'turfSpecies'    => $turfSpecies,
+            'turfMethodology' => $turfMethodology,
+            'locationName'   => $locationName,
         ]);
     }
 
@@ -112,7 +131,7 @@ class AccountController extends Controller
                 'id'         => $site->id,
                 'name'       => $site->name,
                 'site_type'  => $site->site_type,
-                'location'   => $site->location_name,
+                'location'   => $gaip['location']['name'] ?? $site->location_name,
                 'species'    => $species,
                 'hoc'        => $hoc !== null ? (float) $hoc : null,
                 'soil'       => (int) ($soilCounts[$site->id] ?? 0),

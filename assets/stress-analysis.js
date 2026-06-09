@@ -503,10 +503,7 @@
 
     function renderEmpty(container) {
         container.innerHTML =
-            '<div class="wb-page"><div class="gl-page-header">' +
-            '<div class="gl-page-title">Stress Index</div>' +
-            '</div>' +
-            '<div class="gl-body">' +
+            '<div class="wb-page"><div class="gl-body">' +
             '<div style="padding:40px 20px;text-align:center;color:#5b6a65">' +
             '<div style="font-size:15px;font-weight:600;color:#374151;margin-bottom:8px">No stress data yet</div>' +
             '<div style="font-size:13px;line-height:1.6;max-width:380px;margin:0 auto">Run the analysis to compute the Environmental Stress Index from climate, shade, moisture, traffic, nutrition, and disease data.</div>' +

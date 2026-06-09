@@ -102,7 +102,7 @@
                                 <div class="stg-field" style="grid-column:1/-1;position:relative;">
                                     <label for="stg-location-name">Location (for live weather)</label>
                                     <input type="text" id="stg-location-name" name="location_name"
-                                           value="{{ $activeSite->location_name ?? '' }}"
+                                           value="{{ $locationName ?? '' }}"
                                            maxlength="255" placeholder="Search suburb, city, or venue…"
                                            autocomplete="off">
                                     <div id="stg-location-results"

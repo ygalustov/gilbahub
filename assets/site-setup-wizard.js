@@ -1248,15 +1248,16 @@
             return this.ensurePersistedSite().then(function(siteId) {
                 var tasks = [];
 
-                if (location && typeof location.lat === 'number' && typeof location.lon === 'number') {
+                if (location) {
+                    var sitePatch = { location_name: location.name || '' };
+                    if (typeof location.lat === 'number' && typeof location.lon === 'number') {
+                        sitePatch.latitude  = location.lat;
+                        sitePatch.longitude = location.lon;
+                    }
                     tasks.push(apiFetchJson(apiBase + 'sites/' + encodeURIComponent(siteId), {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            location_name: location.name || '',
-                            latitude: location.lat,
-                            longitude: location.lon
-                        })
+                        body: JSON.stringify(sitePatch)
                     }));
                 }
 
