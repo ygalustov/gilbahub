@@ -126,6 +126,8 @@
             '.sn-why-label{color:#5b6a65;flex-shrink:0}',
             '.sn-why-val{font-weight:600;text-align:right}',
             '.sn-why-action{margin-top:6px;padding:6px 10px;background:#f5f7f6;border-radius:6px;border-left:3px solid #d8e0dc;font-size:11px;color:#374151}',
+            '.sn-why-note{margin-top:8px;padding-top:8px;border-top:1px solid #f3f4f6;font-size:11px;color:#5b6a65;line-height:1.5}',
+            '.sn-why-source{margin-top:8px;padding-top:6px;border-top:1px dashed #e5e7eb;font-size:10px;color:#9ca3af;line-height:1.6}',
             /* mulder banner */
             '.sn-mulder{padding:10px 16px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;font-size:12px;color:#1e40af;margin:0}',
             /* ratios */
@@ -233,6 +235,19 @@
     var STATUS_ICONS = {
         deficient:'▼', borderline:'⚠', adequate:'✓', sufficient:'✓',
         good:'✓', high:'▲', 'no-data':'—', 'NO DATA':'—'
+    };
+
+    var NUTRIENT_NOTES = {
+        K:  'Leaches readily from sand profiles — monitor frequently during wet periods and after heavy irrigation. High demand during active growth phases.',
+        P:  'Soil P is rarely limiting on established turf with regular fertility programs. Avoid excessive rates; P buildup increases runoff risk.',
+        Ca: 'High CEC soils often supply adequate Ca despite low ppm readings. True deficiency is uncommon on established turf.',
+        Mg: 'Antagonised by high K applications. Deficiency is most common where K rates are elevated or on low-CEC sandy soils.',
+        S:  'Leaches freely in sandy soils. Availability decreases in dry conditions; best assessed after wet periods.',
+        Fe: 'Availability drops sharply above pH 6.5. Soil test values may not fully reflect plant-available Fe — foliar applications are often more effective.',
+        Mn: 'Unavailable above pH 7.0; toxicity possible below pH 5.5. Strongly affected by soil oxygen status and drainage.',
+        Zn: 'Fixed by high pH and elevated phosphorus. Competition with Cu at elevated application rates.',
+        Cu: 'Accumulates in soil over time — avoid excessive rates. Low mobility means the soil test reflects long-term status well.',
+        B:  'Mobile in plants but relatively immobile in soil. Deficiency is rare on established turf with normal irrigation and fertility.',
     };
 
     function statusClass(raw) {
@@ -643,9 +658,18 @@
             if (demandKgHa!=null)  whyRows += '<div class="sn-why-row"><span class="sn-why-label">Est. annual demand</span><span class="sn-why-val">'+demandKgHa.toFixed(1)+' kg/ha</span></div>';
             var actionHtml = (n.recommendation && n.recommendation !== 'No reference value')
                 ? '<div class="sn-why-action">'+esc(n.recommendation)+'</div>' : '';
-            var whyHtml = (whyRows || actionHtml)
+            var noteText = NUTRIENT_NOTES[n.nutrient] || '';
+            var noteHtml = noteText ? '<div class="sn-why-note">'+esc(noteText)+'</div>' : '';
+            var sourceHtml =
+                '<div class="sn-why-source">'+
+                'Source: MLSN thresholds from Pace Turf research (Woods &amp; Stowell) &middot; '+
+                'Assumptions: '+depth+'&thinsp;cm depth &middot; '+bd+'&thinsp;g/cm&sup3; bulk density &middot; '+
+                'Apply fertiliser only when below the MLSN minimum &middot; '+
+                'Validated primarily on golf putting greens'+
+                '</div>';
+            var whyHtml = (whyRows || actionHtml || noteText)
                 ? '<button class="sn-why-btn" onclick="(function(b){var d=document.getElementById(\''+whyId+'\');var open=d.style.display===\'block\';d.style.display=open?\'none\':\'block\';b.textContent=open?\'Why? ▼\':\'▲ Hide\'})(this)">Why? ▼</button>'+
-                  '<div id="'+whyId+'" class="sn-why" style="display:none">'+whyRows+actionHtml+'</div>'
+                  '<div id="'+whyId+'" class="sn-why" style="display:none">'+whyRows+actionHtml+noteHtml+sourceHtml+'</div>'
                 : '';
 
             return '<div class="sn-card '+sc+'">'+

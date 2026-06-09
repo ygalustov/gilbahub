@@ -183,20 +183,22 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-92** Fix SiteController and site-config-persistence.js to handle empty site names: Updated logic to default to an empty string instead of siteId when label and name are not available, ensuring cleaner data handling.
 **GH-93** Enhance sample analysis functionality: Added a new route for sample analysis in web.php and introduced new CSS styles for sample selector components in soil-nutrition-analysis.js, improving user interface and experience. Updated backlog in instructions.md with additional user feedback and feature requests.
 **GH-94** Add session management to account view: Introduced a logout button with a form in the account.blade.php file, enhancing user experience by allowing users to easily sign out from their session.
-
+**GH-95** Enhance soil nutrition analysis: Added nutrient notes and source information in soil-nutrition-analysis.js for improved user guidance. Updated backlog in instructions.md with new feature requests and clarifications.
 
 
 ## Backlog
 1.⁠ ⁠Address lookup using Google Reverse Geocoding
 2.⁠ ⁠⁠Role based admin
+2a. Change password
+2b. Self registration with approval
 3.⁠ ⁠⁠Invite only sign up 
-4.⁠ ⁠⁠ There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
+4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
 5.⁠ ⁠Remove Insects model
 6.⁠ ⁠Change settings don’t update UI
 7.⁠ ⁠⁠Keep users signed in
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
 9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”.
-10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others?
++10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
 11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
 12.⁠ ⁠The ambient light levels are wrong
 13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
