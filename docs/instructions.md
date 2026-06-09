@@ -182,6 +182,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-91** Enhance mobile dashboard layout: Introduced a 2-column grid for data sources, improved styling for source rows, and adjusted footer layout for better responsiveness on mobile devices.
 **GH-92** Fix SiteController and site-config-persistence.js to handle empty site names: Updated logic to default to an empty string instead of siteId when label and name are not available, ensuring cleaner data handling.
 **GH-93** Enhance sample analysis functionality: Added a new route for sample analysis in web.php and introduced new CSS styles for sample selector components in soil-nutrition-analysis.js, improving user interface and experience. Updated backlog in instructions.md with additional user feedback and feature requests.
+**GH-94** Add session management to account view: Introduced a logout button with a form in the account.blade.php file, enhancing user experience by allowing users to easily sign out from their session.
+
 
 
 ## Backlog

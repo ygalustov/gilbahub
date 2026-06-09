@@ -321,6 +321,17 @@
                         </div>
                     </div>
 
+                    <div class="stg-card" style="margin-top:20px">
+                        <h3 style="font-size:13px;font-weight:700;color:#3d5c4a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:16px">Session</h3>
+                        <form method="POST" action="{{ route('logout') }}" style="margin:0">
+                            @csrf
+                            <button type="submit" class="stg-btn-ghost" style="display:flex;align-items:center;gap:8px;color:#dc2626;border-color:#fca5a5">
+                                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/></svg>
+                                Sign out
+                            </button>
+                        </form>
+                    </div>
+
                     <div id="password-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center">
                         <div style="background:#fff;border-radius:12px;padding:32px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.16);font-family:'Barlow',sans-serif;font-size:14px">
                             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
