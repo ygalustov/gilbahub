@@ -473,7 +473,9 @@
             var traj  = computed && computed.stressTrajectory;
             var comps = traj && (traj.currentComponents || (traj.data && traj.data.currentComponents));
             if (comps) {
-                var factorLabels = { thermal:'Heat', moisture:'Moisture', light:'Light', traffic:'Traffic', nutrition:'Nutrition', biotic:'Disease' };
+                var _isSports = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
+                var factorLabels = { thermal:'Heat', moisture:'Moisture', light:'Light', nutrition:'Nutrition', biotic:'Disease' };
+                if (_isSports) factorLabels.traffic = 'Traffic';
                 var topKey = null, topVal = 0;
                 Object.keys(factorLabels).forEach(function (k) {
                     var v = Math.abs(comps[k] || 0);
@@ -1151,6 +1153,7 @@
         var traj  = c && c.stressTrajectory;
         var comps = traj && (traj.currentComponents || (traj.data && traj.data.currentComponents));
         if (comps) {
+            var _isSportsPanel = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
             var rows = [
                 { key: 'thermal',   label: 'Heat' },
                 { key: 'moisture',  label: 'Moisture' },
@@ -1158,7 +1161,8 @@
                 { key: 'traffic',   label: 'Traffic' },
                 { key: 'nutrition', label: 'Nutrition' },
                 { key: 'biotic',    label: 'Disease' }
-            ].map(function (f) {
+            ].filter(function (f) { return f.key !== 'traffic' || _isSportsPanel; })
+            .map(function (f) {
                 var val = Math.abs(comps[f.key] || 0);
                 return factorRow(f.label, val, barColor(val));
             }).join('');
@@ -1167,7 +1171,11 @@
 
         var summary = traj && traj.summary;
         if (summary) {
-            html += panelSection('Summary', '<p style="font-size:13px;margin:0;line-height:1.5;color:var(--gaip-text,#1a2b23)">' + summary + '</p>');
+            var rec = summary.recommendation;
+            var recText = typeof rec === 'string' ? rec : (rec && rec.message ? rec.message : '');
+            if (recText) {
+                html += panelSection('Summary', '<p style="font-size:13px;margin:0;line-height:1.5;color:var(--gaip-text,#1a2b23)">' + recText + '</p>');
+            }
         }
         return html;
     }

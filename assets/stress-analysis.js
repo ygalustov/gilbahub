@@ -267,7 +267,10 @@
         var factorByType = {};
         factors.forEach(function (f) { factorByType[f.type] = f; });
 
-        var keys = ['thermal', 'light', 'moisture', 'traffic', 'nutrition', 'biotic'];
+        var _isSportsFA = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
+        var keys = ['thermal', 'light', 'moisture', 'traffic', 'nutrition', 'biotic'].filter(function (k) {
+            return k !== 'traffic' || _isSportsFA;
+        });
         var cards = keys.map(function (key) {
             var meta  = FACTOR_META[key];
             var score = components ? (components[key] || 0) : 0;
@@ -427,7 +430,10 @@
         if (!day0 || !day0.components) return '';
 
         var comps = day0.components;
-        var keys = ['thermal', 'light', 'moisture', 'traffic', 'nutrition', 'biotic'];
+        var _isSportsCB = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
+        var keys = ['thermal', 'light', 'moisture', 'traffic', 'nutrition', 'biotic'].filter(function (k) {
+            return k !== 'traffic' || _isSportsCB;
+        });
 
         var rowsHtml = keys.map(function (key) {
             var meta  = FACTOR_META[key];

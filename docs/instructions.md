@@ -184,20 +184,18 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-93** Enhance sample analysis functionality: Added a new route for sample analysis in web.php and introduced new CSS styles for sample selector components in soil-nutrition-analysis.js, improving user interface and experience. Updated backlog in instructions.md with additional user feedback and feature requests.
 **GH-94** Add session management to account view: Introduced a logout button with a form in the account.blade.php file, enhancing user experience by allowing users to easily sign out from their session.
 **GH-95** Enhance soil nutrition analysis: Added nutrient notes and source information in soil-nutrition-analysis.js for improved user guidance. Updated backlog in instructions.md with new feature requests and clarifications.
-
+**GH-96** Enhance dashboard and stress analysis functionality: Added conditional handling for traffic factor based on site type in dashboard-init.js and stress-analysis.js. Updated summary display to show recommendations if available. Refined backlog in instructions.md for clarity and organization.
 
 ## Backlog
 1.⁠ ⁠Address lookup using Google Reverse Geocoding
-2.⁠ ⁠⁠Role based admin
-2a. Change password
-2b. Self registration with approval
-3.⁠ ⁠⁠Invite only sign up 
-4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
++2.⁠ ⁠⁠Role based admin 
++3.⁠ ⁠⁠Invite only sign up 
++4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
 5.⁠ ⁠Remove Insects model
 6.⁠ ⁠Change settings don’t update UI
 7.⁠ ⁠⁠Keep users signed in
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
-9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”.
++9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
 11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
 12.⁠ ⁠The ambient light levels are wrong
@@ -217,7 +215,10 @@ That’s what the current layout looks like when it produces the product recomme
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
-logout on mobile - add to profile (and in web too)
+
+
+- to test change password
+- to add Self registration with approval
 
 
 
