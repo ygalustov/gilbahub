@@ -1687,6 +1687,10 @@
         syncToServer: function(cache) {
             if (!cache || !cache.dashboard) return;
 
+            // On the reports export page the hub runs silently for Word export globals only.
+            // Do NOT write to analysis_cache so other pages see unchanged data.
+            if (global.GILBA_REPORTS_EXPORT) return;
+
             // Use the Laravel UUID from GAIP_HUB_CONFIG — not cache.siteId which is the
             // Hub's internal string identifier (e.g. "burns_gc") rather than the DB primary key.
             const siteId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)

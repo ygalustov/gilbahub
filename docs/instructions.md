@@ -189,7 +189,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-98** Refactor authentication logic: Updated AuthController and MagicLinkController to always remember user sessions upon login. Enhanced password reset flow by adding session management for trusted resets in ProfileController. Improved password modal UI in account.blade.php and added functionality to toggle password visibility in account-init.js.
 **GH-99** Enhance account and site configuration data handling: Updated AccountController and AppServiceProvider to retrieve and inject turf species, methodology, and location name from GAIP configurations. Modified views to utilize these new variables for improved data display. Adjusted JavaScript functions to prevent overwriting server-side rendered data with local storage values.
 **GH-100** Enhance location handling in Settings and Site controllers: Added latitude and longitude synchronization between GAIP config and site model. Updated settings view to reflect new location data and adjusted JavaScript to ensure accurate data persistence. Improved instructions for clarity on data handling.
-
+**GH-101** Refactor report export functionality: Update analysis status display to show only when generating, improve button functionality for Word export, and prevent unnecessary database writes during export. Enhance user feedback with updated loading messages and streamline JavaScript for better performance.
 
 
 ## Backlog
@@ -219,10 +219,6 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 That’s what the current layout looks like when it produces the product recommendations
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
-
-
-- also I thing that data fith calculations disappear after i open reports page (it start to rerun data by default automatically and probably if i move to another page - its not finished/ 
-1 question - why do we need to run it on openning page? 
 
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)

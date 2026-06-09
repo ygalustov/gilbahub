@@ -115,26 +115,14 @@
                 <span class="rp-tag">AI Interpretation</span>
                 <span class="rp-tag">Forensic Record</span>
             </div>
-            {{-- Analysis status shown while hidden runner is computing --}}
-            <div id="rp-analysis-status" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--gaip-text-secondary)">
+            {{-- Analysis status: shown only when user clicks Generate --}}
+            <div id="rp-analysis-status" style="display:none;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--gaip-text-secondary)">
                 <svg id="rp-analysis-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;animation:rp-spin 1s linear infinite">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8"/>
                 </svg>
-                <span id="rp-analysis-status-text">Loading…</span>
+                <span id="rp-analysis-status-text">Running analysis…</span>
             </div>
-            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" disabled
-                    onclick="(function(){
-                        var SM = window.GAIP_SampleManager;
-                        if(SM){
-                            var s=SM.getSamples('soil')||[];
-                            var all=SM.getAllSamples&&SM.getAllSamples();
-                            console.log('[ExportDiag] activeSiteId=', SM.getActiveSiteId&&SM.getActiveSiteId(), 'GAIP_HUB_CONFIG.activeSiteId=', window.GAIP_HUB_CONFIG&&window.GAIP_HUB_CONFIG.activeSiteId);
-                            console.log('[ExportDiag] getSamples(soil):', s.length, s.map(function(x){return (x.label||x.id)+' ('+x.date+')';}));
-                            if(all&&all.allSites){Object.keys(all.allSites).forEach(function(k){var ss=all.allSites[k]&&all.allSites[k].soil;console.log('[ExportDiag] allSites['+k+'].soil:', ss?Object.keys(ss).length:0);});}
-                        }
-                        if(window.GilbaNutrientTrend){var td=window.GilbaNutrientTrend.getTrendExportData('soil');console.log('[ExportDiag] getTrendExportData(soil) keys:', Object.keys(td||{}));}
-                        if(window.GAIP_WordExport){GAIP_WordExport.export();}else{alert('Analysis not yet loaded — please wait a moment and try again.');}
-                    })()">
+            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" onclick="rpExportWord()">
                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
@@ -253,6 +241,9 @@
 @endsection
 
 @section('scripts')
+{{-- Suppress automatic analysis_cache DB writes while the hidden hub runs for export.
+     Only the topbar Re-run (iframe path) should update the main cache. --}}
+<script>window.GILBA_REPORTS_EXPORT = true;</script>
 @php
     $hubScripts = [
         'gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-engine.js','climate-engine-v2.js',
@@ -317,7 +308,7 @@
         'gilba-synthesis-interpretation.js','hub-persistence.js',
         'daily-dashboard.js','priority-action-queue.js',
         'gaip-decision-engine.js','gaip-decision-ui.js','gaip-evidence-ui.js',
-        'floating-run-button.js','auto-refresh.js','card-layout-redesign.js',
+        'floating-run-button.js','card-layout-redesign.js',
         'tab-navigation.js','quick-jump-nav.js',
         'nutrition-calendar.js','prebbles-products.js',
         'nutrition-prebble-integration.js','au-fertiliser-products.js',
@@ -339,78 +330,86 @@
     @endif
 @endforeach
 
-{{-- Unlock the Word export button only after a real analysis + weather data are ready --}}
+{{-- On-demand export: analysis runs only when user clicks Generate --}}
 <script defer>
-(function () {
+function rpExportWord() {
     var btn   = document.getElementById('rp-export-word-btn');
+    var wrap  = document.getElementById('rp-analysis-status');
     var stext = document.getElementById('rp-analysis-status-text');
     var spin  = document.getElementById('rp-analysis-spinner');
 
-    var _unlocked      = false;
-    var _analysisRan   = false;  // gaip:analysis-complete (hub-tissue ran a real analysis)
-    var _weatherDone   = false;  // gaip:weather-ready (live weather for disease engine)
-    var _samplesReady  = false;  // gaip:samples-persistence-ready (server sample history loaded)
-    var _waitTimer     = null;
+    if (btn && btn.dataset.running === '1') return;
+    if (btn) { btn.dataset.running = '1'; btn.disabled = true; }
+    if (wrap) wrap.style.display = 'flex';
 
-    function unlock(label) {
-        if (_unlocked) return;
-        _unlocked = true;
+    var _analysisRan  = false;
+    var _weatherDone  = false;
+    var _samplesReady = false;
+    var _exported     = false;
+    var _waitTimer    = null;
+
+    function doExport() {
+        if (_exported) return;
+        _exported = true;
         clearTimeout(_waitTimer);
-        if (!btn) return;
-        btn.disabled = false;
-        if (spin) {
-            spin.style.animation = 'none';
-            spin.setAttribute('stroke', '#059669');
-            spin.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>';
-        }
-        if (stext) { stext.textContent = label || 'Analysis complete — ready to download.'; stext.style.color = '#059669'; }
+        if (stext) stext.textContent = 'Generating file…';
+        if (spin) { spin.style.animation = 'none'; spin.setAttribute('stroke', '#059669'); spin.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'; }
+        setTimeout(function () {
+            if (window.GAIP_WordExport) {
+                GAIP_WordExport.export();
+                if (stext) { stext.textContent = 'File downloaded.'; stext.style.color = '#059669'; }
+                setTimeout(function () { if (wrap) wrap.style.display = 'none'; }, 3000);
+            } else {
+                alert('Export engine not ready — please try again.');
+                if (wrap) wrap.style.display = 'none';
+            }
+            if (btn) { btn.disabled = false; btn.dataset.running = '0'; }
+        }, 200);
     }
 
-    function tryUnlock() {
-        // Only unlock if real analysis ran, weather done (or timed out), samples loaded (or timed out)
-        if (_analysisRan && _weatherDone && _samplesReady) {
-            unlock('Analysis complete — ready to download.');
-        }
+    function tryExport() {
+        if (_analysisRan && _weatherDone && _samplesReady) doExport();
     }
 
-    // Real analysis completed (hub-tissue click, not early safety-net computeAll)
-    document.addEventListener('gaip:analysis-complete', function () {
-        _analysisRan = true;
-        tryUnlock();
+    document.addEventListener('gaip:analysis-complete', function onAC() {
+        document.removeEventListener('gaip:analysis-complete', onAC);
+        _analysisRan = true; tryExport();
+    });
+    document.addEventListener('gaip:weather-ready', function onWR() {
+        document.removeEventListener('gaip:weather-ready', onWR);
+        _weatherDone = true; tryExport();
+    });
+    document.addEventListener('gaip:samples-persistence-ready', function onSP() {
+        document.removeEventListener('gaip:samples-persistence-ready', onSP);
+        _samplesReady = true; tryExport();
+    });
+    document.addEventListener('gaip:orchestrator-complete', function onOC() {
+        if (!_analysisRan) return;
+        document.removeEventListener('gaip:orchestrator-complete', onOC);
+        clearTimeout(_waitTimer);
+        _waitTimer = setTimeout(function () {
+            _weatherDone = true; _samplesReady = true; tryExport();
+        }, 10000);
     });
 
-    // Live weather available — disease engine can use accurate conditions
-    document.addEventListener('gaip:weather-ready', function () {
-        _weatherDone = true;
-        tryUnlock();
-    });
+    // Hard timeout: 50 s
+    setTimeout(function () {
+        _analysisRan = true; _weatherDone = true; _samplesReady = true;
+        if (!_exported) { if (stext) stext.textContent = 'Timed out — partial data.'; doExport(); }
+    }, 50000);
 
-    // Historical sample data loaded from server — nutrient trends available
-    document.addEventListener('gaip:samples-persistence-ready', function () {
-        _samplesReady = true;
-        tryUnlock();
-    });
-
-    // Orchestrator complete — only act if real analysis has run.
-    // If weather/samples not yet ready, the 10 s fallback unlocks regardless.
-    document.addEventListener('gaip:orchestrator-complete', function () {
-        if (!_analysisRan) return;  // ignore early site-change computeAll
-
-        if (_weatherDone && _samplesReady) {
-            unlock('Analysis complete — ready to download.');
-        } else {
-            // Start/reset the fallback: covers slow weather fetch or sample API call
-            clearTimeout(_waitTimer);
-            _waitTimer = setTimeout(function () {
-                _weatherDone = true;   // accept whatever we have
-                _samplesReady = true;
-                unlock('Analysis complete — ready to download.');
-            }, 10000);
-        }
-    });
-
-    // Absolute hard timeout: 50 s — users are never permanently stuck
-    setTimeout(function () { unlock('Analysis timed out — partial data may be included.'); }, 50000);
-}());
+    // Trigger analysis now
+    if (stext) stext.textContent = 'Running analysis…';
+    var runBtn = document.querySelector('.gaip-run-btn');
+    if (runBtn) {
+        runBtn.click();
+    } else {
+        // Hub scripts not yet deferred-loaded — wait briefly
+        setTimeout(function () {
+            var rb = document.querySelector('.gaip-run-btn');
+            if (rb) rb.click();
+        }, 1500);
+    }
+}
 </script>
 @endsection
