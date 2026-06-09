@@ -194,10 +194,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 ## Backlog
 +1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
-2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 - to test!
++2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 
 +3.⁠ ⁠⁠Invite only sign up 
 +4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green. GH-96
-5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
++5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
 +6.⁠ ⁠Change settings don’t update UI. GH-97
 +7.⁠ ⁠⁠Keep users signed in. GH-98
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
@@ -221,7 +221,8 @@ That’s what the current layout looks like when it produces the product recomme
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
-- Also regarding change password - if there is no password - is it going to show just window with new password and confirm password?
+
+
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 

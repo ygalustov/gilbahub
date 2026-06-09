@@ -366,90 +366,6 @@
         body.innerHTML = html;
     }
 
-    // ── SECTION: GDD Pest Timing ──────────────────────────────────────────────
-
-    var PEST_THRESHOLDS = [
-        // name, soil temp at which activity begins (°C), warn threshold (°C)
-        { name: 'Armyworm',             sci: 'Spodoptera spp.',      active: 15, warn: 18 },
-        { name: 'African Black Beetle', sci: 'Heteronychus arator',  active: 14, warn: 18 },
-        { name: 'Couch Grass Mite',     sci: 'Aceria cynodoniensis', active: 18, warn: 22 },
-        { name: 'Sod Webworm',          sci: 'Herpetogramma spp.',   active: 16, warn: 20 },
-        { name: 'Billbug',              sci: 'Sphenophorus spp.',    active: 10, warn: 14 },
-    ];
-
-    function renderPestTiming(computed) {
-        var body = document.getElementById('plan-pest-body');
-        if (!body) return;
-
-        var soilTemp = null;
-        var soilSource = null;
-
-        // Try sources in priority order
-        if (computed.climate && computed.climate.temperature && computed.climate.temperature.soil) {
-            soilTemp = computed.climate.temperature.soil.mean;
-            soilSource = computed.climate.temperature.soil.source || 'estimated';
-        }
-        if ((soilTemp == null) && computed.soilTempPhysics && computed.soilTempPhysics.summary) {
-            var d = computed.soilTempPhysics.summary.depths;
-            // depths[key] is an object {mean, min, max} not a plain number
-            if (d && d['100mm'] != null && d['100mm'].mean != null) { soilTemp = d['100mm'].mean; soilSource = 'physics'; }
-            else if (d && d['50mm'] != null && d['50mm'].mean != null) { soilTemp = d['50mm'].mean; soilSource = 'physics'; }
-        }
-        var data = global.GAIP_DASHBOARD_DATA || {};
-        if ((soilTemp == null) && data.metrics && data.metrics.soilTemp != null) {
-            soilTemp = data.metrics.soilTemp;
-            soilSource = 'estimated';
-        }
-
-        if (soilTemp == null) {
-            body.innerHTML = emptyState(
-                'pgr',
-                'Soil temperature unavailable',
-                'Run the analysis to calculate soil temperature. Pest activity thresholds are based on 100 mm soil temperature.',
-                []
-            );
-            return;
-        }
-
-        var tempRound = Math.round(soilTemp * 10) / 10;
-        var rows = PEST_THRESHOLDS.map(function(p) {
-            var cls, label;
-            if (soilTemp >= p.warn) {
-                cls = 'bad'; label = 'Active';
-            } else if (soilTemp >= p.active) {
-                cls = 'warning'; label = 'Monitor';
-            } else {
-                cls = 'ok'; label = 'Low risk';
-            }
-            return '<tr style="border-bottom:1px solid var(--gaip-border)">' +
-                '<td style="padding:8px 6px 8px 0;font-size:12px;font-weight:500;color:var(--gaip-text)">' + esc(p.name) +
-                    '<div style="font-size:10px;color:var(--gaip-text-muted);font-style:italic">' + esc(p.sci) + '</div></td>' +
-                '<td style="padding:8px 4px;font-size:11px;color:var(--gaip-text-muted);text-align:center">' + p.active + '°C</td>' +
-                '<td style="padding:8px 0 8px 4px;text-align:right">' +
-                    '<span style="font-size:11px;padding:2px 8px;border-radius:999px;' +
-                        (cls === 'bad'     ? 'background:rgba(220,38,38,0.12);color:#dc2626;border:1px solid rgba(220,38,38,0.3)' :
-                         cls === 'warning' ? 'background:rgba(217,119,6,0.12);color:#d97706;border:1px solid rgba(217,119,6,0.3)' :
-                                            'background:rgba(21,128,61,0.1);color:#15803d;border:1px solid rgba(21,128,61,0.25)') + '">' +
-                        label + '</span></td>' +
-                '</tr>';
-        }).join('');
-
-        var sourceNote = soilSource === 'api' ? 'sensor' : soilSource === 'physics' ? 'physics model' : 'estimated';
-        var html =
-            '<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px">' +
-            '<div style="font-size:28px;font-weight:700;color:var(--gaip-text)">' + tempRound + '°C</div>' +
-            '<div style="font-size:12px;color:var(--gaip-text-muted)">Soil temperature · 100 mm · ' + esc(sourceNote) + '</div>' +
-            '</div>' +
-            '<table style="width:100%;border-collapse:collapse">' +
-            '<thead><tr style="border-bottom:1px solid var(--gaip-border)">' +
-            '<th style="text-align:left;font-size:10px;font-weight:600;color:var(--gaip-text-muted);padding:0 6px 6px 0;text-transform:uppercase;letter-spacing:0.05em">Pest</th>' +
-            '<th style="font-size:10px;font-weight:600;color:var(--gaip-text-muted);padding:0 4px 6px;text-transform:uppercase;letter-spacing:0.05em;text-align:center">Threshold</th>' +
-            '<th style="font-size:10px;font-weight:600;color:var(--gaip-text-muted);padding:0 0 6px 4px;text-transform:uppercase;letter-spacing:0.05em;text-align:right">Status</th>' +
-            '</thead><tbody>' + rows + '</tbody></table>';
-
-        body.innerHTML = html;
-    }
-
     // ── SECTION: Recovery Calendar ────────────────────────────────────────────
 
     function renderRecovery(computed, siteConfig) {
@@ -1155,7 +1071,6 @@
                 if (tabId === 'timing') {
                     renderPreEmergent(computed);
                     renderPGR(computed);
-                    renderPestTiming(computed);
                 } else if (tabId === 'recovery') {
                     renderRecovery(computed, siteConfig);
                 } else if (tabId === 'nutrition') {

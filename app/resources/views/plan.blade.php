@@ -705,24 +705,6 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                     </div>
                 </div>
 
-                {{-- GDD Pest Timing --}}
-                <div class="plan-card" id="plan-pest-card">
-                    <div class="plan-card-header">
-                        <div class="plan-card-title">
-                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-accent)"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l3 2"/></svg>
-                            GDD Pest Timing
-                            <span class="db-info-icon" data-info="pest-timing" tabindex="0" role="button" aria-label="About GDD Pest Timing">i</span>
-                        </div>
-                    </div>
-                    <div style="padding:4px 0 8px">
-                        <p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 12px">GDD-based timing for key turf pests. Integrated pest tracking is coming — for now use the links below for site-specific GDD calculations.</p>
-                        <div id="plan-pest-body">
-                            <div class="plan-empty">
-                                <div class="plan-empty-title">Loading pest timing…</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
             </div>{{-- /plan-windows-grid --}}
         </div>{{-- /plan-tab-body --}}
