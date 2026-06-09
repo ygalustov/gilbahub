@@ -114,19 +114,19 @@
                                 <div class="stg-field">
                                     <label for="stg-latitude">Latitude</label>
                                     <input type="number" id="stg-latitude" name="latitude"
-                                           value="{{ $activeSite->latitude ?? '' }}"
+                                           value="{{ $latitude ?? '' }}"
                                            step="0.0000001" min="-90" max="90" placeholder="-33.8688">
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-longitude">Longitude</label>
                                     <input type="number" id="stg-longitude" name="longitude"
-                                           value="{{ $activeSite->longitude ?? '' }}"
+                                           value="{{ $longitude ?? '' }}"
                                            step="0.0000001" min="-180" max="180" placeholder="151.2093">
                                 </div>
                                 <div class="stg-field">
                                     <label>Hemisphere</label>
                                     <input type="text" id="stg-hemisphere" readonly
-                                           value="{{ isset($activeSite->latitude) ? ($activeSite->latitude < 0 ? 'Southern' : 'Northern') : '' }}"
+                                           value="{{ isset($latitude) ? ($latitude < 0 ? 'Southern' : 'Northern') : '' }}"
                                            style="background:#f5f7f6;color:#6b7f76;cursor:default;">
                                 </div>
                                 <div class="stg-field">

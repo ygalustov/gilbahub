@@ -188,7 +188,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-97** Add Google Maps API integration: Introduced Google Maps API key in .env.example, updated services.php to include Google Maps configuration, and implemented geocoding functionality in various JavaScript files for improved location search capabilities. Updated instructions.md to reflect the addition of Google Maps API usage.
 **GH-98** Refactor authentication logic: Updated AuthController and MagicLinkController to always remember user sessions upon login. Enhanced password reset flow by adding session management for trusted resets in ProfileController. Improved password modal UI in account.blade.php and added functionality to toggle password visibility in account-init.js.
 **GH-99** Enhance account and site configuration data handling: Updated AccountController and AppServiceProvider to retrieve and inject turf species, methodology, and location name from GAIP configurations. Modified views to utilize these new variables for improved data display. Adjusted JavaScript functions to prevent overwriting server-side rendered data with local storage values.
-
+**GH-100** Enhance location handling in Settings and Site controllers: Added latitude and longitude synchronization between GAIP config and site model. Updated settings view to reflect new location data and adjusted JavaScript to ensure accurate data persistence. Improved instructions for clarity on data handling.
 
 
 
@@ -221,7 +221,8 @@ That’s what the current layout looks like when it produces the product recomme
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
-
+- also I thing that data fith calculations disappear after i open reports page (it start to rerun data by default automatically and probably if i move to another page - its not finished/ 
+1 question - why do we need to run it on openning page? 
 
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)

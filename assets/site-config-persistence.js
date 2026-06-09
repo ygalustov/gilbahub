@@ -157,6 +157,10 @@
     }
 
     function saveLocationToServer(siteId, location) {
+        // DB is the source of truth for coordinates. Never overwrite from localStorage
+        // when running inside a re-run iframe — the iframe restores stale localStorage
+        // values that may differ from what the user saved via the new hub's site-setup-wizard.
+        if (window.parent !== window) return;
         var base = getApiBaseUrl();
         if (!base || !siteId || siteId === 'default' || !location || !location.lat || !location.lon || typeof fetch === 'undefined') {
             return;
@@ -702,12 +706,11 @@
             document.dispatchEvent(new CustomEvent('gaip:location-restored', {
                 detail: { lat: location.lat, lon: location.lon, name: location.name || '' }
             }));
-            
-            // Also update the site row so server-rendered location matches on next page load.
-            var activeSiteId = global.GAIP_SampleManager && global.GAIP_SampleManager.getActiveSiteId
-                ? global.GAIP_SampleManager.getActiveSiteId()
-                : null;
-            saveLocationToServer(activeSiteId, location);
+            // NOTE: saveLocationToServer intentionally NOT called here.
+            // DB (gaip config + site model) is the source of truth for coordinates.
+            // Automatically writing localStorage values to DB on every restore
+            // causes stale coordinates to overwrite what the user set via the new hub.
+            // Location is only synced to DB on explicit user actions (gaip:site-save-requested).
         }
 
         // Fire state change so engines pick up the new config

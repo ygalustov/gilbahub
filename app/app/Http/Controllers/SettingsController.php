@@ -24,6 +24,8 @@ class SettingsController extends Controller
             ? strtoupper($activeGaipConfig['turf']['methodology'])
             : null;
         $locationName    = $activeGaipConfig['location']['name'] ?? $activeSite?->location_name ?: null;
+        $latitude        = $activeSite?->latitude  ?? $activeGaipConfig['location']['lat']  ?? null;
+        $longitude       = $activeSite?->longitude ?? $activeGaipConfig['location']['lon'] ?? null;
 
         $cacheRecord   = $activeSite?->configs()->where('namespace', 'analysis_cache')->first();
         $analysisCache = $cacheRecord ? [
@@ -41,6 +43,8 @@ class SettingsController extends Controller
             'turfSpecies'      => $turfSpecies,
             'turfMethodology'  => $turfMethodology,
             'locationName'     => $locationName,
+            'latitude'         => $latitude,
+            'longitude'        => $longitude,
             'analysisCache'    => $analysisCache,
             'activeSiteRole'   => $activeSiteRole,
         ]);

@@ -246,6 +246,25 @@ class SiteController extends Controller
             ]
         );
 
+        // Keep the site model columns in sync with the gaip config so that
+        // Settings and other pages that read from the site model stay correct.
+        if ($namespace === 'gaip') {
+            $gaipLocation = $data['config']['location'] ?? [];
+            $siteSync = [];
+            if (isset($gaipLocation['name'])) {
+                $siteSync['location_name'] = $gaipLocation['name'];
+            }
+            if (isset($gaipLocation['lat']) && is_numeric($gaipLocation['lat'])) {
+                $siteSync['latitude'] = (float) $gaipLocation['lat'];
+            }
+            if (isset($gaipLocation['lon']) && is_numeric($gaipLocation['lon'])) {
+                $siteSync['longitude'] = (float) $gaipLocation['lon'];
+            }
+            if (! empty($siteSync)) {
+                $site->update($siteSync);
+            }
+        }
+
         return response()->json([
             'data' => [
                 'site_id' => $site->id,

@@ -107,10 +107,17 @@
             var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
             if (Array.isArray(cfg)) cfg = {};
 
-            cfg.location = Object.assign({}, cfg.location || {}, {
+            var _latVal = siteForm.querySelector('#stg-latitude').value;
+            var _lonVal = siteForm.querySelector('#stg-longitude').value;
+            var _latNum = _latVal !== '' ? parseFloat(_latVal) : null;
+            var _lonNum = _lonVal !== '' ? parseFloat(_lonVal) : null;
+            var _locUpdate = {
                 name:      siteForm.querySelector('#stg-location-name').value.trim() || '',
                 elevation: elevEl && elevEl.value !== '' ? parseInt(elevEl.value, 10) : null,
-            });
+            };
+            if (_latNum !== null && !isNaN(_latNum)) _locUpdate.lat = _latNum;
+            if (_lonNum !== null && !isNaN(_lonNum)) _locUpdate.lon = _lonNum;
+            cfg.location = Object.assign({}, cfg.location || {}, _locUpdate);
 
             var irrigMethodEl     = siteForm.querySelector('#stg-irrig-method');
             var irrigEffEl        = siteForm.querySelector('#stg-irrig-efficiency');
