@@ -181,20 +181,39 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-90** Implement mobile navigation enhancements: Added a mobile bottom navigation bar for improved accessibility and user experience on smaller screens, along with mobile-only account and settings icons in the top bar. Updated CSS for responsive design adjustments.
 **GH-91** Enhance mobile dashboard layout: Introduced a 2-column grid for data sources, improved styling for source rows, and adjusted footer layout for better responsiveness on mobile devices.
 **GH-92** Fix SiteController and site-config-persistence.js to handle empty site names: Updated logic to default to an empty string instead of siteId when label and name are not available, ensuring cleaner data handling.
-
-
+**GH-93** Enhance sample analysis functionality: Added a new route for sample analysis in web.php and introduced new CSS styles for sample selector components in soil-nutrition-analysis.js, improving user interface and experience. Updated backlog in instructions.md with additional user feedback and feature requests.
 
 
 ## Backlog
-1 Address
-+ 2 Role base admin
-+ 3 Invite only sign up
-4. There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
-5. Remove Insects model
+1.⁠ ⁠Address lookup using Google Reverse Geocoding
+2.⁠ ⁠⁠Role based admin
+3.⁠ ⁠⁠Invite only sign up 
+4.⁠ ⁠⁠ There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
+5.⁠ ⁠Remove Insects model
+6.⁠ ⁠Change settings don’t update UI
+7.⁠ ⁠⁠Keep users signed in
++8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
+9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”.
+10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others?
+11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
+12.⁠ ⁠The ambient light levels are wrong
+13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
+14.⁠ ⁠Spray log fungicide dropdowns aren’t there
+15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green.
+16.⁠ ⁠How can you select what greens/fairway results to generate a word report for?
+17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance
+18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
+Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why
+19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there.
+20. Currently it seems to be using MLSN figures as a reference which they don’t use.
+21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
+22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
+That’s what the current layout looks like when it produces the product recommendations
+23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
+23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
-
-logout on mobile - add to profile (and in general too)
+logout on mobile - add to profile (and in web too)
 
 
 

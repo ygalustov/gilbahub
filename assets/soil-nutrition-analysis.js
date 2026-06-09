@@ -73,6 +73,16 @@
             '.sn-zone-tabs{display:flex;gap:4px;flex-wrap:wrap;padding:0 0 10px}',
             '.sn-zone-tab{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #d8e0dc;background:#fff;color:#5b6a65;transition:background .15s}',
             '.sn-zone-tab.active{background:#17231f;color:#fff;border-color:#17231f}',
+            /* sample zone selector chips */
+            '.sn-sample-chips{display:flex;gap:4px;flex-wrap:wrap;padding:0 0 12px}',
+            '.sn-sample-chip{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #d8e0dc;background:#fff;color:#5b6a65;transition:background .15s;white-space:nowrap}',
+            '.sn-sample-chip:hover{border-color:#2da85e;color:#166534}',
+            '.sn-sample-chip.active{background:#2da85e;color:#fff;border-color:#2da85e}',
+            '.sn-sample-chip-all{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid #d8e0dc;background:#f9fafb;color:#5b6a65;transition:background .15s}',
+            '.sn-sample-chip-all.active{background:#17231f;color:#fff;border-color:#17231f}',
+            '.sn-sample-more{padding:4px 10px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px dashed #d8e0dc;background:transparent;color:#5b6a65}',
+            '.sn-section-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}',
+            '.sn-zone-label{font-size:11px;color:#6b8878;font-weight:400;margin-left:4px}',
             '.sn-zone-chart{padding:0 0 4px;display:none}',
             '.sn-zone-chart.active{display:block}',
             '.sn-zone-chart-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65;margin-bottom:8px;display:flex;align-items:center;gap:8px}',
@@ -175,6 +185,25 @@
             '.sn-empty{padding:40px 20px;text-align:center;color:#5b6a65}',
             '.sn-empty-title{font-size:15px;font-weight:600;color:#374151;margin-bottom:6px}',
             '.sn-empty-body{font-size:13px;line-height:1.6;max-width:420px;margin:0 auto}',
+            /* sample dropdown selector */
+            '.sn-drop-wrap{position:relative;display:block;font-family:inherit}',
+            '.sn-drop-btn{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#fff;border:1px solid #d8e0dc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#17231f;width:100%;box-sizing:border-box;max-width:480px;font-family:inherit;text-align:left}',
+            '.sn-drop-btn:hover{border-color:#2da85e}',
+            '.sn-drop-open .sn-drop-btn{border-color:#2da85e;border-bottom-left-radius:0;border-bottom-right-radius:0}',
+            '.sn-drop-panel{display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #2da85e;border-top:none;border-radius:0 8px 8px 8px;box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:480px;max-width:min(640px,90vw)}',
+            '.sn-drop-open .sn-drop-panel{display:block}',
+            '.sn-drop-search{display:block;width:100%;box-sizing:border-box;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;font-size:13px;outline:none;color:#17231f;font-family:inherit}',
+            '.sn-drop-search::placeholder{color:#9ca3af}',
+            '.sn-drop-header{display:grid;grid-template-columns:1fr 1fr 110px;gap:8px;padding:5px 12px;background:#f5f7f6;border-bottom:1px solid #e5e7eb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65}',
+            '.sn-drop-list{max-height:240px;overflow-y:auto}',
+            '.sn-drop-row{display:grid;grid-template-columns:1fr 1fr 110px;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;align-items:center}',
+            '.sn-drop-row:last-child{border-bottom:none}',
+            '.sn-drop-row:hover{background:#f0fdf4}',
+            '.sn-drop-row.active{background:#f0fdf4}',
+            '.sn-drop-cell-zone{font-size:12px;font-weight:600;color:#17231f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-row.active .sn-drop-cell-zone::before{content:"● ";color:#2da85e}',
+            '.sn-drop-cell-ref{font-size:12px;color:#5b6a65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-cell-date{font-size:11px;color:#5b6a65;white-space:nowrap}',
         ].join('');
         document.head.appendChild(s);
     }
@@ -258,6 +287,79 @@
         },
     });
 
+    function hexToRgb(hex) {
+        var h = hex.replace('#', '');
+        return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
+    }
+
+    function kpiCard(label, value, unit, statusHtml, color, infoKey) {
+        var rgb = hexToRgb(color);
+        var bg     = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.07)';
+        var border = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.25)';
+        var infoBtn = infoKey
+            ? ' <button class="db-info-icon" data-info="' + infoKey + '" tabindex="0" aria-label="Learn more">i</button>'
+            : '';
+        return [
+            '<div class="gl-kpi-card" style="background:' + bg + ';border-color:' + border + ';border-left-color:' + color + '">',
+            '  <div class="gl-kpi-label">' + label + infoBtn + '</div>',
+            '  <div class="gl-kpi-value" style="color:' + color + '">' + value + '</div>',
+            unit       ? '  <div class="gl-kpi-unit">' + unit + '</div>' : '',
+            statusHtml ? '  <div>' + statusHtml + '</div>' : '',
+            '</div>'
+        ].join('');
+    }
+
+    function badgeSpan(text, bgClr, txtClr, borderClr) {
+        return '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;' +
+            'background:' + bgClr + ';color:' + txtClr + ';border:1px solid ' + borderClr + '">' +
+            esc(text) + '</span>';
+    }
+
+    // Renders KPI cards grid — called on initial render and re-called on sample switch
+    function renderKpiCards(sn) {
+        var v = (sn.verdict || 'NO_DATA').replace('-', '_');
+        var VERDICT = {
+            ACCEPTABLE: { label:'Acceptable',         color:'#16a34a', bg:'#dcfce7', txt:'#15803d', brd:'#86efac' },
+            MONITOR:    { label:'Monitor',             color:'#d97706', bg:'#fef9c3', txt:'#854d0e', brd:'#fde68a' },
+            HIGH_RISK:  { label:'Deficiency Detected', color:'#dc2626', bg:'#fee2e2', txt:'#991b1b', brd:'#fca5a5' },
+            NO_DATA:    { label:'No Data',             color:'#9ca3af', bg:'#f3f4f6', txt:'#6b7280', brd:'#d1d5db' },
+        };
+        var vc = VERDICT[v] || VERDICT.NO_DATA;
+        var age = daysAgo(sn.sampleDate);
+        var ageUnit = age ? esc(age) + (sn.sampleLabel ? ' · ' + esc(sn.sampleLabel) : '') : '';
+        var alertZones = (sn.zones || []).filter(function(z){ return z.alerts && z.alerts.length; });
+        var totalZones = sn.zones ? sn.zones.length : 0;
+        var cards = [];
+
+        cards.push(kpiCard('Soil Nutrition Status', esc(vc.label), ageUnit,
+            badgeSpan(vc.label, vc.bg, vc.txt, vc.brd), vc.color, 'sn-status'));
+
+        if (totalZones > 0) {
+            var zColor = alertZones.length > 0 ? '#dc2626' : '#16a34a';
+            var zBadge = alertZones.length > 0
+                ? badgeSpan(alertZones.length + ' zone' + (alertZones.length === 1 ? '' : 's') + ' requiring attention', '#fee2e2', '#991b1b', '#fca5a5')
+                : badgeSpan('All zones OK', '#dcfce7', '#15803d', '#86efac');
+            cards.push(kpiCard('Zones',
+                alertZones.length > 0 ? alertZones.length + ' / ' + totalZones : String(totalZones),
+                alertZones.length > 0 ? 'require attention' : 'zones — all within threshold',
+                zBadge, zColor));
+        }
+
+        var phVal = parseFloat(sn.pH);
+        if (!isNaN(phVal)) {
+            var phOk  = phVal >= 5.8 && phVal <= 6.5;
+            var phLow = phVal < 5.8;
+            var phColor  = phOk ? '#16a34a' : '#d97706';
+            var phStatus = phOk ? 'Optimal' : phLow ? 'Below optimal' : 'Above optimal';
+            cards.push(kpiCard('Soil pH', phVal.toFixed(1), 'Optimal range 5.8–6.5',
+                phOk ? badgeSpan(phStatus, '#dcfce7', '#15803d', '#86efac')
+                     : badgeSpan(phStatus, '#fef9c3', '#854d0e', '#fde68a'),
+                phColor));
+        }
+
+        return '<div class="gl-kpi-grid">' + cards.join('') + '</div>';
+    }
+
     function renderPageHeader(sn) {
         var m = (sn.methodology || 'mlsn').toLowerCase();
         var methLabel = m === 'slan' ? 'SLAN'
@@ -270,97 +372,15 @@
             : m === 'ammonium_acetate' ? 'Olsen P + NH₄OAc extraction, calibrated for NZ soils'
             : 'Threshold-based approach, validated primarily on golf putting greens';
 
-        function hexToRgb(hex) {
-            var h = hex.replace('#', '');
-            return [parseInt(h.substr(0,2),16), parseInt(h.substr(2,2),16), parseInt(h.substr(4,2),16)];
-        }
-
-        function kpiCard(label, value, unit, statusHtml, color, infoKey) {
-            var rgb = hexToRgb(color);
-            var bg     = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.07)';
-            var border = 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',0.25)';
-            var infoBtn = infoKey
-                ? ' <button class="db-info-icon" data-info="' + infoKey + '" tabindex="0" aria-label="Learn more">i</button>'
-                : '';
-            return [
-                '<div class="gl-kpi-card" style="background:' + bg + ';border-color:' + border + ';border-left-color:' + color + '">',
-                '  <div class="gl-kpi-label">' + label + infoBtn + '</div>',
-                '  <div class="gl-kpi-value" style="color:' + color + '">' + value + '</div>',
-                unit       ? '  <div class="gl-kpi-unit">' + unit + '</div>' : '',
-                statusHtml ? '  <div>' + statusHtml + '</div>' : '',
-                '</div>'
-            ].join('');
-        }
-
-        function badgeSpan(text, bgClr, txtClr, borderClr) {
-            return '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;' +
-                'background:' + bgClr + ';color:' + txtClr + ';border:1px solid ' + borderClr + '">' +
-                esc(text) + '</span>';
-        }
-
-        var v = (sn.verdict || 'NO_DATA').replace('-', '_');
-        var VERDICT = {
-            ACCEPTABLE: { label:'Acceptable',         color:'#16a34a', bg:'#dcfce7', txt:'#15803d', brd:'#86efac' },
-            MONITOR:    { label:'Monitor',             color:'#d97706', bg:'#fef9c3', txt:'#854d0e', brd:'#fde68a' },
-            HIGH_RISK:  { label:'Deficiency Detected', color:'#dc2626', bg:'#fee2e2', txt:'#991b1b', brd:'#fca5a5' },
-            NO_DATA:    { label:'No Data',             color:'#9ca3af', bg:'#f3f4f6', txt:'#6b7280', brd:'#d1d5db' },
-        };
-        var vc = VERDICT[v] || VERDICT.NO_DATA;
-
-        var age = daysAgo(sn.sampleDate);
-        var ageUnit = age ? esc(age) + (sn.sampleLabel ? ' · ' + esc(sn.sampleLabel) : '') : '';
-
-        var alertZones = (sn.zones || []).filter(function(z){ return z.alerts && z.alerts.length; });
-        var totalZones = sn.zones ? sn.zones.length : 0;
-
-        var cards = [];
-
-        // Card 1: Soil Nutrition Status
-        cards.push(kpiCard(
-            'Soil Nutrition Status',
-            esc(vc.label),
-            ageUnit,
-            badgeSpan(vc.label, vc.bg, vc.txt, vc.brd),
-            vc.color,
-            'sn-status'
-        ));
-
-        // Card 2: Zones (only when zones data exists)
-        if (totalZones > 0) {
-            var zColor = alertZones.length > 0 ? '#dc2626' : '#16a34a';
-            var zBadge = alertZones.length > 0
-                ? badgeSpan(alertZones.length + ' zone' + (alertZones.length === 1 ? '' : 's') + ' requiring attention', '#fee2e2', '#991b1b', '#fca5a5')
-                : badgeSpan('All zones OK', '#dcfce7', '#15803d', '#86efac');
-            var zValue = alertZones.length > 0 ? alertZones.length + ' / ' + totalZones : String(totalZones);
-            var zUnit  = alertZones.length > 0 ? 'require attention' : 'zones — all within threshold';
-            cards.push(kpiCard('Zones', zValue, zUnit, zBadge, zColor));
-        }
-
-        // Card 3: pH (only when available)
-        var phVal = parseFloat(sn.pH);
-        if (!isNaN(phVal)) {
-            var phOk  = phVal >= 5.8 && phVal <= 6.5;
-            var phLow = phVal < 5.8;
-            var phColor  = phOk ? '#16a34a' : '#d97706';
-            var phStatus = phOk ? 'Optimal' : phLow ? 'Below optimal' : 'Above optimal';
-            var phBadge  = phOk
-                ? badgeSpan(phStatus, '#dcfce7', '#15803d', '#86efac')
-                : badgeSpan(phStatus, '#fef9c3', '#854d0e', '#fde68a');
-            cards.push(kpiCard('Soil pH', phVal.toFixed(1), 'Optimal range 5.8–6.5', phBadge, phColor));
-        }
-
-        // GP% shown next to MLSN label — same as old site (MLSN demand is GP-adjusted)
         var data = global.GAIP_DASHBOARD_DATA;
         var gpVal = data && data.computed && data.computed.climate &&
                     data.computed.climate.growth && data.computed.climate.growth.weighted;
         var gpPct = (gpVal != null) ? Math.round(gpVal) : null;
-
         var complianceHtml = gpPct !== null
             ? ' <span style="font-size:12px;font-weight:700;color:#374151">' + gpPct + '%</span>' +
               ' <button class="db-info-icon" data-info="sn-compliance" tabindex="0" aria-label="Learn more">i</button>'
             : '';
 
-        // Methodology — muted block below KPI grid
         var methBlock =
             '<div style="margin-top:10px;display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #e5e7eb;border-radius:8px;background:#f9fafb">' +
             '<span style="font-size:11px;font-weight:700;padding:2px 7px;border-radius:4px;border:1px solid #d1d5db;background:#fff;color:#374151;flex-shrink:0">' + esc(methLabel) + '</span>' +
@@ -373,12 +393,11 @@
         return [
             '<div class="gl-header">',
             '  <div class="gl-header-inner">',
-            '    <div style="display:flex;align-items:center;margin-bottom:2px">',
-            '      <h1 class="gl-title">Soil &amp; Nutrition Analysis</h1>',
-            '    </div>',
-            '    <div class="gl-subtitle">Nutrient status, zone comparison and fertiliser programme</div>',
-            '    <div class="gl-kpi-grid">',
-            cards.join(''),
+            '    <h1 class="gl-title">Soil &amp; Nutrition Analysis</h1>',
+            '    <div class="gl-subtitle" style="margin-bottom:6px">Select a soil sample to view nutrient status, zone comparison and fertiliser programme.</div>',
+            '    <div id="sn-sample-selector"></div>',
+            '    <div id="sn-kpi-wrap" style="margin-top:16px">',
+            renderKpiCards(sn),
             '    </div>',
             methBlock,
             '  </div>',
@@ -460,7 +479,6 @@
         var v    = (sn.verdict||'NO_DATA').replace('-','_');
         var meta = VERDICT_META[v] || VERDICT_META.NO_DATA;
         var meth = sn.methodology ? ' <span style="font-size:11px;opacity:.7">('+esc(sn.methodology.toUpperCase())+')</span>' : '';
-        var age  = daysAgo(sn.sampleDate);
         var rows = meta.decision ? (
             '<div class="sn-verdict-rows">'+
             '<div class="sn-verdict-row"><strong>Decision</strong>'+esc(meta.decision)+'</div>'+
@@ -804,8 +822,6 @@
 
         if (!demand || !nutrients.length) return '';
 
-        var depthFactor = (sn.depthCm || 10) * (sn.bulkDensity || 1.4) * 0.1;
-
         var ANNUAL_NUTS = ['P','K','Ca','Mg','S'];
         var cards = ANNUAL_NUTS.map(function(nut){
             var demandVal = demand[nut];
@@ -969,7 +985,6 @@
         var SEASON_SOUTH = { 12:'Summer',1:'Summer',2:'Summer', 3:'Autumn',4:'Autumn',5:'Autumn', 6:'Winter',7:'Winter',8:'Winter', 9:'Spring',10:'Spring',11:'Spring' };
         var SEASON_NORTH = { 12:'Winter',1:'Winter',2:'Winter', 3:'Spring',4:'Spring',5:'Spring', 6:'Summer',7:'Summer',8:'Summer', 9:'Autumn',10:'Autumn',11:'Autumn' };
         var SEASON_BG    = { Summer:'#fef9c3', Autumn:'#ffedd5', Winter:'#eff6ff', Spring:'#f0fdf4' };
-        var SEASON_BORDER= { Summer:'#fde047', Autumn:'#fdba74', Winter:'#93c5fd', Spring:'#86efac' };
 
         var cols = vals.map(function(v, i){
             var pct = (v / maxVal * 100).toFixed(1);
@@ -1135,42 +1150,42 @@
             return;
         }
 
-        var validationHtml       = sn.validation  ? renderValidation(sn)            : '';
-        var methodHtml           =                   renderPageHeader(sn);
-        var verdictHtml          =                   renderVerdict(sn);
-        var zoneAlertHtml        = sn.zones        ? renderZoneAlerts(sn.zones)      : '';
-        var zoneChartHtml        = sn.zones        ? renderZoneComparison(sn)        : '';
-        var nutrientsHtml        = (sn.nutrients && sn.nutrients.length)
+        var validationHtml  = sn.validation ? renderValidation(sn) : '';
+        var methodHtml      = renderPageHeader(sn);
+        var verdictHtml     = renderVerdict(sn);
+        var zoneAlertHtml   = sn.zones ? renderZoneAlerts(sn.zones)  : '';
+        var zoneChartHtml   = sn.zones ? renderZoneComparison(sn)    : '';
+        var nutrientsHtml   = (sn.nutrients && sn.nutrients.length)
             ? '<div class="sn-section"><div class="sn-section-title">Nutrient Status</div></div>'+
-              '<div class="sn-nutrients">'+renderNutrientCards(sn)+'</div>' : '';
-        var mulderHtml           =                   renderMulder(sn);
-        var ratiosHtml           = sn.ratios       ? renderRatios(sn)               : '';
-        var phHtml               = (sn.pH||sn.CEC)
+              '<div id="sn-nutrients-grid" class="sn-nutrients">'+renderNutrientCards(sn)+'</div>' : '';
+        var mulderHtml      = renderMulder(sn);
+        var ratiosHtml      = renderRatios(sn);
+        var phHtml          = (sn.pH || sn.CEC)
             ? '<div class="sn-section"><div class="sn-section-title">pH &amp; CEC</div></div>'+renderPhCec(sn) : '';
-        var correctionHtml       =                   renderCorrectionProgram(sn);
-        var annualHtml           =                   renderAnnualRequirements(sn);
-        var monthlyHtml          =                   renderMonthlyN(sn);
-        var tissueHtml           = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results</div></div>'+renderTissue(sn.tissue);
-        var crossValHtml         =                   renderCrossValidation(sn);
-        var contextHtml          =                   renderContext(sn);
+        var correctionHtml  = renderCorrectionProgram(sn);
+        var annualHtml      = renderAnnualRequirements(sn);
+        var monthlyHtml     = renderMonthlyN(sn);
+        var tissueHtml      = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results</div></div>'+renderTissue(sn.tissue);
+        var crossValHtml    = renderCrossValidation(sn);
+        var contextHtml     = renderContext(sn);
 
         var planLink = '<div style="padding:16px 0;text-align:right">'+
             '<a href="/plan" style="font-size:13px;color:#236b4a;text-decoration:none;font-weight:500">→ View Nutrition Plan</a></div>';
 
         var bodyContent =
             (validationHtml ? '<div style="padding-top:16px">'+validationHtml+'</div>' : '')+
-            (verdictHtml ? '<div style="padding:16px 0 4px">'+verdictHtml+'</div>' : '')+
+            '<div id="sn-verdict-wrap">'+(verdictHtml ? '<div style="padding:16px 0 4px">'+verdictHtml+'</div>' : '')+'</div>'+
             zoneAlertHtml+
             zoneChartHtml+
             nutrientsHtml+
-            (mulderHtml ? '<div style="padding-bottom:12px">'+mulderHtml+'</div>' : '')+
-            ratiosHtml+
-            phHtml+
-            correctionHtml+
-            annualHtml+
+            '<div id="sn-mulder-wrap">'+(mulderHtml ? '<div style="padding-bottom:12px">'+mulderHtml+'</div>' : '')+'</div>'+
+            '<div id="sn-ratios-wrap">'+ratiosHtml+'</div>'+
+            '<div id="sn-ph-wrap">'+phHtml+'</div>'+
+            '<div id="sn-correction-wrap">'+correctionHtml+'</div>'+
+            '<div id="sn-annual-wrap">'+annualHtml+'</div>'+
             monthlyHtml+
             tissueHtml+
-            crossValHtml+
+            '<div id="sn-crossval-wrap">'+crossValHtml+'</div>'+
             contextHtml+
             planLink;
 
@@ -1236,10 +1251,215 @@
         if (popClose) popClose.addEventListener('click', function(e) { e.stopPropagation(); hidePopover(); });
     }
 
+    // ── Sample selector state ─────────────────────────────────────────────────
+    var _snSamples   = [];
+    var _snActiveIdx = -1;
+
+    function buildDropdownRows(samples, activeIdx) {
+        if (!samples.length) {
+            return '<div style="padding:14px 12px;text-align:center;color:#9ca3af;font-size:12px">No samples found</div>';
+        }
+        return samples.map(function(s) {
+            var origIdx = _snSamples.indexOf(s);
+            var zone = esc(s.client_uid || ('Zone ' + (origIdx + 1)));
+            var ref  = esc(s.lab_ref || s.lab_name || '—');
+            var date = esc(fmtDate(s.lab_date || s.sample_date || '') || '—');
+            return '<div class="sn-drop-row' + (origIdx === activeIdx ? ' active' : '') + '" data-sn-idx="' + origIdx + '">' +
+                '<div class="sn-drop-cell-zone">' + zone + '</div>' +
+                '<div class="sn-drop-cell-ref">'  + ref  + '</div>' +
+                '<div class="sn-drop-cell-date">' + date + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function injectSampleDropdown() {
+        var selector = document.getElementById('sn-sample-selector');
+        if (!selector || !_snSamples.length) return;
+
+        var active   = _snActiveIdx >= 0 ? _snSamples[_snActiveIdx] : null;
+        var btnLabel = active
+            ? esc(active.client_uid || ('Zone ' + (_snActiveIdx + 1)))
+            : 'Select sample…';
+
+        var svgSearch  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#9ca3af"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+        var svgChevron = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
+
+        var html =
+            '<div class="sn-drop-wrap" id="sn-drop-wrap">' +
+            '<button class="sn-drop-btn" id="sn-drop-btn" type="button">' + svgSearch + '<span id="sn-drop-label">' + btnLabel + '</span>' + svgChevron + '</button>' +
+            '<div class="sn-drop-panel" id="sn-drop-panel">' +
+            '<input class="sn-drop-search" id="sn-drop-search" type="text" placeholder="Filter by zone or date…" autocomplete="off">' +
+            '<div class="sn-drop-header"><span>Zone</span><span>Lab Ref</span><span>Date</span></div>' +
+            '<div class="sn-drop-list" id="sn-drop-list">' + buildDropdownRows(_snSamples, _snActiveIdx) + '</div>' +
+            '</div></div>';
+
+        selector.innerHTML = html;
+
+        document.getElementById('sn-drop-btn').addEventListener('click', function(e) {
+            e.stopPropagation();
+            var wrap = document.getElementById('sn-drop-wrap');
+            wrap.classList.toggle('sn-drop-open');
+            if (wrap.classList.contains('sn-drop-open')) {
+                var s = document.getElementById('sn-drop-search');
+                if (s) { s.value = ''; s.focus(); }
+                var list = document.getElementById('sn-drop-list');
+                if (list) list.innerHTML = buildDropdownRows(_snSamples, _snActiveIdx);
+                wireRows();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            var wrap = document.getElementById('sn-drop-wrap');
+            if (wrap && !wrap.contains(e.target)) wrap.classList.remove('sn-drop-open');
+        });
+
+        document.getElementById('sn-drop-search').addEventListener('input', function() {
+            var q = this.value.toLowerCase();
+            var filtered = !q ? _snSamples : _snSamples.filter(function(s) {
+                return (s.client_uid || '').toLowerCase().indexOf(q) >= 0 ||
+                       (s.lab_ref   || '').toLowerCase().indexOf(q) >= 0 ||
+                       (fmtDate(s.lab_date || s.sample_date || '') || '').toLowerCase().indexOf(q) >= 0;
+            });
+            var list = document.getElementById('sn-drop-list');
+            if (list) { list.innerHTML = buildDropdownRows(filtered, _snActiveIdx); wireRows(); }
+        });
+
+        wireRows();
+    }
+
+    function snShowToast(msg, type) {
+        var el = document.createElement('div');
+        var bg = type === 'error' ? '#dc2626' : '#166534';
+        el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:'+bg+';color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;font-family:inherit;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:340px;line-height:1.4';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(function(){ el.parentNode && el.parentNode.removeChild(el); }, 4000);
+    }
+
+    // ─── Sample persistence ───────────────────────────────────────────────────
+
+    function _snStorageKey() {
+        var sid = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+        return 'gilba_sn_sample' + (sid ? '_' + sid : '');
+    }
+
+    function _snSaveActiveId(sampleId) {
+        try { localStorage.setItem(_snStorageKey(), sampleId); } catch(e) {}
+    }
+
+    function _snLoadActiveId() {
+        try { return localStorage.getItem(_snStorageKey()); } catch(e) { return null; }
+    }
+
+    // Fetches analysis for `sample` via the server API, merges the result into
+    // GAIP_DASHBOARD_DATA.computed.soilNutrition, and re-renders the section.
+    // Non-soil-nutrition fields (annualDemand, tissue, zones, etc.) are preserved.
+    function _snFetchAndRender(sample) {
+        fetch('/api/samples/' + encodeURIComponent(sample.id) + '/analyse', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) {
+            var snData = res && res.data;
+            if (!snData) return;
+            if (global.GAIP_DASHBOARD_DATA) {
+                if (!global.GAIP_DASHBOARD_DATA.computed) global.GAIP_DASHBOARD_DATA.computed = {};
+                var existing = global.GAIP_DASHBOARD_DATA.computed.soilNutrition || {};
+                global.GAIP_DASHBOARD_DATA.computed.soilNutrition = Object.assign({}, existing, snData);
+            }
+            render();
+            injectSampleDropdown();
+        })
+        .catch(function() {
+            snShowToast('Could not load analysis for this sample.', 'error');
+            injectSampleDropdown();
+        });
+    }
+
+    function wireRows() {
+        var list = document.getElementById('sn-drop-list');
+        if (!list) return;
+        list.querySelectorAll('.sn-drop-row[data-sn-idx]').forEach(function(row) {
+            row.addEventListener('click', function() {
+                var idx    = parseInt(this.dataset.snIdx, 10);
+                var sample = _snSamples[idx];
+                if (!sample) return;
+
+                var wrap = document.getElementById('sn-drop-wrap');
+                if (wrap) wrap.classList.remove('sn-drop-open');
+
+                _snActiveIdx = idx;
+                _snSaveActiveId(sample.id);
+                _snFetchAndRender(sample);
+            });
+        });
+    }
+
+    // Fetches soil samples for the active site and injects the sample selector.
+    // Shown when ≥1 sample exists, pre-selects the currently displayed sample.
+    // On page reload, restores the last user-selected sample automatically.
+    function initZoneSamples() {
+        var data = global.GAIP_DASHBOARD_DATA;
+        var sn   = data && data.computed && data.computed.soilNutrition;
+        if (!sn || !sn.nutrients || !sn.nutrients.length) return;
+
+        var siteId = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+        if (!siteId) return;
+
+        fetch('/api/samples?site_id=' + encodeURIComponent(siteId) + '&sample_type=soil&limit=100', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) {
+            var samples = (res && res.data) || [];
+            if (!samples.length) return;
+            samples.sort(function(a, b) {
+                return (b.lab_date || b.sample_date || '').localeCompare(a.lab_date || a.sample_date || '');
+            });
+            _snSamples = samples;
+
+            // Try persisted selection first
+            var persistedId  = _snLoadActiveId();
+            var persistedIdx = -1;
+            if (persistedId) {
+                for (var j = 0; j < samples.length; j++) {
+                    if (samples[j].id === persistedId) { persistedIdx = j; break; }
+                }
+            }
+
+            if (persistedIdx >= 0) {
+                _snActiveIdx = persistedIdx;
+            } else {
+                // Fall back to matching by current page data
+                _snActiveIdx = 0;
+                var curLabel = sn.sampleLabel;
+                var curDate  = sn.sampleDate ? String(sn.sampleDate).substring(0, 10) : null;
+                for (var i = 0; i < samples.length; i++) {
+                    var s = samples[i];
+                    if (curLabel && s.client_uid === curLabel) { _snActiveIdx = i; break; }
+                    if (curDate) {
+                        var sd = (s.lab_date || s.sample_date || '').substring(0, 10);
+                        if (sd && sd === curDate) { _snActiveIdx = i; break; }
+                    }
+                }
+            }
+
+            injectSampleDropdown();
+
+            // If the persisted selection differs from what the page currently shows,
+            // auto-fetch the correct analysis so all blocks reflect the right sample.
+            if (persistedIdx >= 0 && (samples[persistedIdx].client_uid || '') !== (sn.sampleLabel || '')) {
+                _snFetchAndRender(samples[persistedIdx]);
+            }
+        })
+        .catch(function() {});
+    }
+
     function init() {
         injectCSS();
         render();
         initInfoPopovers();
+        initZoneSamples();
         // Register tab switcher on window for inline onclick handlers
         global.snZoneTab = function(btn, nut) {
             var wrap = btn.closest('.sn-page');
