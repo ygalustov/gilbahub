@@ -53,7 +53,7 @@ class AuthController extends Controller
 
         RateLimiter::clear($ipKey);
 
-        Auth::login($user, $request->boolean('remember'));
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         $this->processPendingInvitations($user);

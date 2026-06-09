@@ -831,6 +831,17 @@
 
         if (setPwdBtn)    setPwdBtn.addEventListener('click',    function () { openPwdModal(false); });
         if (changePwdBtn) changePwdBtn.addEventListener('click', function () { openPwdModal(true); });
+
+        document.querySelectorAll('.pw-eye-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var input = document.getElementById(btn.dataset.target);
+                if (!input) return;
+                var show = input.type === 'password';
+                input.type = show ? 'text' : 'password';
+                btn.querySelector('.pw-eye-show').style.display = show ? 'none' : '';
+                btn.querySelector('.pw-eye-hide').style.display = show ? '' : 'none';
+            });
+        });
         if (pwdModalClose) pwdModalClose.addEventListener('click', closePwdModal);
         if (pwdCancelBtn)  pwdCancelBtn.addEventListener('click', closePwdModal);
         if (pwdModal) {
@@ -866,14 +877,31 @@
                 e.preventDefault();
                 var email = D.userEmail || '';
                 if (!email) return;
-                apiFetch('POST', '/login/magic', { email: email, password_reset: true })
+                if (pwdForgotLink.dataset.sending) return;
+                pwdForgotLink.dataset.sending = '1';
+                pwdForgotLink.textContent = 'Sending…';
+                pwdForgotLink.style.opacity = '0.6';
+                showPwdMsg('', '');
+                fetch('/login/magic', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf },
+                    body: JSON.stringify({ email: email, password_reset: true }),
+                })
+                    .then(function (r) { return r.json(); })
                     .then(function () { showPwdMsg('', 'Magic link sent to ' + email + '. Check your inbox.'); })
-                    .catch(function () { showPwdMsg('Failed to send link.', ''); });
+                    .catch(function () { showPwdMsg('Failed to send link.', ''); })
+                    .finally(function () {
+                        pwdForgotLink.textContent = 'Forgot current password? Send Magic Link';
+                        pwdForgotLink.style.opacity = '';
+                        delete pwdForgotLink.dataset.sending;
+                    });
             });
         }
 
         if (D.openPasswordModal) {
-            openPwdModal(D.hasPassword);
+            activateTab('profile');
+            // When coming via magic link reset, skip current password requirement
+            openPwdModal(D.hasPassword && !D.passwordResetTrusted);
         }
     }());
 

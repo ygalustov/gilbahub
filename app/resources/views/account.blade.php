@@ -332,43 +332,62 @@
                         </form>
                     </div>
 
-                    <div id="password-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center">
-                        <div style="background:#fff;border-radius:12px;padding:32px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.16);font-family:'Barlow',sans-serif;font-size:14px">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-                                <h3 id="pw-modal-title" style="font-size:16px;font-weight:700;color:#1a2b23;margin:0">Set password</h3>
-                                <button type="button" id="pw-modal-close" style="background:none;border:none;cursor:pointer;color:#6b8878;padding:4px">
-                                    <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                                </button>
-                            </div>
-
-                            <div id="pw-current-field" style="margin-bottom:16px;display:none">
-                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Current password</label>
-                                <input type="password" id="pw-current" class="stg-input" style="width:100%" autocomplete="current-password">
-                                <a href="#" id="pw-forgot-link" style="font-size:12px;color:#2da85e;display:block;margin-top:6px">Forgot current password? Send Magic Link</a>
-                            </div>
-                            <div style="margin-bottom:16px">
-                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">New password</label>
-                                <input type="password" id="pw-new" class="stg-input" style="width:100%" autocomplete="new-password">
-                            </div>
-                            <div style="margin-bottom:24px">
-                                <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Confirm password</label>
-                                <input type="password" id="pw-confirm" class="stg-input" style="width:100%" autocomplete="new-password">
-                            </div>
-
-                            <div id="pw-modal-error" style="display:none;margin-bottom:12px;font-size:13px;color:#dc2626"></div>
-                            <div id="pw-modal-success" style="display:none;margin-bottom:12px;font-size:13px;color:#2da85e"></div>
-
-                            <div style="display:flex;gap:10px">
-                                <button type="button" id="pw-submit-btn" class="stg-btn-primary" style="flex:1">Save password</button>
-                                <button type="button" id="pw-cancel-btn" class="stg-btn-ghost">Cancel</button>
-                            </div>
-                        </div>
-                    </div>
-
                 </div>{{-- /profile panel --}}
 
             </div>{{-- /stg-wrap --}}
         </div>{{-- /db-content --}}
+
+{{-- Password modal — outside all tab panels so it's visible regardless of active tab --}}
+<div id="password-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:12px;padding:32px;width:100%;max-width:420px;box-shadow:0 8px 32px rgba(0,0,0,0.16);font-family:'Barlow',sans-serif;font-size:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+            <h3 id="pw-modal-title" style="font-size:16px;font-weight:700;color:#1a2b23;margin:0">Set password</h3>
+            <button type="button" id="pw-modal-close" style="background:none;border:none;cursor:pointer;color:#6b8878;padding:4px">
+                <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+        </div>
+
+        <div id="pw-current-field" style="margin-bottom:16px;display:none">
+            <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Current password</label>
+            <div style="position:relative">
+                <input type="password" id="pw-current" class="stg-input" style="width:100%;padding-right:40px;box-sizing:border-box" autocomplete="current-password">
+                <button type="button" class="pw-eye-btn" data-target="pw-current" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b8878;padding:2px;line-height:0" tabindex="-1" aria-label="Show/hide password">
+                    <svg class="pw-eye-show" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <svg class="pw-eye-hide" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                </button>
+            </div>
+            <a href="#" id="pw-forgot-link" style="font-size:12px;color:#2da85e;display:block;margin-top:6px">Forgot current password? Send Magic Link</a>
+        </div>
+        <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">New password</label>
+            <div style="position:relative">
+                <input type="password" id="pw-new" class="stg-input" style="width:100%;padding-right:40px;box-sizing:border-box" autocomplete="new-password">
+                <button type="button" class="pw-eye-btn" data-target="pw-new" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b8878;padding:2px;line-height:0" tabindex="-1" aria-label="Show/hide password">
+                    <svg class="pw-eye-show" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <svg class="pw-eye-hide" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                </button>
+            </div>
+        </div>
+        <div style="margin-bottom:24px">
+            <label style="display:block;font-size:13px;font-weight:600;color:#3d5c4a;margin-bottom:6px">Confirm password</label>
+            <div style="position:relative">
+                <input type="password" id="pw-confirm" class="stg-input" style="width:100%;padding-right:40px;box-sizing:border-box" autocomplete="new-password">
+                <button type="button" class="pw-eye-btn" data-target="pw-confirm" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:#6b8878;padding:2px;line-height:0" tabindex="-1" aria-label="Show/hide password">
+                    <svg class="pw-eye-show" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    <svg class="pw-eye-hide" width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="display:none"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div id="pw-modal-error" style="display:none;margin-bottom:12px;font-size:13px;color:#dc2626"></div>
+        <div id="pw-modal-success" style="display:none;margin-bottom:12px;font-size:13px;color:#2da85e"></div>
+
+        <div style="display:flex;gap:10px">
+            <button type="button" id="pw-submit-btn" class="stg-btn-primary" style="flex:1">Save password</button>
+            <button type="button" id="pw-cancel-btn" class="stg-btn-ghost">Cancel</button>
+        </div>
+    </div>
+</div>
 
 @endsection
 
@@ -381,7 +400,8 @@ window.STG_DATA = {
     csrfToken:         @json(csrf_token()),
     apiBase:           @json(url('/api')),
     hasPassword:       @json(!empty(auth()->user()->password_hash)),
-    openPasswordModal: @json(session('open_password_modal', false)),
+    openPasswordModal:    @json(session('open_password_modal', false)),
+    passwordResetTrusted: @json(session()->has('password_reset_trusted')),
     userEmail:         @json(auth()->user()->email),
 };
 </script>

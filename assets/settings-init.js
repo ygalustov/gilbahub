@@ -2,6 +2,18 @@
 (function () {
     'use strict';
 
+    // Eye toggle for API key fields
+    document.querySelectorAll('.sens-eye-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var input = document.getElementById(btn.dataset.target);
+            if (!input) return;
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.querySelector('.pw-eye-show').style.display = show ? 'none' : '';
+            btn.querySelector('.pw-eye-hide').style.display = show ? '' : 'none';
+        });
+    });
+
     var D = window.STG_DATA || {};
     var siteId   = D.activeSiteId || null;
     var apiBase  = (D.apiBase || '').replace(/\/$/, '');

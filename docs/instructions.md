@@ -185,15 +185,21 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-94** Add session management to account view: Introduced a logout button with a form in the account.blade.php file, enhancing user experience by allowing users to easily sign out from their session.
 **GH-95** Enhance soil nutrition analysis: Added nutrient notes and source information in soil-nutrition-analysis.js for improved user guidance. Updated backlog in instructions.md with new feature requests and clarifications.
 **GH-96** Enhance dashboard and stress analysis functionality: Added conditional handling for traffic factor based on site type in dashboard-init.js and stress-analysis.js. Updated summary display to show recommendations if available. Refined backlog in instructions.md for clarity and organization.
+**GH-97** Add Google Maps API integration: Introduced Google Maps API key in .env.example, updated services.php to include Google Maps configuration, and implemented geocoding functionality in various JavaScript files for improved location search capabilities. Updated instructions.md to reflect the addition of Google Maps API usage.
+**GH-98** Refactor authentication logic: Updated AuthController and MagicLinkController to always remember user sessions upon login. Enhanced password reset flow by adding session management for trusted resets in ProfileController. Improved password modal UI in account.blade.php and added functionality to toggle password visibility in account-init.js.
+
+
+
+
 
 ## Backlog
-+1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API)
-+2.⁠ ⁠⁠Role based admin 
++1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
++2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98
 +3.⁠ ⁠⁠Invite only sign up 
-+4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
-5.⁠ ⁠Remove Insects model
-6.⁠ ⁠Change settings don’t update UI
-7.⁠ ⁠⁠Keep users signed in
++4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green. GH-96
+5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
++6.⁠ ⁠Change settings don’t update UI. GH-97
++7.⁠ ⁠⁠Keep users signed in GH-98
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94

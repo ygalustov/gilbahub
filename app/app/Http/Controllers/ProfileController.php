@@ -23,32 +23,29 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        if ($user->password_hash) {
+        $trustedReset = $request->session()->pull('password_reset_trusted', false);
+
+        if ($user->password_hash && ! $trustedReset) {
             // Change existing password — require current password
             $data = $request->validate([
-                'current_password' => ['required', 'string'],
-                'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+                'current_password'      => ['required', 'string'],
+                'password'              => ['required', 'string', 'min:8', 'confirmed'],
             ]);
 
             if (! Hash::check($data['current_password'], $user->password_hash)) {
                 return response()->json(['message' => 'Current password is incorrect.'], 422);
             }
-
-            $user->forceFill([
-                'password_hash' => Hash::make($data['new_password']),
-                'password_prompt_shown' => true,
-            ])->save();
         } else {
-            // Set new password (no current password required)
+            // Set new password — no current password required (magic link reset or no password yet)
             $data = $request->validate([
-                'new_password' => ['required', 'string', 'min:8', 'confirmed'],
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
             ]);
-
-            $user->forceFill([
-                'password_hash' => Hash::make($data['new_password']),
-                'password_prompt_shown' => true,
-            ])->save();
         }
+
+        $user->forceFill([
+            'password_hash'         => Hash::make($data['password']),
+            'password_prompt_shown' => true,
+        ])->save();
 
         return response()->json(['updated' => true, 'message' => 'Password set. You can now sign in with your password.']);
     }

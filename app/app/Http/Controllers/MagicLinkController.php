@@ -91,6 +91,10 @@ class MagicLinkController extends Controller
             if ($invitedSiteId) {
                 $user->forceFill(['last_active_site_id' => $invitedSiteId])->save();
             }
+            if ($isPasswordReset) {
+                $request->session()->put('password_reset_trusted', true);
+                return redirect()->route('account')->with('open_password_modal', true);
+            }
             return redirect()->route('dashboard');
         }
 
@@ -99,10 +103,11 @@ class MagicLinkController extends Controller
         if ($user) {
             $this->processPendingInvitations($user);
 
-            Auth::login($user, remember: false);
+            Auth::login($user, remember: true);
             $request->session()->regenerate();
 
             if ($isPasswordReset) {
+                $request->session()->put('password_reset_trusted', true);
                 return redirect()->route('account')->with('open_password_modal', true);
             }
 
@@ -134,7 +139,7 @@ class MagicLinkController extends Controller
             $user->forceFill(['last_active_site_id' => $invitedSiteId])->save();
         }
 
-        Auth::login($user, remember: false);
+        Auth::login($user, remember: true);
         $request->session()->regenerate();
 
         return redirect()->route('dashboard');

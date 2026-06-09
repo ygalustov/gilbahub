@@ -36,12 +36,12 @@ Route::redirect('/favicon.ico', '/images/favicon.svg', 301);
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'login'])->name('login.store');
-    Route::post('/login/magic', [MagicLinkController::class, 'send'])->name('magic.send');
     Route::get('/register', [AuthController::class, 'showRegister'])->name('register')->middleware('self-registration');
     Route::post('/register', [AuthController::class, 'register'])->name('register.store')->middleware('self-registration');
 });
 
-// Magic link verify is accessible to both guests and logged-in users (handles pending invitations for existing sessions)
+// Magic link send + verify accessible to both guests and logged-in users
+Route::post('/login/magic', [MagicLinkController::class, 'send'])->name('magic.send');
 Route::get('/magic/{token}', [MagicLinkController::class, 'verify'])->name('magic.verify');
 
 Route::post('/logout', [AuthController::class, 'logout'])
