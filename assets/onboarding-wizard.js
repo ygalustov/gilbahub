@@ -313,33 +313,31 @@
 
         _geocode: function (q, resultsEl) {
             var self = this;
-            fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=6&language=en&format=json')
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                    if (!data.results || !data.results.length) {
-                        resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--gaip-text-muted,#6b8878)">No results found</div>';
-                        resultsEl.style.display = 'block';
-                        return;
-                    }
-                    resultsEl.innerHTML = '';
-                    data.results.forEach(function (p) {
-                        var name = [p.name, p.admin1, p.country].filter(Boolean).join(', ');
-                        var item = document.createElement('div');
-                        item.style.cssText = 'padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--gaip-border,#d1dbd6)';
-                        item.innerHTML = '<div style="font-size:13px;color:var(--gaip-text,#17231f)">' + self._esc(name) + '</div>' +
-                            '<div style="font-size:11px;color:var(--gaip-text-muted,#6b8878)">' + p.latitude.toFixed(4) + ', ' + p.longitude.toFixed(4) + '</div>';
-                        item.addEventListener('mouseenter', function () { this.style.background = 'var(--gaip-surface-muted,#f3f7f5)'; });
-                        item.addEventListener('mouseleave', function () { this.style.background = ''; });
-                        item.addEventListener('click', function () {
-                            self.d.location = { lat: p.latitude, lon: p.longitude, name: name };
-                            resultsEl.style.display = 'none';
+            window.GilbaGeo.search(q, function (preds) {
+                if (!preds.length) {
+                    resultsEl.innerHTML = '<div style="padding:10px 12px;font-size:13px;color:var(--gaip-text-muted,#6b8878)">No results found</div>';
+                    resultsEl.style.display = 'block';
+                    return;
+                }
+                resultsEl.innerHTML = '';
+                preds.forEach(function (p) {
+                    var item = document.createElement('div');
+                    item.style.cssText = 'padding:9px 12px;cursor:pointer;border-bottom:1px solid var(--gaip-border,#d1dbd6)';
+                    item.innerHTML = '<div style="font-size:13px;color:var(--gaip-text,#17231f)">' + self._esc(p.description) + '</div>';
+                    item.addEventListener('mouseenter', function () { this.style.background = 'var(--gaip-surface-muted,#f3f7f5)'; });
+                    item.addEventListener('mouseleave', function () { this.style.background = ''; });
+                    item.addEventListener('click', function () {
+                        resultsEl.style.display = 'none';
+                        window.GilbaGeo.getDetails(p.placeId, function (loc) {
+                            if (!loc) return;
+                            self.d.location = { lat: loc.lat, lon: loc.lon, name: loc.name };
                             self._render();
                         });
-                        resultsEl.appendChild(item);
                     });
-                    resultsEl.style.display = 'block';
-                })
-                .catch(function () {});
+                    resultsEl.appendChild(item);
+                });
+                resultsEl.style.display = 'block';
+            });
         },
 
         // ── Step 2: Turf Type ─────────────────────────────────────────────────

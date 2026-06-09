@@ -187,7 +187,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-96** Enhance dashboard and stress analysis functionality: Added conditional handling for traffic factor based on site type in dashboard-init.js and stress-analysis.js. Updated summary display to show recommendations if available. Refined backlog in instructions.md for clarity and organization.
 
 ## Backlog
-1.⁠ ⁠Address lookup using Google Reverse Geocoding
++1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API)
 +2.⁠ ⁠⁠Role based admin 
 +3.⁠ ⁠⁠Invite only sign up 
 +4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green
@@ -219,6 +219,15 @@ That’s what the current layout looks like when it produces the product recomme
 
 - to test change password
 - to add Self registration with approval
+
+
+- 4. Ограничить ключ (важно)
+
+Нажать на созданный ключ → Edit
+В разделе Application restrictions → выбрать HTTP referrers (websites)
+Добавить ваш домен: https://yourdomain.com/*
+В разделе API restrictions → Restrict key → выбрать только Places API
+Save
 
 
 

@@ -241,3 +241,30 @@
     }
 
 }(window));
+
+/* ── Shared Google Places geocoding helper ───────────────────────────────
+ * Proxies through Laravel — API key stays server-side, no Maps JS needed.
+ */
+window.GilbaGeo = (function () {
+    var _base  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
+    var _csrf  = function () { return (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken) || ''; };
+    var _hdrs  = function () { return { 'Accept': 'application/json', 'X-CSRF-TOKEN': _csrf() }; };
+
+    return {
+        // search(query, fn) — fn receives [{description, placeId}]
+        search: function (query, fn) {
+            fetch(_base + 'geocode?q=' + encodeURIComponent(query), { headers: _hdrs() })
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function (d) { fn(d.suggestions || []); })
+                .catch(function () { fn([]); });
+        },
+
+        // getDetails(placeId, fn) — fn receives {lat, lon, name} or null
+        getDetails: function (placeId, fn) {
+            fetch(_base + 'geocode/' + encodeURIComponent(placeId), { headers: _hdrs() })
+                .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+                .then(function (d) { fn(d); })
+                .catch(function () { fn(null); });
+        },
+    };
+}());

@@ -479,50 +479,35 @@
         },
 
         geocodeSearch: function(query, resultsEl) {
-            const self = this;
+            var self = this;
 
-            // Use Open-Meteo geocoding (no API key needed)
-            fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(query) + '&count=5&language=en&format=json')
-                .then(function(r) { return r.json(); })
-                .then(function(data) {
-                    if (!data.results || !data.results.length) {
-                        resultsEl.innerHTML = '<div style="padding: 10px; color: var(--gaip-text-muted); font-size: 13px;">No results found</div>';
-                        resultsEl.style.display = 'block';
-                        return;
-                    }
-
-                    resultsEl.innerHTML = '';
-                    data.results.forEach(function(place) {
-                        const item = document.createElement('div');
-                        const displayName = [place.name, place.admin1, place.country].filter(Boolean).join(', ');
-                        item.innerHTML = `
-                            <div style="font-size: 14px; color: var(--gaip-text);">${self.escHtml(displayName)}</div>
-                            <div style="font-size: 11px; color: var(--gaip-text-muted);">${place.latitude.toFixed(4)}, ${place.longitude.toFixed(4)}</div>
-                        `;
-                        Object.assign(item.style, {
-                            padding: '10px 12px',
-                            cursor: 'pointer',
-                            borderBottom: '1px solid var(--gaip-surface-hover)'
-                        });
-                        item.addEventListener('mouseenter', function() { this.style.background = 'var(--gaip-good-bg)'; });
-                        item.addEventListener('mouseleave', function() { this.style.background = 'transparent'; });
-                        item.addEventListener('click', function() {
-                            self.data.location = {
-                                lat: place.latitude,
-                                lon: place.longitude,
-                                name: displayName
-                            };
-                            self.syncLocationToDOM();
-                            resultsEl.style.display = 'none';
-                            self.renderStep(); // Re-render with confirmation
-                        });
-                        resultsEl.appendChild(item);
-                    });
+            window.GilbaGeo.search(query, function (preds) {
+                if (!preds.length) {
+                    resultsEl.innerHTML = '<div style="padding:10px 12px;color:var(--gaip-text-muted);font-size:13px;">No results found</div>';
                     resultsEl.style.display = 'block';
-                })
-                .catch(function(err) {
-                    console.warn('[SetupWizard] Geocode error:', err);
+                    return;
+                }
+
+                resultsEl.innerHTML = '';
+                preds.forEach(function (p) {
+                    var item = document.createElement('div');
+                    item.style.cssText = 'padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--gaip-surface-hover)';
+                    item.innerHTML = '<div style="font-size:14px;color:var(--gaip-text)">' + self.escHtml(p.description) + '</div>';
+                    item.addEventListener('mouseenter', function () { this.style.background = 'var(--gaip-good-bg)'; });
+                    item.addEventListener('mouseleave', function () { this.style.background = 'transparent'; });
+                    item.addEventListener('click', function () {
+                        resultsEl.style.display = 'none';
+                        window.GilbaGeo.getDetails(p.placeId, function (loc) {
+                            if (!loc) return;
+                            self.data.location = { lat: loc.lat, lon: loc.lon, name: loc.name };
+                            self.syncLocationToDOM();
+                            self.renderStep();
+                        });
+                    });
+                    resultsEl.appendChild(item);
                 });
+                resultsEl.style.display = 'block';
+            });
         },
 
         // ================================================================

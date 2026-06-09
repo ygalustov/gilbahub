@@ -39,4 +39,8 @@ return [
         'claude_api_key' => env('GILBA_CLAUDE_API_KEY'),
     ],
 
+    'google' => [
+        'maps_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];

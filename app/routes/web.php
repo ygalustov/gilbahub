@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalysisCacheController;
+use App\Http\Controllers\GeocodingController;
 use App\Http\Controllers\AnalysisController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BenchmarkController;
@@ -126,6 +127,8 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/lab-reports/parse', [LabReportParseController::class, 'store'])->name('lab-reports.parse');
 
         Route::post('/analysis-cache', [AnalysisCacheController::class, 'store'])->name('analysis-cache.store');
+        Route::get('/geocode', [GeocodingController::class, 'search'])->name('geocode.search');
+        Route::get('/geocode/{placeId}', [GeocodingController::class, 'details'])->name('geocode.details');
         Route::post('/sensors/hydrosight/proxy', [SensorProxyController::class, 'hydrosight'])->name('sensors.hydrosight.proxy');
         Route::post('/sensors/specconnect/proxy', [SensorProxyController::class, 'specconnect'])->name('sensors.specconnect.proxy');
         Route::post('/stadium/shade-render', [StadiumAnalysisController::class, 'shadeRender'])->name('stadium.shade-render');

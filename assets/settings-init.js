@@ -142,6 +142,11 @@
                     if (data && data.data && data.data.name) {
                         D.gaipConfig = cfg;
                         setMsg(siteMsg, 'Saved.', 'ok');
+                        // Update topbar to reflect saved values without page reload
+                        var siteNameEl = document.getElementById('db-site-name');
+                        if (siteNameEl) siteNameEl.textContent = payload.name;
+                        var regionEl = document.getElementById('db-pill-region');
+                        if (regionEl) regionEl.textContent = payload.location_name || '';
                     } else {
                         var err = (data && data.message) ? data.message : 'Save failed.';
                         setMsg(siteMsg, err, 'err');
@@ -169,47 +174,37 @@
                 resultsDiv.innerHTML = '<div style="padding:10px;color:#6b7f76;font-size:13px;">Searching…</div>';
                 resultsDiv.style.display = 'block';
 
-                fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(q) + '&count=5&language=en&format=json')
-                    .then(function (r) { return r.json(); })
-                    .then(function (data) {
-                        var results = data.results || [];
-                        if (!results.length) {
-                            resultsDiv.innerHTML = '<div style="padding:10px;color:#6b7f76;font-size:13px;">No locations found</div>';
-                            return;
-                        }
-                        var locs = results.map(function (r) {
-                            return {
-                                display: [r.name, r.admin1, r.country].filter(Boolean).join(', '),
-                                lat: r.latitude,
-                                lon: r.longitude,
-                            };
-                        });
-                        var html = '';
-                        locs.forEach(function (loc, i) {
-                            html += '<div class="stg-loc-result" data-i="' + i + '" style="padding:10px 12px;border-bottom:1px solid #eef1ef;cursor:pointer;">' +
-                                '<div style="font-weight:500;color:#2c5f2d;font-size:13px;">📍 ' + escHtml(loc.display) + '</div>' +
-                                '<div style="font-size:11px;color:#6b7f76;font-family:monospace;margin-top:2px;">' +
-                                loc.lat.toFixed(4) + '°, ' + loc.lon.toFixed(4) + '°</div></div>';
-                        });
-                        resultsDiv.innerHTML = html;
-                        resultsDiv.querySelectorAll('.stg-loc-result').forEach(function (el) {
-                            var idx = parseInt(el.dataset.i, 10);
-                            el.addEventListener('mouseenter', function () { el.style.background = '#f4f8f5'; });
-                            el.addEventListener('mouseleave', function () { el.style.background = ''; });
-                            el.addEventListener('click', function () {
-                                var loc = locs[idx];
-                                locInput.value = loc.display;
+                window.GilbaGeo.search(q, function (preds) {
+                    if (!preds.length) {
+                        resultsDiv.innerHTML = '<div style="padding:10px;color:#6b7f76;font-size:13px;">No locations found</div>';
+                        return;
+                    }
+                    var html = '';
+                    preds.forEach(function (p, i) {
+                        html += '<div class="stg-loc-result" data-i="' + i + '" data-place="' + escHtml(p.placeId) + '" style="padding:10px 12px;border-bottom:1px solid #eef1ef;cursor:pointer;">' +
+                            '<div style="font-weight:500;color:#2c5f2d;font-size:13px;">' + escHtml(p.description) + '</div>' +
+                            '</div>';
+                    });
+                    resultsDiv.innerHTML = html;
+                    resultsDiv.querySelectorAll('.stg-loc-result').forEach(function (el) {
+                        var placeId = el.dataset.place;
+                        var desc    = preds[parseInt(el.dataset.i, 10)].description;
+                        el.addEventListener('mouseenter', function () { el.style.background = '#f4f8f5'; });
+                        el.addEventListener('mouseleave', function () { el.style.background = ''; });
+                        el.addEventListener('click', function () {
+                            resultsDiv.style.display = 'none';
+                            locInput.value = desc;
+                            window.GilbaGeo.getDetails(placeId, function (loc) {
+                                if (!loc) return;
+                                locInput.value = loc.name;
                                 var latEl = document.getElementById('stg-latitude');
                                 var lonEl = document.getElementById('stg-longitude');
                                 if (latEl) { latEl.value = loc.lat.toFixed(7); updateHemisphere(loc.lat); }
                                 if (lonEl) lonEl.value = loc.lon.toFixed(7);
-                                resultsDiv.style.display = 'none';
                             });
                         });
-                    })
-                    .catch(function () {
-                        resultsDiv.innerHTML = '<div style="padding:10px;color:#c41e3a;font-size:13px;">Search unavailable — check connection</div>';
                     });
+                });
             }, 400);
         });
 
@@ -447,6 +442,9 @@
                         localStorage.setItem(configsKey, JSON.stringify(allConfigs));
                     } catch (_) {}
                     setMsg(turfMsg, 'Saved.', 'ok');
+                    // Update topbar pills
+                    var speciesEl = document.getElementById('db-pill-species');
+                    if (speciesEl) speciesEl.textContent = turf.species || '';
                 })
                 .catch(function () { setMsg(turfMsg, 'Save failed.', 'err'); })
                 .finally(function () { setSaving(turfSaveBtn, false); });
