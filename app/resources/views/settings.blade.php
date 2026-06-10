@@ -31,9 +31,9 @@
                 <div class="stg-tabs" role="tablist">
                     <button class="stg-tab active" role="tab" data-tab="site"         aria-selected="true" >Site settings</button>
                     <button class="stg-tab"         role="tab" data-tab="turf"         aria-selected="false">Turf profile</button>
-                    @if(($activeGaipConfig['turf']['turfType'] ?? '') === 'sports')
-                    <button class="stg-tab"         role="tab" data-tab="traffic"      aria-selected="false">Traffic &amp; Wear</button>
-                    @endif
+                    <button class="stg-tab" role="tab" data-tab="traffic" aria-selected="false"
+                        @if(($activeGaipConfig['turf']['turfType'] ?? '') !== 'sports') style="display:none" @endif
+                    >Traffic &amp; Wear</button>
                     <button class="stg-tab"         role="tab" data-tab="zones"        aria-selected="false">Zones</button>
                     <button class="stg-tab"         role="tab" data-tab="import"       aria-selected="false">Import</button>
                     <button class="stg-tab"         role="tab" data-tab="integrations" aria-selected="false">Integrations</button>
@@ -583,8 +583,9 @@
                 </div>
 
                 {{-- ── Traffic & Wear (sports fields only) ─────────── --}}
-                @if(($activeGaipConfig['turf']['turfType'] ?? '') === 'sports')
-                <div class="stg-panel stg-hidden" id="stg-tab-traffic" role="tabpanel">
+                <div class="stg-panel stg-hidden" id="stg-tab-traffic" role="tabpanel"
+                    @if(($activeGaipConfig['turf']['turfType'] ?? '') !== 'sports') style="display:none" @endif
+                >
                     <form id="stg-traffic-form" class="stg-form" novalidate>
 
                         <div class="stg-card" style="margin-bottom:16px">
@@ -740,7 +741,6 @@
 
                     </form>
                 </div>
-                @endif
 
                 {{-- ── Zones ────────────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-zones" role="tabpanel">

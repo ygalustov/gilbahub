@@ -20,6 +20,32 @@
     var csrf     = D.csrfToken || '';
     var zones    = (D.zones && Array.isArray(D.zones)) ? D.zones.slice() : [];
 
+    /* ── Unsaved changes tracking ────────────────────────────── */
+    var _dirtyForms = {};
+
+    function markDirty(formId) { _dirtyForms[formId] = true; }
+    function markClean(formId) { delete _dirtyForms[formId]; }
+    function isAnyDirty()      { return Object.keys(_dirtyForms).length > 0; }
+
+    function watchForm(formId) {
+        var form = document.getElementById(formId);
+        if (!form) return;
+        form.addEventListener('change', function () { markDirty(formId); });
+        form.addEventListener('input',  function () { markDirty(formId); });
+        form.addEventListener('submit', function () { markClean(formId); });
+    }
+
+    watchForm('stg-site-form');
+    watchForm('stg-turf-form');
+    watchForm('stg-traffic-form');
+
+    window.addEventListener('beforeunload', function (e) {
+        if (isAnyDirty()) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+
     /* ── Tab switching ───────────────────────────────────────── */
     function activateTab(tabKey) {
         if (!tabKey) return;
@@ -37,14 +63,22 @@
     }
 
     document.querySelectorAll('.stg-tab[data-tab]').forEach(function (tab) {
-        tab.addEventListener('click', function () { activateTab(tab.dataset.tab); });
+        tab.addEventListener('click', function () {
+            if (isAnyDirty()) {
+                if (!confirm('You have unsaved changes. Leave this tab without saving?')) return;
+                _dirtyForms = {};
+            }
+            activateTab(tab.dataset.tab);
+        });
     });
 
-    // Activate tab from URL hash (e.g. /settings#integrations)
+    // Activate tab from URL hash (e.g. /settings#traffic), then clear hash
+    // so page refresh returns to the default tab, not the hash target.
     if (location.hash) {
         var hashKey = location.hash.slice(1);
         if (document.querySelector('.stg-tab[data-tab="' + hashKey + '"]')) {
             activateTab(hashKey);
+            history.replaceState(null, '', location.pathname + location.search);
         }
     }
 
@@ -376,11 +410,32 @@
         });
     }
 
+    function updateTrafficTabVisibility(turfType) {
+        var trafficTabBtn   = document.querySelector('.stg-tab[data-tab="traffic"]');
+        var trafficTabPanel = document.getElementById('stg-tab-traffic');
+        var isSports = turfType === 'sports';
+        if (trafficTabBtn)   trafficTabBtn.style.display = isSports ? '' : 'none';
+        if (trafficTabPanel) {
+            if (isSports) {
+                // Clear PHP-injected inline display:none so the panel can be shown by activateTab
+                trafficTabPanel.style.display = '';
+            } else {
+                trafficTabPanel.classList.add('stg-hidden');
+                // If traffic tab is active, switch to turf tab
+                if (trafficTabBtn && trafficTabBtn.classList.contains('active')) {
+                    activateTab('turf');
+                }
+            }
+        }
+    }
+
     if (turfTypeEl) {
         var _initSub = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.subCategory) || '';
         repopulateSubcategory(turfTypeEl.value, _initSub);
+        updateTrafficTabVisibility(turfTypeEl.value);
         turfTypeEl.addEventListener('change', function () {
             repopulateSubcategory(turfTypeEl.value, '');
+            updateTrafficTabVisibility(turfTypeEl.value);
         });
     }
 
@@ -461,6 +516,7 @@
                         localStorage.setItem(configsKey, JSON.stringify(allConfigs));
                     } catch (_) {}
                     setMsg(turfMsg, 'Saved.', 'ok');
+                    updateTrafficTabVisibility(turf.turfType);
                     // Update topbar pills
                     var speciesEl = document.getElementById('db-pill-species');
                     if (speciesEl) speciesEl.textContent = turf.species || '';

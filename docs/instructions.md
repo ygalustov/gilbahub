@@ -191,6 +191,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-100** Enhance location handling in Settings and Site controllers: Added latitude and longitude synchronization between GAIP config and site model. Updated settings view to reflect new location data and adjusted JavaScript to ensure accurate data persistence. Improved instructions for clarity on data handling.
 **GH-101** Refactor report export functionality: Update analysis status display to show only when generating, improve button functionality for Word export, and prevent unnecessary database writes during export. Enhance user feedback with updated loading messages and streamline JavaScript for better performance.
 **GH-102** Implement Traffic & Wear settings for sports fields: Added a new form in the settings view to configure match and training schedules, including options for sport type, matches per week, and training details. Updated JavaScript to handle local storage for traffic data and ensure proper display based on turf type. Enhanced user feedback with save messages and improved layout for better usability.
+**GH-103** Update site-config-persistence.js to conditionally set label based on siteId; enhance instructions.md with additional clarification on status indicators.
+**GH-104** Enhance Traffic & Wear settings visibility for sports fields: Updated settings view to conditionally display the Traffic & Wear tab and panel based on turf type. Improved JavaScript to manage unsaved changes and ensure proper tab activation. Added user feedback for unsaved changes when switching tabs.
 
 
 
@@ -232,7 +234,6 @@ That’s what the current layout looks like when it produces the product recomme
 30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address?
 
 
-- how it can be - dot is red but message is green?
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 

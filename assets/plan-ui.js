@@ -392,6 +392,7 @@
                 'Recovery windows calculate from match and training schedule.',
                 _turfType === 'sports'
                     ? [
+                        'Traffic &amp; Wear analysis applies to sports fields only',
                         'Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run the analysis',
                         'LOI / OM soil test improves the estimate (optional)'
                       ]
