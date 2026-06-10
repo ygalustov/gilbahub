@@ -1249,6 +1249,82 @@
         return Promise.all(tasks);
     }
 
+    /* ── Traffic & Wear form ─────────────────────────────── */
+    var trafficForm    = document.getElementById('stg-traffic-form');
+    var trafficSaveBtn = document.getElementById('stg-traffic-save');
+    var trafficMsg     = document.getElementById('stg-traffic-msg');
+
+    function getTrafficStateKey() {
+        return 'gilba_traffic_state_' + (siteId || 'default');
+    }
+
+    function loadTrafficForm() {
+        if (!trafficForm) return;
+        var saved = {};
+        try { saved = JSON.parse(localStorage.getItem(getTrafficStateKey()) || '{}'); } catch(e) {}
+        function setVal(id, val) { var el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
+        setVal('stg-tw-moisture',    saved.moisture);
+        setVal('stg-tw-root-depth',  saved.rootDepth);
+        setVal('stg-tw-sport',       saved.sport);
+        setVal('stg-tw-matches',     saved.matchesPerWeek);
+        setVal('stg-tw-match-dur',   saved.matchDuration);
+        setVal('stg-tw-age-group',   saved.ageGroup);
+        setVal('stg-tw-squad-size',  saved.squadSize);
+        setVal('stg-tw-train-type',  saved.trainingType);
+        setVal('stg-tw-sessions',    saved.sessionsPerWeek);
+        setVal('stg-tw-session-dur', saved.sessionDuration);
+        setVal('stg-tw-area-pct',    saved.trainingAreaPct);
+        setVal('stg-tw-rest-days',   saved.restDays);
+        setVal('stg-tw-h1',          saved.h1);
+        setVal('stg-tw-h2',          saved.h2);
+        setVal('stg-tw-h3',          saved.h3);
+        setVal('stg-tw-h4',          saved.h4);
+        setVal('stg-tw-clegg-mean',  saved.cleggMean);
+        setVal('stg-tw-clegg-hard',  saved.cleggHard);
+        setVal('stg-tw-clegg-soft',  saved.cleggSoft);
+    }
+
+    if (trafficForm) {
+        loadTrafficForm();
+        trafficForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!siteId) return;
+            function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
+            function getNum(id) { var v = getVal(id); return v !== '' ? parseFloat(v) : null; }
+
+            var state = {
+                moisture:        getVal('stg-tw-moisture'),
+                rootDepth:       getNum('stg-tw-root-depth'),
+                sport:           getVal('stg-tw-sport'),
+                matchesPerWeek:  getNum('stg-tw-matches'),
+                matchDuration:   getNum('stg-tw-match-dur'),
+                ageGroup:        getVal('stg-tw-age-group'),
+                squadSize:       getVal('stg-tw-squad-size'),
+                trainingType:    getVal('stg-tw-train-type'),
+                sessionsPerWeek: getNum('stg-tw-sessions'),
+                sessionDuration: getNum('stg-tw-session-dur'),
+                trainingAreaPct: getNum('stg-tw-area-pct'),
+                restDays:        getNum('stg-tw-rest-days'),
+                h1:              getNum('stg-tw-h1'),
+                h2:              getNum('stg-tw-h2'),
+                h3:              getNum('stg-tw-h3'),
+                h4:              getNum('stg-tw-h4'),
+                cleggMean:       getNum('stg-tw-clegg-mean'),
+                cleggHard:       getNum('stg-tw-clegg-hard'),
+                cleggSoft:       getNum('stg-tw-clegg-soft'),
+            };
+
+            try { localStorage.setItem(getTrafficStateKey(), JSON.stringify(state)); } catch(e) {}
+
+            setSaving(trafficSaveBtn, true);
+            setMsg(trafficMsg, 'Saved.', 'ok');
+            setTimeout(function () {
+                setSaving(trafficSaveBtn, false);
+                setMsg(trafficMsg, '', '');
+            }, 2000);
+        });
+    }
+
     if (impRunBtn) {
         impRunBtn.addEventListener('click', function () {
             if (!siteId || !_bundle) return;

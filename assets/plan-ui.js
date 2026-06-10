@@ -375,16 +375,30 @@
 
         var wear = computed && computed.wear;
         var turf = siteConfig && siteConfig.turf;
-        var matchesPerWeek = safeNum(turf && (turf.matchesPerWeek || turf.matches_per_week || turf.matchesWeek), 0);
-        var sessionsPerWeek = safeNum(turf && (turf.sessionsPerWeek || turf.sessions_per_week || turf.sessionsWeek), 0);
+
+        // Read from the traffic form's localStorage save (new hub data path)
+        var _trafficSaved = {};
+        try {
+            var _tsid = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || 'default';
+            _trafficSaved = JSON.parse(localStorage.getItem('gilba_traffic_state_' + _tsid) || '{}');
+        } catch(_) {}
+
+        var matchesPerWeek  = safeNum(_trafficSaved.matchesPerWeek  || (turf && (turf.matchesPerWeek  || turf.matches_per_week  || turf.matchesWeek)),  0);
+        var sessionsPerWeek = safeNum(_trafficSaved.sessionsPerWeek || (turf && (turf.sessionsPerWeek || turf.sessions_per_week || turf.sessionsWeek)), 0);
 
         if (!wear && !matchesPerWeek && !sessionsPerWeek) {
+            var _turfType = turf && turf.turfType;
             body.innerHTML = emptyState('recovery', 'No traffic data configured',
                 'Recovery windows calculate from match and training schedule.',
-                [
-                    'Enter weekly matches and sessions in <a href="/settings">Site Profile → Settings</a>',
-                    'LOI / OM soil test improves the estimate (optional)'
-                ]
+                _turfType === 'sports'
+                    ? [
+                        'Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run the analysis',
+                        'LOI / OM soil test improves the estimate (optional)'
+                      ]
+                    : [
+                        'Traffic &amp; Wear analysis applies to sports fields only',
+                        'Set turf type to “Sports Field” in Site Settings to enable'
+                      ]
             );
             return;
         }
@@ -502,7 +516,7 @@
                 '<span><div class="plan-traffic-legend-dot" style="background:var(--gaip-good-bg);border:1px solid var(--gaip-good-border)"></div> Rest</span>' +
                 '</div>';
         } else if (!wear) {
-            html += '<div style="font-size:12px;color:var(--gaip-text-muted);padding:10px 0">No traffic data — enter matches and training sessions in <a href="/settings" style="color:var(--gaip-accent)">Settings</a></div>';
+            html += '<div style="font-size:12px;color:var(--gaip-text-muted);padding:10px 0">Open <a href="/settings#traffic" style="color:var(--gaip-link,#2563eb)">Settings → Traffic &amp; Wear</a> to configure your match and training schedule, then re-run analysis to generate wear forecasts.</div>';
         }
 
         // Maintenance windows
@@ -1094,116 +1108,12 @@
         showTab(getHash());
     }
 
-    /* ── Traffic & Wear form ──────────────────────────────────── */
-    function getTrafficStateKey() {
-        var sid  = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || 'default';
-        return 'gilba_traffic_state_' + sid;
-    }
-
-    function loadTrafficForm() {
-        var trafficCard = document.getElementById('plan-traffic-card');
-        if (!trafficCard) return;
-
-        // Only show for sports fields
-        var siteConfig = global.GAIP_SITE_CONFIG || {};
-        var turfType   = (siteConfig.turf && siteConfig.turf.turfType) || '';
-        if (turfType !== 'sports') {
-            trafficCard.style.display = 'none';
-            return;
-        }
-        trafficCard.style.display = '';
-
-        // Restore saved values
-        var saved = {};
-        try { saved = JSON.parse(localStorage.getItem(getTrafficStateKey()) || '{}'); } catch(e) {}
-
-        function setVal(id, val) { var el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
-        setVal('plan-tw-moisture',    saved.moisture);
-        setVal('plan-tw-root-depth',  saved.rootDepth);
-        setVal('plan-tw-sport',       saved.sport);
-        setVal('plan-tw-matches',     saved.matchesPerWeek);
-        setVal('plan-tw-match-dur',   saved.matchDuration);
-        setVal('plan-tw-age-group',   saved.ageGroup);
-        setVal('plan-tw-train-type',  saved.trainingType);
-        setVal('plan-tw-sessions',    saved.sessionsPerWeek);
-        setVal('plan-tw-session-dur', saved.sessionDuration);
-        setVal('plan-tw-area-pct',    saved.trainingAreaPct);
-        setVal('plan-tw-h1',          saved.h1);
-        setVal('plan-tw-h2',          saved.h2);
-        setVal('plan-tw-h3',          saved.h3);
-        setVal('plan-tw-h4',          saved.h4);
-        setVal('plan-clegg-mean',     saved.cleggMean);
-        setVal('plan-clegg-hard',     saved.cleggHard);
-        setVal('plan-clegg-soft',     saved.cleggSoft);
-    }
-
-    function initTrafficForm() {
-        var form    = document.getElementById('plan-traffic-form');
-        var saveBtn = document.getElementById('plan-traffic-save-btn');
-        var saveMsg = document.getElementById('plan-traffic-save-msg');
-        if (!form || !saveBtn) return;
-
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            function getVal(id) { var el = document.getElementById(id); return el ? el.value : ''; }
-            function getNum(id) { var v = getVal(id); return v !== '' ? parseFloat(v) : null; }
-
-            var state = {
-                moisture:       getVal('plan-tw-moisture'),
-                rootDepth:      getNum('plan-tw-root-depth'),
-                sport:          getVal('plan-tw-sport'),
-                matchesPerWeek: getNum('plan-tw-matches'),
-                matchDuration:  getNum('plan-tw-match-dur'),
-                ageGroup:       getVal('plan-tw-age-group'),
-                trainingType:   getVal('plan-tw-train-type'),
-                sessionsPerWeek:getNum('plan-tw-sessions'),
-                sessionDuration:getNum('plan-tw-session-dur'),
-                trainingAreaPct:getNum('plan-tw-area-pct'),
-                h1:             getNum('plan-tw-h1'),
-                h2:             getNum('plan-tw-h2'),
-                h3:             getNum('plan-tw-h3'),
-                h4:             getNum('plan-tw-h4'),
-                cleggMean:      getNum('plan-clegg-mean'),
-                cleggHard:      getNum('plan-clegg-hard'),
-                cleggSoft:      getNum('plan-clegg-soft'),
-            };
-
-            try { localStorage.setItem(getTrafficStateKey(), JSON.stringify(state)); } catch(e) {}
-
-            // Mirror match/training schedule into hub state so wear-recovery-engine can read it
-            try {
-                var uid = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.userId) || 'anon';
-                var hubKey = 'gilba_hub_state_' + uid;
-                var hubState = {};
-                try { hubState = JSON.parse(localStorage.getItem(hubKey) || '{}'); } catch(_) {}
-                hubState.matchesPerWeek  = state.matchesPerWeek  || 0;
-                hubState.matchDuration   = state.matchDuration   || 1.5;
-                hubState.sessionsPerWeek = state.sessionsPerWeek || 0;
-                hubState.sessionDuration = state.sessionDuration || 1.5;
-                hubState.trainingAreaPct = state.trainingAreaPct || 100;
-                hubState.soilMoisture    = state.moisture;
-                hubState.priorUsageHours = [state.h1, state.h2, state.h3, state.h4].filter(function(v) { return v !== null; });
-                localStorage.setItem(hubKey, JSON.stringify(hubState));
-            } catch(_) {}
-
-            saveBtn.disabled = true;
-            if (saveMsg) { saveMsg.style.display = 'inline'; saveMsg.textContent = 'Saved.'; }
-            setTimeout(function () {
-                saveBtn.disabled = false;
-                if (saveMsg) saveMsg.style.display = 'none';
-            }, 2000);
-        });
-    }
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', function () {
-            loadTrafficForm();
-            initTrafficForm();
             init();
         });
     } else {
-        loadTrafficForm();
-        initTrafficForm();
         init();
     }
 

@@ -31,6 +31,9 @@
                 <div class="stg-tabs" role="tablist">
                     <button class="stg-tab active" role="tab" data-tab="site"         aria-selected="true" >Site settings</button>
                     <button class="stg-tab"         role="tab" data-tab="turf"         aria-selected="false">Turf profile</button>
+                    @if(($activeGaipConfig['turf']['turfType'] ?? '') === 'sports')
+                    <button class="stg-tab"         role="tab" data-tab="traffic"      aria-selected="false">Traffic &amp; Wear</button>
+                    @endif
                     <button class="stg-tab"         role="tab" data-tab="zones"        aria-selected="false">Zones</button>
                     <button class="stg-tab"         role="tab" data-tab="import"       aria-selected="false">Import</button>
                     <button class="stg-tab"         role="tab" data-tab="integrations" aria-selected="false">Integrations</button>
@@ -578,6 +581,166 @@
 
                     </form>
                 </div>
+
+                {{-- ── Traffic & Wear (sports fields only) ─────────── --}}
+                @if(($activeGaipConfig['turf']['turfType'] ?? '') === 'sports')
+                <div class="stg-panel stg-hidden" id="stg-tab-traffic" role="tabpanel">
+                    <form id="stg-traffic-form" class="stg-form" novalidate>
+
+                        <div class="stg-card" style="margin-bottom:16px">
+                            <div class="stg-card-head">
+                                <div class="stg-card-title">Match schedule</div>
+                                <div class="stg-card-desc">Applies to sports fields. Drives wear recovery and compaction risk calculations.</div>
+                            </div>
+                            <div class="stg-form-grid" style="grid-template-columns:repeat(2,1fr)">
+                                <div class="stg-field">
+                                    <label for="stg-tw-sport">Sport</label>
+                                    <select id="stg-tw-sport">
+                                        <option value="soccer">Soccer</option>
+                                        <option value="afl">AFL</option>
+                                        <option value="rugby_union">Rugby Union</option>
+                                        <option value="rugby_league">Rugby League</option>
+                                        <option value="cricket">Cricket</option>
+                                    </select>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-matches">Matches per week</label>
+                                    <input type="number" id="stg-tw-matches" min="0" max="14" step="1" placeholder="2">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-match-dur">Match duration (hrs)</label>
+                                    <input type="number" id="stg-tw-match-dur" min="0.5" max="4" step="0.25" placeholder="1.5">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-age-group">Player age group</label>
+                                    <select id="stg-tw-age-group">
+                                        <option value="junior">Junior (U12)</option>
+                                        <option value="youth">Youth (12–17)</option>
+                                        <option value="adult" selected>Adult (18–35)</option>
+                                        <option value="masters">Masters (35+)</option>
+                                    </select>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-squad-size">Typical squad size</label>
+                                    <select id="stg-tw-squad-size">
+                                        <option value="small">Small (&lt;15 players)</option>
+                                        <option value="medium" selected>Medium (15–30 players)</option>
+                                        <option value="large">Large (&gt;30 players)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stg-card" style="margin-bottom:16px">
+                            <div class="stg-card-head">
+                                <div class="stg-card-title">Training schedule</div>
+                            </div>
+                            <div class="stg-form-grid" style="grid-template-columns:repeat(2,1fr)">
+                                <div class="stg-field">
+                                    <label for="stg-tw-train-type">Training type</label>
+                                    <select id="stg-tw-train-type">
+                                        <option value="full">Full training / match sim</option>
+                                        <option value="skills" selected>Skills &amp; Drills</option>
+                                        <option value="light">Light training</option>
+                                    </select>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-sessions">Sessions per week</label>
+                                    <input type="number" id="stg-tw-sessions" min="0" max="14" step="1" placeholder="3">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-session-dur">Session duration (hrs)</label>
+                                    <input type="number" id="stg-tw-session-dur" min="0.25" max="4" step="0.25" placeholder="1.5">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-area-pct">Training area used (%)</label>
+                                    <input type="number" id="stg-tw-area-pct" min="10" max="100" step="5" placeholder="100">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-rest-days">Rest days per week</label>
+                                    <input type="number" id="stg-tw-rest-days" min="0" max="7" step="1" placeholder="2">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stg-card" style="margin-bottom:16px">
+                            <div class="stg-card-head">
+                                <div class="stg-card-title">Current conditions</div>
+                            </div>
+                            <div class="stg-form-grid" style="grid-template-columns:repeat(2,1fr)">
+                                <div class="stg-field">
+                                    <label for="stg-tw-moisture">Current soil moisture</label>
+                                    <select id="stg-tw-moisture">
+                                        <option value="dry">Dry</option>
+                                        <option value="slightly_dry">Slightly Dry</option>
+                                        <option value="optimal" selected>Optimal</option>
+                                        <option value="moist">Moist</option>
+                                        <option value="wet">Wet</option>
+                                        <option value="saturated">Saturated</option>
+                                    </select>
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-root-depth">Est. root depth (mm)</label>
+                                    <input type="number" id="stg-tw-root-depth" min="20" max="300" step="5" placeholder="100">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stg-card" style="margin-bottom:16px">
+                            <div class="stg-card-head">
+                                <div class="stg-card-title">Prior usage history</div>
+                                <div class="stg-card-desc">Enter total match + training hours from recent weeks to calculate cumulative wear.</div>
+                            </div>
+                            <div class="stg-form-grid" style="grid-template-columns:repeat(4,1fr)">
+                                <div class="stg-field">
+                                    <label for="stg-tw-h1">Last week (hrs)</label>
+                                    <input type="number" id="stg-tw-h1" min="0" step="0.5" placeholder="—">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-h2">2 weeks ago (hrs)</label>
+                                    <input type="number" id="stg-tw-h2" min="0" step="0.5" placeholder="—">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-h3">3 weeks ago (hrs)</label>
+                                    <input type="number" id="stg-tw-h3" min="0" step="0.5" placeholder="—">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-h4">4 weeks ago (hrs)</label>
+                                    <input type="number" id="stg-tw-h4" min="0" step="0.5" placeholder="—">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stg-card" style="margin-bottom:16px">
+                            <div class="stg-card-head">
+                                <div class="stg-card-title">Surface hardness — optional</div>
+                                <div class="stg-card-desc">Clegg hammer readings (2.25 kg @ 450 mm). Typical: 60–90 Gmax. Does not block analysis.</div>
+                            </div>
+                            <div class="stg-form-grid" style="grid-template-columns:repeat(3,1fr)">
+                                <div class="stg-field">
+                                    <label for="stg-tw-clegg-mean">Mean Gmax</label>
+                                    <input type="number" id="stg-tw-clegg-mean" min="0" max="300" step="1" placeholder="e.g. 75">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-clegg-hard">Hardest zone</label>
+                                    <input type="number" id="stg-tw-clegg-hard" min="0" max="300" step="1" placeholder="e.g. goalmouth">
+                                </div>
+                                <div class="stg-field">
+                                    <label for="stg-tw-clegg-soft">Softest zone</label>
+                                    <input type="number" id="stg-tw-clegg-soft" min="0" max="300" step="1" placeholder="e.g. wing area">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="stg-form-actions">
+                            <button type="submit" class="stg-btn-primary" id="stg-traffic-save">Save traffic schedule</button>
+                            <span class="stg-save-msg" id="stg-traffic-msg" hidden></span>
+                            <span class="stg-form-hint">After saving, go to the <a href="/plan#recovery">Plan → Recovery</a> tab and re-run the analysis to update recovery forecasts.</span>
+                        </div>
+
+                    </form>
+                </div>
+                @endif
 
                 {{-- ── Zones ────────────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-zones" role="tabpanel">

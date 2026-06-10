@@ -190,6 +190,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-99** Enhance account and site configuration data handling: Updated AccountController and AppServiceProvider to retrieve and inject turf species, methodology, and location name from GAIP configurations. Modified views to utilize these new variables for improved data display. Adjusted JavaScript functions to prevent overwriting server-side rendered data with local storage values.
 **GH-100** Enhance location handling in Settings and Site controllers: Added latitude and longitude synchronization between GAIP config and site model. Updated settings view to reflect new location data and adjusted JavaScript to ensure accurate data persistence. Improved instructions for clarity on data handling.
 **GH-101** Refactor report export functionality: Update analysis status display to show only when generating, improve button functionality for Word export, and prevent unnecessary database writes during export. Enhance user feedback with updated loading messages and streamline JavaScript for better performance.
+**GH-102** Implement Traffic & Wear settings for sports fields: Added a new form in the settings view to configure match and training schedules, including options for sport type, matches per week, and training details. Updated JavaScript to handle local storage for traffic data and ensure proper display based on turf type. Enhanced user feedback with save messages and improved layout for better usability.
+
+
+
 
 
 ## Backlog
@@ -203,7 +207,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
-11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
++11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
 12.⁠ ⁠The ambient light levels are wrong
 13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 14.⁠ ⁠Spray log fungicide dropdowns aren’t there
@@ -219,6 +223,13 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 That’s what the current layout looks like when it produces the product recommendations
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
+24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar.
+25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked?
+26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked?
+27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
+28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
+29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
+30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address?
 
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)

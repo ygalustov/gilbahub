@@ -651,6 +651,15 @@
         setDomVal('.gaip-traffic-level', turf.trafficLevel || '');
         setDomVal('.gaip-events-per-week', turf.eventsPerWeek || '');
 
+        // Clegg hammer — saved by Plan page traffic form, not in gaip config snapshot
+        try {
+            var _cleggSid = (global.GAIP_HUB_CONFIG || {}).activeSiteId || 'default';
+            var _tst = JSON.parse(localStorage.getItem('gilba_traffic_state_' + _cleggSid) || '{}');
+            if (_tst.cleggMean) setDomVal('.gaip-clegg-hammer', _tst.cleggMean);
+            if (_tst.cleggHard) setDomVal('.gaip-clegg-max',    _tst.cleggHard);
+            if (_tst.cleggSoft) setDomVal('.gaip-clegg-min',    _tst.cleggSoft);
+        } catch(_) {}
+
         // Companion surface species (golf greens only)
         // b35fix179a: element may not exist yet — injected by daily-dashboard
         // after gaip:orchestrator-complete, which fires after this restore runs.
