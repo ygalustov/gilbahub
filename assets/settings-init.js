@@ -33,6 +33,7 @@
                 '<div class="stg-confirm-actions">' +
                     '<button class="stg-btn-secondary stg-confirm-cancel" type="button">Cancel</button>' +
                     '<button class="stg-btn-danger stg-confirm-ok" type="button">Leave without saving</button>' +
+                    '<button class="stg-btn-primary stg-confirm-save" type="button">Save &amp; leave</button>' +
                 '</div>' +
             '</div>';
         overlay.style.fontFamily = _STG_FONT;
@@ -43,7 +44,18 @@
         overlay.querySelector('.stg-confirm-cancel').addEventListener('click', close);
         overlay.querySelector('.stg-confirm-ok').addEventListener('click', function () {
             close();
+            _dirtyForms = {};
             onConfirm();
+        });
+        overlay.querySelector('.stg-confirm-save').addEventListener('click', function () {
+            close();
+            var dirty = Object.keys(_dirtyForms);
+            _afterSaveCallback = onConfirm;
+            _afterSavePending  = dirty.length;
+            dirty.forEach(function (formId) {
+                var form = document.getElementById(formId);
+                if (form) form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+            });
         });
         overlay.addEventListener('click', function (e) {
             if (e.target === overlay) close();
@@ -51,7 +63,21 @@
     }
 
     /* ── Unsaved changes tracking ────────────────────────────── */
-    var _dirtyForms = {};
+    var _dirtyForms        = {};
+    var _afterSaveCallback = null;
+    var _afterSavePending  = 0;
+
+    function _checkAfterSave(formId) {
+        markClean(formId);
+        if (!_afterSaveCallback) return;
+        _afterSavePending--;
+        if (_afterSavePending <= 0) {
+            var cb = _afterSaveCallback;
+            _afterSaveCallback = null;
+            _afterSavePending  = 0;
+            cb();
+        }
+    }
 
     function markDirty(formId) { _dirtyForms[formId] = true; }
     function markClean(formId) { delete _dirtyForms[formId]; }
@@ -62,7 +88,7 @@
         if (!form) return;
         form.addEventListener('change', function () { markDirty(formId); });
         form.addEventListener('input',  function () { markDirty(formId); });
-        form.addEventListener('submit', function () { markClean(formId); });
+        // markClean is called by _checkAfterSave in each form's success handler
     }
 
     watchForm('stg-site-form');
@@ -239,6 +265,7 @@
                     var data = results[0];
                     if (data && data.data && data.data.name) {
                         D.gaipConfig = cfg;
+                        _checkAfterSave('stg-site-form');
                         setMsg(siteMsg, 'Saved.', 'ok');
                         // Update topbar to reflect saved values without page reload
                         var siteNameEl = document.getElementById('db-site-name');
@@ -560,6 +587,7 @@
                         allConfigs[siteId].turf = Object.assign({}, allConfigs[siteId].turf || {}, turf);
                         localStorage.setItem(configsKey, JSON.stringify(allConfigs));
                     } catch (_) {}
+                    _checkAfterSave('stg-turf-form');
                     setMsg(turfMsg, 'Saved.', 'ok');
                     updateTrafficTabVisibility(turf.turfType);
                     // Update topbar pills
@@ -1416,6 +1444,7 @@
             };
 
             try { localStorage.setItem(getTrafficStateKey(), JSON.stringify(state)); } catch(e) {}
+            _checkAfterSave('stg-traffic-form');
 
             setSaving(trafficSaveBtn, true);
             setMsg(trafficMsg, 'Saved.', 'ok');
