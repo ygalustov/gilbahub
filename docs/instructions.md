@@ -195,7 +195,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-104** Enhance Traffic & Wear settings visibility for sports fields: Updated settings view to conditionally display the Traffic & Wear tab and panel based on turf type. Improved JavaScript to manage unsaved changes and ensure proper tab activation. Added user feedback for unsaved changes when switching tabs.
 **GH-105** Implement custom confirmation dialog for unsaved changes: Added a new stgConfirm function to display a modal dialog when users attempt to navigate away with unsaved changes. Updated JavaScript to intercept link clicks and tab switches, enhancing user experience by preventing accidental data loss. Styled confirmation dialog with new CSS for improved visibility and usability.
 **GH-106** Add 'Save & leave' button to confirmation dialog and enhance unsaved changes tracking: Implemented a new button in the confirmation dialog for saving changes before leaving. Updated JavaScript to manage unsaved forms more effectively, including callbacks for after save actions and improved handling of form submission events. Enhanced user experience by ensuring proper state management for dirty forms.
-
+**GH-107** Importing data no longer updates the address of other sites. Remove legacy localStorage handling for gilba_hub_state in settings-init.js to streamline code and improve maintainability.
 
 
 ## Backlog

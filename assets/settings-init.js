@@ -1347,34 +1347,6 @@
             localStorage.setItem(configsKey, JSON.stringify(allConfigs));
         } catch (_) {}
 
-        // 4. Also update gilba_hub_state (legacy key read by some hub modules)
-        try {
-            var userId = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.userId) || 'anon';
-            var stateKey = 'gilba_hub_state_' + userId;
-            var existing = {};
-            try { existing = JSON.parse(localStorage.getItem(stateKey) || '{}'); } catch (_) {}
-            existing.turf = Object.assign({}, existing.turf || {}, {
-                species:      t.species      || '',
-                variety:      t.variety      || '',
-                turfType:     t.turfType     || '',
-                subCategory:  t.subCategory  || '',
-                construction: t.construction || '',
-                drainage:     t.drainage     || '',
-                hoc:          t.hoc          || '',
-                nProgram:     t.nProgram     || '',
-                methodology:  t.methodology  || '',
-                poaPercent:     t.poaPercent     || '0',
-                c3Cover:        t.c3Cover        || '0',
-                warmBase:       t.warmBase       || '',
-                coolOverseed:   t.coolOverseed   || '',
-                overseedStatus: t.overseedStatus || 'none',
-            });
-            if (loc && typeof loc.lat === 'number') {
-                existing.location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
-            }
-            localStorage.setItem(stateKey, JSON.stringify(existing));
-        } catch (_) {}
-
         return Promise.all(tasks);
     }
 
