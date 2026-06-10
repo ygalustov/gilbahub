@@ -138,8 +138,9 @@
             if (siteId === 'default') return;
             var site = byId[siteId];
             if (!site) return;
+            var _rawLabel = site.label || site.name || '';
             payloadSites[siteId] = {
-                label: site.label || site.name || ''
+                label: _rawLabel === siteId ? '' : _rawLabel
             };
         });
 

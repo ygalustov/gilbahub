@@ -232,6 +232,8 @@ That’s what the current layout looks like when it produces the product recomme
 30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address?
 
 
+- how it can be - dot is red but message is green?
+
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 
 - to add Self registration with approval
