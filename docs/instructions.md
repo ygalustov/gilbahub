@@ -193,7 +193,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-102** Implement Traffic & Wear settings for sports fields: Added a new form in the settings view to configure match and training schedules, including options for sport type, matches per week, and training details. Updated JavaScript to handle local storage for traffic data and ensure proper display based on turf type. Enhanced user feedback with save messages and improved layout for better usability.
 **GH-103** Update site-config-persistence.js to conditionally set label based on siteId; enhance instructions.md with additional clarification on status indicators.
 **GH-104** Enhance Traffic & Wear settings visibility for sports fields: Updated settings view to conditionally display the Traffic & Wear tab and panel based on turf type. Improved JavaScript to manage unsaved changes and ensure proper tab activation. Added user feedback for unsaved changes when switching tabs.
-
+**GH-105** Implement custom confirmation dialog for unsaved changes: Added a new stgConfirm function to display a modal dialog when users attempt to navigate away with unsaved changes. Updated JavaScript to intercept link clicks and tab switches, enhancing user experience by preventing accidental data loss. Styled confirmation dialog with new CSS for improved visibility and usability.
 
 
 
@@ -209,7 +209,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
-+11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab
++11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, 
 12.⁠ ⁠The ambient light levels are wrong
 13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 14.⁠ ⁠Spray log fungicide dropdowns aren’t there

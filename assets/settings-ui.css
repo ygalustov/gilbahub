@@ -791,3 +791,64 @@
     align-items: flex-start;
     padding: 4px 0 4px 0;
 }
+
+/* ── Confirm dialog ────────────────────────────────────────── */
+.stg-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 9000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: stg-fade-in 0.15s ease;
+}
+@keyframes stg-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+.stg-confirm-dialog {
+    background: var(--gaip-card-bg, #fff);
+    border: 1px solid var(--gaip-border, #ccd9d2);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    padding: 24px 28px 20px;
+    max-width: 400px;
+    width: calc(100vw - 48px);
+    animation: stg-slide-up 0.15s ease;
+    font-family: inherit;
+}
+@keyframes stg-slide-up {
+    from { transform: translateY(8px); opacity: 0; }
+    to   { transform: translateY(0);   opacity: 1; }
+}
+.stg-confirm-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--gaip-text, #1a2b23);
+    margin: 0 0 8px;
+}
+.stg-confirm-msg {
+    font-size: 13px;
+    color: var(--gaip-text-muted, #6b8878);
+    margin: 0 0 20px;
+    line-height: 1.5;
+}
+.stg-confirm-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+.stg-btn-danger {
+    padding: 8px 16px;
+    background: var(--gaip-error-text, #991b1b);
+    color: #fff;
+    border: none;
+    border-radius: 7px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.stg-btn-danger:hover { background: #7f1d1d; }

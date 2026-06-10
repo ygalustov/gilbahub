@@ -20,6 +20,36 @@
     var csrf     = D.csrfToken || '';
     var zones    = (D.zones && Array.isArray(D.zones)) ? D.zones.slice() : [];
 
+    /* ── Custom confirm dialog ───────────────────────────────── */
+    var _STG_FONT = '"Barlow", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+    function stgConfirm(title, message, onConfirm) {
+        var overlay = document.createElement('div');
+        overlay.className = 'stg-confirm-overlay';
+        overlay.innerHTML =
+            '<div class="stg-confirm-dialog">' +
+                '<div class="stg-confirm-title">' + title + '</div>' +
+                '<div class="stg-confirm-msg">' + message + '</div>' +
+                '<div class="stg-confirm-actions">' +
+                    '<button class="stg-btn-secondary stg-confirm-cancel" type="button">Cancel</button>' +
+                    '<button class="stg-btn-danger stg-confirm-ok" type="button">Leave without saving</button>' +
+                '</div>' +
+            '</div>';
+        overlay.style.fontFamily = _STG_FONT;
+        overlay.style.fontSize   = '14px';
+        document.body.appendChild(overlay);
+
+        function close() { if (overlay.parentNode) overlay.parentNode.removeChild(overlay); }
+        overlay.querySelector('.stg-confirm-cancel').addEventListener('click', close);
+        overlay.querySelector('.stg-confirm-ok').addEventListener('click', function () {
+            close();
+            onConfirm();
+        });
+        overlay.addEventListener('click', function (e) {
+            if (e.target === overlay) close();
+        });
+    }
+
     /* ── Unsaved changes tracking ────────────────────────────── */
     var _dirtyForms = {};
 
@@ -39,11 +69,21 @@
     watchForm('stg-turf-form');
     watchForm('stg-traffic-form');
 
-    window.addEventListener('beforeunload', function (e) {
-        if (isAnyDirty()) {
-            e.preventDefault();
-            e.returnValue = '';
-        }
+    // Intercept sidebar / topbar navigation links so we can show our custom dialog
+    // instead of the native beforeunload prompt.
+    document.addEventListener('click', function (e) {
+        if (!isAnyDirty()) return;
+        var link = e.target.closest('a[href]');
+        if (!link) return;
+        var href = link.getAttribute('href');
+        // Ignore hash-only links, javascript: and same-page anchors
+        if (!href || href.charAt(0) === '#' || href.indexOf('javascript') === 0) return;
+        e.preventDefault();
+        stgConfirm(
+            'Unsaved changes',
+            'You have unsaved changes. Leave this page without saving?',
+            function () { _dirtyForms = {}; window.location.href = href; }
+        );
     });
 
     /* ── Tab switching ───────────────────────────────────────── */
@@ -64,11 +104,16 @@
 
     document.querySelectorAll('.stg-tab[data-tab]').forEach(function (tab) {
         tab.addEventListener('click', function () {
+            var targetTab = tab.dataset.tab;
             if (isAnyDirty()) {
-                if (!confirm('You have unsaved changes. Leave this tab without saving?')) return;
-                _dirtyForms = {};
+                stgConfirm(
+                    'Unsaved changes',
+                    'You have unsaved changes on this tab. Leave without saving?',
+                    function () { _dirtyForms = {}; activateTab(targetTab); }
+                );
+                return;
             }
-            activateTab(tab.dataset.tab);
+            activateTab(targetTab);
         });
     });
 
