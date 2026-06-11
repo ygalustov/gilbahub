@@ -204,7 +204,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-113** Refactor zone grid rendering and improve UI layout: Updated the rendering logic for sensor data in the zone grid to sort sensors by name and enhance the display of average values. Modified CSS to change the layout from grid to flex for better responsiveness, adjusted styles for sensor rows, and added column headers for clarity. Improved overall visual consistency and user experience in the data view.
 **GH-114** Enhance sensor data handling and UI messages in settings-init.js: Updated messages for no readings and no devices found, improved logic for fetching live sensor readings, and ensured accurate localStorage caching of sensor data. Removed outdated comments in instructions.md for clarity.
 **GH-115** Implement DLI metrics display in dashboard: Added logic to calculate and display Daily Light Integral (DLI) metrics, including ambient DLI and target values, with color-coded status indicators. Updated HTML structure to present DLI information clearly in the dashboard panel.
-
+**GH-116** Enhance climate data handling in dashboard-init.js and hub-persistence.js: Improved logic for retrieving soil temperature values. Updated HTML rendering to ensure accurate display of soil temperature. 
 
 
 
@@ -244,14 +244,7 @@ That’s what the current layout looks like when it produces the product recomme
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107. 
 
 
-
-
-
-
-
-
-
-
+----
 
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)

@@ -1475,10 +1475,10 @@
             metrics.growthPotential = _cm.growth?.weighted;
             metrics.gdd             = _cm.gdd?.today;
             metrics.et              = _cm.et?.daily;
-            metrics.soilTemp        = _cm.soilTemp?.d100mm;
+            metrics.soilTemp        = _cm.soilTemp?.depths?.d100mm ?? _cm.soilTemp?.estimated ?? null;
         } else if (_cc) {
             metrics.growthPotential = _cc.growth?.weighted;
-            metrics.soilTemp        = _cc.soilTemp?.d100mm ?? _cc.soilTemp;
+            metrics.soilTemp        = _cc.soilTemp?.depths?.d100mm ?? _cc.soilTemp?.estimated ?? (typeof _cc.soilTemp === 'number' ? _cc.soilTemp : null);
         }
         
         // Disease risk — GAIP_DISEASE_RESULT is the live global (disease-engine-pure shape:

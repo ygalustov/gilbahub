@@ -1035,8 +1035,34 @@
         })();
 
         // ET₀, Soil Temp
-        var etVal  = m && m.et       != null ? m.et       : (climate && climate.et       != null ? climate.et       : null);
-        var stVal  = m && m.soilTemp != null ? m.soilTemp : (climate && climate.soilTemp != null ? climate.soilTemp : null);
+        var _rawEt = (m && m.et != null) ? m.et : (climate && climate.et != null ? climate.et : null);
+        var etVal  = _rawEt == null ? null
+                   : (typeof _rawEt === 'number' ? _rawEt
+                   : (typeof _rawEt.daily === 'number' ? _rawEt.daily
+                   : (typeof _rawEt.total === 'number' ? _rawEt.total : null)));
+        // also try irrigation water balance if still missing
+        if (etVal == null && c && c.irrigation) {
+            var _wb = c.irrigation.waterBalance || c.irrigation.summary;
+            if (_wb && _wb.et0 != null) etVal = parseFloat(_wb.et0) || null;
+            else if (_wb && _wb.totalET != null) etVal = parseFloat(_wb.totalET) / 7 || null;
+        }
+
+        var _rawSt = (m && m.soilTemp != null) ? m.soilTemp : (climate && climate.soilTemp != null ? climate.soilTemp : null);
+        var stVal  = _rawSt == null ? null
+                   : (typeof _rawSt === 'number' ? _rawSt
+                   : (_rawSt.depths && typeof _rawSt.depths.d100mm === 'number' ? _rawSt.depths.d100mm
+                   : (_rawSt.depths && typeof _rawSt.depths.d50mm  === 'number' ? _rawSt.depths.d50mm
+                   : (typeof _rawSt.estimated === 'number' ? _rawSt.estimated
+                   : (typeof _rawSt.mean === 'number' ? _rawSt.mean : null)))));
+        // soilTempPhysics fallback: summary.depths uses string keys '100mm', each value = { mean, current }
+        if (stVal == null && c && c.soilTempPhysics) {
+            var _stp = c.soilTempPhysics.summary;
+            if (_stp && _stp.depths) {
+                var _d100 = _stp.depths['100mm'], _d50 = _stp.depths['50mm'];
+                stVal = (_d100 && _d100.mean != null) ? _d100.mean
+                      : (_d50  && _d50.mean  != null) ? _d50.mean : null;
+            }
+        }
 
         var avgCls = avgGP != null ? (avgGP >= 70 ? 'ok' : (avgGP >= 40 ? 'warning' : 'critical')) : '';
         var html = '';
@@ -1069,11 +1095,10 @@
             html += panelSection('Current Conditions', currentRow + insightRow);
         }
 
-        // ET₀, Soil Temp
-        if (avgGP != null) {
+        // Soil Temp
+        if (avgGP != null && stVal != null) {
             html += panelSection('Climate', statGrid([
-                { value: etVal  != null ? etVal.toFixed(1) + ' mm'  : '—', label: 'ET₀ daily' },
-                { value: stVal  != null ? Math.round(stVal) + '°C'  : '—', label: 'Soil Temp' }
+                { value: Math.round(stVal) + '°C', label: 'Soil Temp' }
             ]));
         }
 
