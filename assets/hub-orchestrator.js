@@ -2575,18 +2575,23 @@
       monthIndex: new Date().getMonth(),
     };
 
-    // --- Ambient DLI (prefer cached canonical, recalculate as fallback) ---
+    // --- Ambient DLI (prefer captured snapshot, then cached global, then recalculate) ---
+    // Priority 1: _lastAnalysisAmbientDLI — captured synchronously at gaip:analysis-complete
+    // before any site-switch can overwrite global.GAIP_STATE.turf or gaip_currentAmbientDLI.
+    // Priority 2: gaip_currentAmbientDLI — may be cleared by site-switch-cleanup in the race window.
+    // Priority 3: full recalculation from rawWeatherData as last resort.
     if (global.AmbientDLIEngine && global.rawWeatherData) {
       try {
+        const snappedDLI = _lastAnalysisAmbientDLI;
         const cachedDLI = global.gaip_currentAmbientDLI;
-        if (cachedDLI && cachedDLI.current > 0) {
+        if (snappedDLI && snappedDLI > 0) {
+          shadeState.turf.ambientDLI = snappedDLI;
+          shadeState.ambientDLI = { current: snappedDLI, source: 'state' };
+        } else if (cachedDLI && cachedDLI.current > 0) {
           shadeState.turf.ambientDLI = cachedDLI.current;
           shadeState.ambientDLI = cachedDLI;
         } else {
-          // Align fallback priority with hub-tissue-v3 to prevent
-          // divergent DLI values when cache is cold on first orchestrator run.
-          // hub-tissue uses forecast.hourly first; orchestrator was using
-          // historical.daily first — producing 16.7 vs 28.6 on same session.
+          // Final fallback: full recalculate from rawWeatherData.
           const rwd = global.rawWeatherData;
           const dliClimate = {};
           if (rwd.forecast && rwd.forecast.hourly) dliClimate.hourly = rwd.forecast.hourly;
@@ -4305,6 +4310,9 @@
   const AUTO_COMPUTE_DELAY = 300; // ms
   let _isComputingAll = false; // Guard against re-entry
   let _orchestratorDeferredPending = false; // true when site-changed defers because site-config restore is still in flight
+  // Ambient DLI captured synchronously at gaip:analysis-complete time — before any
+  // subsequent site switch can overwrite global.GAIP_STATE.turf or gaip_currentAmbientDLI.
+  let _lastAnalysisAmbientDLI = null;
 
   /**
    * Hook into existing hub state updates
@@ -4379,6 +4387,18 @@
       // dispatch (e.g. from site-config-persistence init re-running on the shade hub)
       // doesn't trigger the safety-net computeAll after a clean analysis has completed.
       _orchestratorDeferredPending = false;
+      // Capture ambientDLI synchronously now — before the setTimeout delay during which
+      // site-switch-cleanup may clear gaip_currentAmbientDLI and a subsequent
+      // gaip:hub-state-update can overwrite global.GAIP_STATE.turf.ambientDLI with a
+      // different site's value. buildShadeInputs() reads _lastAnalysisAmbientDLI as its
+      // first-priority source so the orchestrator shade engine sees the correct 19.4
+      // rather than the stale 5.8 from a race-y site switch.
+      {
+        const _snap = e.detail?.state || global.GAIP_STATE;
+        const _turfDLI = (_snap?.turf?.ambientDLI > 0) ? _snap.turf.ambientDLI : null;
+        const _globalDLI = (global.gaip_currentAmbientDLI?.current > 0) ? global.gaip_currentAmbientDLI.current : null;
+        _lastAnalysisAmbientDLI = _turfDLI || _globalDLI || null;
+      }
       clearTimeout(_autoComputeTimer);
       _autoComputeTimer = setTimeout(() => {
         console.log("[Orchestrator] computeAll triggered");
