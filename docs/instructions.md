@@ -201,7 +201,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-110** Refactor Ambient DLI handling in hub-orchestrator.js: Updated logic to prioritize captured snapshots over cached values for ambient DLI, ensuring accurate data during site switches. Introduced a new variable to store the last analysis ambient DLI and improved comments for clarity on fallback priorities.
 **GH-111** Enhance settings view and localStorage management: Added a warning message in the settings view to inform users that existing data will be replaced upon file upload. Updated JavaScript to clear specific localStorage entries related to site data during the import process, ensuring accurate data handling and preventing stale data issues.
 **GH-112** Implement clearSiteData option in sync method: Added functionality to optionally clear site-related data during synchronization, including deletion of spray logs, field log entries, and associated samples. Updated JavaScript to include clearSiteData parameter in API request for improved data management.
-
+**GH-113** Refactor zone grid rendering and improve UI layout: Updated the rendering logic for sensor data in the zone grid to sort sensors by name and enhance the display of average values. Modified CSS to change the layout from grid to flex for better responsiveness, adjusted styles for sensor rows, and added column headers for clarity. Improved overall visual consistency and user experience in the data view.
 
 
 
@@ -217,8 +217,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
 +11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, GH-105, GH-106.
-12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111
-13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
++12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
++13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 14.⁠ ⁠Spray log fungicide dropdowns aren’t there
 15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green.
 16.⁠ ⁠How can you select what greens/fairway results to generate a word report for?
@@ -240,7 +240,9 @@ That’s what the current layout looks like when it produces the product recomme
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107. 
 
-- One thing to note: gilba_turf_profiles stores profiles by name rather than siteId
+
+Lets add refresh button to the settings - or lets just request data from sensors when user clicks test and save 
+
 
 - also add some lights details on the sidepanel on the dashboard 
 

@@ -1942,41 +1942,43 @@
         }
 
         grid.innerHTML = rendered.map(function (z) {
-            var zd  = zones[z];
-            var vwc = avg(zd.vwcVals);
-            var ec  = avg(zd.ecVals);
-            var tmp = avg(zd.tmpVals);
-            var pct = Math.min(100, Math.max(0, (vwc || 0) / 60 * 100));
-            var barColor = vwc == null ? '#ccd9d2' : (vwc < 20 ? '#dc2626' : vwc < 30 ? '#f59e0b' : '#2da85e');
+            var zd       = zones[z];
+            var vwc      = avg(zd.vwcVals);
+            var ec       = avg(zd.ecVals);
+            var tmp      = avg(zd.tmpVals);
+            var sorted = zd.sensors.slice().sort(function (a, b) {
+                return (a.name || a.sensorId || '').localeCompare(b.name || b.sensorId || '');
+            });
 
-            // Individual sensor rows within this zone
-            var sensorRows = zd.sensors.map(function (r) {
-                var sVwc = r.vwc      != null ? r.vwc.toFixed(1)      : null;
-                var sEc  = r.ec       != null ? r.ec.toFixed(2)        : null;
-                var sTmp = r.soilTemp != null ? r.soilTemp.toFixed(1)  : null;
-                var sDot = sVwc ? ' live' : '';
+            var sensorRows = sorted.map(function (r) {
+                var sVwc   = r.vwc      != null ? r.vwc.toFixed(1)     : '—';
+                var sTmp   = r.soilTemp != null ? r.soilTemp.toFixed(1) : '—';
+                var dotCls = r.vwc != null ? ' live' : '';
                 return '<div class="sens-zone-sensor">'
-                    + '<span class="sens-sensor-dot' + sDot + '" style="flex-shrink:0"></span>'
+                    + '<span class="sens-sensor-dot' + dotCls + '"></span>'
                     + '<span class="sens-zone-sensor-name">' + esc(r.name || r.sensorId || '—') + '</span>'
-                    + '<span class="sens-zone-sensor-vals">'
-                    + (sVwc ? sVwc + '% ' : '—% ')
-                    + (sEc  ? '· ' + sEc + ' dS/m ' : '')
-                    + (sTmp ? '· ' + sTmp + '°C'   : '')
-                    + '</span>'
+                    + '<span class="sens-zone-sensor-vwc">' + sVwc + '%</span>'
+                    + '<span class="sens-zone-sensor-tmp">' + sTmp + '°C</span>'
                     + '</div>';
             }).join('');
+
+            var avgMeta = '<span class="sens-zone-avg-vwc">'
+                + (vwc != null ? vwc.toFixed(1) + '%' : '—') + '</span>'
+                + (tmp != null ? '<span class="sens-zone-avg-tmp">' + tmp.toFixed(1) + '°C</span>' : '');
+
+            var colHeads = '<div class="sens-zone-col-heads">'
+                + '<span></span>'
+                + '<span class="sens-zone-col-sensor">Sensor</span>'
+                + '<span>VWC</span>'
+                + '<span>Temp</span>'
+                + '</div>';
 
             return '<div class="sens-zone-card">'
                 + '<div class="sens-zone-header">'
                 + '<div class="sens-zone-label">' + esc(z) + ' <span class="sens-zone-count">(' + zd.sensors.length + ' sensor' + (zd.sensors.length !== 1 ? 's' : '') + ')</span></div>'
-                + '<div class="sens-zone-avg-label">avg</div>'
+                + '<div class="sens-zone-avg">' + avgMeta + '<span class="sens-zone-avg-tag">avg</span></div>'
                 + '</div>'
-                + '<div class="sens-zone-vwc">' + (vwc != null ? vwc.toFixed(1) : '—') + '<span class="sens-zone-vwc-unit">%</span></div>'
-                + '<div class="sens-zone-vwc-bar"><div class="sens-zone-vwc-fill" style="width:' + pct.toFixed(1) + '%;background:' + barColor + '"></div></div>'
-                + '<div class="sens-zone-meta">'
-                + (ec  != null ? '<span>' + ec.toFixed(2) + ' dS/m</span>' : '')
-                + (tmp != null ? '<span>' + tmp.toFixed(1) + '°C</span>'   : '')
-                + '</div>'
+                + colHeads
                 + '<div class="sens-zone-sensors">' + sensorRows + '</div>'
                 + '</div>';
         }).join('');
