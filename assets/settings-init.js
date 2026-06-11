@@ -265,6 +265,18 @@
                     var data = results[0];
                     if (data && data.data && data.data.name) {
                         D.gaipConfig = cfg;
+                        // Mirror location to localStorage so LocationPreloader and
+                        // the old hub iframe use the updated coordinates immediately.
+                        if (_locUpdate.lat && _locUpdate.lon) {
+                            try {
+                                var _cfgKey = 'gilba_hub_site_configs';
+                                var _cfgs = {};
+                                try { _cfgs = JSON.parse(localStorage.getItem(_cfgKey) || '{}'); } catch (_) {}
+                                if (!_cfgs[siteId]) _cfgs[siteId] = {};
+                                _cfgs[siteId].location = Object.assign({}, _cfgs[siteId].location || {}, _locUpdate);
+                                localStorage.setItem(_cfgKey, JSON.stringify(_cfgs));
+                            } catch (_) {}
+                        }
                         _checkAfterSave('stg-site-form');
                         setMsg(siteMsg, 'Saved.', 'ok');
                         // Update topbar to reflect saved values without page reload

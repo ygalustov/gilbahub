@@ -271,6 +271,27 @@
                 } catch (err) {
                     warn('Site config merge failed:', err);
                 }
+
+                // Save location to DB so the analysis engine uses correct coordinates.
+                // localStorage-only import leaves the DB with stale coordinates, causing
+                // the old hub iframe to fetch weather for the wrong location on re-run.
+                var _loc = bundle.siteConfig.location;
+                if (_loc && _loc.lat && _loc.lon && typeof fetch !== 'undefined') {
+                    var _siteTarget = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || incomingSiteId;
+                    var _apiBase    = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.restUrl) || '/api/';
+                    var _csrf       = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+                    fetch(_apiBase.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(_siteTarget), {
+                        method:  'PATCH',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': _csrf },
+                        body:    JSON.stringify({
+                            location_name: _loc.name || '',
+                            latitude:      _loc.lat,
+                            longitude:     _loc.lon
+                        })
+                    }).then(function() {
+                        log('Location saved to DB for', _siteTarget, ':', _loc.lat, _loc.lon);
+                    }).catch(function() { /* non-fatal */ });
+                }
             }
 
             // --- Merge turf profile ---
