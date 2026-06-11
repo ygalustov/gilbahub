@@ -1085,9 +1085,8 @@
             var currentRow = todayGP != null
                 ? '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span style="font-size:22px;font-weight:700;color:var(--gaip-text,#1a2b23)">' + todayGP + '%</span><span style="font-size:12px;color:var(--gaip-text-muted,#6b8878)">today</span></div>'
                 : '';
-            var tempPrefix = tempStr ? '<strong>' + tempStr + ' air</strong>' : '';
             var soilPrefix = stVal != null ? '<strong>' + Math.round(stVal) + '°C soil</strong>' : '';
-            var prefixStr  = [tempPrefix, soilPrefix].filter(Boolean).join(' &middot; ');
+            var prefixStr  = soilPrefix || '';
             var insightRow = insightText
                 ? '<div style="padding:8px 10px;border-radius:6px;background:' + insightBg + ';font-size:12px;color:' + insightColor + ';line-height:1.5">' +
                   (prefixStr ? prefixStr + ' &mdash; ' : '') + insightText + '</div>'
@@ -1095,12 +1094,6 @@
             html += panelSection('Current Conditions', currentRow + insightRow);
         }
 
-        // Soil Temp
-        if (avgGP != null && stVal != null) {
-            html += panelSection('Climate', statGrid([
-                { value: Math.round(stVal) + '°C', label: 'Soil Temp' }
-            ]));
-        }
 
         // DLI
         var shade       = c && c.shade;

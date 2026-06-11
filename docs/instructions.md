@@ -205,6 +205,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-114** Enhance sensor data handling and UI messages in settings-init.js: Updated messages for no readings and no devices found, improved logic for fetching live sensor readings, and ensured accurate localStorage caching of sensor data. Removed outdated comments in instructions.md for clarity.
 **GH-115** Implement DLI metrics display in dashboard: Added logic to calculate and display Daily Light Integral (DLI) metrics, including ambient DLI and target values, with color-coded status indicators. Updated HTML structure to present DLI information clearly in the dashboard panel.
 **GH-116** Enhance climate data handling in dashboard-init.js and hub-persistence.js: Improved logic for retrieving soil temperature values. Updated HTML rendering to ensure accurate display of soil temperature. 
+**GH-117** Refactor dashboard HTML rendering: Removed unused soil temperature display logic and simplified prefix string construction in dashboard-init.js. Updated badge label formatting in growth-light-analysis.js for clarity. Enhanced instructions.md with additional context on dashboard data consistency.
 
 
 

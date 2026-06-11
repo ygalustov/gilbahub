@@ -989,7 +989,7 @@
         var tempMarkup = '';
         if (currentTemp !== null && currentTemp !== undefined) {
             var tx = parseFloat(tX(currentTemp).toFixed(1));
-            var badgeLabel = fmt(currentTemp, 1) + '°C now';
+            var badgeLabel = fmt(currentTemp, 1) + '°C';
             var badgeW = badgeLabel.length * 6.2 + 14;
             var badgeH = 18;
             var badgeX = tx - badgeW / 2;
