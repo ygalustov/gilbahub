@@ -1448,6 +1448,24 @@
             if (impCancelBtn) impCancelBtn.disabled = true;
             setMsg(impMsg, 'Importing…', '');
 
+            try {
+                var _snap = {};
+                try { _snap = JSON.parse(localStorage.getItem('gilba_samples') || '{}'); } catch (_e) {}
+                ['allSites', 'allActive', 'allMeta', 'sites'].forEach(function (k) {
+                    if (_snap[k]) delete _snap[k][siteId];
+                });
+                localStorage.setItem('gilba_samples', JSON.stringify(_snap));
+                var SM = window.GAIP_SampleManager;
+                if (SM && typeof SM.restoreFromPersistence === 'function') SM.restoreFromPersistence(_snap);
+            } catch (_e) {}
+            try { localStorage.removeItem('gilba_last_pgr_' + siteId); } catch (_e) {}
+            try {
+                var _smaps = {};
+                try { _smaps = JSON.parse(localStorage.getItem('gilba_sensor_mappings') || '{}'); } catch (_e) {}
+                delete _smaps[siteId];
+                localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smaps));
+            } catch (_e) {}
+
             apiFetch('POST', '/samples/sync', { allSites: remapped })
                 .then(function (data) {
                     var synced = (data && data.data && data.data.synced) || 0;

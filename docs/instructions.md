@@ -199,7 +199,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-108** Enhance location handling in settings-init.js and site-data-transfer.js: Implemented localStorage synchronization for updated coordinates and ensured accurate location saving to the database to prevent stale data issues in the analysis engine. 
 **GH-109** Update account view and JavaScript logic to enhance user experience: Changed table header to allow nowrap for action buttons, conditionally display invite buttons based on user role, and pre-populate invite sites dropdown for improved accessibility. Updated instructions for clarity on ambient light levels.
 **GH-110** Refactor Ambient DLI handling in hub-orchestrator.js: Updated logic to prioritize captured snapshots over cached values for ambient DLI, ensuring accurate data during site switches. Introduced a new variable to store the last analysis ambient DLI and improved comments for clarity on fallback priorities.
-
+**GH-111** Enhance settings view and localStorage management: Added a warning message in the settings view to inform users that existing data will be replaced upon file upload. Updated JavaScript to clear specific localStorage entries related to site data during the import process, ensuring accurate data handling and preventing stale data issues.
 
 
 ## Backlog
@@ -214,7 +214,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
 +10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
 +11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, GH-105, GH-106.
-12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110
+12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111
 13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 14.⁠ ⁠Spray log fungicide dropdowns aren’t there
 15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green.
@@ -236,6 +236,17 @@ That’s what the current layout looks like when it produces the product recomme
 28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107. 
+
+- One thing to note: gilba_turf_profiles stores profiles by name rather than siteId
+
+- also add some lights details on the sidepanel on the dashboard 
+
+- also check why in Climate block ET₀ daily and Soil Temp doesnot display
+
+
+
+
+
 
 
 

@@ -777,6 +777,10 @@
                                 Upload the <code>.json</code> file you exported from the previous GAIP Hub
                                 (use the <strong>Export</strong> button on the old portal to get the file).
                             </div>
+                            <div style="display:flex;align-items:flex-start;gap:8px;margin-top:10px;padding:10px 12px;background:#fff8ed;border:1px solid #f59e0b;border-radius:6px;font-size:13px;color:#92400e;line-height:1.4">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                <span>All existing data for this site will be replaced with data from the file.</span>
+                            </div>
                         </div>
 
                         {{-- Step 1: file picker --}}
