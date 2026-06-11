@@ -70,7 +70,7 @@
                         </select>
                     </div>
 
-                    <div class="dat-table-wrap" style="padding:0;overflow-x:hidden">
+                    <div class="dat-table-wrap" style="padding:0;overflow-x:auto">
                         <table class="dat-table stg-sites-table" id="stg-sites-table" style="min-width:0">
                             <thead>
                                 <tr>

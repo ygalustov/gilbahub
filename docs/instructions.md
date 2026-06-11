@@ -231,7 +231,7 @@ That’s what the current layout looks like when it produces the product recomme
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
 28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
-30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address?
++30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107. 
 
 
 
