@@ -129,11 +129,11 @@
             function avatarColor(status) {
                 return status === 'invited' ? '#2563eb' : '#2d7a4e';
             }
+            var canInviteDetail = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
             var usersHtml = '<div style="border-top:1px solid #e8efeb;margin-top:16px;padding-top:16px;margin-bottom:24px">' +
                 '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">' +
                 '<div style="font-size:12px;font-weight:700;color:#3d5c4a;text-transform:uppercase;letter-spacing:.5px">Users' + (users.length ? ' <span style="font-weight:400;color:#6b8878;text-transform:none;letter-spacing:0">(' + users.length + ')</span>' : '') + '</div>' +
-                '<button type="button" class="stg-site-invite-btn" data-site-id="' + esc(s.id) + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;font-family:\'Barlow\',sans-serif;font-weight:600;background:#2da85e;color:#fff;border:none;border-radius:6px;cursor:pointer">' +
-                '<svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Invite</button>' +
+                (canInviteDetail ? '<button type="button" class="stg-site-invite-btn" data-site-id="' + esc(s.id) + '" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:4px 12px;font-family:\'Barlow\',sans-serif;font-weight:600;background:#2da85e;color:#fff;border:none;border-radius:6px;cursor:pointer"><svg width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>Invite</button>' : '') +
                 '</div>';
             if (users.length) {
                 usersHtml += '<div style="display:flex;flex-direction:column;gap:4px">' +
@@ -234,12 +234,13 @@
                 var speciesStr = s.species ? esc(s.species) + (s.hoc != null ? ' <span class="stg-st-muted">· ' + s.hoc + ' mm</span>' : '') : '<span class="stg-st-muted">—</span>';
                 var isSelected = openSiteId === s.id;
                 var sep = '<span class="sens-pstatus-sep"></span>';
-                var inviteRowBtn = '<button type="button" class="stg-btn-ghost stg-site-row-invite-btn" data-site-id="' + esc(s.id) + '" style="font-size:12px;padding:3px 10px">Invite</button>';
+                var canInvite = D.activeSiteRole === 'admin' || D.activeSiteRole === 'manager';
+                var inviteRowBtn = canInvite ? '<button type="button" class="stg-btn-ghost stg-site-row-invite-btn" data-site-id="' + esc(s.id) + '" style="font-size:12px;padding:3px 10px">Invite</button>' : '';
                 var activeBtn = '<button disabled class="stg-btn-ghost" style="font-size:12px;padding:3px 0;width:76px;display:inline-flex;align-items:center;justify-content:center;color:#2da85e;border-color:#a8d9bc;cursor:default;opacity:1">Active</button>';
                 var setActiveBtn = '<button type="button" class="stg-btn-ghost stg-set-active-btn" data-site-id="' + esc(s.id) + '" style="font-size:12px;padding:3px 0;width:76px;display:inline-flex;align-items:center;justify-content:center">Set active</button>';
                 var actionCell = s.is_active
-                    ? '<td><div style="display:flex;align-items:center;gap:6px">' + activeBtn + sep + inviteRowBtn + '</div></td>'
-                    : '<td><div style="display:flex;align-items:center;gap:6px">' + setActiveBtn + sep + inviteRowBtn + '</div></td>';
+                    ? '<td style="white-space:nowrap"><div style="display:flex;align-items:center;gap:6px">' + activeBtn + (inviteRowBtn ? sep + inviteRowBtn : '') + '</div></td>'
+                    : '<td style="white-space:nowrap"><div style="display:flex;align-items:center;gap:6px">' + setActiveBtn + (inviteRowBtn ? sep + inviteRowBtn : '') + '</div></td>';
                 return '<tr class="stg-row-main' + (isSelected ? ' stg-row-expanded' : '') + '" data-site-id="' + esc(s.id) + '">' +
                     '<td><div class="stg-st-name-wrap">' + statusDotHtml(s.status) + '<span class="stg-st-name">' + esc(s.name) + '</span><span class="stg-st-type-badge">' + esc(typeLabel) + '</span></div></td>' +
                     '<td>' + (s.location ? esc(s.location) : '<span class="stg-st-muted">—</span>') + '</td>' +
@@ -619,6 +620,12 @@
                     cb.addEventListener('change', updateSitesLabel);
                 });
             }
+        }
+
+        // Pre-populate invite sites dropdown immediately so clicking Invite before
+        // loadUsers() resolves doesn't leave the dropdown empty.
+        if (D.sitesTableData && D.sitesTableData.length) {
+            populateSiteFilterAndSelect(D.sitesTableData);
         }
 
         if (inviteSitesToggle) {

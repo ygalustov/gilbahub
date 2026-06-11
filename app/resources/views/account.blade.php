@@ -81,7 +81,7 @@
                                     <th class="stg-st-sortable dat-th-num" data-col="water">Water <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                     <th class="stg-st-sortable" data-col="last_run">Last run <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
                                     <th class="stg-st-sortable dat-th-num" data-col="user_count">Users <svg class="stg-sort-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12l7-7 7 7"/></svg></th>
-                                    <th style="width:44px"></th>
+                                    <th style="white-space:nowrap"></th>
                                 </tr>
                             </thead>
                             <tbody id="stg-sites-tbody">
