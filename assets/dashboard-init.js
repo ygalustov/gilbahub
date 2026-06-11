@@ -1077,6 +1077,33 @@
             ]));
         }
 
+        // DLI
+        var shade       = c && c.shade;
+        var dli         = shade ? (shade.DLI_total || shade.dliShaded || null) : null;
+        var dliAmbient  = shade ? (shade.dli_ambient || shade.ambientDLI || null) : null;
+        var dliTarget   = shade ? (shade.blendedTargetDLI || shade.dliTarget || null) : null;
+        var dliStatus   = shade ? (shade.effectiveStatus || null) : null;
+        if (dli == null && c && c.climate) {
+            var _raw = c.climate;
+            dli = _raw.ambientDLI || (_raw.light && _raw.light.dli) || null;
+        }
+        if (dli != null) {
+            var dliColor2 = dliStatus
+                ? (dliStatus.toLowerCase().indexOf('optimal') !== -1 ? '#16a34a'
+                  : dliStatus.toLowerCase().indexOf('adequate') !== -1 ? '#d97706' : '#dc2626')
+                : (dliTarget && dli >= dliTarget ? '#16a34a' : (dliTarget && dli >= dliTarget * 0.75 ? '#d97706' : '#dc2626'));
+            var dliLabel = dliStatus ? dliStatus.split('(')[0].trim() : null;
+            var _u = '<span style="font-size:11px;font-weight:400;color:var(--gaip-text-muted,#6b8878)"> mol/m²/d</span>';
+            var dliStats = [{ value: '<span style="color:' + dliColor2 + '">' + dli.toFixed(1) + '</span>' + _u, label: 'DLI today' }];
+            if (dliTarget != null) dliStats.push({ value: dliTarget.toFixed(1) + _u, label: 'Target' });
+            if (dliAmbient != null && Math.abs(dliAmbient - dli) > 0.5) dliStats.push({ value: dliAmbient.toFixed(1) + _u, label: 'Open sky' });
+            var dliHtml = statGrid(dliStats);
+            if (dliLabel) {
+                dliHtml += '<div style="margin-top:8px;font-size:12px;padding:6px 10px;border-radius:5px;background:var(--gaip-surface-muted,#f5f7f6);color:' + dliColor2 + ';font-weight:600">' + dliLabel + '</div>';
+            }
+            html += panelSection('Light (DLI)', dliHtml);
+        }
+
         // Link to full analysis
         html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
             '<a href="/analysis/growth-light" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +

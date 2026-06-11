@@ -203,6 +203,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-112** Implement clearSiteData option in sync method: Added functionality to optionally clear site-related data during synchronization, including deletion of spray logs, field log entries, and associated samples. Updated JavaScript to include clearSiteData parameter in API request for improved data management.
 **GH-113** Refactor zone grid rendering and improve UI layout: Updated the rendering logic for sensor data in the zone grid to sort sensors by name and enhance the display of average values. Modified CSS to change the layout from grid to flex for better responsiveness, adjusted styles for sensor rows, and added column headers for clarity. Improved overall visual consistency and user experience in the data view.
 **GH-114** Enhance sensor data handling and UI messages in settings-init.js: Updated messages for no readings and no devices found, improved logic for fetching live sensor readings, and ensured accurate localStorage caching of sensor data. Removed outdated comments in instructions.md for clarity.
+**GH-115** Implement DLI metrics display in dashboard: Added logic to calculate and display Daily Light Integral (DLI) metrics, including ambient DLI and target values, with color-coded status indicators. Updated HTML structure to present DLI information clearly in the dashboard panel.
+
+
 
 
 ## Backlog
@@ -242,9 +245,7 @@ That’s what the current layout looks like when it produces the product recomme
 
 
 
-- also add some lights details on the sidepanel on the dashboard 
 
-- also check why in Climate block ET₀ daily and Soil Temp doesnot display
 
 
 
