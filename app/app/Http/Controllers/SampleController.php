@@ -97,7 +97,10 @@ class SampleController extends Controller
     {
         $data = $request->validate([
             'allSites' => ['required', 'array'],
+            'clearSiteData' => ['nullable', 'boolean'],
         ]);
+
+        $clearSiteData = (bool) ($data['clearSiteData'] ?? false);
 
         $user = $request->user();
         $siteIds = $user->is_admin
@@ -106,7 +109,7 @@ class SampleController extends Controller
         $synced = 0;
         $deleted = 0;
 
-        DB::transaction(function () use ($data, $siteIds, $user, &$synced, &$deleted) {
+        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, &$synced, &$deleted) {
             foreach ($data['allSites'] as $siteId => $siteData) {
                 if (! is_string($siteId) || ! in_array($siteId, $siteIds, true) || ! is_array($siteData)) {
                     continue;
@@ -115,6 +118,19 @@ class SampleController extends Controller
                 $site = Site::query()->with('account')->find($siteId);
                 if (! $site || ! $site->account) {
                     continue;
+                }
+
+                if ($clearSiteData) {
+                    DB::table('spray_logs')->where('site_id', $siteId)->delete();
+                    DB::table('field_log_entries')->where('site_id', $siteId)->delete();
+                    $sampleIdsToDelete = Sample::query()
+                        ->where('site_id', $siteId)
+                        ->pluck('id');
+                    if ($sampleIdsToDelete->isNotEmpty()) {
+                        SiteSummary::query()->whereIn('source_sample_id', $sampleIdsToDelete)->delete();
+                        Sample::query()->whereKey($sampleIdsToDelete)->delete();
+                        $deleted += $sampleIdsToDelete->count();
+                    }
                 }
 
                 foreach (self::VALID_TYPES as $sampleType) {

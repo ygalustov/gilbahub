@@ -200,6 +200,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-109** Update account view and JavaScript logic to enhance user experience: Changed table header to allow nowrap for action buttons, conditionally display invite buttons based on user role, and pre-populate invite sites dropdown for improved accessibility. Updated instructions for clarity on ambient light levels.
 **GH-110** Refactor Ambient DLI handling in hub-orchestrator.js: Updated logic to prioritize captured snapshots over cached values for ambient DLI, ensuring accurate data during site switches. Introduced a new variable to store the last analysis ambient DLI and improved comments for clarity on fallback priorities.
 **GH-111** Enhance settings view and localStorage management: Added a warning message in the settings view to inform users that existing data will be replaced upon file upload. Updated JavaScript to clear specific localStorage entries related to site data during the import process, ensuring accurate data handling and preventing stale data issues.
+**GH-112** Implement clearSiteData option in sync method: Added functionality to optionally clear site-related data during synchronization, including deletion of spray logs, field log entries, and associated samples. Updated JavaScript to include clearSiteData parameter in API request for improved data management.
+
+
 
 
 ## Backlog

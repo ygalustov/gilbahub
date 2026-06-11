@@ -1466,7 +1466,7 @@
                 localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smaps));
             } catch (_e) {}
 
-            apiFetch('POST', '/samples/sync', { allSites: remapped })
+            apiFetch('POST', '/samples/sync', { allSites: remapped, clearSiteData: true })
                 .then(function (data) {
                     var synced = (data && data.data && data.data.synced) || 0;
                     return applySiteConfig(_bundle).then(function () { return synced; });
