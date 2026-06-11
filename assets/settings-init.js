@@ -783,7 +783,7 @@
         var html = '<div class="sens-sensor-list-head">Connected Sensors</div>'
             + '<div class="sens-sensor-list-hint">Excluded sensors are removed from zone averages and engine calculations — use this for replaced units.</div>';
         if (!readings.length && !locations.length) {
-            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Go to Sensor Data to fetch live data.</div>';
+            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings yet — click Test &amp; Save to connect and load live data.</div>';
         } else {
             var zones = ['Greens','Fairways','Tees','Roughs','Other'];
             var items = readings.length ? readings : locations;
@@ -865,13 +865,37 @@
             var locCount = (locData && locData.items) ? locData.items.length : 0;
             var senData  = await proxyCall('hydrosight', '/sensors', apiKey);
             var sensors  = (senData && senData.items) || [];
-            var sensorStubs = sensors.map(function (s) {
-                return { sensorId: s.sensorId, name: s.name || s.sensorId, vwc: null, ec: null, soilTemp: null };
-            });
-            lsSet('gilba_sensor_last_fetch', JSON.stringify({
-                fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: sensorStubs
-            }));
+
             hsSave({ apiKey: apiKey, keyConfigured: true, enabled: true });
+            setSensMsg(msg, 'Connected — fetching live readings…', 'info');
+
+            var readings = [];
+            var zoneMapping = (hsLoad().sensorZoneMapping) || {};
+            for (var _i = 0; _i < sensors.length; _i++) {
+                var _s = sensors[_i];
+                try {
+                    var detail = await proxyCall('hydrosight', '/sensors/' + encodeURIComponent(_s.sensorId), apiKey);
+                    var lr = detail.lastReadings || {};
+                    var _vwc = parseFloat(lr.moisture);
+                    var _ec  = parseFloat(lr.ec);
+                    var _tmp = parseFloat(lr.temperature);
+                    readings.push({
+                        sensorId: detail.sensorId || _s.sensorId,
+                        name:     detail.name || _s.name || _s.sensorId,
+                        vwc:      isNaN(_vwc) ? null : _vwc,
+                        ec:       isNaN(_ec)  ? null : _ec,
+                        soilTemp: isNaN(_tmp) ? null : _tmp,
+                        zone:     zoneMapping[_s.sensorId] || null,
+                    });
+                } catch (_) {
+                    readings.push({ sensorId: _s.sensorId, name: _s.name || _s.sensorId, vwc: null, ec: null, soilTemp: null });
+                }
+            }
+            lsSet('gaip_hydrosight_readings_cache_' + (siteId || 'default'), JSON.stringify({ timestamp: Date.now(), data: readings }));
+            lsSet('gilba_sensor_last_fetch', JSON.stringify({
+                fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: readings
+            }));
+
             setSensMsg(msg, 'Connected — ' + locCount + ' location' + (locCount === 1 ? '' : 's') + ', ' + sensors.length + ' sensor' + (sensors.length === 1 ? '' : 's') + ' found.', 'ok');
             hsRender();
         } catch (e) {
@@ -928,7 +952,7 @@
 
         var html = '<div class="sens-sensor-list-head">Connected Equipment</div>';
         if (!items.length) {
-            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No readings cached. Go to Sensor Data to fetch live data.</div>';
+            html += '<div style="padding:10px 0;font-size:12px;color:var(--gaip-text-muted,#6b8878)">No devices found in this account. Live readings are fetched on the Sensor Data page.</div>';
         } else {
             items.slice(0, 12).forEach(function (item) {
                 var name = item.surfaceName || item.collectionName || item.SerialNumber || '—';
@@ -966,6 +990,12 @@
             var data = await proxyCall('specconnect', ep, apiKey);
             var count = Array.isArray(data) ? data.length : 0;
             scSave({ apiKey: apiKey, enabled: true });
+            if (Array.isArray(data) && data.length) {
+                var scItems = data.map(function (d) {
+                    return { SerialNumber: d.SerialNumber || '', collectionName: d.CollectionName || '', surfaceName: d.SurfaceName || '', vwc: null, soilTemp: null };
+                });
+                lsSet('gilba_specconnect_cache_' + (siteId || 'default'), JSON.stringify({ timestamp: Date.now(), data: scItems }));
+            }
             setSensMsg(msg, 'Connected — ' + count + ' device' + (count === 1 ? '' : 's') + ' found.', 'ok');
             scRender();
         } catch (e) {
