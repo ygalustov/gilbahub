@@ -4029,7 +4029,19 @@
     // ─────────────────────────────────────────────────────────────────────
     try {
       const companionEl = document.getElementById("gaip-companion-species");
-      const companionSpecies = companionEl ? companionEl.value : "";
+      let companionSpecies = companionEl ? companionEl.value : "";
+      // Fallback: read from localStorage when DOM element not yet injected (e.g. iframe first run).
+      // The selector is injected by daily-dashboard.js after orchestrator completes, so on the
+      // first/only run in an iframe context the element doesn't exist yet.
+      if (!companionSpecies) {
+        try {
+          const _cSiteId = global.GAIP_SiteContext ? global.GAIP_SiteContext.getSiteId() : null;
+          if (_cSiteId) {
+            const _cConfigs = JSON.parse(localStorage.getItem('gilba_hub_site_configs') || '{}');
+            companionSpecies = (_cConfigs[_cSiteId] && _cConfigs[_cSiteId].turf && _cConfigs[_cSiteId].turf.companionSpecies) || '';
+          }
+        } catch (_) {}
+      }
       if (companionSpecies) {
         const baseInputs = buildDiseaseInputs();
         const C4_SPECIES_MAP = {

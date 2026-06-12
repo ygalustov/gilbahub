@@ -869,6 +869,7 @@
             forecastBlock +
             renderCultivarBlock() +
             renderDewForecastBlock() +
+            renderCompanionDiseaseBlock() +
             '</div>';
 
     }
@@ -971,7 +972,7 @@
             rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">Dew forecast unavailable — run analysis with live weather to populate.</div>';
         }
 
-        return '<div class="gl-block" style="margin-top:16px">' +
+        return '<div id="dr-dew-block" class="gl-block" style="margin-top:16px">' +
             '<div class="gl-block-header">' +
             '<div class="gl-block-accent" style="background:var(--gaip-info)"></div>' +
             '<div class="gl-block-title">Dew Forecast &amp; Match Conditions' +
@@ -982,6 +983,113 @@
             '<div class="gl-block-body">' +
             '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px">Dew periods create ideal conditions for fungal infection spread. Schedule early-morning irrigation and improve air movement to reduce risk on high-pressure days.</p>' +
             rows +
+            '</div></div>';
+    }
+
+    // ── Companion disease block (fairway/tee parallel analysis) ─────────────
+
+    function renderCompanionDiseaseBlock() {
+        var dd   = global.GAIP_DASHBOARD_DATA;
+        var cd   = dd && dd.metrics && dd.metrics.companionDisease;
+
+        // Fall back to live result if persistence hasn't run yet
+        if (!cd) {
+            var live = global.GAIP_COMPANION_DISEASE_RESULT;
+            if (live && live._companionSurface && Array.isArray(live.diseases) && live.diseases.length) {
+                var relevant = live.diseases.filter(function (d) {
+                    var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0);
+                    return r > 15 || (d.treatmentWindow && d.treatmentWindow.inWindow);
+                });
+                relevant.sort(function (a, b) {
+                    var aW = (a.treatmentWindow && a.treatmentWindow.inWindow) ? 1 : 0;
+                    var bW = (b.treatmentWindow && b.treatmentWindow.inWindow) ? 1 : 0;
+                    if (bW !== aW) return bW - aW;
+                    return ((b.adjustedRisk != null ? b.adjustedRisk : b.riskScore) || 0) -
+                           ((a.adjustedRisk != null ? a.adjustedRisk : a.riskScore) || 0);
+                });
+                cd = {
+                    species: live._companionSpecies || null,
+                    speciesLabel: live._companionDisplayName || live._companionSpecies || null,
+                    diseases: relevant.slice(0, 6).map(function (d) {
+                        var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0);
+                        var tw = d.treatmentWindow || {};
+                        return {
+                            name:       d.displayName || d.name || '',
+                            risk:       Math.round(r),
+                            inWindow:   tw.inWindow || false,
+                            soilTemp:   tw.soilTemp != null ? tw.soilTemp : null,
+                            timing:     tw.timing   || null,
+                            estimated:  tw.soilTempEstimated || false
+                        };
+                    })
+                };
+            }
+        }
+
+        if (!cd || !cd.diseases || !cd.diseases.length) return '';
+
+        var speciesLabel = esc(cd.speciesLabel || cd.species || 'Fairway / Tee');
+
+        var rows = '';
+        cd.diseases.forEach(function (d) {
+            var risk   = d.risk || 0;
+            var colour = risk >= 70 ? 'var(--gaip-critical,#ef4444)'
+                       : risk >= 40 ? 'var(--gaip-warning,#f59e0b)'
+                       :              'var(--gaip-good,#22c55e)';
+            var label  = risk >= 70 ? 'High' : risk >= 40 ? 'Moderate' : 'Low';
+            var barW   = Math.min(risk, 100);
+
+            var windowNote = '';
+            if (d.inWindow) {
+                var st = d.soilTemp != null ? ' — soil ' + d.soilTemp + '°C' + (d.estimated ? ' (est.)' : '') : '';
+                windowNote = '<div style="font-size:11px;color:#b45309;font-weight:600;margin-top:2px">Treatment window open' + esc(st) + '</div>';
+            } else if (d.timing) {
+                windowNote = '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-top:2px">' + esc(d.timing) + '</div>';
+            } else if (d.soilTemp != null) {
+                windowNote = '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-top:2px">Soil ' + d.soilTemp + '°C' + (d.estimated ? ' (est.)' : '') + '</div>';
+            }
+
+            rows +=
+                '<div style="padding:8px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
+                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">' +
+                        '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
+                            '<span style="width:10px;height:10px;border-radius:50%;background:' + colour + ';flex-shrink:0;display:inline-block"></span>' +
+                            '<span style="font-size:13px;font-weight:600;color:var(--gaip-text)">' + esc(d.name) + '</span>' +
+                        '</div>' +
+                        '<span style="font-size:12px;font-weight:700;color:' + colour + ';white-space:nowrap">' + label + ' (' + risk + '%)</span>' +
+                    '</div>' +
+                    '<div style="margin:5px 0 0 18px">' +
+                        '<div style="height:4px;border-radius:2px;background:var(--gaip-border-light,#e8eeeb);overflow:hidden">' +
+                            '<div style="height:100%;width:' + barW + '%;background:' + colour + ';border-radius:2px;transition:width .3s"></div>' +
+                        '</div>' +
+                    '</div>' +
+                    (windowNote ? '<div style="margin-left:18px">' + windowNote + '</div>' : '') +
+                '</div>';
+        });
+
+        var divider =
+            '<div style="display:flex;align-items:center;gap:16px;margin:32px 0 20px">' +
+            '<div style="flex:1;height:1px;background:var(--gaip-border-light,#e8eeeb)"></div>' +
+            '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);white-space:nowrap">Fairway / Tee Analysis</span>' +
+            '<div style="flex:1;height:1px;background:var(--gaip-border-light,#e8eeeb)"></div>' +
+            '</div>';
+
+        return divider +
+            '<div class="gl-block">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent" style="background:var(--gaip-info,#3b82f6)"></div>' +
+            '<div class="gl-block-title">' + speciesLabel + ' — Disease Risk' +
+            '</div>' +
+            '<span class="gl-block-sub">Companion surface · same weather data as greens analysis</span>' +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px;line-height:1.5">' +
+            'Greens soil and tissue inputs are not applied to this assessment.' +
+            '</p>' +
+            rows +
+            '<div style="font-size:11px;color:var(--gaip-text-muted,#9ca3af);margin-top:10px;padding-top:8px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">' +
+            'Species configured in Settings → Turf Identity → Fairway / Tee species.' +
+            '</div>' +
             '</div></div>';
     }
 
@@ -1114,13 +1222,17 @@
                         forecast:   dewForecast,
                         leafWetness: { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 },
                     };
-                    var glBody = document.querySelector('.gl-body');
-                    if (glBody) {
-                        var dewHtml = renderDewForecastBlock();
-                        if (dewHtml) {
-                            var tmp = document.createElement('div');
-                            tmp.innerHTML = dewHtml;
-                            while (tmp.firstChild) glBody.appendChild(tmp.firstChild);
+                    var dewHtml = renderDewForecastBlock();
+                    if (dewHtml) {
+                        var tmp = document.createElement('div');
+                        tmp.innerHTML = dewHtml;
+                        var newNode = tmp.firstChild;
+                        var existing = document.getElementById('dr-dew-block');
+                        if (existing) {
+                            existing.replaceWith(newNode);
+                        } else {
+                            var glBody = document.querySelector('.gl-body');
+                            if (glBody) glBody.appendChild(newNode);
                         }
                     }
                 }

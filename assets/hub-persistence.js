@@ -1499,6 +1499,37 @@
             }
         }
         
+        // Companion surface disease (fairway/tee parallel analysis — golf greens only)
+        const _cd = global.GAIP_COMPANION_DISEASE_RESULT;
+        if (_cd && _cd._companionSurface && _cd.diseases) {
+            metrics.companionDisease = {
+                species:      _cd._companionSpecies      || null,
+                speciesLabel: _cd._companionDisplayName  || _cd._companionSpecies || null,
+                diseases: (_cd.diseases || [])
+                    .filter(function(d) {
+                        var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore != null ? d.riskScore : 0);
+                        return r > 15 || (d.treatmentWindow && d.treatmentWindow.inWindow);
+                    })
+                    .sort(function(a, b) {
+                        var aw = (a.treatmentWindow && a.treatmentWindow.inWindow) ? 1 : 0;
+                        var bw = (b.treatmentWindow && b.treatmentWindow.inWindow) ? 1 : 0;
+                        if (bw !== aw) return bw - aw;
+                        var ar = a.adjustedRisk != null ? a.adjustedRisk : (a.riskScore || 0);
+                        var br = b.adjustedRisk != null ? b.adjustedRisk : (b.riskScore || 0);
+                        return br - ar;
+                    })
+                    .slice(0, 5)
+                    .map(function(d) {
+                        return {
+                            name:      d.displayName || d.name || d.disease,
+                            risk:      Math.round(d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0)),
+                            inWindow:  !!(d.treatmentWindow && d.treatmentWindow.inWindow),
+                            soilTemp:  d.treatmentWindow ? d.treatmentWindow.soilTemp : null,
+                        };
+                    }),
+            };
+        }
+
         // Stress trajectory — result is on GAIP_TRAJECTORY_RESULT (set by hub-orchestrator after
         // GAIP_StressTrajectory.project() runs). GAIP_StressTrajectory itself is the engine object.
         const _st = global.GAIP_TRAJECTORY_RESULT || global.GAIP_STRESS_TRAJECTORY_RESULT;

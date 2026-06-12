@@ -1162,11 +1162,17 @@
                 '</div>';
         };
 
+        var cd = m && m.companionDisease;
+        var hasCompanion = cd && cd.diseases && cd.diseases.length;
+
+        // Section label "Greens" only when companion analysis is also present
+        if (hasCompanion) {
+            html += '<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);padding:10px 16px 4px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">Greens</div>';
+        }
+
         if (diseases && diseases.length) {
             var rows = diseases.slice(0, 5).map(function (d) {
                 var name = d.displayName || d.name || d.disease || 'Unknown';
-                // adjustedRisk = species-susceptibility-adjusted score (same basis as overallScore)
-                // riskScore    = pre-adjustment base; use only as fallback
                 var cur  = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.riskScore != null ? Math.round(d.riskScore) : (d.current != null ? Math.round(d.current) : null));
                 var pk   = d.peakRisk     != null ? Math.round(d.peakRisk)     : null;
                 return makeRow(name, cur, pk, d.peakDay != null ? d.peakDay : null);
@@ -1179,6 +1185,34 @@
         if (peak != null && m && m.peakDay != null) {
             html += panelSection('Forecast', '<p style="font-size:13px;margin:0;color:var(--gaip-text,#1a2b23)">Peak: <strong>' + peak + '%</strong> in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '') + '</p>');
         }
+
+        // Companion surface (fairway/tee) — separate section
+        if (hasCompanion) {
+            var cdLabel = cd.speciesLabel || cd.species || 'Fairway / Tee';
+            html += '<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);padding:12px 16px 4px;border-top:1px solid var(--gaip-border,#d8e0dc);margin-top:6px">' +
+                'Fairway / Tee — ' + cdLabel + '</div>';
+            var cdRows = cd.diseases.slice(0, 3).map(function(d) {
+                var col = d.risk >= 70 ? '#dc2626' : (d.risk >= 40 ? '#d97706' : '#16a34a');
+                var win = d.inWindow
+                    ? '<span style="font-size:10px;color:#b45309;font-weight:600;margin-left:4px">Window open' + (d.soilTemp != null ? ' · ' + d.soilTemp + '°C' : '') + '</span>'
+                    : (d.timing ? '<span style="font-size:10px;color:var(--gaip-text-secondary);margin-left:4px">' + d.timing + '</span>' : '');
+                return '<div class="db-disease-row">' +
+                    '<div class="db-disease-row-head">' +
+                    '<span class="db-disease-row-name">' + (d.name || '') + '</span>' +
+                    '<span class="db-disease-row-pct" style="color:' + col + '">' + d.risk + '%</span>' +
+                    '</div>' +
+                    '<div class="db-progress-bar" style="margin:0 0 2px"><div class="db-progress-fill" style="width:' + Math.min(d.risk, 100) + '%;background:' + col + '"></div></div>' +
+                    win +
+                    '</div>';
+            }).join('');
+            html += panelSection('Disease Breakdown', cdRows);
+            html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
+                '<a href="/analysis/disease" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
+                'View full Disease analysis' +
+                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
+                '</a></div>';
+        }
+
         return html;
     }
 

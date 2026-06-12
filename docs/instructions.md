@@ -208,7 +208,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-117** Refactor dashboard HTML rendering: Removed unused soil temperature display logic and simplified prefix string construction in dashboard-init.js. Updated badge label formatting in growth-light-analysis.js for clarity. Enhanced instructions.md with additional context on dashboard data consistency.
 **GH-118** Update site-config-persistence.js to prevent iframe context data push: Added a check to ensure that configurations are only pushed from the top window to avoid location bleed issues. Enhanced instructions.md with additional user feedback regarding JSON upload and sample name editing issues for improved clarity.
 **GH-119** Enhance fungicide selection and regional detection in data view: Added scripts for fungicide databases based on the spray log section. Implemented region detection logic using site latitude and longitude to dynamically build fungicide options. Updated product field rendering for better user experience. Improved instructions.md for clarity on JSON upload issues.
-
+**GH-120** Implement companion surface disease analysis feature: Added UI elements for selecting companion species in settings, updated dashboard to display disease risk for fairway/tee surfaces, and enhanced data handling for companion disease metrics in various scripts. Improved visibility logic for companion species selection based on turf type.
 
 
 

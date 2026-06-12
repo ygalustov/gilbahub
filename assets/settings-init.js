@@ -494,6 +494,14 @@
         });
     }
 
+    function updateCompanionRowVisibility() {
+        var row = document.getElementById('stg-companion-row');
+        if (!row) return;
+        var type = turfTypeEl ? turfTypeEl.value : '';
+        var sub  = turfSubEl  ? turfSubEl.value  : '';
+        row.style.display = (type === 'golf' && sub === 'greens') ? '' : 'none';
+    }
+
     function updateTrafficTabVisibility(turfType) {
         var trafficTabBtn   = document.querySelector('.stg-tab[data-tab="traffic"]');
         var trafficTabPanel = document.getElementById('stg-tab-traffic');
@@ -517,10 +525,15 @@
         var _initSub = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.subCategory) || '';
         repopulateSubcategory(turfTypeEl.value, _initSub);
         updateTrafficTabVisibility(turfTypeEl.value);
+        updateCompanionRowVisibility();
         turfTypeEl.addEventListener('change', function () {
             repopulateSubcategory(turfTypeEl.value, '');
             updateTrafficTabVisibility(turfTypeEl.value);
+            updateCompanionRowVisibility();
         });
+    }
+    if (turfSubEl) {
+        turfSubEl.addEventListener('change', updateCompanionRowVisibility);
     }
 
     if (turfForm) {
@@ -550,6 +563,7 @@
                 overseedVariety:  document.getElementById('stg-turf-overseed-variety').value || 'generic',
                 overseedStatus:   document.getElementById('stg-turf-overseed-status').value || 'none',
                 summerIntent:     document.getElementById('stg-turf-summer-intent').value || 'transition',
+                companionSpecies: (document.getElementById('stg-companion-species') || {}).value || '',
             };
 
             var yearsEl     = document.getElementById('stg-turf-years');
@@ -1379,9 +1393,10 @@
                 poaPercent:     t.poaPercent     || '0',
                 c3Cover:        t.c3Cover        || '0',
                 warmBase:       t.warmBase       || '',
-                coolOverseed:   t.coolOverseed   || '',
-                overseedStatus: t.overseedStatus || 'none',
-                aaTexture:      t.aaTexture      || '',
+                coolOverseed:     t.coolOverseed     || '',
+                overseedStatus:   t.overseedStatus   || 'none',
+                aaTexture:        t.aaTexture        || '',
+                companionSpecies: t.companionSpecies || '',
             });
             if (loc && typeof loc.lat === 'number') {
                 allConfigs[siteId].location = { lat: loc.lat, lon: loc.lon, name: loc.name || '' };
