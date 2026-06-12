@@ -207,7 +207,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-116** Enhance climate data handling in dashboard-init.js and hub-persistence.js: Improved logic for retrieving soil temperature values. Updated HTML rendering to ensure accurate display of soil temperature. 
 **GH-117** Refactor dashboard HTML rendering: Removed unused soil temperature display logic and simplified prefix string construction in dashboard-init.js. Updated badge label formatting in growth-light-analysis.js for clarity. Enhanced instructions.md with additional context on dashboard data consistency.
 **GH-118** Update site-config-persistence.js to prevent iframe context data push: Added a check to ensure that configurations are only pushed from the top window to avoid location bleed issues. Enhanced instructions.md with additional user feedback regarding JSON upload and sample name editing issues for improved clarity.
-
+**GH-119** Enhance fungicide selection and regional detection in data view: Added scripts for fungicide databases based on the spray log section. Implemented region detection logic using site latitude and longitude to dynamically build fungicide options. Updated product field rendering for better user experience. Improved instructions.md for clarity on JSON upload issues.
 
 
 
@@ -226,7 +226,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, GH-105, GH-106.
 +12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
 +13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
-14.⁠ ⁠Spray log fungicide dropdowns aren’t there
++14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
 15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green.
 16.⁠ ⁠How can you select what greens/fairway results to generate a word report for?
 17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance
@@ -248,11 +248,10 @@ That’s what the current layout looks like when it produces the product recomme
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
-33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
++33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
 
 
-Looks like there is another problem - or in uploading or rerunning:
-⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
+
 
 ----
 

@@ -616,6 +616,12 @@
 @endsection
 
 @section('scripts')
+{{-- Fungicide databases for spray log product dropdown --}}
+@if($section === 'spray-log')
+<script src="{{ $legacyAssetUrl('au-fungicides.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nz-fungicides.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uk-fungicides.js') }}"></script>
+@endif
 {{-- Data table interaction --}}
 <script>
 (function () {
@@ -1165,6 +1171,8 @@
 
     var SECTION  = '{{ $section }}';
     var SITE_ID  = '{{ $activeSite?->id ?? '' }}';
+    var SITE_LAT = {{ $activeSite?->latitude ?? 'null' }};
+    var SITE_LNG = {{ $activeSite?->longitude ?? 'null' }};
     var CSRF     = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
     // ── CSV field mappings (column header → payload key) ─────────
@@ -1343,7 +1351,58 @@
         ],
     };
 
+    function _detectRegion(lat, lng) {
+        if (lat == null || lng == null) return 'au';
+        // Southern hemisphere
+        if (lat < 0 && lng > 165 && lng < 180) return 'nz';
+        if (lat < 0 && lng > 110 && lng <= 165) return 'au';
+        // Japan
+        if (lat > 24 && lat < 46 && lng > 123 && lng < 146) return 'japan';
+        // Europe
+        if (lat > 35 && lat < 72 && lng > -12 && lng < 45) {
+            if (lng > -11 && lng < 2 && lat > 49.9 && lat < 61.1) return 'uk';
+            if (lat > 55 && lng > 4 && lng < 32) return 'scandinavia';
+            return 'eu';
+        }
+        // USA
+        if (lat > 24 && lat < 72 && lng > -170 && lng < -50) return 'us';
+        return 'au';
+    }
+
+    function buildFungicideOpts() {
+        var region = _detectRegion(SITE_LAT, SITE_LNG);
+        var db;
+        if (region === 'nz') db = window.GAIP_NZ_FUNGICIDES && window.GAIP_NZ_FUNGICIDES.db;
+        if (!db && (region === 'uk' || region === 'eu')) db = window.GAIP_UK_FUNGICIDES && window.GAIP_UK_FUNGICIDES.db;
+        if (!db) db = window.GAIP_AU_FUNGICIDES && window.GAIP_AU_FUNGICIDES.db;
+        if (!db) return null;
+        var opts = [];
+        Object.keys(db).forEach(function(aiKey) {
+            var entry = db[aiKey];
+            if (!entry.products || !entry.products.length) return;
+            entry.products.forEach(function(p) {
+                var rateNum = String(p.rate || '').match(/[\d.]+/);
+                opts.push({ label: p.trade, ai: aiKey, frac: String(entry.frac || ''), rate: rateNum ? rateNum[0] : '' });
+            });
+        });
+        opts.sort(function(a, b) { return a.label.localeCompare(b.label); });
+        return opts;
+    }
+
     function renderSlProductField(cat) {
+        if (cat === 'fungicide') {
+            var fopts = buildFungicideOpts();
+            if (fopts && fopts.length) {
+                var fOptHtml = '<option value="">— Select product —</option>'
+                    + fopts.map(function(p) {
+                        return '<option value="' + esc(p.label) + '" data-ai="' + esc(p.ai) + '" data-rate="' + esc(p.rate) + '" data-unit="L/ha">' + esc(p.label) + '</option>';
+                    }).join('')
+                    + '<option value="__other__">— Enter manually —</option>';
+                return '<select class="dat-mf-select" id="dat-sl-product" style="width:100%">' + fOptHtml + '</select>'
+                    + '<input type="text" class="dat-mf-input" id="dat-sl-product-custom" placeholder="Product name" style="display:none;margin-top:6px">';
+            }
+            return '<input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. Heritage Maxx">';
+        }
         var presets = SPRAY_PRODUCT_PRESETS[cat];
         if (presets && presets.length) {
             var opts = '<option value="">— Select product —</option>'
@@ -1354,7 +1413,7 @@
             return '<select class="dat-mf-select" id="dat-sl-product" style="width:100%">' + opts + '</select>'
                 + '<input type="text" class="dat-mf-input" id="dat-sl-product-custom" placeholder="Product name" style="display:none;margin-top:6px">';
         }
-        return '<input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. Heritage Maxx">';
+        return '<input type="text" class="dat-mf-input" id="dat-sl-product" placeholder="e.g. product name">';
     }
 
     function updateSlProductField(cat) {
