@@ -206,6 +206,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-115** Implement DLI metrics display in dashboard: Added logic to calculate and display Daily Light Integral (DLI) metrics, including ambient DLI and target values, with color-coded status indicators. Updated HTML structure to present DLI information clearly in the dashboard panel.
 **GH-116** Enhance climate data handling in dashboard-init.js and hub-persistence.js: Improved logic for retrieving soil temperature values. Updated HTML rendering to ensure accurate display of soil temperature. 
 **GH-117** Refactor dashboard HTML rendering: Removed unused soil temperature display logic and simplified prefix string construction in dashboard-init.js. Updated badge label formatting in growth-light-analysis.js for clarity. Enhanced instructions.md with additional context on dashboard data consistency.
+**GH-118** Update site-config-persistence.js to prevent iframe context data push: Added a check to ensure that configurations are only pushed from the top window to avoid location bleed issues. Enhanced instructions.md with additional user feedback regarding JSON upload and sample name editing issues for improved clarity.
+
+
 
 
 
@@ -242,8 +245,14 @@ That’s what the current layout looks like when it produces the product recomme
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
 28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
-+30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107. 
++30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
+31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
+32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
+33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
 
+
+Looks like there is another problem - or in uploading or rerunning:
+⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
 
 ----
 

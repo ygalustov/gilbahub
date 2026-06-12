@@ -266,6 +266,11 @@
      * Push current _configs to server (debounced 2s to batch rapid switches).
      */
     function pushConfigsToServer() {
+        // Never push from an iframe context — the parent page owns the authoritative
+        // localStorage and server state. Pushing from an iframe (e.g. post-import
+        // analysis trigger) causes location bleed: all sites get the active site's
+        // location overwritten in the DB.
+        if (window !== window.top) return;
         var base = getApiBaseUrl();
         if (!base || typeof fetch === 'undefined') return;
         if (Object.keys(_configs).length === 0) return;
