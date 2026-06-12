@@ -1505,6 +1505,8 @@
             metrics.companionDisease = {
                 species:      _cd._companionSpecies      || null,
                 speciesLabel: _cd._companionDisplayName  || _cd._companionSpecies || null,
+                overallScore: _cd.overallScore != null ? Math.round(_cd.overallScore) : null,
+                overallRisk:  _cd.overallRisk  || null,
                 diseases: (_cd.diseases || [])
                     .filter(function(d) {
                         var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore != null ? d.riskScore : 0);
@@ -1520,11 +1522,36 @@
                     })
                     .slice(0, 5)
                     .map(function(d) {
+                        var tw = d.treatmentWindow || {};
+                        var rec = d.recommendation;
+                        var rawDrivers = d.drivers;
+                        var drivers = null;
+                        if (rawDrivers && typeof rawDrivers === 'object') {
+                            drivers = {};
+                            Object.keys(rawDrivers).forEach(function(k) {
+                                var dv = rawDrivers[k];
+                                if (dv && (dv.value != null || dv.contribution != null)) {
+                                    drivers[k] = {
+                                        value:       dv.value != null ? dv.value : null,
+                                        contribution: dv.contribution != null ? Math.round(dv.contribution) : null,
+                                    };
+                                }
+                            });
+                            if (!Object.keys(drivers).length) drivers = null;
+                        }
                         return {
-                            name:      d.displayName || d.name || d.disease,
-                            risk:      Math.round(d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0)),
-                            inWindow:  !!(d.treatmentWindow && d.treatmentWindow.inWindow),
-                            soilTemp:  d.treatmentWindow ? d.treatmentWindow.soilTemp : null,
+                            name:       d.displayName || d.name || d.disease,
+                            risk:       Math.round(d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0)),
+                            inWindow:   !!tw.inWindow,
+                            soilTemp:   tw.soilTemp != null ? tw.soilTemp : null,
+                            timing:     tw.timing || null,
+                            drivers:    drivers,
+                            recommendation: rec ? {
+                                action:    rec.action    || null,
+                                headline:  rec.headline  || rec.text || null,
+                                timing:    rec.timing    || null,
+                                products:  Array.isArray(rec.products) ? rec.products : [],
+                            } : null,
                         };
                     }),
             };

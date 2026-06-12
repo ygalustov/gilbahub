@@ -227,7 +227,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
 +13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 +14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
-15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green.
++15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121.
 16.⁠ ⁠How can you select what greens/fairway results to generate a word report for?
 17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance
 18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there

@@ -1146,12 +1146,18 @@
 
         var html = panelHero(level, cls, displayRisk + '% overall risk');
 
-        var makeRow = function (name, cur, pk, pd) {
+        var makeRow = function (name, cur, pk, pd, tw) {
             var pct  = cur || 0;
             var col  = pct >= 70 ? '#dc2626' : (pct >= 50 ? '#d97706' : '#16a34a');
             var sub  = pk != null && pd != null && pd > 0
                 ? 'Peak ' + pk + '% in ' + pd + ' day' + (pd !== 1 ? 's' : '')
                 : (pk != null ? 'Peak ' + pk + '%' : '');
+            var win  = '';
+            if (tw && tw.inWindow) {
+                win = '<span style="font-size:10px;color:#b45309;font-weight:600;margin-left:4px">Window open' + (tw.soilTemp != null ? ' · ' + tw.soilTemp + '°C' : '') + '</span>';
+            } else if (tw && tw.timing) {
+                win = '<span style="font-size:10px;color:var(--gaip-text-secondary);margin-left:4px">' + tw.timing + '</span>';
+            }
             return '<div class="db-disease-row">' +
                 '<div class="db-disease-row-head">' +
                 '<span class="db-disease-row-name">' + name + '</span>' +
@@ -1159,6 +1165,7 @@
                 '</div>' +
                 '<div class="db-progress-bar" style="margin:0 0 4px"><div class="db-progress-fill" style="width:' + Math.min(pct,100) + '%;background:' + col + '"></div></div>' +
                 (sub ? '<div class="db-disease-row-sub">' + sub + '</div>' : '') +
+                (win  ? '<div>' + win + '</div>' : '') +
                 '</div>';
         };
 
@@ -1175,11 +1182,11 @@
                 var name = d.displayName || d.name || d.disease || 'Unknown';
                 var cur  = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.riskScore != null ? Math.round(d.riskScore) : (d.current != null ? Math.round(d.current) : null));
                 var pk   = d.peakRisk     != null ? Math.round(d.peakRisk)     : null;
-                return makeRow(name, cur, pk, d.peakDay != null ? d.peakDay : null);
+                return makeRow(name, cur, pk, d.peakDay != null ? d.peakDay : null, d.treatmentWindow || null);
             }).join('');
             html += panelSection('Disease Breakdown', rows);
         } else if (m && m.topDisease) {
-            html += panelSection('Disease Breakdown', makeRow(m.topDisease, risk, peak, m.peakDay || null));
+            html += panelSection('Disease Breakdown', makeRow(m.topDisease, risk, peak, m.peakDay || null, null));
         }
 
         if (peak != null && m && m.peakDay != null) {

@@ -236,7 +236,8 @@
             var score = d.adjustedRisk != null ? d.adjustedRisk
                       : (d.riskScore   != null ? d.riskScore
                       : (d.risk        != null ? d.risk : 0));
-            return r !== 'none' && r !== '' && score > 0;
+            var inWindow = d.treatmentWindow && d.treatmentWindow.inWindow;
+            return (r !== 'none' && r !== '' && score > 0) || inWindow;
         });
     }
 
@@ -731,7 +732,15 @@
     // ── Render: recommendations block ─────────────────────────────────────────
 
     function renderDiseaseRecommendations(diseases) {
-        if (!diseases || diseases.length === 0) {
+        var dd = global.GAIP_DASHBOARD_DATA;
+        var cd = dd && dd.metrics && dd.metrics.companionDisease;
+        var companionDiseases = cd && cd.diseases ? cd.diseases.filter(function(d) { return d.risk > 0 || d.inWindow; }) : [];
+        var companionLabel = cd ? esc(cd.speciesLabel || cd.species || 'Fairway / Tee') : '';
+
+        var hasGreens    = diseases && diseases.length > 0;
+        var hasCompanion = companionDiseases.length > 0;
+
+        if (!hasGreens && !hasCompanion) {
             return [
                 '<div class="gl-block">',
                 '  <div class="gl-block-header">',
@@ -745,44 +754,60 @@
             ].join('\n');
         }
 
-        var items = [];
-        diseases.forEach(function (disease) {
-            var name  = disease.displayName || disease.disease || disease.name || 'Unknown';
-            var level = (disease.riskLevel || disease.level || '').toLowerCase();
-            var rec   = disease.recommendation;
-
+        function buildRecItem(name, level, rec, labelPrefix) {
             var action, headline, timing;
             if (rec) {
                 action   = (rec.action || '').toLowerCase();
                 headline = rec.headline || rec.text || '';
                 timing   = rec.timing || '';
             } else {
-                action   = (level === 'severe' || level === 'high') ? 'curative' : level === 'moderate' ? 'preventive' : 'monitor';
+                action   = (level === 'severe' || level === 'high') ? 'curative'
+                         : level === 'moderate' ? 'preventive' : 'monitor';
                 headline = '';
                 timing   = '';
             }
-
             var cls      = ACTION_REC_CLASS[action] || 'monitor';
             var icon     = ACTION_ICON[action] || '✓';
             var products = rec && Array.isArray(rec.products) && rec.products.length ? rec.products : [];
-
-            items.push(
-                '<div class="gl-rec ' + cls + '">' +
-                '<div class="gl-rec-priority">' + esc(name) + '</div>' +
+            var prefix   = labelPrefix ? '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-right:4px">' + labelPrefix + ' · </span>' : '';
+            return '<div class="gl-rec ' + cls + '">' +
+                '<div class="gl-rec-priority">' + prefix + esc(name) + '</div>' +
                 icon + ' ' + capitalize(rec ? (rec.action || 'Monitor') : action) +
                 (timing ? ' <span style="font-weight:400;opacity:.75">· ' + esc(timing) + '</span>' : '') +
                 (headline ? '<div style="margin-top:4px;opacity:.85">' + esc(headline) + '</div>' : '') +
                 (products.length ? '<div style="margin-top:4px;font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(products.join(', ')) + '</div>' : '') +
-                '</div>'
-            );
-        });
+                '</div>';
+        }
+
+        var items = [];
+
+        if (hasGreens) {
+            if (hasCompanion) {
+                items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-bottom:8px">Greens</div>');
+            }
+            diseases.forEach(function (disease) {
+                var name  = disease.displayName || disease.disease || disease.name || 'Unknown';
+                var level = (disease.riskLevel || disease.level || '').toLowerCase();
+                items.push(buildRecItem(name, level, disease.recommendation || null, null));
+            });
+        }
+
+        if (hasCompanion) {
+            items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-top:12px;margin-bottom:8px;padding-top:12px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">' + companionLabel + ' — Fairway / Tee</div>');
+            companionDiseases.forEach(function (d) {
+                var level = _companionRiskLevel(d.risk || 0);
+                items.push(buildRecItem(d.name || '', level, d.recommendation || null, null));
+            });
+        }
+
+        var totalCount = (hasGreens ? diseases.length : 0) + companionDiseases.length;
 
         return [
             '<div class="gl-block">',
             '  <div class="gl-block-header">',
             '    <div class="gl-block-accent"></div>',
             '    <div class="gl-block-title">Recommendations</div>',
-            '    <div class="gl-block-sub">' + items.length + ' action' + (items.length !== 1 ? 's' : '') + '</div>',
+            '    <div class="gl-block-sub">' + totalCount + ' action' + (totalCount !== 1 ? 's' : '') + '</div>',
             '  </div>',
             '  <div class="gl-block-body">',
             '    <div class="gl-rec-list">',
@@ -988,110 +1013,187 @@
 
     // ── Companion disease block (fairway/tee parallel analysis) ─────────────
 
-    function renderCompanionDiseaseBlock() {
-        var dd   = global.GAIP_DASHBOARD_DATA;
-        var cd   = dd && dd.metrics && dd.metrics.companionDisease;
+    var _companionSelectedIdx = 0;
 
-        // Fall back to live result if persistence hasn't run yet
-        if (!cd) {
-            var live = global.GAIP_COMPANION_DISEASE_RESULT;
-            if (live && live._companionSurface && Array.isArray(live.diseases) && live.diseases.length) {
-                var relevant = live.diseases.filter(function (d) {
-                    var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0);
-                    return r > 15 || (d.treatmentWindow && d.treatmentWindow.inWindow);
-                });
-                relevant.sort(function (a, b) {
-                    var aW = (a.treatmentWindow && a.treatmentWindow.inWindow) ? 1 : 0;
-                    var bW = (b.treatmentWindow && b.treatmentWindow.inWindow) ? 1 : 0;
-                    if (bW !== aW) return bW - aW;
-                    return ((b.adjustedRisk != null ? b.adjustedRisk : b.riskScore) || 0) -
-                           ((a.adjustedRisk != null ? a.adjustedRisk : a.riskScore) || 0);
-                });
-                cd = {
-                    species: live._companionSpecies || null,
-                    speciesLabel: live._companionDisplayName || live._companionSpecies || null,
-                    diseases: relevant.slice(0, 6).map(function (d) {
-                        var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore || 0);
-                        var tw = d.treatmentWindow || {};
-                        return {
-                            name:       d.displayName || d.name || '',
-                            risk:       Math.round(r),
-                            inWindow:   tw.inWindow || false,
-                            soilTemp:   tw.soilTemp != null ? tw.soilTemp : null,
-                            timing:     tw.timing   || null,
-                            estimated:  tw.soilTempEstimated || false
-                        };
-                    })
-                };
-            }
+    // Derive risk level string from a numeric percentage
+    function _companionRiskLevel(pct) {
+        if (pct >= 70) return 'high';
+        if (pct >= 50) return 'moderate';
+        if (pct > 0)   return 'low';
+        return 'low';
+    }
+
+    function _renderCompanionLeft(diseases, overallScore, overallRisk) {
+        var html = '';
+        if (overallScore != null || overallRisk) {
+            var oc = riskColor(overallRisk || '');
+            html += '<div class="gl-block" style="background:' + oc.bg + ';border-color:' + oc.border + ';margin-bottom:16px">' +
+                '<div class="gl-block-body">' +
+                '<div class="gl-section-label" style="color:' + oc.text + ';margin-top:0">Overall Disease Risk ' + infoBtn('dr-overall') + '</div>' +
+                '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">' +
+                '<span style="font-size:36px;font-weight:800;color:' + oc.badge + ';line-height:1">' +
+                (overallScore != null ? overallScore + '%' : (capitalize(overallRisk) || '—')) + '</span>' +
+                riskBadge(overallRisk || '') +
+                '</div>' +
+                '</div></div>';
+        }
+        if (!diseases || !diseases.length) {
+            return html + '<div style="padding:20px;text-align:center;color:#5b6a65;font-size:13px">No active disease threats detected.</div>';
+        }
+        html += '<div class="gl-section-label">Active Threats</div>';
+        diseases.forEach(function (d, idx) {
+            var level = _companionRiskLevel(d.risk || 0);
+            var dc    = riskColor(level);
+            var isSelected = _companionSelectedIdx === idx;
+            html += '<button onclick="drSelectCompanion(' + idx + ')" class="dr-disease-btn' +
+                (isSelected ? ' active' : '') + '"' +
+                (isSelected ? ' style="border-color:' + dc.badge + ';background:' + dc.bg + '"' : '') + '>';
+            html += '<div style="display:flex;align-items:center;gap:8px;min-width:0">' +
+                '<span style="width:8px;height:8px;border-radius:50%;background:' + dc.badge + ';flex-shrink:0"></span>' +
+                '<span style="font-size:13px;font-weight:600;color:#17231f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + esc(d.name || '') + '</span>' +
+                '</div>';
+            html += '<span style="font-size:13px;font-weight:700;color:' + dc.badge + ';flex-shrink:0;margin-left:8px">' + (d.risk || 0) + '%</span>';
+            html += '</button>';
+        });
+        return html;
+    }
+
+    function _renderCompanionRight(d) {
+        if (!d) return '<div class="gl-block"><div class="gl-block-body" style="padding:60px 20px;text-align:center;color:#9ca3af;font-size:13px">Select a disease from the list.</div></div>';
+
+        var risk  = d.risk || 0;
+        var level = _companionRiskLevel(risk);
+        var dc    = riskColor(level);
+
+        var html = '<div class="gl-block">';
+        html += '<div class="gl-block-header">';
+        html += '<div class="gl-block-accent" style="background:' + dc.badge + '"></div>';
+        html += '<div class="gl-block-title">' + esc(d.name || '') + '</div>';
+        html += '<div class="gl-block-sub" style="display:flex;align-items:center;gap:8px">';
+        html += '<span style="font-size:22px;font-weight:800;color:' + dc.badge + ';line-height:1">' + risk + '%</span>';
+        html += riskBadge(level);
+        html += '</div>';
+        html += '</div>';
+        html += '<div class="gl-block-body">';
+
+        // Environmental Drivers
+        var drivers = d.drivers;
+        if (drivers && typeof drivers === 'object' && Object.keys(drivers).length > 0) {
+            html += '<div class="gl-section-label">Environmental Drivers</div>';
+            Object.keys(drivers).forEach(function(key) {
+                var dv      = drivers[key];
+                var contrib = dv.contribution != null ? Math.round(dv.contribution) : null;
+                var val     = dv.value != null ? dv.value : null;
+                var label   = driverLabel(key);
+                if (contrib == null && val == null) return;
+                var barColor = contrib >= 70 ? '#ef4444' : contrib >= 40 ? '#f97316' : '#eab308';
+                html += '<div style="margin-bottom:12px">';
+                html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
+                html += '<span style="font-size:12px;color:#374151">' + esc(label) + '</span>';
+                html += '<span style="font-size:12px;font-weight:600;color:#17231f">';
+                if (val != null) html += esc(String(val));
+                if (contrib != null) html += (val != null ? ' · ' : '') + contrib + '% contribution';
+                html += '</span>';
+                html += '</div>';
+                if (contrib != null) {
+                    html += '<div class="dr-driver-bar"><div class="dr-driver-fill" style="width:' +
+                            Math.min(contrib, 100) + '%;background:' + barColor + '"></div></div>';
+                }
+                html += '</div>';
+            });
+            html += '<hr class="gl-section-sep">';
         }
 
+        // Recommendation (same format as main analysis)
+        var rec = d.recommendation;
+        if (rec) {
+            var action   = (rec.action || '').toLowerCase();
+            var recClass = ACTION_REC_CLASS[action] || 'monitor';
+            var recIcon  = ACTION_ICON[action]  || '✓';
+            html += '<div class="gl-section-label">Recommendation</div>';
+            html += '<div class="gl-rec ' + recClass + '">';
+            html += '<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:700">';
+            html += '<span>' + recIcon + ' ' + capitalize(rec.action || 'Monitor') + '</span>';
+            if (rec.timing) html += '<span style="font-weight:400;opacity:.75">· ' + esc(rec.timing) + '</span>';
+            html += '</div>';
+            if (rec.headline) html += '<div style="line-height:1.5' + (rec.products && rec.products.length ? ';margin-bottom:8px' : '') + '">' + esc(rec.headline) + '</div>';
+            if (rec.products && rec.products.length) {
+                html += '<div style="font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(rec.products.join(', ')) + '</div>';
+            }
+            html += '</div>';
+        }
+
+        // Treatment window (when no recommendation or as supplement)
+        if (d.inWindow && !rec) {
+            var st = d.soilTemp != null ? ' · Soil ' + d.soilTemp + '°C' : '';
+            html += '<div class="gl-section-label">Treatment Window</div>';
+            html += '<div class="gl-rec week" style="margin-bottom:12px">';
+            html += '<div style="font-weight:700;margin-bottom:4px">⚠ Window Open' + esc(st) + '</div>';
+            html += '<div style="line-height:1.5">Apply a preventive fungicide now — conditions are within the treatment window.</div>';
+            html += '</div>';
+        } else if (d.timing && !rec) {
+            html += '<div class="gl-section-label">Timing</div>';
+            html += '<div style="font-size:13px;color:var(--gaip-text);margin-bottom:12px">' + esc(d.timing) + (d.soilTemp != null ? ' · Soil ' + d.soilTemp + '°C' : '') + '</div>';
+        }
+
+        html += '<div style="font-size:11px;color:var(--gaip-text-secondary);padding-top:12px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">';
+        html += 'Calculated from the same weather data as the greens analysis. Greens soil and tissue inputs are not applied.';
+        html += '</div>';
+        html += '</div></div>';
+        return html;
+    }
+
+    function renderCompanionDiseaseBlock() {
+        var dd = global.GAIP_DASHBOARD_DATA;
+        var cd = dd && dd.metrics && dd.metrics.companionDisease;
         if (!cd || !cd.diseases || !cd.diseases.length) return '';
 
         var speciesLabel = esc(cd.speciesLabel || cd.species || 'Fairway / Tee');
-
-        var rows = '';
-        cd.diseases.forEach(function (d) {
-            var risk   = d.risk || 0;
-            var colour = risk >= 70 ? 'var(--gaip-critical,#ef4444)'
-                       : risk >= 40 ? 'var(--gaip-warning,#f59e0b)'
-                       :              'var(--gaip-good,#22c55e)';
-            var label  = risk >= 70 ? 'High' : risk >= 40 ? 'Moderate' : 'Low';
-            var barW   = Math.min(risk, 100);
-
-            var windowNote = '';
-            if (d.inWindow) {
-                var st = d.soilTemp != null ? ' — soil ' + d.soilTemp + '°C' + (d.estimated ? ' (est.)' : '') : '';
-                windowNote = '<div style="font-size:11px;color:#b45309;font-weight:600;margin-top:2px">Treatment window open' + esc(st) + '</div>';
-            } else if (d.timing) {
-                windowNote = '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-top:2px">' + esc(d.timing) + '</div>';
-            } else if (d.soilTemp != null) {
-                windowNote = '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-top:2px">Soil ' + d.soilTemp + '°C' + (d.estimated ? ' (est.)' : '') + '</div>';
-            }
-
-            rows +=
-                '<div style="padding:8px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
-                    '<div style="display:flex;align-items:center;justify-content:space-between;gap:12px">' +
-                        '<div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0">' +
-                            '<span style="width:10px;height:10px;border-radius:50%;background:' + colour + ';flex-shrink:0;display:inline-block"></span>' +
-                            '<span style="font-size:13px;font-weight:600;color:var(--gaip-text)">' + esc(d.name) + '</span>' +
-                        '</div>' +
-                        '<span style="font-size:12px;font-weight:700;color:' + colour + ';white-space:nowrap">' + label + ' (' + risk + '%)</span>' +
-                    '</div>' +
-                    '<div style="margin:5px 0 0 18px">' +
-                        '<div style="height:4px;border-radius:2px;background:var(--gaip-border-light,#e8eeeb);overflow:hidden">' +
-                            '<div style="height:100%;width:' + barW + '%;background:' + colour + ';border-radius:2px;transition:width .3s"></div>' +
-                        '</div>' +
-                    '</div>' +
-                    (windowNote ? '<div style="margin-left:18px">' + windowNote + '</div>' : '') +
-                '</div>';
-        });
+        var diseases = cd.diseases
+            .filter(function (d) { return d.risk > 0 || d.inWindow; })
+            .sort(function(a, b) { return (b.risk || 0) - (a.risk || 0); });
 
         var divider =
             '<div style="display:flex;align-items:center;gap:16px;margin:32px 0 20px">' +
             '<div style="flex:1;height:1px;background:var(--gaip-border-light,#e8eeeb)"></div>' +
-            '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);white-space:nowrap">Fairway / Tee Analysis</span>' +
+            '<span style="font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);white-space:nowrap">Fairway / Tee — ' + speciesLabel + '</span>' +
             '<div style="flex:1;height:1px;background:var(--gaip-border-light,#e8eeeb)"></div>' +
             '</div>';
 
+        if (!diseases.length) {
+            return divider +
+                '<div style="padding:20px;text-align:center;color:var(--gaip-text-secondary,#6b7280);font-size:13px">' +
+                'No active disease threats detected for ' + speciesLabel + ' under current conditions.' +
+                '</div>';
+        }
+
+        if (_companionSelectedIdx >= diseases.length) _companionSelectedIdx = 0;
+
+        var overallScore = cd.overallScore != null ? Math.round(cd.overallScore) : null;
+        var overallRisk  = cd.overallRisk  || (overallScore != null ? (overallScore >= 70 ? 'high' : overallScore >= 50 ? 'moderate' : overallScore > 0 ? 'low' : 'none') : '');
+
         return divider +
-            '<div class="gl-block">' +
-            '<div class="gl-block-header">' +
-            '<div class="gl-block-accent" style="background:var(--gaip-info,#3b82f6)"></div>' +
-            '<div class="gl-block-title">' + speciesLabel + ' — Disease Risk' +
-            '</div>' +
-            '<span class="gl-block-sub">Companion surface · same weather data as greens analysis</span>' +
-            '</div>' +
-            '<div class="gl-block-body">' +
-            '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px;line-height:1.5">' +
-            'Greens soil and tissue inputs are not applied to this assessment.' +
-            '</p>' +
-            rows +
-            '<div style="font-size:11px;color:var(--gaip-text-muted,#9ca3af);margin-top:10px;padding-top:8px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">' +
-            'Species configured in Settings → Turf Identity → Fairway / Tee species.' +
-            '</div>' +
-            '</div></div>';
+            '<div class="dr-split" id="dr-companion-split">' +
+            '<div id="dr-companion-left">' + _renderCompanionLeft(diseases, overallScore, overallRisk) + '</div>' +
+            '<div id="dr-companion-right">' + _renderCompanionRight(diseases[_companionSelectedIdx]) + '</div>' +
+            '</div>';
     }
+
+    global.drSelectCompanion = function (idx) {
+        var dd = global.GAIP_DASHBOARD_DATA;
+        var cd = dd && dd.metrics && dd.metrics.companionDisease;
+        if (!cd || !cd.diseases) return;
+        var diseases = cd.diseases
+            .filter(function (d) { return d.risk > 0 || d.inWindow; })
+            .sort(function(a, b) { return (b.risk || 0) - (a.risk || 0); });
+        var overallScore = cd.overallScore != null ? Math.round(cd.overallScore) : null;
+        var overallRisk  = cd.overallRisk  || (overallScore != null ? (overallScore >= 70 ? 'high' : overallScore >= 50 ? 'moderate' : overallScore > 0 ? 'low' : 'none') : '');
+        _companionSelectedIdx = idx;
+        var leftEl  = document.getElementById('dr-companion-left');
+        var rightEl = document.getElementById('dr-companion-right');
+        if (leftEl)  leftEl.innerHTML  = _renderCompanionLeft(diseases, overallScore, overallRisk);
+        if (rightEl) rightEl.innerHTML = _renderCompanionRight(diseases[idx] || null);
+    };
 
     // ── Forecast chart (async, Open Meteo + DiseaseForecast) ─────────────────
 
