@@ -781,38 +781,56 @@
 
         var items = [];
 
+        function isActionable(rec) {
+            return !rec || (rec.action || '').toLowerCase() !== 'none';
+        }
+
+        var greensItems = [];
         if (hasGreens) {
-            if (hasCompanion) {
-                items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-bottom:8px">Greens</div>');
-            }
             diseases.forEach(function (disease) {
+                if (!isActionable(disease.recommendation)) return;
                 var name  = disease.displayName || disease.disease || disease.name || 'Unknown';
                 var level = (disease.riskLevel || disease.level || '').toLowerCase();
-                items.push(buildRecItem(name, level, disease.recommendation || null, null));
+                greensItems.push(buildRecItem(name, level, disease.recommendation || null, null));
             });
         }
 
+        var companionItems = [];
         if (hasCompanion) {
-            items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-top:12px;margin-bottom:8px;padding-top:12px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">' + companionLabel + ' — Fairway / Tee</div>');
             companionDiseases.forEach(function (d) {
+                if (!isActionable(d.recommendation)) return;
                 var level = _companionRiskLevel(d.risk || 0);
-                items.push(buildRecItem(d.name || '', level, d.recommendation || null, null));
+                companionItems.push(buildRecItem(d.name || '', level, d.recommendation || null, null));
             });
         }
 
-        var totalCount = (hasGreens ? diseases.length : 0) + companionDiseases.length;
+        var showGreensLabel = greensItems.length > 0 && companionItems.length > 0;
+
+        if (greensItems.length > 0) {
+            if (showGreensLabel) {
+                items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-bottom:8px">Greens</div>');
+            }
+            greensItems.forEach(function(i) { items.push(i); });
+        }
+
+        if (companionItems.length > 0) {
+            items.push('<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary);margin-top:12px;margin-bottom:8px;padding-top:12px;border-top:1px solid var(--gaip-border-light,#e8eeeb)">' + companionLabel + ' — Fairway / Tee</div>');
+            companionItems.forEach(function(i) { items.push(i); });
+        }
+
+        var totalCount = greensItems.length + companionItems.length;
 
         return [
             '<div class="gl-block">',
             '  <div class="gl-block-header">',
             '    <div class="gl-block-accent"></div>',
             '    <div class="gl-block-title">Recommendations</div>',
-            '    <div class="gl-block-sub">' + totalCount + ' action' + (totalCount !== 1 ? 's' : '') + '</div>',
+            totalCount > 0 ? '    <div class="gl-block-sub">' + totalCount + ' action' + (totalCount !== 1 ? 's' : '') + '</div>' : '',
             '  </div>',
             '  <div class="gl-block-body">',
-            '    <div class="gl-rec-list">',
-            items.join('\n'),
-            '    </div>',
+            totalCount > 0
+                ? '    <div class="gl-rec-list">' + items.join('\n') + '    </div>'
+                : '    <div style="color:#5b6a65;font-style:italic;text-align:center;padding:24px 20px">No action required — continue regular scouting.</div>',
             '  </div>',
             '</div>'
         ].join('\n');

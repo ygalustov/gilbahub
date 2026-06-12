@@ -209,7 +209,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-118** Update site-config-persistence.js to prevent iframe context data push: Added a check to ensure that configurations are only pushed from the top window to avoid location bleed issues. Enhanced instructions.md with additional user feedback regarding JSON upload and sample name editing issues for improved clarity.
 **GH-119** Enhance fungicide selection and regional detection in data view: Added scripts for fungicide databases based on the spray log section. Implemented region detection logic using site latitude and longitude to dynamically build fungicide options. Updated product field rendering for better user experience. Improved instructions.md for clarity on JSON upload issues.
 **GH-120** Implement companion surface disease analysis feature: Added UI elements for selecting companion species in settings, updated dashboard to display disease risk for fairway/tee surfaces, and enhanced data handling for companion disease metrics in various scripts. Improved visibility logic for companion species selection based on turf type.
-
+**GH-121** Enhance disease analysis and treatment window display: Updated dashboard-init.js to include treatment window information in disease rows, improved disease analysis logic in disease-analysis.js to account for companion diseases, and enhanced data persistence in hub-persistence.js to include overall scores and risk metrics. Updated instructions.md for clarity on recent changes.
+**GH-122** Refactor disease analysis logic in disease-analysis.js: Introduced isActionable function to filter actionable recommendations, separated greens and companion items for clearer display, and improved total count logic for recommendations. Enhanced UI rendering to handle cases with no actions required.
 
 
 ## Backlog
