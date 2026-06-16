@@ -91,6 +91,7 @@
 </div>
 
 @yield('overlays')
+<script>window.GAIP_SpeciesData = { speciesByType: @json($speciesData ?? []) };</script>
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
 @yield('scripts')
 

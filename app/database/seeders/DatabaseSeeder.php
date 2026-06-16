@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
+use Database\Seeders\SpeciesDefinitionSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -19,6 +20,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(SpeciesDefinitionSeeder::class);
+
         $user = User::query()->updateOrCreate(
             ['email' => 'yuryg@gethydrosight.com.au'],
             [

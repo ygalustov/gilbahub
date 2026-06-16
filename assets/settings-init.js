@@ -359,8 +359,19 @@
         hEl.value = isNaN(v) ? '' : (v < 0 ? 'Southern' : 'Northern');
     }
     var _latInput = document.getElementById('stg-latitude');
+    var _lonInput = document.getElementById('stg-longitude');
     if (_latInput) {
         _latInput.addEventListener('input', function () { updateHemisphere(this.value); });
+        _latInput.addEventListener('change', function () {
+            repopulateSpeciesOptions(turfSpeciesEl ? turfSpeciesEl.value : '');
+            repopulateVariety(turfSpeciesEl && turfSpeciesEl.value, turfVarietyEl && turfVarietyEl.value);
+        });
+    }
+    if (_lonInput) {
+        _lonInput.addEventListener('change', function () {
+            repopulateSpeciesOptions(turfSpeciesEl ? turfSpeciesEl.value : '');
+            repopulateVariety(turfSpeciesEl && turfSpeciesEl.value, turfVarietyEl && turfVarietyEl.value);
+        });
     }
 
     /* ── Turf profile ───────────────────────────────────────── */
@@ -379,37 +390,122 @@
         'Creeping Bentgrass':           'bentgrass',
         'Colonial Bentgrass':           'bentgrass',
         'Browntop Bent':                'browntopBent',
+        'Browntop Bent (Greens)':       'browntopBent',
         'Perennial Ryegrass':           'perennialRyegrass',
         'Kentucky Bluegrass':           'kentuckyBluegrass',
         'Tall Fescue':                  'tallFescue',
         'Fine Fescue':                  'fineFescue',
         'Chewings Fescue':              'chewingsFescue',
         'Chewings Fescue (Greens)':     'chewingsFescue',
+        'Chewings Fescue (Fairways)':   'chewingsFescue',
         'Slender Creeping Red Fescue':  'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Greens)':  'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Fairways)': 'slenderCreepingRedFescue',
         'Strong Creeping Red Fescue':   'strongCreepingRedFescue',
+        'Strong Creeping Red Fescue (Fairways)':  'strongCreepingRedFescue',
         'Poa annua':                    null,
+        'Annual Bluegrass (Greens)':    null,
+        'Annual Bluegrass (Fairway)':   null,
         'Couch':                        'couch',
         'Bermuda':                      'couch',
         'Kikuyu':                       'kikuyu',
         'Zoysia':                       'zoysia',
         'Seashore Paspalum':            'seashore_paspalum',
         'Buffalo':                      'buffalo',
+        'Buffalograss':                 'buffalo',
+        'Cotula':                       null,
     };
+
+    function _normalizeRegion(regionId) {
+        if (!regionId) return null;
+        if (regionId.indexOf('australia') === 0) return 'australia';
+        return regionId;
+    }
+
+    function _detectRegionFromForm() {
+        var lat = parseFloat((document.getElementById('stg-latitude') || {}).value);
+        var lon = parseFloat((document.getElementById('stg-longitude') || {}).value);
+        if (isNaN(lat) || isNaN(lon)) return null;
+        if (window.GAIP_RegionalProfiles && typeof window.GAIP_RegionalProfiles.detectRegion === 'function') {
+            return window.GAIP_RegionalProfiles.detectRegion(lat, lon);
+        }
+        if (lat < 0 && lon >= 113 && lon <= 154) return 'australia_temperate';
+        if (lat < 0 && lon >= 166 && lon <= 179) return 'new_zealand';
+        if (lat >= 49 && lat <= 61 && lon >= -12 && lon <= 2) return 'uk_ireland';
+        if (lat >= 54 && lon >= 4 && lon <= 32) return 'scandinavia';
+        return null;
+    }
+
+    function _isC4Viable() {
+        // turf-profile-controller.js isC4Viable(): |lat| < 45
+        var lat = parseFloat((document.getElementById('stg-latitude') || {}).value);
+        if (isNaN(lat)) return true;
+        return Math.abs(lat) < 45;
+    }
+
+    function repopulateSpeciesOptions(savedSpecies) {
+        if (!turfSpeciesEl) return;
+        var turfType  = turfTypeEl ? turfTypeEl.value : '';
+        var subCat    = turfSubEl  ? turfSubEl.value  : '';
+        var rawRegion = _detectRegionFromForm();
+        var c4Viable  = _isC4Viable();
+
+        // Match turf-profile-controller.js getSpeciesOptions()
+        var sbt = (window.GAIP_SpeciesData && window.GAIP_SpeciesData.speciesByType) || {};
+        var group = null;
+        if (turfType === 'golf' && subCat) group = sbt.golf && sbt.golf[subCat];
+        else if (turfType === 'sports')    group = sbt.sports;
+        else if (turfType === 'lawns')     group = sbt.lawns;
+
+        // turf-profile-controller.js filterByRegion(): include if no regions[] OR region matches
+        function filterByRegion(sp) {
+            if (!sp.regions) return true;
+            if (!rawRegion) return true;
+            return sp.regions.indexOf(rawRegion) !== -1;
+        }
+
+        // C3 first, then C4 (matches old hub order)
+        var options = [];
+        if (group) {
+            options = options.concat((group.c3 || []).filter(filterByRegion));
+            if (c4Viable) options = options.concat((group.c4 || []).filter(filterByRegion));
+        }
+
+        turfSpeciesEl.innerHTML = '<option value="">— select —</option>';
+        options.forEach(function (sp) {
+            var o = document.createElement('option');
+            o.value = sp.value;
+            o.textContent = sp.label;
+            if (sp.value === savedSpecies) o.selected = true;
+            turfSpeciesEl.appendChild(o);
+        });
+
+        // Never lose a saved species that's not in the filtered list
+        if (savedSpecies && !options.some(function (sp) { return sp.value === savedSpecies; })) {
+            var o = document.createElement('option');
+            o.value = savedSpecies;
+            o.textContent = savedSpecies;
+            o.selected = true;
+            turfSpeciesEl.insertBefore(o, turfSpeciesEl.children[1] || null);
+        }
+    }
 
     function repopulateVariety(species, selectedValue) {
         if (!turfVarietyEl) return;
-        var vt = window.GAIP_VARIETY_TRAITS;
         var key = _speciesTraitsKey[species];
         var varieties = [{ value: 'generic', label: 'Generic / Unknown' }];
+
+        var vt = window.GAIP_VARIETY_TRAITS;
         if (vt && key && vt[key]) {
-            Object.keys(vt[key]).forEach(function(name) {
+            Object.keys(vt[key]).forEach(function (name) {
                 if (name.startsWith('_')) return;
                 var v = vt[key][name];
                 varieties.push({ value: name, label: (v && v.displayName) || name });
             });
         }
+
         turfVarietyEl.innerHTML = '';
-        varieties.forEach(function(v) {
+        varieties.forEach(function (v) {
             var o = document.createElement('option');
             o.value = v.value;
             o.textContent = v.label;
@@ -418,7 +514,7 @@
         });
         // If saved variety not in list, prepend it
         if (selectedValue && selectedValue !== 'generic' &&
-            !varieties.some(function(v) { return v.value === selectedValue; })) {
+            !varieties.some(function (v) { return v.value === selectedValue; })) {
             var o = document.createElement('option');
             o.value = selectedValue;
             o.textContent = selectedValue;
@@ -432,14 +528,10 @@
         'Cool-season (C3)': ['Perennial Ryegrass', 'Annual Ryegrass', 'Tall Fescue', 'Fine Fescue', 'Kentucky Bluegrass', 'Creeping Bentgrass'],
     };
 
+    var _C4_VALUES = ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo', 'Buffalograss'];
     function getPrimarySpeciesType() {
         if (!turfSpeciesEl || !turfSpeciesEl.value) return null;
-        var opt = turfSpeciesEl.options[turfSpeciesEl.selectedIndex];
-        if (!opt || !opt.parentNode || opt.parentNode.tagName !== 'OPTGROUP') return null;
-        var label = opt.parentNode.label || '';
-        if (label.indexOf('C4') !== -1) return 'c4';
-        if (label.indexOf('C3') !== -1) return 'c3';
-        return null;
+        return _C4_VALUES.indexOf(turfSpeciesEl.value) !== -1 ? 'c4' : 'c3';
     }
 
     var turfOverseedEl = document.getElementById('stg-turf-cool-overseed');
@@ -465,10 +557,10 @@
         });
     }
 
+    var _savedSpecies = turfSpeciesEl ? (turfSpeciesEl.dataset.savedSpecies || '') : '';
+    var _initVariety  = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || 'generic';
+
     if (turfSpeciesEl) {
-        var _initVariety = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.variety) || 'generic';
-        repopulateVariety(turfSpeciesEl.value, _initVariety);
-        repopulateOverseedOptions();
         turfSpeciesEl.addEventListener('change', function () {
             repopulateVariety(turfSpeciesEl.value, 'generic');
             repopulateOverseedOptions();
@@ -524,16 +616,23 @@
     if (turfTypeEl) {
         var _initSub = (D.gaipConfig && D.gaipConfig.turf && D.gaipConfig.turf.subCategory) || '';
         repopulateSubcategory(turfTypeEl.value, _initSub);
+        repopulateSpeciesOptions(_savedSpecies);
+        repopulateVariety(turfSpeciesEl ? turfSpeciesEl.value : '', _initVariety);
+        repopulateOverseedOptions();
         updateTrafficTabVisibility(turfTypeEl.value);
         updateCompanionRowVisibility();
         turfTypeEl.addEventListener('change', function () {
             repopulateSubcategory(turfTypeEl.value, '');
             updateTrafficTabVisibility(turfTypeEl.value);
             updateCompanionRowVisibility();
+            repopulateSpeciesOptions('');
         });
     }
     if (turfSubEl) {
-        turfSubEl.addEventListener('change', updateCompanionRowVisibility);
+        turfSubEl.addEventListener('change', function () {
+            updateCompanionRowVisibility();
+            repopulateSpeciesOptions('');
+        });
     }
 
     if (turfForm) {

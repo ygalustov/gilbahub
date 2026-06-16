@@ -211,6 +211,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-120** Implement companion surface disease analysis feature: Added UI elements for selecting companion species in settings, updated dashboard to display disease risk for fairway/tee surfaces, and enhanced data handling for companion disease metrics in various scripts. Improved visibility logic for companion species selection based on turf type.
 **GH-121** Enhance disease analysis and treatment window display: Updated dashboard-init.js to include treatment window information in disease rows, improved disease analysis logic in disease-analysis.js to account for companion diseases, and enhanced data persistence in hub-persistence.js to include overall scores and risk metrics. Updated instructions.md for clarity on recent changes.
 **GH-122** Refactor disease analysis logic in disease-analysis.js: Introduced isActionable function to filter actionable recommendations, separated greens and companion items for clearer display, and improved total count logic for recommendations. Enhanced UI rendering to handle cases with no actions required.
+**GH-123** Integrate SpeciesService for dynamic species data handling: Updated AppServiceProvider to include species data in views, modified DatabaseSeeder to call SpeciesDefinitionSeeder, and refactored settings and onboarding scripts to utilize new species data structure. Enhanced UI for species selection based on turf type and region, and updated related JavaScript files for improved functionality and performance.
+
+
 
 
 ## Backlog
@@ -230,9 +233,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
 +15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121, GH-122.
 +16.⁠ ⁠How can you select what greens/fairway results to generate a word report for? Yes it was there. When wanted to print report export word doc was for one and export all gave you an option to select which soil water or tissue results you wanted to print as a word doc. GH-122. 
-17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance
-18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
-Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why
++17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance. GH-123.
++18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass. cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
+Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why. GH-123.
 19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there.
 20. Currently it seems to be using MLSN figures as a reference which they don’t use.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
@@ -255,7 +258,7 @@ That’s what the current layout looks like when it produces the product recomme
 36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
 
-what does it mean : "also has a FRAC resistance module to help counter any fungicide resistance" - what he is talking about?
+
 
 ----
 - also move branding settings to the settings page and make ui nice

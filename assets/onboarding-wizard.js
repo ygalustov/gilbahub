@@ -14,68 +14,6 @@
     var API  = (cfg.restUrl || '/api/').replace(/\/?$/, '/');
 
     // ── Species data (from turf-profile-controller.js) ───────────────────────
-    var SPECIES = {
-        sports: {
-            c4: [
-                { value: 'Couch',  label: 'Couch (Bermudagrass)', type: 'C4' },
-                { value: 'Kikuyu', label: 'Kikuyu',               type: 'C4' },
-            ],
-            c3: [
-                { value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' },
-                { value: 'Kentucky Bluegrass', label: 'Kentucky Bluegrass', type: 'C3' },
-                { value: 'Tall Fescue',        label: 'Tall Fescue',        type: 'C3' },
-            ],
-        },
-        golf: {
-            greens: {
-                c4: [
-                    { value: 'Couch',             label: 'Couch / Bermudagrass (ultradwarf)', type: 'C4' },
-                    { value: 'Seashore Paspalum', label: 'Seashore Paspalum',                 type: 'C4' },
-                ],
-                c3: [
-                    { value: 'Creeping Bentgrass (Greens)', label: 'Creeping Bentgrass', type: 'C3' },
-                    { value: 'Annual Bluegrass (Greens)',   label: 'Poa annua',          type: 'C3' },
-                ],
-            },
-            fairways: {
-                c4: [
-                    { value: 'Couch',  label: 'Couch (Bermudagrass)', type: 'C4' },
-                    { value: 'Kikuyu', label: 'Kikuyu',               type: 'C4' },
-                ],
-                c3: [
-                    { value: 'Perennial Ryegrass',       label: 'Perennial Ryegrass', type: 'C3' },
-                    { value: 'Annual Bluegrass (Fairway)', label: 'Poa annua',         type: 'C3' },
-                ],
-            },
-            tees: {
-                c4: [
-                    { value: 'Couch',  label: 'Couch (Bermudagrass)', type: 'C4' },
-                    { value: 'Kikuyu', label: 'Kikuyu',               type: 'C4' },
-                ],
-                c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }],
-            },
-            surrounds: {
-                c4: [
-                    { value: 'Couch',  label: 'Couch (Bermudagrass)', type: 'C4' },
-                    { value: 'Kikuyu', label: 'Kikuyu',               type: 'C4' },
-                ],
-                c3: [{ value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' }],
-            },
-        },
-        lawns: {
-            c4: [
-                { value: 'Couch',        label: 'Couch (Bermudagrass)',           type: 'C4' },
-                { value: 'Buffalograss', label: 'Buffalo (Sir Walter, Sapphire)', type: 'C4' },
-                { value: 'Kikuyu',       label: 'Kikuyu',                         type: 'C4' },
-                { value: 'Zoysia',       label: 'Zoysia (Empire, Nara)',          type: 'C4' },
-            ],
-            c3: [
-                { value: 'Perennial Ryegrass', label: 'Perennial Ryegrass', type: 'C3' },
-                { value: 'Kentucky Bluegrass', label: 'Kentucky Bluegrass', type: 'C3' },
-                { value: 'Tall Fescue',        label: 'Tall Fescue',        type: 'C3' },
-            ],
-        },
-    };
 
     // ── Wizard state ─────────────────────────────────────────────────────────
     var W = {
@@ -490,12 +428,13 @@
         },
 
         _speciesOptions: function () {
-            var t  = this.d.turfType;
-            var sc = this.d.subCategory;
+            var t   = this.d.turfType;
+            var sc  = this.d.subCategory;
+            var sbt = (window.GAIP_SpeciesData && window.GAIP_SpeciesData.speciesByType) || {};
             var data;
-            if (t === 'golf' && sc)  data = SPECIES.golf[sc];
-            else if (t === 'sports') data = SPECIES.sports;
-            else if (t === 'lawns')  data = SPECIES.lawns;
+            if (t === 'golf' && sc)  data = sbt.golf && sbt.golf[sc];
+            else if (t === 'sports') data = sbt.sports;
+            else if (t === 'lawns')  data = sbt.lawns;
             if (!data) return [];
             var c4ok = !this.d.location || Math.abs(this.d.location.lat) < 45;
             var out  = [];

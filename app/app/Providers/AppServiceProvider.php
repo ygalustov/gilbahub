@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Models\Site;
 use App\Models\SiteConfig;
 use App\Models\User;
+use App\Services\SpeciesService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\URL;
@@ -33,6 +34,14 @@ class AppServiceProvider extends ServiceProvider
             $path = base_path('../assets/'.$asset);
             $version = is_file($path) ? '?v='.filemtime($path) : '';
             return url('/legacy-assets/'.$asset).$version;
+        });
+
+        View::composer('*', function ($view) {
+            try {
+                $view->with('speciesData', app(SpeciesService::class)->getSpeciesByType());
+            } catch (\Throwable) {
+                $view->with('speciesData', []);
+            }
         });
 
         View::composer('partials.sidebar', function ($view) {

@@ -95,144 +95,10 @@
         ? window.gaip_getRegionDisplayInfo()
         : { name: "Unknown", dataSource: "Default" };
     },
-    speciesByType: {
-      sports: {
-        c4: [
-          { value: "Couch", label: "Couch (Bermudagrass)", type: "C4" },
-          { value: "Kikuyu", label: "Kikuyu", type: "C4" },
-        ],
-        c3: [
-          {
-            value: "Perennial Ryegrass",
-            label: "Perennial Ryegrass",
-            type: "C3",
-          },
-          {
-            value: "Kentucky Bluegrass",
-            label: "Kentucky Bluegrass",
-            type: "C3",
-          },
-          { value: "Tall Fescue", label: "Tall Fescue", type: "C3" },
-        ],
-      },
-      golf: {
-        greens: {
-          c4: [
-            {
-              value: "Couch",
-              label: "Couch / Bermudagrass (ultradwarf)",
-              type: "C4",
-            },
-            {
-              // b35fix363 — AU-only. Saltene/Velvetene at greens HOC is borderline
-              // (medium-textured cultivars; true dwarves Sea Isle 2000/SeaDwarf/Salam
-              // are the conventional choice for greens). _greensCaveat in the trait
-              // data documents this — see VARIETY_TRAITS.seashore_paspalum.
-              value: "Seashore Paspalum",
-              label: "Seashore Paspalum (Saltene / Velvetene)",
-              type: "C4",
-              regions: ["australia_tropical", "australia_subtropical", "australia_temperate", "australia_mediterranean"],
-            },
-          ],
-          c3: [
-            {
-              value: "Creeping Bentgrass (Greens)",
-              label: "Creeping Bentgrass",
-              type: "C3",
-            },
-            {
-              value: "Browntop Bent (Greens)",
-              label: "Browntop Bent / Colonial",
-              type: "C3",
-              regions: ["uk_ireland", "new_zealand", "scandinavia"],
-            },
-            {
-              value: "Annual Bluegrass (Greens)",
-              label: "Poa annua",
-              type: "C3",
-            },
-          ],
-        },
-        fairways: {
-          c4: [
-            { value: "Couch", label: "Couch (Bermudagrass)", type: "C4" },
-            { value: "Kikuyu", label: "Kikuyu", type: "C4" },
-          ],
-          c3: [
-            {
-              value: "Perennial Ryegrass",
-              label: "Perennial Ryegrass",
-              type: "C3",
-            },
-            {
-              value: "Annual Bluegrass (Fairway)",
-              label: "Poa annua",
-              type: "C3",
-            },
-          ],
-        },
-        tees: {
-          c4: [
-            { value: "Couch", label: "Couch (Bermudagrass)", type: "C4" },
-            { value: "Kikuyu", label: "Kikuyu", type: "C4" },
-          ],
-          c3: [
-            {
-              value: "Perennial Ryegrass",
-              label: "Perennial Ryegrass",
-              type: "C3",
-            },
-          ],
-        },
-        surrounds: {
-          c4: [
-            { value: "Couch", label: "Couch (Bermudagrass)", type: "C4" },
-            { value: "Kikuyu", label: "Kikuyu", type: "C4" },
-          ],
-          c3: [
-            {
-              value: "Perennial Ryegrass",
-              label: "Perennial Ryegrass",
-              type: "C3",
-            },
-          ],
-        },
-      },
-      lawns: {
-        c4: [
-          { value: "Couch", label: "Couch (Bermudagrass)", type: "C4" },
-          {
-            value: "Buffalograss",
-            label: "Buffalo (Sir Walter, Sapphire)",
-            type: "C4",
-          },
-          { value: "Kikuyu", label: "Kikuyu", type: "C4" },
-          { value: "Zoysia", label: "Zoysia (Empire, Nara)", type: "C4" },
-          {
-            // b35fix363 — AU-only. Coastal/saline-affected residential and council
-            // sites; Sydney/QLD foreshore parks. Saltene/Velvetene both viable at
-            // lawn HOC (10-40 mm).
-            value: "Seashore Paspalum",
-            label: "Seashore Paspalum (Saltene / Velvetene)",
-            type: "C4",
-            regions: ["australia_tropical", "australia_subtropical", "australia_temperate", "australia_mediterranean"],
-          },
-        ],
-        c3: [
-          {
-            value: "Perennial Ryegrass",
-            label: "Perennial Ryegrass",
-            type: "C3",
-          },
-          {
-            value: "Kentucky Bluegrass",
-            label: "Kentucky Bluegrass",
-            type: "C3",
-          },
-          { value: "Tall Fescue", label: "Tall Fescue", type: "C3" },
-        ],
-      },
-    },
+    // Species data sourced from DB via window.GAIP_SpeciesData (output in db-shell layout before
+    // all page scripts). Initialised at parse time so site-setup-wizard.js can read it immediately
+    // without waiting for init(). init() re-assigns in case GAIP_SpeciesData loads late.
+    speciesByType: (window.GAIP_SpeciesData && window.GAIP_SpeciesData.speciesByType) || {},
     getSpeciesOptions: function () {
       const e = this.state.turfType,
         t = this.state.subCategory,
@@ -638,6 +504,7 @@
     profileLoadedFromSaved: false,
     _isLoadingProfile: false,
     init: function () {
+      this.speciesByType = (window.GAIP_SpeciesData && window.GAIP_SpeciesData.speciesByType) || {};
       (console.log("[TurfProfile] Initializing v" + this.version),
         this.cacheElements(),
         this.bindEvents(),

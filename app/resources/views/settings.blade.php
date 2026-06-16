@@ -265,19 +265,6 @@
                             return $fallback;
                         };
 
-                        $speciesGroups = [
-                            'Warm-season (C4)' => [
-                                'Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo',
-                            ],
-                            'Cool-season (C3)' => [
-                                'Creeping Bentgrass (Greens)', 'Creeping Bentgrass (Fairway)',
-                                'Creeping Bentgrass', 'Colonial Bentgrass', 'Browntop Bent',
-                                'Perennial Ryegrass', 'Kentucky Bluegrass', 'Tall Fescue',
-                                'Fine Fescue', 'Chewings Fescue', 'Chewings Fescue (Greens)',
-                                'Slender Creeping Red Fescue', 'Strong Creeping Red Fescue',
-                                'Poa annua',
-                            ],
-                        ];
                     @endphp
 
                     <form id="stg-turf-form" class="stg-form" novalidate>
@@ -306,15 +293,8 @@
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-turf-species">Species</label>
-                                    <select id="stg-turf-species" name="species">
-                                        <option value="">— select —</option>
-                                        @foreach($speciesGroups as $groupLabel => $options)
-                                        <optgroup label="{{ $groupLabel }}">
-                                            @foreach($options as $sp)
-                                            <option value="{{ $sp }}" {{ $turfVal('species') === $sp ? 'selected' : '' }}>{{ $sp }}</option>
-                                            @endforeach
-                                        </optgroup>
-                                        @endforeach
+                                    <select id="stg-turf-species" name="species" data-saved-species="{{ $turfVal('species') }}">
+                                        <option value="">— select turf type first —</option>
                                     </select>
                                 </div>
                                 <div class="stg-field">
@@ -939,6 +919,8 @@ window.STG_DATA = {
 };
 </script>
 <script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('regional-profiles.js') }}"></script>
+<script src="{{ $legacyAssetUrl('variety-traits-integration.js') }}"></script>
 <script src="{{ $legacyAssetUrl('settings-init.js') }}"></script>
 @endif
 

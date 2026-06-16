@@ -455,78 +455,25 @@
     // ========================================================================
     // TURF PROFILE CONTROLLER EXTENSION
     // ========================================================================
+    // NZ fine fescue species are now seeded in the DB (species_definitions table)
+    // and delivered via window.GAIP_SpeciesData — no runtime injection needed.
+    // This block extends TPC with DLI requirements, profile restoration, and
+    // the getVarietiesForSpecies patch.
 
-    /**
-     * Add fine fescue species to turf profile controller
-     */
     let turfProfileRetries = 0;
     const MAX_TURF_PROFILE_RETRIES = 50; // 5 seconds max
-    
+
     function extendTurfProfileController() {
-        // Check the actual exported name (GaipTurfProfile, not GAIP_TurfProfile)
         const TPC = global.GaipTurfProfile;
-        
+
         if (!TPC) {
             turfProfileRetries++;
             if (turfProfileRetries < MAX_TURF_PROFILE_RETRIES) {
                 setTimeout(extendTurfProfileController, 100);
             } else {
-                console.warn('[FineFescue] GaipTurfProfile not found after 5s - fine fescue species will not appear in dropdowns. The trait data is still available via API functions.');
+                console.warn('[FineFescue] GaipTurfProfile not found after 5s - fine fescue trait data will not be available.');
             }
             return;
-        }
-
-        // Add fine fescue to golf greens (NZ only)
-        if (TPC.speciesByType?.golf?.greens?.c3) {
-            // Check if not already added
-            const hasChewings = TPC.speciesByType.golf.greens.c3.some(s => 
-                s.value.includes('Chewings'));
-            
-            if (!hasChewings) {
-                TPC.speciesByType.golf.greens.c3.push(
-                    {
-                        value: 'Chewings Fescue (Greens)',
-                        label: 'Chewings Fescue',
-                        type: 'C3',
-                        regions: ['new_zealand']
-                    },
-                    {
-                        value: 'Slender Creeping Red Fescue (Greens)',
-                        label: 'Slender Creeping Red Fescue',
-                        type: 'C3',
-                        regions: ['new_zealand']
-                    }
-                );
-            }
-        }
-
-        // Add fine fescue to golf fairways (NZ only)
-        if (TPC.speciesByType?.golf?.fairways?.c3) {
-            const hasChewingsFairway = TPC.speciesByType.golf.fairways.c3.some(s => 
-                s.value.includes('Chewings') || s.value.includes('Fine Fescue'));
-            
-            if (!hasChewingsFairway) {
-                TPC.speciesByType.golf.fairways.c3.push(
-                    {
-                        value: 'Chewings Fescue (Fairways)',
-                        label: 'Chewings Fescue',
-                        type: 'C3',
-                        regions: ['new_zealand']
-                    },
-                    {
-                        value: 'Slender Creeping Red Fescue (Fairways)',
-                        label: 'Slender Creeping Red Fescue',
-                        type: 'C3',
-                        regions: ['new_zealand']
-                    },
-                    {
-                        value: 'Strong Creeping Red Fescue (Fairways)',
-                        label: 'Strong Creeping Red Fescue',
-                        type: 'C3',
-                        regions: ['new_zealand']
-                    }
-                );
-            }
         }
 
         // Add DLI requirements for fine fescues
@@ -551,37 +498,29 @@
             });
         }
 
-        // Refresh the species dropdown so fescue options appear immediately
-        // This fixes the race condition where profile restore runs before fescue options are injected
-        if (typeof TPC.updateSpeciesOptions === 'function') {
-            TPC.updateSpeciesOptions();
-            
-            // Re-apply saved profile species if it was a fescue that got lost during initial load
-            var savedProfiles = typeof TPC.getSavedProfiles === 'function' ? TPC.getSavedProfiles() : {};
-            var currentSiteId = null;
-            // Try to get current site ID from GAIP_STATE or site selector
-            if (global.GAIP_STATE && global.GAIP_STATE.site) {
-                currentSiteId = global.GAIP_STATE.site.siteId || global.GAIP_STATE.site.id;
-            }
-            if (!currentSiteId) {
-                var siteSelect = document.querySelector('.gaip-site-select, [data-site-selector]');
-                if (siteSelect) currentSiteId = siteSelect.value;
-            }
-            if (currentSiteId && savedProfiles[currentSiteId]) {
-                var savedSpecies = savedProfiles[currentSiteId].species;
-                if (savedSpecies && isFineFescueSpecies(savedSpecies)) {
-                    var speciesEl = TPC.elements && TPC.elements.speciesSelect;
-                    if (speciesEl) {
-                        speciesEl.value = savedSpecies;
-                        TPC.selectSpecies(savedSpecies);
-                        // Also restore variety if saved
-                        var savedVariety = savedProfiles[currentSiteId].variety;
-                        if (savedVariety && TPC.elements.varietySelect) {
-                            setTimeout(function() {
-                                TPC.elements.varietySelect.value = savedVariety;
-                                TPC.state.variety = savedVariety;
-                            }, 100);
-                        }
+        // Re-apply saved profile species if it was a fine fescue (profile loaded before page was ready)
+        var savedProfiles = typeof TPC.getSavedProfiles === 'function' ? TPC.getSavedProfiles() : {};
+        var currentSiteId = null;
+        if (global.GAIP_STATE && global.GAIP_STATE.site) {
+            currentSiteId = global.GAIP_STATE.site.siteId || global.GAIP_STATE.site.id;
+        }
+        if (!currentSiteId) {
+            var siteSelect = document.querySelector('.gaip-site-select, [data-site-selector]');
+            if (siteSelect) currentSiteId = siteSelect.value;
+        }
+        if (currentSiteId && savedProfiles[currentSiteId]) {
+            var savedSpecies = savedProfiles[currentSiteId].species;
+            if (savedSpecies && isFineFescueSpecies(savedSpecies)) {
+                var speciesEl = TPC.elements && TPC.elements.speciesSelect;
+                if (speciesEl && speciesEl.value !== savedSpecies) {
+                    speciesEl.value = savedSpecies;
+                    TPC.selectSpecies(savedSpecies);
+                    var savedVariety = savedProfiles[currentSiteId].variety;
+                    if (savedVariety && TPC.elements.varietySelect) {
+                        setTimeout(function() {
+                            TPC.elements.varietySelect.value = savedVariety;
+                            TPC.state.variety = savedVariety;
+                        }, 100);
                     }
                 }
             }
