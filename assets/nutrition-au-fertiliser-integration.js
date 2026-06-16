@@ -1200,13 +1200,13 @@
         }
 
         /* ── Monthly programme table ── */
-        .au-fert-program-table { font-size: 13px; width: 100%; }
+        .au-fert-program-table { font-size: 13px; width: 100%; table-layout: fixed; min-width: 800px; }
 
-        .au-fert-program-table col.col-month  { width: 56px; }
-        .au-fert-program-table col.col-season { width: 80px; }
-        .au-fert-program-table col.col-req    { width: 130px; }
-        .au-fert-program-table col.col-liquid { width: 300px; }
-        .au-fert-program-table col.col-notes  { width: 190px; }
+        .au-fert-program-table col.col-month  { width: 6%; }
+        .au-fert-program-table col.col-season { width: 8%; }
+        .au-fert-program-table col.col-req    { width: 13%; }
+        .au-fert-program-table col.col-liquid { width: 25%; }
+        .au-fert-program-table col.col-notes  { width: 21%; }
 
         .au-fert-program-table .au-fert-product {
             display: inline-block;
@@ -1226,6 +1226,7 @@
             border-color: #bfdbfe;
         }
 
+        .au-fert-program-table td { word-break: break-word; }
         .au-fert-program-table .au-fert-none { color: var(--gaip-text-muted, #9ca3af); font-size: 13px; }
         .au-fert-program-table .au-fert-req  { font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--gaip-text, #111827); font-variant-numeric: tabular-nums; }
 
@@ -1236,7 +1237,7 @@
 
         .au-fert-program-table tbody tr:hover td { background: var(--gaip-surface-muted, #f8fafc); }
 
-        .au-fert-cell--notes { vertical-align: middle; }
+        .au-fert-cell--notes { vertical-align: middle; text-align: left; word-break: break-word; }
 
         .au-fert-inline-note {
             display: block;

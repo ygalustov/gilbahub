@@ -1446,16 +1446,16 @@
         }
 
         /* ── Monthly programme table ────────────────────────────────────────── */
-        .prebble-program-table { font-size: 13px; width: 100%; }
+        .prebble-program-table { font-size: 13px; width: 100%; table-layout: fixed; min-width: 800px; }
 
-        .prebble-program-table col.col-month    { width: 56px; }
-        .prebble-program-table col.col-season   { width: 80px; }
-        .prebble-program-table col.col-req      { width: 130px; }
-        .prebble-program-table col.col-granular { width: auto; }
-        .prebble-program-table col.col-liquid   { width: 300px; }
-        .prebble-program-table col.col-notes    { width: 190px; }
+        .prebble-program-table col.col-month    { width: 6%; }
+        .prebble-program-table col.col-season   { width: 8%; }
+        .prebble-program-table col.col-req      { width: 13%; }
+        .prebble-program-table col.col-granular { width: 27%; }
+        .prebble-program-table col.col-liquid   { width: 25%; }
+        .prebble-program-table col.col-notes    { width: 21%; }
 
-        .prebble-program-table td { vertical-align: middle; }
+        .prebble-program-table td { vertical-align: middle; word-break: break-word; }
 
         /* GP row accent — left border on month cell */
         .gilba-gp-high  > td:first-child { border-left: 3px solid var(--gaip-good, #16a34a); }
@@ -1495,7 +1495,8 @@
 
 
         /* Notes column */
-        .prebble-cell--notes { vertical-align: middle; }
+        .prebble-cell--notes { vertical-align: middle; text-align: left; }
+        .prebble-cell--notes .prebble-inline-note { word-break: break-word; }
 
         .prebble-inline-note {
             display: block;

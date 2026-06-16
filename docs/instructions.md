@@ -216,7 +216,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-125** Refactor methodology handling for New Zealand sites: Updated AnalysisController, SampleAnalysisController, and SettingsController to utilize effectiveMethodology for determining soil test methodology based on site coordinates. Enhanced UI in settings.blade.php to lock methodology selection for NZ sites. Improved CSS for locked value display. Updated instructions.md for clarity on methodology changes.
 **GH-126** Enhance fertiliser integration scripts: Added inline notes display for granular and liquid products in AU, NZ, and UK scripts. Updated table structure to include notes column and adjusted CSS for improved layout and styling of notes. Ensured consistent handling of notes across all relevant files.
 **GH-127** Refactor nutrient delivery display and improve UI components: Updated status indicators in fertiliser integration scripts to use descriptive labels instead of icons. Enhanced table structure for monthly program and nutrient delivery summary sections, ensuring consistent styling and improved readability. Adjusted CSS for better layout and responsiveness across various components.
-
+**GH-128** Update CSS for monthly program tables in fertiliser integration scripts: Enhanced table layout with fixed width and improved column width percentages for better responsiveness. Added word-break properties for improved text handling in notes and cell alignment. Updated instructions.md for clarity on dropdown functionality issues.
 
 
 ## Backlog
@@ -242,21 +242,36 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there. GH-126.
 +20. Currently it seems to be using MLSN figures as a reference which they don’t use. GH-126.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
-+22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
-That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
++22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test. That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
 
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
+
+
 +24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar.
+
+
 25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked?
 26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked?
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
-+28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
+
+
++28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ
+
+
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
+
+
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
+
+
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
+
+
 +33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
+
+
 34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software?
 35.⁠ ⁠Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
 36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
