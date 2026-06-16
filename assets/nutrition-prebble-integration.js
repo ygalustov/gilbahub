@@ -734,8 +734,8 @@
                         <td class="prebble-cell prebble-req">${reqString}</td>
                         <td class="prebble-cell prebble-granular">${granularList}${coverageDisplay}${activeDisplay}</td>
                         <td class="prebble-cell prebble-liquid">${liquidListWithKRecon}</td>
+                        <td class="prebble-cell prebble-cell--notes">${m.notes && m.notes.length ? `<span class="prebble-inline-note">${m.notes.join(' · ')}</span>` : ''}</td>
                     </tr>
-                    ${notesHtml ? `<tr class="prebble-note-row"><td colspan="5">${notesHtml}</td></tr>` : ''}
                 `;
             }).join('');
             
@@ -812,6 +812,7 @@
                                 <col class="col-req">
                                 <col class="col-granular">
                                 <col class="col-liquid">
+                                <col class="col-notes">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -820,6 +821,7 @@
                                     <th class="prebble-th prebble-th--left">Requirements</th>
                                     <th class="prebble-th prebble-th--left">Granular Products</th>
                                     <th class="prebble-th prebble-th--left">Liquid/Foliar</th>
+                                    <th class="prebble-th prebble-th--left">Notes</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1430,9 +1432,10 @@
         /* Fixed-width columns so layout is stable regardless of content */
         .prebble-program-table col.col-month    { width: 52px; }
         .prebble-program-table col.col-season   { width: 70px; }
-        .prebble-program-table col.col-req      { width: 130px; }
+        .prebble-program-table col.col-req      { width: 120px; }
         .prebble-program-table col.col-granular { width: auto; }
-        .prebble-program-table col.col-liquid   { width: 260px; }
+        .prebble-program-table col.col-liquid   { width: 220px; }
+        .prebble-program-table col.col-notes    { width: 200px; }
 
         .prebble-program-table td { vertical-align: middle; }
 
@@ -1462,20 +1465,15 @@
             font-variant-numeric: tabular-nums;
         }
 
-        /* Note rows: indented, left-colored border, spaced from both sides */
-        .prebble-note-row td {
-            padding: 5px 10px 7px 14px !important;
-            background: var(--gaip-warning-bg) !important;
-            border-left: 3px solid var(--gaip-warning) !important;
-            border-bottom: 1px solid var(--gaip-warning-border) !important;
-            font-size: 12px;
+        /* Inline notes column */
+        .prebble-cell--notes { vertical-align: middle; }
+
+        .prebble-inline-note {
+            display: block;
+            font-size: 11px;
             font-style: italic;
             color: var(--gaip-warning);
-        }
-
-        /* Row above a note row: remove its bottom border so they appear grouped */
-        .prebble-program-table tr:has(+ .prebble-note-row) td {
-            border-bottom: none !important;
+            line-height: 1.4;
         }
 
         .prebble-notes { color: var(--gaip-warning); font-size: 12px; }

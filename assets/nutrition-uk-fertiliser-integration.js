@@ -934,7 +934,7 @@
                 }).join(' + ') || '';
 
                 var notesArr = (m.notes || []).slice();
-                var notesHtml = notesArr.length > 0 ? '<div class="uk-fert-notes">' + notesArr.join('. ') + '</div>' : '';
+                var inlineNote = notesArr.length > 0 ? '<span class="uk-fert-inline-note">' + notesArr.join(' · ') + '</span>' : '';
 
                 return '<tr>' +
                     '<td class="uk-fert-cell uk-fert-cell--month">' + m.month_name + '</td>' +
@@ -942,8 +942,8 @@
                     '<td class="uk-fert-cell"><span class="uk-fert-req">N:' + Math.round(m.requirements.N) + ' P:' + Math.round(m.requirements.P) + ' K:' + Math.round(m.requirements.K) + '</span></td>' +
                     '<td class="uk-fert-cell uk-fert-granular">' + granularList + '</td>' +
                     '<td class="uk-fert-cell">' + (liquidList || '<span class="uk-fert-none">\u2014</span>') + '</td>' +
-                '</tr>' +
-                (notesHtml ? '<tr class="uk-fert-note-row"><td class="uk-fert-cell" colspan="5">' + notesHtml + '</td></tr>' : '');
+                    '<td class="uk-fert-cell uk-fert-cell--notes">' + inlineNote + '</td>' +
+                '</tr>';
             }).join('');
 
             // Product summary
@@ -1075,9 +1075,10 @@
                         '<colgroup>' +
                             '<col style="width:52px">' +
                             '<col style="width:70px">' +
-                            '<col style="width:130px">' +
+                            '<col style="width:120px">' +
                             '<col>' +
-                            '<col style="width:260px">' +
+                            '<col style="width:220px">' +
+                            '<col style="width:200px">' +
                         '</colgroup>' +
                         '<thead><tr>' +
                             '<th class="uk-fert-th uk-fert-th--left">Month</th>' +
@@ -1085,6 +1086,7 @@
                             '<th class="uk-fert-th uk-fert-th--left">Requirements</th>' +
                             '<th class="uk-fert-th uk-fert-th--left">Granular Products</th>' +
                             '<th class="uk-fert-th uk-fert-th--left">Liquid/Foliar</th>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Notes</th>' +
                         '</tr></thead>' +
                         '<tbody>' + monthlyRows + '</tbody>' +
                     '</table>' +
@@ -1179,16 +1181,16 @@
         }
         .uk-fert-none { color: var(--gaip-text-muted); }
         .uk-fert-req { font-size: 12px; white-space: nowrap; color: var(--gaip-text-muted); font-variant-numeric: tabular-nums; }
-        .uk-fert-note-row td {
-            padding: 5px 10px 7px 14px !important;
-            background: var(--gaip-warning-bg) !important;
-            border-left: 3px solid var(--gaip-warning) !important;
-            border-bottom: 1px solid var(--gaip-warning-border) !important;
-            font-size: 12px; font-style: italic; color: var(--gaip-warning);
+        .uk-fert-cell--notes { vertical-align: middle; }
+
+        .uk-fert-inline-note {
+            display: block;
+            font-size: 11px;
+            font-style: italic;
+            color: var(--gaip-warning);
+            line-height: 1.4;
         }
-        .uk-fert-program-table tr:has(+ .uk-fert-note-row) td {
-            border-bottom: none !important;
-        }
+
         .uk-fert-notes { color: var(--gaip-warning); font-size: 12px; }
 
         .uk-fert-th {

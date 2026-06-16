@@ -845,8 +845,8 @@
                         </td>
                         <td class="au-fert-cell">${granularList}</td>
                         <td class="au-fert-cell">${liquidList || '<span class="au-fert-none">—</span>'}</td>
+                        <td class="au-fert-cell au-fert-cell--notes">${notesArr.length ? `<span class="au-fert-inline-note">${notesArr.join(' · ')}</span>` : ''}</td>
                     </tr>
-                    ${notesHtml ? `<tr class="au-fert-note-row"><td colspan="5">${notesHtml}</td></tr>` : ''}
                 `;
             }).join('');
             
@@ -1024,9 +1024,10 @@
                             <colgroup>
                                 <col style="width:52px">
                                 <col style="width:70px">
-                                <col style="width:130px">
+                                <col style="width:120px">
                                 <col>
-                                <col style="width:260px">
+                                <col style="width:220px">
+                                <col style="width:200px">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -1035,6 +1036,7 @@
                                     <th class="au-fert-th au-fert-th--left">Requirements</th>
                                     <th class="au-fert-th au-fert-th--left">Granular</th>
                                     <th class="au-fert-th au-fert-th--left">Liquid / Foliar</th>
+                                    <th class="au-fert-th au-fert-th--left">Notes</th>
                                 </tr>
                             </thead>
                             <tbody>${monthlyRows}</tbody>
@@ -1213,18 +1215,14 @@
         .au-fert-program-table .au-fert-none { color: var(--gaip-text-muted); }
         .au-fert-program-table .au-fert-req { font-size: 12px; white-space: nowrap; color: var(--gaip-text-muted); font-variant-numeric: tabular-nums; }
 
-        .au-fert-note-row td {
-            padding: 5px 10px 7px 14px !important;
-            background: var(--gaip-warning-bg) !important;
-            border-left: 3px solid var(--gaip-warning) !important;
-            border-bottom: 1px solid var(--gaip-warning-border) !important;
-            font-size: 12px;
+        .au-fert-cell--notes { vertical-align: middle; }
+
+        .au-fert-inline-note {
+            display: block;
+            font-size: 11px;
             font-style: italic;
             color: var(--gaip-warning);
-        }
-
-        .au-fert-program-table tr:has(+ .au-fert-note-row) td {
-            border-bottom: none !important;
+            line-height: 1.4;
         }
 
         .au-fert-notes { color: var(--gaip-warning); font-size: 12px; }
