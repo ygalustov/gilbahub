@@ -329,7 +329,7 @@
         // The HubStore initialises inputs.soil.methodology as 'mlsn' and it may not
         // be updated by the time the calendar runs. Read from DOM select directly
         // as the reliable source for NZ sites with AA auto-selected.
-        let methodology = soil.methodology || 'mlsn';
+        let methodology = (soil.methodology || 'mlsn').toLowerCase();
         // Map cotula_s78 to ammonium_acetate
         if (methodology === 'cotula_s78' || methodology === 'cotula') {
             methodology = 'ammonium_acetate';
@@ -345,6 +345,15 @@
                 const _ms = document.querySelector('.gaip-soil-methodology');
                 if (_ms && _ms.value && _ms.value !== 'mlsn') {
                     methodology = _ms.value;
+                } else {
+                    // New hub: read from GAIP_HUB_CONFIG (set by PHP controller) or
+                    // GAIP_DASHBOARD_DATA.computed.soilNutrition (from analysis cache)
+                    const _cfgMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
+                    const _snMeth  = (window.GAIP_DASHBOARD_DATA?.computed?.soilNutrition?.methodology || '').toLowerCase();
+                    const _newHubMeth = _cfgMeth || _snMeth;
+                    if (_newHubMeth && _newHubMeth !== 'mlsn') {
+                        methodology = _newHubMeth;
+                    }
                 }
             }
         }
@@ -1347,7 +1356,7 @@
     NutritionCalendar.formatMethodology = function(methodology) {
         const m = (methodology || 'mlsn').toLowerCase();
         if (m === 'ammonium_acetate' || m === 'ammoniumacetate' || m === 'aa') {
-            return 'Ammonium Acetate (Hill Labs NZ)';
+            return 'Ammonium Acetate';
         }
         return (methodology || 'MLSN').toUpperCase();
     };

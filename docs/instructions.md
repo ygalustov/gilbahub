@@ -263,20 +263,6 @@ That’s what the current layout looks like when it produces the product recomme
 
 
 
-
-
-----
-check why for NZ in the table Species
-Creeping Bentgrass (Greens)
-Methodology
-MLSN
-Distribution
-GP-Weighted
-Clippings
-Collected
-
-MLSN displayed
-
 ----
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)
@@ -298,17 +284,6 @@ Write a comparison
 Добавить ваш домен: https://yourdomain.com/*
 В разделе API restrictions → Restrict key → выбрать только Places API
 Save
-
-- Morning Briefing  — файл morning-briefing.blade.php есть, но не интегрирован в навигацию.
-
-- Архитектурные отличия (возможно намеренные)
-Decision Panel — логика выбора действий (почему та или иная рекомендация). В старом хабе была отдельная панель.
-
-- Evidence Panel — визуализация источников данных и уверенности в расчётах (Soil → Water → Tissue → Spray chain).
-
-- Check why on the dashboard on the side panel of GP - there is ET info but on the full analisys page there is no ET data at all. Is it related to GP at all?
-
-- Check why irrigation 6mm in the old site is highlighted with orange and on the new one with green. Check all thresholds for all blocks on the new site to be the same as on old one. 
 
 - Auto re-run - setup minutes or hours - how often to rerun
 

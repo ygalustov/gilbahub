@@ -33,10 +33,12 @@ class AnalysisController extends Controller
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
+            $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
+            $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
             $turfMethodology = strtoupper(self::effectiveMethodology(
                 $gaipConfig['turf']['methodology'] ?? null,
-                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
-                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+                $siteLat,
+                $siteLon
             ));
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
@@ -56,12 +58,8 @@ class AnalysisController extends Controller
 
         // Force ammonium_acetate into the cached soilNutrition for NZ sites,
         // overriding whatever the JS analysis last persisted.
-        if ($activeSite && $analysisCache !== null) {
-            $lat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null;
-            $lon = $activeSite->longitude !== null ? (float) $activeSite->longitude : null;
-            if (self::isNewZealand($lat, $lon)) {
-                $analysisCache['computed']['soilNutrition']['methodology'] = 'ammonium_acetate';
-            }
+        if ($activeSite && $analysisCache !== null && self::isNewZealand($siteLat ?? null, $siteLon ?? null)) {
+            $analysisCache['computed']['soilNutrition']['methodology'] = 'ammonium_acetate';
         }
 
         return view('analysis', [
@@ -103,10 +101,12 @@ class AnalysisController extends Controller
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
+            $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
+            $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
             $turfMethodology = strtoupper(self::effectiveMethodology(
                 $gaipConfig['turf']['methodology'] ?? null,
-                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
-                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+                $siteLat,
+                $siteLon
             ));
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
@@ -152,10 +152,12 @@ class AnalysisController extends Controller
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
             $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
+            $siteLat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : (isset($gaipConfig['location']['lat']) ? (float) $gaipConfig['location']['lat'] : null);
+            $siteLon = $activeSite->longitude !== null ? (float) $activeSite->longitude : (isset($gaipConfig['location']['lon']) ? (float) $gaipConfig['location']['lon'] : null);
             $turfMethodology = strtoupper(self::effectiveMethodology(
                 $gaipConfig['turf']['methodology'] ?? null,
-                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
-                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+                $siteLat,
+                $siteLon
             ));
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
         }

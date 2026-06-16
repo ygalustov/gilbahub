@@ -53,11 +53,12 @@ class SampleAnalysisController extends Controller
         ]);
 
         $site = $sample->site;
-        $sn['methodology'] = self::effectiveMethodology(
-            $sn['methodology'] ?? null,
-            $site->latitude  !== null ? (float) $site->latitude  : null,
-            $site->longitude !== null ? (float) $site->longitude : null
-        );
+        $lat  = $site->latitude  !== null ? (float) $site->latitude  : null;
+        $lon  = $site->longitude !== null ? (float) $site->longitude : null;
+        // Fall back to coordinates stored in gaip config if not on the site model
+        if ($lat === null) $lat = isset($config?->config['location']['lat']) ? (float) $config->config['location']['lat'] : null;
+        if ($lon === null) $lon = isset($config?->config['location']['lon']) ? (float) $config->config['location']['lon'] : null;
+        $sn['methodology'] = self::effectiveMethodology($sn['methodology'] ?? null, $lat, $lon);
 
         return response()->json(['data' => $sn]);
     }

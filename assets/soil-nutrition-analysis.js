@@ -878,7 +878,8 @@
         }).filter(Boolean).join('');
 
         if (!cards) return '';
-        return '<div class="sn-section"><div class="sn-section-title">Annual Nutrient Requirements (MLSN)</div></div>'+
+        var methTag = (function(m){ return m==='slan'?'SLAN':m==='ammonium_acetate'?'AA':'MLSN'; })((sn.methodology||'mlsn').toLowerCase());
+        return '<div class="sn-section"><div class="sn-section-title">Annual Nutrient Requirements ('+methTag+')</div></div>'+
             '<div class="sn-annual">'+cards+'</div>';
     }
 
@@ -1135,7 +1136,7 @@
 
     function renderContext(sn) {
         var rows = '';
-        var meth = sn.methodology||'mlsn';
+        var meth = (sn.methodology||'mlsn').toLowerCase();
         rows += '<div class="sn-context-row"><span class="sn-context-label">Methodology</span><span class="sn-context-val">'+(meth==='slan'?'SLAN (Sufficiency Levels)':meth==='ammonium_acetate'?'Ammonium Acetate':'MLSN (Minimum Levels)')+'</span></div>';
         if (sn.turfType) rows += '<div class="sn-context-row"><span class="sn-context-label">Turf type</span><span class="sn-context-val">'+esc(sn.turfType)+'</span></div>';
         if (sn.depthCm)  rows += '<div class="sn-context-row"><span class="sn-context-label">Rootzone depth</span><span class="sn-context-val">'+esc(String(sn.depthCm))+' cm</span></div>';
