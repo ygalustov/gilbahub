@@ -141,37 +141,60 @@
          * Cascades through possible locations
          */
         getSurfaceType: function() {
-            // Cotula/bowls: map to bowling_greens regardless of what soil.surfaceType says
-            const turfState = window.GaipTurfProfile?.state || window.GAIP_STATE?.turf || {};
-            if (turfState.cotula === true ||
-                turfState.turfType === 'bowls' ||
-                window.GAIP_STATE?.turf?.cotula === true) {
+            const tpcState  = window.GaipTurfProfile?.state || window.gaipTurfProfile?.state || {};
+            const gaipTurf  = window.GAIP_STATE?.turf || {};
+
+            // Cotula/bowls check first
+            if (tpcState.cotula === true || gaipTurf.cotula === true ||
+                tpcState.turfType === 'bowls' || gaipTurf.turfType === 'bowls' ||
+                tpcState.species === 'cotula' || gaipTurf.grassSpecies === 'cotula') {
                 return 'bowling_greens';
             }
 
-            // Primary: GAIP_STATE.soil.surfaceType
-            if (window.GAIP_STATE?.soil?.surfaceType) {
-                const st = window.GAIP_STATE.soil.surfaceType;
-                // Map cotula_bowling_green in case flag wasn't set
-                if (st === 'cotula_bowling_green') return 'bowling_greens';
-                return st;
+            // Map turfType + subCategory → canonical surface key
+            function _mapTurfType(turfType, subCategory) {
+                if (!turfType) return null;
+                if (turfType === 'golf') {
+                    if (subCategory === 'greens') return 'golf_greens';
+                    if (subCategory === 'tees')   return 'tees';
+                    if (subCategory === 'fairways') return 'fairways';
+                    if (subCategory === 'surrounds') return 'fairways';
+                    return 'golf_greens';
+                }
+                if (turfType === 'bowling' || turfType === 'bowls') return 'bowling_greens';
+                if (turfType === 'cricket') return 'cricket_wickets';
+                if (subCategory) return subCategory;
+                return turfType;
             }
-            
-            // Fallback: turf profile subCategory
-            if (window.GaipTurfProfile?.state?.subCategory) {
-                return window.GaipTurfProfile.state.subCategory;
+
+            // Primary: legacy turf profile component
+            if (tpcState.turfType) {
+                return _mapTurfType(tpcState.turfType, tpcState.subCategory);
             }
-            if (window.gaipTurfProfile?.state?.subCategory) {
-                return window.gaipTurfProfile.state.subCategory;
+
+            // Secondary: GAIP_STATE.turf (set by plan page data bridge)
+            if (gaipTurf.turfType) {
+                return _mapTurfType(gaipTurf.turfType, gaipTurf.subCategory);
             }
-            
+
+            // Tertiary: GAIP_STATE.inputs.soil.surfaceType (data bridge path)
+            const inputsSt = window.GAIP_STATE?.inputs?.soil?.surfaceType;
+            if (inputsSt) {
+                if (inputsSt === 'cotula_bowling_green') return 'bowling_greens';
+                return inputsSt;
+            }
+
+            // Legacy: GAIP_STATE.soil.surfaceType
+            const soilSt = window.GAIP_STATE?.soil?.surfaceType;
+            if (soilSt) {
+                if (soilSt === 'cotula_bowling_green') return 'bowling_greens';
+                return soilSt;
+            }
+
             // Fallback: DOM select
             const surfaceSelect = document.querySelector('.gaip-surface-type');
-            if (surfaceSelect?.value) {
-                return surfaceSelect.value;
-            }
-            
-            // Default
+            if (surfaceSelect?.value) return surfaceSelect.value;
+
             return 'sports';
         },
         
@@ -767,14 +790,13 @@
                 const pct = required > 0 ? Math.round((delivered / required) * 100) : 0;
                 const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
                 const statusIcon = pct >= 90 ? '✓' : pct >= 70 ? '⚠' : '✗';
-                const statusColor = pct >= 90 ? '#059669' : pct >= 70 ? '#d97706' : '#dc2626';
                 return `
-                    <tr>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);"><strong>${nutrient}</strong></td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${required}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${delivered}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; color: ${diff >= 0 ? '#059669' : '#dc2626'}; font-weight: 600;">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: center; color: ${statusColor}; font-weight: 600;">${statusIcon} ${pct}%</td>
+                    <tr class="nutrient-${statusClass}">
+                        <td class="au-fert-cell au-fert-cell--left"><strong>${nutrient}</strong></td>
+                        <td class="au-fert-cell au-fert-cell--num">${required}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${delivered}</td>
+                        <td class="au-fert-cell au-fert-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${statusIcon} ${pct}%</td>
                     </tr>
                 `;
             }).join('');
@@ -790,10 +812,10 @@
                         ? `${p.rateDisplay.value} ${p.rateDisplay.unit}`
                         : (useGM2 ? `${p.rateGM2}g/m²` : `${p.rateKgHa}kg/ha`);
                     const releaseTag = p.release === 'slow' || p.release === 'controlled' 
-                        ? ` <span style="font-size: 10px; padding: 1px 4px; background: var(--gaip-info-bg); color: #1e40af; border-radius: 3px;">${p.release?.toUpperCase()}</span>` 
+                        ? ` <span class="au-fert-release-tag">${p.release?.toUpperCase()}</span>` 
                         : '';
                     return `<span class="au-fert-product" title="${p.notes || ''}">${p.name} (${p.npk}) @ ${rateStr}${releaseTag}</span>`;
-                }).join(' + ') || '<span class="au-fert-none">,</span>';
+                }).join(' + ') || '<span class="au-fert-none">—</span>';
                 
                 const liquidList = m.liquid?.map(p => {
                     // b35fix282: use pre-formatted rate string (includes applications count if >1)
@@ -816,15 +838,15 @@
                 
                 return `
                     <tr class="gp-${gpClass}">
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); font-weight: 500;">${m.month_name}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">${m.season}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">
+                        <td class="au-fert-cell au-fert-cell--month">${m.month_name}</td>
+                        <td class="au-fert-cell au-fert-cell--season">${m.season}</td>
+                        <td class="au-fert-cell">
                             <span class="au-fert-req">N:${Math.round(m.requirements.N)} P:${Math.round(m.requirements.P)} K:${Math.round(m.requirements.K)}</span>
                         </td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">${granularList}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">${liquidList || '-'}</td>
+                        <td class="au-fert-cell">${granularList}</td>
+                        <td class="au-fert-cell">${liquidList || '<span class="au-fert-none">—</span>'}</td>
                     </tr>
-                    ${notesHtml ? `<tr class="au-fert-note-row"><td colspan="5" style="padding: 4px 8px; background: #fffde7; border: 1px solid var(--gaip-border); font-size: 12px; font-style: italic;">${notesHtml}</td></tr>` : ''}
+                    ${notesHtml ? `<tr class="au-fert-note-row"><td colspan="5">${notesHtml}</td></tr>` : ''}
                 `;
             }).join('');
             
@@ -856,15 +878,15 @@
                 
                 return `
                     <tr>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border);">
+                        <td class="au-fert-cell au-fert-cell--left">
                             <strong>${product.name || p.brandName}</strong>
-                            <div style="font-size: 11px; color: var(--gaip-text-secondary);">Analysis: ${npk}</div>
+                            <div class="au-fert-cell-sub">Analysis: ${npk}</div>
                         </td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: center;">${p.applications}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${rateStr}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; font-size: 12px;">${Math.round(nDelivered)}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; font-size: 12px;">${Math.round(pDelivered * 10) / 10}</td>
-                        <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; font-size: 12px;">${Math.round(kDelivered)}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${p.applications}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${rateStr}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nDelivered)}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(pDelivered * 10) / 10}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(kDelivered)}</td>
                     </tr>
                 `;
             }).join('');
@@ -887,31 +909,25 @@
             const balanceK = nutrientTotals.K - nutrientRequired.K;
             
             const totalRow = `
-                <tr style="background: var(--gaip-good-bg); font-weight: 600;">
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border);">TOTAL DELIVERED</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: center;">${totalApps}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${totalRateStr}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;">${Math.round(nutrientTotals.N)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;">${Math.round(nutrientTotals.P * 10) / 10}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;">${Math.round(nutrientTotals.K)}</td>
+                <tr class="au-fert-totals-row">
+                    <td class="au-fert-cell au-fert-cell--left">Total Delivered</td>
+                    <td class="au-fert-cell au-fert-cell--num">${totalApps}</td>
+                    <td class="au-fert-cell au-fert-cell--num">${totalRateStr}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.N)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.P * 10) / 10}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.K)}</td>
                 </tr>
-                <tr style="background: var(--gaip-surface-muted);">
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border);" colspan="3"><em>Required (kg/ha)</em></td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.N)}</em></td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.K)}</em></td>
+                <tr class="au-fert-required-row">
+                    <td class="au-fert-cell au-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                 </tr>
-                <tr style="background: ${balanceN >= 0 ? 'var(--gaip-good-bg)' : 'var(--gaip-critical-bg)'};">
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border);" colspan="3"><strong>Balance</strong></td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; color: ${balanceN >= 0 ? '#059669' : '#dc2626'};">
-                        <strong>${balanceN >= 0 ? '+' : ''}${Math.round(balanceN)}</strong>
-                    </td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; color: ${balanceP >= 0 ? '#059669' : '#dc2626'};">
-                        <strong>${balanceP >= 0 ? '+' : ''}${Math.round(balanceP * 10) / 10}</strong>
-                    </td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-family: monospace; color: ${balanceK >= 0 ? '#059669' : '#dc2626'};">
-                        <strong>${balanceK >= 0 ? '+' : ''}${Math.round(balanceK)}</strong>
-                    </td>
+                <tr class="${balanceN >= 0 ? 'au-fert-balance-row--positive' : 'au-fert-balance-row--negative'}">
+                    <td class="au-fert-cell au-fert-cell--left" colspan="3"><strong>Balance</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceN >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceN >= 0 ? '+' : ''}${Math.round(balanceN)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceP >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceP >= 0 ? '+' : ''}${Math.round(balanceP * 10) / 10}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceK >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceK >= 0 ? '+' : ''}${Math.round(balanceK)}</strong></td>
                 </tr>
             `;
             
@@ -931,27 +947,27 @@
             
             return `
                 <div class="gilba-au-fert-panel">
-                    <h3 style="margin: 0 0 1rem 0; color: #b45309; font-size: 1.25rem; display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 24px;">🇦🇺</span>
+                    <div class="gilba-int-header">
+                        <svg class="gilba-int-header-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
                         Australian Fertiliser Recommendations
-                    </h3>
-                    
-                    <div class="au-fert-supplier-filter" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--gaip-warning-bg); border: 1px solid var(--gaip-warning-border); border-radius: 6px;">
-                        <label style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
-                            <strong style="white-space: nowrap;">Supplier:</strong>
-                            <select id="au-fert-distributor-select" 
-                                    style="flex: 1; min-width: 200px; max-width: 400px; padding: 0.5rem; border: 1px solid var(--gaip-border); border-radius: 4px; font-size: 0.9rem; background: var(--gaip-surface);">
-                                ${distributorOptionsHtml}
-                            </select>
-                            <span style="font-size: 0.8rem; color: var(--gaip-text);">
-                                ${this.selectedDistributor === 'all' 
-                                    ? 'Recommending best products across all distributors' 
-                                    : `Showing only ${currentDistributorLabel} products`}
-                            </span>
-                        </label>
+                        <span class="gilba-int-region-badge">AU</span>
                     </div>
                     
-                    <div class="au-fert-meta" style="display: flex; gap: 1.5rem; padding: 0.75rem; background: var(--gaip-warning-bg); border-radius: 4px; font-size: 0.9rem; margin-bottom: 1rem;">
+                    <div class="au-fert-supplier-filter">
+                        <label class="au-fert-supplier-label">Supplier</label>
+                        <div class="au-fert-supplier-row">
+                            <select id="au-fert-distributor-select" class="plan-form-select au-fert-supplier-select">
+                                ${distributorOptionsHtml}
+                            </select>
+                            <span class="au-fert-supplier-hint">
+                                ${this.selectedDistributor === 'all' 
+                                    ? 'Best match across all distributors' 
+                                    : `Filtered to ${currentDistributorLabel} only`}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <div class="au-fert-meta">
                         <span class="meta-item">
                             <strong>Surface:</strong> ${this.formatSurfaceType(meta.surfaceType)}
                         </span>
@@ -959,7 +975,7 @@
                             <strong>Methodology:</strong> ${meta.methodology.toUpperCase()}
                         </span>
                         ${this.selectedDistributor !== 'all' ? `
-                        <span class="meta-item" style="color: #b45309;">
+                        <span class="meta-item au-fert-meta-supplier">
                             <strong>Supplier:</strong> ${this.selectedDistributor}
                         </span>
                         ` : ''}
@@ -981,73 +997,79 @@
                             const ratio = f.ratio || (f.suppressor + ':' + f.suppressed);
                             const pair = f.suppressor + ' → ' + f.suppressed;
                             const ratioVal = f.value ? f.value.toFixed(1) : '-';
-                            return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #e5e7eb;">' +
-                                '<span style="font-size:16px;line-height:1.2;">⚡</span>' +
+                            return '<div class="gilba-mulders-row">' +
+                                '<svg class="gilba-mulders-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>' +
                                 '<div style="flex:1;">' +
-                                    '<span style="font-weight:600;color:' + sev + ';">' + pair + '</span>' +
-                                    '<span style="margin-left:8px;font-size:11px;color:#6b7280;">ratio: ' + ratioVal + ' (threshold: ' + f.threshold + ')</span>' +
-                                    '<div style="font-size:12px;color:#374151;margin-top:2px;">' + (f.message || '') + '</div>' +
-                                    (f.citation ? '<div style="font-size:10px;color:#9ca3af;margin-top:2px;">📖 ' + f.citation + '</div>' : '') +
+                                    '<span class="gilba-mulders-pair" style="color:' + sev + ';">' + pair + '</span>' +
+                                    '<span class="gilba-mulders-ratio">ratio: ' + ratioVal + ' (threshold: ' + f.threshold + ')</span>' +
+                                    '<div class="gilba-mulders-msg">' + (f.message || '') + '</div>' +
+                                    (f.citation ? '<div class="gilba-mulders-citation">' + f.citation + '</div>' : '') +
                                 '</div>' +
                             '</div>';
                         }).join('');
                         const count = allFlags.length;
-                        return '<div style="margin:0 0 1.25rem 0;padding:0.75rem 1rem;background:#fefce8;border:1px solid #fde047;border-left:4px solid #ca8a04;border-radius:6px;">' +
-                            '<div style="font-weight:600;color:#92400e;margin-bottom:8px;font-size:0.9rem;">⚗️ Mulder\'s Nutrient Interactions Detected, ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
-                            '<div style="font-size:11px;color:#78350f;margin-bottom:8px;">Product selection has been adjusted to avoid aggravating the following antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
+                        return '<div class="gilba-mulders-panel">' +
+                            '<div class="gilba-mulders-title">' +
+                                '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>' +
+                                'Mulder\'s Nutrient Interactions — ' + count + ' interaction' + (count > 1 ? 's' : '') +
+                            '</div>' +
+                            '<div class="gilba-mulders-subtitle">Product selection adjusted to avoid aggravating antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
                             rows +
                         '</div>';
                     }).call(this)}
                     
-                    <h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 1rem; border-bottom: 1px solid var(--gaip-border); padding-bottom: 0.5rem;">Monthly Program</h4>
-                    <div class="gilba-table-scroll" style="overflow-x: auto;">
-                        <table class="gilba-calendar-table au-fert-program-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <h4 class="gilba-int-subheader">Monthly Program</h4>
+                    <div class="gilba-table-scroll">
+                        <table class="gilba-int-table au-fert-program-table">
+                            <colgroup>
+                                <col style="width:52px">
+                                <col style="width:70px">
+                                <col style="width:130px">
+                                <col>
+                                <col style="width:260px">
+                            </colgroup>
                             <thead>
-                                <tr style="background: var(--gaip-surface-hover);">
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Month</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Season</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Requirements</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Granular Products</th>
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Liquid/Foliar</th>
+                                <tr>
+                                    <th class="au-fert-th au-fert-th--left">Month</th>
+                                    <th class="au-fert-th au-fert-th--left">Season</th>
+                                    <th class="au-fert-th au-fert-th--left">Requirements</th>
+                                    <th class="au-fert-th au-fert-th--left">Granular</th>
+                                    <th class="au-fert-th au-fert-th--left">Liquid / Foliar</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${monthlyRows}
-                            </tbody>
+                            <tbody>${monthlyRows}</tbody>
                         </table>
                     </div>
                     
                     ${productEntries.length > 0 ? `
-                        <h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 1rem; border-bottom: 1px solid var(--gaip-border); padding-bottom: 0.5rem;">Nutrient Delivery Summary</h4>
-                        <table class="gilba-totals-table au-fert-nutrient-summary" style="width: 100%; max-width: 500px; border-collapse: collapse; font-size: 13px; margin-bottom: 1.5rem;">
+                        <h4 class="gilba-int-subheader">Nutrient Delivery Summary</h4>
+                        <table class="gilba-int-table au-fert-nutrient-summary">
                             <thead>
-                                <tr style="background: var(--gaip-surface-hover);">
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Nutrient</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Required (kg/ha)</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Delivered (kg/ha)</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Balance</th>
-                                    <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">Status</th>
+                                <tr>
+                                    <th class="au-fert-th au-fert-th--left">Nutrient</th>
+                                    <th class="au-fert-th">Required (kg/ha)</th>
+                                    <th class="au-fert-th">Delivered (kg/ha)</th>
+                                    <th class="au-fert-th">Balance</th>
+                                    <th class="au-fert-th">Status</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${nutrientSummaryRows}
-                            </tbody>
+                            <tbody>${nutrientSummaryRows}</tbody>
                         </table>
                         
-                        <h4 style="margin: 1.5rem 0 0.75rem 0; font-size: 1rem; border-bottom: 1px solid var(--gaip-border); padding-bottom: 0.5rem;">Annual Product Summary</h4>
-                        <table class="gilba-totals-table au-fert-summary-table" style="width: 100%; max-width: 700px; border-collapse: collapse; font-size: 13px;">
+                        <h4 class="gilba-int-subheader">Annual Product Summary</h4>
+                        <table class="gilba-int-table au-fert-summary-table">
                             <thead>
-                                <tr style="background: var(--gaip-surface-hover);">
-                                    <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Product</th>
-                                    <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">Applications</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Total Rate</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">N</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">P</th>
-                                    <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">K</th>
+                                <tr>
+                                    <th class="au-fert-th au-fert-th--left">Product</th>
+                                    <th class="au-fert-th">Applications</th>
+                                    <th class="au-fert-th">Total Rate</th>
+                                    <th class="au-fert-th">N</th>
+                                    <th class="au-fert-th">P</th>
+                                    <th class="au-fert-th">K</th>
                                 </tr>
-                                <tr style="background: var(--gaip-surface-muted);">
-                                    <th colspan="3" style="padding: 2px 8px; text-align: right; border: 1px solid var(--gaip-border); font-weight: 400; font-size: 11px; color: var(--gaip-text-secondary);"></th>
-                                    <th colspan="3" style="padding: 2px 8px; text-align: center; border: 1px solid var(--gaip-border); font-weight: 400; font-size: 11px; color: var(--gaip-text-secondary);">kg/ha delivered</th>
+                                <tr class="au-fert-unit-row">
+                                    <th class="au-fert-th" colspan="3"></th>
+                                    <th class="au-fert-th" colspan="3">kg/ha delivered</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1057,7 +1079,7 @@
                         </table>
                     ` : ''}
                     
-                    <div class="au-fert-disclaimer" style="margin-top: 1.5rem; padding: 0.75rem; background: var(--gaip-warning-bg); border-left: 3px solid #f59e0b; font-size: 0.85rem; color: var(--gaip-text);">
+                    <div class="au-fert-disclaimer">
                         <strong>Note:</strong> These recommendations are based on nutrient requirements 
                         calculated from ${meta.methodology.toUpperCase()} methodology. ${this.selectedDistributor === 'all' 
                             ? 'Products are selected from all Australian distributors for best agronomic fit. Use the Supplier dropdown to filter to a single distributor if you prefer consolidated ordering.' 
@@ -1116,53 +1138,193 @@
     // ========================================================================
 
     const styles = `
-        .gilba-au-fertiliser-recommendations {
-            margin-top: 2rem;
+        .gilba-au-fertiliser-recommendations { margin-top: 0; }
+
+        .gilba-au-fert-panel { background: none; border: none; padding: 0; }
+
+        .gilba-au-fert-panel h4 {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gaip-text-muted);
+            margin: 18px 0 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--gaip-border-light);
         }
-        
-        .gilba-au-fert-panel {
-            background: var(--gaip-surface);
-            border: 1px solid var(--gaip-border);
-            border-radius: 8px;
-            padding: 1.5rem;
+
+        .au-fert-supplier-filter {
+            margin-bottom: 14px;
         }
-        
-        .au-fert-program-table .au-fert-product {
-            display: inline-block;
-            background: var(--gaip-warning-bg);
-            padding: 2px 8px;
-            border-radius: 4px;
-            margin: 2px;
-            font-size: 0.85rem;
+        .au-fert-supplier-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--gaip-text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            margin-bottom: 5px;
         }
-        
-        .au-fert-program-table .au-fert-product.liquid {
-            background: var(--gaip-info-bg);
+        .au-fert-supplier-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
         }
-        
-        .au-fert-program-table .au-fert-none {
+        .au-fert-supplier-select {
+            flex: 1;
+            min-width: 160px;
+            max-width: 360px;
+        }
+        .au-fert-supplier-hint {
+            font-size: 11px;
             color: var(--gaip-text-muted);
         }
-        
-        .au-fert-program-table .au-fert-req {
-            font-family: monospace;
-            font-size: 0.85rem;
+
+        .au-fert-meta {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            padding: 10px 12px;
+            background: var(--gaip-surface-muted);
+            border-radius: var(--gaip-radius-sm, 6px);
+            font-size: 12px;
+            margin-bottom: 14px;
+        }
+
+        .au-fert-program-table { font-size: 13px; width: 100%; }
+
+        .au-fert-program-table .au-fert-product {
+            display: inline-block;
+            background: var(--gaip-accent-light);
+            color: var(--gaip-accent-dark);
+            border: 1px solid var(--gaip-good-border);
+            padding: 2px 8px;
+            border-radius: 20px;
+            margin: 2px 2px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .au-fert-program-table .au-fert-product.liquid {
+            background: var(--gaip-info-bg);
+            color: var(--gaip-info);
+            border-color: var(--gaip-info-border);
+        }
+
+        .au-fert-program-table .au-fert-none { color: var(--gaip-text-muted); }
+        .au-fert-program-table .au-fert-req { font-size: 12px; white-space: nowrap; color: var(--gaip-text-muted); font-variant-numeric: tabular-nums; }
+
+        .au-fert-note-row td {
+            padding: 5px 10px 7px 14px !important;
+            background: var(--gaip-warning-bg) !important;
+            border-left: 3px solid var(--gaip-warning) !important;
+            border-bottom: 1px solid var(--gaip-warning-border) !important;
+            font-size: 12px;
+            font-style: italic;
+            color: var(--gaip-warning);
+        }
+
+        .au-fert-program-table tr:has(+ .au-fert-note-row) td {
+            border-bottom: none !important;
+        }
+
+        .au-fert-notes { color: var(--gaip-warning); font-size: 12px; }
+
+        .au-fert-nutrient-summary td { padding: 8px 10px; font-size: 13px; }
+        .au-fert-nutrient-summary .nutrient-diff { font-weight: 600; }
+        .au-fert-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good); }
+        .au-fert-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical); }
+        .au-fert-nutrient-summary tr.nutrient-sufficient td:last-child { color: var(--gaip-good); font-weight: 600; }
+        .au-fert-nutrient-summary tr.nutrient-marginal td:last-child { color: var(--gaip-warning); font-weight: 600; }
+        .au-fert-nutrient-summary tr.nutrient-deficit td:last-child { color: var(--gaip-critical); font-weight: 600; }
+
+        .gilba-table-scroll { overflow-x: auto; margin-bottom: 24px; }
+
+        .au-fert-release-tag {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 6px;
+            background: var(--gaip-info-bg);
+            color: var(--gaip-info);
+            border: 1px solid var(--gaip-info-border);
+            border-radius: 20px;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .au-fert-meta-supplier { color: var(--gaip-warning); }
+
+        .gilba-int-subheader {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gaip-text-muted);
+            margin: 22px 0 10px; padding-bottom: 6px;
+            border-bottom: 1px solid var(--gaip-border-light);
+        }
+
+        /* Shared table base */
+        .gilba-int-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .au-fert-th {
+            text-align: right;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gaip-text-muted);
+            padding: 7px 10px;
+            border-bottom: 2px solid var(--gaip-border);
             white-space: nowrap;
         }
-        
-        .au-fert-note-row td {
-            padding: 0.25rem 0.5rem !important;
-            background: #fffde7 !important;
-            font-size: 0.85rem;
+
+        .au-fert-th--left { text-align: left; }
+
+        .au-fert-unit-row th {
+            font-size: 11px;
+            font-weight: 400;
             font-style: italic;
+            color: var(--gaip-text-muted);
+            text-transform: none;
+            letter-spacing: 0;
+            border-bottom: 1px solid var(--gaip-border-light);
+            padding: 3px 10px;
+            text-align: right;
         }
-        
-        .au-fert-notes {
-            color: #b45309;
+
+        .au-fert-cell {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--gaip-border-light);
+            color: var(--gaip-text);
+            vertical-align: middle;
         }
-        
-        .gilba-table-scroll {
-            overflow-x: auto;
+
+        .au-fert-cell--left { text-align: left; }
+        .au-fert-cell--num { text-align: right; }
+        .au-fert-cell--month { text-align: left; font-weight: 600; white-space: nowrap; }
+        .au-fert-cell--season { text-align: left; color: var(--gaip-text-muted); white-space: nowrap; }
+        .au-fert-cell--mono { font-variant-numeric: tabular-nums; }
+        .au-fert-cell-sub { font-size: 11px; color: var(--gaip-text-muted); margin-top: 2px; }
+
+        .au-fert-positive { color: var(--gaip-good); font-weight: 600; }
+        .au-fert-negative { color: var(--gaip-critical); font-weight: 600; }
+
+        .au-fert-totals-row td { background: var(--gaip-good-bg); font-weight: 700; border-bottom: 2px solid var(--gaip-border); }
+        .au-fert-required-row td { background: var(--gaip-surface-muted); color: var(--gaip-text-muted); }
+        .au-fert-balance-row--positive td { background: var(--gaip-good-bg); }
+        .au-fert-balance-row--negative td { background: var(--gaip-critical-bg); }
+
+        .au-fert-disclaimer {
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: var(--gaip-warning-bg);
+            border: 1px solid var(--gaip-warning-border);
+            border-left: 3px solid var(--gaip-warning);
+            border-radius: var(--gaip-radius-sm, 6px);
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--gaip-text);
         }
     `;
 

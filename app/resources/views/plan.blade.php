@@ -8,6 +8,68 @@
         savedLocation:   @json($savedLocation ?? null),
     });
     window.GAIP_SITE_CONFIG = @json($gaipConfig ?? null);
+
+    // Bridge: populate GAIP_STATE for nutrition-calendar.js from plan page data sources.
+    // nutrition-calendar.js reads from GAIP_STATE (hub format); plan page has
+    // GAIP_SITE_CONFIG (raw config) and GAIP_DASHBOARD_DATA (analysis cache).
+    (function () {
+        var config = window.GAIP_SITE_CONFIG || {};
+        var hub    = window.GAIP_HUB_CONFIG  || {};
+        var dash   = window.GAIP_DASHBOARD_DATA || {};
+        var comp   = dash.computed || {};
+        var clim   = comp.climate  || {};
+        var turf   = config.turf   || {};
+        var soil   = config.soil   || {};
+        var loc    = config.location || hub.savedLocation || {};
+
+        var state = window.GAIP_STATE || {};
+
+        state.turf = Object.assign({}, state.turf || {}, {
+            effectiveSpecies: turf.species || hub.turfSpecies,
+            grassSpecies:     turf.species || hub.turfSpecies,
+            turfType:         turf.turfType || turf.type,
+            subCategory:      turf.subCategory,
+            traffic:          turf.traffic || 'moderate',
+            cotula:           !!(turf.cotula),
+        });
+
+        state.climate = Object.assign({}, state.climate || {}, {
+            monthlyTemps: clim.monthlyTemps || state.climate && state.climate.monthlyTemps,
+            latitude:     parseFloat(loc.lat) || clim.latitude,
+        });
+
+        // Detect NZ from coordinates (lat -47 to -34, lon 166 to 179)
+        var _lat = parseFloat(loc.lat || 0);
+        var _lon = parseFloat(loc.lon || loc.lng || 0);
+        var _isNZ = (_lon >= 166 && _lon <= 179 && _lat >= -47 && _lat <= -34);
+
+        // NZ always uses Ammonium Acetate (Hill Labs S78), not MLSN
+        var _methodology = turf.methodology || soil.methodology || null;
+        if (!_methodology || _methodology === 'mlsn') {
+            _methodology = _isNZ ? 'ammonium_acetate' : (_methodology || 'mlsn');
+        }
+
+        var si = state.inputs || {};
+        si.soil = Object.assign({}, si.soil || {}, {
+            P: soil.P, K: soil.K, Ca: soil.Ca, Mg: soil.Mg, S: soil.S,
+            Fe: soil.Fe, Mn: soil.Mn, Zn: soil.Zn, Cu: soil.Cu,
+            methodology:  _methodology,
+            bulkDensity:  soil.bulkDensity,
+            depth:        soil.depth,
+            surfaceType:  turf.subCategory || turf.turfType,
+        });
+        state.inputs = si;
+
+        window.GAIP_STATE = state;
+
+        // climateMetrics is read directly by some internal helpers
+        if (clim.monthlyTemps || loc.lat) {
+            var cm = window.climateMetrics || {};
+            if (clim.monthlyTemps) cm.monthlyTemps = clim.monthlyTemps;
+            if (loc.lat) cm.latitude = parseFloat(loc.lat);
+            window.climateMetrics = cm;
+        }
+    })();
 </script>
 @endsection
 
@@ -452,6 +514,14 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
     font-family: var(--gaip-font);
     transition: border-color 0.15s;
     -webkit-appearance: none;
+    appearance: none;
+}
+.plan-form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    background-size: 12px 12px;
+    padding-right: 28px;
 }
 .plan-form-input:focus, .plan-form-select:focus {
     outline: none;
@@ -477,62 +547,6 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
 }
 .plan-generate-btn:hover { background: var(--gaip-accent-hover); }
 .plan-generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-.plan-nutrition-summary {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 16px;
-    padding: 14px;
-    background: var(--gaip-surface-muted);
-    border-radius: var(--gaip-radius-sm);
-}
-@media (max-width: 600px) { .plan-nutrition-summary { grid-template-columns: 1fr 1fr; } }
-.plan-nutrition-summary-item { display: flex; flex-direction: column; gap: 2px; }
-.plan-nutrition-summary-key { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--gaip-text-muted); letter-spacing: 0.05em; }
-.plan-nutrition-summary-val { font-size: 13px; font-weight: 700; color: var(--gaip-text); }
-.plan-nutrition-totals {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 6px;
-    margin-bottom: 16px;
-}
-@media (max-width: 600px) { .plan-nutrition-totals { grid-template-columns: repeat(3, 1fr); } }
-.plan-nut-total {
-    background: var(--gaip-surface-muted);
-    border-radius: var(--gaip-radius-sm);
-    padding: 10px 8px;
-    text-align: center;
-}
-.plan-nut-total-val { font-size: 18px; font-weight: 800; color: var(--gaip-accent); }
-.plan-nut-total-label { font-size: 10px; font-weight: 700; color: var(--gaip-text-muted); text-transform: uppercase; margin-top: 2px; }
-.plan-nut-total-unit { font-size: 9px; color: var(--gaip-text-muted); }
-.plan-cal-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
-    margin-bottom: 14px;
-}
-.plan-cal-table th {
-    text-align: right;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--gaip-text-muted);
-    padding: 5px 8px;
-    border-bottom: 2px solid var(--gaip-border);
-}
-.plan-cal-table th:first-child, .plan-cal-table th:nth-child(2) { text-align: left; }
-.plan-cal-table td {
-    text-align: right;
-    padding: 6px 8px;
-    color: var(--gaip-text);
-    border-bottom: 1px solid var(--gaip-border-light);
-}
-.plan-cal-table td:first-child { text-align: left; font-weight: 600; }
-.plan-cal-table td:nth-child(2) { text-align: left; color: var(--gaip-text-muted); }
-.plan-cal-table tr.current-month td { background: var(--gaip-accent-light); font-weight: 700; }
-.plan-cal-table tfoot td { font-weight: 700; border-top: 2px solid var(--gaip-border); border-bottom: none; background: var(--gaip-surface-muted); }
 .plan-cal-export-row {
     display: flex;
     align-items: center;
@@ -746,13 +760,9 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                         Nutrition Program
                         <span class="db-info-icon" data-info="nutrition-program" tabindex="0" role="button" aria-label="About Nutrition Program">i</span>
                     </div>
-                    <button class="plan-btn-secondary" id="plan-nut-csv-btn" style="display:none" title="Export nutrition program as CSV">
-                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
-                        Export CSV
-                    </button>
                 </div>
 
-                <div id="plan-nut-form-wrap">
+                <div id="plan-nut-form-wrap" data-nutrition-calendar-module>
                     <form class="plan-form" id="plan-nut-form" autocomplete="off">
                         <div class="plan-form-row">
                             <div class="plan-form-group">
@@ -760,7 +770,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                                     Annual N Target
                                     <span class="db-info-icon" data-info="annual-n-target" tabindex="0" role="button">i</span>
                                 </label>
-                                <input class="plan-form-input" type="number" id="plan-nut-annual-n" min="0" max="600" step="1" placeholder="e.g. 120">
+                                <input class="plan-form-input gaip-nutrition-annual-n" type="number" id="plan-nut-annual-n" min="0" max="600" step="1" placeholder="e.g. 120">
                                 <div class="plan-form-hint">kg N/ha/yr · Greens: 80–150 · Tees: 120–180 · Sports: 180–350</div>
                             </div>
                             <div class="plan-form-group">
@@ -768,22 +778,22 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                                     Max N per Application
                                     <span class="db-info-icon" data-info="max-n-app" tabindex="0" role="button">i</span>
                                 </label>
-                                <input class="plan-form-input" type="number" id="plan-nut-max-n" min="0" max="50" step="0.5" placeholder="e.g. 15">
+                                <input class="plan-form-input gaip-nutrition-max-n" type="number" id="plan-nut-max-n" min="0" max="50" step="0.5" placeholder="e.g. 15">
                                 <div class="plan-form-hint">kg N/ha per single application</div>
                             </div>
                         </div>
                         <div class="plan-form-row">
                             <div class="plan-form-group">
                                 <label class="plan-form-label" for="plan-nut-distribution">Distribution Method</label>
-                                <select class="plan-form-select" id="plan-nut-distribution">
-                                    <option value="gp">GP-Weighted (recommended)</option>
+                                <select class="plan-form-select gaip-nutrition-distribution" id="plan-nut-distribution">
+                                    <option value="gp_weighted">GP-Weighted (recommended)</option>
                                     <option value="even">Even Distribution</option>
-                                    <option value="front">Front-loaded (spring emphasis)</option>
+                                    <option value="front_loaded">Front-loaded (spring emphasis)</option>
                                 </select>
                             </div>
                             <div class="plan-form-group">
                                 <label class="plan-form-label" for="plan-nut-clipping">Clipping Management</label>
-                                <select class="plan-form-select" id="plan-nut-clipping">
+                                <select class="plan-form-select gaip-nutrition-clipping" id="plan-nut-clipping">
                                     <option value="collected">Collected (removed)</option>
                                     <option value="returned">Returned (mulched)</option>
                                 </select>
@@ -800,15 +810,17 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                             </div>
                         </div>
                         <div>
-                            <button type="submit" class="plan-generate-btn" id="plan-nut-generate-btn">
+                            <button type="button" class="plan-generate-btn" id="plan-nut-generate-btn" data-nutrition-generate>
                                 Generate Nutrition Program
                             </button>
                         </div>
                     </form>
-                </div>
 
-                <hr class="plan-form-divider" id="plan-nut-divider" style="display:none">
-                <div id="plan-nut-results" style="display:none"></div>
+                    <div data-nutrition-results id="plan-nut-results" style="display:none">
+                        <div data-nutrition-summary></div>
+                        <div data-nutrition-calendar></div>
+                    </div>
+                </div>
 
             </div>{{-- /plan-nut-card --}}
 
@@ -843,6 +855,14 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 @endsection
 
 @section('scripts')
+<link rel="stylesheet" href="{{ $legacyAssetUrl('nutrition-calendar.css') }}">
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}"></script>
 <script src="{{ $legacyAssetUrl('plan-ui.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
+<script src="{{ $legacyAssetUrl('prebbles-products.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-prebble-integration.js') }}"></script>
+<script src="{{ $legacyAssetUrl('au-fertiliser-products.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-au-fertiliser-integration.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uk-fertiliser-products.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-uk-fertiliser-integration.js') }}"></script>
 @endsection

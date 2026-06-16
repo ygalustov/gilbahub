@@ -589,7 +589,16 @@
         // The matched read fix lives in collectFromState below — `state.soil`
         // alone returns undefined; the canonical read is `state.inputs.soil`.
         try {
-            window.GAIP_STATE = { inputs: { soil: soilState } };
+            // Merge soil state into existing GAIP_STATE instead of replacing the whole
+            // object — a full replacement wipes state.turf (set by plan page bridge)
+            // which integration scripts need for getSurfaceType().
+            var _gs = window.GAIP_STATE;
+            if (_gs && typeof _gs === 'object' && !Array.isArray(_gs)) {
+                var _inp = Object.assign({}, _gs.inputs || {}, { soil: soilState });
+                Object.assign(_gs, { inputs: _inp });
+            } else {
+                window.GAIP_STATE = { inputs: { soil: soilState } };
+            }
         } catch (e) {
             console.warn('[NutritionCalendar b35fix386] state writeback failed:', e && e.message);
         }
@@ -1177,69 +1186,57 @@
     NutritionCalendar.renderSummary = function() {
         const summary = this.elements.summary;
         if (!summary) return;
-        
+
         const p = this.program;
         const totals = p.annual_totals;
         const meta = p.meta;
-        
+
+        const clipLabel = meta.clippingManagement === 'collected' ? 'Collected' : 'Returned';
+
         summary.innerHTML = `
-            <div class="gilba-nutrition-summary" style="margin-bottom: 20px;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px;">
-                    <div style="padding: 12px; background: var(--gaip-good-bg); border-radius: 6px; text-align: center;">
-                        <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Species</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #166534;">${meta.speciesDisplay || this.formatSpecies(meta.species)}</div>
+            <div class="gilba-nut-summary">
+                <div class="gilba-nut-meta-grid">
+                    <div class="gilba-nut-meta-item">
+                        <div class="gilba-nut-meta-label">Species</div>
+                        <div class="gilba-nut-meta-val">${this.formatSpecies(meta.speciesDisplay || meta.species)}</div>
                     </div>
-                    <div style="padding: 12px; background: var(--gaip-info-bg); border-radius: 6px; text-align: center;">
-                        <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Methodology</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #1e40af;">${this.formatMethodology(meta.methodology)}</div>
+                    <div class="gilba-nut-meta-item">
+                        <div class="gilba-nut-meta-label">Methodology</div>
+                        <div class="gilba-nut-meta-val">${this.formatMethodology(meta.methodology)}</div>
                     </div>
-                    <div style="padding: 12px; background: var(--gaip-warning-bg); border-radius: 6px; text-align: center;">
-                        <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Distribution</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #92400e;">${this.formatDistribution(meta.distribution)}</div>
+                    <div class="gilba-nut-meta-item">
+                        <div class="gilba-nut-meta-label">Distribution</div>
+                        <div class="gilba-nut-meta-val">${this.formatDistribution(meta.distribution)}</div>
                     </div>
-                    <div style="padding: 12px; background: var(--gaip-info-bg); border-radius: 6px; text-align: center;">
-                        <div style="font-size: 11px; color: var(--gaip-text); text-transform: uppercase;">Clippings</div>
-                        <div style="font-size: 14px; font-weight: 600; color: #6b21a8;">${meta.clippingManagement === 'collected' ? '🗑️ Collected' : '♻️ Returned'}</div>
-                        ${p.adjustments.n_recycled > 0 ? `<div style="font-size: 11px; color: #059669; margin-top: 4px;">↻ ${p.adjustments.n_recycled} kg N/ha recycled</div>` : ''}
+                    <div class="gilba-nut-meta-item">
+                        <div class="gilba-nut-meta-label">Clippings</div>
+                        <div class="gilba-nut-meta-val">${clipLabel}${p.adjustments.n_recycled > 0 ? ` <span class="gilba-nut-recycled-badge">${p.adjustments.n_recycled} kg N recycled</span>` : ''}</div>
                     </div>
                 </div>
-                
+
                 ${p.adjustments.n_recycled > 0 ? `
-                    <div style="margin: 12px 0; padding: 10px; background: var(--gaip-good-bg); border-left: 3px solid #10b981; border-radius: 4px; font-size: 12px; color: #065f46;">
-                        <strong>♻️ Clipping Recycling:</strong> 
-                        Target ${p.adjustments.target_n} kg N/ha reduced to <strong>${p.adjustments.applied_n} kg N/ha</strong> applied 
+                    <div class="gilba-nut-banner gilba-nut-banner--good">
+                        <strong>Clipping Recycling:</strong> Target ${p.adjustments.target_n} kg N/ha reduced to
+                        <strong>${p.adjustments.applied_n} kg N/ha</strong> applied
                         (${p.adjustments.n_recycled} kg N/ha returned via clippings).
-                        <span style="color: var(--gaip-text); font-style: italic;">Ref: Kopp & Guillard 2002</span>
+                        <em>Ref: Kopp &amp; Guillard 2002</em>
                     </div>
                 ` : ''}
-                
-                <h4 style="margin: 16px 0 8px; font-size: 14px; color: var(--gaip-text);">Annual Requirements (kg/ha)</h4>
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
-                    <thead>
-                        <tr style="background: var(--gaip-surface-hover);">
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">N</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">P</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">K</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">Ca</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">Mg</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">S</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border); font-weight: 600;">${totals.N}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">${totals.P}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">${totals.K}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">${totals.Ca}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">${totals.Mg}</td>
-                            <td style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">${totals.S}</td>
-                        </tr>
-                    </tbody>
-                </table>
-                
+
+                <div class="gilba-nut-section-label">Annual Requirements (kg/ha)</div>
+                <div class="gilba-nut-totals-row">
+                    ${['N','P','K','Ca','Mg','S'].map(el => `
+                        <div class="gilba-nut-total${el === 'N' ? ' gilba-nut-total--n' : ''}">
+                            <div class="gilba-nut-total-val">${totals[el]}</div>
+                            <div class="gilba-nut-total-name">${el}</div>
+                            <div class="gilba-nut-total-unit">kg/ha/yr</div>
+                        </div>
+                    `).join('')}
+                </div>
+
                 ${p.adjustments.n_cap_applied ? `
-                    <div style="margin-top: 12px; padding: 10px; background: var(--gaip-warning-bg); border-radius: 6px; font-size: 12px; color: #92400e;">
-                        <strong>⚠️ Monthly N caps applied:</strong> 
+                    <div class="gilba-nut-banner gilba-nut-banner--warning">
+                        <strong>Monthly N caps applied:</strong>
                         Original ${p.adjustments.original_n_total} kg/ha → Capped ${p.adjustments.capped_n_total} kg/ha
                     </div>
                 ` : ''}
@@ -1256,53 +1253,47 @@
         const rows = monthly.map(m => {
             const gpPct = Math.round(m.gp * 100);
             const gpClass = gpPct >= 50 ? 'high' : (gpPct >= 25 ? 'medium' : 'low');
-            const gpColor = gpPct >= 50 ? '#166534' : (gpPct >= 25 ? '#ca8a04' : '#dc2626');
-            
             return `
-                <tr>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); font-weight: 500;">${m.month_name}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); color: var(--gaip-text);">${m.season}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: center;">
-                        <span style="display: inline-block; padding: 2px 8px; border-radius: 10px; background: ${gpColor}20; color: ${gpColor}; font-weight: 600; font-size: 12px;">
-                            ${gpPct}%
-                        </span>
+                <tr class="gilba-nut-row">
+                    <td class="gilba-nut-cell gilba-nut-cell--month">${m.month_name}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--season">${m.season}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--gp">
+                        <span class="gilba-nut-gp-badge gilba-nut-gp-badge--${gpClass}">${gpPct}%</span>
                     </td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right; font-weight: 600;">${m.N.toFixed(1)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${m.P.toFixed(1)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${m.K.toFixed(1)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${m.Ca.toFixed(1)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${m.Mg.toFixed(1)}</td>
-                    <td style="padding: 8px; border: 1px solid var(--gaip-border); text-align: right;">${m.S.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val gilba-nut-cell--n">${m.N.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val">${m.P.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val">${m.K.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val">${m.Ca.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val">${m.Mg.toFixed(1)}</td>
+                    <td class="gilba-nut-cell gilba-nut-cell--val">${m.S.toFixed(1)}</td>
                 </tr>
             `;
         }).join('');
 
         calendar.innerHTML = `
-            <h4 style="margin: 16px 0 8px; font-size: 14px; color: var(--gaip-text);">Monthly Nutrient Program (kg/ha)</h4>
-            <div style="overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px;">
+            <div class="gilba-nut-section-label">Monthly Nutrient Program (kg/ha)</div>
+            <div class="gilba-nut-table-wrap">
+                <table class="gilba-nut-table">
                     <thead>
-                        <tr style="background: var(--gaip-surface-hover);">
-                            <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Month</th>
-                            <th style="padding: 8px; text-align: left; border: 1px solid var(--gaip-border);">Season</th>
-                            <th style="padding: 8px; text-align: center; border: 1px solid var(--gaip-border);">GP</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">N</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">P</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">K</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Ca</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">Mg</th>
-                            <th style="padding: 8px; text-align: right; border: 1px solid var(--gaip-border);">S</th>
+                        <tr>
+                            <th class="gilba-nut-th gilba-nut-th--left">Month</th>
+                            <th class="gilba-nut-th gilba-nut-th--left">Season</th>
+                            <th class="gilba-nut-th">GP</th>
+                            <th class="gilba-nut-th">N</th>
+                            <th class="gilba-nut-th">P</th>
+                            <th class="gilba-nut-th">K</th>
+                            <th class="gilba-nut-th">Ca</th>
+                            <th class="gilba-nut-th">Mg</th>
+                            <th class="gilba-nut-th">S</th>
                         </tr>
                     </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
+                    <tbody>${rows}</tbody>
                 </table>
             </div>
-            
-            <div style="margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap;">
-                <button type="button" class="gaip-btn" onclick="GilbaNutritionCalendar.exportCSV()" style="padding: 8px 16px; background: var(--gaip-surface-hover); border: 1px solid var(--gaip-border); border-radius: 4px; cursor: pointer; font-size: 13px;">
-                    📥 Export CSV
+            <div class="gilba-nut-actions">
+                <button type="button" class="plan-btn-secondary gilba-nut-export-btn" onclick="GilbaNutritionCalendar.exportCSV()">
+                    <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export CSV
                 </button>
             </div>
         `;

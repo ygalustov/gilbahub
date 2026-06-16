@@ -181,47 +181,59 @@
          * Priority: Turf profile > GAIP_STATE > DOM
          */
         getSurfaceType: function() {
-            // Cotula/bowls check first — covers all possible state locations
             const _tpcState = window.GaipTurfProfile?.state || window.gaipTurfProfile?.state || {};
             const _gaipTurf = window.GAIP_STATE?.turf || {};
+
+            // Cotula/bowls check first
             if (_tpcState.turfType === 'bowls' || _gaipTurf.turfType === 'bowls' ||
-                _gaipTurf.cotula === true || _tpcState.species === 'cotula' ||
-                _gaipTurf.grassSpecies === 'cotula') {
+                _gaipTurf.cotula === true || _tpcState.cotula === true ||
+                _tpcState.species === 'cotula' || _gaipTurf.grassSpecies === 'cotula') {
                 return 'bowling_greens';
             }
 
-            // Primary: turf profile (user's actual selection)
-            if (_tpcState.turfType) {
-                const turfType = _tpcState.turfType;
-                const subCategory = _tpcState.subCategory;
-
-                // Map turf type + subcategory to surface type
+            function _mapTurfType(turfType, subCategory) {
+                if (!turfType) return null;
                 if (turfType === 'golf') {
-                    if (subCategory === 'greens') return 'golf_greens';
-                    if (subCategory === 'tees') return 'tees';
-                    if (subCategory === 'fairways') return 'fairways';
-                    return 'fairways'; // default for golf
+                    if (subCategory === 'greens')    return 'golf_greens';
+                    if (subCategory === 'tees')      return 'tees';
+                    if (subCategory === 'fairways')  return 'fairways';
+                    if (subCategory === 'surrounds') return 'fairways';
+                    return 'golf_greens';
                 }
                 if (turfType === 'bowling' || turfType === 'bowls') return 'bowling_greens';
                 if (turfType === 'cricket') return 'cricket_wickets';
                 if (subCategory) return subCategory;
                 return turfType;
             }
-            
-            // Fallback: GAIP_STATE.soil.surfaceType
-            if (window.GAIP_STATE?.soil?.surfaceType) {
-                const st = window.GAIP_STATE.soil.surfaceType;
-                if (st === 'cotula_bowling_green') return 'bowling_greens';
-                return st;
+
+            // Primary: legacy turf profile component
+            if (_tpcState.turfType) {
+                return _mapTurfType(_tpcState.turfType, _tpcState.subCategory);
             }
-            
+
+            // Secondary: GAIP_STATE.turf (set by plan page data bridge)
+            if (_gaipTurf.turfType) {
+                return _mapTurfType(_gaipTurf.turfType, _gaipTurf.subCategory);
+            }
+
+            // Tertiary: GAIP_STATE.inputs.soil.surfaceType (data bridge path)
+            const inputsSt = window.GAIP_STATE?.inputs?.soil?.surfaceType;
+            if (inputsSt) {
+                if (inputsSt === 'cotula_bowling_green') return 'bowling_greens';
+                return inputsSt;
+            }
+
+            // Legacy: GAIP_STATE.soil.surfaceType
+            const soilSt = window.GAIP_STATE?.soil?.surfaceType;
+            if (soilSt) {
+                if (soilSt === 'cotula_bowling_green') return 'bowling_greens';
+                return soilSt;
+            }
+
             // Fallback: DOM select
             const surfaceSelect = document.querySelector('.gaip-surface-type');
-            if (surfaceSelect?.value) {
-                return surfaceSelect.value;
-            }
-            
-            // Default
+            if (surfaceSelect?.value) return surfaceSelect.value;
+
             return 'sports';
         },
         
@@ -263,14 +275,19 @@
             if (_b35fix446_soilM) {
                 const m = _b35fix446_soilM;
                 if (m === 'cotula_s78' || m === 'cotula') return 'ammonium_acetate';
+                // If explicitly set to mlsn but site is NZ, override — NZ uses AA (Hill Labs S78)
+                if (m === 'mlsn' && this.isNewZealand()) return 'ammonium_acetate';
                 return m;
             }
-            
+
             const methodSelect = document.querySelector('.gaip-soil-methodology');
-            if (methodSelect?.value) {
+            if (methodSelect?.value && methodSelect.value !== 'mlsn') {
                 return methodSelect.value;
             }
-            
+
+            // Prebbles is NZ-only — NZ standard is ammonium acetate (Hill Labs S78), not MLSN
+            if (this.isNewZealand()) return 'ammonium_acetate';
+
             return 'mlsn';
         },
         
@@ -703,17 +720,17 @@
                     // Use kg/ha for sports/fairways, g/m² for greens/tees
                     const rateDisplay = useGM2 ? `${p.rateGM2}g/m²` : `${p.rateKgHa}kg/ha`;
                     return `<span class="prebble-product eff-${effClass}" title="${p.notes || ''} ${longevityTitle} ${effTitle}">${p.name}${npkDisplay} @ ${rateDisplay}${splitNote} ${releaseTag}</span>`;
-                }).join(' + ') || '<span class="prebble-none">,</span>';
+                }).join(' + ') || '<span class="prebble-none">—</span>';
                 
                 // Show "covered by" info if this month is covered by previous application
                 let coverageDisplay = '';
                 if (m.coveredBy) {
-                    coverageDisplay = `<div class="prebble-covered" title="Still releasing from ${m.coveredBy.month}"><small>🔄 ${m.coveredBy.product} (${m.coveredBy.month}) - N:${m.coveredBy.remainingN.toFixed(1)} K:${m.coveredBy.remainingK.toFixed(1)} remaining</small></div>`;
+                    coverageDisplay = `<div class="prebble-covered" title="Still releasing from ${m.coveredBy.month}"><small><svg class="gilba-icon-inline" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> ${m.coveredBy.product} (${m.coveredBy.month}) - N:${m.coveredBy.remainingN.toFixed(1)} K:${m.coveredBy.remainingK.toFixed(1)} remaining</small></div>`;
                 }
                 
                 // Legacy: Show active nutrients from previous slow-release if present (for backwards compat)
                 const activeDisplay = !m.coveredBy && m.activeFromPrevious 
-                    ? `<div class="prebble-active" title="Still releasing from previous application"><small>🔄 Active: N:${m.activeFromPrevious.N.toFixed(1)} K:${m.activeFromPrevious.K.toFixed(1)}</small></div>` 
+                    ? `<div class="prebble-active" title="Still releasing from previous application"><small><svg class="gilba-icon-inline" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Active: N:${m.activeFromPrevious.N.toFixed(1)} K:${m.activeFromPrevious.K.toFixed(1)}</small></div>` 
                     : '';
                 
                 const liquidList = m.liquid.map(p => {
@@ -726,7 +743,7 @@
                     }
                     const npkDisplay = p.npk ? ` (${p.npk})` : '';
                     const splitNote = p.splitRequired ? ` [×${p.splitCount}]` : '';
-                    const solubleNote = p.form === 'soluble' ? ' 💧' : ''; // Water drop to indicate dissolve in tank
+                    const solubleNote = p.form === 'soluble' ? ' <svg class="gilba-icon-inline" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="Dissolve in spray tank"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-5.385 0-9 3.56-9 7.5C3 14.69 7.5 19.5 12 21.75c4.5-2.25 9-7.06 9-12C21 5.81 17.385 2.25 12 2.25z"/></svg>' : ''; // droplet = dissolve in tank
                     return `<span class="prebble-product liquid" title="${p.notes || ''}">${p.name}${npkDisplay}${rate ? ' @ ' + rate : ''}${splitNote}${solubleNote}</span>`;
                 }).join(' + ') || '';
 
@@ -753,11 +770,11 @@
                 
                 return `
                     <tr class="gilba-gp-${gpClass}">
-                        <td>${m.month}</td>
-                        <td>${m.season}</td>
-                        <td class="prebble-req">${reqString}</td>
-                        <td class="prebble-granular">${granularList}${coverageDisplay}${activeDisplay}</td>
-                        <td class="prebble-liquid">${liquidListWithKRecon}</td>
+                        <td class="prebble-cell prebble-cell--month">${m.month}</td>
+                        <td class="prebble-cell prebble-cell--season">${m.season}</td>
+                        <td class="prebble-cell prebble-req">${reqString}</td>
+                        <td class="prebble-cell prebble-granular">${granularList}${coverageDisplay}${activeDisplay}</td>
+                        <td class="prebble-cell prebble-liquid">${liquidListWithKRecon}</td>
                     </tr>
                     ${notesHtml ? `<tr class="prebble-note-row"><td colspan="5">${notesHtml}</td></tr>` : ''}
                 `;
@@ -795,22 +812,23 @@
                 
                 return `
                     <tr>
-                        <td>${data.name}${releaseLabel}${analysisLabel ? `<div style="font-size: 11px; color: var(--gaip-text-secondary);">Analysis: ${analysisLabel}</div>` : ''}</td>
-                        <td>${data.applications}</td>
-                        <td>${rateValue} ${unit}</td>
-                        <td style="text-align: right; font-family: monospace;">${Math.round(nutrients.N)}</td>
-                        <td style="text-align: right; font-family: monospace;">${Math.round(nutrients.P * 10) / 10}</td>
-                        <td style="text-align: right; font-family: monospace;">${Math.round(nutrients.K)}</td>
+                        <td class="prebble-cell prebble-cell--left">${data.name}${releaseLabel}${analysisLabel ? `<div class="prebble-cell-sub">Analysis: ${analysisLabel}</div>` : ''}</td>
+                        <td class="prebble-cell prebble-cell--num">${data.applications}</td>
+                        <td class="prebble-cell prebble-cell--num">${rateValue} ${unit}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.N)}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.P * 10) / 10}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.K)}</td>
                     </tr>
                 `;
             }).join('');
             
             return `
                 <div class="gilba-panel gilba-prebble-panel">
-                    <h3>
-                        <span class="gilba-panel-icon">🧪</span>
+                    <div class="gilba-int-header">
+                        <svg class="gilba-int-header-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
                         Prebbles Product Recommendations
-                    </h3>
+                        <span class="gilba-int-region-badge">NZ</span>
+                    </div>
                     
                     <div class="prebble-meta">
                         <span class="meta-item">
@@ -818,9 +836,7 @@
                         </span>
                         <span class="meta-item">
                             <strong>Methodology:</strong> ${(function(){
-                                const _mEl = document.querySelector('.gaip-soil-methodology');
-                                const _m = (_mEl ? _mEl.value : null) || meta.methodology || 'mlsn';
-                                const _mu = _m.toUpperCase();
+                                const _mu = (meta.methodology || 'mlsn').toUpperCase();
                                 if (_mu === 'SLAN') return 'SLAN';
                                 if (_mu === 'AMMONIUM_ACETATE' || _mu === 'COTULA_S78') return 'Ammonium Acetate';
                                 return 'MLSN';
@@ -831,13 +847,20 @@
                     <h4>Monthly Program</h4>
                     <div class="gilba-table-scroll">
                         <table class="gilba-calendar-table prebble-program-table">
+                            <colgroup>
+                                <col class="col-month">
+                                <col class="col-season">
+                                <col class="col-req">
+                                <col class="col-granular">
+                                <col class="col-liquid">
+                            </colgroup>
                             <thead>
                                 <tr>
-                                    <th>Month</th>
-                                    <th>Season</th>
-                                    <th>Requirements</th>
-                                    <th>Granular Products</th>
-                                    <th>Liquid/Foliar</th>
+                                    <th class="prebble-th prebble-th--left">Month</th>
+                                    <th class="prebble-th prebble-th--left">Season</th>
+                                    <th class="prebble-th prebble-th--left">Requirements</th>
+                                    <th class="prebble-th prebble-th--left">Granular Products</th>
+                                    <th class="prebble-th prebble-th--left">Liquid/Foliar</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -847,14 +870,14 @@
                     </div>
                     
                     <h4>Nutrient Delivery Summary</h4>
-                    <table class="gilba-totals-table prebble-nutrient-summary">
+                    <table class="gilba-int-table prebble-nutrient-summary">
                         <thead>
                             <tr>
-                                <th>Nutrient</th>
-                                <th>Required (kg/ha)</th>
-                                <th>Delivered (kg/ha)</th>
-                                <th>Balance</th>
-                                <th>Status</th>
+                                <th class="prebble-th prebble-th--left">Nutrient</th>
+                                <th class="prebble-th">Required (kg/ha)</th>
+                                <th class="prebble-th">Delivered (kg/ha)</th>
+                                <th class="prebble-th">Balance</th>
+                                <th class="prebble-th">Status</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -864,20 +887,20 @@
                     </table>
                     
                     ${productEntries.length > 0 ? `
-                        <h4>Annual Product Summary</h4>
-                        <table class="gilba-totals-table prebble-summary-table">
+                        <h4 class="gilba-int-subheader">Annual Product Summary</h4>
+                        <table class="gilba-int-table prebble-summary-table">
                             <thead>
                                 <tr>
-                                    <th>Product</th>
-                                    <th>Applications</th>
-                                    <th>Total Rate</th>
-                                    <th style="text-align: right;">N</th>
-                                    <th style="text-align: right;">P</th>
-                                    <th style="text-align: right;">K</th>
+                                    <th class="prebble-th prebble-th--left">Product</th>
+                                    <th class="prebble-th">Applications</th>
+                                    <th class="prebble-th">Total Rate</th>
+                                    <th class="prebble-th">N</th>
+                                    <th class="prebble-th">P</th>
+                                    <th class="prebble-th">K</th>
                                 </tr>
-                                <tr style="background: var(--gaip-surface-muted);">
-                                    <th colspan="3" style="font-weight: 400; font-size: 11px; color: var(--gaip-text-secondary);"></th>
-                                    <th colspan="3" style="text-align: center; font-weight: 400; font-size: 11px; color: var(--gaip-text-secondary);">kg/ha delivered</th>
+                                <tr class="prebble-unit-row">
+                                    <th colspan="3"></th>
+                                    <th colspan="3">kg/ha delivered</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -886,22 +909,22 @@
                             </tbody>
                             <tfoot>
                                 <tr class="prebble-totals-row">
-                                    <td colspan="3"><strong>TOTAL DELIVERED</strong></td>
-                                    <td style="text-align: right; font-family: monospace;"><strong>${Math.round(nutrientTotals.N)}</strong></td>
-                                    <td style="text-align: right; font-family: monospace;"><strong>${Math.round(nutrientTotals.P * 10) / 10}</strong></td>
-                                    <td style="text-align: right; font-family: monospace;"><strong>${Math.round(nutrientTotals.K)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Total Delivered</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.N)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.P * 10) / 10}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.K)}</strong></td>
                                 </tr>
                                 <tr class="prebble-required-row">
-                                    <td colspan="3"><em>Required (kg/ha)</em></td>
-                                    <td style="text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.N)}</em></td>
-                                    <td style="text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
-                                    <td style="text-align: right; font-family: monospace;"><em>${Math.round(nutrientRequired.K)}</em></td>
+                                    <td class="prebble-cell prebble-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                                 </tr>
-                                <tr style="background: ${(nutrientTotals.N - nutrientRequired.N) >= 0 ? 'var(--gaip-good-bg)' : 'var(--gaip-critical-bg)'};">
-                                    <td colspan="3"><strong>Balance</strong></td>
-                                    <td style="text-align: right; font-family: monospace; color: ${(nutrientTotals.N - nutrientRequired.N) >= 0 ? '#059669' : '#dc2626'};"><strong>${(nutrientTotals.N - nutrientRequired.N) >= 0 ? '+' : ''}${Math.round(nutrientTotals.N - nutrientRequired.N)}</strong></td>
-                                    <td style="text-align: right; font-family: monospace; color: ${(nutrientTotals.P - nutrientRequired.P) >= 0 ? '#059669' : '#dc2626'};"><strong>${(nutrientTotals.P - nutrientRequired.P) >= 0 ? '+' : ''}${Math.round((nutrientTotals.P - nutrientRequired.P) * 10) / 10}</strong></td>
-                                    <td style="text-align: right; font-family: monospace; color: ${(nutrientTotals.K - nutrientRequired.K) >= 0 ? '#059669' : '#dc2626'};"><strong>${(nutrientTotals.K - nutrientRequired.K) >= 0 ? '+' : ''}${Math.round(nutrientTotals.K - nutrientRequired.K)}</strong></td>
+                                <tr class="${(nutrientTotals.N - nutrientRequired.N) >= 0 ? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'}">
+                                    <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Balance</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.N - nutrientRequired.N) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.N - nutrientRequired.N) >= 0 ? '+' : ''}${Math.round(nutrientTotals.N - nutrientRequired.N)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.P - nutrientRequired.P) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.P - nutrientRequired.P) >= 0 ? '+' : ''}${Math.round((nutrientTotals.P - nutrientRequired.P) * 10) / 10}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.K - nutrientRequired.K) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.K - nutrientRequired.K) >= 0 ? '+' : ''}${Math.round(nutrientTotals.K - nutrientRequired.K)}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1246,7 +1269,8 @@
                     return `
                         <tr class="krecon-info">
                             <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
-                                ℹ️ K balance is short by ${Math.abs(reconResult.balance).toFixed(0)} kg/ha. Load a soil sample to see whether spot-K reconciliation will fire at export.
+                                <svg class="gilba-icon-inline" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>
+                                K balance is short by ${Math.abs(reconResult.balance).toFixed(0)} kg/ha. Load a soil sample to see whether spot-K reconciliation will fire at export.
                             </td>
                         </tr>`;
                 }
@@ -1256,7 +1280,8 @@
                 return `
                     <tr class="krecon-suppress">
                         <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
-                            ℹ️ K balance ${reconResult.balance.toFixed(0)} kg/ha; soil K (${reconResult.soilK.toFixed(0)} ppm) at or above floor (${reconResult.soilKFloor} ppm), not supplementing per soil-K sufficiency gate.
+                            <svg class="gilba-icon-inline" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>
+                                K balance ${reconResult.balance.toFixed(0)} kg/ha; soil K (${reconResult.soilK.toFixed(0)} ppm) at or above floor (${reconResult.soilKFloor} ppm), not supplementing per soil-K sufficiency gate.
                         </td>
                     </tr>`;
             }
@@ -1272,7 +1297,8 @@
                         <td>,</td>
                         <td style="font-style: italic;">${spotKText} at export</td>
                         <td colspan="2" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary);">
-                            🎯 Spot-K reconciliation will fire at Word export. ${d.product} ${d.analysis}, ${d.rate.replace(/^\d+\s*kg K\/ha\s*\([^)]*\)\s*—\s*/, '').replace(/Programme delivers.*$/, '').trim()}
+                            <svg class="gilba-icon-inline" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                            Spot-K reconciliation will fire at Word export. ${d.product} ${d.analysis}, ${d.rate.replace(/^\d+\s*kg K\/ha\s*\([^)]*\)\s*—\s*/, '').replace(/Programme delivers.*$/, '').trim()}
                         </td>
                     </tr>`;
             }
@@ -1385,7 +1411,7 @@
                        `font-style: italic; border: 1px dashed var(--gaip-warning, #f59e0b); ` +
                        `padding: 2px 6px;" ` +
                        `title="${tooltip.replace(/"/g, '&quot;')}">` +
-                       `${e.name} (${npkLabel}) @ ${rateDisplay} 💧 ` +
+                       `${e.name} (${npkLabel}) @ ${rateDisplay} <svg class="gilba-icon-inline" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="Dissolve in spray tank"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-5.385 0-9 3.56-9 7.5C3 14.69 7.5 19.5 12 21.75c4.5-2.25 9-7.06 9-12C21 5.81 17.385 2.25 12 2.25z"/></svg> ` +
                        `<small style="font-style: normal; opacity: 0.85;">(provisional, at export)</small>` +
                        `</span>`;
             }).join(' + ');
@@ -1416,93 +1442,174 @@
     // ========================================================================
 
     const styles = `
-        .gilba-prebble-recommendations {
-            margin-top: 2rem;
-        }
-        
-        .gilba-prebble-panel {
-            background: var(--gaip-surface);
-            border: 1px solid var(--gaip-border);
-            border-radius: 8px;
-            padding: 1.5rem;
-        }
-        
-        .gilba-prebble-panel h3 {
-            margin: 0 0 1rem 0;
-            color: #2e7d32;
-            font-size: 1.25rem;
-        }
-        
+        .gilba-prebble-recommendations { margin-top: 0; }
+
+        .gilba-prebble-panel { background: none; border: none; padding: 0; }
+
         .gilba-prebble-panel h4 {
-            margin: 1.5rem 0 0.75rem 0;
-            color: var(--gaip-text);
-            font-size: 1rem;
-            border-bottom: 1px solid var(--gaip-border);
-            padding-bottom: 0.5rem;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--gaip-text-muted);
+            margin: 22px 0 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid var(--gaip-border-light);
         }
-        
+
         .prebble-meta {
             display: flex;
-            gap: 1.5rem;
-            padding: 0.75rem;
+            gap: 12px;
+            flex-wrap: wrap;
+            padding: 10px 12px;
             background: var(--gaip-surface-muted);
-            border-radius: 4px;
-            font-size: 0.9rem;
+            border-radius: var(--gaip-radius-sm, 6px);
+            font-size: 12px;
+            margin-bottom: 14px;
         }
-        
-        .prebble-program-table {
-            font-size: 0.9rem;
-        }
-        
+
+        /* ── Monthly programme table ────────────────────────────────────────── */
+        .prebble-program-table { font-size: 13px; width: 100%; }
+
+        /* Fixed-width columns so layout is stable regardless of content */
+        .prebble-program-table col.col-month    { width: 52px; }
+        .prebble-program-table col.col-season   { width: 70px; }
+        .prebble-program-table col.col-req      { width: 130px; }
+        .prebble-program-table col.col-granular { width: auto; }
+        .prebble-program-table col.col-liquid   { width: 260px; }
+
+        .prebble-program-table td { vertical-align: middle; }
+
         .prebble-program-table .prebble-product {
             display: inline-block;
-            background: var(--gaip-good-bg);
+            background: var(--gaip-accent-light);
+            color: var(--gaip-accent-dark);
+            border: 1px solid var(--gaip-good-border);
             padding: 2px 8px;
-            border-radius: 4px;
-            margin: 2px;
-            font-size: 0.85rem;
+            border-radius: 20px;
+            margin: 2px 2px;
+            font-size: 12px;
+            font-weight: 500;
         }
-        
+
         .prebble-program-table .prebble-product.liquid {
             background: var(--gaip-info-bg);
+            color: var(--gaip-info);
+            border-color: var(--gaip-info-border);
         }
-        
-        .prebble-program-table .prebble-none {
-            color: var(--gaip-text-muted);
-        }
-        
+
+        .prebble-program-table .prebble-none { color: var(--gaip-text-muted); }
         .prebble-program-table .prebble-req {
-            font-family: monospace;
-            font-size: 0.85rem;
+            font-size: 12px;
             white-space: nowrap;
+            color: var(--gaip-text-muted);
+            font-variant-numeric: tabular-nums;
         }
-        
+
+        /* Note rows: indented, left-colored border, spaced from both sides */
         .prebble-note-row td {
-            padding: 0.25rem 0.5rem !important;
-            background: #fffde7 !important;
-            font-size: 0.85rem;
+            padding: 5px 10px 7px 14px !important;
+            background: var(--gaip-warning-bg) !important;
+            border-left: 3px solid var(--gaip-warning) !important;
+            border-bottom: 1px solid var(--gaip-warning-border) !important;
+            font-size: 12px;
             font-style: italic;
+            color: var(--gaip-warning);
         }
-        
-        .prebble-notes {
-            color: #f57c00;
+
+        /* Row above a note row: remove its bottom border so they appear grouped */
+        .prebble-program-table tr:has(+ .prebble-note-row) td {
+            border-bottom: none !important;
         }
-        
-        .prebble-summary-table {
-            max-width: 500px;
+
+        .prebble-notes { color: var(--gaip-warning); font-size: 12px; }
+
+        .prebble-covered, .prebble-active {
+            display: inline-block;
+            font-size: 11px;
+            color: var(--gaip-text-muted);
+            margin-top: 2px;
         }
-        
+
+        /* ── Summary table ─────────────────────────────────────────────────── */
+        .prebble-summary-table { max-width: 560px; }
+
+        /* ── Disclaimer ────────────────────────────────────────────────────── */
         .prebble-disclaimer {
-            margin-top: 1.5rem;
-            padding: 0.75rem;
-            background: var(--gaip-warning-bg, #fffbeb);
-            border-left: 3px solid var(--gaip-warning, #f59e0b);
-            font-size: 0.85rem;
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: var(--gaip-warning-bg);
+            border: 1px solid var(--gaip-warning-border);
+            border-left: 3px solid var(--gaip-warning);
+            border-radius: var(--gaip-radius-sm, 6px);
+            font-size: 12px;
+            line-height: 1.5;
             color: var(--gaip-text);
         }
-        
-        .gilba-table-scroll {
-            overflow-x: auto;
+
+        .gilba-table-scroll { overflow-x: auto; margin-bottom: 24px; }
+
+        /* ── Nutrient summary ──────────────────────────────────────────────── */
+        .prebble-nutrient-summary td { padding: 7px 10px; font-size: 13px; }
+        .prebble-nutrient-summary .nutrient-diff { font-weight: 600; }
+        .prebble-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good); }
+        .prebble-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical); }
+        .prebble-nutrient-summary tr.nutrient-sufficient td:last-child { color: var(--gaip-good); font-weight: 600; }
+        .prebble-nutrient-summary tr.nutrient-marginal td:last-child { color: var(--gaip-warning); font-weight: 600; }
+        .prebble-nutrient-summary tr.nutrient-deficit td:last-child { color: var(--gaip-critical); font-weight: 600; }
+        .prebble-totals-row td { background: var(--gaip-good-bg); padding: 8px 10px; }
+        .prebble-required-row td { background: var(--gaip-surface-muted); padding: 7px 10px; }
+        .prebble-npk-delivered { font-size: 12px; font-variant-numeric: tabular-nums; }
+
+        /* ── Shared table base ─────────────────────────────────────────────── */
+        .gilba-int-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+
+        .prebble-th {
+            text-align: right;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gaip-text-muted);
+            padding: 7px 10px;
+            border-bottom: 2px solid var(--gaip-border);
+            white-space: nowrap;
+        }
+        .prebble-th--left { text-align: left; }
+
+        .prebble-unit-row th {
+            font-size: 11px; font-weight: 400; font-style: italic;
+            color: var(--gaip-text-muted); text-transform: none; letter-spacing: 0;
+            border-bottom: 1px solid var(--gaip-border-light);
+            padding: 3px 10px; text-align: right;
+        }
+
+        .prebble-cell {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--gaip-border-light);
+            color: var(--gaip-text);
+            vertical-align: middle;
+        }
+        .prebble-cell--left { text-align: left; }
+        .prebble-cell--num { text-align: right; }
+        .prebble-cell--mono { font-variant-numeric: tabular-nums; }
+        .prebble-cell--month { font-weight: 600; white-space: nowrap; }
+        .prebble-cell--season { color: var(--gaip-text-muted); white-space: nowrap; }
+        .prebble-cell-sub { font-size: 11px; color: var(--gaip-text-muted); margin-top: 2px; }
+
+        .prebble-positive { color: var(--gaip-good); font-weight: 600; }
+        .prebble-negative { color: var(--gaip-critical); font-weight: 600; }
+
+        .prebble-totals-row td { background: var(--gaip-good-bg); font-weight: 700; border-top: 2px solid var(--gaip-border); }
+        .prebble-required-row td { background: var(--gaip-surface-muted); color: var(--gaip-text-muted); }
+        .prebble-balance-row--positive td { background: var(--gaip-good-bg); }
+        .prebble-balance-row--negative td { background: var(--gaip-critical-bg); }
+
+        .gilba-int-subheader {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gaip-text-muted);
+            margin: 22px 0 10px; padding-bottom: 6px;
+            border-bottom: 1px solid var(--gaip-border-light);
         }
     `;
 

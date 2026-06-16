@@ -212,7 +212,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-121** Enhance disease analysis and treatment window display: Updated dashboard-init.js to include treatment window information in disease rows, improved disease analysis logic in disease-analysis.js to account for companion diseases, and enhanced data persistence in hub-persistence.js to include overall scores and risk metrics. Updated instructions.md for clarity on recent changes.
 **GH-122** Refactor disease analysis logic in disease-analysis.js: Introduced isActionable function to filter actionable recommendations, separated greens and companion items for clearer display, and improved total count logic for recommendations. Enhanced UI rendering to handle cases with no actions required.
 **GH-123** Integrate SpeciesService for dynamic species data handling: Updated AppServiceProvider to include species data in views, modified DatabaseSeeder to call SpeciesDefinitionSeeder, and refactored settings and onboarding scripts to utilize new species data structure. Enhanced UI for species selection based on turf type and region, and updated related JavaScript files for improved functionality and performance.
-
+**GH-124** Enhance nutrition calendar integration and UI: Updated plan.blade.php to bridge data between the plan page and nutrition-calendar.js, ensuring proper state management for turf and climate data. Refactored nutrition-calendar.js to merge soil state into GAIP_STATE without overwriting existing data. Improved CSS for nutrition calendar components, enhancing layout and responsiveness. Updated JavaScript for better nutrient display and handling in the UK and AU fertiliser integration scripts.
 
 
 
@@ -236,18 +236,19 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance. GH-123.
 +18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass. cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
 Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why. GH-123.
-19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there.
-20. Currently it seems to be using MLSN figures as a reference which they don’t use.
+-->19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there.
+-->20. Currently it seems to be using MLSN figures as a reference which they don’t use.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
-22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
+-->22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
 That’s what the current layout looks like when it produces the product recommendations
+
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
-24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar.
++24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar.
 25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked?
 26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked?
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
-28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
++28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ,
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
@@ -259,6 +260,12 @@ That’s what the current layout looks like when it produces the product recomme
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
 
 
+All popups - should be with new UI (like in the settings when moving to another page/tab)
+
+--
+Check the algorithm in the old hub for how species are shown/filtered (/Users/katep/Documents/Work/gilba/gilbahub_previous)
+Check what was implemented in the new hub (/Users/katep/Documents/Work/gilba/gilbahub)
+Write a comparison
 
 ----
 - also move branding settings to the settings page and make ui nice

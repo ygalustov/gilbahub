@@ -902,14 +902,14 @@
                 var delivered = nutrientTotals[nutrient];
                 var diff = delivered - required;
                 var pct = required > 0 ? Math.round((delivered / required) * 100) : 0;
-                var statusColor = pct >= 90 ? 'var(--gaip-success)' : pct >= 70 ? 'var(--gaip-warning)' : 'var(--gaip-error)';
-                var statusIcon = pct >= 90 ? '✓' : pct >= 70 ? '⚠' : '✗';
+                var statusCls = pct >= 90 ? 'uk-fert-positive' : pct >= 70 ? 'uk-fert-warning' : 'uk-fert-negative';
+                var statusIcon = pct >= 90 ? '\u2713' : pct >= 70 ? '\u26A0' : '\u2717';
                 return '<tr>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);"><strong>' + nutrient + '</strong></td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">' + required + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">' + delivered + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;color:' + (diff >= 0 ? 'var(--gaip-success)' : 'var(--gaip-error)') + ';font-weight:600;">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:center;color:' + statusColor + ';font-weight:600;">' + statusIcon + ' ' + pct + '%</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--left"><strong>' + nutrient + '</strong></td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + required + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + delivered + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num ' + (diff >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num ' + statusCls + '">' + statusIcon + ' ' + pct + '%</td>' +
                 '</tr>';
             }).join('');
 
@@ -926,7 +926,7 @@
                         ? ' <span style="font-size:10px;padding:1px 4px;background:var(--gaip-surface-muted,#f3f4f6);color:var(--gaip-text-secondary);border-radius:3px;">' + p.nForm + '</span>'
                         : '';
                     return '<span class="uk-fert-product" title="' + (p.notes || '') + '">' + p.name + ' (' + p.npk + ') @ ' + rateStr + releaseTag + nFormTag + '</span>';
-                }).join(' + ') || '<span class="uk-fert-none">,</span>';
+                }).join(' + ') || '<span class="uk-fert-none">\u2014</span>';
 
                 var liquidList = (m.liquid || []).map(function(p) {
                     var rateStr = p.rate || (p.rateLHa ? (p.rateLHa + ' ' + (p.rateUnit || 'L/ha')) : '-');
@@ -937,13 +937,13 @@
                 var notesHtml = notesArr.length > 0 ? '<div class="uk-fert-notes">' + notesArr.join('. ') + '</div>' : '';
 
                 return '<tr>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);font-weight:500;">' + m.month_name + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);">' + m.season + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);"><span class="uk-fert-req">N:' + Math.round(m.requirements.N) + ' P:' + Math.round(m.requirements.P) + ' K:' + Math.round(m.requirements.K) + '</span></td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);">' + granularList + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);">' + (liquidList || '-') + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--month">' + m.month_name + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--season">' + m.season + '</td>' +
+                    '<td class="uk-fert-cell"><span class="uk-fert-req">N:' + Math.round(m.requirements.N) + ' P:' + Math.round(m.requirements.P) + ' K:' + Math.round(m.requirements.K) + '</span></td>' +
+                    '<td class="uk-fert-cell uk-fert-granular">' + granularList + '</td>' +
+                    '<td class="uk-fert-cell">' + (liquidList || '<span class="uk-fert-none">\u2014</span>') + '</td>' +
                 '</tr>' +
-                (notesHtml ? '<tr class="uk-fert-note-row"><td colspan="5" style="padding:4px 8px;background:var(--gaip-warning-bg,#fffde7);border:1px solid var(--gaip-border);font-size:12px;font-style:italic;">' + notesHtml + '</td></tr>' : '');
+                (notesHtml ? '<tr class="uk-fert-note-row"><td class="uk-fert-cell" colspan="5">' + notesHtml + '</td></tr>' : '');
             }).join('');
 
             // Product summary
@@ -984,13 +984,13 @@
                 else rateStr = Math.round(p.totalKgHa || 0) + ' kg/ha';
 
                 return '<tr>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);"><strong>' + (prod.name || p.brandName || '') + '</strong>' +
-                        '<div style="font-size:11px;color:var(--gaip-text-secondary);">' + npk + ' | ' + supplierLabel + '</div></td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:center;">' + p.applications + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">' + rateStr + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;font-size:12px;">' + nD + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;font-size:12px;">' + pD + '</td>' +
-                    '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;font-size:12px;">' + kD + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--left"><strong>' + (prod.name || p.brandName || '') + '</strong>' +
+                        '<div class="uk-fert-cell-sub">' + npk + (supplierLabel ? ' | ' + supplierLabel : '') + '</div></td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + p.applications + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + rateStr + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono">' + nD + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono">' + pD + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono">' + kD + '</td>' +
                 '</tr>';
             }).join('');
 
@@ -1007,7 +1007,7 @@
                 return '<option value="' + opt.value + '"' + (opt.value === self.selectedSupplier ? ' selected' : '') + '>' + opt.label + '</option>';
             }).join('');
 
-            // Mulders panel (same pattern as AU)
+            // Mulder's panel — same structure as AU integration
             var muldersHtml = (function() {
                 var flags = program.muldersFlags || {};
                 var allFlags = [];
@@ -1017,105 +1017,216 @@
                 });
                 if (allFlags.length === 0) return '';
                 var rows = allFlags.map(function(f) {
-                    var sev = f.severity === 'high' ? 'var(--gaip-error)' : f.severity === 'moderate' ? 'var(--gaip-warning)' : 'var(--gaip-text-secondary)';
+                    var sev = f.severity === 'high' ? 'var(--gaip-critical)' : f.severity === 'moderate' ? 'var(--gaip-warning)' : 'var(--gaip-text-muted)';
                     var pair = f.suppressor + ' \u2192 ' + f.suppressed;
                     var ratioVal = f.value ? f.value.toFixed(1) : '-';
-                    return '<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--gaip-border);">' +
-                        '<span style="font-size:16px;line-height:1.2;">\u26A1</span>' +
-                        '<div style="flex:1;">' +
-                            '<span style="font-weight:600;color:' + sev + ';">' + pair + '</span>' +
-                            '<span style="margin-left:8px;font-size:11px;color:var(--gaip-text-secondary);">ratio: ' + ratioVal + ' (threshold: ' + f.threshold + ')</span>' +
-                            '<div style="font-size:12px;color:var(--gaip-text);margin-top:2px;">' + (f.message || '') + '</div>' +
-                            (f.citation ? '<div style="font-size:10px;color:var(--gaip-text-secondary);margin-top:2px;">\uD83D\uDCD6 ' + f.citation + '</div>' : '') +
+                    return '<div class="gilba-mulders-row">' +
+                        '<svg class="gilba-mulders-icon" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>' +
+                        '<div class="gilba-mulders-body">' +
+                            '<span class="gilba-mulders-pair" style="color:' + sev + ';">' + pair + '</span>' +
+                            '<span class="gilba-mulders-ratio">ratio: ' + ratioVal + ' (threshold: ' + f.threshold + ')</span>' +
+                            '<div class="gilba-mulders-msg">' + (f.message || '') + '</div>' +
+                            (f.citation ? '<div class="gilba-mulders-citation">' + f.citation + '</div>' : '') +
                         '</div></div>';
                 }).join('');
                 var count = allFlags.length;
-                return '<div style="margin:0 0 1.25rem 0;padding:0.75rem 1rem;background:var(--gaip-warning-bg,#fefce8);border:1px solid var(--gaip-warning-border,#fde047);border-left:4px solid var(--gaip-warning,#ca8a04);border-radius:6px;">' +
-                    '<div style="font-weight:600;color:var(--gaip-warning);margin-bottom:8px;font-size:0.9rem;">\u2697\uFE0F Mulder\'s Nutrient Interactions, ' + count + ' interaction' + (count > 1 ? 's' : '') + '</div>' +
-                    '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-bottom:8px;">Product selection adjusted to avoid aggravating detected antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
+                return '<div class="gilba-mulders-panel">' +
+                    '<div class="gilba-mulders-title">' +
+                        '<svg class="gilba-icon-inline" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/></svg>' +
+                        'Mulder\'s Interactions &mdash; ' + count + ' interaction' + (count > 1 ? 's' : '') +
+                    '</div>' +
+                    '<div class="gilba-mulders-subtitle">Product selection adjusted to avoid aggravating antagonisms. Ref: Marschner (2012), Havlin et al. (2014).</div>' +
                     rows + '</div>';
             })();
 
-            return '<div class="gilba-uk-fert-panel">' +
-                '<h3 style="margin:0 0 1rem 0;color:var(--gaip-text);font-size:1.25rem;display:flex;align-items:center;gap:8px;">' +
-                    '<span style="font-size:24px;">\uD83C\uDDEC\uD83C\uDDE7</span> UK Fertiliser Recommendations</h3>' +
+            var currentSupplierLabel = this.selectedSupplier === 'all'
+                ? '' : (SUPPLIER_DISPLAY[this.selectedSupplier] || this.selectedSupplier);
 
-                '<div class="uk-fert-supplier-filter" style="margin-bottom:1rem;padding:0.75rem;background:var(--gaip-surface-muted,#f9fafb);border:1px solid var(--gaip-border);border-radius:6px;">' +
-                    '<label style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">' +
-                        '<strong style="white-space:nowrap;">Supplier:</strong>' +
-                        '<select id="uk-fert-supplier-select" style="flex:1;min-width:200px;max-width:400px;padding:0.5rem;border:1px solid var(--gaip-border);border-radius:4px;font-size:0.9rem;background:var(--gaip-surface);">' +
+            return '<div class="gilba-uk-fert-panel">' +
+                '<div class="gilba-int-header">' +
+                    '<svg class="gilba-int-header-icon" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>' +
+                    'UK Fertiliser Recommendations' +
+                    '<span class="gilba-int-region-badge">UK</span>' +
+                '</div>' +
+
+                '<div class="uk-fert-supplier-filter">' +
+                    '<label class="uk-fert-supplier-label">Supplier</label>' +
+                    '<div class="uk-fert-supplier-row">' +
+                        '<select id="uk-fert-supplier-select" class="plan-form-select uk-fert-supplier-select">' +
                             supplierOptionsHtml +
                         '</select>' +
-                        '<span style="font-size:0.8rem;color:var(--gaip-text-secondary);">' +
-                            (this.selectedSupplier === 'all' ? 'Recommending best products across all suppliers' : 'Showing only ' + (SUPPLIER_DISPLAY[this.selectedSupplier] || this.selectedSupplier) + ' products') +
+                        '<span class="uk-fert-supplier-hint">' +
+                            (this.selectedSupplier === 'all' ? 'Best match across all suppliers' : 'Filtered to ' + currentSupplierLabel + ' only') +
                         '</span>' +
-                    '</label></div>' +
+                    '</div>' +
+                '</div>' +
 
-                '<div class="uk-fert-meta" style="display:flex;gap:1.5rem;padding:0.75rem;background:var(--gaip-surface-muted,#f9fafb);border-radius:4px;font-size:0.9rem;margin-bottom:1rem;">' +
-                    '<span><strong>Surface:</strong> ' + this.formatSurfaceType(meta.surfaceType) + '</span>' +
-                    '<span><strong>Methodology:</strong> ' + (meta.methodology || '').toUpperCase() + '</span>' +
-                    (this.selectedSupplier !== 'all' ? '<span style="color:var(--gaip-warning);"><strong>Supplier:</strong> ' + (SUPPLIER_DISPLAY[this.selectedSupplier] || this.selectedSupplier) + '</span>' : '') +
+                '<div class="uk-fert-meta">' +
+                    '<span class="meta-item"><strong>Surface:</strong> ' + this.formatSurfaceType(meta.surfaceType) + '</span>' +
+                    '<span class="meta-item"><strong>Methodology:</strong> ' + (meta.methodology || '').toUpperCase() + '</span>' +
+                    (this.selectedSupplier !== 'all' ? '<span class="meta-item uk-fert-meta-supplier"><strong>Supplier:</strong> ' + currentSupplierLabel + '</span>' : '') +
                 '</div>' +
 
                 muldersHtml +
 
-                '<h4 style="margin:1.5rem 0 0.75rem 0;font-size:1rem;border-bottom:1px solid var(--gaip-border);padding-bottom:0.5rem;">Nutrient Balance (kg/ha)</h4>' +
-                '<div class="gilba-table-scroll" style="overflow-x:auto;">' +
-                    '<table class="gilba-calendar-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:1.5rem;">' +
-                        '<thead><tr style="background:var(--gaip-surface-hover);">' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Nutrient</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">Required</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">Delivered</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">Balance</th>' +
-                            '<th style="padding:8px;text-align:center;border:1px solid var(--gaip-border);">Status</th>' +
-                        '</tr></thead><tbody>' + nutrientSummaryRows + '</tbody></table></div>' +
+                '<h4 class="gilba-int-subheader">Monthly Programme</h4>' +
+                '<div class="gilba-table-scroll">' +
+                    '<table class="gilba-int-table uk-fert-program-table">' +
+                        '<colgroup>' +
+                            '<col style="width:52px">' +
+                            '<col style="width:70px">' +
+                            '<col style="width:130px">' +
+                            '<col>' +
+                            '<col style="width:260px">' +
+                        '</colgroup>' +
+                        '<thead><tr>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Month</th>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Season</th>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Requirements</th>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Granular Products</th>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Liquid/Foliar</th>' +
+                        '</tr></thead>' +
+                        '<tbody>' + monthlyRows + '</tbody>' +
+                    '</table>' +
+                '</div>' +
 
-                '<h4 style="margin:1.5rem 0 0.75rem 0;font-size:1rem;border-bottom:1px solid var(--gaip-border);padding-bottom:0.5rem;">Monthly Programme</h4>' +
-                '<div class="gilba-table-scroll" style="overflow-x:auto;">' +
-                    '<table class="gilba-calendar-table uk-fert-program-table" style="width:100%;border-collapse:collapse;font-size:13px;">' +
-                        '<thead><tr style="background:var(--gaip-surface-hover);">' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Month</th>' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Season</th>' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Requirements</th>' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Granular Products</th>' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Liquid/Foliar</th>' +
-                        '</tr></thead><tbody>' + monthlyRows + '</tbody></table></div>' +
-
-                '<h4 style="margin:1.5rem 0 0.75rem 0;font-size:1rem;border-bottom:1px solid var(--gaip-border);padding-bottom:0.5rem;">Product Summary</h4>' +
-                '<div class="gilba-table-scroll" style="overflow-x:auto;">' +
-                    '<table class="gilba-calendar-table" style="width:100%;border-collapse:collapse;font-size:13px;">' +
-                        '<thead><tr style="background:var(--gaip-surface-hover);">' +
-                            '<th style="padding:8px;text-align:left;border:1px solid var(--gaip-border);">Product</th>' +
-                            '<th style="padding:8px;text-align:center;border:1px solid var(--gaip-border);">Apps</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">Total Rate</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">N (kg)</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">P (kg)</th>' +
-                            '<th style="padding:8px;text-align:right;border:1px solid var(--gaip-border);">K (kg)</th>' +
-                        '</tr></thead><tbody>' + summaryRows +
-                        '<tr style="background:var(--gaip-good-bg,#ecfdf5);font-weight:600;">' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);">TOTAL DELIVERED</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:center;">' + totalApps + '</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;">,</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + Math.round(nutrientTotals.N) + '</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + (Math.round(nutrientTotals.P * 10) / 10) + '</td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;">' + Math.round(nutrientTotals.K) + '</td>' +
-                        '</tr>' +
-                        '<tr style="background:var(--gaip-surface-muted);">' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);" colspan="3"><em>Required (kg/ha)</em></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;"><em>' + Math.round(nutrientRequired.N) + '</em></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;"><em>' + (Math.round(nutrientRequired.P * 10) / 10) + '</em></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;"><em>' + Math.round(nutrientRequired.K) + '</em></td>' +
-                        '</tr>' +
-                        '<tr style="background:' + (balanceN >= 0 ? 'var(--gaip-good-bg,#ecfdf5)' : 'var(--gaip-critical-bg,#fef2f2)') + ';">' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);" colspan="3"><strong>Balance</strong></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;color:' + (balanceN >= 0 ? 'var(--gaip-success)' : 'var(--gaip-error)') + ';"><strong>' + (balanceN >= 0 ? '+' : '') + Math.round(balanceN) + '</strong></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;color:' + (balanceP >= 0 ? 'var(--gaip-success)' : 'var(--gaip-error)') + ';"><strong>' + (balanceP >= 0 ? '+' : '') + (Math.round(balanceP * 10) / 10) + '</strong></td>' +
-                            '<td style="padding:8px;border:1px solid var(--gaip-border);text-align:right;font-family:monospace;color:' + (balanceK >= 0 ? 'var(--gaip-success)' : 'var(--gaip-error)') + ';"><strong>' + (balanceK >= 0 ? '+' : '') + Math.round(balanceK) + '</strong></td>' +
-                        '</tr>' +
-                    '</tbody></table></div>' +
+                '<h4 class="gilba-int-subheader">Product Summary</h4>' +
+                '<div class="gilba-table-scroll">' +
+                    '<table class="gilba-int-table">' +
+                        '<thead><tr>' +
+                            '<th class="uk-fert-th uk-fert-th--left">Product</th>' +
+                            '<th class="uk-fert-th">Apps</th>' +
+                            '<th class="uk-fert-th">Total Rate</th>' +
+                            '<th class="uk-fert-th">N (kg)</th>' +
+                            '<th class="uk-fert-th">P (kg)</th>' +
+                            '<th class="uk-fert-th">K (kg)</th>' +
+                        '</tr></thead>' +
+                        '<tbody>' + summaryRows + '</tbody>' +
+                        '<tfoot>' +
+                            '<tr class="uk-fert-totals-row">' +
+                                '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><strong>Total Delivered</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + Math.round(nutrientTotals.N) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + (Math.round(nutrientTotals.P * 10) / 10) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + Math.round(nutrientTotals.K) + '</strong></td>' +
+                            '</tr>' +
+                            '<tr class="uk-fert-required-row">' +
+                                '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + Math.round(nutrientRequired.N) + '</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + (Math.round(nutrientRequired.P * 10) / 10) + '</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + Math.round(nutrientRequired.K) + '</em></td>' +
+                            '</tr>' +
+                            '<tr class="' + (balanceN >= 0 ? 'uk-fert-balance-row--positive' : 'uk-fert-balance-row--negative') + '">' +
+                                '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><strong>Balance</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceN >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceN >= 0 ? '+' : '') + Math.round(balanceN) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceP >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceP >= 0 ? '+' : '') + (Math.round(balanceP * 10) / 10) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceK >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceK >= 0 ? '+' : '') + Math.round(balanceK) + '</strong></td>' +
+                            '</tr>' +
+                        '</tfoot>' +
+                    '</table>' +
+                '</div>' +
             '</div>';
         }
     };
+
+    // ========================================================================
+    // STYLES
+    // ========================================================================
+    (function() {
+        var styles = `
+        .gilba-uk-fert-panel { background: none; border: none; padding: 0; }
+
+        .uk-fert-supplier-filter { margin-bottom: 14px; }
+        .uk-fert-supplier-label {
+            display: block; font-size: 11px; font-weight: 600;
+            color: var(--gaip-text-muted); text-transform: uppercase;
+            letter-spacing: 0.04em; margin-bottom: 5px;
+        }
+        .uk-fert-supplier-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .uk-fert-supplier-select { flex: 1; min-width: 160px; max-width: 360px; }
+        .uk-fert-supplier-hint { font-size: 11px; color: var(--gaip-text-muted); }
+
+        .uk-fert-meta {
+            display: flex; gap: 12px; flex-wrap: wrap;
+            padding: 10px 12px;
+            background: var(--gaip-surface-muted);
+            border-radius: var(--gaip-radius-sm, 6px);
+            font-size: 12px; margin-bottom: 14px;
+        }
+        .uk-fert-meta-supplier { color: var(--gaip-warning); }
+
+        .gilba-table-scroll { overflow-x: auto; margin-bottom: 24px; }
+
+        .gilba-int-subheader {
+            font-size: 11px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.05em; color: var(--gaip-text-muted);
+            margin: 22px 0 10px; padding-bottom: 6px;
+            border-bottom: 1px solid var(--gaip-border-light);
+        }
+
+        .uk-fert-program-table { font-size: 13px; width: 100%; }
+
+        .uk-fert-product {
+            display: inline-block;
+            background: var(--gaip-accent-light);
+            color: var(--gaip-accent-dark);
+            border: 1px solid var(--gaip-good-border);
+            padding: 2px 8px; border-radius: 20px;
+            margin: 2px 2px; font-size: 12px; font-weight: 500;
+        }
+        .uk-fert-product.liquid {
+            background: var(--gaip-info-bg); color: var(--gaip-info);
+            border-color: var(--gaip-info-border);
+        }
+        .uk-fert-none { color: var(--gaip-text-muted); }
+        .uk-fert-req { font-size: 12px; white-space: nowrap; color: var(--gaip-text-muted); font-variant-numeric: tabular-nums; }
+        .uk-fert-note-row td {
+            padding: 5px 10px 7px 14px !important;
+            background: var(--gaip-warning-bg) !important;
+            border-left: 3px solid var(--gaip-warning) !important;
+            border-bottom: 1px solid var(--gaip-warning-border) !important;
+            font-size: 12px; font-style: italic; color: var(--gaip-warning);
+        }
+        .uk-fert-program-table tr:has(+ .uk-fert-note-row) td {
+            border-bottom: none !important;
+        }
+        .uk-fert-notes { color: var(--gaip-warning); font-size: 12px; }
+
+        .uk-fert-th {
+            text-align: right; font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.04em;
+            color: var(--gaip-text-muted); padding: 7px 10px;
+            border-bottom: 2px solid var(--gaip-border); white-space: nowrap;
+        }
+        .uk-fert-th--left { text-align: left; }
+
+        .uk-fert-cell {
+            padding: 8px 10px; border-bottom: 1px solid var(--gaip-border-light);
+            color: var(--gaip-text); vertical-align: middle; font-size: 13px;
+        }
+        .uk-fert-cell--left { text-align: left; }
+        .uk-fert-cell--num { text-align: right; }
+        .uk-fert-cell--month { text-align: left; font-weight: 600; white-space: nowrap; }
+        .uk-fert-cell--season { text-align: left; color: var(--gaip-text-muted); white-space: nowrap; }
+        .uk-fert-cell--mono { font-variant-numeric: tabular-nums; }
+        .uk-fert-cell-sub { font-size: 11px; color: var(--gaip-text-muted); margin-top: 2px; }
+        .uk-fert-granular { min-width: 200px; }
+
+        .uk-fert-positive { color: var(--gaip-good); font-weight: 600; }
+        .uk-fert-negative { color: var(--gaip-critical); font-weight: 600; }
+        .uk-fert-warning  { color: var(--gaip-warning); font-weight: 600; }
+
+        .uk-fert-totals-row td {
+            background: var(--gaip-good-bg); font-weight: 700;
+            border-top: 2px solid var(--gaip-border); padding: 8px 10px;
+        }
+        .uk-fert-required-row td { background: var(--gaip-surface-muted); color: var(--gaip-text-muted); padding: 7px 10px; }
+        .uk-fert-balance-row--positive td { background: var(--gaip-good-bg); }
+        .uk-fert-balance-row--negative td { background: var(--gaip-critical-bg); }
+        `;
+        var styleEl = document.createElement('style');
+        styleEl.textContent = styles;
+        document.head.appendChild(styleEl);
+    })();
 
     // ========================================================================
     // BOOTSTRAP

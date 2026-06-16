@@ -577,193 +577,20 @@
         return DEFAULT_GP_MONTHLY;
     }
 
-    function generateNutritionTable(annualN, maxN, distribution, clipping, gpMonthly) {
-        // Clipping recycling: returned clippings provide ~20% N back
-        var clippingFactor = clipping === 'returned' ? 0.80 : 1.0;
-        var effectiveN = annualN * clippingFactor;
-
-        // Monthly N distribution
-        var gpTotal = gpMonthly.reduce(function (s, v) { return s + v; }, 0);
-        var monthlyN = [];
-
-        if (distribution === 'even') {
-            monthlyN = gpMonthly.map(function () { return effectiveN / 12; });
-        } else if (distribution === 'front') {
-            // Front-loaded: double weight on spring/autumn (months 8-10, 2-4 SH)
-            var weights = gpMonthly.map(function (gp, i) {
-                var base = gp / gpTotal;
-                var isShoulder = (i >= 8 && i <= 10) || (i >= 2 && i <= 4);
-                return isShoulder ? base * 1.5 : base * 0.75;
-            });
-            var wTotal = weights.reduce(function (s, v) { return s + v; }, 0);
-            monthlyN = weights.map(function (w) { return effectiveN * (w / wTotal); });
-        } else {
-            // GP-weighted
-            monthlyN = gpMonthly.map(function (gp) { return effectiveN * (gp / Math.max(gpTotal, 1)); });
-        }
-
-        // Apply max N cap per month
-        if (maxN > 0) {
-            monthlyN = monthlyN.map(function (n) { return Math.min(n, maxN); });
-        }
-
-        // Nutrient ratios (MLSN-derived) as % of N
-        var ratios = { P: 0.10, K: 0.55, Ca: 0.17, Mg: 0.08, S: 0.05 };
-
-        var months = monthlyN.map(function (n, i) {
-            var gp = gpMonthly[i];
-            return {
-                month: MONTHS[i],
-                season: i >= 11 || i <= 1 ? 'Summer' : i <= 4 ? 'Autumn' : i <= 7 ? 'Winter' : 'Spring',
-                gp: Math.round(gp),
-                N:  Math.round(n * 10) / 10,
-                P:  Math.round(n * ratios.P  * 10) / 10,
-                K:  Math.round(n * ratios.K  * 10) / 10,
-                Ca: Math.round(n * ratios.Ca * 10) / 10,
-                Mg: Math.round(n * ratios.Mg * 10) / 10,
-                S:  Math.round(n * ratios.S  * 10) / 10
-            };
-        });
-
-        var totals = { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
-        months.forEach(function (m) {
-            totals.N  += m.N;  totals.P  += m.P;
-            totals.K  += m.K;  totals.Ca += m.Ca;
-            totals.Mg += m.Mg; totals.S  += m.S;
-        });
-        Object.keys(totals).forEach(function (k) { totals[k] = Math.round(totals[k] * 10) / 10; });
-
-        return { months: months, totals: totals, clippingFactor: clippingFactor };
-    }
-
-    function renderNutritionResults(result, annualN, distribution, clipping, species, methodology) {
-        var container = document.getElementById('plan-nut-results');
-        var divider   = document.getElementById('plan-nut-divider');
-        var csvBtn    = document.getElementById('plan-nut-csv-btn');
-        if (!container) return;
-
-        var months  = result.months;
-        var totals  = result.totals;
-        var curMo   = nowMonth();
-
-        var distLabel = { gp: 'GP-Weighted', even: 'Even distribution', front: 'Front-loaded' }[distribution] || distribution;
-        var clipLabel = clipping === 'returned' ? 'Returned (mulched)' : 'Collected';
-
-        var html = '';
-
-        // Summary bar
-        html += '<div class="plan-nutrition-summary">' +
-            '<div class="plan-nutrition-summary-item"><div class="plan-nutrition-summary-key">Species</div><div class="plan-nutrition-summary-val">' + esc(species || '—') + '</div></div>' +
-            '<div class="plan-nutrition-summary-item"><div class="plan-nutrition-summary-key">Methodology</div><div class="plan-nutrition-summary-val">' + esc(methodology || '—') + '</div></div>' +
-            '<div class="plan-nutrition-summary-item"><div class="plan-nutrition-summary-key">Distribution</div><div class="plan-nutrition-summary-val">' + esc(distLabel) + '</div></div>' +
-            '<div class="plan-nutrition-summary-item"><div class="plan-nutrition-summary-key">Clippings</div><div class="plan-nutrition-summary-val">' + esc(clipLabel) + '</div></div>' +
-            '</div>';
-
-        if (clipping === 'returned') {
-            html += '<div style="font-size:11px;color:var(--gaip-text-muted);margin-bottom:12px;padding:8px 12px;background:var(--gaip-info-bg);border:1px solid var(--gaip-info-border);border-radius:var(--gaip-radius-sm)">Returned clippings provide ~20% N recycling — effective annual requirement reduced to ' + Math.round(annualN * 0.8) + ' kg N/ha</div>';
-        }
-
-        // Annual totals
-        html += '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--gaip-text-muted);margin-bottom:8px">Annual Totals (kg/ha)</div>';
-        html += '<div class="plan-nutrition-totals">' +
-            ['N','P','K','Ca','Mg','S'].map(function (n) {
-                return '<div class="plan-nut-total">' +
-                    '<div class="plan-nut-total-val">' + totals[n] + '</div>' +
-                    '<div class="plan-nut-total-label">' + n + '</div>' +
-                    '<div class="plan-nut-total-unit">kg/ha/yr</div>' +
-                    '</div>';
-            }).join('') +
-            '</div>';
-
-        // Monthly calendar table
-        html += '<div style="overflow-x:auto">' +
-            '<table class="plan-cal-table">' +
-            '<thead><tr><th>Month</th><th>Season</th><th>GP%</th><th>N</th><th>P</th><th>K</th><th>Ca</th><th>Mg</th><th>S</th></tr></thead>' +
-            '<tbody>';
-        months.forEach(function (m, i) {
-            html += '<tr' + (i === curMo ? ' class="current-month"' : '') + '>' +
-                '<td>' + m.month + (i === curMo ? ' ●' : '') + '</td>' +
-                '<td>' + m.season + '</td>' +
-                '<td>' + m.gp + '%</td>' +
-                '<td>' + m.N + '</td><td>' + m.P + '</td><td>' + m.K + '</td>' +
-                '<td>' + m.Ca + '</td><td>' + m.Mg + '</td><td>' + m.S + '</td>' +
-                '</tr>';
-        });
-        html += '<tr><td><strong>Total</strong></td><td></td><td></td>' +
-            '<td><strong>' + totals.N + '</strong></td>' +
-            '<td><strong>' + totals.P + '</strong></td>' +
-            '<td><strong>' + totals.K + '</strong></td>' +
-            '<td><strong>' + totals.Ca + '</strong></td>' +
-            '<td><strong>' + totals.Mg + '</strong></td>' +
-            '<td><strong>' + totals.S + '</strong></td></tr>';
-        html += '</tbody></table></div>';
-
-        container.innerHTML = html;
-        container.style.display = '';
-        if (divider) divider.style.display = '';
-        if (csvBtn) {
-            csvBtn.style.display = '';
-            csvBtn.onclick = function () { exportCSV(months, totals, species, methodology); };
-        }
-
-        // Store for iCal export
-        global._GAIP_NUTRITION_RESULT = { months: months, totals: totals };
-    }
-
-    function exportCSV(months, totals, species, methodology) {
-        var lines = ['Month,Season,GP%,N (kg/ha),P (kg/ha),K (kg/ha),Ca (kg/ha),Mg (kg/ha),S (kg/ha)'];
-        months.forEach(function (m) {
-            lines.push([m.month, m.season, m.gp, m.N, m.P, m.K, m.Ca, m.Mg, m.S].join(','));
-        });
-        lines.push(['Total','','', totals.N, totals.P, totals.K, totals.Ca, totals.Mg, totals.S].join(','));
-        var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
-        var url  = URL.createObjectURL(blob);
-        var a    = document.createElement('a');
-        a.href   = url;
-        a.download = 'nutrition-program-' + (species || 'site').replace(/\s+/g,'-').toLowerCase() + '.csv';
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
     function initNutritionForm(computed, siteConfig) {
-        var form    = document.getElementById('plan-nut-form');
-        var btn     = document.getElementById('plan-nut-generate-btn');
+        var form = document.getElementById('plan-nut-form');
         if (!form) return;
 
-        // Pre-fill from site config if available
-        var turf = siteConfig && siteConfig.turf;
+        // Pre-fill Annual N from saved site config
+        var turf   = siteConfig && siteConfig.turf;
         var savedN = turf && (turf.nProgramKgHaYr || turf.annualN);
         if (savedN) {
             var inputN = document.getElementById('plan-nut-annual-n');
             if (inputN && !inputN.value) inputN.value = Math.round(savedN);
         }
 
-        form.addEventListener('submit', function (e) {
-            e.preventDefault();
-            var annualN = safeNum(document.getElementById('plan-nut-annual-n').value, 0);
-            var maxN    = safeNum(document.getElementById('plan-nut-max-n').value, 0);
-            var dist    = document.getElementById('plan-nut-distribution').value;
-            var clip    = document.getElementById('plan-nut-clipping').value;
-
-            if (annualN <= 0) {
-                document.getElementById('plan-nut-annual-n').focus();
-                return;
-            }
-
-            btn.disabled = true;
-            btn.textContent = 'Generating…';
-
-            var gpMonthly  = getMonthlyGP(computed);
-            var result     = generateNutritionTable(annualN, maxN, dist, clip, gpMonthly);
-            var species    = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.turfSpecies) || (turf && turf.species) || '';
-            var methodology= (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.turfMethodology) || (turf && turf.methodology) || '';
-
-            setTimeout(function () {
-                renderNutritionResults(result, annualN, dist, clip, species, methodology);
-                btn.disabled = false;
-                btn.textContent = 'Re-calculate';
-            }, 50);
-        });
+        // Prevent accidental form submit on Enter — generate button handles clicks
+        form.addEventListener('submit', function (e) { e.preventDefault(); });
     }
 
     // ── SECTION: Seasonal N Plan ──────────────────────────────────────────────
@@ -772,35 +599,39 @@
         var body = document.getElementById('plan-seasonal-body');
         if (!body) return;
 
-        var sn  = computed && computed.soilNutrition;
-        var turf = siteConfig && siteConfig.turf;
+        var turf  = siteConfig && siteConfig.turf;
+        var hub   = window.GAIP_HUB_CONFIG || {};
 
         // Determine hemisphere
         var hemi = (turf && turf.hemi) || (siteConfig && siteConfig.location && siteConfig.location.hemisphere) || 'southern';
         var seasons = hemi === 'northern' ? SEASONS_N : SEASONS_S;
 
-        // Get N diagnostics
-        var baseOptimum = sn && sn.annualDemand && sn.annualDemand.baseOptimum;
-        var opt         = sn && sn.annualDemand && sn.annualDemand.opt;
+        // Annual N rate — from saved site config (nProgramKgHaYr or nProgram or annualN)
+        // This is the user-entered N programme from Settings, not from any analysis engine.
+        var annualN = safeNum(
+            (turf && (turf.nProgramKgHaYr || turf.nProgram || turf.annualN)) ||
+            (hub.nProgram) ||
+            null,
+            0
+        );
 
-        if (!baseOptimum && !opt) {
-            body.innerHTML = emptyState('nutrition', 'Soil test required',
-                'Seasonal N plan calculates from N diagnostics in the soil test.',
-                ['Import soil test results in the Soil Tests section',
-                 'After import, run analysis to generate the seasonal plan']
+        if (!annualN) {
+            body.innerHTML = emptyState('nutrition', 'N programme not set',
+                'Seasonal N plan distributes your annual N budget across quarters by growth potential.',
+                ['Set your annual N programme rate in <a href="/settings#turf" style="color:var(--gaip-accent);text-decoration:underline">Settings → Turf</a>',
+                 'The seasonal plan will calculate automatically']
             );
             return;
         }
 
-        var annualN  = safeNum(opt || baseOptimum, 100);
         var c3Frac   = safeNum(turf && turf.percentC3Cover, 70) / 100;
         var curMo    = nowMonth();
 
-        // Compute seasonal averages using actual GP
+        // Compute seasonal averages using actual GP from analysis cache (or default)
         var gpMonthly = getMonthlyGP(computed);
 
         var html = '<div style="font-size:11px;color:var(--gaip-text-muted);margin-bottom:14px">' +
-            'Annual N optimum: <strong style="color:var(--gaip-text)">' + Math.round(annualN) + ' kg N/ha</strong>' +
+            'Annual N programme: <strong style="color:var(--gaip-text)">' + Math.round(annualN) + ' kg N/ha</strong>' +
             (c3Frac < 1 ? ' · C3/C4 blend ' + Math.round(c3Frac*100) + '/' + Math.round((1-c3Frac)*100) + '%' : '') +
             '</div>';
 
@@ -840,11 +671,11 @@
         html += '</div>';
 
         // Source footer
-        var src = sn && sn.annualDemand && sn.annualDemand.source;
+        var hasClimatGP = !!(computed && computed.climate && (computed.climate.dualMetrics || computed.climate.growth));
         html += '<div style="font-size:10px;color:var(--gaip-text-muted);margin-top:8px">' +
-            'Based on: MLSN/SLAN N diagnostics' +
-            (src ? ' · ' + esc(src) : '') +
-            ' · <a href="/analysis#soil-nutrition" style="color:var(--gaip-accent)">View full soil analysis →</a>' +
+            'N distributed by monthly Growth Potential' +
+            (hasClimatGP ? ' · <span style="color:var(--gaip-good)">Using site climate data</span>' : ' · Using default GP curve') +
+            ' · <a href="/settings#turf" style="color:var(--gaip-accent)">Edit N programme →</a>' +
             '</div>';
 
         body.innerHTML = html;
