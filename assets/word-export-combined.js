@@ -3759,67 +3759,169 @@
         return new Promise(function(resolve) {
             // Group by site
             var groups = {};
+            var siteOrder = [];
             samples.forEach(function(s) {
-                if (!groups[s.siteLabel]) groups[s.siteLabel] = [];
-                groups[s.siteLabel].push(s);
+                var key = s.siteLabel || s.siteId || 'Unknown';
+                if (!groups[key]) { groups[key] = []; siteOrder.push(key); }
+                groups[key].push(s);
             });
+            var multiSite = siteOrder.length > 1;
 
-            var overlay = document.createElement('div');
-            overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            function buildGroupsHtml(filter) {
+                filter = (filter || '').toLowerCase().trim();
+                return siteOrder.map(function(siteLabel) {
+                    var siteSamples = groups[siteLabel];
+                    var siteMatch = !filter || siteLabel.toLowerCase().indexOf(filter) !== -1;
+                    var visibleSamples = siteMatch ? siteSamples : siteSamples.filter(function(e) {
+                        return (e.sampleLabel || e.sampleId || '').toLowerCase().indexOf(filter) !== -1;
+                    });
+                    if (!visibleSamples.length) return '';
 
-            var box = document.createElement('div');
-            box.style.cssText = 'background:var(--gaip-surface);border-radius:12px;padding:24px 32px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Calibri,Arial,sans-serif;min-width:360px;max-width:500px;max-height:80vh;overflow-y:auto;';
+                    var rows = visibleSamples.map(function(entry) {
+                        var uid = entry.siteId + '::' + entry.sampleId;
+                        var types = [];
+                        if (entry.hasSoil)   types.push('Soil');
+                        if (entry.hasWater)  types.push('Water');
+                        if (entry.hasTissue) types.push('Tissue');
+                        var typeBadges = types.map(function(t) {
+                            return '<span class="gaip-bulk-badge gaip-bulk-badge-set">' + t + '</span>';
+                        }).join('');
+                        var isChecked = backdrop ? !!backdrop.querySelector('input[data-sample-uid="' + uid + '"]') ?
+                            backdrop.querySelector('input[data-sample-uid="' + uid + '"]').checked : true : true;
+                        return '<tr>' +
+                            '<td style="width:28px">' +
+                            '<input type="checkbox" ' + (isChecked ? 'checked' : '') + ' data-sample-uid="' + uid + '">' +
+                            '</td>' +
+                            '<td class="gaip-bulk-sample-label">' + _escHtml(entry.sampleLabel || entry.sampleId) + '</td>' +
+                            '<td style="text-align:right">' + typeBadges + '</td>' +
+                            '</tr>';
+                    }).join('');
 
-            var html = '<h3 style="margin:0 0 4px;color:#059669;font-size:16px;">📋 Combined Report</h3>';
-            html += '<p style="margin:0 0 16px;color:var(--gaip-text-secondary);font-size:13px;">Select the samples to include:</p>';
+                    var siteHeader = multiSite
+                        ? '<div class="gaip-bulk-group-head">' +
+                          '<input type="checkbox" class="csp-site-check" data-site="' + _escHtml(siteLabel) + '" checked ' +
+                          'style="width:15px;height:15px;accent-color:var(--gaip-brand,#236b4a);flex-shrink:0">' +
+                          '<h4 class="gaip-bulk-group-title">' + _escHtml(siteLabel) + '</h4>' +
+                          '<span class="gaip-bulk-group-count">' + visibleSamples.length + ' sample' + (visibleSamples.length !== 1 ? 's' : '') + '</span>' +
+                          '</div>'
+                        : '';
 
-            var siteKeys = Object.keys(groups);
-            for (var g = 0; g < siteKeys.length; g++) {
-                var siteSamples = groups[siteKeys[g]];
-                if (siteKeys.length > 1) {
-                    html += '<div style="font-weight:600;color:var(--gaip-text);font-size:13px;margin:12px 0 6px;border-bottom:1px solid var(--gaip-border);padding-bottom:4px;">' + siteKeys[g] + '</div>';
-                }
-                for (var s = 0; s < siteSamples.length; s++) {
-                    var entry = siteSamples[s];
-                    var uid = entry.siteId + '::' + entry.sampleId;
-                    html += '<label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:14px;color:var(--gaip-text);">';
-                    html += '<input type="checkbox" checked data-sample-uid="' + uid + '" style="width:16px;height:16px;accent-color:#059669;"> ';
-                    html += entry.sampleId;
-                    html += '</label>';
-                }
+                    return '<div data-site-group="' + _escHtml(siteLabel) + '" class="gaip-bulk-group">' +
+                        siteHeader +
+                        '<table class="gaip-bulk-table"><tbody>' + rows + '</tbody></table>' +
+                        '</div>';
+                }).join('');
             }
 
-            html += '<div style="display:flex;gap:8px;margin-top:16px;justify-content:space-between;align-items:center;">';
-            html += '<div>';
-            html += '<button id="combined-pick-all" style="padding:4px 10px;border:1px solid var(--gaip-border);background:var(--gaip-surface);border-radius:4px;cursor:pointer;font-size:12px;color:var(--gaip-text-secondary);margin-right:4px;">Select All</button>';
-            html += '<button id="combined-pick-none" style="padding:4px 10px;border:1px solid var(--gaip-border);background:var(--gaip-surface);border-radius:4px;cursor:pointer;font-size:12px;color:var(--gaip-text-secondary);">Deselect All</button>';
-            html += '</div>';
-            html += '<div>';
-            html += '<button id="combined-pick-cancel" style="padding:6px 16px;border:1px solid var(--gaip-border);background:var(--gaip-surface);border-radius:6px;cursor:pointer;font-size:13px;color:var(--gaip-text-secondary);margin-right:6px;">Cancel</button>';
-            html += '<button id="combined-pick-export" style="padding:6px 16px;border:none;background:#059669;color:white;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">Export</button>';
-            html += '</div>';
-            html += '</div>';
+            var backdrop = document.createElement('div');
+            backdrop.className = 'gaip-bulk-area-backdrop';
+            backdrop.style.display = 'flex';
 
-            box.innerHTML = html;
-            overlay.appendChild(box);
-            document.body.appendChild(overlay);
+            backdrop.innerHTML =
+                '<div class="gaip-bulk-dialog">' +
+                    '<header class="gaip-bulk-dialog-head">' +
+                        '<div>' +
+                            '<h3 class="gaip-bulk-dialog-title">Export Report</h3>' +
+                            '<p style="margin:4px 0 0;font-size:12px;color:var(--gaip-text-secondary)">Select samples to include in the Word document</p>' +
+                        '</div>' +
+                        '<button type="button" id="csp-close" class="gaip-bulk-close" aria-label="Close">&times;</button>' +
+                    '</header>' +
+                    '<div class="gaip-bulk-intro">' +
+                        '<div style="display:flex;align-items:center;gap:8px">' +
+                            '<div style="flex:1;position:relative">' +
+                                '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="position:absolute;left:9px;top:50%;transform:translateY(-50%);color:var(--gaip-text-secondary,#9ca3af);pointer-events:none">' +
+                                    '<circle cx="11" cy="11" r="8"/><path stroke-linecap="round" d="m21 21-4.35-4.35"/>' +
+                                '</svg>' +
+                                '<input id="csp-search" type="text" placeholder="Search sites or samples…" ' +
+                                'style="width:100%;padding:7px 10px 7px 30px;border:1px solid var(--gaip-border,#d0d7d4);border-radius:var(--gaip-r-s,4px);font-size:13px;background:var(--gaip-bg,#fff);color:var(--gaip-text);box-sizing:border-box;font-family:inherit">' +
+                            '</div>' +
+                            '<button id="csp-all" type="button" style="font-size:11px;padding:5px 10px;border:1px solid var(--gaip-border,#d0d7d4);background:var(--gaip-bg-raised,#fff);border-radius:var(--gaip-r-s,4px);cursor:pointer;color:var(--gaip-text-secondary,#5a6b65);white-space:nowrap;font-family:inherit">Select all</button>' +
+                            '<button id="csp-none" type="button" style="font-size:11px;padding:5px 10px;border:1px solid var(--gaip-border,#d0d7d4);background:var(--gaip-bg-raised,#fff);border-radius:var(--gaip-r-s,4px);cursor:pointer;color:var(--gaip-text-secondary,#5a6b65);white-space:nowrap;font-family:inherit">Deselect all</button>' +
+                        '</div>' +
+                    '</div>' +
+                    '<div id="csp-list" class="gaip-bulk-groups">' + buildGroupsHtml('') + '</div>' +
+                    '<footer class="gaip-bulk-dialog-foot">' +
+                        '<span id="csp-count" class="gaip-bulk-status">' + samples.length + ' of ' + samples.length + ' selected</span>' +
+                        '<div style="display:flex;gap:8px">' +
+                            '<button id="csp-cancel" type="button" class="gaip-bulk-cancel">Cancel</button>' +
+                            '<button id="csp-export" type="button" class="gaip-bulk-apply">Generate &amp; Download</button>' +
+                        '</div>' +
+                    '</footer>' +
+                '</div>';
 
-            // Wire up buttons
-            document.getElementById('combined-pick-all').addEventListener('click', function() {
-                overlay.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = true; });
+            document.body.appendChild(backdrop);
+
+            function updateCount() {
+                var checked = backdrop.querySelectorAll('input[data-sample-uid]:checked').length;
+                var countEl = backdrop.querySelector('#csp-count');
+                if (countEl) countEl.textContent = checked + ' of ' + samples.length + ' selected';
+                var exportBtn = backdrop.querySelector('#csp-export');
+                if (exportBtn) exportBtn.disabled = checked === 0;
+            }
+
+            function rebuildList(filter) {
+                var listEl = backdrop.querySelector('#csp-list');
+                if (listEl) listEl.innerHTML = buildGroupsHtml(filter);
+                // Re-wire checkboxes after rebuild
+                backdrop.querySelectorAll('input[data-sample-uid]').forEach(function(cb) {
+                    cb.addEventListener('change', function() { updateCount(); syncSiteCheck(cb); });
+                });
+                backdrop.querySelectorAll('.csp-site-check').forEach(function(sc) {
+                    sc.addEventListener('change', function() { toggleSite(sc); });
+                });
+                updateCount();
+            }
+
+            function syncSiteCheck(changedCb) {
+                var siteGroup = changedCb.closest('[data-site-group]');
+                if (!siteGroup) return;
+                var sc = siteGroup.querySelector('.csp-site-check');
+                if (!sc) return;
+                var all = siteGroup.querySelectorAll('input[data-sample-uid]');
+                var checked = siteGroup.querySelectorAll('input[data-sample-uid]:checked');
+                sc.indeterminate = checked.length > 0 && checked.length < all.length;
+                sc.checked = checked.length === all.length;
+            }
+
+            function toggleSite(sc) {
+                var siteGroup = sc.closest('[data-site-group]');
+                if (!siteGroup) return;
+                siteGroup.querySelectorAll('input[data-sample-uid]').forEach(function(cb) {
+                    cb.checked = sc.checked;
+                });
+                sc.indeterminate = false;
+                updateCount();
+            }
+
+            function close(result) {
+                backdrop.remove();
+                resolve(result);
+            }
+
+            // Wire initial checkboxes
+            rebuildList('');
+
+            // Search
+            backdrop.querySelector('#csp-search').addEventListener('input', function() {
+                rebuildList(this.value);
             });
-            document.getElementById('combined-pick-none').addEventListener('click', function() {
-                overlay.querySelectorAll('input[type="checkbox"]').forEach(function(cb) { cb.checked = false; });
+
+            backdrop.querySelector('#csp-all').addEventListener('click', function() {
+                backdrop.querySelectorAll('input[data-sample-uid]').forEach(function(cb) { cb.checked = true; });
+                backdrop.querySelectorAll('.csp-site-check').forEach(function(sc) { sc.checked = true; sc.indeterminate = false; });
+                updateCount();
             });
-            document.getElementById('combined-pick-cancel').addEventListener('click', function() {
-                overlay.remove();
-                resolve(null);
+            backdrop.querySelector('#csp-none').addEventListener('click', function() {
+                backdrop.querySelectorAll('input[data-sample-uid]').forEach(function(cb) { cb.checked = false; });
+                backdrop.querySelectorAll('.csp-site-check').forEach(function(sc) { sc.checked = false; sc.indeterminate = false; });
+                updateCount();
             });
-            document.getElementById('combined-pick-export').addEventListener('click', function() {
+            backdrop.querySelector('#csp-close').addEventListener('click', function() { close(null); });
+            backdrop.querySelector('#csp-cancel').addEventListener('click', function() { close(null); });
+            backdrop.querySelector('#csp-export').addEventListener('click', function() {
                 var selected = [];
-                overlay.querySelectorAll('input[data-sample-uid]:checked').forEach(function(cb) {
-                    var uid = cb.dataset.sampleUid;
-                    var parts = uid.split('::');
+                backdrop.querySelectorAll('input[data-sample-uid]:checked').forEach(function(cb) {
+                    var parts = cb.dataset.sampleUid.split('::');
                     for (var i = 0; i < samples.length; i++) {
                         if (samples[i].siteId === parts[0] && samples[i].sampleId === parts[1]) {
                             selected.push(samples[i]);
@@ -3827,15 +3929,18 @@
                         }
                     }
                 });
-                overlay.remove();
-                resolve(selected.length > 0 ? selected : null);
+                close(selected.length > 0 ? selected : null);
             });
-
-            // Close on overlay click
-            overlay.addEventListener('click', function(e) {
-                if (e.target === overlay) { overlay.remove(); resolve(null); }
+            backdrop.addEventListener('click', function(e) {
+                if (e.target === backdrop) close(null);
             });
         });
+    }
+
+    function _escHtml(s) {
+        return String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
 
     // =========================================================================
@@ -3939,10 +4044,26 @@
     // EXPORTS
     // =========================================================================
 
+    async function exportWithPicker(scope) {
+        scope = scope || 'all';
+        var samples = enumerateSamples(scope);
+        if (!samples || samples.length === 0) {
+            alert('No soil samples found to export.');
+            return;
+        }
+        if (samples.length === 1) {
+            return exportCombinedWithSamples(samples);
+        }
+        var selected = await showSamplePicker(samples, scope);
+        if (!selected) return;
+        return exportCombinedWithSamples(selected);
+    }
+
     global.GAIP_CombinedExport = {
         version: '1.0.0',
         exportAll: function() { return exportCombined('all'); },
         exportCurrentSite: function() { return exportCombined('current'); },
+        exportWithPicker: exportWithPicker,
         enumerate: enumerateSamples
     };
 

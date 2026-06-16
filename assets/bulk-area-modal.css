@@ -5,6 +5,21 @@
    reskin applies automatically. No hardcoded colours beyond subtle state tints.
    ============================================================================= */
 
+/* Map bulk-modal tokens → gaip-design-system tokens */
+:root {
+    --gaip-bg-raised:   var(--gaip-surface, #ffffff);
+    --gaip-sans:        var(--gaip-font, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    --gaip-serif:       var(--gaip-font-display, Georgia, serif);
+    --gaip-mono:        var(--gaip-font-mono, monospace);
+    --gaip-text-faint:  var(--gaip-text-muted, #6b8878);
+    --gaip-brand:       var(--gaip-accent, #2da85e);
+    --gaip-green-soft:  var(--gaip-accent, #2da85e);
+    --gaip-green:       var(--gaip-accent-hover, #259950);
+    --gaip-r-s:         var(--gaip-radius-sm, 6px);
+    --gaip-r-l:         var(--gaip-radius, 10px);
+    --gaip-border-soft: var(--gaip-border-light, #dde7e2);
+}
+
 .gaip-bulk-area-backdrop {
     position: fixed;
     inset: 0;

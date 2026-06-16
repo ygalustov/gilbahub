@@ -6,6 +6,7 @@
 @extends('layouts.db-shell', ['title' => 'Export', 'currentPage' => 'reports'])
 
 @section('styles')
+<link rel="stylesheet" href="{{ $legacyAssetUrl('bulk-area-modal.css') }}">
 <style>
 .rp-page { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }
 .rp-content { padding: 24px 28px; max-width: 860px; }
@@ -99,7 +100,7 @@
                 </div>
                 <div>
                     <div class="rp-card-title">Full Analysis Report</div>
-                    <div class="rp-card-subtitle">Word (.docx) — current site, all modules</div>
+                    <div class="rp-card-subtitle">Word (.docx) — select samples to include, all modules</div>
                 </div>
             </div>
             <div class="rp-card-sections">
@@ -115,53 +116,13 @@
                 <span class="rp-tag">AI Interpretation</span>
                 <span class="rp-tag">Forensic Record</span>
             </div>
-            {{-- Analysis status: shown only when user clicks Generate --}}
-            <div id="rp-analysis-status" style="display:none;align-items:center;gap:8px;margin-bottom:12px;font-size:12px;color:var(--gaip-text-secondary)">
-                <svg id="rp-analysis-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;animation:rp-spin 1s linear infinite">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8"/>
-                </svg>
-                <span id="rp-analysis-status-text">Running analysis…</span>
-            </div>
-            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" onclick="rpExportWord()">
+            <button id="rp-export-word-btn" type="button" class="rp-btn rp-btn-primary" onclick="rpExportWordWithPicker()">
                 <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                 </svg>
                 Generate &amp; Download Word
             </button>
         </div>
-
-        {{-- ─── 2. Combined Multi-Site Report ─── --}}
-        @if($multiSite)
-        <div class="rp-card">
-            <div class="rp-card-header">
-                <div class="rp-card-icon">
-                    <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-                    </svg>
-                </div>
-                <div>
-                    <div class="rp-card-title">Combined Multi-Site Report</div>
-                    <div class="rp-card-subtitle">Word (.docx) — all soil samples across all sites in one file</div>
-                </div>
-            </div>
-            <div class="rp-card-body">
-                One document with a section break per sample. Analysis will run for each site sequentially — estimated {{ $allSites->count() * 2 }}–{{ $allSites->count() * 3 }} min.
-            </div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap">
-                <button id="gaip-export-combined" type="button" class="rp-btn rp-btn-primary"
-                        onclick="if(window.GAIP_CombinedExport){GAIP_CombinedExport.exportAll()}else{alert('Analysis not yet loaded — please wait a moment.')}">
-                    <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                    </svg>
-                    Export All Sites
-                </button>
-                <button type="button" class="rp-btn rp-btn-secondary"
-                        onclick="if(window.GAIP_CombinedExport){GAIP_CombinedExport.exportCurrentSite()}else{alert('Analysis not yet loaded.')}">
-                    Current Site Only
-                </button>
-            </div>
-        </div>
-        @endif
 
         {{-- ─── 3. Calendar Export (iCal) ─── --}}
         <div class="rp-card">
@@ -330,86 +291,14 @@
     @endif
 @endforeach
 
-{{-- On-demand export: analysis runs only when user clicks Generate --}}
+{{-- Export: show sample picker then run combined export --}}
 <script defer>
-function rpExportWord() {
-    var btn   = document.getElementById('rp-export-word-btn');
-    var wrap  = document.getElementById('rp-analysis-status');
-    var stext = document.getElementById('rp-analysis-status-text');
-    var spin  = document.getElementById('rp-analysis-spinner');
-
-    if (btn && btn.dataset.running === '1') return;
-    if (btn) { btn.dataset.running = '1'; btn.disabled = true; }
-    if (wrap) wrap.style.display = 'flex';
-
-    var _analysisRan  = false;
-    var _weatherDone  = false;
-    var _samplesReady = false;
-    var _exported     = false;
-    var _waitTimer    = null;
-
-    function doExport() {
-        if (_exported) return;
-        _exported = true;
-        clearTimeout(_waitTimer);
-        if (stext) stext.textContent = 'Generating file…';
-        if (spin) { spin.style.animation = 'none'; spin.setAttribute('stroke', '#059669'); spin.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>'; }
-        setTimeout(function () {
-            if (window.GAIP_WordExport) {
-                GAIP_WordExport.export();
-                if (stext) { stext.textContent = 'File downloaded.'; stext.style.color = '#059669'; }
-                setTimeout(function () { if (wrap) wrap.style.display = 'none'; }, 3000);
-            } else {
-                alert('Export engine not ready — please try again.');
-                if (wrap) wrap.style.display = 'none';
-            }
-            if (btn) { btn.disabled = false; btn.dataset.running = '0'; }
-        }, 200);
+function rpExportWordWithPicker() {
+    if (!window.GAIP_CombinedExport) {
+        alert('Analysis not yet loaded — please wait a moment and try again.');
+        return;
     }
-
-    function tryExport() {
-        if (_analysisRan && _weatherDone && _samplesReady) doExport();
-    }
-
-    document.addEventListener('gaip:analysis-complete', function onAC() {
-        document.removeEventListener('gaip:analysis-complete', onAC);
-        _analysisRan = true; tryExport();
-    });
-    document.addEventListener('gaip:weather-ready', function onWR() {
-        document.removeEventListener('gaip:weather-ready', onWR);
-        _weatherDone = true; tryExport();
-    });
-    document.addEventListener('gaip:samples-persistence-ready', function onSP() {
-        document.removeEventListener('gaip:samples-persistence-ready', onSP);
-        _samplesReady = true; tryExport();
-    });
-    document.addEventListener('gaip:orchestrator-complete', function onOC() {
-        if (!_analysisRan) return;
-        document.removeEventListener('gaip:orchestrator-complete', onOC);
-        clearTimeout(_waitTimer);
-        _waitTimer = setTimeout(function () {
-            _weatherDone = true; _samplesReady = true; tryExport();
-        }, 10000);
-    });
-
-    // Hard timeout: 50 s
-    setTimeout(function () {
-        _analysisRan = true; _weatherDone = true; _samplesReady = true;
-        if (!_exported) { if (stext) stext.textContent = 'Timed out — partial data.'; doExport(); }
-    }, 50000);
-
-    // Trigger analysis now
-    if (stext) stext.textContent = 'Running analysis…';
-    var runBtn = document.querySelector('.gaip-run-btn');
-    if (runBtn) {
-        runBtn.click();
-    } else {
-        // Hub scripts not yet deferred-loaded — wait briefly
-        setTimeout(function () {
-            var rb = document.querySelector('.gaip-run-btn');
-            if (rb) rb.click();
-        }, 1500);
-    }
+    GAIP_CombinedExport.exportWithPicker('all');
 }
 </script>
 @endsection

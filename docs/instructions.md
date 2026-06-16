@@ -228,8 +228,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
 +13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
 +14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
-+15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121.
-16.⁠ ⁠How can you select what greens/fairway results to generate a word report for?
++15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121, GH-122.
+16.⁠ ⁠How can you select what greens/fairway results to generate a word report for? Yes it was there. When wanted to print report export word doc was for one and export all gave you an option to select which soil water or tissue results you wanted to print as a word doc
 17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance
 18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
 Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why
@@ -250,12 +250,15 @@ That’s what the current layout looks like when it produces the product recomme
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
 +33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
-
+34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software?
+35.⁠ ⁠Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
+36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
+37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
 
 
 
 ----
-
+- also move branding settings to the settings page and make ui nice
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 
