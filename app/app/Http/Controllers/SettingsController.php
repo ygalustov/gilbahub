@@ -20,12 +20,20 @@ class SettingsController extends Controller
         }
 
         $turfSpecies     = $activeGaipConfig['turf']['species'] ?? null;
-        $turfMethodology = isset($activeGaipConfig['turf']['methodology'])
-            ? strtoupper($activeGaipConfig['turf']['methodology'])
-            : null;
         $locationName    = $activeGaipConfig['location']['name'] ?? $activeSite?->location_name ?: null;
         $latitude        = $activeSite?->latitude  ?? $activeGaipConfig['location']['lat']  ?? null;
         $longitude       = $activeSite?->longitude ?? $activeGaipConfig['location']['lon'] ?? null;
+
+        $isNewZealand    = self::isNewZealand(
+            $latitude  !== null ? (float) $latitude  : null,
+            $longitude !== null ? (float) $longitude : null
+        );
+        $savedMethodology = $activeGaipConfig['turf']['methodology'] ?? null;
+        $turfMethodology  = strtoupper(self::effectiveMethodology(
+            $savedMethodology,
+            $latitude  !== null ? (float) $latitude  : null,
+            $longitude !== null ? (float) $longitude : null
+        ));
 
         $cacheRecord   = $activeSite?->configs()->where('namespace', 'analysis_cache')->first();
         $analysisCache = $cacheRecord ? [
@@ -45,6 +53,7 @@ class SettingsController extends Controller
             'locationName'     => $locationName,
             'latitude'         => $latitude,
             'longitude'        => $longitude,
+            'isNewZealand'     => $isNewZealand,
             'analysisCache'    => $analysisCache,
             'activeSiteRole'   => $activeSiteRole,
         ]);

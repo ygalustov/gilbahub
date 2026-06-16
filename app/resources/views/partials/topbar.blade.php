@@ -28,7 +28,14 @@
     {{-- Context pills --}}
     <div class="db-context-pills" id="db-context-pills">
         @if($turfMethodology ?? null)
-            <span class="db-pill">{{ $turfMethodology }}</span>
+            @php
+                $methLabel = match(strtolower($turfMethodology)) {
+                    'ammonium_acetate' => 'AA',
+                    'slan'             => 'SLAN',
+                    default            => 'MLSN',
+                };
+            @endphp
+            <span class="db-pill">{{ $methLabel }}</span>
         @endif
         <span class="db-pill" id="db-pill-species">{{ $turfSpecies ?? '' }}</span>
         <span class="db-pill" id="db-pill-region">{{ $locationName ?? '' }}</span>

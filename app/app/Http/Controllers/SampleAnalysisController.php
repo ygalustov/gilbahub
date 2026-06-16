@@ -52,6 +52,13 @@ class SampleAnalysisController extends Controller
             'validation'  => ($validation['errors'] || $validation['warnings']) ? $validation : null,
         ]);
 
+        $site = $sample->site;
+        $sn['methodology'] = self::effectiveMethodology(
+            $sn['methodology'] ?? null,
+            $site->latitude  !== null ? (float) $site->latitude  : null,
+            $site->longitude !== null ? (float) $site->longitude : null
+        );
+
         return response()->json(['data' => $sn]);
     }
 

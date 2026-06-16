@@ -181,6 +181,19 @@
     line-height: 1.4;
 }
 
+.stg-locked-value {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #f9fafb;
+    font-size: 13px;
+    color: #374151;
+    cursor: default;
+}
+
 /* ── Actions row ───────────────────────────────────────────── */
 .stg-actions {
     display: flex;

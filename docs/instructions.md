@@ -213,7 +213,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-122** Refactor disease analysis logic in disease-analysis.js: Introduced isActionable function to filter actionable recommendations, separated greens and companion items for clearer display, and improved total count logic for recommendations. Enhanced UI rendering to handle cases with no actions required.
 **GH-123** Integrate SpeciesService for dynamic species data handling: Updated AppServiceProvider to include species data in views, modified DatabaseSeeder to call SpeciesDefinitionSeeder, and refactored settings and onboarding scripts to utilize new species data structure. Enhanced UI for species selection based on turf type and region, and updated related JavaScript files for improved functionality and performance.
 **GH-124** Enhance nutrition calendar integration and UI: Updated plan.blade.php to bridge data between the plan page and nutrition-calendar.js, ensuring proper state management for turf and climate data. Refactored nutrition-calendar.js to merge soil state into GAIP_STATE without overwriting existing data. Improved CSS for nutrition calendar components, enhancing layout and responsiveness. Updated JavaScript for better nutrient display and handling in the UK and AU fertiliser integration scripts.
-
+**GH-125** Refactor methodology handling for New Zealand sites: Updated AnalysisController, SampleAnalysisController, and SettingsController to utilize effectiveMethodology for determining soil test methodology based on site coordinates. Enhanced UI in settings.blade.php to lock methodology selection for NZ sites. Improved CSS for locked value display. Updated instructions.md for clarity on methodology changes.
 
 
 ## Backlog
@@ -240,7 +240,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 -->20. Currently it seems to be using MLSN figures as a reference which they don’t use.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
 -->22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
-That’s what the current layout looks like when it produces the product recommendations
+That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125. 
 
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
@@ -266,7 +266,16 @@ That’s what the current layout looks like when it produces the product recomme
 
 
 ----
+check why for NZ in the table Species
+Creeping Bentgrass (Greens)
+Methodology
+MLSN
+Distribution
+GP-Weighted
+Clippings
+Collected
 
+MLSN displayed
 
 ----
 

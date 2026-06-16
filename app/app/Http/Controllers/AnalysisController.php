@@ -33,9 +33,11 @@ class AnalysisController extends Controller
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
-            $turfMethodology = isset($gaipConfig['turf']['methodology'])
-                ? strtoupper($gaipConfig['turf']['methodology'])
-                : null;
+            $turfMethodology = strtoupper(self::effectiveMethodology(
+                $gaipConfig['turf']['methodology'] ?? null,
+                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
+                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+            ));
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
                 : null;
@@ -51,6 +53,16 @@ class AnalysisController extends Controller
             'computed'   => $analysisCacheRecord->config['computed'] ?? null,
             'analyzedAt' => $analysisCacheRecord->synced_at?->toISOString(),
         ] : null;
+
+        // Force ammonium_acetate into the cached soilNutrition for NZ sites,
+        // overriding whatever the JS analysis last persisted.
+        if ($activeSite && $analysisCache !== null) {
+            $lat = $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null;
+            $lon = $activeSite->longitude !== null ? (float) $activeSite->longitude : null;
+            if (self::isNewZealand($lat, $lon)) {
+                $analysisCache['computed']['soilNutrition']['methodology'] = 'ammonium_acetate';
+            }
+        }
 
         return view('analysis', [
             'activeSite'      => $activeSite,
@@ -91,9 +103,11 @@ class AnalysisController extends Controller
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
-            $turfMethodology = isset($gaipConfig['turf']['methodology'])
-                ? strtoupper($gaipConfig['turf']['methodology'])
-                : null;
+            $turfMethodology = strtoupper(self::effectiveMethodology(
+                $gaipConfig['turf']['methodology'] ?? null,
+                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
+                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+            ));
             $percentC3Cover  = isset($gaipConfig['turf']['c3Cover'])
                 ? (float) $gaipConfig['turf']['c3Cover']
                 : null;
@@ -138,9 +152,11 @@ class AnalysisController extends Controller
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
             $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
-            $turfMethodology = isset($gaipConfig['turf']['methodology'])
-                ? strtoupper($gaipConfig['turf']['methodology'])
-                : null;
+            $turfMethodology = strtoupper(self::effectiveMethodology(
+                $gaipConfig['turf']['methodology'] ?? null,
+                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
+                $activeSite->longitude !== null ? (float) $activeSite->longitude : null
+            ));
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
         }
 

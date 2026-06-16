@@ -398,23 +398,29 @@
                             <div class="stg-form-grid">
                                 <div class="stg-field">
                                     <label for="stg-turf-methodology">Soil test methodology</label>
-                                    <select id="stg-turf-methodology" name="methodology">
-                                        <option value="">— select —</option>
-                                        @php
-                                            $methOptions = [
-                                                'mlsn'             => 'MLSN — Minimum Levels for Sustainable Nutrition',
-                                                'slan'             => 'SLAN — Sufficiency Level of Available Nutrients',
-                                                'ammonium_acetate' => 'Ammonium Acetate (Hill Labs NZ)',
-                                            ];
-                                            $curMeth = $turfVal('methodology');
-                                            // Also check site-level override as fallback
-                                            if (!$curMeth) $curMeth = $activeSite->methodology_override ?? '';
-                                        @endphp
-                                        @foreach($methOptions as $v => $l)
-                                        <option value="{{ $v }}" {{ $curMeth === $v ? 'selected' : '' }}>{{ $l }}</option>
-                                        @endforeach
-                                    </select>
-                                    <p class="stg-field-hint">MLSN: validated for sand-based greens. SLAN: standard for sports fields, fairways, and lawns.</p>
+                                    @if($isNewZealand ?? false)
+                                        <input type="hidden" id="stg-turf-methodology" name="methodology" value="ammonium_acetate">
+                                        <div class="stg-locked-value">
+                                            Ammonium Acetate (Hill Labs NZ)
+                                        </div>
+                                    @else
+                                        <select id="stg-turf-methodology" name="methodology">
+                                            <option value="">— select —</option>
+                                            @php
+                                                $methOptions = [
+                                                    'mlsn'             => 'MLSN — Minimum Levels for Sustainable Nutrition',
+                                                    'slan'             => 'SLAN — Sufficiency Level of Available Nutrients',
+                                                    'ammonium_acetate' => 'Ammonium Acetate (Hill Labs NZ)',
+                                                ];
+                                                $curMeth = $turfVal('methodology');
+                                                if (!$curMeth) $curMeth = $activeSite->methodology_override ?? '';
+                                            @endphp
+                                            @foreach($methOptions as $v => $l)
+                                            <option value="{{ $v }}" {{ $curMeth === $v ? 'selected' : '' }}>{{ $l }}</option>
+                                            @endforeach
+                                        </select>
+                                        <p class="stg-field-hint">MLSN: validated for sand-based greens. SLAN: standard for sports fields, fairways, and lawns.</p>
+                                    @endif
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-turf-n">Annual nitrogen (kg/ha)</label>
