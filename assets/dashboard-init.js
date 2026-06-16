@@ -21,6 +21,7 @@
     function el(id) { return document.getElementById(id); }
     function setText(id, val) { var e = el(id); if (e) e.textContent = val; }
     function setHTML(id, val) { var e = el(id); if (e) e.innerHTML = val; }
+    function escHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     function safeJson(str) {
         try { return JSON.parse(str); } catch (e) { return null; }
@@ -270,6 +271,26 @@
                 '</div>';
         }
         forecastEl.innerHTML = html;
+        setClimateMetrics(data);
+    }
+
+    function setClimateMetrics(data) {
+        var daily = data && data.daily;
+        if (!daily || !daily.time || !daily.time.length) return;
+        var temps = [], totalPrecip = 0;
+        for (var i = 0; i < daily.time.length; i++) {
+            var tMax = daily.temperature_2m_max ? daily.temperature_2m_max[i] : null;
+            var tMin = daily.temperature_2m_min ? daily.temperature_2m_min[i] : null;
+            if (tMax != null && tMin != null) temps.push((tMax + tMin) / 2);
+            totalPrecip += daily.precipitation_sum ? (daily.precipitation_sum[i] || 0) : 0;
+        }
+        if (!temps.length) return;
+        var tempMean = temps.reduce(function(a, b) { return a + b; }, 0) / temps.length;
+        global.climateMetrics = {
+            temperature: { mean: Math.round(tempMean * 10) / 10 },
+            precipitation: { total: Math.round(totalPrecip) }
+        };
+        global.rawWeatherData = data;
     }
 
     function fetchWeatherFromAPI(lat, lon, locKey) {
@@ -935,6 +956,7 @@
 
         body.innerHTML = html ||
             '<p style="color:var(--gaip-text-muted,#6b8878);font-size:13px;padding:8px 0">No data available — run analysis in Hub first.</p>';
+        if (key === 'disease-risk') enrichDashboardResidual();
         panel.classList.add('open');
         if (backdrop) backdrop.classList.add('open');
     }
@@ -1013,7 +1035,6 @@
             } catch (e) {}
             return climate && climate.temperature ? climate.temperature.todayMean : null;
         })();
-        var tempStr = todayTemp != null ? todayTemp.toFixed(1) + '°C' : null;
         var insightText = (function() {
             if (todayTemp == null) return null;
             var t = todayTemp;
@@ -1132,6 +1153,66 @@
         return html;
     }
 
+    /* ── Fungicide Residual & FRAC ── */
+    function buildResidualHtml() {
+        var protection  = global._sprayResidualProtection;
+        var fracWarnings = global._sprayFRACWarnings;
+        var html = '';
+
+        if (fracWarnings && fracWarnings.length > 0) {
+            html += '<div style="margin-bottom:8px;">';
+            fracWarnings.forEach(function(w) {
+                html += '<div style="padding:8px 10px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e;margin-bottom:4px;">' + escHtml(w.message || '') + '</div>';
+            });
+            html += '</div>';
+        }
+
+        if (!protection || !protection.productName) {
+            if (!html) {
+                html = '<p style="font-size:12px;color:var(--gaip-text-muted,#94a3b8);margin:0;">No fungicide on record. Log a spray in <a href="/data?section=spray-log" style="color:var(--gaip-brand,#236b4a);">Spray Log</a> to track residual protection.</p>';
+            }
+            return html;
+        }
+
+        var uvR = protection.uvResidual;
+        var pct = uvR ? uvR.residualPct : protection.pctRemaining;
+        var pctColor = pct >= 70 ? '#16a34a' : (pct >= 40 ? '#d97706' : '#dc2626');
+        var reapply = uvR ? uvR.reapplyFlag : (pct < 30);
+
+        html += '<div style="padding:10px 12px;background:var(--gaip-surface-2,#f0f4f2);border-radius:6px;">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">';
+        html += '<span style="font-size:13px;font-weight:600;color:var(--gaip-text,#1a2b23);">' + escHtml(protection.productName) + '</span>';
+        html += '<span style="font-size:13px;font-weight:700;color:' + pctColor + ';">' + pct + '% active</span>';
+        html += '</div>';
+
+        var meta = [];
+        if (protection.daysSince != null) meta.push('Applied ' + protection.daysSince + 'd ago');
+        if (protection.fracGroup)          meta.push('FRAC ' + escHtml(String(protection.fracGroup)));
+        if (meta.length) html += '<div style="font-size:11px;color:var(--gaip-text-secondary,#6b7280);margin-bottom:6px;">' + meta.join(' · ') + '</div>';
+
+        html += '<div style="height:4px;background:#e5e7eb;border-radius:2px;margin-bottom:6px;">';
+        html += '<div style="height:4px;background:' + pctColor + ';border-radius:2px;width:' + Math.min(pct, 100) + '%;"></div>';
+        html += '</div>';
+
+        if (reapply) {
+            html += '<div style="font-size:11px;font-weight:600;color:#b45309;margin-bottom:4px;">Consider reapplication — residual below 70%</div>';
+        }
+
+        if (uvR && uvR.breakdown) {
+            var bk = uvR.breakdown;
+            html += '<div style="font-size:11px;color:var(--gaip-text-muted,#94a3b8);">Photolysis model: UV ' + bk.uvSurvival + '% · Rain ' + bk.rainSurvival + '% · Bio ' + bk.bioSurvival + '%</div>';
+        }
+
+        html += '</div>';
+        return html;
+    }
+
+    function enrichDashboardResidual() {
+        var container = document.getElementById('db-disease-residual');
+        if (!container) return;
+        container.innerHTML = buildResidualHtml();
+    }
+
     /* ── Disease Risk ── */
     function buildDiseasePanel(m, c) {
         var diseases    = c && c.disease && c.disease.diseases ? c.disease.diseases : null;
@@ -1213,12 +1294,15 @@
                     '</div>';
             }).join('');
             html += panelSection('Disease Breakdown', cdRows);
-            html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
-                '<a href="/analysis/disease" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
-                'View full Disease analysis' +
-                '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
-                '</a></div>';
         }
+
+        html += panelSection('Fungicide Residual', '<div id="db-disease-residual"></div>');
+
+        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
+            '<a href="/analysis/disease" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
+            'View full Disease analysis' +
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
+            '</a></div>';
 
         return html;
     }
@@ -1385,6 +1469,11 @@
         if (loc && loc.lat && loc.lon) {
             populateWeather(loc.lat, loc.lon);
         }
+
+        // Refresh residual section when spray context loads async
+        document.addEventListener('gaip:spray-context-loaded', function() {
+            enrichDashboardResidual();
+        });
     }
 
     // ── Getting Started floating panel ───────────────────────────────────────

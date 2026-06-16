@@ -627,6 +627,104 @@
             '</div>';
     }
 
+    // ── Render: fungicide residual protection block ──────────────────────────
+
+    function renderResidualBlock() {
+        var protection  = global._sprayResidualProtection;
+        var fracWarnings = global._sprayFRACWarnings;
+        var hasData = (protection && protection.productName) || (fracWarnings && fracWarnings.length > 0);
+
+        var fracHtml = '';
+        if (fracWarnings && fracWarnings.length > 0) {
+            fracHtml = fracWarnings.map(function(w) {
+                return '<div style="padding:8px 12px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e;margin-bottom:6px;">' + esc(w.message || '') + '</div>';
+            }).join('');
+        }
+
+        var protHtml = '';
+        if (protection && protection.productName) {
+            var uvR = protection.uvResidual;
+            var pct = uvR ? uvR.residualPct : protection.pctRemaining;
+            var pctColor = pct >= 70 ? '#16a34a' : (pct >= 40 ? '#d97706' : '#dc2626');
+            var reapply = uvR ? uvR.reapplyFlag : (pct < 30);
+
+            var metaParts = [];
+            if (protection.daysSince != null) metaParts.push('Applied ' + protection.daysSince + 'd ago');
+            if (protection.fracGroup)          metaParts.push('FRAC ' + esc(String(protection.fracGroup)));
+            if (protection.activeIngredient)   metaParts.push(esc(protection.activeIngredient));
+
+            protHtml =
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                '<span style="font-size:14px;font-weight:600;color:#17231f;">' + esc(protection.productName) + '</span>' +
+                '<span style="font-size:14px;font-weight:700;color:' + pctColor + ';">' + pct + '% active</span>' +
+                '</div>' +
+                (metaParts.length ? '<div style="font-size:12px;color:#5b6a65;margin-bottom:8px;">' + metaParts.join(' · ') + '</div>' : '') +
+                '<div style="height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:8px;">' +
+                '<div style="height:6px;background:' + pctColor + ';border-radius:3px;width:' + Math.min(pct, 100) + '%;transition:width .3s"></div>' +
+                '</div>' +
+                (reapply ? '<div style="font-size:12px;font-weight:600;color:#b45309;margin-bottom:4px;">Residual below 70% — consider reapplication before the next risk window</div>' : '') +
+                (uvR && uvR.breakdown
+                    ? '<div style="font-size:11px;color:#9ca3af;">Photolysis model: UV ' + uvR.breakdown.uvSurvival + '% · Rain ' + uvR.breakdown.rainSurvival + '% · Bio ' + uvR.breakdown.bioSurvival + '%' +
+                      (uvR.confidence ? ' · Confidence: ' + esc(uvR.confidence) : '') + '</div>'
+                    : '');
+        }
+
+        var emptyHtml = !hasData
+            ? '<p style="font-size:13px;color:#9ca3af;margin:0;">No fungicide on record for this zone. Log a spray in <a href="/data?section=spray-log" style="color:#236b4a;">Spray Log</a>.</p>'
+            : '';
+
+        return '<div class="gl-block" id="dr-residual-block">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent"></div>' +
+            '<div class="gl-block-title">Fungicide Residual Protection</div>' +
+            '</div>' +
+            '<div class="gl-block-body" id="dr-residual-body">' +
+            fracHtml + protHtml + emptyHtml +
+            '</div></div>';
+    }
+
+    function refreshResidualBlock() {
+        var body = document.getElementById('dr-residual-body');
+        if (!body) return;
+        var protection  = global._sprayResidualProtection;
+        var fracWarnings = global._sprayFRACWarnings;
+
+        var fracHtml = '';
+        if (fracWarnings && fracWarnings.length > 0) {
+            fracHtml = fracWarnings.map(function(w) {
+                return '<div style="padding:8px 12px;background:#fef3c7;border-left:3px solid #f59e0b;border-radius:4px;font-size:12px;color:#92400e;margin-bottom:6px;">' + esc(w.message || '') + '</div>';
+            }).join('');
+        }
+
+        var protHtml = '';
+        if (protection && protection.productName) {
+            var uvR = protection.uvResidual;
+            var pct = uvR ? uvR.residualPct : protection.pctRemaining;
+            var pctColor = pct >= 70 ? '#16a34a' : (pct >= 40 ? '#d97706' : '#dc2626');
+            var reapply = uvR ? uvR.reapplyFlag : (pct < 30);
+            var metaParts = [];
+            if (protection.daysSince != null) metaParts.push('Applied ' + protection.daysSince + 'd ago');
+            if (protection.fracGroup)          metaParts.push('FRAC ' + esc(String(protection.fracGroup)));
+            if (protection.activeIngredient)   metaParts.push(esc(protection.activeIngredient));
+            protHtml =
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">' +
+                '<span style="font-size:14px;font-weight:600;color:#17231f;">' + esc(protection.productName) + '</span>' +
+                '<span style="font-size:14px;font-weight:700;color:' + pctColor + ';">' + pct + '% active</span>' +
+                '</div>' +
+                (metaParts.length ? '<div style="font-size:12px;color:#5b6a65;margin-bottom:8px;">' + metaParts.join(' · ') + '</div>' : '') +
+                '<div style="height:6px;background:#e5e7eb;border-radius:3px;margin-bottom:8px;">' +
+                '<div style="height:6px;background:' + pctColor + ';border-radius:3px;width:' + Math.min(pct, 100) + '%;transition:width .3s"></div>' +
+                '</div>' +
+                (reapply ? '<div style="font-size:12px;font-weight:600;color:#b45309;margin-bottom:4px;">Residual below 70% — consider reapplication before the next risk window</div>' : '') +
+                (uvR && uvR.breakdown
+                    ? '<div style="font-size:11px;color:#9ca3af;">Photolysis model: UV ' + uvR.breakdown.uvSurvival + '% · Rain ' + uvR.breakdown.rainSurvival + '% · Bio ' + uvR.breakdown.bioSurvival + '%</div>'
+                    : '');
+        }
+
+        body.innerHTML = fracHtml + protHtml ||
+            '<p style="font-size:13px;color:#9ca3af;margin:0;">No fungicide on record. Log a spray in <a href="/data?section=spray-log" style="color:#236b4a;">Spray Log</a>.</p>';
+    }
+
     // ── Render: page header (summary KPI panel) ───────────────────────────────
 
     function renderDiseaseHeader(d, diseases) {
@@ -904,6 +1002,7 @@
             '<div class="gl-body">' +
             recsHtml +
             appHtml +
+            renderResidualBlock() +
             (alertHtml ? alertHtml : '') +
             '<div class="dr-split">' +
             '  <div id="dr-left">'  + renderLeft(d, _selectedIdx) + '</div>' +
@@ -1574,7 +1673,14 @@
         renderPage();
         initInfoPopovers();
         initForecastChart();
+        // Cascade loads async (600ms + API). Refresh residual block once it's ready.
+        setTimeout(refreshResidualBlock, 1200);
+        setTimeout(refreshResidualBlock, 2500);
     }
+
+    document.addEventListener('gaip:spray-context-loaded', function() {
+        refreshResidualBlock();
+    });
 
     if (!global.GAIP_ANALYSIS_ROUTER) {
         if (document.readyState === 'loading') {

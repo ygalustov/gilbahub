@@ -26,6 +26,11 @@
         activeSiteRole:      @json($activeSiteRole),
         provisionalName:     @json($provisionalName),
     });
+    window.GAIP_SiteContext = {
+        getSiteId: function() {
+            return (window.GAIP_HUB_CONFIG || {}).activeSiteId || null;
+        }
+    };
 </script>
 @endsection
 
@@ -378,6 +383,9 @@
 
 @section('scripts')
 <script src="{{ $legacyAssetUrl('gilba-storage-ns.js') }}"></script>
+<script src="{{ $legacyAssetUrl('spray-log.js') }}" defer></script>
+<script src="{{ $legacyAssetUrl('uv-residual-engine.js') }}" defer></script>
+<script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('onboarding-wizard.js') }}" defer></script>
 <script>

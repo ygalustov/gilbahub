@@ -9,6 +9,11 @@
         turfMethodology: @json($turfMethodology),
         percentC3Cover:  @json($percentC3Cover),
     });
+    window.GAIP_SiteContext = {
+        getSiteId: function() {
+            return (window.GAIP_HUB_CONFIG || {}).activeSiteId || null;
+        }
+    };
 </script>
 @endsection
 
@@ -94,6 +99,9 @@
 @endsection
 
 @section('scripts')
+<script src="{{ $legacyAssetUrl('spray-log.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uv-residual-engine.js') }}"></script>
+<script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}"></script>
 {{-- Router MUST be first so GAIP_ANALYSIS_ROUTER is set before page scripts run --}}
 <script src="{{ $legacyAssetUrl('analysis-router.js') }}"></script>
 {{-- Disease engine must load before disease-forecast.js so generateForecast uses the full engine --}}
