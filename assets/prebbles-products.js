@@ -1784,8 +1784,8 @@
                                 g.nDelivered = Math.round((g.nDelivered || 0) * effectiveScale * 10) / 10;
                                 g.kDelivered = Math.round((g.kDelivered || 0) * effectiveScale * 10) / 10;
                                 g.rateReduced = true;
-                                if (!monthRec.notes.some(n => n.includes('⚖️ Rate reduced'))) {
-                                    monthRec.notes.push(`⚖️ Rate reduced ${productData.reductionPct}% to hit annual N target`);
+                                if (!monthRec.notes.some(n => n.includes('Rate reduced'))) {
+                                    monthRec.notes.push(`Rate reduced ${productData.reductionPct}% to hit annual N target`);
                                 }
                             }
                         });
@@ -1889,7 +1889,7 @@
                         };
                         
                         rec.liquid.push(balanceProduct);
-                        rec.notes.push(`🎯 N balance: ${ammos.name} @ ${rateLHa} L/ha`);
+                        rec.notes.push(`N balance: ${ammos.name} @ ${rateLHa} L/ha`);
                         
                         // Track in annual summary
                         const balanceId = ammos.id + '-BAL';

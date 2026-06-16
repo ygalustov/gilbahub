@@ -640,14 +640,14 @@
                 const diff = delivered - required;
                 const pct = required > 0 ? Math.round((delivered / required) * 100) : 0;
                 const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                const statusIcon = pct >= 90 ? '✓' : pct >= 70 ? '⚠' : '✗';
+                const statusLabel = pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit';
                 return `
                     <tr class="nutrient-${statusClass}">
-                        <td><strong>${nutrient}</strong></td>
-                        <td>${required}</td>
-                        <td>${delivered}</td>
-                        <td class="nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
-                        <td>${statusIcon} ${pct}%</td>
+                        <td class="prebble-cell prebble-cell--left"><strong>${nutrient}</strong></td>
+                        <td class="prebble-cell prebble-cell--num">${required}</td>
+                        <td class="prebble-cell prebble-cell--num">${delivered}</td>
+                        <td class="prebble-cell prebble-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
                 `;
             }).join('');
@@ -720,13 +720,13 @@
                     : '';
                 
                 const gpClass = m.gp >= 0.5 ? 'high' : (m.gp >= 0.25 ? 'medium' : 'low');
-                
+
                 // Build requirements string - only show nutrients that are needed
                 let reqParts = [`N:${m.requirements.N.toFixed(1)}`];
                 if (m.requirements.K > 0) reqParts.push(`K:${m.requirements.K.toFixed(1)}`);
                 if (m.requirements.P > 0) reqParts.push(`P:${m.requirements.P.toFixed(1)}`);
                 const reqString = reqParts.join(' ');
-                
+
                 return `
                     <tr class="gilba-gp-${gpClass}">
                         <td class="prebble-cell prebble-cell--month">${m.month}</td>
@@ -803,52 +803,57 @@
                         </span>
                     </div>
                     
-                    <h4>Monthly Program</h4>
-                    <div class="gilba-table-scroll">
-                        <table class="gilba-calendar-table prebble-program-table">
-                            <colgroup>
-                                <col class="col-month">
-                                <col class="col-season">
-                                <col class="col-req">
-                                <col class="col-granular">
-                                <col class="col-liquid">
-                                <col class="col-notes">
-                            </colgroup>
+                    <div class="prebble-section-card">
+                        <h4>Monthly Program</h4>
+                        <div class="gilba-table-scroll">
+                            <table class="gilba-calendar-table prebble-program-table">
+                                <colgroup>
+                                    <col class="col-month">
+                                    <col class="col-season">
+                                    <col class="col-req">
+                                    <col class="col-granular">
+                                    <col class="col-liquid">
+                                    <col class="col-notes">
+                                </colgroup>
+                                <thead>
+                                    <tr>
+                                        <th class="prebble-th prebble-th--left">Month</th>
+                                        <th class="prebble-th prebble-th--left">Season</th>
+                                        <th class="prebble-th prebble-th--left">Requirements</th>
+                                        <th class="prebble-th prebble-th--left">Granular Products</th>
+                                        <th class="prebble-th prebble-th--left">Liquid / Foliar</th>
+                                        <th class="prebble-th prebble-th--left">Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${monthlyRows}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="prebble-section-card">
+                        <h4>Nutrient Delivery Summary</h4>
+                        <table class="gilba-int-table prebble-nutrient-summary">
                             <thead>
                                 <tr>
-                                    <th class="prebble-th prebble-th--left">Month</th>
-                                    <th class="prebble-th prebble-th--left">Season</th>
-                                    <th class="prebble-th prebble-th--left">Requirements</th>
-                                    <th class="prebble-th prebble-th--left">Granular Products</th>
-                                    <th class="prebble-th prebble-th--left">Liquid/Foliar</th>
-                                    <th class="prebble-th prebble-th--left">Notes</th>
+                                    <th class="prebble-th prebble-th--left">Nutrient</th>
+                                    <th class="prebble-th">Required (kg/ha)</th>
+                                    <th class="prebble-th">Delivered (kg/ha)</th>
+                                    <th class="prebble-th">Balance</th>
+                                    <th class="prebble-th">Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                ${monthlyRows}
+                                ${nutrientSummaryRows}
+                                ${kReconSummaryRow}
                             </tbody>
                         </table>
                     </div>
-                    
-                    <h4>Nutrient Delivery Summary</h4>
-                    <table class="gilba-int-table prebble-nutrient-summary">
-                        <thead>
-                            <tr>
-                                <th class="prebble-th prebble-th--left">Nutrient</th>
-                                <th class="prebble-th">Required (kg/ha)</th>
-                                <th class="prebble-th">Delivered (kg/ha)</th>
-                                <th class="prebble-th">Balance</th>
-                                <th class="prebble-th">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${nutrientSummaryRows}
-                            ${kReconSummaryRow}
-                        </tbody>
-                    </table>
-                    
+
                     ${productEntries.length > 0 ? `
-                        <h4 class="gilba-int-subheader">Annual Product Summary</h4>
+                        <div class="prebble-section-card">
+                        <h4>Annual Product Summary</h4>
                         <table class="gilba-int-table prebble-summary-table">
                             <thead>
                                 <tr>
@@ -889,8 +894,9 @@
                                 </tr>
                             </tfoot>
                         </table>
+                        </div>
                     ` : ''}
-                    
+
                     <div class="prebble-disclaimer">
                         <strong>Note:</strong> These recommendations are based on nutrient requirements
                         calculated from ${(function(){
@@ -1404,47 +1410,66 @@
 
         .gilba-prebble-panel { background: none; border: none; padding: 0; }
 
-        .gilba-prebble-panel h4 {
+        /* ── Section cards ─────────────────────────────────────────────────── */
+        .prebble-section-card {
+            background: #fff;
+            border: 1px solid var(--gaip-border-light, #e5e7eb);
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 14px;
+        }
+        .prebble-section-card h4 {
+            margin: 0;
+            padding: 10px 14px;
+            background: var(--gaip-surface-muted, #f8fafc);
+            border-bottom: 1px solid var(--gaip-border-light, #e5e7eb);
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--gaip-text-muted);
-            margin: 22px 0 10px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid var(--gaip-border-light);
+            letter-spacing: 0.06em;
+            color: var(--gaip-text-muted, #6b7280);
         }
+        .prebble-section-card .gilba-table-scroll { margin-bottom: 0; }
+        .prebble-section-card .gilba-int-table { border-radius: 0; }
+        .prebble-section-card tbody tr:last-child .prebble-cell { border-bottom: none; }
 
         .prebble-meta {
             display: flex;
-            gap: 12px;
+            gap: 16px;
             flex-wrap: wrap;
-            padding: 10px 12px;
-            background: var(--gaip-surface-muted);
-            border-radius: var(--gaip-radius-sm, 6px);
-            font-size: 12px;
+            padding: 10px 14px;
+            background: var(--gaip-surface-muted, #f8fafc);
+            border: 1px solid var(--gaip-border-light, #e5e7eb);
+            border-radius: 8px;
+            font-size: 13px;
             margin-bottom: 14px;
         }
 
         /* ── Monthly programme table ────────────────────────────────────────── */
         .prebble-program-table { font-size: 13px; width: 100%; }
 
-        /* Fixed-width columns so layout is stable regardless of content */
-        .prebble-program-table col.col-month    { width: 52px; }
-        .prebble-program-table col.col-season   { width: 70px; }
-        .prebble-program-table col.col-req      { width: 120px; }
+        .prebble-program-table col.col-month    { width: 56px; }
+        .prebble-program-table col.col-season   { width: 80px; }
+        .prebble-program-table col.col-req      { width: 130px; }
         .prebble-program-table col.col-granular { width: auto; }
-        .prebble-program-table col.col-liquid   { width: 220px; }
-        .prebble-program-table col.col-notes    { width: 200px; }
+        .prebble-program-table col.col-liquid   { width: 300px; }
+        .prebble-program-table col.col-notes    { width: 190px; }
 
         .prebble-program-table td { vertical-align: middle; }
 
+        /* GP row accent — left border on month cell */
+        .gilba-gp-high  > td:first-child { border-left: 3px solid var(--gaip-good, #16a34a); }
+        .gilba-gp-medium > td:first-child { border-left: 3px solid var(--gaip-warning, #d97706); }
+        .gilba-gp-low   > td:first-child { border-left: 3px solid var(--gaip-border, #d1d5db); }
+
+        .prebble-program-table tbody tr:hover td { background: var(--gaip-surface-muted, #f8fafc); }
+
         .prebble-program-table .prebble-product {
             display: inline-block;
-            background: var(--gaip-accent-light);
-            color: var(--gaip-accent-dark);
-            border: 1px solid var(--gaip-good-border);
-            padding: 2px 8px;
+            background: #f1f5f9;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+            padding: 3px 10px;
             border-radius: 20px;
             margin: 2px 2px;
             font-size: 12px;
@@ -1452,71 +1477,45 @@
         }
 
         .prebble-program-table .prebble-product.liquid {
-            background: var(--gaip-info-bg);
-            color: var(--gaip-info);
-            border-color: var(--gaip-info-border);
+            background: #eff6ff;
+            color: #1e40af;
+            border-color: #bfdbfe;
         }
 
-        .prebble-program-table .prebble-none { color: var(--gaip-text-muted); }
-        .prebble-program-table .prebble-req {
-            font-size: 12px;
+        .prebble-program-table .prebble-none { color: var(--gaip-text-muted, #9ca3af); font-size: 13px; }
+
+        /* Requirements column — more readable */
+        .prebble-req {
+            font-size: 13px;
+            font-weight: 600;
             white-space: nowrap;
-            color: var(--gaip-text-muted);
+            color: var(--gaip-text, #111827);
             font-variant-numeric: tabular-nums;
         }
 
-        /* Inline notes column */
+
+        /* Notes column */
         .prebble-cell--notes { vertical-align: middle; }
 
         .prebble-inline-note {
             display: block;
-            font-size: 11px;
-            font-style: italic;
-            color: var(--gaip-warning);
+            font-size: 12px;
+            color: var(--gaip-text, #111827);
             line-height: 1.4;
         }
 
-        .prebble-notes { color: var(--gaip-warning); font-size: 12px; }
+        .prebble-notes { color: var(--gaip-text, #111827); font-size: 12px; }
 
         .prebble-covered, .prebble-active {
             display: inline-block;
             font-size: 11px;
-            color: var(--gaip-text-muted);
-            margin-top: 2px;
+            color: var(--gaip-text-muted, #9ca3af);
+            margin-top: 3px;
         }
-
-        /* ── Summary table ─────────────────────────────────────────────────── */
-        .prebble-summary-table { max-width: 560px; }
-
-        /* ── Disclaimer ────────────────────────────────────────────────────── */
-        .prebble-disclaimer {
-            margin-top: 16px;
-            padding: 10px 14px;
-            background: var(--gaip-warning-bg);
-            border: 1px solid var(--gaip-warning-border);
-            border-left: 3px solid var(--gaip-warning);
-            border-radius: var(--gaip-radius-sm, 6px);
-            font-size: 12px;
-            line-height: 1.5;
-            color: var(--gaip-text);
-        }
-
-        .gilba-table-scroll { overflow-x: auto; margin-bottom: 24px; }
-
-        /* ── Nutrient summary ──────────────────────────────────────────────── */
-        .prebble-nutrient-summary td { padding: 7px 10px; font-size: 13px; }
-        .prebble-nutrient-summary .nutrient-diff { font-weight: 600; }
-        .prebble-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good); }
-        .prebble-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical); }
-        .prebble-nutrient-summary tr.nutrient-sufficient td:last-child { color: var(--gaip-good); font-weight: 600; }
-        .prebble-nutrient-summary tr.nutrient-marginal td:last-child { color: var(--gaip-warning); font-weight: 600; }
-        .prebble-nutrient-summary tr.nutrient-deficit td:last-child { color: var(--gaip-critical); font-weight: 600; }
-        .prebble-totals-row td { background: var(--gaip-good-bg); padding: 8px 10px; }
-        .prebble-required-row td { background: var(--gaip-surface-muted); padding: 7px 10px; }
-        .prebble-npk-delivered { font-size: 12px; font-variant-numeric: tabular-nums; }
 
         /* ── Shared table base ─────────────────────────────────────────────── */
         .gilba-int-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .gilba-table-scroll { overflow-x: auto; }
 
         .prebble-th {
             text-align: right;
@@ -1524,46 +1523,76 @@
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.04em;
-            color: var(--gaip-text-muted);
-            padding: 7px 10px;
-            border-bottom: 2px solid var(--gaip-border);
+            color: var(--gaip-text-muted, #6b7280);
+            padding: 9px 12px;
+            border-bottom: 2px solid var(--gaip-border, #e2e8f0);
             white-space: nowrap;
+            background: var(--gaip-surface-muted, #f8fafc);
         }
         .prebble-th--left { text-align: left; }
 
         .prebble-unit-row th {
             font-size: 11px; font-weight: 400; font-style: italic;
-            color: var(--gaip-text-muted); text-transform: none; letter-spacing: 0;
-            border-bottom: 1px solid var(--gaip-border-light);
-            padding: 3px 10px; text-align: right;
+            color: var(--gaip-text-muted, #6b7280); text-transform: none; letter-spacing: 0;
+            border-bottom: 1px solid var(--gaip-border-light, #f1f5f9);
+            padding: 3px 12px; text-align: right;
+            background: var(--gaip-surface-muted, #f8fafc);
         }
 
         .prebble-cell {
-            padding: 8px 10px;
-            border-bottom: 1px solid var(--gaip-border-light);
-            color: var(--gaip-text);
+            padding: 11px 12px;
+            border-bottom: 1px solid var(--gaip-border-light, #f1f5f9);
+            color: var(--gaip-text, #111827);
             vertical-align: middle;
         }
         .prebble-cell--left { text-align: left; }
         .prebble-cell--num { text-align: right; }
         .prebble-cell--mono { font-variant-numeric: tabular-nums; }
-        .prebble-cell--month { font-weight: 600; white-space: nowrap; }
-        .prebble-cell--season { color: var(--gaip-text-muted); white-space: nowrap; }
-        .prebble-cell-sub { font-size: 11px; color: var(--gaip-text-muted); margin-top: 2px; }
+        .prebble-cell--month { font-weight: 700; white-space: nowrap; font-size: 13px; }
+        .prebble-cell--season { color: var(--gaip-text-muted, #6b7280); white-space: nowrap; font-size: 12px; }
+        .prebble-cell-sub { font-size: 11px; color: var(--gaip-text-muted, #6b7280); margin-top: 2px; }
 
-        .prebble-positive { color: var(--gaip-good); font-weight: 600; }
-        .prebble-negative { color: var(--gaip-critical); font-weight: 600; }
+        .prebble-positive { color: var(--gaip-good, #16a34a); font-weight: 600; }
+        .prebble-negative { color: var(--gaip-critical, #dc2626); font-weight: 600; }
 
-        .prebble-totals-row td { background: var(--gaip-good-bg); font-weight: 700; border-top: 2px solid var(--gaip-border); }
-        .prebble-required-row td { background: var(--gaip-surface-muted); color: var(--gaip-text-muted); }
-        .prebble-balance-row--positive td { background: var(--gaip-good-bg); }
-        .prebble-balance-row--negative td { background: var(--gaip-critical-bg); }
+        /* ── Nutrient delivery summary ──────────────────────────────────────── */
+        .prebble-nutrient-summary .nutrient-diff { font-weight: 600; }
+        .prebble-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good, #16a34a); }
+        .prebble-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical, #dc2626); }
+        .prebble-npk-delivered { font-size: 12px; font-variant-numeric: tabular-nums; }
 
-        .gilba-int-subheader {
-            font-size: 11px; font-weight: 700; text-transform: uppercase;
-            letter-spacing: 0.05em; color: var(--gaip-text-muted);
-            margin: 22px 0 10px; padding-bottom: 6px;
-            border-bottom: 1px solid var(--gaip-border-light);
+        /* Status badges in nutrient summary */
+        .nutrient-status-badge {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .nutrient-status-sufficient { background: var(--gaip-good-bg, #f0fdf4); color: var(--gaip-good, #16a34a); border: 1px solid var(--gaip-good-border, #bbf7d0); }
+        .nutrient-status-marginal   { background: var(--gaip-warning-bg, #fffbeb); color: var(--gaip-warning, #d97706); border: 1px solid #fde68a; }
+        .nutrient-status-deficit    { background: #fef2f2; color: var(--gaip-critical, #dc2626); border: 1px solid #fecaca; }
+
+        .prebble-totals-row td { background: var(--gaip-good-bg, #f0fdf4); font-weight: 700; border-top: 2px solid var(--gaip-border, #e2e8f0); padding: 10px 12px; }
+        .prebble-required-row td { background: var(--gaip-surface-muted, #f8fafc); color: var(--gaip-text-muted, #6b7280); padding: 9px 12px; }
+        .prebble-balance-row--positive td { background: var(--gaip-good-bg, #f0fdf4); }
+        .prebble-balance-row--negative td { background: #fef2f2; }
+
+        /* ── Summary table ─────────────────────────────────────────────────── */
+        .prebble-summary-table { width: 100%; }
+
+        /* ── Disclaimer ────────────────────────────────────────────────────── */
+        .prebble-disclaimer {
+            margin-top: 0;
+            padding: 10px 14px;
+            background: var(--gaip-warning-bg, #fffbeb);
+            border: 1px solid var(--gaip-warning-border, #fde68a);
+            border-left: 3px solid var(--gaip-warning, #d97706);
+            border-radius: 8px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--gaip-text, #111827);
         }
     `;
 

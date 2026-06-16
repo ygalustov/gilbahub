@@ -215,7 +215,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-124** Enhance nutrition calendar integration and UI: Updated plan.blade.php to bridge data between the plan page and nutrition-calendar.js, ensuring proper state management for turf and climate data. Refactored nutrition-calendar.js to merge soil state into GAIP_STATE without overwriting existing data. Improved CSS for nutrition calendar components, enhancing layout and responsiveness. Updated JavaScript for better nutrient display and handling in the UK and AU fertiliser integration scripts.
 **GH-125** Refactor methodology handling for New Zealand sites: Updated AnalysisController, SampleAnalysisController, and SettingsController to utilize effectiveMethodology for determining soil test methodology based on site coordinates. Enhanced UI in settings.blade.php to lock methodology selection for NZ sites. Improved CSS for locked value display. Updated instructions.md for clarity on methodology changes.
 **GH-126** Enhance fertiliser integration scripts: Added inline notes display for granular and liquid products in AU, NZ, and UK scripts. Updated table structure to include notes column and adjusted CSS for improved layout and styling of notes. Ensured consistent handling of notes across all relevant files.
-
+**GH-127** Refactor nutrient delivery display and improve UI components: Updated status indicators in fertiliser integration scripts to use descriptive labels instead of icons. Enhanced table structure for monthly program and nutrient delivery summary sections, ensuring consistent styling and improved readability. Adjusted CSS for better layout and responsiveness across various components.
 
 
 
@@ -243,7 +243,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +20. Currently it seems to be using MLSN figures as a reference which they don’t use. GH-126.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
 +22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test.
-That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125. 
+That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
 
 23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
