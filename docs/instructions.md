@@ -260,10 +260,20 @@ That’s what the current layout looks like when it produces the product recomme
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
 
 
+
+
+
+
+
+----
+
+
+----
+
 All popups - should be with new UI (like in the settings when moving to another page/tab)
 
 --
-Check the algorithm in the old hub for how species are shown/filtered (/Users/katep/Documents/Work/gilba/gilbahub_previous)
+Check the algorithm in the old hub ... (/Users/katep/Documents/Work/gilba/gilbahub_previous)
 Check what was implemented in the new hub (/Users/katep/Documents/Work/gilba/gilbahub)
 Write a comparison
 

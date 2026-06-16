@@ -160,12 +160,11 @@
             }
             
             // Method 3: Direct coordinate check (NZ bounds: lat -47 to -34, lon 166 to 179)
-            const lat = window.GAIP_STATE?.location?.lat || 
-                        window.GAIP_HUB_CONFIG?.savedLocation?.lat;
-            const lon = window.GAIP_STATE?.location?.lon || 
-                        window.GAIP_HUB_CONFIG?.savedLocation?.lon;
-            
-            
+            const _loc = window.GAIP_STATE?.location || {};
+            const _hub = window.GAIP_HUB_CONFIG?.savedLocation || {};
+            const lat = parseFloat(_loc.lat || _hub.lat || 0);
+            const lon = parseFloat(_loc.lon || _loc.lng || _hub.lon || _hub.lng || 0);
+
             if (lat && lon) {
                 const isNZ = (lon >= 166 && lon <= 179 && lat >= -47 && lat <= -34);
                 return isNZ;
@@ -241,54 +240,14 @@
          * Get methodology from Hub state or calendar
          */
         getMethodology: function() {
-            // Cotula/bowls always maps to ammonium_acetate (Hill Labs S78 = AA extractant)
-            const _tpcState = window.GaipTurfProfile?.state || window.gaipTurfProfile?.state || {};
-            const _gaipTurf = window.GAIP_STATE?.turf || {};
-            if (_tpcState.turfType === 'bowls' || _gaipTurf.turfType === 'bowls' ||
-                _gaipTurf.cotula === true || _tpcState.species === 'cotula') {
-                return 'ammonium_acetate';
-            }
+            // Prebble integration runs ONLY for NZ sites (isNewZealand() is checked at init).
+            // NZ standard is Ammonium Acetate (Hill Labs S78). The only valid override is SLAN,
+            // which must be explicitly set in Settings.
+            const _hubMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
+            if (_hubMeth === 'slan') return 'slan';
 
-            // ────────────────────────────────────────────────────────────────
-            // b35fix446 / C55: soil methodology read prefers inputs.soil shelf.
-            // ────────────────────────────────────────────────────────────────
-            // Pre-fix this branch read window.GAIP_STATE.soil.methodology
-            // (top-level legacy slot) only. The hub-store proxy synthesiser
-            // at gilba-hub-v2.js:1399 auto-aliases inputs.turf to top-level
-            // .turf, but does NOT auto-alias inputs.soil to top-level .soil.
-            // The flat .soil shelf is only populated by the analysis-end
-            // writeback at hub-tissue-v3.js:6966. Canonical writers, including
-            // the b35fix443 routed-write helper _b35fix393_setSoilField in
-            // assets/ammonium-acetate-methodology.js, all land at
-            // GAIP_STATE.inputs.soil.methodology. Pre-b35fix446, on a fresh
-            // session or any state where the post-tissue writeback had not
-            // run, the flat shelf was undefined and this branch fell through
-            // to the DOM selector below, which can disagree with the
-            // canonical inputs.soil value the user just set in the
-            // site-settings panel. Same defect class as the b35fix442
-            // read-shelf asymmetry on the turf axis, but on the soil axis.
-            // Per b35fix442 lesson #33 the fix shape is a tolerant read
-            // priority chain.
-            const _b35fix446_soilM = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.methodology)
-                || (window.GAIP_STATE && window.GAIP_STATE.soil && window.GAIP_STATE.soil.methodology)
-                || null;
-            if (_b35fix446_soilM) {
-                const m = _b35fix446_soilM;
-                if (m === 'cotula_s78' || m === 'cotula') return 'ammonium_acetate';
-                // If explicitly set to mlsn but site is NZ, override — NZ uses AA (Hill Labs S78)
-                if (m === 'mlsn' && this.isNewZealand()) return 'ammonium_acetate';
-                return m;
-            }
-
-            const methodSelect = document.querySelector('.gaip-soil-methodology');
-            if (methodSelect?.value && methodSelect.value !== 'mlsn') {
-                return methodSelect.value;
-            }
-
-            // Prebbles is NZ-only — NZ standard is ammonium acetate (Hill Labs S78), not MLSN
-            if (this.isNewZealand()) return 'ammonium_acetate';
-
-            return 'mlsn';
+            // Everything else (mlsn, ammonium_acetate, cotula_s78, empty) → ammonium_acetate
+            return 'ammonium_acetate';
         },
         
         /**
@@ -933,10 +892,7 @@
                     <div class="prebble-disclaimer">
                         <strong>Note:</strong> These recommendations are based on nutrient requirements
                         calculated from ${(function(){
-                            // b35fix230: Read live from DOM — more reliable than meta which may be stale
-                            const _mEl = document.querySelector('.gaip-soil-methodology');
-                            const _mRaw = (_mEl ? _mEl.value : null) || (meta && meta.methodology) || 'mlsn';
-                            const m = _mRaw.toUpperCase();
+                            const m = (meta && meta.methodology || 'ammonium_acetate').toUpperCase();
                             if (m === 'AMMONIUM_ACETATE' || m === 'COTULA_S78') return 'Hill Labs Ammonium Acetate (S78) methodology';
                             if (m === 'SLAN') return 'SLAN methodology';
                             return 'MLSN methodology';

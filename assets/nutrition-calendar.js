@@ -549,7 +549,12 @@
 
         const methodSelect = document.querySelector('[name="soil-methodology"], .gaip-soil-methodology');
         if (methodSelect && methodSelect.value) {
-            soilState.methodology = methodSelect.value;
+            // Don't downgrade ammonium_acetate to mlsn if bridge already set it correctly
+            const _existing = soilState.methodology;
+            const _domVal = methodSelect.value;
+            if (!(_existing === 'ammonium_acetate' && _domVal === 'mlsn')) {
+                soilState.methodology = _domVal;
+            }
         }
 
         const surfaceSelect = document.querySelector('.gaip-surface-type');

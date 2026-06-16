@@ -1317,11 +1317,13 @@
                 meta: {
                     generated: new Date().toISOString(),
                     methodology: (function() {
-                        const raw = calendar.soil?.methodology || context.methodology || 'mlsn';
+                        // context.methodology is the authoritative value from getMethodology()
+                        // which reads Settings first. calendar.soil.methodology may be stale
+                        // (DOM read by nutrition-calendar.js which defaults to 'mlsn').
+                        const raw = context.methodology || calendar.soil?.methodology || 'mlsn';
                         // Map cotula_s78/cotula → ammonium_acetate
                         if (raw === 'cotula_s78' || raw === 'cotula') return 'ammonium_acetate';
                         // If surface is bowls/cotula, AA is the correct methodology
-                        // regardless of what soil.methodology says (timing/state issue)
                         const _isCotula = context.surfaceType === 'bowling_greens'
                             || context.surfaceType === 'cotula_bowling_green'
                             || (window.GAIP_STATE?.turf?.cotula === true)

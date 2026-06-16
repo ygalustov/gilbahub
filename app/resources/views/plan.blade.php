@@ -20,7 +20,9 @@
         var clim   = comp.climate  || {};
         var turf   = config.turf   || {};
         var soil   = config.soil   || {};
-        var loc    = config.location || hub.savedLocation || {};
+        // Prefer hub.savedLocation for coordinates — it comes from $activeSite->latitude/longitude (PHP)
+        // which is guaranteed to have lat/lon. config.location may only have a name string.
+        var loc    = hub.savedLocation || config.location || {};
 
         var state = window.GAIP_STATE || {};
 
@@ -43,8 +45,18 @@
         var _lon = parseFloat(loc.lon || loc.lng || 0);
         var _isNZ = (_lon >= 166 && _lon <= 179 && _lat >= -47 && _lat <= -34);
 
-        // NZ always uses Ammonium Acetate (Hill Labs S78), not MLSN
-        var _methodology = turf.methodology || soil.methodology || null;
+        // Always set state.location so isNewZealand() can find coordinates
+        state.location = Object.assign({}, state.location || {}, {
+            lat: _lat || undefined,
+            lon: _lon || undefined,
+            lng: _lon || undefined,
+        });
+
+        // Methodology: hub.turfMethodology is the authoritative value from Settings (PHP/DB).
+        // It is uppercase (e.g. 'AMMONIUM_ACETATE'), so lowercase it.
+        // Fall back to config values, then NZ coordinate detection.
+        var _hubMeth = (hub.turfMethodology || '').toLowerCase() || null;
+        var _methodology = _hubMeth || (turf.methodology || '').toLowerCase() || (soil.methodology || '').toLowerCase() || null;
         if (!_methodology || _methodology === 'mlsn') {
             _methodology = _isNZ ? 'ammonium_acetate' : (_methodology || 'mlsn');
         }
