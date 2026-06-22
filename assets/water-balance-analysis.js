@@ -624,7 +624,8 @@
                 '<div class="wb-balance-unit">mm</div></div>';
         }
         if (wbal.currentDepletion != null) {
-            var depPct = wbal.depletionFraction != null ? Math.round(wbal.depletionFraction * 100) : null;
+            // depletionFraction is stored as 0–100 (already a percentage) by irrigation-scheduler.js
+            var depPct = wbal.depletionFraction != null ? Math.round(wbal.depletionFraction) : null;
             var depSt2 = depPct != null && depPct > 70 ? 'alert' : depPct != null && depPct > 40 ? 'warn' : '';
             cards += '<div class="wb-balance-card '+depSt2+'">'+
                 '<div class="wb-balance-label">Current Depletion</div>'+

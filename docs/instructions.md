@@ -217,6 +217,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-126** Enhance fertiliser integration scripts: Added inline notes display for granular and liquid products in AU, NZ, and UK scripts. Updated table structure to include notes column and adjusted CSS for improved layout and styling of notes. Ensured consistent handling of notes across all relevant files.
 **GH-127** Refactor nutrient delivery display and improve UI components: Updated status indicators in fertiliser integration scripts to use descriptive labels instead of icons. Enhanced table structure for monthly program and nutrient delivery summary sections, ensuring consistent styling and improved readability. Adjusted CSS for better layout and responsiveness across various components.
 **GH-128** Update CSS for monthly program tables in fertiliser integration scripts: Enhanced table layout with fixed width and improved column width percentages for better responsiveness. Added word-break properties for improved text handling in notes and cell alignment. Updated instructions.md for clarity on dropdown functionality issues.
+**GH-129**Update water balance analysis for current depletion percentage calculation: Adjusted depletionFraction handling to reflect that it is stored as a percentage (0-100) in irrigation-scheduler.js.
+
+
 
 
 ## Backlog
@@ -244,11 +247,14 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
 +22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test. That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
 
-23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
+
+
+22/06/26
++23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
-+24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar.
++24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
 
 
 25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked?
@@ -256,7 +262,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
 
 
-+28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ
++28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ. GH-126.
 
 
 29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
@@ -269,14 +275,24 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
 
 
-+33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm.
++33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm. GH-107, GH-118.
 
 
 34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software?
 35.⁠ ⁠Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
 36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
-
+38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same.
+39.⁠ ⁠NZ is only cool season for fairways
+40.⁠ ⁠Analysis >stress Still says primary stress traffic
+41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later?
+42.⁠ ⁠For NZ the text should say for NZ distributors
+43.⁠ ⁠There was an ability to add the size/area for individual greens before
+44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
+45.⁠ ⁠Is it me or is this showing the same light level for every site?
+46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month?
+47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition
+48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
 
 
 
