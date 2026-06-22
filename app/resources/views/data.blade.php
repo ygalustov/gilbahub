@@ -1866,6 +1866,11 @@
             var _qs = new URLSearchParams(window.location.search);
             var _cat = _qs.get('category');
             if (_cat) {
+                // Remove ?category= from URL so page reload after save doesn't re-open modal
+                _qs.delete('category');
+                var _newUrl = window.location.pathname + (_qs.toString() ? '?' + _qs.toString() : '');
+                window.history.replaceState(null, '', _newUrl);
+
                 openModal();
                 var _catEl = document.getElementById('dat-sl-cat');
                 if (_catEl) {

@@ -280,6 +280,8 @@
         var remaining = safeNum(gdd.remaining, 0);
         var thresh    = safeNum(gdd.threshold, 0);
         var accum     = safeNum(gdd.accumulated, 0);
+        // Reapplication window opens at 75% of threshold (Kreuser & Soldat 2011)
+        var remaining75 = Math.max(0, thresh * 0.75 - accum);
 
         var barColor = progress >= 75 ? 'var(--gaip-critical)' :
                        progress >= 60 ? 'var(--gaip-warning)'  : 'var(--gaip-accent)';
@@ -297,10 +299,10 @@
         var appDate = inp.applicationDate || pgr.applicationDate || '';
         var appDateFmt = appDate ? appDate : '—';
 
-        // Days estimate to reapplication — derive daily rate from accumulated/days if not stored directly
+        // Days estimate to reapplication window (75% threshold) — derive daily rate from accumulated/days
         var dailyGDD    = gdd.dailyGDDRate || gdd.avgDailyGDD ||
                           (gdd.days > 0 && accum > 0 ? accum / gdd.days : null);
-        var daysToWin   = (dailyGDD && remaining > 0) ? Math.ceil(remaining / dailyGDD) : null;
+        var daysToWin   = (dailyGDD && remaining75 > 0) ? Math.ceil(remaining75 / dailyGDD) : null;
         var reapplyText = daysToWin != null ? '~' + daysToWin + ' day' + (daysToWin !== 1 ? 's' : '') : '—';
 
         // Phase label
@@ -337,7 +339,7 @@
             '<div class="plan-metric">' +
             '<div class="plan-metric-value' + (statusKey === 'due' || statusKey === 'expired' ? ' bad' : statusKey === 'approaching' ? ' warning' : '') + '">' + reapplyText + '</div>' +
             '<div class="plan-metric-label">To Reapply Window <span class="db-info-icon" data-info="pgr-gdd" tabindex="0" role="button" style="font-size:9px">i</span></div>' +
-            '<div class="plan-metric-sub">' + Math.round(remaining) + ' GDD remaining</div>' +
+            '<div class="plan-metric-sub">' + Math.round(remaining75) + ' GDD to window</div>' +
             '</div>' +
             '</div>';
 
@@ -754,11 +756,22 @@
         // Card 1: PGR status
         var pgr = computed.pgr;
         if (pgr && pgr.success && pgr.gdd) {
-            var pgrPct = Math.round((pgr.gdd.progress || 0) * 100);
-            var pgrStatus = pgr.effect && pgr.effect.reapplicationStatus || 'active';
-            var pgrCls = pgrStatus === 'due_now' ? 'red' : pgrStatus === 'approaching' ? 'amber' : 'green';
-            var pgrLabel = pgrStatus === 'due_now' ? 'Reapply now' : pgrStatus === 'approaching' ? 'Due soon' : 'On track';
-            cards.push(kpi('PGR Progress', pgrPct+'%', 'GDD consumed', badge(pgrLabel, pgrCls),
+            // progressPct is 0-100 scale; progress is 0-1 fraction — use same logic as renderPGR
+            // Cap at 100 — same as renderPGR; "Reapply now" badge communicates overdue state
+            var pgrPct = clamp(
+                pgr.gdd.progressPct != null ? Math.round(safeNum(pgr.gdd.progressPct, 0))
+                                            : Math.round(safeNum(pgr.gdd.progress, 0) * 100),
+                0, 100
+            );
+            var pgrGdd   = pgr.gdd;
+            var pgrAccum = Math.round(safeNum(pgrGdd.accumulated, 0));
+            var pgrThresh = Math.round(safeNum(pgrGdd.threshold, 0));
+            var pgrStatus = (pgr.effect && pgr.effect.reapplicationStatus) || 'active';
+            // Status values from module: 'active', 'approaching', 'due', 'expired'
+            var pgrIsUrgent = pgrStatus === 'due' || pgrStatus === 'expired';
+            var pgrCls   = pgrIsUrgent ? 'red' : pgrStatus === 'approaching' ? 'amber' : 'green';
+            var pgrLabel = pgrIsUrgent ? 'Reapply now' : pgrStatus === 'approaching' ? 'Due soon' : 'On track';
+            cards.push(kpi('PGR Progress', pgrPct + '%', pgrAccum + ' / ' + pgrThresh + ' GDD', badge(pgrLabel, pgrCls),
                 pgrCls === 'red' ? '#dc2626' : pgrCls === 'amber' ? '#d97706' : '#15803d'));
         } else {
             cards.push(kpi('PGR', 'No data', '', badge('Not set', 'grey'), '#6b7280'));

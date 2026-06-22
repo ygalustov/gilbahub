@@ -145,7 +145,11 @@ var PGRForecast = (function() {
             if (gdd && gdd.accumulated > 0 && gdd.days > 0) {
                 derivedRate = Math.min(50, Math.max(0.5, gdd.accumulated / gdd.days));
             }
-            var derivedRemaining = (gdd && gdd.remaining != null) ? gdd.remaining : 0;
+            // Reapplication window opens at 75% of threshold (Kreuser & Soldat 2011)
+            // Use remaining to 75%, not gdd.remaining (which is to 100%)
+            var threshold75 = (gdd && gdd.threshold) ? gdd.threshold * 0.75 : 0;
+            var accumulated  = (gdd && gdd.accumulated) ? gdd.accumulated : 0;
+            var derivedRemaining = Math.max(0, threshold75 - accumulated);
             var derivedDaysUntil = derivedRemaining > 0 ? Math.ceil(derivedRemaining / derivedRate) : 0;
             var derivedReapplyDate = (function() {
                 var d = new Date();

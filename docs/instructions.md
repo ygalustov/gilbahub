@@ -220,8 +220,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-129**Update water balance analysis for current depletion percentage calculation: Adjusted depletionFraction handling to reflect that it is stored as a percentage (0-100) in irrigation-scheduler.js.
 **GH-130** Enhanced UI components for better user interaction and added loading indicators for PGR data.
 **GH-131** Refactor UI components in data and plan views: Updated URLSearchParams usage for consistency, added new CSS classes for action buttons and links, and improved layout for better user interaction. Enhanced log button structure in JavaScript for improved styling and responsiveness.
-
-
+**GH-132** Enhance PGR calculations and UI updates: Adjusted reapplication window logic to use 75% of threshold for GDD calculations in pgr-forecast.js and plan-ui.js. Updated data.blade.php to clean URL parameters after modal opening for improved user experience. Modified instructions.md to reflect additional GH issue references.
 
 
 
@@ -255,7 +254,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 22/06/26
-+23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
++23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129, GH-130, GH-131
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
