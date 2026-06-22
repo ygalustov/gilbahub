@@ -252,7 +252,7 @@
     height: 10px;
     background: var(--gaip-surface-muted);
     border-radius: 5px;
-    margin: 4px 0 12px;
+    margin: 4px 0 28px;
     overflow: visible;
 }
 .plan-gdd-bar-fill {

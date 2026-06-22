@@ -222,7 +222,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-131** Refactor UI components in data and plan views: Updated URLSearchParams usage for consistency, added new CSS classes for action buttons and links, and improved layout for better user interaction. Enhanced log button structure in JavaScript for improved styling and responsiveness.
 **GH-132** Enhance PGR calculations and UI updates: Adjusted reapplication window logic to use 75% of threshold for GDD calculations in pgr-forecast.js and plan-ui.js. Updated data.blade.php to clean URL parameters after modal opening for improved user experience. Modified instructions.md to reflect additional GH issue references.
 **GH-133** Remove PGR & Irrigation tab and associated scripts: Eliminated references to the PGR & Irrigation analysis from analysis.blade.php and analysis-router.js. 
-
+**GH-134** Update margin spacing in plan view for improved layout: Adjusted the margin of the progress bar to enhance visual separation and overall design consistency.
 
 
 
