@@ -735,6 +735,7 @@
                 renderVerdict(pgr) +
                 renderKpis(pgr) +
                 renderGddProgress(pgr) +
+                '<div id="pgr-forecast-chart-container" style="margin:16px 0"></div>' +
                 renderTiming(pgr);
         }
 
@@ -750,6 +751,15 @@
 
         initPgrInputCard(container);
         initInfoPopovers();
+
+        if (pgr && typeof global.PGRForecast !== 'undefined') {
+            var chartEl = container.querySelector('#pgr-forecast-chart-container');
+            if (chartEl) {
+                setTimeout(function () {
+                    global.PGRForecast.render(chartEl, pgr, global.GAIP_DASHBOARD_DATA || {});
+                }, 50);
+            }
+        }
     }
 
     // =========================================================================

@@ -255,6 +255,22 @@
         badge.textContent = statusInfo.label;
         badge.style.display = '';
 
+        // Update tab-level badge
+        var tabBadge = document.getElementById('gl-badge-pgr');
+        if (tabBadge) {
+            if (statusKey === 'due' || statusKey === 'expired') {
+                tabBadge.textContent = '!';
+                tabBadge.style.display = '';
+                tabBadge.className = 'gl-tab-badge critical';
+            } else if (statusKey === 'approaching') {
+                tabBadge.textContent = '!';
+                tabBadge.style.display = '';
+                tabBadge.className = 'gl-tab-badge warning';
+            } else {
+                tabBadge.style.display = 'none';
+            }
+        }
+
         // GDD progress — hub-persistence saves progressPct (0-100); fall back to progress*100 (0-1 legacy)
         var progress  = clamp(
             gdd.progressPct != null ? safeNum(gdd.progressPct, 0)
@@ -363,7 +379,28 @@
                 '</div>';
         }
 
+        // PGR Response Curve chart container
+        html += '<div id="plan-pgr-chart-container" style="margin-top:16px"></div>';
+
+        // Log button
+        html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--gaip-border)">' +
+            '<a href="/data/spray-log?category=pgr" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:var(--gaip-radius-sm);background:var(--gaip-accent);color:#fff;font-size:12px;font-weight:600;text-decoration:none;transition:opacity .15s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">' +
+            '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>' +
+            'Log PGR application' +
+            '</a>' +
+            '</div>';
+
         body.innerHTML = html;
+
+        // Render PGR Response Curve chart
+        if (typeof global.PGRForecast !== 'undefined') {
+            var chartEl = body.querySelector('#plan-pgr-chart-container');
+            if (chartEl) {
+                setTimeout(function () {
+                    global.PGRForecast.render(chartEl, pgr, global.GAIP_DASHBOARD_DATA || {});
+                }, 50);
+            }
+        }
     }
 
     // ── SECTION: Recovery Calendar ────────────────────────────────────────────
@@ -885,17 +922,19 @@
         initICalExport(computed);
 
         // ── Tab routing (mirrors analysis-router.js pattern) ──────────────
-        var TABS = ['timing', 'recovery', 'nutrition'];
+        var TABS = ['pre-emergent', 'pgr', 'recovery', 'nutrition'];
         var currentTab = null;
         var rendered   = {};
 
         function getHash() {
             var h = (global.location.hash || '').slice(1);
-            return TABS.indexOf(h) !== -1 ? h : 'timing';
+            // legacy #timing → redirect to pre-emergent
+            if (h === 'timing') return 'pre-emergent';
+            return TABS.indexOf(h) !== -1 ? h : 'pre-emergent';
         }
 
         function showTab(tabId) {
-            if (TABS.indexOf(tabId) === -1) tabId = 'timing';
+            if (TABS.indexOf(tabId) === -1) tabId = 'pre-emergent';
             if (tabId === currentTab) return;
             currentTab = tabId;
 
@@ -914,8 +953,9 @@
 
             if (!rendered[tabId]) {
                 rendered[tabId] = true;
-                if (tabId === 'timing') {
+                if (tabId === 'pre-emergent') {
                     renderPreEmergent(computed);
+                } else if (tabId === 'pgr') {
                     renderPGR(computed);
                 } else if (tabId === 'recovery') {
                     renderRecovery(computed, siteConfig);

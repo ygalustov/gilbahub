@@ -137,9 +137,26 @@ var PGRForecast = (function() {
 
         // b35fix201b: projection may be absent when gaip_pgr_calculate is called
         // without a full analysis run (e.g. b35fix199b autofill redraw path).
-        // Guard here so we never throw on projection.dateFormatted.
+        // b35fix-plan: derive projection from gdd.days when projection is absent
+        // so the chart renders from Plan page where orchestrator doesn't attach projection.
         if (!projection) {
-            return { error: 'No projection data available', days: [] };
+            // gdd.days is a count of days since application (number), gdd.accumulated is total GDD
+            var derivedRate = 10; // safe fallback
+            if (gdd && gdd.accumulated > 0 && gdd.days > 0) {
+                derivedRate = Math.min(50, Math.max(0.5, gdd.accumulated / gdd.days));
+            }
+            var derivedRemaining = (gdd && gdd.remaining != null) ? gdd.remaining : 0;
+            var derivedDaysUntil = derivedRemaining > 0 ? Math.ceil(derivedRemaining / derivedRate) : 0;
+            var derivedReapplyDate = (function() {
+                var d = new Date();
+                d.setDate(d.getDate() + derivedDaysUntil);
+                return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+            })();
+            projection = {
+                dailyGDDRate: derivedRate,
+                daysUntil: derivedDaysUntil,
+                dateFormatted: derivedReapplyDate
+            };
         }
         
         // Get sinewave parameters
@@ -528,104 +545,105 @@ var PGRForecast = (function() {
         
         svg += '</svg>';
         
-        // Build header
+        // ── Status & phase labels ──────────────────────────────────────────────
         var statusText = '';
-        var phaseText = '';
-        
+        var statusColor = 'var(--gaip-text-muted)';
+
         if (forecast.isOverdue) {
-            statusText = '<span style="color:' + CONFIG.colours.threshold + '">⚠ Reapplication overdue</span>';
+            statusText = 'Reapplication overdue';
+            statusColor = CONFIG.colours.threshold;
         } else if (forecast.daysUntilReapply !== null && forecast.daysUntilReapply <= 3) {
-            statusText = '<span style="color:' + CONFIG.colours.threshold + '">Due in ' + forecast.daysUntilReapply + ' days</span>';
+            statusText = 'Due in ' + forecast.daysUntilReapply + ' day' + (forecast.daysUntilReapply !== 1 ? 's' : '');
+            statusColor = CONFIG.colours.threshold;
         } else if (forecast.reapplyDate) {
-            statusText = 'Reapply: <strong>' + forecast.reapplyDate + '</strong>';
+            statusText = 'Reapply ' + forecast.reapplyDate;
         }
-        
-        // Current phase indicator
-        var phaseColors = {
-            onset: '#10b981',
-            peak: '#8b5cf6',
-            declining: '#f59e0b',
-            rebound: '#f97316',
-            expired: 'var(--gaip-text-secondary)'
-        };
-        var phaseLabels = {
-            onset: 'Building',
-            peak: 'Peak Suppression',
-            declining: 'Declining',
-            rebound: 'Rebound Phase',
-            expired: 'Expired'
-        };
-        if (forecast.currentPhase && phaseLabels[forecast.currentPhase]) {
-            phaseText = '<span style="color:' + (phaseColors[forecast.currentPhase] || 'var(--gaip-text-secondary)') + 
-                        '; font-size: 11px;">● ' + phaseLabels[forecast.currentPhase] + '</span>';
+
+        var phaseColors = { onset: '#10b981', peak: '#8b5cf6', declining: '#f59e0b', rebound: '#f97316', expired: 'var(--gaip-text-muted)' };
+        var phaseLabels = { onset: 'Building', peak: 'Peak suppression', declining: 'Declining', rebound: 'Rebound phase', expired: 'Expired' };
+        var phaseLabel  = (forecast.currentPhase && phaseLabels[forecast.currentPhase]) ? phaseLabels[forecast.currentPhase] : null;
+        var phaseColor  = (forecast.currentPhase && phaseColors[forecast.currentPhase]) || 'var(--gaip-text-muted)';
+
+        // SVG icon for chart title
+        var chartIcon = '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--gaip-accent)"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>';
+
+        // Warning icon (replaces emoji)
+        var warnIcon = '<svg width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" stroke-width="2.5" style="vertical-align:middle"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>';
+
+        // ── Build HTML ─────────────────────────────────────────────────────────
+        var html = '<div style="margin-top:4px">';
+
+        // Header row: icon + title + subtitle
+        html += '<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">' +
+            chartIcon +
+            '<span style="font-size:13px;font-weight:700;color:var(--gaip-text)">PGR Response Curve</span>' +
+            '<span style="font-size:11px;color:var(--gaip-text-muted);font-weight:400">Kreuser sinewave model</span>' +
+            '</div>';
+
+        // Product + phase + reapply info row
+        var infoItems = [];
+        infoItems.push(
+            '<span style="display:inline-flex;align-items:center;gap:5px">' +
+            '<span style="width:8px;height:8px;border-radius:50%;background:' + productColour + ';flex-shrink:0;display:inline-block"></span>' +
+            '<span style="font-size:12px;color:var(--gaip-text);font-weight:500">' + forecast.product.name + '</span>' +
+            '</span>'
+        );
+        if (phaseLabel) {
+            infoItems.push('<span style="font-size:12px;color:' + phaseColor + '">' + phaseLabel + '</span>');
         }
-        
-        // Build HTML
-        var html = '';
-        html += '<div class="gaip-pgr-forecast gaip-pgr-forecast-sinewave">';
-        html += '<div class="gaip-chart-header">';
-        html += '<span class="gaip-chart-title">📈 PGR Response Curve</span>';
-        html += '<span class="gaip-chart-subtitle">Kreuser sinewave model</span>';
-        html += '</div>';
-        
-        html += '<div class="gaip-chart-container">';
-        html += '<div class="gaip-chart-info">';
-        html += '<span style="color:' + productColour + '">● ' + forecast.product.name + '</span>';
-        if (phaseText) html += ' · ' + phaseText;
-        if (statusText) html += ' · ' + statusText;
-        html += '</div>';
-        html += svg;
-        html += '</div>';
-        
-        // Summary metrics (updated for sinewave)
-        html += '<div class="gaip-pgr-metrics">';
-        
-        html += '<div class="gaip-pgr-metric">';
-        html += '<span class="gaip-metric-value">' + forecast.currentGDD + '</span>';
-        html += '<span class="gaip-metric-label">GDD (base ' + (forecast.baseTempConfig.value || 0) + '°C)</span>';
-        html += '</div>';
-        
-        html += '<div class="gaip-pgr-metric">';
-        html += '<span class="gaip-metric-value">' + forecast.threshold + '</span>';
-        var thresholdLabel = 'Threshold';
-        if (forecast.thresholdConfig && !forecast.thresholdConfig.validated) {
-            thresholdLabel += ' <span style="color:#f59e0b;font-size:9px;">⚠</span>';
+        if (statusText) {
+            infoItems.push('<span style="font-size:12px;font-weight:600;color:' + statusColor + '">' + statusText + '</span>');
         }
-        if (forecast.mowingHeight.categoryLabel) {
-            thresholdLabel += ' (' + forecast.mowingHeight.category + ')';
+        html += '<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap">';
+        for (var ii = 0; ii < infoItems.length; ii++) {
+            if (ii > 0) html += '<span style="color:var(--gaip-border);font-size:12px">·</span>';
+            html += infoItems[ii];
         }
-        html += '<span class="gaip-metric-label">' + thresholdLabel + '</span>';
         html += '</div>';
-        
-        html += '<div class="gaip-pgr-metric">';
+
+        // SVG chart
+        html += '<div style="margin-bottom:12px">' + svg + '</div>';
+
+        // ── Metrics row ────────────────────────────────────────────────────────
         var currentYield = days[0] ? days[0].yieldPct : 100;
-        var yieldColor = currentYield > 100 ? CONFIG.colours.rebound : productColour;
-        html += '<span class="gaip-metric-value" style="color:' + yieldColor + '">' + Math.round(currentYield) + '%</span>';
-        html += '<span class="gaip-metric-label">Relative Growth</span>';
-        html += '</div>';
-        
-        html += '<div class="gaip-pgr-metric">';
-        html += '<span class="gaip-metric-value">' + forecast.peakSuppressionPct + '%</span>';
-        html += '<span class="gaip-metric-label">Peak Suppression</span>';
-        html += '</div>';
-        
-        if (forecast.peakReboundPct > 100) {
-            html += '<div class="gaip-pgr-metric">';
-            html += '<span class="gaip-metric-value" style="color:' + CONFIG.colours.rebound + '">' + forecast.peakReboundPct + '%</span>';
-            html += '<span class="gaip-metric-label">Peak Rebound</span>';
-            html += '</div>';
+        var yieldColor   = currentYield > 100 ? CONFIG.colours.rebound : productColour;
+
+        var thresholdSuffix = '';
+        if (forecast.thresholdConfig && !forecast.thresholdConfig.validated) {
+            thresholdSuffix = ' ' + warnIcon;
         }
-        
+        if (forecast.mowingHeight && forecast.mowingHeight.category) {
+            thresholdSuffix += ' <span style="font-size:10px;color:var(--gaip-text-muted)">(' + forecast.mowingHeight.category + ')</span>';
+        }
+
+        var metrics = [
+            { value: forecast.currentGDD + ' GDD',  label: 'Accumulated<br><span style="font-size:10px;color:var(--gaip-text-muted)">base ' + (forecast.baseTempConfig.value != null ? forecast.baseTempConfig.value : 0) + '°C</span>', color: null },
+            { value: forecast.threshold + ' GDD',   label: 'Threshold' + thresholdSuffix, color: null },
+            { value: Math.round(currentYield) + '%', label: 'Relative growth', color: yieldColor },
+            { value: forecast.peakSuppressionPct + '%', label: 'Peak suppression', color: null }
+        ];
+        if (forecast.peakReboundPct > 100) {
+            metrics.push({ value: forecast.peakReboundPct + '%', label: 'Peak rebound', color: CONFIG.colours.rebound });
+        }
+
+        html += '<div style="display:flex;gap:0;border:1px solid var(--gaip-border);border-radius:var(--gaip-radius-sm);overflow:hidden;margin-bottom:10px">';
+        for (var mi = 0; mi < metrics.length; mi++) {
+            var m = metrics[mi];
+            html += '<div style="flex:1;padding:8px 10px;' + (mi > 0 ? 'border-left:1px solid var(--gaip-border);' : '') + 'text-align:center">' +
+                '<div style="font-size:14px;font-weight:700;color:' + (m.color || 'var(--gaip-text)') + ';line-height:1.2">' + m.value + '</div>' +
+                '<div style="font-size:10px;color:var(--gaip-text-muted);margin-top:2px;line-height:1.3">' + m.label + '</div>' +
+                '</div>';
+        }
         html += '</div>';
-        
-        // Info note about rebound
-        html += '<div class="gaip-pgr-note" style="font-size: 11px; color: var(--gaip-text-secondary); margin-top: 8px; padding: 8px; background: var(--gaip-surface-muted); border-radius: 4px;">';
-        html += '<strong>Sinewave model:</strong> Growth dips during suppression phase, then rebounds above normal after PGR wears off. ';
-        html += 'Reapply before threshold to maintain steady regulation and avoid the "roller-coaster" effect.';
+
+        // ── Explainer note ─────────────────────────────────────────────────────
+        html += '<div style="padding:8px 12px;background:var(--gaip-surface-muted);border-left:3px solid var(--gaip-border);border-radius:var(--gaip-radius-sm);font-size:11px;color:var(--gaip-text-muted);line-height:1.5">' +
+            'Growth dips during suppression, then rebounds above normal once PGR wears off. ' +
+            'Reapply before the 75% threshold window to maintain steady regulation.' +
+            '</div>';
+
         html += '</div>';
-        
-        html += '</div>';
-        
+
         return html;
     }
 

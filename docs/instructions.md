@@ -218,7 +218,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-127** Refactor nutrient delivery display and improve UI components: Updated status indicators in fertiliser integration scripts to use descriptive labels instead of icons. Enhanced table structure for monthly program and nutrient delivery summary sections, ensuring consistent styling and improved readability. Adjusted CSS for better layout and responsiveness across various components.
 **GH-128** Update CSS for monthly program tables in fertiliser integration scripts: Enhanced table layout with fixed width and improved column width percentages for better responsiveness. Added word-break properties for improved text handling in notes and cell alignment. Updated instructions.md for clarity on dropdown functionality issues.
 **GH-129**Update water balance analysis for current depletion percentage calculation: Adjusted depletionFraction handling to reflect that it is stored as a percentage (0-100) in irrigation-scheduler.js.
-
+**GH-130** Enhanced UI components for better user interaction and added loading indicators for PGR data.
 
 
 
@@ -250,14 +250,14 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 22/06/26
-+23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW?
++23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
 23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
 
 
 +24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
 
 
-25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked?
+25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked? - The dots change colour after running an analysis. The colour represents the current analysis status.
 26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked?
 27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
 

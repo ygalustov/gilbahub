@@ -1860,6 +1860,20 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && overlay && overlay.style.display !== 'none') closeModal();
         });
+
+        // Auto-open modal with pre-selected category from query param (?category=pgr)
+        if (SECTION === 'spray-log') {
+            var _qs = new URLSearchParams(global.location.search);
+            var _cat = _qs.get('category');
+            if (_cat) {
+                openModal();
+                var _catEl = document.getElementById('dat-sl-cat');
+                if (_catEl) {
+                    _catEl.value = _cat;
+                    updateSlProductField(_cat);
+                }
+            }
+        }
     }
 
     if (document.readyState === 'loading') {

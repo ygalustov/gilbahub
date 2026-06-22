@@ -676,10 +676,15 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
     {{-- ── TABS BAR ─────────────────────────────────────────────────── --}}
     <nav class="gl-tabs-bar">
         <div class="gl-tabs-inner">
-            <a href="#timing" class="gl-tab" data-tab="timing">
-                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 6v6l4 2"/></svg>
-                Timing
+            <a href="#pre-emergent" class="gl-tab" data-tab="pre-emergent">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
+                Pre-emergent
                 <span class="gl-tab-badge" id="gl-badge-timing"></span>
+            </a>
+            <a href="#pgr" class="gl-tab" data-tab="pgr">
+                <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                PGR
+                <span class="gl-tab-badge" id="gl-badge-pgr"></span>
             </a>
             <a href="#recovery" class="gl-tab" data-tab="recovery">
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -692,47 +697,45 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
         </div>
     </nav>
 
-    {{-- ── TAB: TIMING ─────────────────────────────────────────────── --}}
-    <div id="plan-tab-timing" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+    {{-- ── TAB: PRE-EMERGENT ───────────────────────────────────────── --}}
+    <div id="plan-tab-pre-emergent" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
         <div class="plan-tab-body">
-            <div class="plan-windows-grid">
-
-                {{-- Pre-emergent Timing --}}
-                <div class="plan-card" id="plan-pe-card">
-                    <div class="plan-card-header">
-                        <div class="plan-card-title">
-                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-good)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
-                            Pre-emergent Timing
-                            <span class="db-info-icon" data-info="pre-emergent" tabindex="0" role="button" aria-label="About Pre-emergent Timing">i</span>
-                        </div>
-                        <span class="plan-badge" id="plan-pe-badge" style="display:none"></span>
+            <div class="plan-card" id="plan-pe-card">
+                <div class="plan-card-header">
+                    <div class="plan-card-title">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-good)"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
+                        Pre-emergent Timing
+                        <span class="db-info-icon" data-info="pre-emergent" tabindex="0" role="button" aria-label="About Pre-emergent Timing">i</span>
                     </div>
-                    <div id="plan-pe-body">
-                        <div class="plan-empty">
-                            <div class="plan-empty-title">Loading…</div>
-                        </div>
+                    <span class="plan-badge" id="plan-pe-badge" style="display:none"></span>
+                </div>
+                <div id="plan-pe-body">
+                    <div class="plan-empty">
+                        <div class="plan-empty-title">Loading…</div>
                     </div>
                 </div>
+            </div>
+        </div>{{-- /plan-tab-body --}}
+    </div>
 
-                {{-- PGR Schedule --}}
-                <div class="plan-card" id="plan-pgr-card">
-                    <div class="plan-card-header">
-                        <div class="plan-card-title">
-                            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-info)"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M9 9h1.5a1.5 1.5 0 010 3H9m0 3h4"/></svg>
-                            PGR Schedule
-                            <span class="db-info-icon" data-info="pgr-schedule" tabindex="0" role="button" aria-label="About PGR Schedule">i</span>
-                        </div>
-                        <span class="plan-badge" id="plan-pgr-badge" style="display:none"></span>
+    {{-- ── TAB: PGR ─────────────────────────────────────────────────── --}}
+    <div id="plan-tab-pgr" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
+        <div class="plan-tab-body">
+            <div class="plan-card" id="plan-pgr-card">
+                <div class="plan-card-header">
+                    <div class="plan-card-title">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="color:var(--gaip-accent)"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                        PGR Schedule
+                        <span class="db-info-icon" data-info="pgr-schedule" tabindex="0" role="button" aria-label="About PGR Schedule">i</span>
                     </div>
-                    <div id="plan-pgr-body">
-                        <div class="plan-empty">
-                            <div class="plan-empty-title">Loading…</div>
-                        </div>
+                    <span class="plan-badge" id="plan-pgr-badge" style="display:none"></span>
+                </div>
+                <div id="plan-pgr-body">
+                    <div class="plan-empty">
+                        <div class="plan-empty-title">Loading…</div>
                     </div>
                 </div>
-
-
-            </div>{{-- /plan-windows-grid --}}
+            </div>
         </div>{{-- /plan-tab-body --}}
     </div>
 
@@ -869,6 +872,8 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 @section('scripts')
 <link rel="stylesheet" href="{{ $legacyAssetUrl('nutrition-calendar.css') }}">
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}"></script>
+<script src="{{ $legacyAssetUrl('gilba-pgr-module-v3.js') }}"></script>
+<script src="{{ $legacyAssetUrl('pgr-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('plan-ui.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 <script src="{{ $legacyAssetUrl('prebbles-products.js') }}"></script>
