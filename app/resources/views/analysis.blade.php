@@ -51,12 +51,7 @@
                 </a>
                 <a href="#soil-nutrition" class="gl-tab" data-tab="soil-nutrition">Soil &amp; Nutrition</a>
                 <a href="#water-balance" class="gl-tab" data-tab="water-balance">Water Balance</a>
-                <a href="#pgr-irrigation" class="gl-tab" data-tab="pgr-irrigation">
-                    <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
-                    PGR &amp; Irrigation
-                </a>
+
             </div>
             <span class="gl-tab-accuracy" id="gl-tab-accuracy" hidden></span>
         </nav>
@@ -92,11 +87,6 @@
             </div>
         </div>
 
-        <div id="analysis-tab-pgr-irrigation" style="flex:1;overflow-y:auto;scrollbar-gutter:stable;display:none">
-            <div id="pgr-page-content">
-                <div style="padding:40px;text-align:center;color:#5b6a65">Loading PGR &amp; irrigation analysis…</div>
-            </div>
-        </div>
 
 
 @endsection
@@ -124,8 +114,4 @@
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('stress-analysis.js') }}"></script>
-{{-- PGR & Irrigation: pgr-module must be before pgr-forecast which must be before pgr-irrigation-analysis --}}
-<script src="{{ $legacyAssetUrl('gilba-pgr-module-v3.js') }}"></script>
-<script src="{{ $legacyAssetUrl('pgr-forecast.js') }}"></script>
-<script src="{{ $legacyAssetUrl('pgr-irrigation-analysis.js') }}"></script>
 @endsection

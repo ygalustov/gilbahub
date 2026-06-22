@@ -221,7 +221,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-130** Enhanced UI components for better user interaction and added loading indicators for PGR data.
 **GH-131** Refactor UI components in data and plan views: Updated URLSearchParams usage for consistency, added new CSS classes for action buttons and links, and improved layout for better user interaction. Enhanced log button structure in JavaScript for improved styling and responsiveness.
 **GH-132** Enhance PGR calculations and UI updates: Adjusted reapplication window logic to use 75% of threshold for GDD calculations in pgr-forecast.js and plan-ui.js. Updated data.blade.php to clean URL parameters after modal opening for improved user experience. Modified instructions.md to reflect additional GH issue references.
-
+**GH-133** Remove PGR & Irrigation tab and associated scripts: Eliminated references to the PGR & Irrigation analysis from analysis.blade.php and analysis-router.js. 
 
 
 
@@ -254,28 +254,20 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 22/06/26
-+23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129, GH-130, GH-131
-23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications
-
-
++23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
++23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications. GH-130, GH-131, GH-132.
 +24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
-
-
-25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked? - The dots change colour after running an analysis. The colour represents the current analysis status.
-26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked?
-27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select
-
-
++25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked? - The dots change colour after running an analysis - the colour represents the current analysis status. Until you run analysis for a site, the dot stays grey. Once analysis has run, it turns green, amber, or red based on growth potential from the latest results (green = 70% or above, amber = 40–69%, red = below 40%). 
++26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked? - We generated API key for ⁠Fairbairn golf club and added it to the test env. API key is p5CYYER1sU82nFidWCAv12igVptxaZQc8K9YhOno
++27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select. - It should be fixed GH-107, GH-118. 
 +28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ. GH-126.
-
-
-29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site?
-
-
++29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site? - Added API key to your test env. API key is 
+ 4joY0fKUpX4FA8D034q6c4WkX4uMm6hQ6TqP3JU5
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
 
 
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
+
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
 
 
@@ -283,6 +275,10 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software?
+
+
+
+
 35.⁠ ⁠Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
 36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
