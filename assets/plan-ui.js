@@ -383,8 +383,8 @@
         html += '<div id="plan-pgr-chart-container" style="margin-top:16px"></div>';
 
         // Log button
-        html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--gaip-border)">' +
-            '<a href="/data/spray-log?category=pgr" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:8px 14px;border-radius:var(--gaip-radius-sm);background:var(--gaip-accent);color:#fff;font-size:12px;font-weight:600;text-decoration:none;transition:opacity .15s" onmouseenter="this.style.opacity=\'.85\'" onmouseleave="this.style.opacity=\'1\'">' +
+        html += '<div class="plan-card-footer">' +
+            '<a href="/data/spray-log?category=pgr" class="plan-action-btn">' +
             '<svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>' +
             'Log PGR application' +
             '</a>' +
@@ -712,7 +712,6 @@
         html += '<div style="font-size:10px;color:var(--gaip-text-muted);margin-top:8px">' +
             'N distributed by monthly Growth Potential' +
             (hasClimatGP ? ' · <span style="color:var(--gaip-good)">Using site climate data</span>' : ' · Using default GP curve') +
-            ' · <a href="/settings#turf" style="color:var(--gaip-accent)">Edit N programme →</a>' +
             '</div>';
 
         body.innerHTML = html;

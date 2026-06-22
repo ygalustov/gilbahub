@@ -219,6 +219,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-128** Update CSS for monthly program tables in fertiliser integration scripts: Enhanced table layout with fixed width and improved column width percentages for better responsiveness. Added word-break properties for improved text handling in notes and cell alignment. Updated instructions.md for clarity on dropdown functionality issues.
 **GH-129**Update water balance analysis for current depletion percentage calculation: Adjusted depletionFraction handling to reflect that it is stored as a percentage (0-100) in irrigation-scheduler.js.
 **GH-130** Enhanced UI components for better user interaction and added loading indicators for PGR data.
+**GH-131** Refactor UI components in data and plan views: Updated URLSearchParams usage for consistency, added new CSS classes for action buttons and links, and improved layout for better user interaction. Enhanced log button structure in JavaScript for improved styling and responsiveness.
+
+
+
+
 
 
 

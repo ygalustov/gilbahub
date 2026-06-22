@@ -1863,7 +1863,7 @@
 
         // Auto-open modal with pre-selected category from query param (?category=pgr)
         if (SECTION === 'spray-log') {
-            var _qs = new URLSearchParams(global.location.search);
+            var _qs = new URLSearchParams(window.location.search);
             var _cat = _qs.get('category');
             if (_cat) {
                 openModal();

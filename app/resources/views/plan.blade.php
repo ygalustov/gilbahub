@@ -545,19 +545,66 @@ details.plan-details[open] > summary::before { transform: rotate(90deg); }
     color: var(--gaip-text-muted);
     margin-top: 1px;
 }
+/* ── Shared action components ─────────────────────────────────────────── */
+/* Edit/settings link — used in card headers across all Plan tabs */
+.plan-edit-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--gaip-text-muted);
+    text-decoration: none;
+    font-weight: 500;
+    transition: color .15s;
+    white-space: nowrap;
+}
+.plan-edit-link:hover { color: var(--gaip-accent); }
+
+/* Primary action button — used at bottom of cards across all Plan tabs */
+/* Works on both <a> and <button> elements */
+.plan-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    padding: 9px 16px;
+    border-radius: var(--gaip-radius-sm);
+    background: var(--gaip-accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity .15s;
+    box-sizing: border-box;
+    text-align: center;
+}
+.plan-action-btn:hover { opacity: .85; color: #fff; }
+.plan-action-btn:disabled { opacity: .6; cursor: not-allowed; }
+
+/* Standard card footer wrapper — border separator above action area */
+.plan-card-footer {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--gaip-border);
+}
+
 .plan-generate-btn {
     align-self: flex-start;
     padding: 9px 20px;
-    border-radius: var(--gaip-radius-pill);
+    border-radius: var(--gaip-radius-sm);
     border: none;
     background: var(--gaip-accent);
     color: #fff;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s;
+    transition: opacity 0.15s;
+    width: 100%;
 }
-.plan-generate-btn:hover { background: var(--gaip-accent-hover); }
+.plan-generate-btn:hover { opacity: .85; }
 .plan-generate-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 .plan-cal-export-row {
     display: flex;
@@ -750,7 +797,8 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                         Recovery Calendar
                         <span class="db-info-icon" data-info="recovery-calendar" tabindex="0" role="button" aria-label="About Recovery Calendar">i</span>
                     </div>
-                    <a href="/settings#traffic" style="font-size:11px;color:var(--gaip-text-muted);text-decoration:none" id="plan-rec-settings-link" hidden>
+                    <a href="/settings#traffic" class="plan-edit-link" id="plan-rec-settings-link" hidden>
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
                         Edit traffic schedule →
                     </a>
                 </div>
@@ -847,6 +895,10 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                         Seasonal N Plan
                         <span class="db-info-icon" data-info="seasonal-n" tabindex="0" role="button" aria-label="About Seasonal N Plan">i</span>
                     </div>
+                    <a href="/settings#turf" class="plan-edit-link" id="plan-seasonal-edit-link">
+                        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+                        Edit N programme →
+                    </a>
                 </div>
                 <div id="plan-seasonal-body">
                     <div class="plan-empty">
