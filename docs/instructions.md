@@ -223,7 +223,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-132** Enhance PGR calculations and UI updates: Adjusted reapplication window logic to use 75% of threshold for GDD calculations in pgr-forecast.js and plan-ui.js. Updated data.blade.php to clean URL parameters after modal opening for improved user experience. Modified instructions.md to reflect additional GH issue references.
 **GH-133** Remove PGR & Irrigation tab and associated scripts: Eliminated references to the PGR & Irrigation analysis from analysis.blade.php and analysis-router.js. 
 **GH-134** Update margin spacing in plan view for improved layout: Adjusted the margin of the progress bar to enhance visual separation and overall design consistency.
-
+**GH-135** Implement sample update functionality in SampleController: Added an update method to handle sample modifications, including validation and database transactions. Updated routes to include PATCH method for sample updates. Enhanced data display in data.blade.php to include additional sample fields and added edit buttons for user interaction. Updated CSS for new edit button styling.
 
 
 ## Backlog
@@ -266,9 +266,9 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 ---
+24/06/2026
 
-
-31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
++31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-134.
 
 32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
 

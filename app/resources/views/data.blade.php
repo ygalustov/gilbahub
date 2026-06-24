@@ -323,7 +323,7 @@
                         $ph    = $pVal($pl, 'pH', 'ph', 'PH');
                         $k     = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
                         $p     = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
                         data-row="{{ json_encode($rowData) }}">
@@ -343,6 +343,7 @@
                         <td class="dat-td-num">{{ $p ?? '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-edit-row-btn" type="button">Edit</button>
                             <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="soil">Delete</button>
                         </td>
                     </tr>
@@ -377,7 +378,7 @@
                         $n     = $pVal($pl, 'N', 'n', 'nitrogen', 'Nitrogen', 'N_total');
                         $k     = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
                         $p     = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="tissue"
                         data-row="{{ json_encode($rowData) }}">
@@ -397,6 +398,7 @@
                         <td class="dat-td-num">{{ $p ?? '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-edit-row-btn" type="button">Edit</button>
                             <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="tissue">Delete</button>
                         </td>
                     </tr>
@@ -429,7 +431,7 @@
                         $ph    = $pVal($pl, 'pH', 'ph', 'PH');
                         $ec    = $pVal($pl, 'EC', 'ec', 'EC_dSm', 'Salinity', 'salinity');
                         $hco3  = $pVal($pl, 'HCO3', 'hco3', 'bicarbonate', 'Bicarbonate');
-                        $rowData = ['id'=>$row->id,'section'=>'water','name'=>$name,'labId'=>$labId,'zone'=>null,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'water','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>null,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="water"
                         data-row="{{ json_encode($rowData) }}">
@@ -448,6 +450,7 @@
                         <td class="dat-td-num">{{ $hco3 ?? '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-edit-row-btn" type="button">Edit</button>
                             <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="water">Delete</button>
                         </td>
                     </tr>
@@ -480,7 +483,7 @@
                         $date  = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
                         $om     = $pVal($pl, 'OM', 'om', 'organic_matter', 'OrganicMatter', 'LOI');
                         $thatch = $pVal($pl, 'thatch', 'Thatch', 'THATCH');
-                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="loi"
                         data-row="{{ json_encode($rowData) }}">
@@ -499,6 +502,7 @@
                         <td class="dat-td-num">{{ $thatch ?? '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-edit-row-btn" type="button">Edit</button>
                             <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="loi">Delete</button>
                         </td>
                     </tr>
@@ -566,6 +570,7 @@
                         <td style="color:var(--gaip-text-muted,#6b8878);font-size:12px">{{ $row->target ?? '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
+                            <button class="dat-edit-row-btn" type="button">Edit</button>
                             <button class="dat-del-row-btn" type="button" data-id="{{ $row->id }}" data-section="spray-log">Delete</button>
                         </td>
                     </tr>
@@ -583,6 +588,10 @@
                         <div class="dat-detail-subtitle" id="dat-detail-subtitle"></div>
                     </div>
                     <div class="dat-detail-actions">
+                        <button class="dat-detail-edit" id="dat-detail-edit" type="button">
+                            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.5-6.5a2.121 2.121 0 013 3L12 16H9v-3z"/></svg>
+                            Edit
+                        </button>
                         <button class="dat-detail-close" id="dat-detail-close" aria-label="Close detail panel">×</button>
                     </div>
                 </div>
@@ -634,6 +643,7 @@
     var detBody  = document.getElementById('dat-detail-body');
     var detClose = document.getElementById('dat-detail-close');
     var currentId = null;
+    var currentDetailData = null;
 
     // ── Row click / view-btn click ────────────────────────────────────────
     function openDetail(row) {
@@ -654,18 +664,29 @@
         if (table) table.querySelectorAll('.dat-row.selected').forEach(function (r) { r.classList.remove('selected'); });
         row.classList.add('selected');
         currentId = String(data.id);
+        currentDetailData = data;
     }
 
     function closeDetail() {
         if (detail) detail.style.display = 'none';
         if (table) table.querySelectorAll('.dat-row.selected').forEach(function (r) { r.classList.remove('selected'); });
         currentId = null;
+        currentDetailData = null;
     }
 
     if (table) {
         table.addEventListener('click', function (e) {
             if (e.target.matches('input[type="checkbox"]')) return;
             if (e.target.closest('.dat-del-row-btn')) return;
+            if (e.target.closest('.dat-edit-row-btn')) {
+                var editRow = e.target.closest('.dat-row');
+                if (editRow && typeof window.datOpenEditModal === 'function') {
+                    var editData;
+                    try { editData = JSON.parse(editRow.dataset.row); } catch (_) {}
+                    if (editData) window.datOpenEditModal(editData);
+                }
+                return;
+            }
             var btn = e.target.closest('.dat-view-btn');
             var row = e.target.closest('.dat-row');
             if (!row) return;
@@ -674,6 +695,15 @@
         });
     }
     if (detClose) detClose.addEventListener('click', closeDetail);
+
+    var detEditBtn = document.getElementById('dat-detail-edit');
+    if (detEditBtn) {
+        detEditBtn.addEventListener('click', function () {
+            if (currentDetailData && typeof window.datOpenEditModal === 'function') {
+                window.datOpenEditModal(currentDetailData);
+            }
+        });
+    }
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape' && detail && detail.style.display !== 'none') closeDetail();
     });
@@ -1169,11 +1199,14 @@
 (function () {
     'use strict';
 
-    var SECTION  = '{{ $section }}';
+    var SECTION       = '{{ $section }}';
+    var SECTION_TITLE = '{{ $sectionTitles[$section] ?? "Data" }}';
     var SITE_ID  = '{{ $activeSite?->id ?? '' }}';
     var SITE_LAT = {{ $activeSite?->latitude ?? 'null' }};
     var SITE_LNG = {{ $activeSite?->longitude ?? 'null' }};
     var CSRF     = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+    var _editingId = null;
 
     // ── CSV field mappings (column header → payload key) ─────────
     var CSV_MAPS = {
@@ -1515,10 +1548,13 @@
 
     // ── Open / close ──────────────────────────────────────────────
     function openModal() {
+        _editingId = null;
         var modal = q('dat-add-modal');
         if (!modal) return;
         _parsedCSV = null;
         _activeTab = SECTION === 'spray-log' ? 'manual' : 'upload';
+        var titleEl = q('dat-modal-title');
+        if (titleEl) titleEl.textContent = 'Add ' + SECTION_TITLE;
         q('dat-modal-body').innerHTML = SECTION === 'spray-log' ? buildSprayBody() : buildLabBody();
         setMsg('');
         modal.style.display = 'flex';
@@ -1527,16 +1563,42 @@
     }
 
     function closeModal() {
+        _editingId = null;
         var modal = q('dat-add-modal');
         if (modal) modal.style.display = 'none';
         document.body.style.overflow = '';
         _parsedCSV = null;
     }
 
+    window.datOpenEditModal = function (data) {
+        _editingId = data.id;
+        var modal = q('dat-add-modal');
+        if (!modal) return;
+        _parsedCSV = null;
+        _activeTab = 'manual';
+        var titleEl = q('dat-modal-title');
+        if (titleEl) titleEl.textContent = 'Edit ' + SECTION_TITLE;
+        q('dat-modal-body').innerHTML = SECTION === 'spray-log' ? buildSprayBody() : buildLabBody();
+        setMsg('');
+        wireModalBody();
+        if (SECTION === 'spray-log') {
+            prefillSprayForm(data);
+        } else {
+            prefillManualForm(data);
+        }
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    };
+
     // ── Lab form builder ──────────────────────────────────────────
     function buildLabBody() {
         var def = MANUAL_FORMS[SECTION];
         if (!def) return '<p>No form available for this section.</p>';
+
+        if (_editingId) {
+            _activeTab = 'manual';
+            return buildManualTab(def);
+        }
 
         var html = '<div class="dat-modal-tabs">'
             + '<button class="dat-modal-tab' + (_activeTab==='upload'?' active':'') + '" data-tab="upload">Upload CSV</button>'
@@ -1549,6 +1611,80 @@
             html += buildManualTab(def);
         }
         return html;
+    }
+
+    function prefillManualForm(data) {
+        var uidEl = q('dat-f-uid');
+        if (uidEl) uidEl.value = data.client_uid || '';
+
+        var zoneEl = q('dat-f-zone');
+        if (zoneEl && data.zone && data.zone !== '—') zoneEl.value = data.zone;
+
+        var dateEl = q('dat-f-date');
+        if (dateEl && data.date) dateEl.value = data.date;
+
+        var labEl = q('dat-f-lab');
+        if (labEl) labEl.value = data.lab_name || '';
+
+        var labRefEl = q('dat-f-labref');
+        if (labRefEl) labRefEl.value = data.lab_ref || '';
+
+        var notesEl = q('dat-f-notes');
+        if (notesEl) notesEl.value = data.notes || '';
+
+        var def = MANUAL_FORMS[SECTION];
+        if (def && data.payload) {
+            def.nutrients.forEach(function (f) {
+                var el = q('dat-n-' + f.id);
+                if (el && data.payload[f.id] != null) el.value = data.payload[f.id];
+            });
+        }
+    }
+
+    function prefillSprayForm(data) {
+        var dateEl = q('dat-sl-date');
+        if (dateEl && data.date) dateEl.value = data.date;
+
+        var catEl = q('dat-sl-cat');
+        if (catEl && data.category && data.category !== '—') {
+            catEl.value = data.category;
+            updateSlProductField(data.category);
+        }
+
+        var productEl = q('dat-sl-product');
+        if (productEl && data.product && data.product !== '—') {
+            if (productEl.tagName === 'SELECT') {
+                productEl.value = data.product;
+                if (productEl.value !== data.product) {
+                    productEl.value = '__other__';
+                    var customEl = q('dat-sl-product-custom');
+                    if (customEl) { customEl.value = data.product; customEl.style.display = ''; }
+                }
+            } else {
+                productEl.value = data.product;
+            }
+        }
+
+        var aiEl = q('dat-sl-ai');
+        if (aiEl) aiEl.value = data.active_ingredient || '';
+
+        var rateEl = q('dat-sl-rate');
+        if (rateEl && data.rate != null) rateEl.value = data.rate;
+
+        var unitEl = q('dat-sl-unit');
+        if (unitEl && data.rate_unit) unitEl.value = data.rate_unit;
+
+        var targetEl = q('dat-sl-target');
+        if (targetEl) targetEl.value = data.target || '';
+
+        var notesEl = q('dat-sl-notes');
+        if (notesEl) notesEl.value = data.notes || '';
+
+        if (data.zone && data.zone !== '—') {
+            document.querySelectorAll('.dat-zone-pill').forEach(function (pill) {
+                if (pill.dataset.zone === data.zone.toLowerCase()) pill.classList.add('sel');
+            });
+        }
     }
 
     function buildUploadTab() {
@@ -1801,21 +1937,53 @@
         if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving…'; }
 
         try {
-            var data, url;
-            if (SECTION === 'spray-log') {
-                data = collectSprayData();
-                url  = '/api/spray-log';
+            var data, url, method;
+            if (_editingId) {
+                if (SECTION === 'spray-log') {
+                    var raw = collectSprayData();
+                    if (!raw) {
+                        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                        return;
+                    }
+                    data = {
+                        application_date:  raw.application_date,
+                        product_name:      raw.product_name,
+                        product_category:  raw.product_category,
+                        active_ingredient: raw.active_ingredient,
+                        rate:              raw.rate,
+                        rate_unit:         raw.rate_unit,
+                        target:            raw.target,
+                        notes:             raw.notes,
+                        zone:              (raw.zones && raw.zones[0]) || null,
+                    };
+                    url    = '/api/spray-log/' + _editingId;
+                    method = 'PUT';
+                } else {
+                    data = collectLabData();
+                    if (!data) {
+                        if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                        return;
+                    }
+                    url    = '/api/samples/' + _editingId;
+                    method = 'PATCH';
+                }
             } else {
-                data = collectLabData();
-                url  = '/api/samples';
-            }
-            if (!data) {
-                if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
-                return;
+                if (SECTION === 'spray-log') {
+                    data = collectSprayData();
+                    url  = '/api/spray-log';
+                } else {
+                    data = collectLabData();
+                    url  = '/api/samples';
+                }
+                method = 'POST';
+                if (!data) {
+                    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; }
+                    return;
+                }
             }
 
             var r = await fetch(url, {
-                method: 'POST',
+                method: method,
                 credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',

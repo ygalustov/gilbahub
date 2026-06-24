@@ -202,6 +202,65 @@ class SampleController extends Controller
         ]);
     }
 
+    public function update(Request $request, Sample $sample): JsonResponse
+    {
+        $sample->load('site');
+        abort_unless($request->user()->canEditSite($sample->site), 403);
+
+        $data = $request->validate([
+            'client_uid'  => ['nullable', 'string', 'max:191'],
+            'lab_name'    => ['nullable', 'string', 'max:128'],
+            'lab_ref'     => ['nullable', 'string', 'max:64'],
+            'sample_date' => ['nullable', 'date'],
+            'lab_date'    => ['nullable', 'date'],
+            'depth_mm'    => ['nullable', 'integer', 'min:0', 'max:5000'],
+            'payload'     => ['sometimes', 'array'],
+            'notes'       => ['nullable', 'string'],
+        ]);
+
+        DB::transaction(function () use ($sample, $data, $request) {
+            if (array_key_exists('client_uid', $data))  $sample->client_uid  = $data['client_uid'];
+            if (array_key_exists('lab_name', $data))    $sample->lab_name    = $data['lab_name'] ?? '';
+            if (array_key_exists('lab_ref', $data))     $sample->lab_ref     = $data['lab_ref'] ?? '';
+            if (array_key_exists('sample_date', $data)) $sample->sample_date = $data['sample_date'];
+            if (array_key_exists('lab_date', $data))    $sample->lab_date    = $data['lab_date'];
+            if (array_key_exists('depth_mm', $data))    $sample->depth_mm    = $data['depth_mm'];
+            if (array_key_exists('notes', $data))       $sample->notes       = $data['notes'];
+            if (array_key_exists('payload', $data))     $sample->payload     = $data['payload'];
+            $sample->modified_by_user_id = $request->user()->id;
+            $sample->save();
+
+            $site    = $sample->site;
+            $labDate = $sample->lab_date?->toDateString()
+                ?? $sample->sample_date?->toDateString()
+                ?? now()->toDateString();
+
+            $summary = SiteSummary::query()->withTrashed()->firstOrNew([
+                'site_id'     => $site->id,
+                'sample_type' => $sample->sample_type,
+                'lab_date'    => $labDate,
+            ]);
+            if ($summary->trashed()) {
+                $summary->restore();
+            }
+            $summary->fill([
+                'account_id'             => $sample->account_id,
+                'methodology_snapshot'   => $sample->methodology_snapshot,
+                'summary'                => $this->buildSummaryPayload($sample, $site),
+                'source_sample_id'       => $sample->id,
+                'modified_by_user_id'    => $request->user()->id,
+            ]);
+            if (! $summary->exists) {
+                $summary->created_by_user_id = $request->user()->id;
+            }
+            $summary->save();
+        });
+
+        return response()->json([
+            'data' => $this->samplePayload($sample->fresh(['site'])),
+        ]);
+    }
+
     public function show(Request $request, Sample $sample): JsonResponse
     {
         $sample->load('site');

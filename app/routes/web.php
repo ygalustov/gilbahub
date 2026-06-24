@@ -100,6 +100,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/samples', [SampleController::class, 'store'])->name('samples.store');
         Route::post('/samples/sync', [SampleController::class, 'sync'])->name('samples.sync');
         Route::get('/samples/{sample}', [SampleController::class, 'show'])->name('samples.show');
+        Route::patch('/samples/{sample}', [SampleController::class, 'update'])->name('samples.update');
         Route::get('/samples/{sample}/analyse', [SampleAnalysisController::class, 'run'])->name('samples.analyse');
         Route::get('/site-summaries', [SampleController::class, 'listSummaries'])->name('site-summaries.index');
         Route::get('/benchmark/{siteIdentifier}', [BenchmarkController::class, 'show'])->name('benchmark.show');
