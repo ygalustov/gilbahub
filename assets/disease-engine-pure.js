@@ -4409,11 +4409,12 @@ function _formatProductLines(actives, region, registrationBody) {
     if (!actives || actives.length === 0) return [];
     const primary = actives.filter(a => a.type === 'primary' || !a.type);
     const items = (primary.length > 0 ? primary : actives).slice(0, 4);
-    return items.map(a => {
+    const formatted = items.map(a => {
         const reg = a.registration ? ` (${a.registration})` : '';
         const frac = a.fracGroup ? ` [FRAC ${a.fracGroup}]` : '';
         return `${a.activeIngredient || a.active}${reg}${frac}`;
     });
+    return [...new Set(formatted)];
 }
 
 /**

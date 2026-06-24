@@ -12,9 +12,10 @@
     });
     window.GAIP_SITE_CONFIG = {
         turf: {
-            species:  @json($turfSpecies),
-            variety:  @json($turfVariety ?? null),
-            turfType: @json($turfSiteType ?? null),
+            species:          @json($turfSpecies),
+            variety:          @json($turfVariety ?? null),
+            turfType:         @json($turfSiteType ?? null),
+            companionSpecies: @json($companionSpecies ?? null),
         }
     };
     window.GAIP_SiteContext = {

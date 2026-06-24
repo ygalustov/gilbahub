@@ -831,7 +831,8 @@
 
     function renderDiseaseRecommendations(diseases) {
         var dd = global.GAIP_DASHBOARD_DATA;
-        var cd = dd && dd.metrics && dd.metrics.companionDisease;
+        var currentCompanion = (global.GAIP_SITE_CONFIG && global.GAIP_SITE_CONFIG.turf && global.GAIP_SITE_CONFIG.turf.companionSpecies) || null;
+        var cd = (currentCompanion && dd && dd.metrics && dd.metrics.companionDisease) ? dd.metrics.companionDisease : null;
         var companionDiseases = cd && cd.diseases ? cd.diseases.filter(function(d) { return d.risk > 0 || d.inWindow; }) : [];
         var companionLabel = cd ? esc(cd.speciesLabel || cd.species || 'Fairway / Tee') : '';
 
@@ -1296,7 +1297,8 @@
 
     function renderCompanionDiseaseBlock() {
         var dd = global.GAIP_DASHBOARD_DATA;
-        var cd = dd && dd.metrics && dd.metrics.companionDisease;
+        var currentCompanion = (global.GAIP_SITE_CONFIG && global.GAIP_SITE_CONFIG.turf && global.GAIP_SITE_CONFIG.turf.companionSpecies) || null;
+        var cd = (currentCompanion && dd && dd.metrics && dd.metrics.companionDisease) ? dd.metrics.companionDisease : null;
         if (!cd || !cd.diseases || !cd.diseases.length) return '';
 
         var speciesLabel = esc(cd.speciesLabel || cd.species || 'Fairway / Tee');

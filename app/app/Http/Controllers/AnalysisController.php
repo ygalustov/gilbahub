@@ -19,21 +19,23 @@ class AnalysisController extends Controller
             'lon'  => $activeSite?->longitude ?? '',
         ];
 
-        $gaipConfig      = [];
-        $turfSpecies     = null;
-        $turfVariety     = null;
-        $turfSiteType    = null;
-        $overseedSpecies = null;
-        $turfMethodology = null;
-        $percentC3Cover  = null;
-        $locationName    = null;
+        $gaipConfig       = [];
+        $turfSpecies      = null;
+        $turfVariety      = null;
+        $turfSiteType     = null;
+        $companionSpecies = null;
+        $overseedSpecies  = null;
+        $turfMethodology  = null;
+        $percentC3Cover   = null;
+        $locationName     = null;
 
         if ($activeSite) {
-            $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
-            $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
-            $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
-            $turfVariety     = $gaipConfig['turf']['variety'] ?? null;
-            $turfSiteType    = $gaipConfig['turf']['turfType'] ?? null;
+            $gaipRecord       = $activeSite->configs()->where('namespace', 'gaip')->first();
+            $gaipConfig       = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
+            $turfSpecies      = $gaipConfig['turf']['species'] ?? null;
+            $turfVariety      = $gaipConfig['turf']['variety'] ?? null;
+            $turfSiteType     = $gaipConfig['turf']['turfType'] ?? null;
+            $companionSpecies = $gaipConfig['turf']['companionSpecies'] ?? null;
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
@@ -67,17 +69,18 @@ class AnalysisController extends Controller
         }
 
         return view('analysis', [
-            'activeSite'      => $activeSite,
-            'allSites'        => $allSites,
-            'savedLocation'   => $savedLocation,
-            'turfSpecies'     => $turfSpecies,
-            'turfVariety'     => $turfVariety,
-            'turfSiteType'    => $turfSiteType,
-            'overseedSpecies' => $overseedSpecies,
-            'turfMethodology' => $turfMethodology,
-            'percentC3Cover'  => $percentC3Cover,
-            'locationName'    => $locationName,
-            'analysisCache'   => $analysisCache,
+            'activeSite'       => $activeSite,
+            'allSites'         => $allSites,
+            'savedLocation'    => $savedLocation,
+            'turfSpecies'      => $turfSpecies,
+            'turfVariety'      => $turfVariety,
+            'turfSiteType'     => $turfSiteType,
+            'companionSpecies' => $companionSpecies,
+            'overseedSpecies'  => $overseedSpecies,
+            'turfMethodology'  => $turfMethodology,
+            'percentC3Cover'   => $percentC3Cover,
+            'locationName'     => $locationName,
+            'analysisCache'    => $analysisCache,
         ]);
     }
 
