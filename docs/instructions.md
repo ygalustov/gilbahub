@@ -227,8 +227,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-136** Enhance dashboard UI and instructions: Updated CSS for improved layout and responsiveness, including new overflow handling and media queries for better display on various screen sizes. Modified instructions.md to clarify issues and requests related to sample editing and disease reporting.
 **GH-137** Enhance analysis functionality: Added turf variety and site type to AnalysisController and updated analysis.blade.php to include these new variables. Improved disease resistance display in disease-analysis.js with a new chip format for better visual representation. Updated instructions.md for clarity on recent issues and requests.
 **GH-138** Update AnalysisController to include companion species in analysis data. Enhanced disease-engine-pure.js to return unique formatted product lines. Revised instructions.md for clarity on cultivar traits and disease risk settings.
-
-
+**GH-139** Refine disease analysis logic and improve product listing: Updated disease-analysis.js to ensure diseases are only shown with a positive risk score, preventing stale treatment windows from displaying irrelevant data. Enhanced product listings by filtering duplicates in recommendations. Updated instructions.md to reference GH-138 for clarity on analysis discrepancies.
 
 
 
@@ -283,7 +282,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 
-38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same.
++38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138.
 
 
 

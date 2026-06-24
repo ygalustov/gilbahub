@@ -236,8 +236,10 @@
             var score = d.adjustedRisk != null ? d.adjustedRisk
                       : (d.riskScore   != null ? d.riskScore
                       : (d.risk        != null ? d.risk : 0));
-            var inWindow = d.treatmentWindow && d.treatmentWindow.inWindow;
-            return (r !== 'none' && r !== '' && score > 0) || inWindow;
+            // inWindow alone is not enough to show a disease: require score > 0
+            // to avoid showing 0% diseases (e.g. Spring Dead Spot on bentgrass)
+            // that have a stale treatment window in the cache
+            return r !== 'none' && r !== '' && score > 0;
         });
     }
 
@@ -388,7 +390,7 @@
             var action   = (rec.action || '').toLowerCase();
             var headline = rec.headline || rec.text || '';
             var timing   = rec.timing  || '';
-            var products = Array.isArray(rec.products) ? rec.products : [];
+            var products = Array.isArray(rec.products) ? rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; }) : [];
             var recClass = ACTION_REC_CLASS[action] || 'monitor';
             var recIcon  = ACTION_ICON[action]  || '✓';
 
@@ -867,7 +869,7 @@
             }
             var cls      = ACTION_REC_CLASS[action] || 'monitor';
             var icon     = ACTION_ICON[action] || '✓';
-            var products = rec && Array.isArray(rec.products) && rec.products.length ? rec.products : [];
+            var products = rec && Array.isArray(rec.products) && rec.products.length ? rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; }) : [];
             var prefix   = labelPrefix ? '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-right:4px">' + labelPrefix + ' · </span>' : '';
             return '<div class="gl-rec ' + cls + '">' +
                 '<div class="gl-rec-priority">' + prefix + esc(name) + '</div>' +
@@ -1270,7 +1272,8 @@
             html += '</div>';
             if (rec.headline) html += '<div style="line-height:1.5' + (rec.products && rec.products.length ? ';margin-bottom:8px' : '') + '">' + esc(rec.headline) + '</div>';
             if (rec.products && rec.products.length) {
-                html += '<div style="font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(rec.products.join(', ')) + '</div>';
+                var uniqueProds = rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; });
+                html += '<div style="font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(uniqueProds.join(', ')) + '</div>';
             }
             html += '</div>';
         }
