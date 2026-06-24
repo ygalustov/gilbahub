@@ -1044,22 +1044,56 @@
 
         var diseaseResist = traitData && traitData.diseaseResistance;
 
+        function makeResistChip(name, pct) {
+            var color = pct >= 70 ? '#22c55e' : pct >= 40 ? '#f59e0b' : '#ef4444';
+            var label = pct >= 70 ? 'Resistant' : pct >= 40 ? 'Moderate' : 'Susceptible';
+            return '<div style="background:' + color + '15;border:1px solid ' + color + '40;padding:4px 10px;border-radius:6px;display:inline-flex;align-items:center;gap:6px">' +
+                '<span style="font-size:12px;color:var(--gaip-text)">' + esc(name) + '</span>' +
+                '<span style="font-size:11px;font-weight:600;color:' + color + '">' + label + '</span>' +
+                '</div>';
+        }
+
         var rows = '';
         if (diseaseResist && typeof diseaseResist === 'object') {
+            // GEVES format: diseaseResistance: { dollarSpot: { rating: 7.5 }, ... }
+            var chips = '';
             Object.keys(diseaseResist).forEach(function (disease) {
                 var val = diseaseResist[disease];
                 var rating = typeof val === 'number' ? val : (val && val.rating);
                 if (typeof rating !== 'number') return;
-                var pct     = Math.round(rating * 10);
-                var cls     = pct >= 70 ? 'good' : pct >= 40 ? 'warning' : 'bad';
-                var label   = pct >= 70 ? 'Resistant' : pct >= 40 ? 'Moderate' : 'Susceptible';
-                rows += '<div style="display:grid;grid-template-columns:1fr 90px 60px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
-                    '<span style="font-size:12px;color:var(--gaip-text)">' + esc(disease) + '</span>' +
-                    '<div style="height:6px;border-radius:3px;background:var(--gaip-border-light,#e8eeeb);overflow:hidden">' +
-                    '<div style="height:100%;width:' + pct + '%;background:var(--gaip-' + cls + ',#059669)"></div></div>' +
-                    '<span style="font-size:11px;font-weight:600;color:var(--gaip-' + cls + ',#059669);text-align:right">' + label + '</span>' +
-                    '</div>';
+                chips += makeResistChip(disease, Math.round(rating * 10));
             });
+            if (chips) rows = '<div style="display:flex;flex-wrap:wrap;gap:6px">' + chips + '</div>';
+        }
+
+        if (!rows && traitData) {
+            // NTEP/regional format: use getDiseaseModifier to resolve regionalTraits
+            var getDM = typeof window !== 'undefined' && (
+                (window.GAIP_VarietyTraits && window.GAIP_VarietyTraits.getDiseaseModifier) ||
+                window.gaip_getRegionalDiseaseModifier ||
+                window.gaip_getDiseaseModifier
+            );
+            var diseaseLabels = {
+                dollarSpot: 'Dollar Spot', brownPatch: 'Brown Patch', pythium: 'Pythium',
+                pythiumRootRot: 'Pythium Root Rot', anthracnose: 'Anthracnose',
+                grayLeafSpot: 'Gray Leaf Spot', springDeadSpot: 'Spring Dead Spot',
+                redThread: 'Red Thread', fusarium: 'Fusarium Patch', largePatch: 'Large Patch'
+            };
+            var diseaseList = ['dollarSpot', 'brownPatch', 'pythium', 'pythiumRootRot',
+                               'anthracnose', 'grayLeafSpot', 'springDeadSpot',
+                               'redThread', 'fusarium', 'largePatch'];
+            if (typeof getDM === 'function') {
+                var chips = '';
+                diseaseList.forEach(function (disease) {
+                    var mod = getDM(speciesKey, variety, disease);
+                    if (!mod || mod.confidence === 'none') return;
+                    var risk = mod.riskMultiplier || 1.0;
+                    // Convert riskMultiplier to 0-100: 0.75→75 (Resistant), 1.0→55 (Moderate), 1.5→25 (Susceptible)
+                    var pct = Math.round(Math.max(0, Math.min(100, (2 - risk) * 60)));
+                    chips += makeResistChip(diseaseLabels[disease] || disease, pct);
+                });
+                if (chips) rows = '<div style="display:flex;flex-wrap:wrap;gap:6px">' + chips + '</div>';
+            }
         }
 
         if (!rows) {

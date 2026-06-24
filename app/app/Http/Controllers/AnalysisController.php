@@ -21,6 +21,8 @@ class AnalysisController extends Controller
 
         $gaipConfig      = [];
         $turfSpecies     = null;
+        $turfVariety     = null;
+        $turfSiteType    = null;
         $overseedSpecies = null;
         $turfMethodology = null;
         $percentC3Cover  = null;
@@ -30,6 +32,8 @@ class AnalysisController extends Controller
             $gaipRecord      = $activeSite->configs()->where('namespace', 'gaip')->first();
             $gaipConfig      = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
+            $turfVariety     = $gaipConfig['turf']['variety'] ?? null;
+            $turfSiteType    = $gaipConfig['turf']['turfType'] ?? null;
             $overseedSpecies = $gaipConfig['turf']['overseedSpecies']
                 ?? $gaipConfig['turf']['coolOverseed']
                 ?? null;
@@ -67,6 +71,8 @@ class AnalysisController extends Controller
             'allSites'        => $allSites,
             'savedLocation'   => $savedLocation,
             'turfSpecies'     => $turfSpecies,
+            'turfVariety'     => $turfVariety,
+            'turfSiteType'    => $turfSiteType,
             'overseedSpecies' => $overseedSpecies,
             'turfMethodology' => $turfMethodology,
             'percentC3Cover'  => $percentC3Cover,

@@ -5,10 +5,18 @@
     Object.assign(window.GAIP_HUB_CONFIG, {
         savedLocation:   @json($savedLocation),
         turfSpecies:     @json($turfSpecies),
+        turfVariety:     @json($turfVariety ?? null),
         overseedSpecies: @json($overseedSpecies),
         turfMethodology: @json($turfMethodology),
         percentC3Cover:  @json($percentC3Cover),
     });
+    window.GAIP_SITE_CONFIG = {
+        turf: {
+            species:  @json($turfSpecies),
+            variety:  @json($turfVariety ?? null),
+            turfType: @json($turfSiteType ?? null),
+        }
+    };
     window.GAIP_SiteContext = {
         getSiteId: function() {
             return (window.GAIP_HUB_CONFIG || {}).activeSiteId || null;
@@ -106,6 +114,17 @@
 <script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}"></script>
 {{-- Router MUST be first so GAIP_ANALYSIS_ROUTER is set before page scripts run --}}
 <script src="{{ $legacyAssetUrl('analysis-router.js') }}"></script>
+{{-- Variety traits must load before disease engine so getDiseaseModifier/getWearModifier are available --}}
+<script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uk-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scanturf-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('geves-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('bsa-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('japan-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scandinavia-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('au-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nz-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('variety-traits-integration.js') }}"></script>
 {{-- Disease engine must load before disease-forecast.js so generateForecast uses the full engine --}}
 <script src="{{ $legacyAssetUrl('disease-engine-pure.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-forecast.js') }}"></script>
