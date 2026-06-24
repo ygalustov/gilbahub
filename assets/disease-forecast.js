@@ -642,7 +642,7 @@ var DiseaseForecast = (function() {
     // applies this multiplier as `adjustedRisk = baseRisk * suscept`
     // so 0 fully suppresses the disease in the timeline output.
     var SPECIES_SUSCEPTIBILITY = {
-        bentgrass: { dollarSpot: 1.3, brownPatch: 1.2, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, grayLeafSpot: 0.3, bipolaris: 0.8, drechslera: 0.6, redThread: 0.9 },
+        bentgrass: { dollarSpot: 1.3, brownPatch: 1.2, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, grayLeafSpot: 0, bipolaris: 0.8, drechslera: 0.6, redThread: 0.9 },
         perennialRyegrass: { dollarSpot: 1.1, brownPatch: 1.2, pythium: 1.4, anthracnose: 0.8, fusarium: 1.0, grayLeafSpot: 1.5, bipolaris: 1.3, drechslera: 1.2, redThread: 1.3 },
         kentuckyBluegrass: { dollarSpot: 1.0, brownPatch: 0.9, pythium: 1.1, anthracnose: 0.7, fusarium: 1.2, grayLeafSpot: 0.4, bipolaris: 0.9, drechslera: 1.5, redThread: 1.1 },
         tallFescue: { dollarSpot: 0.8, brownPatch: 1.4, pythium: 0.9, anthracnose: 0.5, fusarium: 0.7, grayLeafSpot: 0.8, bipolaris: 0.7, drechslera: 0.6, redThread: 0.7 },

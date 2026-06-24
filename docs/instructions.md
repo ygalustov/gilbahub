@@ -250,10 +250,6 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +20. Currently it seems to be using MLSN figures as a reference which they don’t use. GH-126.
 +21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
 +22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test. That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
-
-
-
-22/06/26
 +23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
 +23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications. GH-130, GH-131, GH-132.
 +24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
@@ -264,6 +260,12 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site? - Added API key to your test env. API key is 
  4joY0fKUpX4FA8D034q6c4WkX4uMm6hQ6TqP3JU5
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
+
+
+
+
+
+---
 
 
 31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot.
