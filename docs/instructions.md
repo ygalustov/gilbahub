@@ -224,6 +224,12 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-133** Remove PGR & Irrigation tab and associated scripts: Eliminated references to the PGR & Irrigation analysis from analysis.blade.php and analysis-router.js. 
 **GH-134** Update margin spacing in plan view for improved layout: Adjusted the margin of the progress bar to enhance visual separation and overall design consistency.
 **GH-135** Implement sample update functionality in SampleController: Added an update method to handle sample modifications, including validation and database transactions. Updated routes to include PATCH method for sample updates. Enhanced data display in data.blade.php to include additional sample fields and added edit buttons for user interaction. Updated CSS for new edit button styling.
+**GH-136** Enhance dashboard UI and instructions: Updated CSS for improved layout and responsiveness, including new overflow handling and media queries for better display on various screen sizes. Modified instructions.md to clarify issues and requests related to sample editing and disease reporting.
+
+
+
+
+
 
 
 ## Backlog
@@ -268,21 +274,21 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 ---
 24/06/2026
 
-+31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-134.
-
-32.⁠ ⁠Can we set up a function that allows the sample name to be edited please?
-
-
++31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-134. This one was a tricky one. Could you please check - because I cant reproduce it anymore. 
++32.⁠ ⁠Can we set up a function that allows the sample name to be edited please? GH-135.
 +33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm. GH-107, GH-118.
 
 
-34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software?
++34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software? - 
+
+
+
++36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways. - I beleive it was fixed when I was fixing comment  #15. If you think I still need to do something re this - let me know. 
 
 
 
 
-35.⁠ ⁠Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
-36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways
+
 37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment
 38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same.
 39.⁠ ⁠NZ is only cool season for fairways

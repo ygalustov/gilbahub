@@ -118,6 +118,9 @@ body { margin: 0; padding: 0; }
     display: flex;
     gap: 6px;
     align-items: center;
+    min-width: 0;
+    overflow: hidden;
+    flex-shrink: 1;
 }
 .db-pill {
     padding: 3px 10px;
@@ -359,7 +362,10 @@ body { margin: 0; padding: 0; }
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
+    min-height: 0;
 }
+/* Sections must not shrink — db-body scrolls, sections expand to natural height */
+.db-body > * { flex-shrink: 0; }
 
 /* ---------- Conditions strip ---------- */
 .db-conditions {
@@ -486,6 +492,8 @@ body { margin: 0; padding: 0; }
     line-height: 1;
     margin: 4px 0 2px;
     color: var(--gaip-text, #1a2b23);
+    word-break: break-word;
+    overflow-wrap: anywhere;
 }
 .db-vital-main.critical { color: #dc2626; }
 .db-vital-main.warning  { color: #d97706; }
@@ -495,6 +503,9 @@ body { margin: 0; padding: 0; }
     font-size: 12px;
     color: var(--gaip-text-muted, #6b8878);
     line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .db-vital-sub strong { color: var(--gaip-text-secondary, #3d5c4a); }
 
@@ -502,6 +513,9 @@ body { margin: 0; padding: 0; }
     font-size: 12px;
     font-weight: 600;
     color: #d97706;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Disease Risk — main row (severity + Forecast Peak label) */
@@ -530,6 +544,12 @@ body { margin: 0; padding: 0; }
     margin-top: auto;
     padding-top: 6px;
     border-top: 1px solid var(--gaip-border-light, #dde7e2);
+    overflow: hidden;
+}
+.db-disease-name-row span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 .db-disease-name-dot {
     font-size: 10px;
@@ -542,6 +562,9 @@ body { margin: 0; padding: 0; }
     margin-top: auto;
     padding-top: 6px;
     border-top: 1px solid var(--gaip-border-light, #dde7e2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* VWC segmented zone bar: red | green | red */
@@ -1371,6 +1394,39 @@ body { margin: 0; padding: 0; }
 .gl-rec.monitor  { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
 .gl-rec-priority { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; opacity: .7; }
 
+/* Intermediate breakpoint: 5-col vitals gets cramped below ~1100px */
+@media (max-width: 1100px) {
+    .db-vitals { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* Intermediate breakpoint: action queue + data sources cramped at 769–900px */
+@media (max-width: 900px) {
+    /* Action queue: stack sidebar below content */
+    .db-aq-card {
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+    .db-aq-card-sidebar {
+        width: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+    .db-aq-card-sidebar .db-btn-commit,
+    .db-aq-card-sidebar .db-btn-defer { width: auto; flex: 1; }
+    .db-aq-card-sidebar .db-btn-details { display: none; }
+
+    /* Data sources: 2 columns instead of 3 */
+    .db-sources-grid { grid-template-columns: 1fr 1fr; }
+    .db-source-row {
+        border-bottom: 1px solid var(--gaip-border-light, #dde7e2) !important;
+        border-right: none !important;
+    }
+    .db-source-row:nth-child(odd)       { border-right: 1px solid var(--gaip-border-light, #dde7e2) !important; }
+    .db-source-row:nth-last-child(-n+2) { border-bottom: none !important; }
+}
+
 @media (max-width: 768px) {
     .gl-header-inner { padding: 14px 12px; }
     .gl-kpi-grid     { grid-template-columns: 1fr; gap: 8px; }
@@ -1381,6 +1437,8 @@ body { margin: 0; padding: 0; }
     .db-vitals { grid-template-columns: 1fr 1fr; gap: 8px; }
     .db-vital-card { min-height: 110px; padding: 12px; }
     .db-vital-main { font-size: 26px; }
+    .db-vital-footer { font-size: 10px; }
+    .db-vital-sub    { font-size: 11px; }
 
     /* Data Sources — 2-column grid on mobile */
     .db-sources-grid { grid-template-columns: 1fr 1fr; }
@@ -1509,4 +1567,13 @@ body { margin: 0; padding: 0; }
         justify-content: center;
         line-height: 1;
     }
+}
+
+/* Very narrow phones: tighten conditions strip */
+@media (max-width: 480px) {
+    .db-conditions { gap: 10px; padding: 12px; }
+    .db-conditions-current { min-width: 100px; }
+    .db-conditions-divider { display: none; }
+    .db-forecast-label { font-size: 10px; }
+    .db-forecast-temp  { font-size: 13px; }
 }
