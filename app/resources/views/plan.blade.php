@@ -44,12 +44,18 @@
         var _lat = parseFloat(loc.lat || 0);
         var _lon = parseFloat(loc.lon || loc.lng || 0);
         var _isNZ = (_lon >= 166 && _lon <= 179 && _lat >= -47 && _lat <= -34);
+        var _isAU = (_lon >= 113 && _lon <= 154 && _lat >= -44 && _lat <= -10);
+
+        // Set region so isNewZealand()/isAustralia() in fertiliser integrations can
+        // detect the region without regional-profiles.js (not loaded on this page).
+        var _region = _isNZ ? 'new_zealand' : (_isAU ? 'australia_temperate' : undefined);
 
         // Always set state.location so isNewZealand() can find coordinates
         state.location = Object.assign({}, state.location || {}, {
             lat: _lat || undefined,
             lon: _lon || undefined,
             lng: _lon || undefined,
+            region: _region,
         });
 
         // Methodology: hub.turfMethodology is the authoritative value from Settings (PHP/DB).
