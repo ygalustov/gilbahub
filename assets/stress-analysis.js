@@ -208,7 +208,13 @@
 
         var _isSportsKPI = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
         var primary = traj && traj.summary && traj.summary.primaryStressor ? traj.summary.primaryStressor : null;
-        if (primary === 'traffic' && !_isSportsKPI) primary = null;
+        if (primary === 'traffic' && !_isSportsKPI) {
+            var _comps = (traj && traj.currentComponents) || {};
+            var _nonTraffic = ['thermal', 'light', 'moisture', 'nutrition', 'biotic'];
+            var _best = null, _bestScore = -1;
+            _nonTraffic.forEach(function(k) { if ((_comps[k] || 0) > _bestScore) { _bestScore = _comps[k] || 0; _best = k; } });
+            primary = _bestScore > 0 ? _best : null;
+        }
         var rec     = traj && traj.summary && traj.summary.recommendation
             ? (typeof traj.summary.recommendation === 'string'
                 ? traj.summary.recommendation
