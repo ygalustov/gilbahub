@@ -233,7 +233,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-141** Refine primary stressor assignment in stress analysis logic. Enhanced handling for non-sports KPIs by introducing a fallback mechanism to select the highest scoring non-traffic component when traffic is not applicable. This improves the accuracy of stress analysis results.
 **GH-142** Update primary stressor color assignment in stress analysis. Enhanced the logic to dynamically set the color based on the primary stressor's metadata, improving visual accuracy in stress analysis results.
 **GH-143** Enhance region detection in plan view: Added logic to determine if the location is in New Zealand or Australia, allowing for improved regional handling in fertiliser integrations. Updated state location to include the detected region.
-
+**GH-144** Update NZ fertiliser recommendations and enhance product description: Changed the title from "Prebbles Product Recommendations" to "NZ Fertiliser Recommendations" for clarity. Updated product selection description to specify that products are sourced from NZ distributors for optimal agronomic fit.
 
 
 
@@ -282,18 +282,17 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment. GH-137.
 +38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138, GH-139. 
 
-
+     
 
 
 
 25/06/26
 +40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
++41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
++42.⁠ ⁠For NZ the text should say for NZ distributors. GH-144. 
 
 
-41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? 
 
-
-42.⁠ ⁠For NZ the text should say for NZ distributors
 43.⁠ ⁠There was an ability to add the size/area for individual greens before
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
 45.⁠ ⁠Is it me or is this showing the same light level for every site?
