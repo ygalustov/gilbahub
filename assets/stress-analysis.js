@@ -227,7 +227,7 @@
         var cards = [
             kpiCard('Stress Index',      score != null ? score : '—',                  '/100',      levelBadge(meta),                   meta.color),
             kpiCard('14-Day Peak',       peakScore != null ? peakScore : '—',          '/100',      levelBadge(peakMeta),                peakMeta.color),
-            kpiCard('Primary Stressor',  primary ? capitalize(primary) : '—',          '',          '',                                  '#6b7280'),
+            kpiCard('Primary Stressor',  primary ? capitalize(primary) : '—',          '',          '',                                  primary && FACTOR_META[primary] ? FACTOR_META[primary].color : '#6b7280'),
             kpiCard('Growth Modifier',   growthPct != null ? growthPct + '%' : '—',    'of potential', '',                              growthPct != null && growthPct < 70 ? '#d97706' : '#15803d'),
         ];
 

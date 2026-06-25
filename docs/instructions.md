@@ -231,7 +231,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-139** Refine disease analysis logic and improve product listing: Updated disease-analysis.js to ensure diseases are only shown with a positive risk score, preventing stale treatment windows from displaying irrelevant data. Enhanced product listings by filtering duplicates in recommendations. Updated instructions.md to reference GH-138 for clarity on analysis discrepancies.
 **GH-140** Update stress analysis logic to conditionally handle primary stressor based on site type: Introduced a check for sports KPIs to ensure accurate primary stressor assignment. This change improves the accuracy of stress analysis results.
 **GH-141** Refine primary stressor assignment in stress analysis logic. Enhanced handling for non-sports KPIs by introducing a fallback mechanism to select the highest scoring non-traffic component when traffic is not applicable. This improves the accuracy of stress analysis results.
-
+**GH-142** Update primary stressor color assignment in stress analysis. Enhanced the logic to dynamically set the color based on the primary stressor's metadata, improving visual accuracy in stress analysis results.
 
 
 
@@ -283,7 +283,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 25/06/26
-+40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140. 
++40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
 
 
 41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later?
