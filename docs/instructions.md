@@ -223,12 +223,13 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-132** Enhance PGR calculations and UI updates: Adjusted reapplication window logic to use 75% of threshold for GDD calculations in pgr-forecast.js and plan-ui.js. Updated data.blade.php to clean URL parameters after modal opening for improved user experience. Modified instructions.md to reflect additional GH issue references.
 **GH-133** Remove PGR & Irrigation tab and associated scripts: Eliminated references to the PGR & Irrigation analysis from analysis.blade.php and analysis-router.js. 
 **GH-134** Update margin spacing in plan view for improved layout: Adjusted the margin of the progress bar to enhance visual separation and overall design consistency.
-**GH-135** Implement sample update functionality in SampleController: Added an update method to handle sample modifications, including validation and database transactions. Updated routes to include PATCH method for sample updates. Enhanced data display in data.blade.php to include additional sample fields and added edit buttons for user interaction. Updated CSS for new edit button styling.
+**GH-135** Update disease susceptibility values for bentgrass in disease-forecast.js: Adjusted gray leaf spot susceptibility from 0.3 to 0 for improved accuracy in disease forecasting.
+**GH-135a** Implement sample update functionality in SampleController: Added an update method to handle sample modifications, including validation and database transactions. Updated routes to include PATCH method for sample updates. Enhanced data display in data.blade.php to include additional sample fields and added edit buttons for user interaction. Updated CSS for new edit button styling.
 **GH-136** Enhance dashboard UI and instructions: Updated CSS for improved layout and responsiveness, including new overflow handling and media queries for better display on various screen sizes. Modified instructions.md to clarify issues and requests related to sample editing and disease reporting.
 **GH-137** Enhance analysis functionality: Added turf variety and site type to AnalysisController and updated analysis.blade.php to include these new variables. Improved disease resistance display in disease-analysis.js with a new chip format for better visual representation. Updated instructions.md for clarity on recent issues and requests.
 **GH-138** Update AnalysisController to include companion species in analysis data. Enhanced disease-engine-pure.js to return unique formatted product lines. Revised instructions.md for clarity on cultivar traits and disease risk settings.
 **GH-139** Refine disease analysis logic and improve product listing: Updated disease-analysis.js to ensure diseases are only shown with a positive risk score, preventing stale treatment windows from displaying irrelevant data. Enhanced product listings by filtering duplicates in recommendations. Updated instructions.md to reference GH-138 for clarity on analysis discrepancies.
-
+**GH-140** Update stress analysis logic to conditionally handle primary stressor based on site type: Introduced a check for sports KPIs to ensure accurate primary stressor assignment. This change improves the accuracy of stress analysis results.
 
 
 ## Backlog
@@ -265,33 +266,26 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site? - Added API key to your test env. API key is 
  4joY0fKUpX4FA8D034q6c4WkX4uMm6hQ6TqP3JU5
 +30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
-
-
-
-
-
----
 24/06/2026
-
-+31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-134. This one was a tricky one. Could you please check - because I cant reproduce it anymore. 
-+32.⁠ ⁠Can we set up a function that allows the sample name to be edited please? GH-135.
++31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-135. This one was a tricky one. Could you please check - because I cant reproduce it anymore. 
++32.⁠ ⁠Can we set up a function that allows the sample name to be edited please? GH-135a.
 +33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm. GH-107, GH-118.
 +34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software? GH-136.
 +36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways. - I beleive it was fixed when I was fixing comment  #15. If you think I still need to do something re this - let me know. 
 +37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment. GH-137.
++38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138, GH-139. 
 
 
 
-+38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138.
 
 
 
-39.⁠ ⁠NZ is only cool season for fairways
 40.⁠ ⁠Analysis >stress Still says primary stress traffic
 
 
-
 41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later?
+
+
 42.⁠ ⁠For NZ the text should say for NZ distributors
 43.⁠ ⁠There was an ability to add the size/area for individual greens before
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
@@ -306,7 +300,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 53.⁠ ⁠I have done so “tweaks” send them through as a zip?
 54.⁠ ⁠Where is soil water integration?
 
-
+39.⁠ ⁠NZ is only cool season for fairways
 
 ----
 

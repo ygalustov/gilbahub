@@ -206,7 +206,9 @@
         var peakDate  = traj && traj.summary && traj.summary.peakDate ? fmtDate(traj.summary.peakDate) : null;
         var peakMeta  = traj && traj.summary && traj.summary.peakLevel ? levelMeta(traj.summary.peakLevel) : meta;
 
+        var _isSportsKPI = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
         var primary = traj && traj.summary && traj.summary.primaryStressor ? traj.summary.primaryStressor : null;
+        if (primary === 'traffic' && !_isSportsKPI) primary = null;
         var rec     = traj && traj.summary && traj.summary.recommendation
             ? (typeof traj.summary.recommendation === 'string'
                 ? traj.summary.recommendation
