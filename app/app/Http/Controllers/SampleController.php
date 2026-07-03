@@ -88,6 +88,11 @@ class SampleController extends Controller
             )->fresh(['site']);
         });
 
+        $label = $data['payload']['_label'] ?? null;
+        if ($label && in_array($data['sample_type'], ['soil', 'tissue', 'loi'], true)) {
+            $this->mergeZoneNameIntoSite($site, $label);
+        }
+
         return response()->json([
             'data' => $this->samplePayload($sample),
         ], 201);
@@ -96,11 +101,13 @@ class SampleController extends Controller
     public function sync(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'allSites' => ['required', 'array'],
+            'allSites'    => ['required', 'array'],
             'clearSiteData' => ['nullable', 'boolean'],
+            'sourceFile'  => ['nullable', 'string', 'max:255'],
         ]);
 
         $clearSiteData = (bool) ($data['clearSiteData'] ?? false);
+        $sourceFile    = isset($data['sourceFile']) ? (string) $data['sourceFile'] : null;
 
         $user = $request->user();
         $siteIds = $user->is_admin
@@ -108,8 +115,9 @@ class SampleController extends Controller
             : $user->sites()->pluck('sites.id')->all();
         $synced = 0;
         $deleted = 0;
+        $siteLabels = [];
 
-        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, &$synced, &$deleted) {
+        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, $sourceFile, &$synced, &$deleted, &$siteLabels) {
             foreach ($data['allSites'] as $siteId => $siteData) {
                 if (! is_string($siteId) || ! in_array($siteId, $siteIds, true) || ! is_array($siteData)) {
                     continue;
@@ -157,9 +165,26 @@ class SampleController extends Controller
                         $sampleZone  = isset($sampleData['zoneType']) ? (string) $sampleData['zoneType'] : null;
                         if ($sampleLabel !== null && $sampleLabel !== '') {
                             $payload['_label'] = $sampleLabel;
+                            if (in_array($sampleType, ['soil', 'tissue', 'loi'], true)) {
+                                $siteLabels[$siteId][] = $sampleLabel;
+                            }
+                        }
+                        if ($sourceFile !== null && $sourceFile !== '') {
+                            $payload['_source'] = $sourceFile;
                         }
                         if ($sampleZone !== null && $sampleZone !== '') {
                             $payload['_zone'] = $sampleZone;
+                            $zoneDisplayMap = [
+                                'green'   => 'Greens',
+                                'fairway' => 'Fairways',
+                                'tee'     => 'Tees',
+                                'rough'   => 'Roughs',
+                                'other'   => 'Other',
+                                'turf'    => 'Other',
+                                'water'   => 'Other',
+                                'surface' => 'Other',
+                            ];
+                            $payload['zone'] = $zoneDisplayMap[strtolower($sampleZone)] ?? ucfirst($sampleZone);
                         }
 
                         $clientUid = (string) ($sampleData['id'] ?? $sampleKey ?? '');
@@ -193,6 +218,16 @@ class SampleController extends Controller
                 }
             }
         });
+
+        foreach ($siteLabels as $siteId => $labels) {
+            $site = Site::query()->find($siteId);
+            if (! $site) {
+                continue;
+            }
+            foreach (array_unique($labels) as $label) {
+                $this->mergeZoneNameIntoSite($site, $label);
+            }
+        }
 
         return response()->json([
             'data' => [
@@ -462,5 +497,18 @@ class SampleController extends Controller
             ->where('sample_type', $sampleType)
             ->whereNotIn('id', $keepIds)
             ->delete();
+    }
+
+    private function mergeZoneNameIntoSite(Site $site, string $label): void
+    {
+        $attrs         = $site->attributes_json ?? [];
+        $existingZones = $attrs['zones'] ?? [];
+        $existingLower = array_map('strtolower', $existingZones);
+        if (! in_array(strtolower($label), $existingLower, true)) {
+            $existingZones[]     = $label;
+            $attrs['zones']      = $existingZones;
+            $site->attributes_json = $attrs;
+            $site->save();
+        }
     }
 }

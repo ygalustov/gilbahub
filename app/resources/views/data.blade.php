@@ -68,6 +68,83 @@
 
 @section('styles')
 <link rel="stylesheet" href="{{ $legacyAssetUrl('data-ui.css') }}">
+<style>
+.dat-area-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; font-size: 12px; font-weight: 500;
+    border: 1px solid var(--gaip-border, #d1ddd8); border-radius: var(--gaip-radius-sm, 6px);
+    background: var(--gaip-surface, #fff); color: var(--gaip-text, #1a2b23);
+    cursor: pointer; transition: background 0.15s;
+}
+.dat-area-btn:hover:not(:disabled) { background: var(--gaip-surface-muted, #eef2f0); }
+.dat-area-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.dat-area-modal-inner { max-width: 600px; }
+.dat-area-group { margin-bottom: 24px; }
+.dat-area-group-hd {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 10px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--gaip-border, #d1ddd8);
+}
+.dat-area-group-name { font-weight: 600; font-size: 13px; color: var(--gaip-text, #1a2b23); }
+.dat-area-group-count { font-size: 11px; color: var(--gaip-text-secondary, #5a7a6a); }
+.dat-area-bulk {
+    display: flex; align-items: center; gap: 6px;
+    margin-left: auto; font-size: 12px; color: var(--gaip-text-secondary, #5a7a6a);
+}
+.dat-area-bulk-input {
+    width: 72px; padding: 3px 7px; font-size: 12px;
+    border: 1px solid var(--gaip-border, #d1ddd8); border-radius: 4px;
+    background: var(--gaip-surface, #fff); color: var(--gaip-text, #1a2b23);
+    font-family: inherit;
+}
+.dat-area-bulk-input:focus { outline: none; border-color: var(--gaip-accent, #2d9b5a); }
+.dat-area-bulk-hint { font-size: 11px; color: var(--gaip-text-muted, #8aaa98); white-space: nowrap; }
+.dat-area-col-hd {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0 6px; margin-bottom: 2px;
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--gaip-text-muted, #8aaa98);
+}
+.dat-area-override-label { width: 72px; }
+.dat-area-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 0; border-bottom: 1px solid var(--gaip-surface-muted, #eef2f0);
+    font-size: 12px;
+}
+.dat-area-row:last-child { border-bottom: none; }
+.dat-area-row-name { flex: 1; min-width: 0; color: var(--gaip-text, #1a2b23); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dat-area-row-current { width: 70px; text-align: right; margin-right: 16px; color: var(--gaip-text-secondary, #5a7a6a); font-size: 11px; }
+.dat-area-row-input {
+    width: 72px; padding: 3px 7px; font-size: 12px;
+    border: 1px solid var(--gaip-border, #d1ddd8); border-radius: 4px;
+    background: var(--gaip-surface, #fff); color: var(--gaip-text, #1a2b23);
+    font-family: inherit;
+}
+.dat-area-row-input:focus { outline: none; border-color: var(--gaip-accent, #2d9b5a); }
+.dat-area-row-unit { width: 20px; flex-shrink: 0; color: var(--gaip-text-muted, #8aaa98); font-size: 11px; }
+.dat-td-area { color: var(--gaip-text-secondary, #5a7a6a); }
+.dat-td-source {
+    max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 11px; color: var(--gaip-text-secondary, #5a7a6a);
+}
+.dat-area-intro {
+    padding: 10px 14px; margin-bottom: 8px;
+    background: var(--gaip-surface-muted, #f4f7f5); border-radius: 6px;
+    font-size: 12px; line-height: 1.5; color: var(--gaip-text-secondary, #5a7a6a);
+}
+.dat-area-intro strong { color: var(--gaip-text, #1a2b23); }
+.dat-area-badge {
+    display: inline-block; font-size: 10px; font-weight: 600; padding: 1px 5px;
+    border-radius: 3px; margin-left: 4px; text-transform: uppercase; letter-spacing: 0.03em;
+    vertical-align: middle;
+}
+.dat-area-badge-set { background: #d4edda; color: #1a6630; }
+.dat-area-badge-missing { background: #fce8e6; color: #a33; }
+.dat-area-row-check { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; accent-color: var(--gaip-accent, #2d6a4f); }
+.dat-area-row.skipped { opacity: 0.4; }
+.dat-area-col-hd-check { width: 16px; height: 16px; flex-shrink: 0; }
+.dat-area-col-hd-unit { width: 20px; flex-shrink: 0; }
+</style>
 @endsection
 
 @section('content')
@@ -141,6 +218,14 @@
                     @endif
                 </div>
                 <div class="dat-table-actions">
+                    @if($section === 'soil')
+                    <button class="dat-area-btn" id="dat-area-btn" @if(!$total) disabled @endif>
+                        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"/>
+                        </svg>
+                        Set Area
+                    </button>
+                    @endif
                     @if(!in_array($section, ['sensors', 'spray-log']))
                     <button class="dat-compare-btn" id="dat-compare-btn" disabled>
                         <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -303,35 +388,39 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>Zone</th>
-                        <th>Sample Name</th>
+                        <th>File</th>
+                        <th>Zone type</th>
+                        <th>Zone name</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">pH</th>
                         <th class="dat-th-num">K (ppm)</th>
                         <th class="dat-th-num">P (ppm)</th>
+                        <th class="dat-th-num">Area (ha)</th>
                         <th>Actions</th>
                     </tr></thead>
                     <tbody>
                     @foreach($rows as $row)
                     @php
-                        $pl    = $row->payload ?? [];
-                        $zone  = $pVal($pl, 'zone', 'Zone') ?? '—';
-                        $name  = $row->client_uid ?: ($row->lab_ref ?: "Sample #{$row->id}");
-                        $labId = $row->lab_ref ?: $row->client_uid;
-                        $date  = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
-                        $ph    = $pVal($pl, 'pH', 'ph', 'PH');
-                        $k     = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
-                        $p     = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $pl     = $row->payload ?? [];
+                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
+                        $source = $pVal($pl, '_source');
+                        $labId  = $row->lab_ref ?: null;
+                        $date   = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
+                        $ph     = $pVal($pl, 'pH', 'ph', 'PH');
+                        $k      = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
+                        $p      = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
+                        $rowData = ['id'=>$row->id,'section'=>'soil','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
-                            @if($labId && $labId !== $name)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
+                            @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -341,6 +430,7 @@
                         <td class="dat-td-num">{{ $ph ?? '—' }}</td>
                         <td class="dat-td-num">{{ $k ?? '—' }}</td>
                         <td class="dat-td-num">{{ $p ?? '—' }}</td>
+                        <td class="dat-td-num dat-td-area">{{ isset($pl['areaHa']) && $pl['areaHa'] > 0 ? number_format((float)$pl['areaHa'], 2) : '—' }}</td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
                             <button class="dat-edit-row-btn" type="button">Edit</button>
@@ -358,8 +448,9 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>Zone</th>
-                        <th>Sample Name</th>
+                        <th>File</th>
+                        <th>Zone type</th>
+                        <th>Zone name</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">N (%)</th>
@@ -370,23 +461,25 @@
                     <tbody>
                     @foreach($rows as $row)
                     @php
-                        $pl    = $row->payload ?? [];
-                        $zone  = $pVal($pl, 'zone', 'Zone') ?? '—';
-                        $name  = $row->client_uid ?: ($row->lab_ref ?: "Sample #{$row->id}");
-                        $labId = $row->lab_ref ?: $row->client_uid;
-                        $date  = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
-                        $n     = $pVal($pl, 'N', 'n', 'nitrogen', 'Nitrogen', 'N_total');
-                        $k     = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
-                        $p     = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
-                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $pl     = $row->payload ?? [];
+                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
+                        $source = $pVal($pl, '_source');
+                        $labId  = $row->lab_ref ?: null;
+                        $date   = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
+                        $n      = $pVal($pl, 'N', 'n', 'nitrogen', 'Nitrogen', 'N_total');
+                        $k      = $pVal($pl, 'K', 'k', 'potassium', 'Potassium');
+                        $p      = $pVal($pl, 'P', 'p', 'phosphorus', 'Phosphorus');
+                        $rowData = ['id'=>$row->id,'section'=>'tissue','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="tissue"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
-                            @if($labId && $labId !== $name)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
+                            @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -413,7 +506,8 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>Sample Name</th>
+                        <th>File</th>
+                        <th>Name</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">pH</th>
@@ -424,21 +518,23 @@
                     <tbody>
                     @foreach($rows as $row)
                     @php
-                        $pl    = $row->payload ?? [];
-                        $name  = $row->client_uid ?: ($row->lab_ref ?: "Sample #{$row->id}");
-                        $labId = $row->lab_ref ?: $row->client_uid;
-                        $date  = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
-                        $ph    = $pVal($pl, 'pH', 'ph', 'PH');
-                        $ec    = $pVal($pl, 'EC', 'ec', 'EC_dSm', 'Salinity', 'salinity');
-                        $hco3  = $pVal($pl, 'HCO3', 'hco3', 'bicarbonate', 'Bicarbonate');
-                        $rowData = ['id'=>$row->id,'section'=>'water','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>null,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $pl     = $row->payload ?? [];
+                        $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
+                        $source = $pVal($pl, '_source');
+                        $labId  = $row->lab_ref ?: null;
+                        $date   = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
+                        $ph     = $pVal($pl, 'pH', 'ph', 'PH');
+                        $ec     = $pVal($pl, 'EC', 'ec', 'EC_dSm', 'Salinity', 'salinity');
+                        $hco3   = $pVal($pl, 'HCO3', 'hco3', 'bicarbonate', 'Bicarbonate');
+                        $rowData = ['id'=>$row->id,'section'=>'water','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>null,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="water"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
-                            @if($labId && $labId !== $name)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
+                            @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -465,8 +561,9 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>Zone</th>
-                        <th>Sample Name</th>
+                        <th>File</th>
+                        <th>Zone type</th>
+                        <th>Zone name</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">OM (%)</th>
@@ -476,22 +573,24 @@
                     <tbody>
                     @foreach($rows as $row)
                     @php
-                        $pl    = $row->payload ?? [];
-                        $zone  = $pVal($pl, 'zone', 'Zone') ?? '—';
-                        $name  = $row->client_uid ?: ($row->lab_ref ?: "Sample #{$row->id}");
-                        $labId = $row->lab_ref ?: $row->client_uid;
-                        $date  = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
+                        $pl     = $row->payload ?? [];
+                        $zone   = $pVal($pl, 'zone', 'Zone') ?? '—';
+                        $name   = $pVal($pl, '_label') ?: $row->client_uid ?: $row->lab_ref ?: '—';
+                        $source = $pVal($pl, '_source');
+                        $labId  = $row->lab_ref ?: null;
+                        $date   = $row->lab_date?->toDateString() ?? $row->sample_date?->toDateString();
                         $om     = $pVal($pl, 'OM', 'om', 'organic_matter', 'OrganicMatter', 'LOI');
                         $thatch = $pVal($pl, 'thatch', 'Thatch', 'THATCH');
-                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
+                        $rowData = ['id'=>$row->id,'section'=>'loi','name'=>$name,'source'=>$source,'client_uid'=>$row->client_uid,'lab_name'=>$row->lab_name,'lab_ref'=>$row->lab_ref,'labId'=>$labId,'zone'=>$zone,'date'=>$date,'payload'=>$pl,'notes'=>$row->notes];
                     @endphp
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="loi"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
-                            @if($labId && $labId !== $name)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
+                            @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
@@ -601,6 +700,24 @@
             @endif {{-- /rows or sensors --}}
 
         </div>{{-- /dat-body --}}
+
+        {{-- SET AREA MODAL --}}
+        @if($section === 'soil')
+        <div id="dat-area-modal" class="dat-modal-overlay" style="display:none" aria-modal="true" role="dialog">
+            <div class="dat-modal dat-area-modal-inner">
+                <div class="dat-modal-hd">
+                    <div class="dat-modal-title">Set area (ha) per sample</div>
+                    <button class="dat-modal-x" id="dat-area-modal-close" aria-label="Close">×</button>
+                </div>
+                <div class="dat-modal-bd" id="dat-area-modal-body"></div>
+                <div class="dat-modal-ft">
+                    <span class="dat-modal-msg" id="dat-area-modal-msg"></span>
+                    <button type="button" class="dat-modal-cancel" id="dat-area-modal-cancel">Cancel</button>
+                    <button type="button" class="dat-modal-save" id="dat-area-modal-apply">Apply</button>
+                </div>
+            </div>
+        </div>
+        @endif
 
         {{-- ADD DATA MODAL --}}
         @if($section !== 'sensors')
@@ -1228,7 +1345,7 @@
             'OM': 'OM', 'om': 'OM', 'OM_Percent': 'OM', 'LOI': 'LOI',
             'organic_matter': 'OM', 'Organic Matter': 'OM',
             'Zone': 'zone', 'zone': 'zone',
-            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid', 'sample_id': '__uid',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample ID': '__uid', 'Sample': '__uid', 'sample_id': '__uid',
             'Date': '__date', 'date': '__date', 'Sample_Date': '__date',
             'Lab': '__lab', 'lab': '__lab', 'Lab_Name': '__lab',
         },
@@ -1245,7 +1362,7 @@
             'Cu': 'Cu', 'Cu_mgkg': 'Cu', 'copper': 'Cu',
             'B': 'B', 'B_mgkg': 'B', 'boron': 'B',
             'Zone': 'zone', 'zone': 'zone',
-            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample ID': '__uid', 'Sample': '__uid',
             'Date': '__date', 'date': '__date',
             'Lab': '__lab', 'Lab_Name': '__lab',
         },
@@ -1260,7 +1377,7 @@
             'Cl': 'Cl', 'Cl_mgL': 'Cl', 'chloride': 'Cl',
             'SO4': 'SO4', 'SO4_mgL': 'SO4', 'sulfate': 'SO4',
             'SAR': 'SAR', 'sar': 'SAR',
-            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample ID': '__uid', 'Sample': '__uid',
             'Date': '__date', 'date': '__date',
             'Lab': '__lab', 'Lab_Name': '__lab',
         },
@@ -1270,7 +1387,7 @@
             'thatch': 'thatch', 'Thatch': 'thatch', 'THATCH': 'thatch',
             'moisture': 'moisture', 'Moisture': 'moisture',
             'Zone': 'zone', 'zone': 'zone',
-            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample': '__uid',
+            'Sample_ID': '__uid', 'SampleID': '__uid', 'Sample ID': '__uid', 'Sample': '__uid',
             'Date': '__date', 'date': '__date',
             'Lab': '__lab', 'Lab_Name': '__lab',
         },
@@ -1280,8 +1397,9 @@
     var MANUAL_FORMS = {
         soil: {
             meta: [
-                { id: 'uid',    label: 'Sample Name / ID', placeholder: 'e.g. Green #1' },
-                { id: 'zone',   label: 'Zone',             type: 'zone' },
+                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
+                { id: 'uid',    label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green 1' },
+                { id: 'zone',   label: 'Zone type',        type: 'zone' },
                 { id: 'date',   label: 'Date Collected',   type: 'date' },
                 { id: 'lab',    label: 'Lab Name',         placeholder: 'Optional' },
                 { id: 'labref', label: 'Lab Reference',    placeholder: 'Optional' },
@@ -1306,8 +1424,9 @@
         },
         tissue: {
             meta: [
-                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Greens clipping' },
-                { id: 'zone', label: 'Zone',             type: 'zone' },
+                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
+                { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Greens clipping' },
+                { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
@@ -1326,7 +1445,8 @@
         },
         water: {
             meta: [
-                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Bore water' },
+                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
+                { id: 'uid',  label: 'Name', placeholder: 'e.g. Bore water' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
@@ -1345,8 +1465,9 @@
         },
         loi: {
             meta: [
-                { id: 'uid',  label: 'Sample Name / ID', placeholder: 'e.g. Green centre' },
-                { id: 'zone', label: 'Zone',             type: 'zone' },
+                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
+                { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green centre' },
+                { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
@@ -1358,7 +1479,8 @@
         },
     };
 
-    var ZONES = ['Greens','Tees','Fairways','Surrounds','Roughs','Other'];
+    var ZONES      = ['Greens','Tees','Fairways','Surrounds','Roughs','Other'];
+    var ZONE_NAMES = @json($activeSite->attributes_json['zones'] ?? []);
     var SPRAY_CATS = [
         { id: 'fungicide',    label: 'Fungicide' },
         { id: 'pgr',          label: 'PGR' },
@@ -1543,6 +1665,20 @@
             if (key === '__lab')  { lab  = val; return; }
             payload[key] = val;
         });
+        // Store zone name in _label and auto-detect zone type from it
+        if (uid && ['soil','tissue','loi'].indexOf(section) !== -1) {
+            payload['_label'] = uid;
+            if (!payload['zone']) {
+                var u = uid.toLowerCase();
+                var zoneType = u.indexOf('green')   !== -1 ? 'Greens'
+                             : u.indexOf('fairway') !== -1 ? 'Fairways'
+                             : u.indexOf('tee')     !== -1 ? 'Tees'
+                             : u.indexOf('rough')   !== -1 ? 'Roughs'
+                             : u.indexOf('surround')!== -1 ? 'Surrounds'
+                             : null;
+                if (zoneType) payload['zone'] = zoneType;
+            }
+        }
         return { payload: payload, uid: uid, date: date, lab: lab };
     }
 
@@ -1614,8 +1750,11 @@
     }
 
     function prefillManualForm(data) {
+        var sourceEl = q('dat-f-source');
+        if (sourceEl) sourceEl.value = data.source || '';
+
         var uidEl = q('dat-f-uid');
-        if (uidEl) uidEl.value = data.client_uid || '';
+        if (uidEl) uidEl.value = (data.name && data.name !== '—') ? data.name : (data.client_uid || '');
 
         var zoneEl = q('dat-f-zone');
         if (zoneEl && data.zone && data.zone !== '—') zoneEl.value = data.zone;
@@ -1709,7 +1848,18 @@
             metaHTML += '<div class="dat-mf-field">';
             metaHTML += '<label class="dat-mf-label">' + esc(f.label) + '</label>';
             if (f.type === 'zone') {
-                metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone —</option>' + zoneOpts + '</select>';
+                metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone type —</option>' + zoneOpts + '</select>';
+            } else if (f.type === 'zone-name') {
+                if (ZONE_NAMES.length) {
+                    var znOpts = ZONE_NAMES.map(function(n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+                    metaHTML += '<select class="dat-mf-select" id="dat-f-' + f.id + '"><option value="">— Select zone name —</option>' + znOpts + '</select>';
+                    metaHTML += '<div style="margin-top:6px;display:flex;gap:6px;align-items:center">'
+                        + '<input type="text" class="dat-mf-input" id="dat-new-zone-input" placeholder="Or add new zone…" style="flex:1;margin:0;font-size:12px">'
+                        + '<button type="button" id="dat-add-zone-btn" style="flex-shrink:0;padding:6px 10px;background:var(--gaip-accent,#2d6a4f);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">Add</button>'
+                        + '</div>';
+                } else {
+                    metaHTML += '<input type="text" class="dat-mf-input" id="dat-f-' + f.id + '" placeholder="' + esc(f.placeholder||'') + '">';
+                }
             } else if (f.type === 'date') {
                 metaHTML += '<input type="date" class="dat-mf-input" id="dat-f-' + f.id + '" value="' + todayISO() + '">';
             } else {
@@ -1763,6 +1913,50 @@
     }
 
     // ── Wire modal events ─────────────────────────────────────────
+    function addZoneToSite(name) {
+        name = (name || '').trim();
+        if (!name) return;
+        var btn = document.getElementById('dat-add-zone-btn');
+        var sel = document.getElementById('dat-f-uid');
+
+        var lowerName = name.toLowerCase();
+        var exists = ZONE_NAMES.some(function(z) { return z.toLowerCase() === lowerName; });
+        if (exists) {
+            if (sel) {
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value.toLowerCase() === lowerName) { sel.value = sel.options[i].value; break; }
+                }
+            }
+            var inp0 = document.getElementById('dat-new-zone-input');
+            if (inp0) inp0.value = '';
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+        var updated = ZONE_NAMES.concat([name]);
+        fetch('/api/sites/' + SITE_ID, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+            body: JSON.stringify({ attributes_json: { zones: updated } })
+        }).then(function(res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            ZONE_NAMES = updated;
+            if (sel) {
+                var opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                sel.appendChild(opt);
+                sel.value = name;
+            }
+            var inp = document.getElementById('dat-new-zone-input');
+            if (inp) inp.value = '';
+            if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+        }).catch(function(e) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+            setMsg('Could not save zone: ' + e.message, 'err');
+        });
+    }
+
     function wireModalBody() {
         // Tabs
         document.querySelectorAll('.dat-modal-tab').forEach(function(btn) {
@@ -1784,6 +1978,21 @@
         document.querySelectorAll('.dat-zone-pill').forEach(function(pill) {
             pill.addEventListener('click', function() { this.classList.toggle('sel'); });
         });
+
+        // Add new zone button
+        var addZoneBtn = document.getElementById('dat-add-zone-btn');
+        if (addZoneBtn) {
+            addZoneBtn.addEventListener('click', function() {
+                var inp = document.getElementById('dat-new-zone-input');
+                if (inp) addZoneToSite(inp.value);
+            });
+        }
+        var newZoneInput = document.getElementById('dat-new-zone-input');
+        if (newZoneInput) {
+            newZoneInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') { e.preventDefault(); addZoneToSite(this.value); }
+            });
+        }
 
         // CSV drop zone
         var dropZone = q('dat-drop-zone');
@@ -1824,25 +2033,30 @@
                     resultEl.innerHTML = '<div class="dat-upload-msg err">No recognisable columns found. Check the file matches the expected format.</div>';
                     return;
                 }
+                extracted.payload['_source'] = file.name;
                 _parsedCSV = extracted;
-                var fieldCount = Object.keys(extracted.payload).length;
+                var metaKeys = { '_label': true, '_source': true, '_zone': true, 'zone': true };
+                var fieldCount = Object.keys(extracted.payload).filter(function(k) { return !metaKeys[k]; }).length;
                 if (!fieldCount) {
                     resultEl.innerHTML = '<div class="dat-upload-msg err">No nutrient/measurement columns matched. Check column headers match the expected format.</div>';
                     return;
                 }
 
                 var previewRows = '';
-                if (extracted.uid)  previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Sample Name</span><span class="dat-upload-prev-val">' + esc(extracted.uid) + '</span></div>';
+                if (extracted.uid)  previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Zone name</span><span class="dat-upload-prev-val">' + esc(extracted.uid) + '</span></div>';
                 if (extracted.date) previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Date</span><span class="dat-upload-prev-val">' + esc(extracted.date) + '</span></div>';
                 if (extracted.lab)  previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">Lab</span><span class="dat-upload-prev-val">' + esc(extracted.lab) + '</span></div>';
-                Object.keys(extracted.payload).slice(0, 12).forEach(function(key) {
+                Object.keys(extracted.payload).filter(function(k) { return !metaKeys[k]; }).slice(0, 12).forEach(function(key) {
                     previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name">' + esc(key) + '</span><span class="dat-upload-prev-val">' + esc(extracted.payload[key]) + '</span></div>';
                 });
-                if (Object.keys(extracted.payload).length > 12) {
-                    previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name" style="color:var(--gaip-text-muted)">+ ' + (Object.keys(extracted.payload).length - 12) + ' more fields…</span></div>';
+                var extraCount = Object.keys(extracted.payload).filter(function(k) { return !metaKeys[k]; }).length - 12;
+                if (extraCount > 0) {
+                    previewRows += '<div class="dat-upload-prev-row"><span class="dat-upload-prev-name" style="color:var(--gaip-text-muted)">+ ' + extraCount + ' more fields…</span></div>';
                 }
                 var rowLabel = parsed.rows.length > 1 ? (parsed.rows.length + ' rows — using row 1') : '1 row';
                 resultEl.innerHTML = '<div class="dat-upload-msg ok">✓ Parsed successfully · ' + fieldCount + ' fields · ' + rowLabel + '</div>'
+                    + '<div class="dat-mf-field" style="margin:10px 0 4px"><label class="dat-mf-label">Source file name</label>'
+                    + '<input type="text" class="dat-mf-input" id="dat-upload-source" value="' + esc(file.name) + '"></div>'
                     + '<div class="dat-upload-preview"><div class="dat-upload-prev-title">Preview — Row 1</div>' + previewRows + '</div>';
             } catch(err) {
                 resultEl.innerHTML = '<div class="dat-upload-msg err">Parse error: ' + esc(err.message) + '</div>';
@@ -1855,6 +2069,10 @@
     function collectLabData() {
         if (_activeTab === 'upload') {
             if (!_parsedCSV) { setMsg('Please upload and parse a CSV file first.', 'err'); return null; }
+            var sourceInput = document.getElementById('dat-upload-source');
+            if (sourceInput && sourceInput.value.trim()) {
+                _parsedCSV.payload['_source'] = sourceInput.value.trim();
+            }
             return {
                 sample_type: SECTION,
                 site_id: SITE_ID,
@@ -1874,21 +2092,27 @@
         var zoneEl = q('dat-f-zone');
         if (zoneEl && zoneEl.value) payload.zone = zoneEl.value;
 
+        var source= (q('dat-f-source') || {}).value || null;
         var uid   = (q('dat-f-uid')    || {}).value || '';
         var date  = (q('dat-f-date')   || {}).value || null;
         var lab   = (q('dat-f-lab')    || {}).value || null;
         var labRef= (q('dat-f-labref') || {}).value || null;
         var notes = (q('dat-f-notes')  || {}).value || null;
 
+        if (source) payload['_source'] = source;
+        if (uid && ['soil','tissue','loi'].indexOf(SECTION) !== -1) {
+            payload['_label'] = uid;
+        }
+
         if (!uid && !Object.keys(payload).length) {
-            setMsg('Please enter at least a sample name or some measurements.', 'err');
+            setMsg('Please enter at least a zone name or some measurements.', 'err');
             return null;
         }
 
         return {
             sample_type: SECTION,
             site_id: SITE_ID,
-            client_uid: uid || null,
+            client_uid: null,
             lab_name:   lab  || null,
             lab_ref:    labRef || null,
             lab_date:   date || null,
@@ -2464,6 +2688,249 @@
     } else {
         init();
     }
+}());
+</script>
+@endif
+
+@if($section === 'soil')
+<script>
+(function () {
+    var CSRF = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+    var areaBtn    = document.getElementById('dat-area-btn');
+    var modal      = document.getElementById('dat-area-modal');
+    var modalBody  = document.getElementById('dat-area-modal-body');
+    var modalMsg   = document.getElementById('dat-area-modal-msg');
+    var closeBtn   = document.getElementById('dat-area-modal-close');
+    var cancelBtn  = document.getElementById('dat-area-modal-cancel');
+    var applyBtn   = document.getElementById('dat-area-modal-apply');
+
+    if (!areaBtn || !modal) return;
+
+    var GROUP_LABELS = {
+        green: 'Greens', fairway: 'Fairways', tee: 'Tees', rough: 'Rough',
+        approach: 'Approaches', collar: 'Collars', bunker: 'Bunkers',
+        sports_pitch: 'Sports Pitches', goal_area: 'Goal Areas', other: 'Other'
+    };
+    var GROUP_HINTS = {
+        green: '0.04–0.09 ha typical per green',
+        fairway: '1.5–5 ha typical per fairway',
+        tee: '0.02–0.1 ha typical',
+        rough: '1–10 ha typical',
+        other: '0.5 ha default'
+    };
+
+    function collectRows() {
+        var rows = [];
+        document.querySelectorAll('#dat-table .dat-row').forEach(function (tr) {
+            var d = {};
+            try { d = JSON.parse(tr.dataset.row || '{}'); } catch (_) {}
+            if (!d.id) return;
+            var pl = d.payload || {};
+            // Use zone name as display label (e.g. "Green 4"), fall back to client_uid
+            var displayName = (d.zone && d.zone !== '—') ? d.zone : (d.name || '—');
+            // Zone type: prefer payload._zone, then detect from zone string
+            var zt = (pl._zone || pl.zoneType || '').toLowerCase();
+            if (!zt) {
+                var zl = (d.zone || '').toLowerCase();
+                zt = zl.startsWith('green') ? 'green'
+                   : zl.startsWith('fair')  ? 'fairway'
+                   : zl.startsWith('tee')   ? 'tee'
+                   : zl.startsWith('rough') ? 'rough'
+                   : zl.startsWith('approach') ? 'approach'
+                   : zl.startsWith('collar')   ? 'collar'
+                   : zl.startsWith('bunker')   ? 'bunker'
+                   : 'other';
+            }
+            rows.push({
+                id: d.id,
+                name: displayName,
+                zone: d.zone || '—',
+                zoneType: zt,
+                payload: pl,
+                currentArea: parseFloat(pl.areaHa) || null,
+            });
+        });
+        return rows;
+    }
+
+    function renderModal(rows) {
+        var grouped = {};
+        rows.forEach(function (r) {
+            if (!grouped[r.zoneType]) grouped[r.zoneType] = [];
+            grouped[r.zoneType].push(r);
+        });
+        var zoneTypes = Object.keys(grouped);
+        var missing = rows.filter(function (r) { return !r.currentArea; }).length;
+
+        // Intro text
+        var introText = rows.length + ' soil sample' + (rows.length === 1 ? '' : 's') + ' across '
+            + zoneTypes.length + ' zone type' + (zoneTypes.length === 1 ? '' : 's') + '. '
+            + (missing > 0
+                ? '<strong>' + missing + ' missing area data.</strong> '
+                : 'All samples have area set. ')
+            + 'Set a value for an entire group, or override specific samples. Uncheck any sample to skip it.';
+        var html = '<div class="dat-area-intro">' + introText + '</div>';
+
+        zoneTypes.forEach(function (zt) {
+            var group = grouped[zt];
+            var label = GROUP_LABELS[zt] || zt;
+            var hint  = GROUP_HINTS[zt] || '';
+            html += '<div class="dat-area-group" data-zone-type="' + zt + '">';
+            html += '<div class="dat-area-group-hd">';
+            html += '<input type="checkbox" class="dat-area-group-check dat-area-row-check" checked title="Select all in group">';
+            html += '<span class="dat-area-group-name">' + label + '</span>';
+            html += '<span class="dat-area-group-count">(' + group.length + ')</span>';
+            html += '<div class="dat-area-bulk">';
+            html += '<span>Apply to all in group:</span>';
+            html += '<input type="number" class="dat-area-bulk-input" min="0.001" max="100" step="0.01" placeholder="e.g. 0.05">';
+            html += '<span>ha</span>';
+            if (hint) html += '<span class="dat-area-bulk-hint">' + hint + '</span>';
+            html += '</div></div>';
+
+            html += '<div class="dat-area-col-hd">';
+            html += '<span class="dat-area-col-hd-check"></span>';
+            html += '<span class="dat-area-row-name">Sample</span>';
+            html += '<span class="dat-area-row-current">Current</span>';
+            html += '<span class="dat-area-override-label">Override (optional)</span>';
+            html += '<span class="dat-area-col-hd-unit"></span>';
+            html += '</div>';
+
+            group.forEach(function (r) {
+                var cur = r.currentArea ? r.currentArea.toFixed(2) : '';
+                var badge = r.currentArea
+                    ? '<span class="dat-area-badge dat-area-badge-set">set</span>'
+                    : '<span class="dat-area-badge dat-area-badge-missing">missing</span>';
+                html += '<div class="dat-area-row" data-id="' + r.id + '">';
+                html += '<input type="checkbox" class="dat-area-row-check" checked aria-label="Include this sample">';
+                html += '<span class="dat-area-row-name" title="' + r.name + '">' + r.name + badge + '</span>';
+                html += '<span class="dat-area-row-current">' + (cur ? cur + ' ha' : '—') + '</span>';
+                html += '<input type="number" class="dat-area-row-input" min="0.001" max="100" step="0.01" placeholder="per-sample override" value="' + cur + '">';
+                html += '<span class="dat-area-row-unit">ha</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+
+        modalBody.innerHTML = html;
+
+        modalBody.querySelectorAll('.dat-area-group').forEach(function (grp) {
+            var groupCheck = grp.querySelector('.dat-area-group-check');
+            var bulkInput  = grp.querySelector('.dat-area-bulk-input');
+
+            // Group checkbox toggles all row checkboxes
+            if (groupCheck) {
+                groupCheck.addEventListener('change', function () {
+                    grp.querySelectorAll('.dat-area-row-check').forEach(function (c) {
+                        c.checked = groupCheck.checked;
+                    });
+                    grp.querySelectorAll('.dat-area-row').forEach(function (row) {
+                        row.classList.toggle('skipped', !groupCheck.checked);
+                    });
+                    updateApplyLabel();
+                });
+            }
+
+            // Row checkboxes update skipped state
+            grp.querySelectorAll('.dat-area-row-check').forEach(function (c) {
+                c.addEventListener('change', function () {
+                    var row = c.closest('.dat-area-row');
+                    if (row) row.classList.toggle('skipped', !c.checked);
+                    updateApplyLabel();
+                });
+            });
+
+            // Bulk input fills all checked rows
+            bulkInput.addEventListener('input', function () {
+                var v = bulkInput.value;
+                grp.querySelectorAll('.dat-area-row').forEach(function (row) {
+                    var check = row.querySelector('.dat-area-row-check');
+                    if (check && check.checked) {
+                        row.querySelector('.dat-area-row-input').value = v;
+                    }
+                });
+            });
+        });
+
+        updateApplyLabel();
+    }
+
+    function updateApplyLabel() {
+        var checked = modalBody.querySelectorAll('.dat-area-row .dat-area-row-check:checked').length;
+        applyBtn.textContent = checked > 0 ? 'Apply to ' + checked + ' sample' + (checked === 1 ? '' : 's') : 'Apply';
+    }
+
+    function openModal() {
+        renderModal(collectRows());
+        modalMsg.textContent = '';
+        modalMsg.className = 'dat-modal-msg';
+        applyBtn.disabled = false;
+        applyBtn.textContent = 'Apply';
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() { modal.style.display = 'none'; }
+
+    areaBtn.addEventListener('click', openModal);
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.style.display !== 'none') closeModal();
+    });
+
+    applyBtn.addEventListener('click', async function () {
+        var rows = [];
+        modalBody.querySelectorAll('.dat-area-row').forEach(function (row) {
+            var check = row.querySelector('.dat-area-row-check');
+            if (check && !check.checked) return;  // skipped by user
+            var id  = row.dataset.id;
+            var val = parseFloat(row.querySelector('.dat-area-row-input').value);
+            if (id && !isNaN(val) && val > 0) rows.push({ id: id, areaHa: val });
+        });
+
+        if (!rows.length) {
+            modalMsg.textContent = 'Nothing to apply — enter a value or uncheck fewer samples.';
+            modalMsg.className = 'dat-modal-msg err';
+            return;
+        }
+
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Saving…';
+
+        var payloadMap = {};
+        document.querySelectorAll('#dat-table .dat-row').forEach(function (tr) {
+            var d = {};
+            try { d = JSON.parse(tr.dataset.row || '{}'); } catch (_) {}
+            if (d.id) payloadMap[String(d.id)] = d.payload || {};
+        });
+
+        var errors = 0;
+        for (var i = 0; i < rows.length; i++) {
+            var item = rows[i];
+            var payload = Object.assign({}, payloadMap[item.id] || {}, { areaHa: item.areaHa });
+            try {
+                var res = await fetch('/api/samples/' + item.id, {
+                    method: 'PATCH',
+                    credentials: 'same-origin',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF },
+                    body: JSON.stringify({ payload: payload })
+                });
+                if (!res.ok) errors++;
+            } catch (_) { errors++; }
+        }
+
+        if (errors) {
+            modalMsg.textContent = errors + ' error(s). Some areas may not have saved.';
+            modalMsg.className = 'dat-modal-msg err';
+            applyBtn.disabled = false;
+            applyBtn.textContent = 'Apply';
+        } else {
+            modalMsg.textContent = rows.length + ' sample(s) updated.';
+            modalMsg.className = 'dat-modal-msg ok';
+            setTimeout(function () { closeModal(); location.reload(); }, 800);
+        }
+    });
 }());
 </script>
 @endif

@@ -1384,10 +1384,13 @@
         impStepPreview.classList.remove('stg-hidden');
     }
 
+    var _impSourceFile = null;
+
     if (impFileInput) {
         impFileInput.addEventListener('change', function () {
             var file = impFileInput.files && impFileInput.files[0];
             if (!file) return;
+            _impSourceFile = file.name;
             if (impFileName) impFileName.textContent = file.name;
 
             var reader = new FileReader();
@@ -1610,7 +1613,7 @@
                 localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smaps));
             } catch (_e) {}
 
-            apiFetch('POST', '/samples/sync', { allSites: remapped, clearSiteData: true })
+            apiFetch('POST', '/samples/sync', { allSites: remapped, clearSiteData: true, sourceFile: _impSourceFile || null })
                 .then(function (data) {
                     var synced = (data && data.data && data.data.synced) || 0;
                     return applySiteConfig(_bundle).then(function () { return synced; });

@@ -751,7 +751,7 @@
                 <div class="stg-panel stg-hidden" id="stg-tab-zones" role="tabpanel">
                     <div class="stg-card">
                         <div class="stg-card-head">
-                            <div class="stg-card-title">Zones</div>
+                            <div class="stg-card-title">Zone names</div>
                             <div class="stg-card-desc">Named areas on this site — used when logging soil, tissue, and spray data.</div>
                         </div>
 
@@ -761,7 +761,7 @@
 
                         <div class="stg-zone-add">
                             <input type="text" id="stg-zone-input"
-                                   placeholder="New zone name (e.g. Greens)"
+                                   placeholder="New zone name (e.g. Green 1)"
                                    maxlength="60" class="stg-zone-input">
                             <button type="button" class="stg-btn-secondary" id="stg-zone-add-btn">Add</button>
                         </div>

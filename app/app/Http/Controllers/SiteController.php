@@ -166,6 +166,13 @@ class SiteController extends Controller
             $data['slug'] = $this->uniqueSlug($site->account_id, $data['name'], $site->id);
         }
 
+        if (isset($data['attributes_json'])) {
+            $data['attributes_json'] = array_merge(
+                $site->attributes_json ?? [],
+                $data['attributes_json']
+            );
+        }
+
         $data['modified_by_user_id'] = $request->user()->id;
         $site->update($data);
 

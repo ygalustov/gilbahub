@@ -234,7 +234,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-142** Update primary stressor color assignment in stress analysis. Enhanced the logic to dynamically set the color based on the primary stressor's metadata, improving visual accuracy in stress analysis results.
 **GH-143** Enhance region detection in plan view: Added logic to determine if the location is in New Zealand or Australia, allowing for improved regional handling in fertiliser integrations. Updated state location to include the detected region.
 **GH-144** Update NZ fertiliser recommendations and enhance product description: Changed the title from "Prebbles Product Recommendations" to "NZ Fertiliser Recommendations" for clarity. Updated product selection description to specify that products are sourced from NZ distributors for optimal agronomic fit.
-
+**GH-144** Enhance Sample and Site Controllers with zone management and source file handling: Added logic to merge zone names into sites based on sample types in SampleController. Updated sync method to include source file in the request and improved attributes merging in SiteController. Enhanced data display in views to accommodate new fields and styles for better user interaction.
 
 
 
@@ -281,11 +281,6 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways. - I beleive it was fixed when I was fixing comment  #15. If you think I still need to do something re this - let me know. 
 +37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment. GH-137.
 +38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138, GH-139. 
-
-     
-
-
-
 25/06/26
 +40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
 +41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
@@ -293,7 +288,10 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 
 
-43.⁠ ⁠There was an ability to add the size/area for individual greens before
+43.⁠ ⁠There was an ability to add the size/area for individual greens before. 
+
+
+
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
 45.⁠ ⁠Is it me or is this showing the same light level for every site?
 46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month?
@@ -305,10 +303,37 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window
 53.⁠ ⁠I have done so “tweaks” send them through as a zip?
 54.⁠ ⁠Where is soil water integration?
+54.⁠ ⁠GP Hydrosight is 70 vs 48
+55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe.
+56.⁠ ⁠stress index is ok as its 22 vs 19
+57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
+58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-)
+59.hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
+60.⁠ ⁠Gilba Solutions Pty Ltd: soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
+61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc
+62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz
+63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
+64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
+65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one
+66.⁠ ⁠same with water tests as with soil (65)
+when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
+
+
 
 39.⁠ ⁠NZ is only cool season for fairways
 
 ----
+
+
+то есть по сути мы загрузили пробы и например для 
+
+when I add zone and do not click Save - i still able to move to another page but I should see same popu p as on other page settings - if i want to save data
+
+
+----
+
+
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)
 
