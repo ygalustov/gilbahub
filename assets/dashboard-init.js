@@ -322,17 +322,7 @@
     function populateWeather(lat, lon) {
         var locKey = parseFloat(lat).toFixed(4) + '_' + parseFloat(lon).toFixed(4);
 
-        // Try exact key first, then any weather cache key
         var raw = localStorage.getItem('gaip_weather_cache_' + locKey);
-        if (!raw) {
-            for (var i = 0; i < localStorage.length; i++) {
-                var k = localStorage.key(i);
-                if (k && k.startsWith('gaip_weather_cache_')) {
-                    raw = localStorage.getItem(k);
-                    break;
-                }
-            }
-        }
 
         var entry = safeJson(raw);
         var data  = entry && entry.data ? entry.data : null;
@@ -371,40 +361,39 @@
         var gpRaw = m.growthPotential != null ? m.growthPotential
                   : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null);
 
-        // Show error banner and update Data Sources when GP is missing (weather fetch failed)
-        var weatherFailed = (gpRaw == null);
-        if (errEl) errEl.style.display = weatherFailed ? 'flex' : 'none';
+        // Determine weather state: live API reached, or fallback was used
+        var _wxSrc = m.weatherSource; // 'live', 'cache', 'manual_override', undefined
+        var weatherLive = (_wxSrc === 'live');
+        var weatherManual = (_wxSrc === 'manual_override' || _wxSrc === 'cache');
+        var weatherFailed = (gpRaw == null); // neither live nor manual produced GP
+
+        // Banners: red = no GP at all; amber = GP from manual override
+        var manualEl = el('db-analysis-manual');
+        if (errEl)    errEl.style.display    = weatherFailed ? 'flex' : 'none';
+        if (manualEl) manualEl.style.display = (!weatherFailed && weatherManual) ? 'flex' : 'none';
+
+        // Data Sources "Weather" row: Live (green) if API responded, else Unavailable (warning)
         var wDot    = el('db-src-weather-dot');
         var wStatus = el('db-src-weather-status');
-        if (weatherFailed) {
-            if (wDot)    { wDot.className    = 'db-source-dot warning'; }
-            if (wStatus) { wStatus.className = 'db-source-status-text warning'; wStatus.textContent = 'Unavailable'; }
-            // Increment the issue count in the footer
-            var issuesPart = el('db-sources-issues-part');
-            var issueCount = el('db-sources-issue-count');
-            var okCount    = el('db-sources-ok-count');
-            var score      = el('db-sources-score');
-            var fill       = el('db-sources-progress-fill');
-            if (issueCount) {
-                var cur = parseInt(issueCount.textContent) || 0;
-                issueCount.textContent = (cur + 1) + ' needs update';
-            }
-            if (issuesPart) issuesPart.style.display = '';
-            if (okCount) {
-                var okCur = parseInt(okCount.textContent) || 0;
-                if (okCur > 0) okCount.textContent = okCur - 1;
-            }
-            if (score) {
-                var parts = (score.textContent || '').match(/(\d+)\/(\d+)/);
-                if (parts) score.textContent = (parseInt(parts[1]) - 1) + '/' + parts[2] + ' sources';
-            }
-            if (fill) {
-                var pct = parseFloat(fill.style.width) || 0;
-                fill.style.width = Math.max(0, pct - 100/6) + '%';
-            }
-        } else {
+        if (weatherLive) {
             if (wDot)    { wDot.className    = 'db-source-dot ok'; }
             if (wStatus) { wStatus.className = 'db-source-status-text ok'; wStatus.textContent = 'Live'; }
+        } else {
+            if (wDot)    { wDot.className    = 'db-source-dot warning'; }
+            if (wStatus) { wStatus.className = 'db-source-status-text warning'; wStatus.textContent = 'Unavailable'; }
+            // Increment the issue count in the footer only when weather truly failed (no GP)
+            if (weatherFailed) {
+                var issuesPart = el('db-sources-issues-part');
+                var issueCount = el('db-sources-issue-count');
+                var okCount    = el('db-sources-ok-count');
+                var score      = el('db-sources-score');
+                var fill       = el('db-sources-progress-fill');
+                if (issueCount) { var cur = parseInt(issueCount.textContent) || 0; issueCount.textContent = (cur + 1) + ' needs update'; }
+                if (issuesPart) issuesPart.style.display = '';
+                if (okCount) { var okCur = parseInt(okCount.textContent) || 0; if (okCur > 0) okCount.textContent = okCur - 1; }
+                if (score) { var parts = (score.textContent || '').match(/(\d+)\/(\d+)/); if (parts) score.textContent = (parseInt(parts[1]) - 1) + '/' + parts[2] + ' sources'; }
+                if (fill) { var pct = parseFloat(fill.style.width) || 0; fill.style.width = Math.max(0, pct - 100/6) + '%'; }
+            }
         }
 
         if (gpRaw != null) {

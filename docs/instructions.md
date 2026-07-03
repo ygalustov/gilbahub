@@ -238,8 +238,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-145** Refactor CSS for actions cell and update instructions: Changed the display properties of the actions cell to use vertical alignment instead of flexbox for better layout consistency. 
 **GH-146** Enhance dashboard and settings views: Added an error banner to the dashboard for weather fetch failures, improving user feedback during analysis. Updated settings view to include an ID for the zones form, facilitating better event handling in JavaScript.
 **GH-147** Enhance dashboard weather status handling: Updated the dashboard to include specific IDs for weather status elements, improving JavaScript interaction. Added logic to display an error banner and update the status indicators when weather data fetch fails, enhancing user feedback during analysis.
+**GH-148** Enhance dashboard weather handling: Updated error banners to provide clearer feedback on weather data fetch failures and manual overrides. Improved JavaScript logic to differentiate between live, cached, and manual weather data sources, ensuring accurate status updates and user notifications.
 
-GH-146: Update zones management in settings view: Added an ID to the zones form for better DOM manipulation and enhanced JavaScript functionality to handle form submission and state tracking. Improved user interaction by ensuring zones are marked as dirty on changes and after saving.
+
+
 
 
 ## Backlog
@@ -314,7 +316,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
 58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-)
 59.hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
-60.⁠ ⁠Gilba Solutions Pty Ltd: soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
 61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc
 62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
@@ -327,7 +329,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 ----
-
+ and also we need to let client know that data is estimated based on the manula data - maybe in the same banner? but after calculation change the text? 
 
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)

@@ -1481,6 +1481,20 @@
             metrics.soilTemp        = _cc.soilTemp?.depths?.d100mm ?? _cc.soilTemp?.estimated ?? (typeof _cc.soilTemp === 'number' ? _cc.soilTemp : null);
         }
         
+        // Weather source — track whether data came from live API, cache, or manual override
+        var _rawWx = global.rawWeatherData;
+        var _wxStatus = global.GAIP_WeatherResilience && typeof global.GAIP_WeatherResilience.getStatus === 'function'
+            ? global.GAIP_WeatherResilience.getStatus() : null;
+        if (_rawWx && _rawWx._source === 'settings_override') {
+            metrics.weatherSource = 'manual_override';
+        } else if (_wxStatus && _wxStatus.source === 'manual_override') {
+            metrics.weatherSource = 'manual_override';
+        } else if (_wxStatus && (_wxStatus.status === 'cached' || _wxStatus.status === 'cached_stale')) {
+            metrics.weatherSource = 'cache';
+        } else if (_rawWx && (_rawWx._weatherStatus === 'live' || (_rawWx.forecast && !_rawWx.manualEntry))) {
+            metrics.weatherSource = 'live';
+        }
+
         // Disease risk — GAIP_DISEASE_RESULT is the live global (disease-engine-pure shape:
         // overallScore 0-100, topThreats[].disease). GAIP_DiseaseResults is a legacy alias
         // that was never reliably set; fall back to it for safety only.

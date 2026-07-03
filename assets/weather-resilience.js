@@ -167,10 +167,13 @@
             return null;
         }
         
-        // Try live fetch first
+        // Try live fetch first (with 12s timeout so manual override kicks in quickly)
         try {
-            var liveData = await fetchLiveWeather(state);
-            
+            var _liveTimeout = new Promise(function(_res, _rej) {
+                setTimeout(function() { _rej(new Error('Weather fetch timeout after 5s')); }, 5000);
+            });
+            var liveData = await Promise.race([fetchLiveWeather(state), _liveTimeout]);
+
             if (liveData && (liveData.forecast || liveData.historical)) {
                 // Success! Cache it and update status
                 saveToCache(locationKey, liveData);
@@ -212,11 +215,57 @@
             return cached.data;
         }
         
-        // No cache available - estimated mode
+        // No cache available - try manual weatherOverride from settings before giving up
+        var _hubCfg = window.GAIP_HUB_CONFIG;
+        var _wo = _hubCfg && _hubCfg.gaipConfig && _hubCfg.gaipConfig.weatherOverride;
+        if (_wo && _wo.tmin != null && _wo.tmin !== '' && _wo.tmax != null && _wo.tmax !== '') {
+            try {
+                var _tmin = parseFloat(_wo.tmin);
+                var _tmax = parseFloat(_wo.tmax);
+                if (!isNaN(_tmin) && !isNaN(_tmax)) {
+                    var _manualState = JSON.parse(JSON.stringify(state || {}));
+                    if (!_manualState.climate) _manualState.climate = {};
+                    _manualState.climate.manual = {
+                        temperature: {
+                            min: _tmin,
+                            max: _tmax,
+                            soil: (_wo.soilTemp != null && _wo.soilTemp !== '') ? parseFloat(_wo.soilTemp) : null
+                        },
+                        moisture: {
+                            humidity: (_wo.humidity != null && _wo.humidity !== '') ? parseFloat(_wo.humidity) : 65,
+                            rainfall: (_wo.rainfall != null && _wo.rainfall !== '') ? parseFloat(_wo.rainfall) : 0
+                        },
+                        wind: { speed: 2 },
+                        solar: {}
+                    };
+                    if (!_manualState.climate.period) {
+                        var _today = new Date();
+                        _manualState.climate.period = { start: _today.getFullYear() + '-' + String(_today.getMonth()+1).padStart(2,'0') + '-' + String(_today.getDate()).padStart(2,'0') };
+                    }
+                    if (!_manualState.climate.forecastDays) _manualState.climate.forecastDays = 7;
+                    var _buildFn = (typeof buildManualClimateData === 'function') ? buildManualClimateData : window.gaip_climate_build_manual;
+                    if (!_buildFn) { console.warn('[WeatherResilience] buildManualClimateData not available'); throw new Error('buildManualClimateData not found'); }
+                    var _manualData = _buildFn(_manualState);
+                    if (_manualData) {
+                        console.log('[WeatherResilience] Using manual weatherOverride from settings (tmin=' + _tmin + ', tmax=' + _tmax + ')');
+                        currentStatus.status = WeatherStatus.ESTIMATED;
+                        currentStatus.source = 'manual_override';
+                        updateStatusBadge();
+                        _manualData._weatherStatus = WeatherStatus.ESTIMATED;
+                        _manualData._source = 'settings_override';
+                        return _manualData;
+                    }
+                }
+            } catch (_e) {
+                console.warn('[WeatherResilience] Manual override fallback failed:', _e.message);
+            }
+        }
+
+        // No cache and no manual override configured - estimated mode
         currentStatus.status = WeatherStatus.ESTIMATED;
         currentStatus.source = 'none';
         updateStatusBadge();
-        
+
         return null;
     }
 
@@ -399,8 +448,6 @@
      * Render detailed status panel (for settings/debug)
      */
     function renderStatusPanel() {
-        var config = getStatusConfig(currentStatus.status);
-        
         var html = '<div class="gaip-weather-status-panel" style="padding: 12px; background: var(--gaip-surface-muted); border-radius: 8px; margin: 10px 0;">';
         html += '<div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">';
         html += renderStatusBadge();

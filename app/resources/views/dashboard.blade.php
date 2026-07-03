@@ -73,12 +73,20 @@
             <span id="db-verdict-text"></span>
         </div>
 
-        {{-- Shown by JS when analysis ran but weather fetch failed --}}
+        {{-- Shown by JS when weather failed AND no manual data → GP could not be calculated --}}
         <div id="db-analysis-error" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#fef2f2;border-bottom:1px solid #fecaca;font-size:13px;color:#991b1b;font-family:inherit">
             <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#dc2626">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
             </svg>
-            <span><strong>Weather unavailable</strong> — Growth Potential could not be calculated (network timeout). Click <strong>Re-run</strong> to try again.</span>
+            <span><strong>Weather unavailable</strong> — Growth Potential could not be calculated. Click <strong>Re-run</strong> to try again, or add manual weather data in <a href="{{ route('settings') }}" style="color:#991b1b;font-weight:600">Settings → Site settings</a>.</span>
+        </div>
+
+        {{-- Shown by JS when weather failed BUT GP was calculated from manual settings override --}}
+        <div id="db-analysis-manual" style="display:none;align-items:center;gap:10px;padding:10px 20px;background:#fffbeb;border-bottom:1px solid #fde68a;font-size:13px;color:#92400e;font-family:inherit">
+            <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:#d97706">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span><strong>Live weather unavailable</strong> — Growth Potential calculated from manual weather data in <a href="{{ route('settings') }}" style="color:#92400e;font-weight:600">Settings</a>. Update manually or try Re-run when live weather is restored.</span>
         </div>
 
         {{-- PAGE BODY --}}
