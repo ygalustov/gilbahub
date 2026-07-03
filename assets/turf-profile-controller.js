@@ -104,7 +104,7 @@
         t = this.state.subCategory,
         i = this.isC4Viable();
       let a;
-      if ("golf" === e && t) a = this.speciesByType.golf[t];
+      if ("golf" === e && t) a = this.speciesByType.golf && this.speciesByType.golf[t];
       else if ("sports" === e) a = this.speciesByType.sports;
       else {
         if ("lawns" !== e) return [];

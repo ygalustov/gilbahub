@@ -47,6 +47,7 @@
             wizardComplete: @json((bool) ($wizardState['complete'] ?? false)),
             wizardState: @json($wizardState)
         });
+        window.GAIP_SpeciesData = { speciesByType: @json($speciesData ?? []) };
     </script>
     @yield('head')
     <style>

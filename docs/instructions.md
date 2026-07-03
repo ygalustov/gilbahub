@@ -285,6 +285,11 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
 +41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
 +42.⁠ ⁠For NZ the text should say for NZ distributors. GH-144. 
+
+
+03/07/26
+39.⁠ ⁠NZ is only cool season for fairways
+
 +43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. 
 
 
@@ -311,21 +316,11 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
 64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
-65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one
++65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 
-
-
-39.⁠ ⁠NZ is only cool season for fairways
-
-----
-
-
-то есть по сути мы загрузили пробы и например для 
-
-when I add zone and do not click Save - i still able to move to another page but I should see same popu p as on other page settings - if i want to save data
 
 
 ----

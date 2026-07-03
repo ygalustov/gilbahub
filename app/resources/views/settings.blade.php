@@ -749,7 +749,7 @@
 
                 {{-- ── Zones ────────────────────────────────────────── --}}
                 <div class="stg-panel stg-hidden" id="stg-tab-zones" role="tabpanel">
-                    <div class="stg-card">
+                    <div class="stg-card" id="stg-zones-form">
                         <div class="stg-card-head">
                             <div class="stg-card-title">Zone names</div>
                             <div class="stg-card-desc">Named areas on this site — used when logging soil, tissue, and spray data.</div>

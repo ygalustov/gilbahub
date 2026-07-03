@@ -355,11 +355,13 @@
     // =========================================================================
 
     function populateVitals(m, computed) {
+        var errEl = el('db-analysis-error');
         if (!m) {
             setText('db-gp-value',     '—');
             setText('db-disease-value','—');
             setText('db-stress-value', '—');
             setText('db-irr-value',    '—');
+            if (errEl) errEl.style.display = 'none';
             return;
         }
 
@@ -368,6 +370,9 @@
         var _climateGrowth = computed && computed.climate && computed.climate.growth;
         var gpRaw = m.growthPotential != null ? m.growthPotential
                   : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null);
+
+        // Show error banner when analysis ran but GP is missing (weather fetch failed)
+        if (errEl) errEl.style.display = (gpRaw == null) ? 'flex' : 'none';
 
         if (gpRaw != null) {
             var gp = gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);

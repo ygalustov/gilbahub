@@ -765,6 +765,16 @@
             var idx = parseInt(btn.dataset.idx, 10);
             zones.splice(idx, 1);
             renderZones();
+            markDirty('stg-zones-form');
+        });
+    }
+
+    // Allow stgConfirm "Save & leave" to trigger zones save via submit event
+    var zonesForm = document.getElementById('stg-zones-form');
+    if (zonesForm) {
+        zonesForm.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (zonesSave) zonesSave.click();
         });
     }
 
@@ -775,6 +785,7 @@
             if (zones.indexOf(name) === -1) {
                 zones.push(name);
                 renderZones();
+                markDirty('stg-zones-form');
             }
             zoneInput.value = '';
             zoneInput.focus();
@@ -797,6 +808,7 @@
                 .then(function (data) {
                     if (data && data.data) {
                         setMsg(zonesMsg, 'Zones saved.', 'ok');
+                        _checkAfterSave('stg-zones-form');
                     } else {
                         var err = (data && data.message) ? data.message : 'Save failed.';
                         setMsg(zonesMsg, err, 'err');
