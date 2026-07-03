@@ -361,40 +361,15 @@
         var gpRaw = m.growthPotential != null ? m.growthPotential
                   : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null);
 
-        // Determine weather state: live API reached, or fallback was used
+        // Determine banner state based on last analysis result
         var _wxSrc = m.weatherSource; // 'live', 'cache', 'manual_override', undefined
-        var weatherLive = (_wxSrc === 'live');
+        var weatherFailed = (gpRaw == null);
         var weatherManual = (_wxSrc === 'manual_override' || _wxSrc === 'cache');
-        var weatherFailed = (gpRaw == null); // neither live nor manual produced GP
 
-        // Banners: red = no GP at all; amber = GP from manual override
+        // Banners: red = no GP at all; amber = GP calculated from manual override
         var manualEl = el('db-analysis-manual');
         if (errEl)    errEl.style.display    = weatherFailed ? 'flex' : 'none';
         if (manualEl) manualEl.style.display = (!weatherFailed && weatherManual) ? 'flex' : 'none';
-
-        // Data Sources "Weather" row: Live (green) if API responded, else Unavailable (warning)
-        var wDot    = el('db-src-weather-dot');
-        var wStatus = el('db-src-weather-status');
-        if (weatherLive) {
-            if (wDot)    { wDot.className    = 'db-source-dot ok'; }
-            if (wStatus) { wStatus.className = 'db-source-status-text ok'; wStatus.textContent = 'Live'; }
-        } else {
-            if (wDot)    { wDot.className    = 'db-source-dot warning'; }
-            if (wStatus) { wStatus.className = 'db-source-status-text warning'; wStatus.textContent = 'Unavailable'; }
-            // Increment the issue count in the footer only when weather truly failed (no GP)
-            if (weatherFailed) {
-                var issuesPart = el('db-sources-issues-part');
-                var issueCount = el('db-sources-issue-count');
-                var okCount    = el('db-sources-ok-count');
-                var score      = el('db-sources-score');
-                var fill       = el('db-sources-progress-fill');
-                if (issueCount) { var cur = parseInt(issueCount.textContent) || 0; issueCount.textContent = (cur + 1) + ' needs update'; }
-                if (issuesPart) issuesPart.style.display = '';
-                if (okCount) { var okCur = parseInt(okCount.textContent) || 0; if (okCur > 0) okCount.textContent = okCur - 1; }
-                if (score) { var parts = (score.textContent || '').match(/(\d+)\/(\d+)/); if (parts) score.textContent = (parseInt(parts[1]) - 1) + '/' + parts[2] + ' sources'; }
-                if (fill) { var pct = parseFloat(fill.style.width) || 0; fill.style.width = Math.max(0, pct - 100/6) + '%'; }
-            }
-        }
 
         if (gpRaw != null) {
             var gp = gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
@@ -1449,6 +1424,44 @@
     // MAIN
     // =========================================================================
 
+    function checkWeatherStatus() {
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        var lat = cfg.savedLocation && cfg.savedLocation.lat;
+        var lon = cfg.savedLocation && cfg.savedLocation.lon;
+        var wDot    = el('db-src-weather-dot');
+        var wStatus = el('db-src-weather-status');
+        if (!lat || !lon || !wDot || !wStatus) return;
+
+        var today = new Date().toISOString().split('T')[0];
+        var url = 'https://api.open-meteo.com/v1/forecast'
+                + '?latitude=' + encodeURIComponent(lat)
+                + '&longitude=' + encodeURIComponent(lon)
+                + '&hourly=temperature_2m&start_date=' + today + '&end_date=' + today + '&timezone=auto';
+
+        var ctrl = new AbortController();
+        var tid = setTimeout(function() { ctrl.abort(); }, 5000);
+
+        fetch(url, { signal: ctrl.signal })
+            .then(function(r) {
+                clearTimeout(tid);
+                if (r.ok) {
+                    wDot.className    = 'db-source-dot ok';
+                    wStatus.className = 'db-source-status-text ok';
+                    wStatus.textContent = 'Live';
+                } else {
+                    wDot.className    = 'db-source-dot warning';
+                    wStatus.className = 'db-source-status-text warning';
+                    wStatus.textContent = 'Unavailable';
+                }
+            })
+            .catch(function() {
+                clearTimeout(tid);
+                wDot.className    = 'db-source-dot warning';
+                wStatus.className = 'db-source-status-text warning';
+                wStatus.textContent = 'Unavailable';
+            });
+    }
+
     function init() {
         var config = global.GAIP_HUB_CONFIG || {};
         var siteId = config.activeSiteId || 'default';
@@ -1496,6 +1509,8 @@
         if (loc && loc.lat && loc.lon) {
             populateWeather(loc.lat, loc.lon);
         }
+
+        checkWeatherStatus();
 
         // Refresh residual section when spray context loads async
         document.addEventListener('gaip:spray-context-loaded', function() {

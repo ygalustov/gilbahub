@@ -1103,15 +1103,74 @@
             rows = '<div style="font-size:13px;color:var(--gaip-text-secondary);padding:8px 0">Detailed resistance data not available for ' + esc(variety === 'generic' ? species : variety) + '. Check product literature for disease susceptibility notes.</div>';
         }
 
+        // Trait performance cards (Wear, Water Use, Drought, Winter Hardiness)
+        var traitCards = '';
+        var VT = typeof window !== 'undefined' && window.GAIP_VarietyTraits;
+        if (VT && variety && variety !== 'generic') {
+            var wear  = VT.getWearModifier(species, variety);
+            var water = VT.getWaterUseModifier(species, variety);
+            var heat  = VT.getHeatDroughtModifier(species, variety);
+            var cold  = VT.getColdModifier(species, variety);
+
+            function traitCard(title, value, source, confidence) {
+                var borderColor = confidence === 'high' ? '#22c55e' : confidence === 'medium' ? '#f59e0b' : 'var(--gaip-border)';
+                return '<div style="background:var(--gaip-surface-alt,#f3f7f5);padding:10px 12px;border-radius:8px;border-left:3px solid ' + borderColor + '">' +
+                    '<div style="font-size:10px;text-transform:uppercase;color:var(--gaip-text-secondary);letter-spacing:.04em;margin-bottom:4px">' + title + '</div>' +
+                    '<div style="font-size:14px;font-weight:600;color:var(--gaip-text)">' + value + '</div>' +
+                    '<div style="font-size:11px;color:var(--gaip-text-secondary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="' + esc(source || '') + '">' + esc((source || '').substring(0, 38) + ((source || '').length > 38 ? '…' : '')) + '</div>' +
+                    '</div>';
+            }
+            function wearLabel(m) { return m < 0.85 ? 'Excellent' : m < 0.95 ? 'Good' : m > 1.15 ? 'Poor' : m > 1.05 ? 'Below avg' : 'Average'; }
+            function waterLabel(m) { return m < 0.85 ? 'Excellent drought tol.' : m < 0.95 ? 'Good drought tol.' : m > 1.15 ? 'High water needs' : m > 1.05 ? 'Above avg needs' : 'Average'; }
+            function droughtLabel(m) { return m < 0.85 ? 'Excellent' : m < 0.95 ? 'Good' : m > 1.05 ? 'Below avg' : 'Average'; }
+
+            var cards = '';
+            if (wear.confidence !== 'none') {
+                cards += traitCard('Wear Tolerance', wearLabel(wear.multiplier || 1), wear.source, wear.confidence);
+            } else {
+                cards += traitCard('Wear Tolerance', 'No data', 'No ' + (VT.getCurrentRegion ? VT.getCurrentRegion().toUpperCase() : '') + ' data', 'none');
+            }
+            if (water.confidence !== 'none') {
+                cards += traitCard('Water Use', waterLabel(water.multiplier || 1), water.source, water.confidence);
+            } else {
+                cards += traitCard('Water Use', 'No data', 'No water use data', 'none');
+            }
+            if (heat.confidence !== 'none') {
+                cards += traitCard('Drought Tolerance', droughtLabel(heat.droughtMultiplier || 1), heat.source, heat.confidence);
+            }
+            if (cold.confidence !== 'none') {
+                var winterkill = cold.winterkillRisk || 1;
+                var winterLabel = winterkill < 0.9 ? Math.round((1 - winterkill) * 100) + '% lower winterkill risk vs generic'
+                                : winterkill > 1.1 ? Math.round((winterkill - 1) * 100) + '% higher winterkill risk vs generic'
+                                : 'Average winter hardiness';
+                cards += traitCard('Winter Hardiness', winterLabel, cold.source, cold.confidence);
+            }
+
+            if (cards) {
+                traitCards = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-bottom:14px">' + cards + '</div>';
+            }
+
+            // Data note if any key trait is missing
+            var missing = [];
+            if (wear.confidence  === 'none') missing.push('Wear');
+            if (water.confidence === 'none') missing.push('Water Use');
+            if (heat.confidence  === 'none') missing.push('Shade');
+            if (missing.length > 0) {
+                traitCards += '<div style="font-size:11px;color:var(--gaip-warning,#d97706);padding:6px 10px;background:var(--gaip-warning-bg,#fffbeb);border-radius:6px;margin-bottom:10px">Data Note: No trial data available for ' + missing.join(', ') + '.</div>';
+            }
+        }
+
         return '<div class="gl-block" style="margin-top:16px">' +
             '<div class="gl-block-header">' +
             '<div class="gl-block-accent" style="background:var(--gaip-info)"></div>' +
             '<div class="gl-block-title">Cultivar Performance' +
             '<button class="db-info-icon" data-info="cultivar-performance" tabindex="0" style="margin-left:6px">i</button>' +
             '</div>' +
-            '<span class="gl-block-sub">' + esc(variety === 'generic' ? species : variety) + ' — disease resistance profile</span>' +
+            '<span class="gl-block-sub">' + esc(variety === 'generic' ? species : variety) + ' — performance profile</span>' +
             '</div>' +
             '<div class="gl-block-body">' +
+            traitCards +
+            '<div style="font-weight:600;font-size:12px;color:var(--gaip-text);margin-bottom:8px">Disease Resistance</div>' +
             '<p style="font-size:12px;color:var(--gaip-text-secondary);margin:0 0 10px">Resistance ratings for your selected cultivar across key diseases. A low rating means your turf is genetically susceptible — this raises the risk threshold used in the model.</p>' +
             rows +
             '</div></div>';

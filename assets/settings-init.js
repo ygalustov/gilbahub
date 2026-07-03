@@ -464,11 +464,14 @@
             return sp.regions.indexOf(rawRegion) !== -1;
         }
 
+        // NZ fairways are cool-season only — never show C4
+        var nzFairways = rawRegion === 'new_zealand' && turfType === 'golf' && subCat === 'fairways';
+
         // C3 first, then C4 (matches old hub order)
         var options = [];
         if (group) {
             options = options.concat((group.c3 || []).filter(filterByRegion));
-            if (c4Viable) options = options.concat((group.c4 || []).filter(filterByRegion));
+            if (c4Viable && !nzFairways) options = options.concat((group.c4 || []).filter(filterByRegion));
         }
 
         turfSpeciesEl.innerHTML = '<option value="">— select —</option>';
@@ -592,6 +595,43 @@
         var type = turfTypeEl ? turfTypeEl.value : '';
         var sub  = turfSubEl  ? turfSubEl.value  : '';
         row.style.display = (type === 'golf' && sub === 'greens') ? '' : 'none';
+        repopulateCompanionOptions();
+    }
+
+    function repopulateCompanionOptions() {
+        var sel = document.getElementById('stg-companion-species');
+        if (!sel) return;
+        var savedVal = sel.value || sel.getAttribute('data-saved-companion') || '';
+        var region = _detectRegionFromForm();
+
+        var opts;
+        if (region === 'new_zealand') {
+            opts = [
+                { value: '',                                   label: '— None (greens only) —' },
+                { value: 'Perennial Ryegrass',                 label: 'Perennial Ryegrass' },
+                { value: 'Browntop Bent (Fairways)',           label: 'Browntop Bent' },
+                { value: 'Chewings Fescue (Fairways)',         label: 'Chewings Fescue' },
+                { value: 'Slender Creeping Red Fescue (Fairways)', label: 'Slender Creeping Red Fescue' },
+                { value: 'Strong Creeping Red Fescue (Fairways)',  label: 'Strong Creeping Red Fescue' },
+            ];
+        } else {
+            opts = [
+                { value: '',        label: '— None (greens only) —' },
+                { value: 'couch',   label: 'Couch (Bermudagrass)' },
+                { value: 'kikuyu',  label: 'Kikuyu' },
+                { value: 'zoysia',  label: 'Zoysia' },
+                { value: 'buffalo', label: 'Buffalo (St Augustine)' },
+            ];
+        }
+
+        sel.innerHTML = '';
+        opts.forEach(function (o) {
+            var el = document.createElement('option');
+            el.value = o.value;
+            el.textContent = o.label;
+            if (o.value === savedVal) el.selected = true;
+            sel.appendChild(el);
+        });
     }
 
     function updateTrafficTabVisibility(turfType) {
@@ -621,11 +661,13 @@
         repopulateOverseedOptions();
         updateTrafficTabVisibility(turfTypeEl.value);
         updateCompanionRowVisibility();
+        repopulateCompanionOptions();
         turfTypeEl.addEventListener('change', function () {
             repopulateSubcategory(turfTypeEl.value, '');
             updateTrafficTabVisibility(turfTypeEl.value);
             updateCompanionRowVisibility();
             repopulateSpeciesOptions('');
+            repopulateCompanionOptions();
         });
     }
     if (turfSubEl) {

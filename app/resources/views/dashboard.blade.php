@@ -402,6 +402,17 @@
 <script src="{{ $legacyAssetUrl('spray-log.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('uv-residual-engine.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}" defer></script>
+{{-- Variety traits must load before dashboard-init so getDiseaseModifier/getWearModifier are available --}}
+<script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uk-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scanturf-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('geves-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('bsa-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('japan-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scandinavia-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('au-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nz-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('variety-traits-integration.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('onboarding-wizard.js') }}" defer></script>
 <script>

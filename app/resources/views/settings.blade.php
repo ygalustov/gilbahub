@@ -311,12 +311,8 @@
                             <div id="stg-companion-row" style="display:none;margin-top:12px;padding:10px 14px;background:#f0fdf4;border-left:3px solid #16a34a;border-radius:0 6px 6px 0">
                                 <div class="stg-field" style="margin:0">
                                     <label for="stg-companion-species" style="color:#14532d">Fairway / Tee species</label>
-                                    <select id="stg-companion-species" name="companionSpecies">
+                                    <select id="stg-companion-species" name="companionSpecies" data-saved-companion="{{ $turfVal('companionSpecies') }}">
                                         <option value="">— None (greens only) —</option>
-                                        <option value="couch" {{ $turfVal('companionSpecies') === 'couch' ? 'selected' : '' }}>Couch (Bermudagrass)</option>
-                                        <option value="kikuyu" {{ $turfVal('companionSpecies') === 'kikuyu' ? 'selected' : '' }}>Kikuyu</option>
-                                        <option value="zoysia" {{ $turfVal('companionSpecies') === 'zoysia' ? 'selected' : '' }}>Zoysia</option>
-                                        <option value="buffalo" {{ $turfVal('companionSpecies') === 'buffalo' ? 'selected' : '' }}>Buffalo (St Augustine)</option>
                                     </select>
                                     <div style="font-size:12px;color:#166534;margin-top:8px;line-height:1.5">
                                         If your fairways or tees carry a different species to your greens, select it here.

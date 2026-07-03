@@ -35,11 +35,12 @@ class SpeciesDefinitionSeeder extends Seeder
             // ── Golf / Fairways ───────────────────────────────────────────────
             ['golf', 'fairways', 'c3', 'Perennial Ryegrass',              'Perennial Ryegrass',             null,         0],
             ['golf', 'fairways', 'c3', 'Annual Bluegrass (Fairway)',       'Poa annua',                     null,         1],
-            ['golf', 'fairways', 'c3', 'Chewings Fescue (Fairways)',       'Chewings Fescue',               $NZ,          2],
-            ['golf', 'fairways', 'c3', 'Slender Creeping Red Fescue (Fairways)', 'Slender Creeping Red Fescue', $NZ,       3],
-            ['golf', 'fairways', 'c3', 'Strong Creeping Red Fescue (Fairways)',  'Strong Creeping Red Fescue',  $NZ,       4],
-            ['golf', 'fairways', 'c4', 'Couch',                           'Couch (Bermudagrass)',            null,         5],
-            ['golf', 'fairways', 'c4', 'Kikuyu',                          'Kikuyu',                         null,         6],
+            ['golf', 'fairways', 'c3', 'Browntop Bent (Fairways)',         'Browntop Bent',                 $NZ,          2],
+            ['golf', 'fairways', 'c3', 'Chewings Fescue (Fairways)',       'Chewings Fescue',               $NZ,          3],
+            ['golf', 'fairways', 'c3', 'Slender Creeping Red Fescue (Fairways)', 'Slender Creeping Red Fescue', $NZ,       4],
+            ['golf', 'fairways', 'c3', 'Strong Creeping Red Fescue (Fairways)',  'Strong Creeping Red Fescue',  $NZ,       5],
+            ['golf', 'fairways', 'c4', 'Couch',                           'Couch (Bermudagrass)',            null,         6],
+            ['golf', 'fairways', 'c4', 'Kikuyu',                          'Kikuyu',                         null,         7],
 
             // ── Golf / Tees ───────────────────────────────────────────────────
             ['golf', 'tees', 'c3', 'Perennial Ryegrass',                  'Perennial Ryegrass',             null,         0],

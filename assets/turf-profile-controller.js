@@ -119,10 +119,11 @@
         if (!r) return true; // If no region detected, show all
         return species.regions.includes(r);
       };
+      const nzFairways = r === 'new_zealand' && e === 'golf' && t === 'fairways';
       let n = [];
       return (
         a.c3 && (n = n.concat(a.c3.filter(filterByRegion))),
-        i && a.c4 && (n = n.concat(a.c4.filter(filterByRegion))),
+        i && !nzFairways && a.c4 && (n = n.concat(a.c4.filter(filterByRegion))),
         n
       );
     },
