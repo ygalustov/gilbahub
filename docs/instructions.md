@@ -235,7 +235,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-143** Enhance region detection in plan view: Added logic to determine if the location is in New Zealand or Australia, allowing for improved regional handling in fertiliser integrations. Updated state location to include the detected region.
 **GH-144** Update NZ fertiliser recommendations and enhance product description: Changed the title from "Prebbles Product Recommendations" to "NZ Fertiliser Recommendations" for clarity. Updated product selection description to specify that products are sourced from NZ distributors for optimal agronomic fit.
 **GH-144** Enhance Sample and Site Controllers with zone management and source file handling: Added logic to merge zone names into sites based on sample types in SampleController. Updated sync method to include source file in the request and improved attributes merging in SiteController. Enhanced data display in views to accommodate new fields and styles for better user interaction.
-
+**GH-145** Refactor CSS for actions cell and update instructions: Changed the display properties of the actions cell to use vertical alignment instead of flexbox for better layout consistency. 
 
 
 
@@ -285,10 +285,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 +40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
 +41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
 +42.⁠ ⁠For NZ the text should say for NZ distributors. GH-144. 
-
-
-
-43.⁠ ⁠There was an ability to add the size/area for individual greens before. 
++43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. 
 
 
 

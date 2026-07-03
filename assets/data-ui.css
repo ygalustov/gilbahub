@@ -248,9 +248,7 @@
 /* ---------- Actions cell ---------- */
 .dat-td-actions {
     white-space: nowrap;
-    display: flex;
-    align-items: center;
-    gap: 0;
+    vertical-align: middle;
 }
 .dat-td-actions .dat-edit-row-btn {
     margin-left: 12px;
