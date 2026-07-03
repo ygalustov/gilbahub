@@ -248,12 +248,12 @@
                 @else
                 <div class="db-sources-grid" id="db-sources-grid">
                     <div class="db-source-row" data-source="weather">
-                        <span class="db-source-dot ok"></span>
+                        <span class="db-source-dot ok" id="db-src-weather-dot"></span>
                         <div class="db-source-label">
                             <span class="db-source-name">Weather</span>
                             <span class="db-source-sub">Open-Meteo</span>
                         </div>
-                        <span class="db-source-status-text ok">Live</span>
+                        <span class="db-source-status-text ok" id="db-src-weather-status">Live</span>
                     </div>
 
                     <div class="db-source-row" data-source="soil">

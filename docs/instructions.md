@@ -236,7 +236,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-144** Update NZ fertiliser recommendations and enhance product description: Changed the title from "Prebbles Product Recommendations" to "NZ Fertiliser Recommendations" for clarity. Updated product selection description to specify that products are sourced from NZ distributors for optimal agronomic fit.
 **GH-144** Enhance Sample and Site Controllers with zone management and source file handling: Added logic to merge zone names into sites based on sample types in SampleController. Updated sync method to include source file in the request and improved attributes merging in SiteController. Enhanced data display in views to accommodate new fields and styles for better user interaction.
 **GH-145** Refactor CSS for actions cell and update instructions: Changed the display properties of the actions cell to use vertical alignment instead of flexbox for better layout consistency. 
+**GH-146** Enhance dashboard and settings views: Added an error banner to the dashboard for weather fetch failures, improving user feedback during analysis. Updated settings view to include an ID for the zones form, facilitating better event handling in JavaScript.
+**GH-147** Enhance dashboard weather status handling: Updated the dashboard to include specific IDs for weather status elements, improving JavaScript interaction. Added logic to display an error banner and update the status indicators when weather data fetch fails, enhancing user feedback during analysis.
 
+GH-146: Update zones management in settings view: Added an ID to the zones form for better DOM manipulation and enhanced JavaScript functionality to handle form submission and state tracking. Improved user interaction by ensuring zones are marked as dirty on changes and after saving.
 
 
 ## Backlog

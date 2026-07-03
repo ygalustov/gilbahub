@@ -371,8 +371,41 @@
         var gpRaw = m.growthPotential != null ? m.growthPotential
                   : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null);
 
-        // Show error banner when analysis ran but GP is missing (weather fetch failed)
-        if (errEl) errEl.style.display = (gpRaw == null) ? 'flex' : 'none';
+        // Show error banner and update Data Sources when GP is missing (weather fetch failed)
+        var weatherFailed = (gpRaw == null);
+        if (errEl) errEl.style.display = weatherFailed ? 'flex' : 'none';
+        var wDot    = el('db-src-weather-dot');
+        var wStatus = el('db-src-weather-status');
+        if (weatherFailed) {
+            if (wDot)    { wDot.className    = 'db-source-dot warning'; }
+            if (wStatus) { wStatus.className = 'db-source-status-text warning'; wStatus.textContent = 'Unavailable'; }
+            // Increment the issue count in the footer
+            var issuesPart = el('db-sources-issues-part');
+            var issueCount = el('db-sources-issue-count');
+            var okCount    = el('db-sources-ok-count');
+            var score      = el('db-sources-score');
+            var fill       = el('db-sources-progress-fill');
+            if (issueCount) {
+                var cur = parseInt(issueCount.textContent) || 0;
+                issueCount.textContent = (cur + 1) + ' needs update';
+            }
+            if (issuesPart) issuesPart.style.display = '';
+            if (okCount) {
+                var okCur = parseInt(okCount.textContent) || 0;
+                if (okCur > 0) okCount.textContent = okCur - 1;
+            }
+            if (score) {
+                var parts = (score.textContent || '').match(/(\d+)\/(\d+)/);
+                if (parts) score.textContent = (parseInt(parts[1]) - 1) + '/' + parts[2] + ' sources';
+            }
+            if (fill) {
+                var pct = parseFloat(fill.style.width) || 0;
+                fill.style.width = Math.max(0, pct - 100/6) + '%';
+            }
+        } else {
+            if (wDot)    { wDot.className    = 'db-source-dot ok'; }
+            if (wStatus) { wStatus.className = 'db-source-status-text ok'; wStatus.textContent = 'Live'; }
+        }
 
         if (gpRaw != null) {
             var gp = gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
