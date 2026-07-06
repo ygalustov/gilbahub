@@ -251,7 +251,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-158** Update data table in data.blade.php: Changed the placeholder for empty Client UID values from '∅ empty' to '—' for improved visual consistency and clarity in data presentation.
 **GH-159** Refactor data table layout in data.blade.php: Rearranged columns for improved organization, placing 'Zone type' and 'File' after 'Zone name' for better clarity in data presentation.
 **GH-160** Update data-ui.css: Adjusted padding and font size for input elements, added transition effects, and enhanced styling for select elements to improve user experience and visual consistency.
-
+**GH-161** Enhance data display in data.blade.php: Updated the layout of data rows to include zone names as subtitles, improved the display logic for names and zones, and adjusted CSS for better alignment and spacing, enhancing overall readability and user experience.
 
 
 
@@ -319,6 +319,14 @@ I also added the source file name, so it’s easy to see which file each sample 
 
 
 
+
+
+
+
+
+
+
+
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
 45.⁠ ⁠Is it me or is this showing the same light level for every site?
 46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month?
@@ -344,7 +352,21 @@ I also added the source file name, so it’s easy to see which file each sample 
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 +68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
-69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5
++69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5. GH-151-GH-160. 
++70. I’ve manually uploaded the soil chemistry and 1 tissue sample. The selector for the soil samples isn’t very user friendly as I’ve no idea which sample is which
+
+
+
+
+71. the areas be better in m2 and you can’t tell which green is which
+72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the range based on the turf type. Some of these are for bentgrass and some Poa and others I have no idea
+73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective
+74. just reset to perennial ryegrass again from colonial bentgrass.
+
+
+
+
+
 
 ----
 

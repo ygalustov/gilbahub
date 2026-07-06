@@ -112,7 +112,8 @@
     font-size: 12px;
 }
 .dat-area-row:last-child { border-bottom: none; }
-.dat-area-row-name { flex: 1; min-width: 0; color: var(--gaip-text, #1a2b23); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dat-area-row-name { flex: 1; min-width: 0; color: var(--gaip-text, #1a2b23); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.dat-area-row-sub { font-size: 11px; color: var(--gaip-text-muted, #8aaa98); }
 .dat-area-row-current { width: 70px; text-align: right; margin-right: 16px; color: var(--gaip-text-secondary, #5a7a6a); font-size: 11px; }
 .dat-area-row-input {
     width: 72px; padding: 3px 7px; font-size: 12px;
@@ -2750,8 +2751,8 @@
             try { d = JSON.parse(tr.dataset.row || '{}'); } catch (_) {}
             if (!d.id) return;
             var pl = d.payload || {};
-            // Use zone name as display label (e.g. "Green 4"), fall back to client_uid
-            var displayName = (d.zone && d.zone !== '—') ? d.zone : (d.name || '—');
+            // Use zone name as display label (e.g. "Green 1"), fall back to zone type
+            var displayName = (d.name && d.name !== '—') ? d.name : (d.zone && d.zone !== '—' ? d.zone : '—');
             // Zone type: prefer payload._zone, then detect from zone string
             var zt = (pl._zone || pl.zoneType || '').toLowerCase();
             if (!zt) {
@@ -2826,7 +2827,9 @@
                     : '<span class="dat-area-badge dat-area-badge-missing">missing</span>';
                 html += '<div class="dat-area-row" data-id="' + r.id + '">';
                 html += '<input type="checkbox" class="dat-area-row-check" checked aria-label="Include this sample">';
-                html += '<span class="dat-area-row-name" title="' + r.name + '">' + r.name + badge + '</span>';
+                var zoneSub = (r.zone && r.zone !== '—' && r.zone !== r.name)
+                    ? '<span class="dat-area-row-sub">' + r.zone + '</span>' : '';
+                html += '<span class="dat-area-row-name" title="' + r.name + '">' + r.name + zoneSub + badge + '</span>';
                 html += '<span class="dat-area-row-current">' + (cur ? cur + ' ha' : '—') + '</span>';
                 html += '<input type="number" class="dat-area-row-input" min="0.001" max="100" step="0.01" placeholder="per-sample override" value="' + cur + '">';
                 html += '<span class="dat-area-row-unit">ha</span>';
