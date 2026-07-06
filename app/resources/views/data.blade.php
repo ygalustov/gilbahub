@@ -388,6 +388,7 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
+                        <th class="dat-th-num" style="color:#9ca3af">ID</th>
                         <th>File</th>
                         <th>Zone type</th>
                         <th>Zone name</th>
@@ -416,6 +417,7 @@
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
+                        <td class="dat-td-num" style="color:#9ca3af;font-size:11px">{{ $row->id }}</td>
                         <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
