@@ -313,16 +313,38 @@
     /**
      * Sync all samples to MySQL so localStorage is only a browser cache.
      */
+    var _autoGenIdPattern = /^sample_\d+$/;
+
+    function filterAutoGenSamples(allSites) {
+        var filtered = {};
+        Object.keys(allSites || {}).forEach(function(siteId) {
+            var site = allSites[siteId];
+            filtered[siteId] = {};
+            Object.keys(site || {}).forEach(function(sampleType) {
+                var typeSamples = site[sampleType];
+                filtered[siteId][sampleType] = {};
+                Object.keys(typeSamples || {}).forEach(function(sampleKey) {
+                    if (!_autoGenIdPattern.test(sampleKey)) {
+                        filtered[siteId][sampleType][sampleKey] = typeSamples[sampleKey];
+                    }
+                });
+            });
+        });
+        return filtered;
+    }
+
     function syncSamplesToServer(snapshot) {
         var base = getApiBaseUrl();
         if (!base || typeof fetch === 'undefined') {
             return Promise.reject(new Error('REST sample sync unavailable'));
         }
 
+        var allSites = filterAutoGenSamples(snapshot.allSites || {});
+
         return apiFetchJson(base.replace(/\/?$/, '/') + 'samples/sync', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ allSites: snapshot.allSites || {} })
+            body: JSON.stringify({ allSites: allSites })
         })
             .then(function(data) {
                 log('Sample snapshot synced to server', data && data.data ? data.data : data);
