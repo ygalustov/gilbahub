@@ -498,6 +498,7 @@ body { margin: 0; padding: 0; }
 .db-vital-main.critical { color: #dc2626; }
 .db-vital-main.warning  { color: #d97706; }
 .db-vital-main.ok       { color: #16a34a; }
+.db-vital-main.above    { color: #3b82f6; }
 
 .db-vital-sub {
     font-size: 12px;
@@ -589,7 +590,7 @@ body { margin: 0; padding: 0; }
 }
 .db-vwc-zone-high {
     height: 100%;
-    background: #fca5a5;
+    background: #93c5fd;
     border-radius: 0 4px 4px 0;
     flex: 1;
 }
@@ -1150,6 +1151,7 @@ body { margin: 0; padding: 0; }
 .db-panel-hero-value.critical { color: #dc2626; }
 .db-panel-hero-value.warning  { color: #d97706; }
 .db-panel-hero-value.ok       { color: #16a34a; }
+.db-panel-hero-value.above    { color: #3b82f6; }
 .db-panel-hero-label {
     font-size: 11px;
     font-weight: 700;

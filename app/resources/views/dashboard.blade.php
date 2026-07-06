@@ -169,13 +169,13 @@
                         </div>
                         <div class="db-vital-main" id="db-vwc-value">—</div>
                         <div class="db-vwc-bar" id="db-vwc-bar-wrap">
-                            <div class="db-vwc-zone-low"  style="width:30%"></div>
-                            <div class="db-vwc-zone-ok"   style="width:7.5%"></div>
+                            <div class="db-vwc-zone-low"  style="width:37.5%"></div>
+                            <div class="db-vwc-zone-ok"   style="width:25%"></div>
                             <div class="db-vwc-zone-high"></div>
                             <div class="db-vwc-needle" id="db-vwc-fill" style="display:none"></div>
                         </div>
                         <div class="db-vital-sub" style="font-size:10px;color:var(--gaip-text-muted)">
-                            Target: <strong style="color:var(--gaip-accent)">12–15%</strong>
+                            Target: <strong style="color:var(--gaip-accent)">15–25%</strong>
                         </div>
                         <div class="db-vital-footer" id="db-vwc-msg"></div>
                     </div>

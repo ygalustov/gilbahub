@@ -848,17 +848,16 @@
         var vwc = Math.round(avg(vwcVals) * 10) / 10;
         var tmp = tmpVals.length ? Math.round(avg(tmpVals) * 10) / 10 : null;
 
-        // Thresholds (defaults; ideally pulled from site config)
-        var wp     = 10;   // wilting point
-        var trig   = 12;   // irrigation trigger
-        var optHi  = 15;
-        var maxVal = 40;   // bar scale
+        // Target zone matches old hub: 15–25% on a 0–40% (FC) scale
+        var vwcMin = 15;
+        var vwcMax = 25;
+        var maxVal = 40;   // bar scale (field capacity)
 
         // Update VWC card value
         var valEl = document.getElementById('db-vwc-value');
         if (valEl) {
             valEl.textContent = vwc + '%';
-            var cls = vwc < wp ? 'critical' : (vwc <= optHi ? 'ok' : 'warning');
+            var cls = vwc < vwcMin ? 'critical' : (vwc <= vwcMax ? 'ok' : 'above');
             valEl.className = 'db-vital-main ' + cls;
         }
 
@@ -875,13 +874,10 @@
         if (msgEl) {
             var nSensors = readings.length;
             var badge = ' <span style="font-size:10px;color:var(--gaip-text-muted)">· ' + nSensors + ' sensor' + (nSensors !== 1 ? 's' : '') + ' live</span>';
-            if (vwc < wp) {
-                msgEl.innerHTML = '<span style="color:#dc2626">Below wilting point — irrigate now</span>' + badge;
-            } else if (vwc < trig) {
-                var buf = (vwc - wp).toFixed(1);
-                msgEl.innerHTML = buf + '% buffer before trigger' + badge;
-            } else if (vwc <= optHi) {
-                msgEl.innerHTML = 'Within target zone' + badge;
+            if (vwc < vwcMin) {
+                msgEl.innerHTML = '<span style="color:#dc2626">Below target — review irrigation schedule</span>' + badge;
+            } else if (vwc <= vwcMax) {
+                msgEl.innerHTML = 'Within target zone (' + vwcMin + '–' + vwcMax + '%)' + badge;
             } else {
                 msgEl.innerHTML = 'Above target — monitor drainage' + badge;
             }
@@ -1381,33 +1377,58 @@
     /* ── VWC ── */
     function buildVWCPanel(m) {
         var vwcRaw = m && m.vwc != null ? m.vwc : null;
-        var vwc    = vwcRaw != null ? Math.round(vwcRaw) : 13;
-        var wp = 8, trig = 12, optLow = 12, optHigh = 15, fc = 35, maxVal = 40;
+
+        // Fallback: read directly from Hydrosight sensor cache (same as card)
+        if (vwcRaw == null) {
+            var config  = (global.GAIP_HUB_CONFIG || {});
+            var siteId  = config.activeSiteId || 'default';
+            var cache   = safeJson(_ls.getItem('gaip_hydrosight_readings_cache_' + siteId));
+            if (cache && cache.data && cache.data.length) {
+                var vwcVals = cache.data.map(function(r) { return r.vwc; }).filter(function(v) { return v != null; });
+                if (vwcVals.length) {
+                    vwcRaw = vwcVals.reduce(function(a, b) { return a + b; }, 0) / vwcVals.length;
+                }
+            }
+        }
+
+        var vwcMin = 15, vwcMax = 25, fc = 40, maxVal = 40;
+
+        if (vwcRaw == null) {
+            return panelHero('—', '', 'Volumetric Water Content') +
+                panelSection('Status', '<p style="font-size:13px;margin:0;color:var(--gaip-text-muted,#6b8878)">No sensor data available. Connect a Hydrosight sensor to see live VWC readings.</p>') +
+                panelSection('How to read', '<p style="font-size:12px;margin:0;line-height:1.55;color:var(--gaip-text,#1a2b23)">Target zone is ' + vwcMin + '–' + vwcMax + '% VWC for most sand-based rootzones. Field capacity (FC) ~' + fc + '%.</p>');
+        }
+
+        var vwc     = Math.round(vwcRaw * 10) / 10;
         var fillPct = Math.min(vwc / maxVal * 100, 100);
-        var zoneLo  = optLow  / maxVal * 100;
-        var zoneWid = (optHigh - optLow) / maxVal * 100;
-        var vcCls   = vwc < trig ? 'critical' : (vwc <= optHigh ? 'ok' : 'warning');
+        var zoneLo  = vwcMin / maxVal * 100;
+        var zoneWid = (vwcMax - vwcMin) / maxVal * 100;
+        var onTrack = vwc >= vwcMin && vwc <= vwcMax;
+        var vcCls   = vwc < vwcMin ? 'critical' : (onTrack ? 'ok' : 'above');
 
         var html = panelHero(vwc + '%', vcCls, 'Volumetric Water Content');
 
-        var barFillColor = vcCls === 'critical' ? '#dc2626' : (vcCls === 'warning' ? '#d97706' : '#2da85e');
-        var bar = '<div style="position:relative;height:16px;background:var(--gaip-surface-muted,#eef2f0);border-radius:8px;overflow:hidden;margin:8px 0 4px">' +
-            '<div style="position:absolute;left:' + zoneLo + '%;width:' + zoneWid + '%;top:0;height:100%;background:rgba(45,168,94,0.2);border-left:2px solid rgba(45,168,94,0.6);border-right:2px solid rgba(45,168,94,0.6)"></div>' +
-            '<div style="position:absolute;left:0;top:0;height:100%;width:' + fillPct + '%;background:' + barFillColor + ';border-radius:8px"></div>' +
+        var needlePct = fillPct.toFixed(1);
+        var bar = '<div style="position:relative;margin:8px 0 4px">' +
+            '<div style="display:flex;height:14px;border-radius:6px;overflow:hidden">' +
+            '<div style="width:' + zoneLo + '%;background:#fca5a5;flex-shrink:0"></div>' +
+            '<div style="width:' + zoneWid + '%;background:#86efac;flex-shrink:0"></div>' +
+            '<div style="flex:1;background:#93c5fd"></div>' +
             '</div>' +
-            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gaip-text-muted,#6b8878)">' +
-            '<span>WP ' + wp + '%</span><span>Trigger ' + trig + '%</span><span>Target ' + optLow + '–' + optHigh + '%</span><span>FC ' + fc + '%</span>' +
+            '<div style="position:absolute;top:-4px;left:' + needlePct + '%;width:3px;height:22px;background:#17231f;border-radius:2px;transform:translateX(-50%);box-shadow:0 0 0 2px #fff;pointer-events:none"></div>' +
+            '</div>' +
+            '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gaip-text-muted,#6b8878);margin-top:2px">' +
+            '<span style="color:#ef4444">Below target</span><span style="color:#16a34a">Target ' + vwcMin + '–' + vwcMax + '%</span><span style="color:#3b82f6">Above target</span>' +
             '</div>';
         html += panelSection('Soil Water Level', bar);
 
-        var statusMsg = vwc < wp      ? 'Critical: below wilting point — irrigate immediately'
-                      : vwc < trig    ? 'Low: approaching irrigation trigger'
-                      : vwc <= optHigh ? 'Optimal: within target zone'
-                      :                  'Saturated: above field capacity';
-        var statusCol = vwc < wp ? '#dc2626' : (vwc < trig ? '#d97706' : (vwc <= optHigh ? '#16a34a' : '#d97706'));
+        var statusMsg = onTrack ? 'Optimal: within target zone (' + vwcMin + '–' + vwcMax + '%)'
+                      : vwc < vwcMin ? 'Below target — review irrigation schedule'
+                      :                'Above target — monitor drainage';
+        var statusCol = onTrack ? '#16a34a' : '#d97706';
         html += panelSection('Status', '<p style="font-size:13px;margin:0;color:' + statusCol + ';font-weight:600">' + statusMsg + '</p>');
 
-        html += panelSection('How to read', '<p style="font-size:12px;margin:0;line-height:1.55;color:var(--gaip-text,#1a2b23)">Green zone (12–15%) is the optimal range. Below trigger (12%) activates irrigation schedule. Above field capacity (35%) risks compaction and anaerobic conditions.</p>');
+        html += panelSection('How to read', '<p style="font-size:12px;margin:0;line-height:1.55;color:var(--gaip-text,#1a2b23)">Green zone (' + vwcMin + '–' + vwcMax + '%) is the optimal range for most sand-based rootzones. Below target activates irrigation review. Field capacity (FC) ~' + fc + '%.</p>');
         return html;
     }
 

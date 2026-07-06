@@ -1581,6 +1581,17 @@
             metrics.trendDirection = (_st.summary && _st.summary.trend) ? _st.summary.trend : null;
         }
         
+        // Sensor VWC — from Hydrosight/TDR bridge (same priority chain as hub-orchestrator)
+        var _sensorVwc = null;
+        if (global.GAIP_Sensor && typeof global.GAIP_Sensor.hasData === 'function' && global.GAIP_Sensor.hasData()) {
+            var _sd = global.GAIP_Sensor.getIrrigationData();
+            if (_sd && _sd.vwc != null) _sensorVwc = _sd.vwc;
+        }
+        if (_sensorVwc == null && global.GAIP_SENSOR_DATA && global.GAIP_SENSOR_DATA.vwc != null) {
+            _sensorVwc = global.GAIP_SENSOR_DATA.vwc;
+        }
+        if (_sensorVwc != null) metrics.vwc = _sensorVwc;
+
         // Irrigation need — mirror daily-dashboard.js fallback chain
         const _ir = global.GAIP_IrrigationResults || global.GAIP_IRRIGATION_RESULT;
         if (_ir) {
