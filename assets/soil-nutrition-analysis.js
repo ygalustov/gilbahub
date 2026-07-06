@@ -1446,7 +1446,13 @@
             var samples = (res && res.data) || [];
             if (!samples.length) return;
             samples.sort(function(a, b) {
-                return (b.lab_date || b.sample_date || '').localeCompare(a.lab_date || a.sample_date || '');
+                var dateA = a.lab_date || a.sample_date || '';
+                var dateB = b.lab_date || b.sample_date || '';
+                if (dateB !== dateA) return dateB.localeCompare(dateA);
+                var labelA = (a.payload && a.payload._label) || a.client_uid || '';
+                var labelB = (b.payload && b.payload._label) || b.client_uid || '';
+                if (labelA !== labelB) return labelA.localeCompare(labelB, undefined, { numeric: true });
+                return (a.lab_ref || '').localeCompare(b.lab_ref || '');
             });
             _snSamples = samples;
 

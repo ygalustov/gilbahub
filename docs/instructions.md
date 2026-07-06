@@ -244,7 +244,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-151** Refactor disease risk display and calculation logic: Updated dashboard to improve disease risk representation, including changes to the progress bar color based on severity. Enhanced JavaScript to accurately reflect current and forecasted disease risks, ensuring better user feedback and clarity in risk assessment. Added new forecast alert card for improved visibility of peak risks.
 **GH-152** Update dashboard status message for VWC sensor: Changed instructional text to specify connection of a soil moisture sensor instead of a Hydrosight sensor for improved clarity on data availability.
 **GH-153** Enhance soil nutrition analysis dropdown: Updated CSS for improved layout and responsiveness, added file name display in dropdown rows, and refined search functionality to include filtering by file source. Adjusted instructional text for clarity on filtering options.
-
+**GH-154** Enhance soil nutrition analysis sorting logic: Improved sample sorting by incorporating date, label, and lab reference comparisons for more accurate and user-friendly results.
 
 
 
