@@ -1,0 +1,187 @@
+{
+  "version": 2,
+  "exportedAt": "2026-03-16T20:55:05.582Z",
+  "exportedBy": "Gilba Hub 1.0.0",
+  "site": {
+    "id": "russley_golf_club",
+    "label": "Russley Golf Club"
+  },
+  "samples": {
+    "allSites": {
+      "russley_golf_club": {
+        "soil": {
+          "green_1": {
+            "id": "green_1",
+            "label": "Green 1",
+            "date": "2021-05-07",
+            "notes": "Imported from: Hills soil test 2021.pdf",
+            "zoneType": "green",
+            "rawData": {
+              "pH_Water": 4.7,
+              "CEC_meq100g": 4,
+              "Texture": "sand",
+              "K": 117.3,
+              "P": 18,
+              "Ca": 100,
+              "Mg": 21.87,
+              "Na": 11.5
+            },
+            "normalized": {
+              "soil_ph": 4.7,
+              "cec": 4,
+              "K": 117.3,
+              "P": 18,
+              "Ca": 100,
+              "Mg": 21.87,
+              "Na": 11.5
+            },
+            "source": "manual"
+          },
+          "green_13": {
+            "id": "green_13",
+            "label": "Green 13",
+            "date": "2021-05-07",
+            "notes": "Imported from: Hills soil test 2021.pdf",
+            "zoneType": "green",
+            "rawData": {
+              "pH_Water": 4.7,
+              "CEC_meq100g": 4,
+              "Texture": "sand",
+              "K": 117.3,
+              "P": 20,
+              "Ca": 160,
+              "Mg": 36.45,
+              "Na": 11.5
+            },
+            "normalized": {
+              "soil_ph": 4.7,
+              "cec": 4,
+              "K": 117.3,
+              "P": 20,
+              "Ca": 160,
+              "Mg": 36.45,
+              "Na": 11.5
+            },
+            "source": "manual"
+          },
+          "green_18": {
+            "id": "green_18",
+            "label": "Green 18",
+            "date": "2021-05-07",
+            "notes": "Imported from: Hills soil test 2021.pdf",
+            "zoneType": "green",
+            "rawData": {
+              "pH_Water": 4.9,
+              "CEC_meq100g": 5,
+              "Texture": "sand",
+              "K": 156.4,
+              "P": 20,
+              "Ca": 220,
+              "Mg": 40.1,
+              "Na": 11.5
+            },
+            "normalized": {
+              "soil_ph": 4.9,
+              "cec": 5,
+              "K": 156.4,
+              "P": 20,
+              "Ca": 220,
+              "Mg": 40.1,
+              "Na": 11.5
+            },
+            "source": "manual"
+          }
+        },
+        "water": {},
+        "tissue": {},
+        "loi": {}
+      }
+    },
+    "allActive": {
+      "russley_golf_club": {
+        "soil": "green_18",
+        "water": null,
+        "tissue": null,
+        "loi": null
+      }
+    },
+    "allMeta": {
+      "russley_golf_club": {
+        "soil": null,
+        "water": null,
+        "tissue": null,
+        "loi": null
+      }
+    },
+    "sites": {
+      "russley_golf_club": {
+        "label": "Russley Golf Club",
+        "createdAt": "2026-03-11T21:40:55.242Z"
+      }
+    },
+    "currentSite": "russley_golf_club"
+  },
+  "siteConfig": {
+    "turf": {
+      "turfType": "golf",
+      "subCategory": "greens",
+      "species": "Browntop Bent (Greens)",
+      "variety": "Arrowtown",
+      "construction": "sand_profile",
+      "drainage": "",
+      "hoc": "3",
+      "nProgram": "150",
+      "methodology": "mlsn",
+      "overseedSpecies": "",
+      "overseedVariety": "generic",
+      "overseedStatus": "",
+      "summerIntent": "transition",
+      "c3Cover": "",
+      "yearsEstablished": "",
+      "thatchDepth": "",
+      "winterMinTemp": "",
+      "poaPercent": "0",
+      "aaTexture": "",
+      "trafficEnabled": false,
+      "trafficLevel": "",
+      "eventsPerWeek": "",
+      "companionSpecies": ""
+    },
+    "location": {
+      "lat": -33.6984,
+      "lon": 151.2707,
+      "name": "Russley Road, Burnside, Christchurch"
+    },
+    "pgr": {
+      "enabled": false,
+      "productType": "",
+      "applicationDate": "2026-02-28",
+      "rateLperHa": ""
+    },
+    "savedAt": "2026-03-12T20:00:27.295Z"
+  },
+  "turfProfile": {
+    "name": "Silk Path GC",
+    "data": {
+      "turfType": "golf",
+      "subCategory": "greens",
+      "species": "Browntop Bent (Greens)",
+      "variety": "Arrowtown",
+      "construction": "sand_profile",
+      "drainage": "excellent",
+      "hoc": 3,
+      "nProgram": 150,
+      "overseedSpecies": null,
+      "overseedVariety": null,
+      "location": {
+        "lat": 21.148,
+        "lon": 106.512,
+        "name": "Tỉnh Quảng Ninh, Việt Nam"
+      },
+      "savedAt": "2026-03-07T02:42:11.203Z",
+      "_siteId": "silk_path_gc"
+    }
+  },
+  "sensorMapping": null,
+  "areas": {}
+}

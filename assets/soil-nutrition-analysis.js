@@ -189,22 +189,23 @@
             '.sn-empty-body{font-size:13px;line-height:1.6;max-width:420px;margin:0 auto}',
             /* sample dropdown selector */
             '.sn-drop-wrap{position:relative;display:block;font-family:inherit}',
-            '.sn-drop-btn{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#fff;border:1px solid #d8e0dc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#17231f;width:100%;box-sizing:border-box;max-width:480px;font-family:inherit;text-align:left}',
+            '.sn-drop-btn{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#fff;border:1px solid #d8e0dc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#17231f;width:100%;box-sizing:border-box;max-width:560px;font-family:inherit;text-align:left}',
             '.sn-drop-btn:hover{border-color:#2da85e}',
             '.sn-drop-open .sn-drop-btn{border-color:#2da85e;border-bottom-left-radius:0;border-bottom-right-radius:0}',
-            '.sn-drop-panel{display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #2da85e;border-top:none;border-radius:0 8px 8px 8px;box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:480px;max-width:min(640px,90vw)}',
+            '.sn-drop-panel{display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #2da85e;border-top:none;border-radius:0 8px 8px 8px;box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:560px;max-width:min(720px,90vw)}',
             '.sn-drop-open .sn-drop-panel{display:block}',
             '.sn-drop-search{display:block;width:100%;box-sizing:border-box;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;font-size:13px;outline:none;color:#17231f;font-family:inherit}',
             '.sn-drop-search::placeholder{color:#9ca3af}',
-            '.sn-drop-header{display:grid;grid-template-columns:1fr 1fr 110px;gap:8px;padding:5px 12px;background:#f5f7f6;border-bottom:1px solid #e5e7eb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65}',
+            '.sn-drop-header{display:grid;grid-template-columns:110px 60px 1fr 100px;gap:8px;padding:5px 12px;background:#f5f7f6;border-bottom:1px solid #e5e7eb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65}',
             '.sn-drop-list{max-height:240px;overflow-y:auto}',
-            '.sn-drop-row{display:grid;grid-template-columns:1fr 1fr 110px;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;align-items:center}',
+            '.sn-drop-row{display:grid;grid-template-columns:110px 60px 1fr 100px;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;align-items:center}',
             '.sn-drop-row:last-child{border-bottom:none}',
             '.sn-drop-row:hover{background:#f0fdf4}',
             '.sn-drop-row.active{background:#f0fdf4}',
             '.sn-drop-cell-zone{font-size:12px;font-weight:600;color:#17231f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
             '.sn-drop-row.active .sn-drop-cell-zone::before{content:"● ";color:#2da85e}',
             '.sn-drop-cell-ref{font-size:12px;color:#5b6a65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-cell-file{font-size:11px;color:#5b6a65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
             '.sn-drop-cell-date{font-size:11px;color:#5b6a65;white-space:nowrap}',
         ].join('');
         document.head.appendChild(s);
@@ -1286,12 +1287,15 @@
         }
         return samples.map(function(s) {
             var origIdx = _snSamples.indexOf(s);
-            var zone = esc(s.client_uid || ('Zone ' + (origIdx + 1)));
+            var pl   = s.payload || {};
+            var zone = esc(pl._label || s.client_uid || ('Zone ' + (origIdx + 1)));
             var ref  = esc(s.lab_ref || s.lab_name || '—');
+            var file = esc(pl._source ? pl._source.replace(/\.json$/i, '') : '—');
             var date = esc(fmtDate(s.lab_date || s.sample_date || '') || '—');
             return '<div class="sn-drop-row' + (origIdx === activeIdx ? ' active' : '') + '" data-sn-idx="' + origIdx + '">' +
                 '<div class="sn-drop-cell-zone">' + zone + '</div>' +
                 '<div class="sn-drop-cell-ref">'  + ref  + '</div>' +
+                '<div class="sn-drop-cell-file">' + file + '</div>' +
                 '<div class="sn-drop-cell-date">' + date + '</div>' +
                 '</div>';
         }).join('');
@@ -1303,7 +1307,7 @@
 
         var active   = _snActiveIdx >= 0 ? _snSamples[_snActiveIdx] : null;
         var btnLabel = active
-            ? esc(active.client_uid || ('Zone ' + (_snActiveIdx + 1)))
+            ? esc((active.payload && active.payload._label) || active.client_uid || ('Zone ' + (_snActiveIdx + 1)))
             : 'Select sample…';
 
         var svgSearch  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#9ca3af"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
@@ -1313,8 +1317,8 @@
             '<div class="sn-drop-wrap" id="sn-drop-wrap">' +
             '<button class="sn-drop-btn" id="sn-drop-btn" type="button">' + svgSearch + '<span id="sn-drop-label">' + btnLabel + '</span>' + svgChevron + '</button>' +
             '<div class="sn-drop-panel" id="sn-drop-panel">' +
-            '<input class="sn-drop-search" id="sn-drop-search" type="text" placeholder="Filter by zone or date…" autocomplete="off">' +
-            '<div class="sn-drop-header"><span>Zone</span><span>Lab Ref</span><span>Date</span></div>' +
+            '<input class="sn-drop-search" id="sn-drop-search" type="text" placeholder="Filter by zone, file or date…" autocomplete="off">' +
+            '<div class="sn-drop-header"><span>Zone</span><span>Lab Ref</span><span>File</span><span>Date</span></div>' +
             '<div class="sn-drop-list" id="sn-drop-list">' + buildDropdownRows(_snSamples, _snActiveIdx) + '</div>' +
             '</div></div>';
 
@@ -1341,8 +1345,11 @@
         document.getElementById('sn-drop-search').addEventListener('input', function() {
             var q = this.value.toLowerCase();
             var filtered = !q ? _snSamples : _snSamples.filter(function(s) {
-                return (s.client_uid || '').toLowerCase().indexOf(q) >= 0 ||
-                       (s.lab_ref   || '').toLowerCase().indexOf(q) >= 0 ||
+                var pl = s.payload || {};
+                return (pl._label     || '').toLowerCase().indexOf(q) >= 0 ||
+                       (s.client_uid  || '').toLowerCase().indexOf(q) >= 0 ||
+                       (s.lab_ref     || '').toLowerCase().indexOf(q) >= 0 ||
+                       (pl._source    || '').toLowerCase().indexOf(q) >= 0 ||
                        (fmtDate(s.lab_date || s.sample_date || '') || '').toLowerCase().indexOf(q) >= 0;
             });
             var list = document.getElementById('sn-drop-list');
