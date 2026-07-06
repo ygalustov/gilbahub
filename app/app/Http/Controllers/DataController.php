@@ -57,6 +57,7 @@ class DataController extends Controller
                 $rows  = Sample::where('site_id', $activeSite->id)
                     ->where('sample_type', $section)
                     ->orderByDesc('lab_date')
+                    ->orderByRaw('client_uid IS NULL, client_uid ASC')
                     ->orderByDesc('id')
                     ->limit(100)
                     ->get();

@@ -245,8 +245,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-152** Update dashboard status message for VWC sensor: Changed instructional text to specify connection of a soil moisture sensor instead of a Hydrosight sensor for improved clarity on data availability.
 **GH-153** Enhance soil nutrition analysis dropdown: Updated CSS for improved layout and responsiveness, added file name display in dropdown rows, and refined search functionality to include filtering by file source. Adjusted instructional text for clarity on filtering options.
 **GH-154** Enhance soil nutrition analysis sorting logic: Improved sample sorting by incorporating date, label, and lab reference comparisons for more accurate and user-friendly results.
-
-
+**GH-155** Enhance sample sorting in DataController: Added logic to prioritize samples with null client IDs for improved organization and clarity in data presentation.
 
 
 
@@ -339,7 +338,7 @@ I also added the source file name, so it’s easy to see which file each sample 
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
-68. there is a temperature discrepancy between the home page figure and the figure on the go graph?
++68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
 69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5
 
 ----
