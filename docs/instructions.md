@@ -246,7 +246,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-153** Enhance soil nutrition analysis dropdown: Updated CSS for improved layout and responsiveness, added file name display in dropdown rows, and refined search functionality to include filtering by file source. Adjusted instructional text for clarity on filtering options.
 **GH-154** Enhance soil nutrition analysis sorting logic: Improved sample sorting by incorporating date, label, and lab reference comparisons for more accurate and user-friendly results.
 **GH-155** Enhance sample sorting in DataController: Added logic to prioritize samples with null client IDs for improved organization and clarity in data presentation.
-
+**GH-156** Refine sample sorting logic in DataController: Updated sorting to prioritize non-null client IDs while maintaining clarity in data presentation, enhancing the organization of sample results.
 
 
 
