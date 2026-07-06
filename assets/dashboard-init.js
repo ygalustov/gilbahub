@@ -1395,7 +1395,7 @@
 
         if (vwcRaw == null) {
             return panelHero('—', '', 'Volumetric Water Content') +
-                panelSection('Status', '<p style="font-size:13px;margin:0;color:var(--gaip-text-muted,#6b8878)">No sensor data available. Connect a Hydrosight sensor to see live VWC readings.</p>') +
+                panelSection('Status', '<p style="font-size:13px;margin:0;color:var(--gaip-text-muted,#6b8878)">No sensor data available. Connect a soil moisture sensor to see live VWC readings.</p>') +
                 panelSection('How to read', '<p style="font-size:12px;margin:0;line-height:1.55;color:var(--gaip-text,#1a2b23)">Target zone is ' + vwcMin + '–' + vwcMax + '% VWC for most sand-based rootzones. Field capacity (FC) ~' + fc + '%.</p>');
         }
 

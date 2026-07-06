@@ -242,7 +242,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-149** Enhance species definition and dashboard functionality: Updated the SpeciesDefinitionSeeder to include new grass varieties for fairways in New Zealand. Improved dashboard scripts by adding variety traits loading for enhanced performance analysis. Updated settings view to dynamically populate companion species options based on the selected region, ensuring accurate species representation.
 **GH-150** Refactored disease risk calculation in DollarSpotModel to include temperature gates for dollar spot activity, ensuring accurate risk assessment. Added tests to the new hub. 
 **GH-151** Refactor disease risk display and calculation logic: Updated dashboard to improve disease risk representation, including changes to the progress bar color based on severity. Enhanced JavaScript to accurately reflect current and forecasted disease risks, ensuring better user feedback and clarity in risk assessment. Added new forecast alert card for improved visibility of peak risks.
-
+**GH-152** Update dashboard status message for VWC sensor: Changed instructional text to specify connection of a soil moisture sensor instead of a Hydrosight sensor for improved clarity on data availability.
 
 
 
