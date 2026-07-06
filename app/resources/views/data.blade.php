@@ -388,11 +388,9 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th class="dat-th-num" style="color:#9ca3af">ID</th>
-                        <th style="color:#9ca3af">Client UID</th>
-                        <th>File</th>
-                        <th>Zone type</th>
                         <th>Zone name</th>
+                        <th>Zone type</th>
+                        <th>File</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">pH</th>
@@ -418,14 +416,12 @@
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="soil"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
-                        <td class="dat-td-num" style="color:#9ca3af;font-size:11px">{{ $row->id }}</td>
-                        <td style="font-size:11px;color:{{ $row->client_uid ? '#9ca3af' : '#ef4444' }}">{{ $row->client_uid ?: '—' }}</td>
-                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
+                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
                             @if($date)<div class="dat-date-age">{{ $ageLabel($date) }}</div>@endif
@@ -452,9 +448,9 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>File</th>
-                        <th>Zone type</th>
                         <th>Zone name</th>
+                        <th>Zone type</th>
+                        <th>File</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">N (%)</th>
@@ -479,12 +475,12 @@
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="tissue"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
-                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
+                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
                             @if($date)<div class="dat-date-age">{{ $ageLabel($date) }}</div>@endif
@@ -510,8 +506,8 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>File</th>
                         <th>Name</th>
+                        <th>File</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">pH</th>
@@ -535,11 +531,11 @@
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="water"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
-                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
                             @if($date)<div class="dat-date-age">{{ $ageLabel($date) }}</div>@endif
@@ -565,9 +561,9 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
-                        <th>File</th>
-                        <th>Zone type</th>
                         <th>Zone name</th>
+                        <th>Zone type</th>
+                        <th>File</th>
                         <th>Date Collected</th>
                         <th>Status</th>
                         <th class="dat-th-num">OM (%)</th>
@@ -590,12 +586,12 @@
                     <tr class="dat-row" data-id="{{ $row->id }}" data-section="loi"
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
-                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
-                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $name }}</div>
                             @if($labId)<div class="dat-lab-id">Lab ID: {{ $labId }}</div>@endif
                         </td>
+                        <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
+                        <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td>
                             <div>{{ $date ? date('M j, Y', strtotime($date)) : '—' }}</div>
                             @if($date)<div class="dat-date-age">{{ $ageLabel($date) }}</div>@endif
@@ -620,7 +616,7 @@
                 <table class="dat-table" id="dat-table">
                     <thead><tr>
                         <th>Date</th>
-                        <th>Zone</th>
+                        <th>Zone type</th>
                         <th>Product</th>
                         <th>Category</th>
                         <th class="dat-th-num">Rate</th>
@@ -631,7 +627,7 @@
                     @foreach($rows as $row)
                     @php
                         $date = $row->event_date ?? null;
-                        $zone = $row->zone ?? '—';
+                        $zone = $row->zone ? ucfirst($row->zone) : '—';
                         $catCls = match(strtolower($row->product_type ?? '')) {
                             'fungicide'            => 'cat-fungicide',
                             'pgr'                  => 'cat-pgr',
@@ -937,20 +933,45 @@
         return notes ? '<div class="dat-detail-notes"><strong>Notes:</strong> ' + esc(notes) + '</div>' : '';
     }
 
+    function metaHeader(data, opts) {
+        opts = opts || {};
+        var pairs = [];
+        if (!opts.noName && data.name && data.name !== '—') pairs.push(['Zone name', data.name, false]);
+        if (!opts.noZone && data.zone && data.zone !== '—') pairs.push(['Zone type', data.zone, false]);
+        if (data.date)                                       pairs.push(['Date',      fmtDate(data.date), false]);
+        if (data.source && data.source !== 'manual')        pairs.push(['File',      data.source.replace(/\.json$/i, ''), false]);
+        if (data.lab_name && data.lab_name !== '')          pairs.push(['Lab',       data.lab_name, false]);
+        if (data.labId)                                     pairs.push(['Lab ref',   data.labId, false]);
+        if (!pairs.length) return '';
+        var cells = pairs.map(function(p) {
+            return '<div class="dat-spec-cell">'
+                + '<div class="dat-spec-label">' + esc(p[0]) + '</div>'
+                + '<div class="dat-spec-value" style="word-break:break-word">' + esc(String(p[1])) + '</div>'
+                + '</div>';
+        }).join('');
+        return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px 16px;padding:12px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:16px">'
+            + cells
+            + '</div>';
+    }
+
     function buildSoil(p, data) {
         var keyHtml = SOIL_KEY.map(function (f) { return metricCard(f.name, gv(p, f.keys), f.unit, f.opt, f.max); }).join('');
-        return (keyHtml ? '<div class="dat-metric-grid">' + keyHtml + '</div>' : '') +
+        return metaHeader(data) +
+               (keyHtml ? '<div class="dat-metric-grid">' + keyHtml + '</div>' : '') +
                specGrid(SOIL_FULL, p) + notesHtml(data.notes);
     }
 
     function buildTissue(p, data) {
         var keyHtml = TISSUE_KEY.map(function (f) { return metricCard(f.name, gv(p, f.keys), f.unit, f.opt, f.max); }).join('');
-        return (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(3,1fr)">' + keyHtml + '</div>' : '') + notesHtml(data.notes);
+        return metaHeader(data) +
+               (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(3,1fr)">' + keyHtml + '</div>' : '') +
+               notesHtml(data.notes);
     }
 
     function buildWater(p, data) {
         var keyHtml = WATER_KEY.map(function (f) { return metricCard(f.name, gv(p, f.keys), f.unit, f.opt, f.max); }).join('');
-        return (keyHtml ? '<div class="dat-metric-grid">' + keyHtml + '</div>' : '') +
+        return metaHeader(data, { noZone: true }) +
+               (keyHtml ? '<div class="dat-metric-grid">' + keyHtml + '</div>' : '') +
                specGrid(WATER_FULL, p) + notesHtml(data.notes);
     }
 
@@ -961,13 +982,15 @@
             { keys:['moisture','Moisture'],                             name:'Moisture',       unit:'%', opt:[15,25], max:50 },
         ];
         var keyHtml = fields.map(function (f) { return metricCard(f.name, gv(p, f.keys), f.unit, f.opt, f.max); }).join('');
-        return (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(3,1fr)">' + keyHtml + '</div>' : '') + notesHtml(data.notes);
+        return metaHeader(data) +
+               (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(3,1fr)">' + keyHtml + '</div>' : '') +
+               notesHtml(data.notes);
     }
 
     function buildSpray(data) {
         var pairs = [
             ['Date',              data.date ? fmtDate(data.date) : null],
-            ['Zone',              data.zone && data.zone !== '—' ? data.zone : null],
+            ['Zone type',         data.zone && data.zone !== '—' ? data.zone : null],
             ['Product',           data.product && data.product !== '—' ? data.product : null],
             ['Category',          data.category && data.category !== '—' ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : null],
             ['Active Ingredient', data.active_ingredient || null],
@@ -1401,7 +1424,6 @@
     var MANUAL_FORMS = {
         soil: {
             meta: [
-                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
                 { id: 'uid',    label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green 1' },
                 { id: 'zone',   label: 'Zone type',        type: 'zone' },
                 { id: 'date',   label: 'Date Collected',   type: 'date' },
@@ -1428,7 +1450,6 @@
         },
         tissue: {
             meta: [
-                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
                 { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Greens clipping' },
                 { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
@@ -1449,7 +1470,6 @@
         },
         water: {
             meta: [
-                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
                 { id: 'uid',  label: 'Name', placeholder: 'e.g. Bore water' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
@@ -1469,7 +1489,6 @@
         },
         loi: {
             meta: [
-                { id: 'source', label: 'Source file', placeholder: 'e.g. lab_results.csv' },
                 { id: 'uid',  label: 'Zone name', type: 'zone-name', placeholder: 'e.g. Green centre' },
                 { id: 'zone', label: 'Zone type',        type: 'zone' },
                 { id: 'date', label: 'Date Collected',   type: 'date' },
@@ -1912,7 +1931,7 @@
             + '<div class="dat-mf-field"><label class="dat-mf-label">Unit</label><select class="dat-mf-select" id="dat-sl-unit">' + unitOpts + '</select></div>'
             + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Target (pest / disease)</label><input type="text" class="dat-mf-input" id="dat-sl-target" placeholder="e.g. Dollar Spot"></div>'
             + '</div>'
-            + '<div class="dat-mf-field" style="margin-bottom:12px"><label class="dat-mf-label">Zones Applied</label><div class="dat-zone-pills" id="dat-sl-zones">' + zonePills + '</div></div>'
+            + '<div class="dat-mf-field" style="margin-bottom:12px"><label class="dat-mf-label">Zone type</label><div class="dat-zone-pills" id="dat-sl-zones">' + zonePills + '</div></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Notes</label><textarea class="dat-mf-textarea" id="dat-sl-notes" rows="2"></textarea></div>';
     }
 
@@ -2104,7 +2123,7 @@
         var notes = (q('dat-f-notes')  || {}).value || null;
 
         if (source) payload['_source'] = source;
-        if (uid && ['soil','tissue','loi'].indexOf(SECTION) !== -1) {
+        if (uid) {
             payload['_label'] = uid;
         }
 
