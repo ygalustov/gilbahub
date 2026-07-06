@@ -1142,20 +1142,29 @@
     color: var(--gaip-text-muted, #6b8878);
 }
 .dat-mf-input, .dat-mf-select, .dat-mf-textarea {
-    padding: 7px 10px;
+    padding: 8px 11px;
     border: 1px solid var(--gaip-border, #ccd9d2);
     border-radius: 7px;
-    font-size: 13px;
+    font-size: 14px;
     font-family: inherit;
     color: var(--gaip-text, #1a2b23);
     background: #fff;
     outline: none;
     width: 100%;
     box-sizing: border-box;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+.dat-mf-select {
+    appearance: none;
+    -webkit-appearance: none;
+    padding-right: 32px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b8878' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
 }
 .dat-mf-input:focus, .dat-mf-select:focus, .dat-mf-textarea:focus {
     border-color: var(--gaip-accent, #2da85e);
-    box-shadow: 0 0 0 2px rgba(45,168,94,0.1);
+    box-shadow: 0 0 0 3px rgba(45,168,94,0.12);
 }
 .dat-mf-textarea { resize: vertical; min-height: 60px; }
 .dat-mf-sec {

@@ -249,6 +249,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-156** Refine sample sorting logic in DataController: Updated sorting to prioritize non-null client IDs while maintaining clarity in data presentation, enhancing the organization of sample results.
 **GH-157** Enhance data table in data.blade.php: Added an ID column to the data table for improved clarity and reference, ensuring better organization of displayed information.
 **GH-158** Update data table in data.blade.php: Changed the placeholder for empty Client UID values from '∅ empty' to '—' for improved visual consistency and clarity in data presentation.
+**GH-159** Refactor data table layout in data.blade.php: Rearranged columns for improved organization, placing 'Zone type' and 'File' after 'Zone name' for better clarity in data presentation.
+**GH-160** Update data-ui.css: Adjusted padding and font size for input elements, added transition effects, and enhanced styling for select elements to improve user experience and visual consistency.
+
+
+
 
 
 
