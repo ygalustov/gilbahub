@@ -389,6 +389,7 @@
                     <thead><tr>
                         <th class="dat-th-check"><input type="checkbox" id="dat-check-all" aria-label="Select all"></th>
                         <th class="dat-th-num" style="color:#9ca3af">ID</th>
+                        <th style="color:#9ca3af">Client UID</th>
                         <th>File</th>
                         <th>Zone type</th>
                         <th>Zone name</th>
@@ -418,6 +419,7 @@
                         data-row="{{ json_encode($rowData) }}">
                         <td class="dat-td-check"><input type="checkbox" class="dat-row-check" data-id="{{ $row->id }}"></td>
                         <td class="dat-td-num" style="color:#9ca3af;font-size:11px">{{ $row->id }}</td>
+                        <td style="font-size:11px;color:{{ $row->client_uid ? '#9ca3af' : '#ef4444' }}">{{ $row->client_uid ?: '∅ empty' }}</td>
                         <td class="dat-td-source">{{ $source ?? '—' }}</td>
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
