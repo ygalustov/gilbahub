@@ -405,63 +405,68 @@
         }
 
         // Disease Risk
-        // Use max(current, forecast) for severity — same logic as Hub daily-dashboard.js v1.8.0
+        // Headline severity = max(current, forecast) — same logic as old hub daily-dashboard.js v1.8.0.
+        // When forecast drives severity, subtitle shows "X% now → Y% forecast" (trajectory format).
         // Thresholds match disease-engine-pure.js: <50=Low, 50-70=Moderate, 70-85=High, >=85=Severe
         if (m.diseaseRisk != null) {
             var risk    = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
             var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
             var peakDay = m.peakDay;
+            var forecastDriving = peak != null && peak > risk + 5;
 
-            // Worst-case display risk (forecast may be worse than today)
-            var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
-
+            var displayRisk = forecastDriving ? peak : risk;
             var level, cls;
-            if (displayRisk >= 85)      { level = 'SEVERE';   cls = 'critical'; }
-            else if (displayRisk >= 70) { level = 'HIGH';     cls = 'critical'; }
-            else if (displayRisk >= 50) { level = 'MEDIUM';   cls = 'warning';  }
-            else                        { level = 'LOW';      cls = '';         }
+            if      (displayRisk >= 85) { level = 'SEVERE';  cls = 'critical'; }
+            else if (displayRisk >= 70) { level = 'HIGH';    cls = 'critical'; }
+            else if (displayRisk >= 50) { level = 'MEDIUM';  cls = 'warning';  }
+            else                        { level = 'LOW';     cls = '';         }
+
+            var severityColor = cls === 'critical' ? '#dc2626' : (cls === 'warning' ? '#d97706' : '#16a34a');
 
             var dEl = el('db-disease-value');
             if (dEl) { dEl.textContent = level; dEl.className = 'db-vital-main' + (cls ? ' ' + cls : ''); }
-            setText('db-disease-today', risk + '% today');
 
-            // Show "Forecast Peak" label when forecast is driving the severity
-            var fcLabelEl = el('db-disease-fc-label');
-            if (fcLabelEl) {
-                fcLabelEl.style.display = (peak != null && peak > risk + 5) ? '' : 'none';
+            // Subtitle: trajectory "X% now → Y% forecast" when forecast drives severity, else "X% today"
+            if (forecastDriving) {
+                setText('db-disease-today', risk + '% now → ' + peak + '% forecast');
+            } else {
+                setText('db-disease-today', risk + '% today');
             }
 
-            // Disease progress bar — shows current risk (not displayRisk)
+            // Bar: current risk width, severity color
             var dBar = el('db-disease-bar');
             if (dBar) {
                 dBar.style.width = Math.min(risk, 100) + '%';
-                dBar.style.background = risk >= 70 ? '#dc2626' : (risk >= 50 ? '#d97706' : '#16a34a');
+                dBar.style.background = severityColor;
             }
 
-            // Forecast alert: "△ 69% in 1 day" format
+            // Disease name dot — matches severity color
+            var nameRowEl = el('db-disease-name-row');
+            var nameDotEl = el('db-disease-name-dot');
+            if (m.topDisease && nameRowEl) {
+                var nameEl = el('db-disease-name');
+                if (nameEl) nameEl.textContent = m.topDisease + ' ' + risk + '%';
+                // Dot reflects CURRENT risk of this disease, not forecast severity
+                var dotColor = risk >= 70 ? '#dc2626' : (risk >= 50 ? '#d97706' : '#16a34a');
+                if (nameDotEl) nameDotEl.style.color = dotColor;
+                nameRowEl.style.display = '';
+            } else if (nameRowEl) {
+                nameRowEl.style.display = 'none';
+            }
+
+            // Alert row: shown when forecast disease differs from current top disease
             var alertEl = el('db-disease-alert');
             if (alertEl) {
-                if (peak != null && peakDay != null && peakDay > 0) {
-                    var dayLabel = peakDay === 1 ? 'in 1 day' : 'in ' + peakDay + ' days';
-                    alertEl.textContent = '△ ' + peak + '% ' + dayLabel;
-                    alertEl.style.display = '';
-                } else if (peak != null && peakDay === 0 && peak > risk + 5) {
-                    alertEl.textContent = '△ ' + peak + '% today';
+                var fcDiffers = m.forecastDisease && m.forecastDisease !== m.topDisease;
+                if (forecastDriving && fcDiffers && peakDay != null) {
+                    var fcShort = m.forecastDisease.replace(/\s*\([^)]*\)/g, '');
+                    var dayLabel = peakDay === 0 ? 'today' : peakDay === 1 ? 'tomorrow' : 'in ' + peakDay + ' days';
+                    alertEl.textContent = '⚠ ' + fcShort + ' ' + peak + '% ' + dayLabel;
+                    alertEl.style.color = severityColor;
                     alertEl.style.display = '';
                 } else {
                     alertEl.style.display = 'none';
                 }
-            }
-
-            // Disease name with colored dot
-            var nameRowEl = el('db-disease-name-row');
-            var nameDotEl = el('db-disease-name-dot');
-            if (m.topDisease && nameRowEl) {
-                setText('db-disease-name', m.topDisease);
-                if (nameDotEl) nameDotEl.style.color = cls === 'critical' ? '#dc2626' : (cls === 'warning' ? '#d97706' : '#16a34a');
-                nameRowEl.style.display = '';
-            } else if (nameRowEl) {
-                nameRowEl.style.display = 'none';
             }
         }
 
@@ -563,12 +568,28 @@
         var risk    = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
         var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
         var disease = m.topDisease || 'Disease';
-        var level   = risk >= 50 ? 'HIGH' : (risk >= 25 ? 'MEDIUM' : 'LOW');
-        var cls     = risk >= 50 ? 'critical' : (risk >= 25 ? 'warning' : 'ok');
+        // Use worst-case (current or forecast) for color/severity — same logic as vital card
+        var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
+        var level = displayRisk >= 50 ? 'HIGH' : (displayRisk >= 25 ? 'MEDIUM' : 'LOW');
+        var cls   = displayRisk >= 50 ? 'critical' : (displayRisk >= 25 ? 'warning' : 'ok');
 
-        var txt = disease + ' risk ' + level;
-        if (peak != null && m.peakDay != null) {
-            txt += ' — forecast ' + peak + '% in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '');
+        var txt;
+        if (peak != null && peak > risk + 5 && m.peakDay != null) {
+            var dayLabel = m.peakDay === 1 ? '1 day' : m.peakDay + ' days';
+            var fcDisease = m.forecastDisease && m.forecastDisease !== m.topDisease
+                ? m.forecastDisease.replace(/\s*\([^)]*\)/g, '')
+                : null;
+            if (fcDisease) {
+                // Different disease peaks in forecast — show both names clearly
+                txt = disease + ' ' + risk + '% · ' + fcDisease + ' forecast ' + peak + '% in ' + dayLabel;
+            } else {
+                txt = disease + ' — ' + risk + '% now, forecast ' + peak + '% in ' + dayLabel;
+            }
+        } else {
+            txt = disease + ' risk ' + level + ' (' + risk + '%)';
+            if (peak != null && m.peakDay != null) {
+                txt += ' — forecast ' + peak + '% in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '');
+            }
         }
         setText('db-verdict-text', txt);
         if (bar) { bar.className = 'db-verdict ' + cls; bar.style.display = ''; }
@@ -1227,7 +1248,10 @@
         else if (displayRisk >= 50) { level = 'MEDIUM'; cls = 'warning';  }
         else                        { level = 'LOW';    cls = 'ok';       }
 
-        var html = panelHero(level, cls, displayRisk + '% overall risk');
+        var heroSub = (peak != null && peak > risk + 5)
+            ? risk + '% now → ' + peak + '% forecast'
+            : risk + '% overall risk';
+        var html = panelHero(level, cls, heroSub);
 
         var makeRow = function (name, cur, pk, pd, tw) {
             var pct  = cur || 0;
@@ -1276,7 +1300,13 @@
         }
 
         if (peak != null && m && m.peakDay != null) {
-            html += panelSection('Forecast', '<p style="font-size:13px;margin:0;color:var(--gaip-text,#1a2b23)">Peak: <strong>' + peak + '%</strong> in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '') + '</p>');
+            var fcDisease = m.forecastDisease || m.topDisease || '';
+            var fcDayLabel = m.peakDay === 1 ? '1 day' : m.peakDay + ' days';
+            var fcContent = '<p style="font-size:13px;margin:0;color:var(--gaip-text,#1a2b23)">' +
+                (fcDisease ? '<strong>' + fcDisease + '</strong><br>' : '') +
+                'Peak: <strong>' + peak + '%</strong> in ' + fcDayLabel +
+                '</p>';
+            html += panelSection('Forecast', fcContent);
         }
 
         // Companion surface (fairway/tee) — separate section

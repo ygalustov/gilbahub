@@ -244,6 +244,16 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## Backlog
 +1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
 +2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 
@@ -301,6 +311,10 @@ I also added the source file name, so it’s easy to see which file each sample 
 +65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
 
 
+06/07/26
++67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
+
+
 
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
 45.⁠ ⁠Is it me or is this showing the same light level for every site?
@@ -326,12 +340,14 @@ I also added the source file name, so it’s easy to see which file each sample 
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
-67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
+
 
 
 ----
 
+soil moisture om the dashboard - where did you take thresholds? 
 
+on the dashboard on the side panel - looks like data is incorrect .
 --
 
 data sources - all current but no tissiea test and water downloaded

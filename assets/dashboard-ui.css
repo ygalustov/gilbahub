@@ -512,7 +512,7 @@ body { margin: 0; padding: 0; }
 .db-vital-alert {
     font-size: 12px;
     font-weight: 600;
-    color: #d97706;
+    color: #d97706; /* fallback; overridden per-severity by JS */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

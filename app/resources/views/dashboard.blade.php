@@ -135,19 +135,16 @@
                             Disease Risk
                             <span class="db-info-icon" data-info="disease-risk" tabindex="0" role="button" aria-label="About Disease Risk">i</span>
                         </div>
-                        <div class="db-disease-main-row">
-                            <div class="db-vital-main" id="db-disease-value">—</div>
-                            <span class="db-disease-fc-label" id="db-disease-fc-label" style="display:none">Forecast Peak</span>
-                        </div>
+                        <div class="db-vital-main" id="db-disease-value">—</div>
                         <div class="db-vital-sub" id="db-disease-today"></div>
                         <div class="db-progress-bar" style="margin:4px 0">
-                            <div class="db-progress-fill" id="db-disease-bar" style="width:0%;background:#dc2626"></div>
+                            <div class="db-progress-fill" id="db-disease-bar" style="width:0%;background:#16a34a"></div>
                         </div>
-                        <div class="db-vital-alert" id="db-disease-alert" style="display:none"></div>
                         <div class="db-disease-name-row" id="db-disease-name-row" style="display:none">
                             <span class="db-disease-name-dot" id="db-disease-name-dot">●</span>
                             <span id="db-disease-name"></span>
                         </div>
+                        <div class="db-vital-alert" id="db-disease-alert" style="display:none"></div>
                     </div>
 
                     {{-- Stress Index --}}

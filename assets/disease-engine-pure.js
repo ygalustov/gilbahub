@@ -4108,6 +4108,12 @@ const TakeAllModel = {
                               ?? soilTempObj?.mean
                               ?? null;
         const soilTempEstimated = !soilTempObj || soilTempObj.source === 'estimated';
+        const airTempIsReal = climate?.temperature?.mean != null
+            || climate?.temperature?.max != null
+            || climate?.temperature?.min != null;
+        // Degraded when we have no direct soilTemp AND no real air temperature to estimate from.
+        // In this state the 15°C fallback would produce a falsely optimal soil temperature.
+        const degradedTemp = soilTempEstimated && !airTempIsReal;
 
         // Hemisphere-aware air-temp lag fallback (no DOM reads)
         if (soilTemp === null) {
@@ -4139,8 +4145,10 @@ const TakeAllModel = {
             ? Math.min(1, (soilMoisture - 0.35) / 0.15) : 0;
 
         // Soil temp factor — infection optimum 12-18°C, active 8-22°C
+        // Zero when degradedTemp: no real air or soil temperature available, so we
+        // must not inflate risk via the 15°C fallback (the biological optimum).
         let soilTempFactor = 0;
-        if (soilTemp >= 8 && soilTemp <= 22) {
+        if (!degradedTemp && soilTemp >= 8 && soilTemp <= 22) {
             soilTempFactor = Math.exp(-0.5 * Math.pow((soilTemp - 15) / 4, 2));
         }
 
@@ -4187,6 +4195,7 @@ const TakeAllModel = {
             confidence, confidenceScore,
             primaryDriver,
             modelVersion: '2.0',
+            degraded: degradedTemp || undefined,
             drivers: {
                 pH: {
                     value: soilPH,

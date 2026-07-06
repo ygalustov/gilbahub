@@ -216,9 +216,15 @@
         if (!data) return null;
         var computed   = data.computed || {};
         var diseaseObj = computed.disease || {};
+        var rawScore = diseaseObj.overallScore != null ? diseaseObj.overallScore : null;
+        var rawLevel = (diseaseObj.overallRisk || diseaseObj.riskLevel || '').toLowerCase() || null;
+        var _knownLevels = { severe: 1, high: 1, moderate: 1, low: 1 };
+        if ((!rawLevel || rawLevel === 'none' || !_knownLevels[rawLevel]) && rawScore != null && rawScore > 0) {
+            rawLevel = rawScore >= 70 ? 'high' : rawScore >= 50 ? 'moderate' : 'low';
+        }
         return {
-            riskLevel:         diseaseObj.overallRisk  || diseaseObj.riskLevel  || null,
-            overallScore:      diseaseObj.overallScore != null ? diseaseObj.overallScore : null,
+            riskLevel:         rawLevel,
+            overallScore:      rawScore,
             trajectory:        diseaseObj.trajectory   || null,
             diseases:          Array.isArray(diseaseObj.diseases)   ? diseaseObj.diseases   : [],
             topThreats:        Array.isArray(diseaseObj.topThreats) ? diseaseObj.topThreats : [],
@@ -264,11 +270,47 @@
             '</div>';
     }
 
+    // ── Forecast Peak KPI card ────────────────────────────────────────────────
+    // Injected into gl-kpi-grid when forecast peak exceeds current risk by ≥20 points.
+
+    function renderForecastAlertCard(forecastSummary, currentScore) {
+        if (!forecastSummary || forecastSummary.peakRisk == null) return '';
+        var peak    = Math.round(forecastSummary.peakRisk);
+        var current = currentScore != null ? Math.round(currentScore) : 0;
+        if (peak <= current + 20) return '';
+
+        var name     = forecastSummary.topThreat || 'Disease';
+        var peakDay  = forecastSummary.peakDay;   // 0-indexed
+        var color    = peak >= 85 ? '#dc2626' : '#d97706';
+        var rgb      = peak >= 85 ? '220,38,38' : '217,119,6';
+
+        var dayLabel = peakDay === 0 ? 'Today'
+                     : peakDay === 1 ? 'Tomorrow'
+                     : 'In ' + (peakDay + 1) + ' days';
+        var badgeBg  = peak >= 85 ? '#fef2f2' : '#fff7ed';
+        var badgeCol = peak >= 85 ? '#dc2626' : '#d97706';
+        var badgeBdr = peak >= 85 ? '#fca5a5' : '#fcd34d';
+
+        var dayBadge = '<span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;' +
+            'background:' + badgeBg + ';color:' + badgeCol + ';border:1px solid ' + badgeBdr + '">' + dayLabel + '</span>';
+
+        return '<div class="gl-kpi-card" style="background:rgba(' + rgb + ',0.07);border-color:rgba(' + rgb + ',0.25);border-left-color:' + color + '">' +
+            '<div class="gl-kpi-label">Forecast Peak</div>' +
+            '<div class="gl-kpi-value" style="color:' + color + '">' + peak + '%</div>' +
+            '<div class="gl-kpi-unit">' + esc(name) + '</div>' +
+            '<div>' + dayBadge + '</div>' +
+            '</div>';
+    }
+
     // ── Render: left panel ────────────────────────────────────────────────────
 
     function renderLeft(d, selected) {
-        var c        = riskColor(d.riskLevel);
         var score    = d.overallScore != null ? Math.round(d.overallScore) : null;
+        var _lvl     = (d.riskLevel || 'none').toLowerCase();
+        if ((_lvl === 'none' || !_lvl) && score != null && score > 0) {
+            _lvl = score >= 70 ? 'high' : score >= 50 ? 'moderate' : 'low';
+        }
+        var c        = riskColor(_lvl);
         var diseases = filterDiseases(d.diseases.length ? d.diseases : d.topThreats);
         var html     = '';
 
@@ -278,8 +320,8 @@
         html += '    <div class="gl-section-label" style="color:' + c.text + ';margin-top:0">Overall Disease Risk ' + infoBtn('dr-overall') + '</div>';
         html += '    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">';
         html += '      <span style="font-size:36px;font-weight:800;color:' + c.badge + ';line-height:1">' +
-                        (score != null ? score + '%' : (capitalize(d.riskLevel) || '—')) + '</span>';
-        html += '      ' + riskBadge(d.riskLevel);
+                        (score != null ? score + '%' : (capitalize(_lvl) || '—')) + '</span>';
+        html += '      ' + riskBadge(_lvl);
         html += '    </div>';
         if (d.trajectory) {
             html += '    <div style="font-size:12px">' + trajectoryArrow(d.trajectory) + '</div>';
@@ -731,7 +773,10 @@
 
     function renderDiseaseHeader(d, diseases) {
         var score   = d.overallScore != null ? Math.round(d.overallScore) : null;
-        var level   = d.riskLevel || 'none';
+        var level   = (d.riskLevel || 'none').toLowerCase();
+        if ((level === 'none' || !level) && score != null && score > 0) {
+            level = score >= 70 ? 'high' : score >= 50 ? 'moderate' : 'low';
+        }
         var c       = riskColor(level);
 
         var topThreat  = diseases[0] || null;
@@ -818,11 +863,11 @@
             '  <div class="gl-header-inner">',
             '    <div style="display:flex;align-items:center;margin-bottom:2px">',
             '      <h1 class="gl-title">Disease Risk Analysis</h1>',
-            '      <span class="gl-weather-live" style="margin-left:auto">&#9679; Live weather</span>',
             '    </div>',
             '    <div class="gl-subtitle">Disease pressure, pathogen models and spray timing</div>',
             '    <div class="gl-kpi-grid">',
             cards.join(''),
+            '      <div id="dr-forecast-kpi-slot"></div>',
             '    </div>',
             '  </div>',
             '</div>'
@@ -1583,6 +1628,14 @@
                 if (wrap) {
                     wrap.outerHTML = chartHtml;
                     attachForecastTooltip(renderForecastChartFromSeries._pending);
+                }
+
+                // Inject forecast peak KPI card into header grid when peak >> current risk
+                var kpiSlot = document.getElementById('dr-forecast-kpi-slot');
+                if (kpiSlot && result.summary) {
+                    var currentScore = (getDiseaseData() || {}).overallScore;
+                    var cardHtml = renderForecastAlertCard(result.summary, currentScore);
+                    if (cardHtml) kpiSlot.outerHTML = cardHtml;
                 }
             })
             .catch(function () {
