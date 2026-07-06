@@ -1242,7 +1242,16 @@ const DollarSpotModel = {
         const dailyMeanTemp = (climate?.temperature?.max != null && climate?.temperature?.min != null)
             ? (climate.temperature.max + climate.temperature.min) / 2
             : meanTemp;
-        const avg5Day = get5DayAvgTemp(climate?.temperature?.dailyPattern) || dailyMeanTemp;
+        const _avg5DayFromPattern = get5DayAvgTemp(climate?.temperature?.dailyPattern);
+        const avg5Day = _avg5DayFromPattern || dailyMeanTemp;
+        // avg5DayIsReal: true only when temperature came from a real measurement (not the
+        // hardcoded || 20 fallback). The gate and degraded path both check this so that
+        // per-day forecast calls with missing temperature fields don't produce false positives
+        // from an invented 20°C default.
+        const avg5DayIsReal = _avg5DayFromPattern != null
+            || (climate?.temperature?.max != null && climate?.temperature?.min != null)
+            || climate?.temperature?.mean != null
+            || climate?.temperature?.current != null;
         const meanRH5d = get5DayMeanRH(climate);
         const leafWet = getLeafWetnessHours(climate, dewData);
         const nStatus = nitrogen?.status || 'adequate';
@@ -1255,6 +1264,40 @@ const DollarSpotModel = {
         // a degraded-data path that mirrors the structure but flags low
         // confidence.
         const smithKernsProbability = getSmithKerns2018Probability(climate);
+
+        // --- Temperature gate: dollar spot is biologically inactive outside 10–35°C ---
+        // Below 10°C Clarireedia jacksonii is dormant; above 35°C heat stress suppresses
+        // the pathogen. The SK logistic regression has no hard bounds — at very high RH
+        // it can return a non-zero probability even at 5°C or 38°C. This gate prevents
+        // false positives. Raw SK probability is kept in suppressedProbability so the
+        // suppression is auditable rather than hidden.
+        if (avg5DayIsReal && (avg5Day < 10 || avg5Day > 35)) {
+            const gateReason = avg5Day < 10
+                ? `Temperature gate: 5-day MEANAT ${avg5Day.toFixed(1)}°C is below the 10°C minimum for dollar spot activity`
+                : `Temperature gate: 5-day MEANAT ${avg5Day.toFixed(1)}°C exceeds the 35°C maximum for dollar spot activity`;
+            if (typeof console !== 'undefined') {
+                console.log('[DollarSpot.calculate()] INACTIVE —', gateReason);
+            }
+            return {
+                disease: 'dollarSpot', displayName: 'Dollar Spot',
+                riskScore: 0,
+                riskLevel: 'none',
+                actionRequired: false,
+                inactive: true,
+                inactiveReason: gateReason,
+                suppressedProbability: smithKernsProbability != null ? Math.round(smithKernsProbability * 10) / 10 : null,
+                smithKernsActionThreshold: 20,
+                confidence: 'high',
+                confidenceScore: 90,
+                degraded: false,
+                drivers: {
+                    temperature: { value: avg5Day != null ? Math.round(avg5Day * 10) / 10 : null, source: 'MEANAT (Smith-Kerns 2018 input)' },
+                    humidity:    { value: meanRH5d != null ? Math.round(meanRH5d * 10) / 10 : null, source: 'MEANRH (Smith-Kerns 2018 input)' },
+                },
+                modifiers: {},
+                source: 'Smith-Kerns 2018 logistic regression (PLOS ONE 13(3):e0194216) + Gilba site modifiers',
+            };
+        }
 
         // --- Gilba site-specific modifiers (layered on top of SK probability) ---
         // wetFactor: leaf wetness from dew engine or hourly RH proxy. Acts as
@@ -1307,13 +1350,20 @@ const DollarSpotModel = {
             // Degraded path: insufficient data to compute SK probability.
             // Fall back to a coarse temperature-only estimate and flag low
             // confidence. This is a Gilba fallback, NOT Smith-Kerns.
+            // When avg5DayIsReal is false we have no real temperature measurement
+            // at all — avg5Day is the hardcoded || 20 fallback. Computing a
+            // tempFactor on a fabricated 20°C would produce a false positive
+            // (e.g. per-day forecast calls from disease-forecast.js that supply
+            // RH hourly data but no temperature fields). In that case emit 0.
             let tempFactor = 0;
-            if (avg5Day >= 15 && avg5Day <= 30) {
-                tempFactor = Math.exp(-0.5 * Math.pow((avg5Day - 22) / 6, 2));
-            } else if (avg5Day > 30) {
-                tempFactor = Math.max(0, 1 - (avg5Day - 30) / 10);
-            } else if (avg5Day > 10) {
-                tempFactor = (avg5Day - 10) / 10;
+            if (avg5DayIsReal) {
+                if (avg5Day >= 15 && avg5Day <= 30) {
+                    tempFactor = Math.exp(-0.5 * Math.pow((avg5Day - 22) / 6, 2));
+                } else if (avg5Day > 30) {
+                    tempFactor = Math.max(0, 1 - (avg5Day - 30) / 10);
+                } else if (avg5Day > 10) {
+                    tempFactor = (avg5Day - 10) / 10;
+                }
             }
             rawRisk = tempFactor * (1 + 0.30 * wetFactor) * nMod * shadeMod * 30;
             confidence = 'low';

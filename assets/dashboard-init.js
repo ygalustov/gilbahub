@@ -1261,7 +1261,10 @@
         }
 
         if (diseases && diseases.length) {
-            var rows = diseases.slice(0, 5).map(function (d) {
+            var rows = diseases.filter(function (d) {
+                var s = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore != null ? d.riskScore : 0);
+                return s > 0;
+            }).slice(0, 5).map(function (d) {
                 var name = d.displayName || d.name || d.disease || 'Unknown';
                 var cur  = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.riskScore != null ? Math.round(d.riskScore) : (d.current != null ? Math.round(d.current) : null));
                 var pk   = d.peakRisk     != null ? Math.round(d.peakRisk)     : null;

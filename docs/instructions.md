@@ -240,7 +240,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-147** Enhance dashboard weather status handling: Updated the dashboard to include specific IDs for weather status elements, improving JavaScript interaction. Added logic to display an error banner and update the status indicators when weather data fetch fails, enhancing user feedback during analysis.
 **GH-148** Enhance dashboard weather handling: Updated error banners to provide clearer feedback on weather data fetch failures and manual overrides. Improved JavaScript logic to differentiate between live, cached, and manual weather data sources, ensuring accurate status updates and user notifications.
 **GH-149** Enhance species definition and dashboard functionality: Updated the SpeciesDefinitionSeeder to include new grass varieties for fairways in New Zealand. Improved dashboard scripts by adding variety traits loading for enhanced performance analysis. Updated settings view to dynamically populate companion species options based on the selected region, ensuring accurate species representation.
-
+**GH-150** Refactored disease risk calculation in DollarSpotModel to include temperature gates for dollar spot activity, ensuring accurate risk assessment. Added tests to the new hub. 
 
 
 
@@ -294,8 +294,11 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 
 03/07/26
 +39.⁠ ⁠NZ is only cool season for fairways. GH-149.
-
-+43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. 
++43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. Added. I also made some UI changes on the Data page.
+Additionally, when you import soil data, zones are now automatically added to the Zones list in Settings if they don’t already exist.
+I also added the source file name, so it’s easy to see which file each sample was imported from. If that’s not useful, just let me know and I’ll remove it.
++58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-). GH-149. 
++65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
 
 
 
@@ -314,22 +317,26 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe.
 56.⁠ ⁠stress index is ok as its 22 vs 19
 57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
-+58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-). GH-149. 
 59.hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
 61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc
 62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
 64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
-+65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
-
+67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
 
 
 ----
- and also we need to let client know that data is estimated based on the manula data - maybe in the same banner? but after calculation change the text? 
+
+
+--
+
+data sources - all current but no tissiea test and water downloaded
+
+---
 
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)
