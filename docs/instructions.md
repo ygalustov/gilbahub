@@ -253,7 +253,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-160** Update data-ui.css: Adjusted padding and font size for input elements, added transition effects, and enhanced styling for select elements to improve user experience and visual consistency.
 **GH-161** Enhance data display in data.blade.php: Updated the layout of data rows to include zone names as subtitles, improved the display logic for names and zones, and adjusted CSS for better alignment and spacing, enhancing overall readability and user experience.
 **GH-162** Update soil nutrition analysis and data display: Introduced tissue range presets for various grass species in soil-nutrition-analysis.js, enhancing nutrient analysis accuracy. Added SITE_SPECIES variable in data.blade.php for improved data context. Updated instructional documentation for clarity on recent changes.
-
+**GH-163** Update nutrient display in data.blade.php: Enhanced the nutrient breakdown by adding depth-specific categories (0–20mm, 20–40mm, 40–60mm, 60–80mm) for organic matter and improved the layout of the metric grid for better responsiveness. 
 
 
 
@@ -327,10 +327,10 @@ I also added the source file name, so it’s easy to see which file each sample 
 
 
 
-
-
-
-
+07/07/26
+72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
+73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
+75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
 
 
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
@@ -359,14 +359,15 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 71. the areas be better in m2 and you can’t tell which green is which
 
 
-72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the range based on the turf type. Some of these are for bentgrass and some Poa and others I have no idea
-73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective
+
+
 74. just reset to perennial ryegrass again from colonial bentgrass.
-75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures.
+
 
 Files from NZ
-Integration with soil scout?
 
+Integration with soil scout
+this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 ----

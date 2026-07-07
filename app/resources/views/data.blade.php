@@ -978,13 +978,17 @@
 
     function buildLoi(p, data) {
         var fields = [
-            { keys:['OM','om','organic_matter','OrganicMatter','LOI'], name:'Organic Matter', unit:'%', opt:[2.5,5], max:10 },
-            { keys:['thatch','Thatch','THATCH'],                        name:'Thatch',         unit:'%', opt:[0,10],  max:30 },
-            { keys:['moisture','Moisture'],                             name:'Moisture',       unit:'%', opt:[15,25], max:50 },
+            { keys:['OM','om','organic_matter','OrganicMatter','LOI'],      name:'Organic Matter / LOI (%)', unit:'%', opt:[2.5,5], max:10 },
+            { keys:['loi_0_20','loi_0_2','LOI_0_2','OM_0_2'],              name:'0–20mm',                   unit:'%', opt:[2.5,5], max:10 },
+            { keys:['loi_20_40','loi_2_4','LOI_2_4','OM_2_4'],             name:'20–40mm',                  unit:'%', opt:[2.5,5], max:10 },
+            { keys:['loi_40_60','loi_4_6','LOI_4_6','OM_4_6'],             name:'40–60mm',                  unit:'%', opt:[2.5,5], max:10 },
+            { keys:['loi_60_80','loi_6_8','LOI_6_8','OM_6_8'],             name:'60–80mm',                  unit:'%', opt:[2.5,5], max:10 },
+            { keys:['thatch','Thatch','THATCH'],                             name:'Thatch',                   unit:'%', opt:[0,10],  max:30 },
+            { keys:['moisture','Moisture'],                                  name:'Moisture',                 unit:'%', opt:[15,25], max:50 },
         ];
         var keyHtml = fields.map(function (f) { return metricCard(f.name, gv(p, f.keys), f.unit, f.opt, f.max); }).join('');
         return metaHeader(data) +
-               (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(3,1fr)">' + keyHtml + '</div>' : '') +
+               (keyHtml ? '<div class="dat-metric-grid" style="grid-template-columns:repeat(auto-fill,minmax(140px,1fr))">' + keyHtml + '</div>' : '') +
                notesHtml(data.notes);
     }
 
@@ -1192,12 +1196,13 @@
             { keys:['Hardness','hardness'],                             label:'Hardness',        unit:'ppm' },
         ],
         loi: [
-            { keys:['OM','om','organic_matter','OrganicMatter','LOI'],  label:'Organic Matter',  unit:'%' },
-            { keys:['loi_0_2','LOI_0_2','OM_0_2'],                      label:'OM 0–2 cm',       unit:'%' },
-            { keys:['loi_2_4','LOI_2_4','OM_2_4'],                      label:'OM 2–4 cm',       unit:'%' },
-            { keys:['loi_4_6','LOI_4_6','OM_4_6'],                      label:'OM 4–6 cm',       unit:'%' },
-            { keys:['thatch','Thatch','THATCH'],                         label:'Thatch',          unit:'%' },
-            { keys:['moisture','Moisture'],                              label:'Moisture',        unit:'%' },
+            { keys:['OM','om','organic_matter','OrganicMatter','LOI'],              label:'Organic Matter / LOI (%)', unit:'%' },
+            { keys:['loi_0_20','loi_0_2','LOI_0_2','OM_0_2'],                      label:'0–20mm',                   unit:'%' },
+            { keys:['loi_20_40','loi_2_4','LOI_2_4','OM_2_4'],                     label:'20–40mm',                  unit:'%' },
+            { keys:['loi_40_60','loi_4_6','LOI_4_6','OM_4_6'],                     label:'40–60mm',                  unit:'%' },
+            { keys:['loi_60_80','loi_6_8','LOI_6_8','OM_6_8'],                     label:'60–80mm',                  unit:'%' },
+            { keys:['thatch','Thatch','THATCH'],                                    label:'Thatch',                   unit:'%' },
+            { keys:['moisture','Moisture'],                                          label:'Moisture',                 unit:'%' },
         ],
     };
 
@@ -1497,9 +1502,15 @@
                 { id: 'lab',  label: 'Lab Name',         placeholder: 'Optional' },
             ],
             nutrients: [
-                { id: 'OM',       label: 'OM / LOI',  unit: '%', placeholder: '' },
-                { id: 'thatch',   label: 'Thatch',    unit: '%', placeholder: '' },
-                { id: 'moisture', label: 'Moisture',  unit: '%', placeholder: '' },
+                { id: 'OM',        label: 'Organic Matter / LOI',     unit: '%', placeholder: '' },
+                { type: 'section', label: 'Depth Breakdown' },
+                { id: 'loi_0_20',  label: '0–20mm',                   unit: '%', placeholder: '' },
+                { id: 'loi_20_40', label: '20–40mm',                  unit: '%', placeholder: '' },
+                { id: 'loi_40_60', label: '40–60mm',                  unit: '%', placeholder: '' },
+                { id: 'loi_60_80', label: '60–80mm',                  unit: '%', placeholder: '' },
+                { type: 'section', label: 'Other' },
+                { id: 'thatch',    label: 'Thatch',                   unit: '%', placeholder: '' },
+                { id: 'moisture',  label: 'Moisture',                 unit: '%', placeholder: '' },
             ],
         },
     };
@@ -1898,6 +1909,10 @@
         var nutHTML = '<div class="dat-mf-grid g3">';
         nutHTML += '<div class="dat-mf-sec">Measurements</div>';
         def.nutrients.forEach(function(f) {
+            if (f.type === 'section') {
+                nutHTML += '<div class="dat-mf-sec">' + esc(f.label) + '</div>';
+                return;
+            }
             nutHTML += '<div class="dat-mf-field">';
             var lbl = esc(f.label) + (f.unit ? ' <span style="font-weight:400;text-transform:none">(' + esc(f.unit) + ')</span>' : '');
             nutHTML += '<label class="dat-mf-label">' + lbl + '</label>';
