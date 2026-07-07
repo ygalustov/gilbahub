@@ -256,7 +256,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-163** Update nutrient display in data.blade.php: Enhanced the nutrient breakdown by adding depth-specific categories (0–20mm, 20–40mm, 40–60mm, 60–80mm) for organic matter and improved the layout of the metric grid for better responsiveness. 
 **GH-164** Refactor turf species handling in settings-init.js: Updated species traits mapping for improved clarity and added logic to retain saved species when no equivalent is found in the new list. 
 **GH-165** Update JavaScript and CSS files for NZ fertiliser integration: Added new scripts for Aitkens and NZ fertiliser products, updated AU and UK integration scripts to hide competing regional panels, and adjusted CSS text alignment for improved consistency across tables.
-
+**GH-166** Remove 'Stamina / Aqua Aid' distributor from NZ fertiliser integration: Updated JavaScript files to exclude Stamina from distributor options and filtering logic, ensuring a more accurate representation of available products.
 
 
 
@@ -337,10 +337,9 @@ I also added the source file name, so it’s easy to see which file each sample 
 +72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
 +73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
 +75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
-74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
++74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
 
-
-Files from NZ
+New distributors for NZ. GH-165. 
 
 
 

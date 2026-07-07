@@ -1038,47 +1038,55 @@
                             p.releaseTech === 'mesa' && (p.analysis?.N || 0) >= 15
                         );
                         
-                        if (mesaProducts.length > 0) {
-                            // Prefer MESA CC 100% (19-0-16) for K
-                            const bestMesa = mesaProducts.reduce((best, p) => {
+                        // Prefer MESA, fall back to any slow-release granular when MESA not in pool
+                        const winterCandidates = mesaProducts.length > 0 ? mesaProducts
+                            : seasonGranular.filter(p => p.release === 'slow' && (p.analysis?.N || 0) >= 10);
+
+                        if (winterCandidates.length > 0) {
+                            const isMesa = mesaProducts.length > 0;
+                            const bestMesa = winterCandidates.reduce((best, p) => {
                                 const kPct = p.analysis?.K || 0;
                                 const score = kPct >= 10 ? 20 : kPct > 0 ? 10 : 0;
                                 return !best || score > best.score ? { product: p, score } : best;
                             }, null)?.product;
-                            
+
                             if (bestMesa) {
                                 const nPct = bestMesa.analysis.N / 100;
                                 const kPct = (bestMesa.analysis.K || 0) / 100;
-                                
+
                                 // Winter rate: 150 kg/ha (moderate - not banking too much)
-                                const rateKgHa = 150;
-                                
+                                const rateKgHa = Math.min(150, bestMesa.maxRateKgHa || 150);
+
                                 const totalN = rateKgHa * nPct;
                                 const kDelivered = rateKgHa * kPct;
-                                
+
                                 const granularProduct = {
                                     id: bestMesa.id,
                                     name: bestMesa.name,
                                     npk: bestMesa.npk,
                                     analysis: bestMesa.analysis,
                                     release: 'slow',
-                                    releaseTech: 'mesa',
-                                    releaseWeeks: 6, // Shorter coverage in winter
+                                    releaseTech: bestMesa.releaseTech || (isMesa ? 'mesa' : 'pcm'),
+                                    releaseWeeks: bestMesa.releaseWeeks || 6,
                                     rateKgHa: rateKgHa,
                                     rateGM2: (rateKgHa / 10).toFixed(1),
                                     nDelivered: Math.round(totalN * 10) / 10,
                                     kDelivered: Math.round(kDelivered * 10) / 10,
                                     splitCount: 1,
-                                    notes: `Winter MESA: ${(totalN * 0.5).toFixed(0)} kg quick + ${(totalN * 0.5).toFixed(0)} kg slow`,
+                                    notes: isMesa
+                                        ? `Winter MESA: ${(totalN * 0.5).toFixed(0)} kg quick + ${(totalN * 0.5).toFixed(0)} kg slow`
+                                        : `Winter slow-release: ${totalN.toFixed(0)} kg N/ha`,
                                 };
-                                
+
                                 recommendations.granular.push(granularProduct);
                             }
                         }
                     }
-                    
-                    // ALWAYS add Ammos 22 liquid for winter - 30L container
-                    const ammos = suitableLiquid.find(p => p.name.includes('Ammos') || p.name.includes('Nitro'));
+
+                    // Prefer Ammos 22 / Nitro liquid; fall back to any high-N liquid when not in pool
+                    const ammos = suitableLiquid.find(p => p.name.includes('Ammos') || p.name.includes('Nitro'))
+                        || suitableLiquid.filter(p => (p.analysis?.N || 0) >= 15).sort((a, b) => (b.analysis?.N || 0) - (a.analysis?.N || 0))[0]
+                        || null;
                     if (ammos) {
                         const rateLHa = 30; // Standard 30L container
                         const nDelivered = rateLHa * (ammos.analysis.N / 100);

@@ -30,7 +30,6 @@
         'all':           'All (best match)',
         'prebble':       "Prebble's",
         'pgg_wrightson': 'PGG Wrightson Turf',
-        'stamina':       'Stamina / Aqua Aid',
     };
 
     // ========================================================================
@@ -155,7 +154,6 @@
 
             var usePrebble  = (distributorFilter === 'all' || distributorFilter === 'prebble');
             var usePgg      = (distributorFilter === 'all' || distributorFilter === 'pgg_wrightson');
-            var useStamina  = (distributorFilter === 'all' || distributorFilter === 'stamina');
 
             var granular = [];
             var liquid   = [];
@@ -166,6 +164,7 @@
             }
 
             if (usePgg) {
+                // Exclude wetting-agent-only brands (Stamina, Qualibra, Aqua Aid) — zero NPK
                 granular = granular.concat(nzG.filter(function(p) {
                     return !p.id.startsWith('PGG-STAMINA') && !p.id.startsWith('PGG-QUALIBRA') &&
                            !p.id.startsWith('PGG-REMEDIATOR') && !p.id.startsWith('PGG-OARS');
@@ -173,16 +172,6 @@
                 liquid = liquid.concat(nzL.filter(function(p) {
                     return !p.id.startsWith('PGG-STAMINA') && !p.id.startsWith('PGG-QUALIBRA') &&
                            !p.id.startsWith('PGG-REMEDIATOR') && !p.id.startsWith('PGG-OARS');
-                }));
-            }
-
-            if (useStamina) {
-                granular = granular.concat(nzG.filter(function(p) {
-                    return p.id.startsWith('PGG-STAMINA') || p.id.startsWith('PGG-QUALIBRA');
-                }));
-                liquid = liquid.concat(nzL.filter(function(p) {
-                    return p.id.startsWith('PGG-STAMINA') || p.id.startsWith('PGG-QUALIBRA') ||
-                           p.id.startsWith('PGG-REMEDIATOR') || p.id.startsWith('PGG-OARS');
                 }));
             }
 
@@ -292,9 +281,8 @@
                 ? window.GAIP_NZ_FERTILISER.recommender.getDistributorOptions()
                 : [
                     { value: 'all',           label: 'All (best match)'   },
-                    { value: 'prebble',       label: "Prebble's"          },
                     { value: 'pgg_wrightson', label: 'PGG Wrightson Turf' },
-                    { value: 'stamina',       label: 'Stamina / Aqua Aid' }
+                    { value: 'prebble',       label: "Prebble's"          }
                 ];
 
             var optionsHtml = distributorOptions.map(function(opt) {

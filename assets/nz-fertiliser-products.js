@@ -1481,7 +1481,6 @@ const NzFertiliserRecommender = {
         return [
             { value: 'all',            label: 'All (best match)' },
             { value: 'pgg_wrightson',  label: 'PGG Wrightson Turf' },
-            { value: 'stamina',        label: 'Stamina / Aqua Aid' },
             { value: 'prebble',        label: "Prebble's" }
         ];
     },
@@ -1511,9 +1510,6 @@ const NzFertiliserRecommender = {
                 return !p.id.startsWith('PGG-STAMINA') && !p.id.startsWith('PGG-QUALIBRA') &&
                        !p.id.startsWith('PGG-REMEDIATOR') && !p.id.startsWith('PGG-OARS');
             });
-        }
-        if (distributor === 'stamina') {
-            return products.filter(function(p) { return p.id.startsWith('PGG-STAMINA') || p.id.startsWith('PGG-QUALIBRA'); });
         }
         return products;
     },
