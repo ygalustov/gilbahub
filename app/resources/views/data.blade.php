@@ -1346,10 +1346,11 @@
 
     var SECTION       = '{{ $section }}';
     var SECTION_TITLE = '{{ $sectionTitles[$section] ?? "Data" }}';
-    var SITE_ID  = '{{ $activeSite?->id ?? '' }}';
-    var SITE_LAT = {{ $activeSite?->latitude ?? 'null' }};
-    var SITE_LNG = {{ $activeSite?->longitude ?? 'null' }};
-    var CSRF     = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+    var SITE_ID      = '{{ $activeSite?->id ?? '' }}';
+    var SITE_LAT     = {{ $activeSite?->latitude ?? 'null' }};
+    var SITE_LNG     = {{ $activeSite?->longitude ?? 'null' }};
+    var SITE_SPECIES = @json($turfSpecies ?? null);
+    var CSRF         = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
     var _editingId = null;
 

@@ -1037,11 +1037,51 @@
     // 12. TISSUE TEST RESULTS
     // =========================================================================
 
-    var TISSUE_RANGES = {
-        N:{lo:4.0,hi:5.0,unit:'%'}, P:{lo:0.30,hi:0.60,unit:'%'}, K:{lo:2.20,hi:3.50,unit:'%'},
-        Ca:{lo:0.40,hi:0.80,unit:'%'}, Mg:{lo:0.15,hi:0.35,unit:'%'}, S:{lo:0.20,hi:0.50,unit:'%'},
-        Fe:{lo:50,hi:100,unit:'mg/kg'}, Mn:{lo:25,hi:100,unit:'mg/kg'}, Zn:{lo:20,hi:55,unit:'mg/kg'},
-        Cu:{lo:5,hi:20,unit:'mg/kg'}, B:{lo:5,hi:30,unit:'mg/kg'}, Na:{lo:0,hi:1000,unit:'mg/kg'},
+    var TISSUE_RANGE_PRESETS = {
+        bentgrass: {
+            N:{lo:4.00,hi:5.00,unit:'%'}, P:{lo:0.30,hi:0.60,unit:'%'}, K:{lo:2.20,hi:3.50,unit:'%'},
+            Ca:{lo:0.25,hi:0.75,unit:'%'}, Mg:{lo:0.20,hi:0.40,unit:'%'}, S:{lo:0.25,hi:0.75,unit:'%'},
+            Fe:{lo:50,hi:300,unit:'mg/kg'}, Mn:{lo:25,hi:300,unit:'mg/kg'}, Zn:{lo:20,hi:70,unit:'mg/kg'},
+            Cu:{lo:5,hi:15,unit:'mg/kg'}, B:{lo:3,hi:20,unit:'mg/kg'}, Na:{lo:0,hi:1000,unit:'mg/kg'},
+        },
+        poaAnnua: {
+            N:{lo:3.50,hi:4.50,unit:'%'}, P:{lo:0.35,hi:0.60,unit:'%'}, K:{lo:2.00,hi:3.00,unit:'%'},
+            Ca:{lo:0.40,hi:0.80,unit:'%'}, Mg:{lo:0.18,hi:0.35,unit:'%'}, S:{lo:0.20,hi:0.45,unit:'%'},
+            Fe:{lo:80,hi:250,unit:'mg/kg'}, Mn:{lo:30,hi:200,unit:'mg/kg'}, Zn:{lo:20,hi:80,unit:'mg/kg'},
+            Cu:{lo:5,hi:20,unit:'mg/kg'}, B:{lo:5,hi:25,unit:'mg/kg'}, Na:{lo:0,hi:1000,unit:'mg/kg'},
+        },
+        perennialRyegrass: {
+            N:{lo:3.34,hi:5.10,unit:'%'}, P:{lo:0.33,hi:0.55,unit:'%'}, K:{lo:2.00,hi:3.42,unit:'%'},
+            Ca:{lo:0.25,hi:0.51,unit:'%'}, Mg:{lo:0.16,hi:0.32,unit:'%'}, S:{lo:0.27,hi:0.56,unit:'%'},
+            Fe:{lo:97,hi:934,unit:'mg/kg'}, Mn:{lo:30,hi:73,unit:'mg/kg'}, Zn:{lo:14,hi:64,unit:'mg/kg'},
+            Cu:{lo:6,hi:38,unit:'mg/kg'}, B:{lo:9,hi:17,unit:'mg/kg'}, Na:{lo:0,hi:1000,unit:'mg/kg'},
+        },
+        couch: {
+            N:{lo:3.00,hi:4.30,unit:'%'}, P:{lo:0.20,hi:0.40,unit:'%'}, K:{lo:1.60,hi:2.25,unit:'%'},
+            Ca:{lo:0.25,hi:0.50,unit:'%'}, Mg:{lo:0.15,hi:0.30,unit:'%'}, S:{lo:0.15,hi:0.65,unit:'%'},
+            Fe:{lo:50,hi:500,unit:'mg/kg'}, Mn:{lo:20,hi:300,unit:'mg/kg'}, Zn:{lo:15,hi:200,unit:'mg/kg'},
+            Cu:{lo:5,hi:20,unit:'mg/kg'}, B:{lo:5,hi:60,unit:'mg/kg'}, Na:{lo:0,hi:1000,unit:'mg/kg'},
+        },
+    };
+
+    function normalizeTissueSpecies(s) {
+        if (!s) return 'bentgrass';
+        s = String(s).toLowerCase().replace(/[\s\-_]/g, '');
+        if (s.indexOf('bent') >= 0) return 'bentgrass';
+        if (s.indexOf('poa') >= 0 || s.indexOf('annual') >= 0) return 'poaAnnua';
+        if (s.indexOf('rye') >= 0) return 'perennialRyegrass';
+        if (s.indexOf('couch') >= 0 || s.indexOf('bermuda') >= 0) return 'couch';
+        return 'bentgrass';
+    }
+
+    var _tissueSpeciesKey = normalizeTissueSpecies(typeof SITE_SPECIES !== 'undefined' ? SITE_SPECIES : null);
+    var TISSUE_RANGES = TISSUE_RANGE_PRESETS[_tissueSpeciesKey] || TISSUE_RANGE_PRESETS.bentgrass;
+
+    var TISSUE_SPECIES_LABELS = {
+        bentgrass: 'Creeping Bentgrass',
+        poaAnnua: 'Poa annua',
+        perennialRyegrass: 'Perennial Ryegrass',
+        couch: 'Couch / Bermudagrass',
     };
 
     function tissueBand(nutrient, value) {
@@ -1065,13 +1105,13 @@
         var headline = tissue.headline ? '<div class="sn-tissue-headline">'+esc(tissue.headline)+'</div>' : '';
         var summaryLines = (tissue.summary||[]).map(function(l){ return '<div>• '+esc(l)+'</div>'; }).join('');
         var bias = tissue.decisionBias ? '<div class="sn-tissue-bias">'+esc(tissue.decisionBias)+'</div>' : '';
-        var speciesLine = tissue.speciesGroup
-            ? '<div style="font-size:11px;color:#5b6a65;margin-bottom:8px">Species: '+esc(capitalize(tissue.speciesGroup))+
-              (tissue.growthState?' · '+esc(tissue.growthState):'')+
-              (tissue.testDate?' · Tested: '+esc(fmtDate(tissue.testDate)):'')+
-              '</div>' : '';
+        var rangesLabel = TISSUE_SPECIES_LABELS[_tissueSpeciesKey] || _tissueSpeciesKey;
+        var rangesLine = '<div style="font-size:11px;color:#5b6a65;margin-bottom:8px">'
+            + 'Ranges: <strong>' + esc(rangesLabel) + '</strong>'
+            + (tissue.testDate ? ' · Tested: '+esc(fmtDate(tissue.testDate)) : '')
+            + '</div>';
         var summaryBlock = (headline||summaryLines||bias)
-            ? '<div class="sn-tissue-summary">'+speciesLine+headline+summaryLines+bias+'</div>' : '';
+            ? '<div class="sn-tissue-summary">'+headline+summaryLines+bias+'</div>' : '';
 
         var normalized = tissue.normalized||{};
         var statusMap  = tissue.status||{};
@@ -1096,7 +1136,7 @@
               '<table class="sn-table"><thead><tr><th>Nutrient</th><th>Value</th><th>Optimal Range</th><th>Status</th></tr></thead>'+
               '<tbody>'+rows+'</tbody></table></div>'
             : '<div style="padding-bottom:16px;color:#5b6a65;font-size:13px">No tissue values found.</div>';
-        return summaryBlock+table;
+        return rangesLine+summaryBlock+table;
     }
 
     // =========================================================================

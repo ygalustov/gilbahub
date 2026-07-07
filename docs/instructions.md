@@ -252,7 +252,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-159** Refactor data table layout in data.blade.php: Rearranged columns for improved organization, placing 'Zone type' and 'File' after 'Zone name' for better clarity in data presentation.
 **GH-160** Update data-ui.css: Adjusted padding and font size for input elements, added transition effects, and enhanced styling for select elements to improve user experience and visual consistency.
 **GH-161** Enhance data display in data.blade.php: Updated the layout of data rows to include zone names as subtitles, improved the display logic for names and zones, and adjusted CSS for better alignment and spacing, enhancing overall readability and user experience.
-
+**GH-162** Update soil nutrition analysis and data display: Introduced tissue range presets for various grass species in soil-nutrition-analysis.js, enhancing nutrient analysis accuracy. Added SITE_SPECIES variable in data.blade.php for improved data context. Updated instructional documentation for clarity on recent changes.
 
 
 
@@ -314,9 +314,15 @@ I also added the source file name, so it’s easy to see which file each sample 
 +65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
 
 
+
+-53.⁠ ⁠I have done so “tweaks” send them through as a zip?
+
+
 06/07/26
 +67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
-
++68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
++69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5. GH-151-GH-160. 
++70. I’ve manually uploaded the soil chemistry and 1 tissue sample. The selector for the soil samples isn’t very user friendly as I’ve no idea which sample is which. GH-161. 
 
 
 
@@ -336,7 +342,6 @@ I also added the source file name, so it’s easy to see which file each sample 
 50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity
 51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C 
 52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window
-53.⁠ ⁠I have done so “tweaks” send them through as a zip?
 54.⁠ ⁠Where is soil water integration?
 54.⁠ ⁠GP Hydrosight is 70 vs 48
 55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe.
@@ -351,20 +356,16 @@ I also added the source file name, so it’s easy to see which file each sample 
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
-+68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
-+69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5. GH-151-GH-160. 
-+70. I’ve manually uploaded the soil chemistry and 1 tissue sample. The selector for the soil samples isn’t very user friendly as I’ve no idea which sample is which
-
-
-
-
 71. the areas be better in m2 and you can’t tell which green is which
+
+
 72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the range based on the turf type. Some of these are for bentgrass and some Poa and others I have no idea
 73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective
 74. just reset to perennial ryegrass again from colonial bentgrass.
+75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures.
 
-
-
+Files from NZ
+Integration with soil scout?
 
 
 
