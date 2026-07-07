@@ -940,4 +940,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('nutrition-au-fertiliser-integration.js') }}"></script>
 <script src="{{ $legacyAssetUrl('uk-fertiliser-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-uk-fertiliser-integration.js') }}"></script>
+<script src="{{ $legacyAssetUrl('aitkens-fertiliser-products.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nz-fertiliser-products.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-nz-fertiliser-integration.js') }}"></script>
 @endsection

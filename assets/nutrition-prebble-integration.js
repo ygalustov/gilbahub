@@ -679,7 +679,7 @@
                     // Use kg/ha for sports/fairways, g/m² for greens/tees
                     const rateDisplay = useGM2 ? `${p.rateGM2}g/m²` : `${p.rateKgHa}kg/ha`;
                     return `<span class="prebble-product eff-${effClass}" title="${p.notes || ''} ${longevityTitle} ${effTitle}">${p.name}${npkDisplay} @ ${rateDisplay}${splitNote} ${releaseTag}</span>`;
-                }).join(' + ') || '<span class="prebble-none">—</span>';
+                }).join(' + ') || (m.coveredBy ? '' : '<span class="prebble-none">—</span>');
                 
                 // Show "covered by" info if this month is covered by previous application
                 let coverageDisplay = '';
@@ -1450,9 +1450,9 @@
 
         .prebble-program-table col.col-month    { width: 6%; }
         .prebble-program-table col.col-season   { width: 8%; }
-        .prebble-program-table col.col-req      { width: 13%; }
-        .prebble-program-table col.col-granular { width: 27%; }
-        .prebble-program-table col.col-liquid   { width: 25%; }
+        .prebble-program-table col.col-req      { width: 17%; }
+        .prebble-program-table col.col-granular { width: 25%; }
+        .prebble-program-table col.col-liquid   { width: 23%; }
         .prebble-program-table col.col-notes    { width: 21%; }
 
         .prebble-program-table td { vertical-align: middle; word-break: break-word; }
@@ -1508,10 +1508,17 @@
         .prebble-notes { color: var(--gaip-text, #111827); font-size: 12px; }
 
         .prebble-covered, .prebble-active {
-            display: inline-block;
+            display: block;
             font-size: 11px;
-            color: var(--gaip-text-muted, #9ca3af);
-            margin-top: 3px;
+            color: var(--gaip-text-muted, #6b7280);
+            padding: 3px 8px;
+            background: var(--gaip-surface-muted, #f8fafc);
+            border-left: 2px solid var(--gaip-border, #d1d5db);
+            border-radius: 0 4px 4px 0;
+        }
+        .prebble-product ~ .prebble-covered,
+        .prebble-product ~ .prebble-active {
+            margin-top: 5px;
         }
 
         /* ── Shared table base ─────────────────────────────────────────────── */
@@ -1519,7 +1526,7 @@
         .gilba-table-scroll { overflow-x: auto; }
 
         .prebble-th {
-            text-align: right;
+            text-align: left;
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
@@ -1536,7 +1543,7 @@
             font-size: 11px; font-weight: 400; font-style: italic;
             color: var(--gaip-text-muted, #6b7280); text-transform: none; letter-spacing: 0;
             border-bottom: 1px solid var(--gaip-border-light, #f1f5f9);
-            padding: 3px 12px; text-align: right;
+            padding: 3px 12px; text-align: left;
             background: var(--gaip-surface-muted, #f8fafc);
         }
 
@@ -1544,10 +1551,11 @@
             padding: 11px 12px;
             border-bottom: 1px solid var(--gaip-border-light, #f1f5f9);
             color: var(--gaip-text, #111827);
+            text-align: left;
             vertical-align: middle;
         }
         .prebble-cell--left { text-align: left; }
-        .prebble-cell--num { text-align: right; }
+        .prebble-cell--num { text-align: left; }
         .prebble-cell--mono { font-variant-numeric: tabular-nums; }
         .prebble-cell--month { font-weight: 700; white-space: nowrap; font-size: 13px; }
         .prebble-cell--season { color: var(--gaip-text-muted, #6b7280); white-space: nowrap; font-size: 12px; }

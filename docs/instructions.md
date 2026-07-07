@@ -254,6 +254,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-161** Enhance data display in data.blade.php: Updated the layout of data rows to include zone names as subtitles, improved the display logic for names and zones, and adjusted CSS for better alignment and spacing, enhancing overall readability and user experience.
 **GH-162** Update soil nutrition analysis and data display: Introduced tissue range presets for various grass species in soil-nutrition-analysis.js, enhancing nutrient analysis accuracy. Added SITE_SPECIES variable in data.blade.php for improved data context. Updated instructional documentation for clarity on recent changes.
 **GH-163** Update nutrient display in data.blade.php: Enhanced the nutrient breakdown by adding depth-specific categories (0–20mm, 20–40mm, 40–60mm, 60–80mm) for organic matter and improved the layout of the metric grid for better responsiveness. 
+**GH-164** Refactor turf species handling in settings-init.js: Updated species traits mapping for improved clarity and added logic to retain saved species when no equivalent is found in the new list. 
+**GH-165** Update JavaScript and CSS files for NZ fertiliser integration: Added new scripts for Aitkens and NZ fertiliser products, updated AU and UK integration scripts to hide competing regional panels, and adjusted CSS text alignment for improved consistency across tables.
+
+
 
 
 
@@ -328,20 +332,20 @@ I also added the source file name, so it’s easy to see which file each sample 
 
 
 07/07/26
++45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
++46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
 +72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
 +73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
 +75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
+74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
 
 
-74. just reset to perennial ryegrass again from colonial bentgrass.
 Files from NZ
 
 
 
 
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
-45.⁠ ⁠Is it me or is this showing the same light level for every site?
-46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month?
 47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition
 48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
 49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?
@@ -355,8 +359,8 @@ Files from NZ
 57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
 59.hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
-61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc
-62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz
++61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
++62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
 64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
 66.⁠ ⁠same with water tests as with soil (65)

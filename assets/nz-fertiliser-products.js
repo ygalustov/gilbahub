@@ -1,0 +1,1620 @@
+'use strict';
+/**
+ * NZ Fertiliser Product Database — PGG Wrightson Turf
+ *
+ * Products sourced from PGG Wrightson Turf (pggwrightsonturf.com).
+ * Schema: NZ elemental convention (K not K2O).
+ * Compatible with prebbles-products.js v1.34.0 schema.
+ *
+ * 24 granular, 21 liquid
+ *
+ * @package Gilba_Hub
+ * @version 1.0.0
+ */
+
+const NzFertiliserProducts = {
+    "granular": [
+        {
+            "id": "PGG-AND-13-1-10",
+            "name": "Andersons 13-1-10 + 2% Fe and micros",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "13-1-10",
+            "analysis": {
+                "N": 13,
+                "P": 1,
+                "K": 10,
+                "S": 18,
+                "Fe": 2,
+                "Mn": 0,
+                "Zn": 0,
+                "Cu": 0
+            },
+            "sgn": 100,
+            "release": "standard",
+            "releaseTech": "as",
+            "releaseWeeks": 4,
+            "packSize": 22.68,
+            "maxRateKgHa": 270,
+            "greensMaxRateKgHa": 200,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees"
+            ],
+            "notes": "100% ammonium sulphate N. Acidifying — reduces black layer. 18% S boosts N uptake efficiency. SGN 100 fine prill.",
+            "useCase": "Spring greens acidifier. Black layer mitigation. Cool-season N when slow-release ineffective.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "100% ammonium sulphate confirmed per PGG product description. Low volatilisation risk. Acidifying soil-N pathway.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-13-1-10.pdf"
+        },
+        {
+            "id": "PGG-AND-21-1-13",
+            "name": "Andersons 21-1-13 + 1% Fe and micros",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "21-1-13",
+            "analysis": {
+                "N": 21,
+                "P": 1,
+                "K": 13,
+                "Fe": 1,
+                "Mn": 0,
+                "Zn": 0,
+                "Cu": 0
+            },
+            "sgn": 100,
+            "release": "slow",
+            "releaseTech": "mu",
+            "releaseWeeks": 13,
+            "packSize": 22.68,
+            "maxRateKgHa": 250,
+            "greensMaxRateKgHa": 200,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees"
+            ],
+            "notes": "97% MUtech methylene urea — up to 3-month consistent release. Low burn potential. SGN 100 fine prill.",
+            "useCase": "Greens maintenance. Best in warm conditions (>15C soil). Programmatic feeding.",
+            "nForm": "urea_mu",
+            "nFormConfidence": "auto",
+            "nFormReason": "97% methylene urea (MUtech) slow-release. MU requires microbial breakdown — temperature-dependent (>15C optimal). Low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-21-1-13.pdf"
+        },
+        {
+            "id": "PGG-AND-ATEP",
+            "name": "Andersons A-Tep Micronutrients",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Mg": 12,
+                "Fe": 8,
+                "Mn": 3,
+                "Zn": 1,
+                "Cu": 0.5
+            },
+            "sgn": 100,
+            "release": "standard",
+            "releaseTech": "standard",
+            "releaseWeeks": 4,
+            "packSize": 22.68,
+            "maxRateKgHa": 150,
+            "greensMaxRateKgHa": 100,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "Secondary + micronutrient supplement (no NPK). 12% Mg, 8% Fe, 3% Mn, 1% Zn, 0.5% Cu. SGN 100 fine prill.",
+            "useCase": "Micronutrient correction. Construction-phase blend. Stress/disease tolerance support.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. No volatilisation pathway.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-A-Tep-Micronutrients.pdf"
+        },
+        {
+            "id": "PGG-AND-NDG-12-1-10",
+            "name": "Andersons Nutri DG 12-1-10",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "12-1-10",
+            "analysis": {
+                "N": 12,
+                "P": 1,
+                "K": 10,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 75,
+            "release": "standard",
+            "releaseTech": "as",
+            "releaseWeeks": 4,
+            "packSize": 18.14,
+            "maxRateKgHa": 200,
+            "greensMaxRateKgHa": 150,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets"
+            ],
+            "notes": "Nutri DG dispersing granule (0.75mm). 100% ammonium sulphate N. Proactin bio-enhancement (amino acids, vitamins). No mower pickup.",
+            "useCase": "Premium greens spoonfeeding. Bio-enhanced colour + stress support. Quick N response.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "100% sulphate of ammonia confirmed per PGG description. Bio-enhanced with proactin (amino acid/vitamin matrix) — no impact on N classification. Low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-Nutri-DG-12-1-10.pdf"
+        },
+        {
+            "id": "PGG-AND-NDG-17-0-14",
+            "name": "Andersons Nutri DG 17-0-14",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "17-0-14",
+            "analysis": {
+                "N": 17,
+                "P": 0,
+                "K": 14,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 75,
+            "release": "slow",
+            "releaseTech": "mu",
+            "releaseWeeks": 8,
+            "packSize": 18.14,
+            "maxRateKgHa": 200,
+            "greensMaxRateKgHa": 150,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets"
+            ],
+            "notes": "Nutri DG (0.75mm). 50% slow-release MUtech + 50% upfront ammonium sulphate. NK no P, no Fe. Balanced upfront/slow blend.",
+            "useCase": "Greens maintenance with balanced N timing. Mid-season feeding. K builder.",
+            "nForm": "mixed",
+            "nFormConfidence": "auto",
+            "nFormReason": "50/50 MUtech (methylene urea) + ammonium sulphate per PGG description. Mixed release with low volatilisation pathways (MU stabilised, AS acidifying).",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-Nutri-DG-17-0-14.pdf"
+        },
+        {
+            "id": "PGG-AND-NDG-18-1-15",
+            "name": "Andersons Nutri DG 18-1-15",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "18-1-15",
+            "analysis": {
+                "N": 18,
+                "P": 1,
+                "K": 15,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 75,
+            "release": "slow",
+            "releaseTech": "mu",
+            "releaseWeeks": 10,
+            "packSize": 18.14,
+            "maxRateKgHa": 200,
+            "greensMaxRateKgHa": 150,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets"
+            ],
+            "notes": "Nutri DG (0.75mm). 93% MUtech methylene urea. Summer/warm-season formula. Balanced NPK with trace P.",
+            "useCase": "Warm-season greens (>15C soil). Sustained N release. Summer programmatic feeding.",
+            "nForm": "urea_mu",
+            "nFormConfidence": "auto",
+            "nFormReason": "93% methylene urea (MUtech) confirmed per PGG description. Microbial breakdown required — temperature-dependent. Low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-Nutri-DG-18-1-15.pdf"
+        },
+        {
+            "id": "PGG-AND-STARTER-19-11-4",
+            "name": "Andersons Starter 19-11-4 + 1% Fe & micros",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "19-11-4",
+            "analysis": {
+                "N": 19,
+                "P": 11,
+                "K": 4,
+                "Fe": 1,
+                "Mn": 0,
+                "Zn": 0,
+                "Cu": 0
+            },
+            "sgn": 100,
+            "release": "slow",
+            "releaseTech": "mu",
+            "releaseWeeks": 9,
+            "packSize": 22.68,
+            "maxRateKgHa": 250,
+            "greensMaxRateKgHa": 200,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "landscaping"
+            ],
+            "notes": "18% MUtech slow-release N + 82% upfront. High P (11%) for root establishment. Fine SGN 100 — fills grooves, plugs, core holes.",
+            "useCase": "New seeding starter. Renovation. Core hole fill. Root development.",
+            "nForm": "mixed",
+            "nFormConfidence": "auto",
+            "nFormReason": "18% MUtech + 82% remaining N (likely urea/AS blend per Andersons starter formulations). Mixed release. Low-moderate volatilisation in cool conditions.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+Low+Cut+Grass%2FAndersons-Starter-19-11-4.pdf"
+        },
+        {
+            "id": "PGG-DT-AMINO-13-2-6",
+            "name": "DuraTurf Amino Fertiliser 13-2-6",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "13-2-6",
+            "analysis": {
+                "N": 13,
+                "P": 2,
+                "K": 6,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 150,
+            "release": "standard",
+            "releaseTech": "standard",
+            "releaseWeeks": 4,
+            "packSize": 25,
+            "maxRateKgHa": 300,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "PGG own-brand DuraTurf blend. Quick-release NPK + amino acids + humic acids. Reduced leaching. Cost-effective maintenance.",
+            "useCase": "Outfield maintenance / base fertiliser. Sportsfield programmatic feeding. Cost-conscious tee feeding.",
+            "nForm": "review",
+            "nFormConfidence": "review",
+            "nFormReason": "PGG description does not declare N source split. Likely urea + AS blend per typical NZ blended NPK products. SDS check needed.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FDuraTurf+Amino+Fertiliser+Tech+Sheet.pdf"
+        },
+        {
+            "id": "PGG-AND-28-1-8",
+            "name": "Andersons 28-1-8 50%",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "28-1-8",
+            "analysis": {
+                "N": 28,
+                "P": 1,
+                "K": 8,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 200,
+            "release": "slow",
+            "releaseTech": "pcscu",
+            "releaseWeeks": 12,
+            "packSize": 22.68,
+            "maxRateKgHa": 250,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "50% NS-54 PCSCU (polymer + sulphur coated urea). Early-season option. Excellent ballistics. Low burn potential.",
+            "useCase": "Spring outfield / fairway PCSCU release. Economical sustained N. Sportsfield base.",
+            "nForm": "urea_pcu",
+            "nFormConfidence": "auto",
+            "nFormReason": "50% NS-54 PCSCU coated-urea + 50% upfront. Polymer + sulphur coating stabilises urea against volatilisation. Temperature-dependent release.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FAndersons-28-1-8-50%25.pdf"
+        },
+        {
+            "id": "PGG-AND-32-1-8",
+            "name": "Andersons 32-1-8 + 2% Fe",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "32-1-8",
+            "analysis": {
+                "N": 32,
+                "P": 1,
+                "K": 8,
+                "Fe": 2
+            },
+            "sgn": 240,
+            "release": "slow",
+            "releaseTech": "pcscu",
+            "releaseWeeks": 10,
+            "packSize": 22.68,
+            "maxRateKgHa": 200,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "30% NS-54 PCSCU + 70% upfront. 2.40 mm uniform particles. 2% Fe for immediate colour response. Complete early-season fertiliser.",
+            "useCase": "High-N spring outfield. Fairway colour boost. Sportsfield kick-start.",
+            "nForm": "urea_pcu",
+            "nFormConfidence": "auto",
+            "nFormReason": "30% NS-54 PCSCU + 70% upfront (likely urea). Mixed quick + slow release. Coating reduces volatilisation on coated fraction; upfront fraction at risk in warm/dry conditions.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FAndersons-32-1-8.pdf"
+        },
+        {
+            "id": "PGG-AND-NDG-20-0-13",
+            "name": "Andersons Nutri DG 20-0-13",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "20-0-13",
+            "analysis": {
+                "N": 20,
+                "P": 0,
+                "K": 13,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 75,
+            "release": "slow",
+            "releaseTech": "mu-m",
+            "releaseWeeks": 14,
+            "packSize": 18.14,
+            "maxRateKgHa": 200,
+            "greensMaxRateKgHa": 150,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "Nutri DG (0.75mm). 100% MUtech-M longer chain methylene urea (very slow release). No P. Summer formula. NK ratio favours K.",
+            "useCase": "Summer programmatic N. Warm-season sustained feeding. No P needed (high-P sites).",
+            "nForm": "urea_mu",
+            "nFormConfidence": "auto",
+            "nFormReason": "100% MUtech-M (longer-chain methylene urea: DMTU, TMTU, TMPU). Microbial breakdown required — strongly temperature-dependent (>18C optimal). Very low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FAndersons-Nutri-DG-20-0-13.pdf"
+        },
+        {
+            "id": "PGG-AND-ORN-18-3-10",
+            "name": "Andersons Ornamental/Garden 18-3-10",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "18-3-10",
+            "analysis": {
+                "N": 18,
+                "P": 3,
+                "K": 10,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 200,
+            "release": "slow",
+            "releaseTech": "mu-xl",
+            "releaseWeeks": 34,
+            "packSize": 22.68,
+            "maxRateKgHa": 200,
+            "suitableFor": [
+                "landscaping",
+                "tees",
+                "fairways"
+            ],
+            "notes": "83% MUtech-XL very slow release N — 8-9 months season-long feeding. Cost-effective ornamental/landscape formula.",
+            "useCase": "Once-per-season landscape feeding. Long-duration ornamental beds. Low-maintenance areas.",
+            "nForm": "urea_mu",
+            "nFormConfidence": "auto",
+            "nFormReason": "83% MUtech-XL (very-slow methylene urea, extended-chain). 17% remaining N likely upfront urea. Strongly temperature-dependent (>18C optimal).",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FAndersons-Ornamental-Garden-18-3-10.pdf"
+        },
+        {
+            "id": "PGG-AND-PENDI-22-0-5",
+            "name": "Andersons Pendi Pro 22-0-5",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "22-0-5",
+            "analysis": {
+                "N": 22,
+                "P": 0,
+                "K": 5,
+                "S": 0,
+                "Fe": 0
+            },
+            "sgn": 200,
+            "release": "slow",
+            "releaseTech": "pcscu",
+            "releaseWeeks": 7,
+            "packSize": 22.68,
+            "maxRateKgHa": 250,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "FERTILISER + HERBICIDE COMBO. 7.5 g/kg pendimethalin pre-emergent (summergrass, crowsfoot, Poa annua). 40% PCSCU. Sulphur included.",
+            "useCase": "Late-winter/early-spring pre-emergent program. Annual grass weed prevention + N feeding. Avoid newly-seeded areas.",
+            "nForm": "mixed",
+            "nFormConfidence": "auto",
+            "nFormReason": "40% PCSCU coated urea + 60% upfront (likely urea/AS). Note: contains 7.5 g/kg pendimethalin AI — engine should not route this for greens or new seeding.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FFertiliser+High+Cut+Grass%2FAndersons-Pendi-Pro-22-0-5.pdf"
+        },
+        {
+            "id": "PGG-AS-GRAN",
+            "name": "Ammonium Sulphate 20.5-0-0 + 24% S (granular)",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "20.5-0-0",
+            "analysis": {
+                "N": 20.5,
+                "P": 0,
+                "K": 0,
+                "S": 24
+            },
+            "sgn": 200,
+            "release": "standard",
+            "releaseTech": "as",
+            "releaseWeeks": 4,
+            "packSize": 25,
+            "maxRateKgHa": 250,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Agricultural grade prill. Acidifying broad-acre N. Should be watered in after application. 24% S for N uptake efficiency.",
+            "useCase": "Broad-acre acidifying N. High-pH soil correction. Sportsfield base N. Watering essential.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "100% ammonium sulphate. Acidifying. Low volatilisation when watered in.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FUpfront+Fertiliser%2FAmmonium-Sulphate.pdf"
+        },
+        {
+            "id": "PGG-DAP",
+            "name": "Di-Ammonium Phosphate (DAP) 18-20-0",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "18-20-0",
+            "analysis": {
+                "N": 18,
+                "P": 20,
+                "K": 0
+            },
+            "sgn": 200,
+            "release": "standard",
+            "releaseTech": "standard",
+            "releaseWeeks": 4,
+            "packSize": 25,
+            "maxRateKgHa": 200,
+            "suitableFor": [
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Agricultural grade establishment fertiliser. Soil-incorporate prior to sowing. High N + P starter blend.",
+            "useCase": "Establishment / renovation P. Pre-seed incorporation. Budget starter fertiliser.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "Di-ammonium phosphate — N is in ammoniacal form. Acidifying. Low volatilisation when incorporated.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FUpfront+Fertiliser%2FDi-Ammonium-Phosphate.pdf"
+        },
+        {
+            "id": "PGG-PGW-OUTFIELDS-12-5-15",
+            "name": "PGW Outfields Mix 12-5-15 + Trace Elements",
+            "brand": "PGW",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "12-5-15",
+            "analysis": {
+                "N": 12,
+                "P": 5,
+                "K": 15,
+                "S": 0
+            },
+            "sgn": 200,
+            "release": "standard",
+            "releaseTech": "as",
+            "releaseWeeks": 5,
+            "packSize": 25,
+            "maxRateKgHa": 300,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Heat-treated homogenous prill (not granule blend). SOP rather than MOP — chloride-free. Ammonium N gives some extended turf nutrition.",
+            "useCase": "Cost-effective outfield NPK + trace elements. Sports field maintenance. Park turf.",
+            "nForm": "ammonium",
+            "nFormConfidence": "review",
+            "nFormReason": "PGG description specifies ammonium N type. N source declared as \"ammonium\" giving extended release vs urea. SDS check needed for exact N split.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FUpfront+Fertiliser%2FPGW-Outfields-Mix-12-5-15.pdf"
+        },
+        {
+            "id": "PGG-PGW-SPORTS-13-2-17",
+            "name": "PGW Sports Mix 13.2-2-16.7 + 1% Fe",
+            "brand": "PGW",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "13.2-2-16.7",
+            "analysis": {
+                "N": 13.2,
+                "P": 2,
+                "K": 16.7,
+                "Fe": 1
+            },
+            "sgn": 200,
+            "release": "standard",
+            "releaseTech": "mixed",
+            "releaseWeeks": 6,
+            "packSize": 25,
+            "maxRateKgHa": 300,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Two N forms — some delayed release (not slow-release). Excellent N:K ratio. Competitively priced budget outfield product.",
+            "useCase": "Early-season sportsfield / fairway N+K post-winter. Schools / community fields. Budget option.",
+            "nForm": "mixed",
+            "nFormConfidence": "review",
+            "nFormReason": "PGG description states \"two forms of nitrogen\" with some delayed release. Likely urea + ammonium sulphate blend. SDS check needed for exact split.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FUpfront+Fertiliser%2FPGW-Sports-Mix-13.2-2-16.7.pdf"
+        },
+        {
+            "id": "PGG-AND-HUMIC-DG",
+            "name": "Andersons Humic DG",
+            "brand": "Andersons",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "sgn": 75,
+            "release": "amendment",
+            "releaseTech": "organic",
+            "releaseWeeks": 0,
+            "packSize": 18.14,
+            "maxRateKgHa": 150,
+            "greensMaxRateKgHa": 100,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "70% humic acid + 10% humic precursor (from leonardite). Dispersing granule (0.75mm). Chelator + microbial stimulator.",
+            "useCase": "Soil structure improvement. Enhance nutrient uptake. Sand profile CEC building. Apply alongside NPK fertilisers.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. Pure humic amendment. No volatilisation pathway.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoil+Amendments%2FAndersons-Humic-DG.pdf"
+        },
+        {
+            "id": "PGG-BIOBOOST-6-2-0",
+            "name": "Bioboost 6-2-0 + Trace Elements",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "6-2-0",
+            "analysis": {
+                "N": 6,
+                "P": 2,
+                "K": 0
+            },
+            "sgn": 200,
+            "release": "slow",
+            "releaseTech": "organic",
+            "releaseWeeks": 26,
+            "packSize": 25,
+            "maxRateKgHa": 500,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Organic non-burning slow-release. 12% water-soluble N + 88% microbial conversion. 70% organic matter. NZ Health Department compliant.",
+            "useCase": "Organic / low-input programs. Soil conditioning. Weed-free organic option. Pre-seed soil prep.",
+            "nForm": "organic",
+            "nFormConfidence": "auto",
+            "nFormReason": "88% organic N requires microbial conversion (very slow release, 6-9 months). 12% water-soluble fraction immediately plant-available. Volatilisation low (organic-bound).",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoil+Amendments%2FBioboost-6-2-0.pdf"
+        },
+        {
+            "id": "PGG-REGEN-R8-7-3-5",
+            "name": "Regen-R-8 7-3-5",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "7-3-5",
+            "analysis": {
+                "N": 7,
+                "P": 3,
+                "K": 5,
+                "Ca": 0,
+                "S": 0
+            },
+            "sgn": 100,
+            "release": "standard",
+            "releaseTech": "organic",
+            "releaseWeeks": 6,
+            "packSize": 25,
+            "maxRateKgHa": 400,
+            "greensMaxRateKgHa": 250,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees"
+            ],
+            "notes": "Mini prill (SGN 100) for renovation. Contains gypsum (sodic/saline remediation) + Sand-Aid granular seaplant meal. Builds CEC in sand profiles.",
+            "useCase": "Post-renovation recovery. Sand greens CEC builder. Salt remediation. Core hole fill.",
+            "nForm": "mixed",
+            "nFormConfidence": "review",
+            "nFormReason": "N source not declared on PGG page. Likely organic + ammonium blend given Sand-Aid (seaplant) component. SDS check needed.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoil+Amendments%2FRegen-R-8-7-3-5.pdf"
+        },
+        {
+            "id": "PGG-ROOSTER-BOOSTER",
+            "name": "Rooster Booster 4-2.5-2",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "4-2.5-2",
+            "analysis": {
+                "N": 4,
+                "P": 2.5,
+                "K": 2
+            },
+            "sgn": 200,
+            "release": "slow",
+            "releaseTech": "organic",
+            "releaseWeeks": 16,
+            "packSize": 25,
+            "maxRateKgHa": 500,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Organic pelletised chicken manure. Slow release via microbial conversion. Promotes root growth + CEC correction.",
+            "useCase": "Organic feeding programs. Soil microbiome support. Poor-CEC soil remediation.",
+            "nForm": "organic",
+            "nFormConfidence": "auto",
+            "nFormReason": "Organic N (chicken manure-derived) requires microbial breakdown. Very slow release. Low volatilisation when incorporated.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoil+Amendments%2FRooster-Booster-4-2.5-2.pdf"
+        },
+        {
+            "id": "PGG-TEA-SEED",
+            "name": "Tea Seed Pellets",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "sgn": 200,
+            "release": "amendment",
+            "releaseTech": "organic",
+            "releaseWeeks": 0,
+            "packSize": 25,
+            "maxRateKgHa": 500,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports",
+                "landscaping"
+            ],
+            "notes": "Camellia seed meal pellets. Organic matter amendment. No NPK declared on PGG page — primarily a soil conditioner. Reported earthworm-control side effect (saponins).",
+            "useCase": "Soil OM improvement. Organic-program amendment. Earthworm castings management on greens (saponin natural mode).",
+            "nForm": "no_N",
+            "nFormConfidence": "review",
+            "nFormReason": "NPK not declared on PGG page. Typically tea seed meal contains ~1% organic N. SDS check needed for declared N if any."
+        },
+        {
+            "id": "PGG-AS-SOL",
+            "name": "Sulphate of Ammonia (soluble grade)",
+            "brand": "DuraTurf",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "20.5-0-0",
+            "analysis": {
+                "N": 20.5,
+                "P": 0,
+                "K": 0,
+                "S": 24
+            },
+            "form": "soluble",
+            "sgn": null,
+            "release": "standard",
+            "releaseTech": "as",
+            "releaseWeeks": 3,
+            "packSize": 25,
+            "maxRateKgHa": 50,
+            "greensMaxRateKgHa": 25,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Soluble grade for fertigation / spray tank. Dissolve in 400-600 L water/ha. Acidifying. Bypass slow-release for quick green-up.",
+            "useCase": "Greens spoonfeeding. Fairway colour spray. Foliar/root N boost. pH management.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "100% ammonium sulphate. Quick-release N + S. Acidifying. Low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoluble+Fertiliser%2FSulphate-Of-Ammonia-Label.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-G",
+            "name": "Stamina G (granular wetting agent)",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "sgn": 150,
+            "release": "wetting_agent",
+            "releaseTech": "surfactant",
+            "releaseWeeks": 8,
+            "packSize": 20,
+            "maxRateKgHa": 500,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Long-term granular surfactant. Higher-cut turf (sportsfields, parks, fairways, racetracks, turf farms). Residual LDS prevention.",
+            "useCase": "Outfield LDS prevention. Coring window application. High-cut programmes.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-G-A4-brochure.pdf"
+        }
+    ],
+    "liquid": [
+        {
+            "id": "PGG-FM-CAL-MAG",
+            "name": "FoliMAX Cal-Mag",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Ca": 13,
+                "Mg": 3.4
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 50,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Liquid Ca + Mg in nitrate form. Ideal Ca:Mg ratio. Rapid sodium displacement from root zone. Soluble nitrate carrier.",
+            "useCase": "Sodium flushing. Ca/Mg deficiency correction. Salt-affected sites. Sand greens Ca builder.",
+            "nForm": "nitrate",
+            "nFormConfidence": "auto",
+            "nFormReason": "Calcium and magnesium are delivered as nitrate salts (Ca(NO3)2 + Mg(NO3)2 per page). Nitrate-N — no volatilisation, immediate plant availability.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Cal-Mag-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-CHARGER",
+            "name": "FoliMAX CHARGER",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 40,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "fairways",
+                "tees",
+                "sports"
+            ],
+            "notes": "Macro + minor nutrients + hormone growth promoters (kinetin/IBA per FoliMAX literature). Promotes lateral growth + colour. Recovery / grow-in.",
+            "useCase": "Renovation recovery. Grow-in establishment. Warm-season grass winter colour. Damage repair.",
+            "nForm": "review",
+            "nFormConfidence": "review",
+            "nFormReason": "Specific NPK and N source not declared on PGG page. SDS/label check needed. FoliMAX product brochure available but binary-locked.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Charger-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-IRON",
+            "name": "FoliMAX Iron+",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Fe": 6
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Economical fast-acting liquid iron. Fe % not declared on PGG page — typical FoliMAX range is 6% Fe. Tank-mix compatible.",
+            "useCase": "Fe deficiency correction. Greening without growth surge. Tank-mix additive. Disease tolerance support.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. Pure Fe foliar.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Full-Range-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-NFE",
+            "name": "FoliMAX NFE",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 5,
+                "P": 0,
+                "K": 0,
+                "Fe": 4,
+                "Mn": 1.5
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "EDTA-chelated Fe + Mn with Ammonium Stabilised N. High-analysis NFE formulation. Improved tank-mix stability.",
+            "useCase": "Combined Fe + Mn + N foliar. Colour enhancement. Chlorophyll support.",
+            "nForm": "ammonium",
+            "nFormConfidence": "auto",
+            "nFormReason": "PGG page describes \"Ammonium Stabilised Nitrogen\". Stabilised ammonium — low volatilisation, foliar-active.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-NFE-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-N-FORCER",
+            "name": "FoliMAX N-Forcer-N",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "20-0-0",
+            "analysis": {
+                "N": 20,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 50,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "fairways",
+                "tees",
+                "sports"
+            ],
+            "notes": "High-analysis liquid N. Dual technology: nitrification inhibitors + SRN-IQ slow-release. Two release mechanisms over extended period.",
+            "useCase": "Programme backbone foliar N. Extended-period N delivery. Reduced application frequency.",
+            "nForm": "stabilised_urea",
+            "nFormConfidence": "auto",
+            "nFormReason": "PGG page describes \"nitrification inhibitors + SRN-IQ\" technology. Stabilised N (likely urea base + DCD/NBPT class inhibitor + slow-release fraction). Very low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Full-Range-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-NRG-NK",
+            "name": "FoliMAX NRG-NK",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "15-0-12",
+            "analysis": {
+                "N": 15,
+                "P": 0,
+                "K": 12,
+                "Fe": 0.5
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 70,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "fairways",
+                "tees",
+                "sports"
+            ],
+            "notes": "Balanced N+K liquid. 50% SRN-IQ slow release + 50% upfront. K as citrate/carbonate (chloride-free). Iron for green-up.",
+            "useCase": "Maintenance programme backbone. Balanced foliar feeding. Chloride-free K input.",
+            "nForm": "mixed",
+            "nFormConfidence": "auto",
+            "nFormReason": "50% SRN-IQ slow-release + 50% upfront. Mixed N pathway. Slow-release fraction has very low volatilisation.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-NRG-NK-A4-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-PHOSPHITE",
+            "name": "FoliMAX Phosphite+",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-13-21",
+            "analysis": {
+                "N": 0,
+                "P": 13,
+                "K": 21
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "fairways",
+                "tees",
+                "sports"
+            ],
+            "notes": "POTASSIUM PHOSPHITE (not phosphate) — mono/di-K salts of phosphorus acid. Vitamin B1. Foliar AND root active. Disease suppression effects.",
+            "useCase": "Pythium/Take-All/disease pressure. K deficiency correction. Plant vigour. Root development.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. P is in phosphite form (not phosphate); not directly nutrient-equivalent to phosphate-P.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Phosphite_-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-TRACE",
+            "name": "FoliMAX Trace+",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Fe": 0,
+                "Mn": 0,
+                "Zn": 0,
+                "Cu": 0,
+                "B": 0,
+                "Mo": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 5,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "fairways",
+                "tees",
+                "sports"
+            ],
+            "notes": "Multi-trace element foliar. Nutrex Delivery Technology for plant uptake + internal mobility. Specific TE % not declared.",
+            "useCase": "Trace element deficiency correction. Regular foliar additive. Tank-mix booster.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "TE-only foliar, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Full-Range-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FM-VIGOR-K",
+            "name": "FoliMAX Vigor-K",
+            "brand": "FoliMAX",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-30",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 30
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 30,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "High-K (30%) liquid. Chloride-free citrate/carbonate complex. Maximum foliar uptake. Tank-mix flexible.",
+            "useCase": "Autumn K hardening / winter prep. Pre-stress conditioning. Chloride-sensitive turf. Tank-mix with N-Forcer-N.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. K-only foliar.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FLiquid+Fertiliser%2FFoliMAX%2FFoliMAX-Vigor-K-Brochure.pdf"
+        },
+        {
+            "id": "PGG-FESO4",
+            "name": "Ferrous Sulphate Heptahydrate",
+            "brand": "Amgrow",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Fe": 20.1,
+                "S": 11.5
+            },
+            "form": "soluble",
+            "packSize": 25,
+            "maxRateKgHa": 50,
+            "greensMaxRateKgHa": 25,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Free-flowing soluble grade FeSO4.7H2O. Suitable for fertigation. Quick green-up. May stain hard surfaces.",
+            "useCase": "Fe deficiency correction. Greens colour boost via fertigation. Moss suppression. Low-cost iron source.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. Fe sulphate soluble."
+        },
+        {
+            "id": "PGG-MGSO4",
+            "name": "Magnesium Sulphate Heptahydrate (Epsom Salts)",
+            "brand": "Amgrow",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Mg": 9.9,
+                "S": 13
+            },
+            "form": "soluble",
+            "packSize": 25,
+            "maxRateKgHa": 50,
+            "greensMaxRateKgHa": 25,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Epsom Salts. Free-flowing soluble grade MgSO4.7H2O. Suitable for fertigation. Quick Mg + S correction.",
+            "useCase": "Mg deficiency correction. Sand greens Mg builder. S source. Chlorophyll support.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. Mg sulphate soluble."
+        },
+        {
+            "id": "PGG-REMEDIATOR",
+            "name": "Remediator (Aqua Aid)",
+            "brand": "Aqua Aid",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0,
+                "Ca": 30
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 100,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "90% calcium chloride solution. PGG: 10 L = 958 kg dry gypsum Ca equivalent. Sodium displacement + EC reduction + soil structure.",
+            "useCase": "Sodic soil remediation. Salt-affected turf. Hard / crusting soil structure. Alternative to gypsum.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Zero declared N. Pure Ca chloride amendment.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FTurf+Nutrition%2FSoil+Amendments%2FRemediator.pdf"
+        },
+        {
+            "id": "PGG-OARS-HS",
+            "name": "OARS HS (Aqua Aid)",
+            "brand": "Aqua Aid",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "Organic acid redistribution system (OARS). Removes humic coatings from hydrophobic soil particles. Soil hydrating surfactant.",
+            "useCase": "Hydrophobic soil remediation. Drought stress reduction. Consistent moisture in hard-to-wet soils.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FOARS-HS.pdf"
+        },
+        {
+            "id": "PGG-QUALIBRA",
+            "name": "Qualibra (Syngenta)",
+            "brand": "Syngenta",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "Non-ionic surfactant blend. 100% wetting agent (no water added). Surface drainage + depth retention dual-action.",
+            "useCase": "Preventative or curative dry patch. Healthy root mass retention. Irrigation efficiency.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FQualibra-Launch-Brochure.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-90",
+            "name": "Stamina 90",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "100% non-ionic residual surfactant. Benchmark residual technology. Sandy and heavier soil profiles. Warm + cool season turf safe.",
+            "useCase": "Long-term LDS prevention. Programmatic residual application. All-turf-type safe.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-90-A4-brochure-final.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-BALANCE",
+            "name": "Stamina Balance",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 25,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees"
+            ],
+            "notes": "Three-surfactant blend specifically for sand-based root zones. Maximises water usage and availability. Premium soil surfactant.",
+            "useCase": "Sand greens / tees moisture management. USGA-spec rootzone. Premium-tier programmes.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Balance-A4-brochure-Final.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-DEWSTAR",
+            "name": "Stamina Dewstar",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 5,
+            "maxRateLHa": 5,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets"
+            ],
+            "notes": "Organosilicone-based super spreader. Concentrated. Highly effective in suppressing dew formation on turf swards.",
+            "useCase": "Dew suppression on greens. Disease pressure reduction (dollar spot, Microdochium). Early-play presentation.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Surfactant, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Dewstar-A4-brochure-final.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-EXPRESS",
+            "name": "Stamina Express",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 20,
+            "maxRateLHa": 30,
+            "suitableFor": [
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Thatch + soil penetrant blend with residual component. Economical for large areas. Irrigation-injectable. Boom-sprayer compatible.",
+            "useCase": "Fairway / sportsfield penetrant. Irrigation system injection. Large-area surfactant.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Express-A4-brochure.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-FAIRWAY",
+            "name": "Stamina Fairway",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 20,
+            "maxRateLHa": 20,
+            "suitableFor": [
+                "fairways",
+                "sports"
+            ],
+            "notes": "100% non-ionic residual surfactant for broadacre. 8-week LDS prevention. Low burn potential.",
+            "useCase": "Broadacre fairway / sportsfield LDS programme. 8-week residual cycle.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Fairway-A4-brochure.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-RELIEVE",
+            "name": "Stamina Relieve",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 5,
+            "maxRateLHa": 10,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways"
+            ],
+            "notes": "Soil-amending polymer. Modifies surface tension of hygroscopic (bound) water. Reduces compaction. Improves infiltration + aeration.",
+            "useCase": "Soil-surfactant partner. Compacted soil remediation. Improved infiltration. Tank-mix booster.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Soil-amending polymer, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Relieve-A4-brochure-Final.pdf"
+        },
+        {
+            "id": "PGG-STAMINA-RESCUE",
+            "name": "Stamina Rescue",
+            "brand": "Stamina",
+            "distributor": "PGG Wrightson Turf",
+            "availability": "NZ National",
+            "npk": "0-0-0",
+            "analysis": {
+                "N": 0,
+                "P": 0,
+                "K": 0
+            },
+            "form": "liquid",
+            "packSize": 10,
+            "maxRateLHa": 25,
+            "suitableFor": [
+                "greens",
+                "golf_greens",
+                "bowling_greens",
+                "cricket_wickets",
+                "tees",
+                "fairways",
+                "sports"
+            ],
+            "notes": "Two-surfactant rescue blend: high surface tension surfactant (rapid wetting) + heavier MW surfactant (rewetting). Curative.",
+            "useCase": "Hydrophobic emergency rescue. Hot spot management. Curative LDS treatment.",
+            "nForm": "no_N",
+            "nFormConfidence": "auto",
+            "nFormReason": "Wetting agent, zero declared N.",
+            "techSheet": "https://pggwrightsonturf.com/Admin/Public/DWSDownload.aspx?File=%2FFiles%2FFiles%2FPublic%2FTurf%2FDuraTurf%2FWetting+Agents%2FStamina-Rescue-A4-brochure-final.pdf"
+        }
+    ]
+};
+
+/**
+ * NZ Fertiliser Recommender
+ * Scores products against calendar N/K/P requirements.
+ * Uses AU/PGG schema fields (suitableFor, maxRateKgHa, greensMaxRateKgHa).
+ */
+const NzFertiliserRecommender = {
+
+    version: '1.0.0',
+
+    getDistributorOptions: function() {
+        return [
+            { value: 'all',            label: 'All (best match)' },
+            { value: 'pgg_wrightson',  label: 'PGG Wrightson Turf' },
+            { value: 'stamina',        label: 'Stamina / Aqua Aid' },
+            { value: 'prebble',        label: "Prebble's" }
+        ];
+    },
+
+    filterBySurface: function(products, surfaceType) {
+        if (!surfaceType) return products;
+        var surfMap = {
+            'golf_greens':    'greens',
+            'bowling_greens': 'greens',
+            'cricket_wickets':'greens',
+            'tees':           'tees',
+            'fairways':       'fairways',
+            'sports':         'sports',
+            'greens':         'greens'
+        };
+        var key = surfMap[surfaceType] || 'sports';
+        return products.filter(function(p) {
+            var sf = p.suitableFor || [];
+            return sf.indexOf(surfaceType) !== -1 || sf.indexOf(key) !== -1;
+        });
+    },
+
+    filterByDistributor: function(products, distributor) {
+        if (!distributor || distributor === 'all') return products;
+        if (distributor === 'pgg_wrightson') {
+            return products.filter(function(p) {
+                return !p.id.startsWith('PGG-STAMINA') && !p.id.startsWith('PGG-QUALIBRA') &&
+                       !p.id.startsWith('PGG-REMEDIATOR') && !p.id.startsWith('PGG-OARS');
+            });
+        }
+        if (distributor === 'stamina') {
+            return products.filter(function(p) { return p.id.startsWith('PGG-STAMINA') || p.id.startsWith('PGG-QUALIBRA'); });
+        }
+        return products;
+    },
+
+    scoreGranularProduct: function(product, monthReqs, context) {
+        var nRequired = monthReqs.N || 0;
+        if (nRequired <= 0) return null;
+        var nPct = (product.analysis && product.analysis.N || 0) / 100;
+        if (nPct <= 0) return null;
+
+        var isGreens = context && context.isGreens;
+        var maxRate  = isGreens ? (product.greensMaxRateKgHa || product.maxRateKgHa || 300)
+                                : (product.maxRateKgHa || 400);
+        var rateNeeded = nRequired / nPct;
+
+        var release = product.release || 'standard';
+        var monthsCovered = 1;
+        if (release === 'slow' || release === 'controlled') {
+            monthsCovered = Math.round((product.releaseWeeks || 8) / 4);
+        }
+
+        var kDelivered  = ((product.analysis && product.analysis.K  || 0) / 100) * rateNeeded * monthsCovered;
+        var pDelivered  = ((product.analysis && product.analysis.P  || 0) / 100) * rateNeeded * monthsCovered;
+        var kRequired   = monthReqs.K || 0;
+        var pRequired   = monthReqs.P || 0;
+
+        var score = 0;
+        // N-match score (primary)
+        var nDelivered = nPct * rateNeeded * monthsCovered;
+        score += Math.min(100, (nDelivered / Math.max(nRequired, 0.01)) * 100) * 0.5;
+        // K score (secondary)
+        score += Math.min(15, kRequired > 0 ? (kDelivered / kRequired) * 15 : 0);
+        // P score
+        if (pRequired > 0 && pDelivered > 0) score += 10;
+        else if (pRequired > 0 && pDelivered <= 0) score -= 5;
+        // Release bonus
+        if (release === 'slow' || release === 'controlled') score += 10;
+        // Over-rate penalty
+        if (rateNeeded > maxRate * 1.5) score -= 20;
+        if (rateNeeded > maxRate * 2)   score -= 30;
+
+        return {
+            product:       product,
+            score:         Math.max(0, score),
+            rateNeeded:    Math.round(rateNeeded),
+            rateUnit:      'kg/ha',
+            monthsCovered: monthsCovered,
+            nDelivered:    Math.round(nDelivered * 10) / 10,
+            kDelivered:    Math.round(kDelivered * 10) / 10
+        };
+    },
+
+    recommend: function(opts) {
+        var surfaceType  = opts.surfaceType  || 'tees';
+        var monthReqs    = opts.monthReqs    || { N: 10, K: 10, P: 1 };
+        var distributor  = opts.distributor  || 'all';
+        var maxResults   = opts.maxResults   || 5;
+        var isGreens     = surfaceType === 'greens' || surfaceType === 'golf_greens' || surfaceType === 'bowling_greens';
+        var context      = { isGreens: isGreens, surfaceType: surfaceType };
+
+        var granular = NzFertiliserProducts.granular || [];
+        granular = this.filterBySurface(granular, surfaceType);
+        granular = this.filterByDistributor(granular, distributor);
+
+        var scored = [];
+        var self = this;
+        granular.forEach(function(p) {
+            var r = self.scoreGranularProduct(p, monthReqs, context);
+            if (r && r.score > 0) scored.push(r);
+        });
+        scored.sort(function(a, b) { return b.score - a.score; });
+
+        return {
+            granular: scored.slice(0, maxResults),
+            liquid:   this.recommendLiquid(surfaceType, distributor, maxResults)
+        };
+    },
+
+    recommendLiquid: function(surfaceType, distributor, maxResults) {
+        var liquid = NzFertiliserProducts.liquid || [];
+        liquid = this.filterBySurface(liquid, surfaceType);
+        if (distributor && distributor !== 'all') {
+            liquid = this.filterByDistributor(liquid, distributor);
+        }
+        return liquid.slice(0, maxResults).map(function(p) {
+            return { product: p, score: 50, rateNeeded: null, rateUnit: 'L/ha' };
+        });
+    }
+};
+
+// Export
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { NzFertiliserProducts: NzFertiliserProducts, NzFertiliserRecommender: NzFertiliserRecommender };
+}
+if (typeof window !== 'undefined') {
+    window.NzFertiliserProducts  = NzFertiliserProducts;
+    window.NzFertiliserRecommender = NzFertiliserRecommender;
+    window.GAIP_NZ_FERTILISER = {
+        products:    NzFertiliserProducts,
+        recommender: NzFertiliserRecommender,
+        version:     '1.0.0',
+        region:      'nz'
+    };
+}

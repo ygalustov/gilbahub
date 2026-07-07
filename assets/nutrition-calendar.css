@@ -178,7 +178,7 @@
 }
 
 .gilba-nut-th {
-    text-align: right;
+    text-align: left;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
@@ -199,7 +199,7 @@
 }
 
 .gilba-nut-cell {
-    text-align: right;
+    text-align: left;
     padding: 9px 10px;
     color: var(--gaip-text);
     border-bottom: 1px solid var(--gaip-border-light);
@@ -223,7 +223,7 @@
 }
 
 .gilba-nut-cell--gp {
-    text-align: center;
+    text-align: left;
 }
 
 .gilba-nut-cell--val {
@@ -448,7 +448,7 @@
 
 .prebble-program-table th,
 .au-fertiliser-program-table th {
-    text-align: right;
+    text-align: left;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -459,26 +459,12 @@
     white-space: nowrap;
 }
 
-.prebble-program-table th:nth-child(1),
-.prebble-program-table th:nth-child(2),
-.au-fertiliser-program-table th:nth-child(1),
-.au-fertiliser-program-table th:nth-child(2) {
-    text-align: left;
-}
-
 .prebble-program-table td,
 .au-fertiliser-program-table td {
-    text-align: right;
+    text-align: left;
     padding: 6px 8px;
     color: var(--gaip-text);
     border-bottom: 1px solid var(--gaip-border-light);
-}
-
-.prebble-program-table td:nth-child(1),
-.prebble-program-table td:nth-child(2),
-.au-fertiliser-program-table td:nth-child(1),
-.au-fertiliser-program-table td:nth-child(2) {
-    text-align: left;
 }
 
 /* Sub-section headers within integration panels */

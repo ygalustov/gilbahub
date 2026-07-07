@@ -812,6 +812,14 @@
 
                 this.renderProductRecommendations(program);
 
+                // Hide competing regional panels
+                if (window.NutritionAuFertiliserIntegration && typeof window.NutritionAuFertiliserIntegration.hideRecommendations === 'function') {
+                    window.NutritionAuFertiliserIntegration.hideRecommendations();
+                }
+                if (window.NutritionNzFertiliserIntegration && typeof window.NutritionNzFertiliserIntegration.hideRecommendations === 'function') {
+                    window.NutritionNzFertiliserIntegration.hideRecommendations();
+                }
+
                 document.dispatchEvent(new CustomEvent('gaip:uk-fertiliser-program-generated', {
                     detail: { program: program, context: context }
                 }));

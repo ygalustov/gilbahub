@@ -371,7 +371,15 @@
                 window.GAIP_NUTRITION_PROGRAM = program;
                 
                 this.renderProductRecommendations(program);
-                
+
+                // Hide competing regional panels
+                if (window.NutritionUkFertiliserIntegration && typeof window.NutritionUkFertiliserIntegration.hideRecommendations === 'function') {
+                    window.NutritionUkFertiliserIntegration.hideRecommendations();
+                }
+                if (window.NutritionNzFertiliserIntegration && typeof window.NutritionNzFertiliserIntegration.hideRecommendations === 'function') {
+                    window.NutritionNzFertiliserIntegration.hideRecommendations();
+                }
+
                 // Dispatch event for other modules (Word export, etc.)
                 document.dispatchEvent(new CustomEvent('gaip:au-fertiliser-program-generated', {
                     detail: { program: program, context: context }
