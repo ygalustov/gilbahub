@@ -385,35 +385,36 @@
     var turfSpeciesEl = document.getElementById('stg-turf-species');
 
     var _speciesTraitsKey = {
-        'Creeping Bentgrass (Greens)':  'bentgrass',
-        'Creeping Bentgrass (Fairway)': 'bentgrass',
-        'Creeping Bentgrass':           'bentgrass',
-        'Colonial Bentgrass':           'bentgrass',
-        'Browntop Bent':                'browntopBent',
-        'Browntop Bent (Greens)':       'browntopBent',
-        'Perennial Ryegrass':           'perennialRyegrass',
-        'Kentucky Bluegrass':           'kentuckyBluegrass',
-        'Tall Fescue':                  'tallFescue',
-        'Fine Fescue':                  'fineFescue',
-        'Chewings Fescue':              'chewingsFescue',
-        'Chewings Fescue (Greens)':     'chewingsFescue',
-        'Chewings Fescue (Fairways)':   'chewingsFescue',
-        'Slender Creeping Red Fescue':  'slenderCreepingRedFescue',
-        'Slender Creeping Red Fescue (Greens)':  'slenderCreepingRedFescue',
-        'Slender Creeping Red Fescue (Fairways)': 'slenderCreepingRedFescue',
-        'Strong Creeping Red Fescue':   'strongCreepingRedFescue',
-        'Strong Creeping Red Fescue (Fairways)':  'strongCreepingRedFescue',
-        'Poa annua':                    null,
-        'Annual Bluegrass (Greens)':    null,
-        'Annual Bluegrass (Fairway)':   null,
-        'Couch':                        'couch',
-        'Bermuda':                      'couch',
-        'Kikuyu':                       'kikuyu',
-        'Zoysia':                       'zoysia',
-        'Seashore Paspalum':            'seashore_paspalum',
-        'Buffalo':                      'buffalo',
-        'Buffalograss':                 'buffalo',
-        'Cotula':                       null,
+        'Creeping Bentgrass (Greens)':              'bentgrass',
+        'Creeping Bentgrass (Fairway)':             'bentgrass',
+        'Creeping Bentgrass':                       'bentgrass',
+        'Colonial Bentgrass':                       'bentgrass',
+        'Browntop Bent':                            'browntopBent',
+        'Browntop Bent (Greens)':                   'browntopBent',
+        'Browntop Bent (Fairways)':                 'browntopBent',
+        'Perennial Ryegrass':                       'perennialRyegrass',
+        'Kentucky Bluegrass':                       'kentuckyBluegrass',
+        'Tall Fescue':                              'tallFescue',
+        'Fine Fescue':                              'fineFescue',
+        'Chewings Fescue':                          'chewingsFescue',
+        'Chewings Fescue (Greens)':                 'chewingsFescue',
+        'Chewings Fescue (Fairways)':               'chewingsFescue',
+        'Slender Creeping Red Fescue':              'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Greens)':     'slenderCreepingRedFescue',
+        'Slender Creeping Red Fescue (Fairways)':   'slenderCreepingRedFescue',
+        'Strong Creeping Red Fescue':               'strongCreepingRedFescue',
+        'Strong Creeping Red Fescue (Fairways)':    'strongCreepingRedFescue',
+        'Poa annua':                                null,
+        'Annual Bluegrass (Greens)':                null,
+        'Annual Bluegrass (Fairway)':               null,
+        'Couch':                                    'couch',
+        'Bermuda':                                  'couch',
+        'Kikuyu':                                   'kikuyu',
+        'Zoysia':                                   'zoysia',
+        'Seashore Paspalum':                        'seashore_paspalum',
+        'Buffalo':                                  'buffalo',
+        'Buffalograss':                             'buffalo',
+        'Cotula':                                   null,
     };
 
     function _normalizeRegion(regionId) {
@@ -483,13 +484,24 @@
             turfSpeciesEl.appendChild(o);
         });
 
-        // Never lose a saved species that's not in the filtered list
+        // Saved species not directly in the new list — try to find an equivalent by canonical key
         if (savedSpecies && !options.some(function (sp) { return sp.value === savedSpecies; })) {
-            var o = document.createElement('option');
-            o.value = savedSpecies;
-            o.textContent = savedSpecies;
-            o.selected = true;
-            turfSpeciesEl.insertBefore(o, turfSpeciesEl.children[1] || null);
+            var savedCanonical = _speciesTraitsKey[savedSpecies];
+            var equivalent = savedCanonical && options.find(function (sp) {
+                return _speciesTraitsKey[sp.value] === savedCanonical;
+            });
+            if (equivalent) {
+                // Select the equivalent species in the new surface list
+                var eqEl = turfSpeciesEl.querySelector('option[value="' + equivalent.value.replace(/"/g, '\\"') + '"]');
+                if (eqEl) eqEl.selected = true;
+            } else {
+                // No equivalent — keep the saved value so it is not silently lost
+                var o = document.createElement('option');
+                o.value = savedSpecies;
+                o.textContent = savedSpecies;
+                o.selected = true;
+                turfSpeciesEl.insertBefore(o, turfSpeciesEl.children[1] || null);
+            }
         }
     }
 
@@ -673,7 +685,7 @@
     if (turfSubEl) {
         turfSubEl.addEventListener('change', function () {
             updateCompanionRowVisibility();
-            repopulateSpeciesOptions('');
+            repopulateSpeciesOptions(turfSpeciesEl ? turfSpeciesEl.value : '');
         });
     }
 

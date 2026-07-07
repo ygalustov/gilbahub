@@ -328,9 +328,15 @@ I also added the source file name, so it’s easy to see which file each sample 
 
 
 07/07/26
-72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
-73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
-75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
++72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
++73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
++75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
+
+
+74. just reset to perennial ryegrass again from colonial bentgrass.
+Files from NZ
+
+
 
 
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
@@ -356,15 +362,10 @@ I also added the source file name, so it’s easy to see which file each sample 
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
-71. the areas be better in m2 and you can’t tell which green is which
+71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
 
 
 
-
-74. just reset to perennial ryegrass again from colonial bentgrass.
-
-
-Files from NZ
 
 Integration with soil scout
 this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi

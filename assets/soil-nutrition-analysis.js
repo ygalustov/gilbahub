@@ -1074,7 +1074,14 @@
         return 'bentgrass';
     }
 
-    var _tissueSpeciesKey = normalizeTissueSpecies(typeof SITE_SPECIES !== 'undefined' ? SITE_SPECIES : null);
+    var _tissueSpeciesRaw = (typeof SITE_SPECIES !== 'undefined' && SITE_SPECIES)
+        ? SITE_SPECIES
+        : (window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.turf && window.GAIP_SITE_CONFIG.turf.species)
+            ? window.GAIP_SITE_CONFIG.turf.species
+            : (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.turfSpecies)
+                ? window.GAIP_HUB_CONFIG.turfSpecies
+                : null;
+    var _tissueSpeciesKey = normalizeTissueSpecies(_tissueSpeciesRaw);
     var TISSUE_RANGES = TISSUE_RANGE_PRESETS[_tissueSpeciesKey] || TISSUE_RANGE_PRESETS.bentgrass;
 
     var TISSUE_SPECIES_LABELS = {
