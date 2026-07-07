@@ -31,11 +31,15 @@
     // SUPPLIER DISPLAY NAMES
     // ========================================================================
     const SUPPLIER_DISPLAY = {
-        'icl':       'ICL',
-        'agrovista': 'Agrovista',
-        'regen':     'ReGen',
-        'oas':       'OAS / Headland',
-        'all':       'All Suppliers (best match)'
+        'icl':               'ICL',
+        'agrovista':         'Agrovista',
+        'regen':             'ReGen',
+        'oas':               'OAS / Headland',
+        'aitkens':           "Aitkens",
+        'aitkens_terralift': 'Aitkens / Terralift',
+        'aitkens_vitax':     'Aitkens / Vitax',
+        'aitkens_aquatrols': 'Aitkens / Aquatrols',
+        'all':               'All Suppliers (best match)'
     };
 
     // ========================================================================
@@ -85,7 +89,11 @@
 
             return products.filter(function(p) {
                 if (p.surfaces && p.surfaces.length > 0) {
-                    return p.surfaces.indexOf(mapped) !== -1 || p.surfaces.indexOf('all') !== -1;
+                    var sf = p.surfaces;
+                    if (sf.indexOf(mapped) !== -1 || sf.indexOf('all') !== -1) return true;
+                    // 'sportsfields' is equivalent to 'sports'
+                    if (mapped === 'sports' && sf.indexOf('sportsfields') !== -1) return true;
+                    return false;
                 }
                 return true;
             });
@@ -114,8 +122,11 @@
             var pPct = (product.analysis && product.analysis.P || 0) / 100;
             if (nPct <= 0) return null;
 
-            // Determine label rates
-            var rates = product.rates || {};
+            // Determine label rates — use rates_kg_ha when product is specified in g/m²
+            var isGM2 = (product.rateUnit === 'g/m²');
+            var rates = (isGM2 && product.rates_kg_ha && Object.keys(product.rates_kg_ha).length > 0)
+                ? product.rates_kg_ha
+                : (product.rates || {});
             var isGreens = context.isGreens;
             var minRate = isGreens ? (rates.greensMin || rates.stdMin || 100) : (rates.teesMin || rates.stdMin || 150);
             var maxRate = isGreens ? (rates.greensMax || rates.stdMax || 500) : (rates.teesMax || rates.stdMax || 750);
@@ -123,10 +134,12 @@
             // Rate needed to deliver target N
             var rateNeeded = nRequired / nPct;
 
-            // Release duration for slow/controlled release
+            // Release duration — g/m² products: use interval_weeks for correct monthly coverage
             var monthsCovered = 1;
             var release = product.release || 'quick';
-            if (release === 'controlled' || release === 'slow') {
+            if (isGM2 && product.interval_weeks && product.interval_weeks > 0) {
+                monthsCovered = Math.max(1, product.interval_weeks / 4.33);
+            } else if (release === 'controlled' || release === 'slow') {
                 monthsCovered = (release === 'controlled') ? 3 : 2;
             } else if (release === 'stabilised') {
                 monthsCovered = 1.5;
@@ -384,8 +397,9 @@
                 if (nPct <= 0) return;
 
                 var rates = product.rates || {};
-                var minRate = rates.stdMin || 20;
-                var maxRate = rates.stdMax || 60;
+                var _sfLiq = context.isGreens ? 'greens' : (context.surfaceType === 'fairways' ? 'fairways' : 'sports');
+                var minRate = rates[_sfLiq + 'Min'] || rates.stdMin || 20;
+                var maxRate = rates[_sfLiq + 'Max'] || rates.stdMax || 60;
                 var rateNeeded = remainingN / nPct;
                 var actualRate = Math.max(rateNeeded, minRate);
                 if (actualRate > maxRate) actualRate = maxRate;

@@ -257,7 +257,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-164** Refactor turf species handling in settings-init.js: Updated species traits mapping for improved clarity and added logic to retain saved species when no equivalent is found in the new list. 
 **GH-165** Update JavaScript and CSS files for NZ fertiliser integration: Added new scripts for Aitkens and NZ fertiliser products, updated AU and UK integration scripts to hide competing regional panels, and adjusted CSS text alignment for improved consistency across tables.
 **GH-166** Remove 'Stamina / Aqua Aid' distributor from NZ fertiliser integration: Updated JavaScript files to exclude Stamina from distributor options and filtering logic, ensuring a more accurate representation of available products.
-
+**GH-167** Enhance supplier normalization and display in fertiliser integration scripts: Updated the normaliseSupplier function to include brand-based supplier assignments for Aitkens products, and improved supplier display names in the UK integration script for better clarity and user experience.
 
 
 
@@ -332,19 +332,18 @@ I also added the source file name, so it’s easy to see which file each sample 
 
 
 07/07/26
-+45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
-+46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
 +72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
 +73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
 +75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
 +74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
-
-New distributors for NZ. GH-165. 
++Added new suppliers. GH-165, GH-166, GH-167. 
 
 
 
 
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
++45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
++46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
 47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition
 48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
 49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?

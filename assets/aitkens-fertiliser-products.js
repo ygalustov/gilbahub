@@ -3556,9 +3556,15 @@
      */
     function normaliseSupplier(p) {
         if (!p.supplier) return p;
-        if (p.supplier.indexOf('Terralift') !== -1) p.supplier = 'aitkens_terralift';
-        else if (p.supplier.indexOf('Vitax') !== -1) p.supplier = 'aitkens_vitax';
-        else if (p.supplier.indexOf('Aquatrols') !== -1) p.supplier = 'aitkens_aquatrols';
+        if (p.supplier.indexOf('Terralift') !== -1) { p.supplier = 'aitkens_terralift'; return p; }
+        if (p.supplier.indexOf('Vitax') !== -1)     { p.supplier = 'aitkens_vitax';     return p; }
+        if (p.supplier.indexOf('Aquatrols') !== -1) { p.supplier = 'aitkens_aquatrols'; return p; }
+        // Also assign by brand field when supplier is generic 'aitkens'
+        if (p.supplier === 'aitkens' && p.brand) {
+            if (p.brand === 'Vitax')     { p.supplier = 'aitkens_vitax';     return p; }
+            if (p.brand === 'Terralift') { p.supplier = 'aitkens_terralift'; return p; }
+            if (p.brand === 'Aquatrols') { p.supplier = 'aitkens_aquatrols'; return p; }
+        }
         return p;
     }
 
