@@ -122,7 +122,7 @@
                             <span class="db-info-icon" data-info="growth-potential" tabindex="0" role="button" aria-label="About Growth Potential">i</span>
                         </div>
                         <div class="db-vital-main" id="db-gp-value">—</div>
-                        <div class="db-vital-sub" id="db-gp-forecast"></div>
+                        <div class="db-vital-sub" id="db-gp-forecast" style="font-size:10px;color:var(--gaip-text-muted,#6b8878);margin-top:1px">8-day avg</div>
                         <div class="db-progress-bar" style="margin:6px 0 4px">
                             <div class="db-progress-fill" id="db-gp-bar" style="width:0%;background:#16a34a"></div>
                         </div>

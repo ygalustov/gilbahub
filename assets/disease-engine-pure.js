@@ -4117,7 +4117,14 @@ const TakeAllModel = {
 
         // Hemisphere-aware air-temp lag fallback (no DOM reads)
         if (soilTemp === null) {
-            const airTemp = climate?.temperature?.mean ?? 15;
+            // Use mean first; fall through to (min+max)/2 or current before the ?? 15 literal.
+            // This prevents 15 from firing when temperature.mean is null but min/max are real
+            // (e.g. canonical state populated from a climate source that sets min/max but not mean).
+            const airTemp = climate?.temperature?.mean
+                ?? (climate?.temperature?.min != null && climate?.temperature?.max != null
+                    ? (climate.temperature.min + climate.temperature.max) / 2 : null)
+                ?? climate?.temperature?.current
+                ?? 15;
             const month   = new Date().getMonth(); // 0-based
             const lat     = climate?.site?.latitude ?? null;
             const isSH    = lat !== null ? lat < 0 : false; // default NH if unknown
@@ -4153,13 +4160,15 @@ const TakeAllModel = {
         }
 
         // ── Infection window ────────────────────────────────────────────────────
-        const inInfectionWindow = soilTemp >= 12 && soilTemp <= 18;
+        // degradedTemp guard: when no real temperature is available the fallback is 15°C
+        // which sits at the biological optimum and would falsely open the window.
+        const inInfectionWindow = !degradedTemp && soilTemp >= 12 && soilTemp <= 18;
         let windowNote = null;
         if (inInfectionWindow) {
             windowNote = '⚠️ INFECTION WINDOW OPEN, soil temp in optimal range for Take-all';
-        } else if (soilTemp > 18 && soilTemp < 22) {
+        } else if (!degradedTemp && soilTemp > 18 && soilTemp < 22) {
             windowNote = 'Infection window closing, soil warming';
-        } else if (soilTemp > 8 && soilTemp < 12) {
+        } else if (!degradedTemp && soilTemp > 8 && soilTemp < 12) {
             windowNote = 'Approaching infection window, monitor soil temps';
         }
 

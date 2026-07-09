@@ -502,7 +502,7 @@
             var comps = traj && (traj.currentComponents || (traj.data && traj.data.currentComponents));
             if (comps) {
                 var _isSports = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.siteType) === 'sports';
-                var factorLabels = { thermal:'Heat', moisture:'Moisture', light:'Light', nutrition:'Nutrition', biotic:'Disease' };
+                var factorLabels = { thermal:'Temp Stress', moisture:'Moisture', light:'Light', nutrition:'Nutrition', biotic:'Disease' };
                 if (_isSports) factorLabels.traffic = 'Traffic';
                 var topKey = null, topVal = 0;
                 Object.keys(factorLabels).forEach(function (k) {

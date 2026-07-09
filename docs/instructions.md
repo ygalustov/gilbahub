@@ -261,7 +261,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-168** Update CSS and documentation for improved functionality and clarity: Adjusted max-height in data-ui.css for better responsiveness, and refined instructions.md to enhance clarity on organic matter breakdown and supplier additions.
 **GH-169** Enhance tab visibility and display logic in plan and settings-init files: Added conditional rendering for the recovery tab based on turf type in plan.blade.php, and improved tab activation logic in settings-init.js to ensure only visible tabs are activated on page load.
 **GH-170** Remove iCal export functionality from plan-ui.js and update instructions.md to reflect changes in management calendar button behavior. The button has been removed to streamline the user interface.
-
+**GH-171** Update dashboard UI and JavaScript for clarity and accuracy: Modified the Growth Potential card to display the 8-day average more clearly, updated factor labels in dashboard-init.js for better context, and refined temperature handling in disease-engine-pure.js to prevent false infection window alerts. Adjusted instructions.md to reflect these changes and clarify discrepancies in growth potential data. GH-171.
 
 
 
@@ -380,13 +380,24 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +78. when click on management calendar what happens? It seems to work in export tab. Button is removed. GH-170.
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables
-Gh80 disease cards and growth potential contradict each other. Growth Potential card shows 44% headline, 50% in the caption. At 7°C, cool-season GP on the standard PACE Turf/Gelernter curve (optimum 20°C) is about 6 to 10%. 44 to 50% corresponds to roughly 13°C, a shoulder-season temperature. The card is off by ~5x and reads like it’s using a season default, not the live 7°C. Stress Index says “Driven by: Heat 18%” at 7°C. Heat stress at 7°C is impossible for C3 turf. Same warm-input signature.
-	•	Take-all detail says “soil temp 15°C, infection window active.” 15°C is a round default; real Christchurch greens soil in July sits near 6 to 9°C, which would close the window. The default is manufacturing a false infection window and a firm “prioritise Mn now” recommendation off placeholder data..
 
-81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please
+
++80a. disease cards and growth potential contradict each other. Growth Potential card shows 44% headline, 50% in the caption. At 7°C, cool-season GP on the standard PACE Turf/Gelernter curve (optimum 20°C) is about 6 to 10%. 44 to 50% corresponds to roughly 13°C, a shoulder-season temperature. The card is off by ~5x and reads like it’s using a season default, not the live 7°C. - In the GP card on the Dashboard, there are two numbers: one is the 8-day average, and the other is the current value. I’ve updated the UI to make this clearer (GH-171). 
+The Growth Potential calculation is actually the same in both the old hub and the new hub — same formula, same result at the same temperature (see attached screenshot).
+From looking at the code, it's not using the PACE/Gelernter curve. It uses a wider bell curve (the number comes out around 43% at 7°C, where PACE would give around 6%).
+Do you want me to switch it to match PACE?
+
++80b. Stress Index says “Driven by: Heat 18%” at 7°C. Heat stress at 7°C is impossible for C3 turf. Same warm-input signature. - fixed label name. GH-171. 
+
++80c. Take-all detail says “soil temp 15°C, infection window active.” 15°C is a round default; real Christchurch greens soil in July sits near 6 to 9°C, which would close the window. The default is manufacturing a false infection window and a firm “prioritise Mn now” recommendation off placeholder data. GH-171. 
+
+
+
++81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. Could you please just explain what you’d like to change, and I’ll do it? It’s much easier and less time-consuming than comparing the whole project.
 82. Dew onset logged at 00:00 on five of seven days. Likely a default/fallback time rather than a computed dew-point crossing,
 83. Take-all pH driver at 0% contribution while pH is 6.5. Take-all is strongly pH-driven (favoured above ~6.5, suppressed by acidification and Mn). Zeroing pH for take-all is agronomically backwards.
 84. There is a problem with the brown patch graph as it’s using the wrong model
+
 
 
 
