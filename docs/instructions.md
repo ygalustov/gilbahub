@@ -258,7 +258,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-165** Update JavaScript and CSS files for NZ fertiliser integration: Added new scripts for Aitkens and NZ fertiliser products, updated AU and UK integration scripts to hide competing regional panels, and adjusted CSS text alignment for improved consistency across tables.
 **GH-166** Remove 'Stamina / Aqua Aid' distributor from NZ fertiliser integration: Updated JavaScript files to exclude Stamina from distributor options and filtering logic, ensuring a more accurate representation of available products.
 **GH-167** Enhance supplier normalization and display in fertiliser integration scripts: Updated the normaliseSupplier function to include brand-based supplier assignments for Aitkens products, and improved supplier display names in the UK integration script for better clarity and user experience.
-
+**GH-168** Update CSS and documentation for improved functionality and clarity: Adjusted max-height in data-ui.css for better responsiveness, and refined instructions.md to enhance clarity on organic matter breakdown and supplier additions.
 
 
 ## Backlog
@@ -334,9 +334,11 @@ I also added the source file name, so it’s easy to see which file each sample 
 07/07/26
 +72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
 +73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
-+75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
 +74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
 +Added new suppliers. GH-165, GH-166, GH-167. 
++75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
++ Added new suppliers. GH-165, GH-166, GH-167. 
+
 
 
 
@@ -364,13 +366,55 @@ I also added the source file name, so it’s easy to see which file each sample 
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
+
+
+
+
+76. don’t need recovery for golf courses just sportsgrounds. When click on edit traffic schedule you can’t edit the schedule
+77. on a mobile when edit organic matter levels can’t save as can’t see save button. GH-168. 
+78. when click on management calendar what happens? It seems to work in export tab
+79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables
+Gh80 disease cards and growth potential contradict each other. Growth Potential card shows 44% headline, 50% in the caption. At 7°C, cool-season GP on the standard PACE Turf/Gelernter curve (optimum 20°C) is about 6 to 10%. 44 to 50% corresponds to roughly 13°C, a shoulder-season temperature. The card is off by ~5x and reads like it’s using a season default, not the live 7°C. Stress Index says “Driven by: Heat 18%” at 7°C. Heat stress at 7°C is impossible for C3 turf. Same warm-input signature.
+	•	Take-all detail says “soil temp 15°C, infection window active.” 15°C is a round default; real Christchurch greens soil in July sits near 6 to 9°C, which would close the window. The default is manufacturing a false infection window and a firm “prioritise Mn now” recommendation off placeholder data..
+
+81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please
+82. Dew onset logged at 00:00 on five of seven days. Likely a default/fallback time rather than a computed dew-point crossing,
+83. Take-all pH driver at 0% contribution while pH is 6.5. Take-all is strongly pH-driven (favoured above ~6.5, suppressed by acidification and Mn). Zeroing pH for take-all is agronomically backwards.
+84. There is a problem with the brown patch graph as it’s using the wrong model
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Long backlog
 71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
-
-
-
 
 Integration with soil scout
 this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ----
