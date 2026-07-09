@@ -125,7 +125,9 @@ var DiseaseForecast = (function() {
     
     var CONSECUTIVE_DAY_DISEASES = {
         pythiumBlight: { threshold: 20, maxMultiplier: 1.35, perDayBonus: 0.15 },
-        brownPatch: { threshold: 15, maxMultiplier: 1.25, perDayBonus: 0.10 },
+        // brownPatch removed: consecutive-day multiplier is unvalidated on top of the
+        // published Fidanza E2 regression; the model's own E2 persistence captures
+        // multi-day risk through its temperature and RH inputs.
         grayLeafSpot: { threshold: 20, maxMultiplier: 1.40, perDayBonus: 0.18 },
         bipolarisSorokiniana: { threshold: 25, maxMultiplier: 1.30, perDayBonus: 0.12 },
         bipolarisCynodontis: { threshold: 20, maxMultiplier: 1.25, perDayBonus: 0.10 },
@@ -229,55 +231,53 @@ var DiseaseForecast = (function() {
     }
 
     /**
-     * Calculate Brown Patch risk for a single day
-     * Rhizoctonia solani - active when night temps 16-21°C+ and day temps 25-30°C+
-     * High humidity/leaf wetness critical
+     * Resolve BrownPatchModel from the loaded disease engine.
+     * Dual-mode: browser global (window.DiseaseEnginePure) or Node require.
+     * Returns null if the engine is not available — callers must degrade.
+     */
+    function resolveBrownPatchModel() {
+        if (typeof window !== 'undefined' &&
+                window.DiseaseEnginePure &&
+                window.DiseaseEnginePure.models) {
+            return window.DiseaseEnginePure.models.brownPatch || null;
+        }
+        if (typeof require === 'function') {
+            try {
+                var eng = require('./disease-engine-pure');
+                return (eng && eng.models && eng.models.brownPatch) || null;
+            } catch (_e) { return null; }
+        }
+        return null;
+    }
+
+    /**
+     * Calculate Brown Patch risk for a single forecast day using the validated
+     * Fidanza E2 model (BrownPatchModel from disease-engine-pure.js).
+     *
+     * Pre-b35fix: used a Gilba-internal heuristic
+     *   risk = (nightRisk*0.40 + dayRisk*0.25 + humidityRisk*0.35)*nMod*varietyMod*100
+     * which produced ~35-45% for cold-humid days (Tmin 7°C, RH 92%) where brown
+     * patch (Rhizoctonia solani) is biologically impossible. The Fidanza E2
+     * regression returns ~4% for the same inputs (E2 ≈ 0.5, well below the 6
+     * threshold), matching observed field data.
+     *
+     * Shape adapter: dayClimate → climate expected by BrownPatchModel.calculate():
+     *   dayClimate.min      → climate.temperature.min   (Fidanza E2 T input)
+     *   dayClimate.humidity → climate.moisture.humidity.mean  (Fidanza E2 RH input)
+     * nitrogen string  → { status: <string> } object (model reads nitrogen?.status)
      */
     function calcBrownPatchDaily(dayClimate, nitrogen, variety) {
-        var minTemp = dayClimate.min || 15;
-        var maxTemp = dayClimate.max || 25;
-        // b35fix342: degrade explicitly when no humidity data — engine path now
-        // emits null instead of literal 70 from buildDailyClimate.
-        if (dayClimate.humidity == null) return 0;
-        var humidity = dayClimate.humidity;
-        
-        // Night temperature risk - key trigger is warm nights (>16°C)
-        // Optimal 18-25°C night temps
-        var nightRisk = 0;
-        if (minTemp >= 18 && minTemp <= 25) {
-            nightRisk = 1.0;
-        } else if (minTemp >= 16 && minTemp < 18) {
-            nightRisk = (minTemp - 16) / 2;
-        } else if (minTemp > 25 && minTemp <= 30) {
-            nightRisk = 1 - (minTemp - 25) / 5;
+        var bpModel = resolveBrownPatchModel();
+        if (!bpModel || typeof bpModel.calculate !== 'function') {
+            return 0;
         }
-        
-        // Day temperature risk (optimal 25-30°C)
-        var dayRisk = 0;
-        if (maxTemp >= 25 && maxTemp <= 30) {
-            dayRisk = 1.0;
-        } else if (maxTemp >= 22 && maxTemp < 25) {
-            dayRisk = (maxTemp - 22) / 3;
-        } else if (maxTemp > 30 && maxTemp <= 35) {
-            dayRisk = 1 - (maxTemp - 30) / 5;
-        }
-        
-        // Humidity/leaf wetness risk - needs prolonged leaf wetness
-        var humidityRisk = 0;
-        if (humidity >= 90) {
-            humidityRisk = 1.0;
-        } else if (humidity >= 80) {
-            humidityRisk = (humidity - 80) / 10;
-        }
-        
-        // Modifiers - excessive N is a major driver
-        var nMod = nitrogen === 'excessive' ? 1.6 : nitrogen === 'high' ? 1.3 : 1.0;
-        var varietyMod = variety && variety.disease && variety.disease.brownPatch ?
-                        variety.disease.brownPatch.riskMultiplier || 1.0 : 1.0;
-        
-        // Night temp is the key trigger, humidity sustains infection
-        var risk = (nightRisk * 0.40 + dayRisk * 0.25 + humidityRisk * 0.35) * nMod * varietyMod * 100;
-        return Math.min(100, Math.max(0, Math.round(risk)));
+
+        var adaptedClimate = {
+            temperature: { min: dayClimate.min != null ? dayClimate.min : null },
+            moisture:    { humidity: { mean: dayClimate.humidity != null ? dayClimate.humidity : null } },
+        };
+        var result = bpModel.calculate(adaptedClimate, { status: nitrogen || 'adequate' }, variety, null);
+        return result && result.riskScore != null ? result.riskScore : 0;
     }
 
     /**

@@ -189,6 +189,20 @@
 </div>
 
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
+{{-- Variety traits must load before disease engine so getDiseaseModifier/getWearModifier are available --}}
+<script src="{{ $legacyAssetUrl('gilba-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('uk-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scanturf-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('geves-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('bsa-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('japan-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('scandinavia-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('au-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nz-variety-traits.js') }}"></script>
+<script src="{{ $legacyAssetUrl('variety-traits-integration.js') }}"></script>
+{{-- Disease engine must load before disease-forecast.js so generateForecast uses the full Fidanza E2 model --}}
+<script src="{{ $legacyAssetUrl('disease-engine-pure.js') }}"></script>
+<script src="{{ $legacyAssetUrl('disease-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-analysis.js') }}"></script>
 </body>
 </html>
