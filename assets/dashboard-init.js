@@ -98,7 +98,7 @@
         },
         'dew-forecast': {
             title: 'Dew forecast',
-            body:  'Estimated dew onset time and surface wetness duration for the next 7 days. Dew periods create ideal conditions for fungal infection spread — particularly dollar spot and Pythium. High-risk match windows are highlighted in red.'
+            body:  'Surface wetness duration for the next 7 days, based on hourly relative humidity and precipitation. Dew periods create ideal conditions for fungal infection spread — particularly dollar spot and Pythium. High-risk match windows are highlighted in red.'
         }
     };
 

@@ -1241,13 +1241,11 @@
         forecast.slice(0, 7).forEach(function (day) {
             var risk    = day.risk || 'low';
             var cls     = risk === 'high' ? 'critical' : risk === 'moderate' ? 'warning' : 'good';
-            var dewTime = day.dewOnset || '—';
             var wetHrs  = typeof day.wetHours === 'number' ? day.wetHours.toFixed(1) + ' hrs' : '—';
-            rows += '<div style="display:grid;grid-template-columns:90px 1fr 80px 80px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
+            rows += '<div style="display:grid;grid-template-columns:1fr 90px 80px;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--gaip-border-light,#e8eeeb)">' +
                 '<span style="font-size:12px;font-weight:600;color:var(--gaip-text)">' + esc(day.label || '') + '</span>' +
-                '<span style="font-size:11px;color:var(--gaip-text-secondary)">Dew onset: ' + esc(dewTime) + '</span>' +
-                '<span style="font-size:11px;color:var(--gaip-text-secondary);text-align:right">' + esc(wetHrs) + '</span>' +
-                '<span style="font-size:11px;font-weight:700;color:var(--gaip-' + cls + ');text-align:right;text-transform:capitalize">' + esc(risk) + '</span>' +
+                '<span style="font-size:11px;color:var(--gaip-text-secondary)">' + esc(wetHrs) + '</span>' +
+                '<span style="font-size:11px;font-weight:700;color:var(--gaip-' + cls + ');text-transform:capitalize">' + esc(risk) + '</span>' +
                 '</div>';
         });
 
@@ -1555,35 +1553,46 @@
                 };
 
                 // ── 1. Dew forecast (always, independent of chart) ──────────────
-                if (!global.GAIP_DEW_RESULT || !Array.isArray(global.GAIP_DEW_RESULT.forecast) || global.GAIP_DEW_RESULT.forecast.length === 0) {
+                // Primary: physics engine dailyForecasts.dewHours (prob >= 30%) — matches old hub.
+                // Fallback: RH >= 90% per day — matches old hub last-resort (no precipitation).
+                // Physics engine writes forecast as an object {dailyForecasts:[...]}, never an array,
+                // so the old Array.isArray guard was always true and always ignored the engine.
+                {
                     var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
                     var dewForecast = [];
                     var totalWet = 0, totalDays = 0;
+                    var physicsDaily = (global.GAIP_DEW_RESULT &&
+                                        global.GAIP_DEW_RESULT.forecast &&
+                                        !Array.isArray(global.GAIP_DEW_RESULT.forecast) &&
+                                        Array.isArray(global.GAIP_DEW_RESULT.forecast.dailyForecasts))
+                                        ? global.GAIP_DEW_RESULT.forecast.dailyForecasts : null;
                     for (var fd = 0; fd < Math.min(numForecastDays, 7); fd++) {
-                        var fStart = fd * hoursPerDay;
-                        var fEnd   = Math.min(fStart + hoursPerDay, rh.length);
-                        var wetHrs = 0, onsetHour = null;
-                        for (var fh = fStart; fh < fEnd; fh++) {
-                            var hourOfDay = fh % hoursPerDay;
-                            var precip    = (hourly.precipitation || [])[fh] || 0;
-                            var rhVal     = rh[fh] || 0;
-                            if (rhVal >= 90 || precip > 0.1) {
-                                wetHrs++;
-                                if ((hourOfDay < 8 || hourOfDay >= 20) && onsetHour === null) onsetHour = hourOfDay;
+                        var fdStart = fd * hoursPerDay;
+                        var wetHrs;
+                        if (physicsDaily && physicsDaily[fd] != null) {
+                            wetHrs = physicsDaily[fd].dewHours || 0;
+                        } else {
+                            var fdEnd = Math.min(fdStart + hoursPerDay, rh.length);
+                            wetHrs = 0;
+                            for (var fh = fdStart; fh < fdEnd; fh++) {
+                                if ((rh[fh] || 0) >= 90) wetHrs++;
                             }
                         }
                         var risk = wetHrs >= 8 ? 'high' : wetHrs >= 4 ? 'moderate' : 'low';
-                        var dateTs = times[fStart] ? new Date(times[fStart]) : new Date(Date.now() + fd * 86400000);
+                        var dateTs = times[fdStart] ? new Date(times[fdStart]) : new Date(Date.now() + fd * 86400000);
                         var dayLabel = fd === 0 ? 'Today' : fd === 1 ? 'Tomorrow' : dayNames[dateTs.getDay()];
-                        var onsetStr = onsetHour !== null ? (onsetHour < 10 ? '0' : '') + onsetHour + ':00' : '—';
-                        dewForecast.push({ label: dayLabel, wetHours: wetHrs, dewOnset: onsetStr, risk: risk });
+                        dewForecast.push({ label: dayLabel, wetHours: wetHrs, risk: risk });
                         totalWet += wetHrs; totalDays++;
                     }
-                    global.GAIP_DEW_RESULT = {
-                        applicable: true,
-                        forecast:   dewForecast,
-                        leafWetness: { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 },
-                    };
+                    // Write forecast array for renderDewForecastBlock without discarding
+                    // leafWetness already set by the physics engine for disease modules.
+                    if (!global.GAIP_DEW_RESULT) {
+                        global.GAIP_DEW_RESULT = { applicable: true };
+                    }
+                    global.GAIP_DEW_RESULT.forecast = dewForecast;
+                    if (!global.GAIP_DEW_RESULT.leafWetness) {
+                        global.GAIP_DEW_RESULT.leafWetness = { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 };
+                    }
                     var dewHtml = renderDewForecastBlock();
                     if (dewHtml) {
                         var tmp = document.createElement('div');
