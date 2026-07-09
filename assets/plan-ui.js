@@ -819,108 +819,12 @@
         el.innerHTML = [
             '<div class="gl-header">',
             '<div class="gl-header-inner">',
-            '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:2px">',
             '<h1 class="gl-title">Management Plan</h1>',
-            '<button class="plan-ical-btn" id="plan-ical-btn" title="Export planning schedule to calendar app">',
-            '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
-            'Export to Calendar',
-            '</button>',
-            '</div>',
             '<div class="gl-subtitle">Timely windows, recovery schedule and annual nutrition programme</div>',
             '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'+cards.join('')+'</div>',
             '</div>',
             '</div>',
         ].join('\n');
-    }
-
-    // ── iCal Export ───────────────────────────────────────────────────────────
-
-    function initICalExport(computed) {
-        var btn = document.getElementById('plan-ical-btn');
-        if (!btn) return;
-
-        btn.addEventListener('click', function () {
-            var events = [];
-            var now = new Date();
-
-            function icalDate(d) {
-                return d.getFullYear() +
-                    String(d.getMonth() + 1).padStart(2, '0') +
-                    String(d.getDate()).padStart(2, '0');
-            }
-            function icalEsc(s) { return String(s || '').replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\n/g,'\\n'); }
-            function nextDay(d) { var n = new Date(d); n.setDate(n.getDate() + 1); return n; }
-            function makeUID() { return 'gaip-' + Date.now() + '-' + Math.random().toString(36).substr(2,6) + '@gilba'; }
-
-            function addEvent(dt, summary, desc, categories) {
-                var uid = makeUID();
-                events.push(
-                    'BEGIN:VEVENT',
-                    'UID:' + uid,
-                    'DTSTART;VALUE=DATE:' + icalDate(dt),
-                    'DTEND;VALUE=DATE:' + icalDate(nextDay(dt)),
-                    'SUMMARY:' + icalEsc(summary),
-                    'DESCRIPTION:' + icalEsc(desc || ''),
-                    (categories ? 'CATEGORIES:' + icalEsc(categories) : ''),
-                    'DTSTAMP:' + now.toISOString().replace(/[-:]/g,'').split('.')[0] + 'Z',
-                    'END:VEVENT'
-                ).filter(Boolean);
-            }
-
-            // PGR reapplication
-            var pgr = computed && computed.pgr;
-            if (pgr && pgr.success && pgr.gdd) {
-                var dailyGDD = pgr.gdd.dailyGDDRate || pgr.gdd.avgDailyGDD;
-                var remaining = safeNum(pgr.gdd.remaining, 0);
-                if (dailyGDD && remaining > 0) {
-                    var reapplyDate = new Date();
-                    reapplyDate.setDate(reapplyDate.getDate() + Math.ceil(remaining / dailyGDD));
-                    var pgrName = (pgr.product && pgr.product.name) || 'PGR';
-                    addEvent(
-                        reapplyDate,
-                        'PGR Reapplication — ' + pgrName,
-                        'GDD threshold reached (' + Math.round(safeNum(pgr.gdd.threshold,0)) + ' GDD). Apply ' + pgrName + '.',
-                        'PGR'
-                    );
-                }
-            }
-
-            // Pre-emergent alerts (AMBER and RED only)
-            var pe = computed && computed.preEmergent;
-            if (pe && pe.results) {
-                pe.results.forEach(function (r) {
-                    if (r.alertStatus === 'GREEN' || r.alertStatus === 'ADVISORY_ONLY') return;
-                    var dt = new Date();
-                    if (r.daysToThreshold != null && r.daysToThreshold > 0) {
-                        dt.setDate(dt.getDate() + r.daysToThreshold);
-                    }
-                    addEvent(
-                        dt,
-                        'Pre-emergent — ' + (r.commonName || r.scientificName),
-                        (r.recommendedAction || '') + ' Soil temp: ' + (r.soilTemp5cm || '—') + '°C',
-                        'Pre-emergent'
-                    );
-                });
-            }
-
-            if (!events.length) {
-                alert('No upcoming events to export. Run analysis first to generate PGR and pre-emergent recommendations.');
-                return;
-            }
-
-            var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Gilba Hub//Plan//EN', 'CALSCALE:GREGORIAN']
-                .concat(events)
-                .concat(['END:VCALENDAR'])
-                .join('\r\n');
-
-            var blob = new Blob([ics], { type: 'text/calendar' });
-            var url  = URL.createObjectURL(blob);
-            var a    = document.createElement('a');
-            a.href     = url;
-            a.download = 'gilba-plan.ics';
-            a.click();
-            URL.revokeObjectURL(url);
-        });
     }
 
     // ── INIT ──────────────────────────────────────────────────────────────────
@@ -931,7 +835,6 @@
         var siteConfig = global.GAIP_SITE_CONFIG || {};
 
         renderPlanHeader(computed, siteConfig);
-        initICalExport(computed);
 
         // ── Tab routing (mirrors analysis-router.js pattern) ──────────────
         var TABS = ['pre-emergent', 'pgr', 'recovery', 'nutrition'];
