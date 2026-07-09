@@ -259,6 +259,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-166** Remove 'Stamina / Aqua Aid' distributor from NZ fertiliser integration: Updated JavaScript files to exclude Stamina from distributor options and filtering logic, ensuring a more accurate representation of available products.
 **GH-167** Enhance supplier normalization and display in fertiliser integration scripts: Updated the normaliseSupplier function to include brand-based supplier assignments for Aitkens products, and improved supplier display names in the UK integration script for better clarity and user experience.
 **GH-168** Update CSS and documentation for improved functionality and clarity: Adjusted max-height in data-ui.css for better responsiveness, and refined instructions.md to enhance clarity on organic matter breakdown and supplier additions.
+**GH-169** Enhance tab visibility and display logic in plan and settings-init files: Added conditional rendering for the recovery tab based on turf type in plan.blade.php, and improved tab activation logic in settings-init.js to ensure only visible tabs are activated on page load.
 
 
 ## Backlog
@@ -370,7 +371,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-76. don’t need recovery for golf courses just sportsgrounds. When click on edit traffic schedule you can’t edit the schedule
+76. don’t need recovery for golf courses just sportsgrounds. When click on edit traffic schedule you can’t edit the schedule. GH-169. 
 77. on a mobile when edit organic matter levels can’t save as can’t see save button. GH-168. 
 78. when click on management calendar what happens? It seems to work in export tab
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables

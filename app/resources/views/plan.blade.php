@@ -739,10 +739,12 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                 PGR
                 <span class="gl-tab-badge" id="gl-badge-pgr"></span>
             </a>
+            @if(($gaipConfig['turf']['turfType'] ?? '') === 'sports')
             <a href="#recovery" class="gl-tab" data-tab="recovery">
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
                 Recovery
             </a>
+            @endif
             <a href="#nutrition" class="gl-tab" data-tab="nutrition">
                 <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3c0 0-6 4-6 9a6 6 0 0012 0c0-5-6-9-6-9z"/></svg>
                 Nutrition

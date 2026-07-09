@@ -125,7 +125,7 @@
         var tab = document.querySelector('.stg-tab[data-tab="' + tabKey + '"]');
         if (tab) { tab.classList.add('active'); tab.setAttribute('aria-selected', 'true'); }
         var panel = document.getElementById('stg-tab-' + tabKey);
-        if (panel) panel.classList.remove('stg-hidden');
+        if (panel) { panel.style.display = ''; panel.classList.remove('stg-hidden'); }
     }
 
     document.querySelectorAll('.stg-tab[data-tab]').forEach(function (tab) {
@@ -147,7 +147,8 @@
     // so page refresh returns to the default tab, not the hash target.
     if (location.hash) {
         var hashKey = location.hash.slice(1);
-        if (document.querySelector('.stg-tab[data-tab="' + hashKey + '"]')) {
+        var hashTabBtn = document.querySelector('.stg-tab[data-tab="' + hashKey + '"]');
+        if (hashTabBtn && hashTabBtn.style.display !== 'none') {
             activateTab(hashKey);
             history.replaceState(null, '', location.pathname + location.search);
         }
