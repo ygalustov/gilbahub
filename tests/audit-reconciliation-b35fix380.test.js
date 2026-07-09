@@ -85,8 +85,9 @@ describe('b35fix380 — AU audit reconciliation', () => {
         expect(a.K).toBeLessThan(44);  // never accidentally revert to oxide
     });
 
-    test('version header bumped to 3.19.0', () => {
-        expect(src).toMatch(/@version\s+3\.19\.0/);
+    test('changelog records v3.19.0 as the b35fix380 release', () => {
+        // @version tag reflects the latest release; check the changelog line instead.
+        expect(src).toMatch(/v3\.19\.0[\s\S]*?b35fix380/);
     });
 
     test('changelog entry mentions b35fix380', () => {

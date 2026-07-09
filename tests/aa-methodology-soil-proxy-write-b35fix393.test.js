@@ -104,8 +104,11 @@ describe('b35fix393 — proxy-routed soil writes for site-settings + AA methodol
         const aaSrcStripped = aaSrc.replace(/\/\/.*$/gm, '');
         // Pre-fix pattern must be GONE
         expect(aaSrcStripped).not.toMatch(/window\.GAIP_STATE\?\.soil\)\s*\{[\s\S]{0,80}window\.GAIP_STATE\.soil\.methodologyExplicit\s*=\s*true/);
-        // Post-fix call must be PRESENT in stateRestored block
-        const stateRestoredMatch = aaSrc.match(/gaip:stateRestored[\s\S]*?updateMethodologyVisibility\(\)/);
+        // Post-fix call must be PRESENT in the actual event-listener registration.
+        // Anchor to addEventListener so the lazy match cannot stop at an earlier
+        // updateMethodologyVisibility() call (there are calls at lines 470/487
+        // that appear before the stateRestored listener at line 491).
+        const stateRestoredMatch = aaSrc.match(/addEventListener\s*\(\s*['"]gaip:stateRestored['"][\s\S]*?updateMethodologyVisibility\s*\(\s*\)/);
         expect(stateRestoredMatch).not.toBeNull();
         expect(stateRestoredMatch[0]).toMatch(/_b35fix393_setSoilField\(\s*'methodologyExplicit'\s*,\s*true\s*\)/);
     });

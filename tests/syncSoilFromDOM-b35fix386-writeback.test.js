@@ -100,11 +100,11 @@ describe('b35fix386 — writeback routed through hub-store inputs.soil', () => {
     });
 
     test('writeback wrapped in try/catch with diagnostic warn', () => {
-        // The setter could throw if the store rejects the write (it
-        // currently doesn't, but defensive code should not mutate the
-        // function's caller path). On failure, log a warn — never silent.
-        const re = /try\s*\{\s*window\.GAIP_STATE\s*=\s*\{\s*inputs\s*:[\s\S]*?\}\s*catch\s*\([^)]*\)\s*\{\s*console\.warn\(/;
-        expect(calendarSrc).toMatch(re);
+        // The writeback block tries Object.assign first (preserve existing state),
+        // falls back to wholesale assignment in the else branch. Both branches sit
+        // inside a try/catch that logs a warn on failure.
+        // Pattern: try { ... window.GAIP_STATE ... } catch (...) { console.warn(
+        expect(calendarSrc).toMatch(/try\s*\{[\s\S]*?window\.GAIP_STATE[\s\S]*?catch\s*\([^)]*\)\s*\{\s*\n?\s*console\.warn\(/);
     });
 
     test('b35fix385 diagnostic instrumentation has been removed', () => {

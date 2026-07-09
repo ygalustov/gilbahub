@@ -43,8 +43,101 @@ password: GEAR.smith6
 
 
 
-## Change log
+# Fixed comments
++1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
++2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 
++3.⁠ ⁠⁠Invite only sign up 
++4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green. GH-96
++5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
++6.⁠ ⁠Change settings don’t update UI. GH-97
++7.⁠ ⁠⁠Keep users signed in. GH-98
++8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
++9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
++10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
++11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, GH-105, GH-106.
++12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
++13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
++14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
++15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121, GH-122.
++16.⁠ ⁠How can you select what greens/fairway results to generate a word report for? Yes it was there. When wanted to print report export word doc was for one and export all gave you an option to select which soil water or tissue results you wanted to print as a word doc. GH-122. 
++17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance. GH-123.
++18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass. cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
+Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why. GH-123.
++19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there. GH-126.
++20. Currently it seems to be using MLSN figures as a reference which they don’t use. GH-126.
++21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
++22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test. That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
++23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
++23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications. GH-130, GH-131, GH-132.
++24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
++25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked? - The dots change colour after running an analysis - the colour represents the current analysis status. Until you run analysis for a site, the dot stays grey. Once analysis has run, it turns green, amber, or red based on growth potential from the latest results (green = 70% or above, amber = 40–69%, red = below 40%). 
++26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked? - We generated API key for ⁠Fairbairn golf club and added it to the test env. API key is p5CYYER1sU82nFidWCAv12igVptxaZQc8K9YhOno
++27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select. - It should be fixed GH-107, GH-118. 
++28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ. GH-126.
++29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site? - Added API key to your test env. API key is 
+ 4joY0fKUpX4FA8D034q6c4WkX4uMm6hQ6TqP3JU5
++30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
+24/06/2026
++31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-135. This one was a tricky one. Could you please check - because I cant reproduce it anymore. 
++32.⁠ ⁠Can we set up a function that allows the sample name to be edited please? GH-135a.
++33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm. GH-107, GH-118.
++34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software? GH-136.
++36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways. - I beleive it was fixed when I was fixing comment  #15. If you think I still need to do something re this - let me know. 
++37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment. GH-137.
++38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138, GH-139. 
+25/06/26
++40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
++41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
++42.⁠ ⁠For NZ the text should say for NZ distributors. GH-144. 
 
+
+03/07/26
++39.⁠ ⁠NZ is only cool season for fairways. GH-149.
++43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. Added. I also made some UI changes on the Data page.
+Additionally, when you import soil data, zones are now automatically added to the Zones list in Settings if they don’t already exist.
+I also added the source file name, so it’s easy to see which file each sample was imported from. If that’s not useful, just let me know and I’ll remove it.
++58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-). GH-149. 
++65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
+
+
+
+-53.⁠ ⁠I have done so “tweaks” send them through as a zip?
+
+
+06/07/26
++67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
++68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
++69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5. GH-151-GH-160. 
++70. I’ve manually uploaded the soil chemistry and 1 tissue sample. The selector for the soil samples isn’t very user friendly as I’ve no idea which sample is which. GH-161. 
+
+07/07/26
++72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
++73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
++74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
++Added new suppliers. GH-165, GH-166, GH-167. 
++75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
++ Added new suppliers. GH-165, GH-166, GH-167. 
+
+09/07/26
++76. don’t need recovery for golf courses just sportsgrounds. When click on edit traffic schedule you can’t edit the schedule. GH-169. 
++77. on a mobile when edit organic matter levels can’t save as can’t see save button. GH-168. 
++78. when click on management calendar what happens? It seems to work in export tab. Button is removed. GH-170.
++79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175. Fixed - but i still to do proper testing. 
++80a. disease cards and growth potential contradict each other. Growth Potential card shows 44% headline, 50% in the caption. At 7°C, cool-season GP on the standard PACE Turf/Gelernter curve (optimum 20°C) is about 6 to 10%. 44 to 50% corresponds to roughly 13°C, a shoulder-season temperature. The card is off by ~5x and reads like it’s using a season default, not the live 7°C. - In the GP card on the Dashboard, there are two numbers: one is the 8-day average, and the other is the current value. I’ve updated the UI to make this clearer (GH-171). 
+The Growth Potential calculation is actually the same in both the old hub and the new hub — same formula, same result at the same temperature (see attached screenshot).
+From looking at the code, it's not using the PACE/Gelernter curve. It uses a wider bell curve (the number comes out around 43% at 7°C, where PACE would give around 6%).
+Do you want me to switch it to match PACE?
++80b. Stress Index says “Driven by: Heat 18%” at 7°C. Heat stress at 7°C is impossible for C3 turf. Same warm-input signature. - fixed label name. GH-171. 
++80c. Take-all detail says “soil temp 15°C, infection window active.” 15°C is a round default; real Christchurch greens soil in July sits near 6 to 9°C, which would close the window. The default is manufacturing a false infection window and a firm “prioritise Mn now” recommendation off placeholder data. GH-171. 
++82. Dew onset logged at 00:00 on five of seven days. Likely a default/fallback time rather than a computed dew-point crossing. GH-172. 
++83. Take-all pH driver at 0% contribution while pH is 6.5. Take-all is strongly pH-driven (favoured above ~6.5, suppressed by acidification and Mn). Zeroing pH for take-all is agronomically backwards. GH-174. 
+
+
+
+
+
+
+## Change log
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
 **GH-2** Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
 **GH-3** Enhance dashboard functionality by adding interactive side panels for vital cards; implement JavaScript logic for panel opening/closing and update CSS for improved styling and responsiveness.
@@ -264,94 +357,13 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-171** Update dashboard UI and JavaScript for clarity and accuracy: Modified the Growth Potential card to display the 8-day average more clearly, updated factor labels in dashboard-init.js for better context, and refined temperature handling in disease-engine-pure.js to prevent false infection window alerts. Adjusted instructions.md to reflect these changes and clarify discrepancies in growth potential data. GH-171.
 **GH-172** Update dew forecast descriptions and improve rendering logic in dashboard and disease analysis scripts: Clarified dew forecast body text for accuracy, adjusted HTML structure for better layout, and refined dew forecast data handling to ensure correct display of wet hours and risk levels.
 **GH-173** Enhance disease analysis scripts and integration: Added multiple variety traits scripts to ensure proper loading order for disease engine functionality, and updated the disease-forecast.js to remove unvalidated brown patch risk calculations, replacing them with a validated model approach for improved accuracy in risk assessment.
-
-
+**GH-174** Enhance disease analysis and UI: Added handling for suppressed environmental drivers in disease-analysis.js and disease-ui.js, displaying relevant notes. Updated disease-engine-pure.js to adjust recommendations based on pH suppression status. Introduced new CSS class for suppressed driver notes in disease-ui.css.
+**GH-174** Update table widths and page orientation in word export files for improved layout and consistency.
 
 
 
 
 ## Backlog
-+1.⁠ ⁠Address lookup using Google Reverse Geocoding (added Google Maps API key, Places API). GH-97
-+2.⁠ ⁠⁠Role based admin. Change password - fixed. GH-98 
-+3.⁠ ⁠⁠Invite only sign up 
-+4.⁠ ⁠There is a stress indicator but not traffic isn’t relevant to a golf or bowling green. GH-96
-+5.⁠ ⁠Remove Insects model (https://gilbahub-test.gethydrosight.com.au/plan#timing)
-+6.⁠ ⁠Change settings don’t update UI. GH-97
-+7.⁠ ⁠⁠Keep users signed in. GH-98
-+8.⁠ ⁠Once I log on how would I set up a totally new site? I only seem to be able to add three currently?
-+9.⁠ ⁠The references as to where the calculations come from are there so it avoids issues with the “black mystery box” that people push. By having the references it means that it keeps people confidence that the data is valid and not “made up”. GH-95
-+10.⁠ ⁠With Burns Club as an example it reads the top soil sample but how do you change the greens or sample to see the others? GH-94
-+11.⁠ ⁠This relates to the traffic stress. I cant edit the traffic schedule under the “plan” tab. GH-102, GH-104, GH-105, GH-106.
-+12.⁠ ⁠The ambient light levels are wrong. GH-108, GH-110, GH-111, GH-112. 
-+13.⁠ ⁠Am I not supposed to see the full sensor list and these are only the ones not allocated yet? Does this mean the sensors that are already allocated to their respective greens as in the case of Elanora CC?
-+14.⁠ ⁠Spray log fungicide dropdowns aren’t there. GH-119. 
-+15.⁠ ⁠I cant find the facility to change the fairway tees specification. These was under the “Run”, Inputs set up required section. It then took the climate sate for the same site and generated a disease threshold for that turf type on a fairway or tee rather than a golf green. GH-120, GH-121, GH-122.
-+16.⁠ ⁠How can you select what greens/fairway results to generate a word report for? Yes it was there. When wanted to print report export word doc was for one and export all gave you an option to select which soil water or tissue results you wanted to print as a word doc. GH-122. 
-+17.⁠ ⁠There is a photolysis module somewhere that calculates how long a fungicide lasts once you record it on the spray log. This then shows up on the main dashboard and also has a FRAC resistance module to help counter any fungicide resistance. GH-123.
-+18.⁠ ⁠When you enter a  site in australia, nz or the uk for example the grass. cultivars are supposed ri change for that region. So for example a golf course in nz has colonial bentgrass as an option and its cultivars but this shouldn’t appear for australia as no one uses it here. Likewise couch in the uk isn’t used as its a c4 grass and its too cold there
-Couch and bermudagrass are the same thing btw but the Americans call it bermudagrass and Australians call it couch. God knows why. GH-123.
-+19.⁠ ⁠With NZ this is supposed to use ammonium acetate interpretation for the analysis as it looks like it’s going to be licenced out to one company there. GH-126.
-+20. Currently it seems to be using MLSN figures as a reference which they don’t use. GH-126.
-+21.⁠ ⁠Plan>nutrition. You’re right I think on the your calculation for the GP numbers for NZ and I’m wrong! I’ll recheck to confirm but I’m pretty sure your right
-+22.⁠ ⁠The monthly program drop down doesn’t work it asks for a soil test. That’s what the current layout looks like when it produces the product recommendations. GH-124, GH-125, GH-127. 
-+23.⁠ ⁠Analysis>water balance>current depletion 10000% of TAW? GH-129. 
-+23.⁠ ⁠The PGR map is important as it shows the rebound effect for some applications. GH-130, GH-131, GH-132.
-+24.⁠ ⁠Nz golf can choose colonial bent but not the cultivar. GH-126.
-+25.⁠ ⁠I’ve set up burns golf club and canberra boys but the dots don’t go green. Is this the sensors aren’t linked? - The dots change colour after running an analysis - the colour represents the current analysis status. Until you run analysis for a site, the dot stays grey. Once analysis has run, it turns green, amber, or red based on growth potential from the latest results (green = 70% or above, amber = 40–69%, red = below 40%). 
-+26.⁠ ⁠Fairbairn golf club has two sensors 1 on the 10th and one on the 14th. Are these actually linked? - We generated API key for ⁠Fairbairn golf club and added it to the test env. API key is p5CYYER1sU82nFidWCAv12igVptxaZQc8K9YhOno
-+27.⁠ ⁠Twin creeks gc address seems to be bleeding into other ones. The height of cut seems to revert to 25mm and irrigation method keeps going back to select. - It should be fixed GH-107, GH-118. 
-+28.⁠ ⁠In New Zealand no one uses seashore paspalum as a tropical grass but Cotula hasn’t appeared which was in the plug in. This is specific to bowling greens and lawns in NZ only. Couch, buffalo, kikuyu and zoysia are not NZ. GH-126.
-+29.⁠ ⁠How would I link the sensor at Queanbeyan regional sports centre to the Queanbeyan council site? - Added API key to your test env. API key is 
- 4joY0fKUpX4FA8D034q6c4WkX4uMm6hQ6TqP3JU5
-+30.⁠ ⁠When I uploaded the json for federal most of the locations then reset to federal golf club address? GH-107, GH-118.
-24/06/2026
-+31.⁠ ⁠Analysis the disease graph doesn’t relate to the figures above. Bentgrass doesn’t get grey leaf spot. GH-135. This one was a tricky one. Could you please check - because I cant reproduce it anymore. 
-+32.⁠ ⁠Can we set up a function that allows the sample name to be edited please? GH-135a.
-+33.⁠ ⁠It keeps going to perennial ryegrass 25mm for all the sites when I upload a json file. Everytime it re runs it reverts to perennial ryegrass 25mm. GH-107, GH-118.
-+34.⁠ ⁠I have a MacBook and it won’t let me scroll down the first page? All the others are fine. Is that me or the software? GH-136.
-+36.⁠ ⁠Burns has kikuyu fairways but where does disease go? Used to be on first page below the greens. The software reported disease on greens and fairways. - I beleive it was fixed when I was fixing comment  #15. If you think I still need to do something re this - let me know. 
-+37.⁠ ⁠The cultivars were specific to the region and their traits are then used in the disease and wear models etc. it doesn’t matter if they are all listed in the dropdown when you choose the cultivar but I don’t think the traits are being used in the models at the moment. GH-137.
-+38.⁠ ⁠Russley golf Club NZ analysis>disease risk no fairway set in settings but shows Spring dead spot preventative. The recommendations are wrong as well with three chemicals are the same. GH-138, GH-139. 
-25/06/26
-+40.⁠ ⁠Analysis >stress Still says primary stress traffic. GH-140, GH-141, GH-142. 
-+41.⁠ ⁠Plan> management plan shows Australian listings not NZ for Russley. It was going to be just for Prebbles but can we add two other selections for NZ in case they change their minds? I have the json files Ready if they do this. Do you want them now or later? GH-143. You can send them - I'll have a look. 
-+42.⁠ ⁠For NZ the text should say for NZ distributors. GH-144. 
-
-
-03/07/26
-+39.⁠ ⁠NZ is only cool season for fairways. GH-149.
-+43.⁠ ⁠There was an ability to add the size/area for individual greens before. GH-144. Added. I also made some UI changes on the Data page.
-Additionally, when you import soil data, zones are now automatically added to the Zones list in Settings if they don’t already exist.
-I also added the source file name, so it’s easy to see which file each sample was imported from. If that’s not useful, just let me know and I’ll remove it.
-+58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-). GH-149. 
-+65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
-
-
-
--53.⁠ ⁠I have done so “tweaks” send them through as a zip?
-
-
-06/07/26
-+67. This is NZ and site wide. I need to add a gate to the dollar spot model since dollar spot is not active at temperatures below 10°C or above 35°C. the model should be considered inactive when 5-day average temperatures are above or below those numbers.  Currently In rare cases, it indicates dollar spot activity is likely below 10°C or above 35°C when relative humidity is very high. One gate in DollarSpotModel.calculate: if the 5-day MEANAT is < 10 or > 35, return a distinct inactive result (actionRequired: false), keeping the raw probability in a diagnostic field with a reason, so the suppression is auditable rather than hidden. GH-150. 
-+68. there is a temperature discrepancy between the home page figure and the figure on the go graph? - Cant repro - will keep an eye on it. 
-+69. The soil testing seems to have got corrupted which could well be a json issue. There are only three soil samples for tussles but it shows more than this and the test isn’t for tussles as it’s talking about green 5. GH-151-GH-160. 
-+70. I’ve manually uploaded the soil chemistry and 1 tissue sample. The selector for the soil samples isn’t very user friendly as I’ve no idea which sample is which. GH-161. 
-
-
-
-
-07/07/26
-+72. what is it using to interpret the tissue test results. Each grass type has defferent requirements so previously you could set the ran. GH-162. 
-+73. Based on the disease interpretation the current version shows recommended fungicides which I quite like from an end user perspective. 
-+74. just reset to perennial ryegrass again from colonial bentgrass. GH-164. 
-+Added new suppliers. GH-165, GH-166, GH-167. 
-+75. With the Loi (loss on ignition) there should be a Breakdown of 0-20mm, 20-40mm, 40-60mm and 60-80mm. These figures are the percentage of organic matter present in each of these bands. However there also needs to be a facility to enter a total organic matter figure as well as these figures. GH-163.
-+ Added new suppliers. GH-165, GH-166, GH-167. 
-
-
-
-
-
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
 +45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
 +46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
@@ -366,7 +378,6 @@ I also added the source file name, so it’s easy to see which file each sample 
 55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe.
 56.⁠ ⁠stress index is ok as its 22 vs 19
 57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
-59.hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
 +61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
 +62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
@@ -379,27 +390,17 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-+76. don’t need recovery for golf courses just sportsgrounds. When click on edit traffic schedule you can’t edit the schedule. GH-169. 
-+77. on a mobile when edit organic matter levels can’t save as can’t see save button. GH-168. 
-+78. when click on management calendar what happens? It seems to work in export tab. Button is removed. GH-170.
-
-79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables
 
 
-+80a. disease cards and growth potential contradict each other. Growth Potential card shows 44% headline, 50% in the caption. At 7°C, cool-season GP on the standard PACE Turf/Gelernter curve (optimum 20°C) is about 6 to 10%. 44 to 50% corresponds to roughly 13°C, a shoulder-season temperature. The card is off by ~5x and reads like it’s using a season default, not the live 7°C. - In the GP card on the Dashboard, there are two numbers: one is the 8-day average, and the other is the current value. I’ve updated the UI to make this clearer (GH-171). 
-The Growth Potential calculation is actually the same in both the old hub and the new hub — same formula, same result at the same temperature (see attached screenshot).
-From looking at the code, it's not using the PACE/Gelernter curve. It uses a wider bell curve (the number comes out around 43% at 7°C, where PACE would give around 6%).
-Do you want me to switch it to match PACE?
-+80b. Stress Index says “Driven by: Heat 18%” at 7°C. Heat stress at 7°C is impossible for C3 turf. Same warm-input signature. - fixed label name. GH-171. 
-+80c. Take-all detail says “soil temp 15°C, infection window active.” 15°C is a round default; real Christchurch greens soil in July sits near 6 to 9°C, which would close the window. The default is manufacturing a false infection window and a firm “prioritise Mn now” recommendation off placeholder data. GH-171. 
-+81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. Could you please just explain what you’d like to change, and I’ll do it? It’s much easier and less time-consuming than comparing the whole project.
-+82. Dew onset logged at 00:00 on five of seven days. Likely a default/fallback time rather than a computed dew-point crossing. GH-172. 
+35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
+59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
 
 
-83. Take-all pH driver at 0% contribution while pH is 6.5. Take-all is strongly pH-driven (favoured above ~6.5, suppressed by acidification and Mn). Zeroing pH for take-all is agronomically backwards.
+81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. 
+Could you please just explain what you’d like to change, and I’ll do it? It’s much easier and less time-consuming than comparing the whole project.
 
 
-84. There is a problem with the brown patch graph as it’s using the wrong model
++84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. 
 
 
 
@@ -412,13 +413,7 @@ Do you want me to switch it to match PACE?
 
 
 
-
-
-
-
-
-
-Long backlog
+# Long backlog
 71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
 
 Integration with soil scout
@@ -431,13 +426,7 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 
-
-
-
-
-
-
-----
+# My changes:
 
 data sources - all current but no tissiea test and water downloaded
 
