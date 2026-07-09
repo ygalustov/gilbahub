@@ -1329,6 +1329,7 @@
         var PageBreak = global.docx.PageBreak;
         var HeadingLevel = global.docx.HeadingLevel;
         var ImageRun = global.docx.ImageRun;
+        var PageOrientation = global.docx.PageOrientation;
 
         var we = global.GAIP_WordExport;
 
@@ -1588,8 +1589,9 @@
                             }));
                         }
                         allChildren.push(new Table({
-                            rows: [new TableRow({ children: cellsInRow })],
-                            width: { size: 100, type: WidthType.PERCENTAGE }
+                            width: { size: cellW * 2, type: WidthType.DXA },
+                            columnWidths: [cellW, cellW],
+                            rows: [new TableRow({ children: cellsInRow })]
                         }));
                     }
                 }
@@ -2920,7 +2922,11 @@
                     tableRows.push(new TableRow({ children: cells }));
                 });
 
-                allChildren.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                allChildren.push(new Table({
+                    width: { size: 8300, type: WidthType.DXA },
+                    columnWidths: [SAMPLE_COL_W_COTULA].concat(S78_COLS.map(function(c) { return c.width; })).concat([NPROG_COL_W]),
+                    rows: tableRows
+                }));
 
                 // Cotula footnote — ranges reference
                 allChildren.push(new Paragraph({
@@ -3027,7 +3033,11 @@
                     tableRows.push(new TableRow({ children: cells }));
                 });
 
-                allChildren.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                allChildren.push(new Table({
+                    width: { size: 7600, type: WidthType.DXA },
+                    columnWidths: [SAMPLE_COL_W, N_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W],
+                    rows: tableRows
+                }));
 
                 // b35fix316: K reconciliation — separate follow-up table.
                 // Only renders when a facility N programme exists (standard path).
@@ -3183,7 +3193,7 @@
                         ]}));
                     });
 
-                    allChildren.push(new Table({ rows: reconRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                    allChildren.push(new Table({ width: { size: 8800, type: WidthType.DXA }, columnWidths: [2200, 1200, 1400, 1400, 2600], rows: reconRows }));
                 }
             } // end if hasCotula / else standard
 
@@ -3607,7 +3617,7 @@
                     rollupRows.push(new TableRow({ children: cells }));
                 });
 
-                allChildren.push(new Table({ rows: rollupRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+                allChildren.push(new Table({ width: { size: rollupCols.reduce(function(a,b){return a+b;},0), type: WidthType.DXA }, columnWidths: rollupCols, rows: rollupRows }));
                 allChildren.push(new Paragraph({ children: [] }));
 
                 // b35fix311: exclusion footnotes — list zones dropped from
@@ -3692,7 +3702,13 @@
             },
             sections: [{
                 properties: {
-                    page: { margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } }
+                    page: {
+                        // Explicit A4 portrait size. Without this, Word on mobile
+                        // does not know the intended page dimensions and squeezes
+                        // all table columns to near-zero width.
+                        size: { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT },
+                        margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 }
+                    }
                 },
                 headers: {
                     default: new Header({ children: [new Paragraph({

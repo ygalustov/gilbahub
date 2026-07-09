@@ -174,6 +174,19 @@
             delete cleared.subCategory;
             delete cleared.surfaceType;
             global.GAIP_STATE = { inputs: { turf: cleared } };
+            // Also clear GaipTurfProfile controller state so that word-export.js
+            // does not read stale turfType/subCategory from the previous site.
+            // site-config-persistence.restoreNewSiteConfig calls selectTurfType +
+            // selectSubCategory ~300ms later, which re-populates these slots.
+            // Without this clear, the docx Site Profile reads GaipTurfProfile.state
+            // (the b35fix438 fallback) and gets the old site's type — same defect
+            // class as b35fix444 but via the controller state rather than GAIP_STATE.
+            var _tp = global.GaipTurfProfile;
+            if (_tp && _tp.state) {
+                _tp.state.turfType   = null;
+                _tp.state.subCategory = null;
+                _tp.state.species    = null;
+            }
             console.log(MODULE, 'Cleared turf identity slots for site switch:',
                 fromSite || '?', '->', toSite || '?');
         } catch (e) {

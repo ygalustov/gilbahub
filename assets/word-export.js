@@ -248,6 +248,7 @@
     var VerticalAlign = docx.VerticalAlign;
     var ImageRun = docx.ImageRun;
     var TableOfContents = docx.TableOfContents;
+    var PageOrientation = docx.PageOrientation;
     
     // Chart size constraints for consistent sizing
     // Increased for better readability of water/irrigation/disease charts
@@ -3841,20 +3842,17 @@
             });
         }
 
-        // Column widths (DXA ≈ twentieths of a point; total ~10,000 to fit page)
-        // b35fix423 (C29): "Rate" column dropped (the verbose split-application
-        // copy lives in the per-zone bullets via d.reason); Theoretical and
-        // Practical kg/ha columns added so the user sees the efficiency-adjusted
-        // figure alongside the deficit number it derives from.
+        // Column widths (DXA). Total must fit usable A4 portrait (9 746 DXA).
+        // Previous total was 10 000 DXA — reduced proportionally to 9 300.
         var colW = {
-            nutrient:    1200,
-            deficit:     1000,
-            delivers:    1200,
-            residual:    1000,
-            product:     2000,
-            theoretical: 1100,
-            practical:   1100,
-            status:      1400
+            nutrient:    1100,
+            deficit:      950,
+            delivers:    1100,
+            residual:     950,
+            product:     1900,
+            theoretical: 1000,
+            practical:   1000,
+            status:      1300
         };
 
         var headerRow = new TableRow({
@@ -3940,6 +3938,7 @@
         });
 
         sectionPieces.push(new Table({
+            width: { size: 9300, type: WidthType.DXA },
             columnWidths: [colW.nutrient, colW.deficit, colW.delivers, colW.residual, colW.product, colW.theoretical, colW.practical, colW.status],
             rows: rows
         }));
@@ -5217,8 +5216,9 @@
     
     // Create table from rows
     function createTable(rows) {
-        return new Table({ 
-            columnWidths: [3500, 5860], 
+        return new Table({
+            width: { size: 9360, type: WidthType.DXA },
+            columnWidths: [3500, 5860],
             rows: rows
         });
     }
@@ -5549,6 +5549,7 @@
         });
         
         return new Table({
+            width: { size: 9200, type: WidthType.DXA },
             columnWidths: [2000, 1400, 1400, 1400, 1600, 1400],
             rows: rows
         });
@@ -5831,13 +5832,10 @@
             }));
         });
         
-        elements.push(new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: rows
-        }));
-        
+        elements.push(new Table({ width: { size: 7700, type: WidthType.DXA }, columnWidths: [1200, 2200, 1600, 900, 800, 1000], rows: rows }));
+
         elements.push(new Paragraph({ children: [] }));
-        
+
         return elements;
     }
 
@@ -5961,20 +5959,27 @@
             // Column widths: keep Product/Applications/Total kg/ha fixed,
             // distribute the remaining space across the active nutrient
             // columns. Existing widths (N=1200, K=1200) preserved when only
-            // N and K render. Adding columns shrinks each nutrient cell to
-            // 950 DXA so the table doesn't overflow A4 portrait.
+            // N(always) + K(always) + optional P/Ca/Mg/S. Distribute the
+            // usable A4 width (9 400 DXA) across fixed and nutrient columns
+            // so the table never overflows regardless of how many are active.
             var includeP = activeCols.P;
             var includeCa = activeCols.Ca;
             var includeMg = activeCols.Mg;
             var includeS = activeCols.S;
             var optionalCount = (includeP ? 1 : 0) + (includeCa ? 1 : 0) + (includeMg ? 1 : 0) + (includeS ? 1 : 0);
-            var nutWidth = optionalCount === 0 ? 1200 : 950;
+            // Shrink fixed columns when many nutrient columns are active
+            var productW  = optionalCount >= 2 ? 2200 : 3000;
+            var appsW     = optionalCount >= 2 ? 1100 : 1500;
+            var totalKgW  = optionalCount >= 2 ? 1100 : 1500;
+            var fixedTotal = productW + appsW + totalKgW;
+            var totalNutCols = 2 + optionalCount; // N + K + optional
+            var nutWidth = optionalCount === 0 ? 1200 : Math.floor((9400 - fixedTotal) / totalNutCols);
 
             // Build header
             var headerCells = [
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
                 new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })] })
             ];
             if (includeP) {
@@ -5997,9 +6002,9 @@
             rowsData.forEach(function(r) {
                 var n = r.nutrients;
                 var rowCells = [
-                    new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 20 })] })] }),
-                    new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 20 })] })] }),
-                    new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 20 })] })] }),
+                    new TableCell({ width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 20 })] })] }),
+                    new TableCell({ width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 20 })] })] }),
+                    new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 20 })] })] }),
                     new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.N).toString(), size: 20 })] })] })
                 ];
                 if (includeP) {
@@ -6018,10 +6023,14 @@
                 summaryRows.push(new TableRow({ children: rowCells }));
             });
 
-            elements.push(new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                rows: summaryRows
-            }));
+            var fertColWidths = [productW, appsW, totalKgW, nutWidth];
+            if (includeP) fertColWidths.push(nutWidth);
+            fertColWidths.push(nutWidth); // K
+            if (includeCa) fertColWidths.push(nutWidth);
+            if (includeMg) fertColWidths.push(nutWidth);
+            if (includeS) fertColWidths.push(nutWidth);
+            var fertTableWidth = fertColWidths.reduce(function(a, b) { return a + b; }, 0);
+            elements.push(new Table({ width: { size: fertTableWidth, type: WidthType.DXA }, columnWidths: fertColWidths, rows: summaryRows }));
 
             elements.push(new Paragraph({ children: [] }));
         }
@@ -6089,10 +6098,7 @@
             }));
         });
         
-        elements.push(new Table({
-            width: { size: 100, type: WidthType.PERCENTAGE },
-            rows: monthlyRows
-        }));
+        elements.push(new Table({ width: { size: 7500, type: WidthType.DXA }, columnWidths: [1200, 800, 5500], rows: monthlyRows }));
         
         elements.push(new Paragraph({ children: [] }));
         
@@ -6537,7 +6543,7 @@
                 }));
             });
             
-            elements.push(new Table({ columnWidths: [3500, 1500, 1000, 3360], rows: ratingRows }));
+            elements.push(new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [3500, 1500, 1000, 3360], rows: ratingRows }));
             elements.push(new Paragraph({ spacing: { after: 200 }, children: [] }));
         }
         
@@ -6605,7 +6611,7 @@
                 }));
             });
             
-            elements.push(new Table({ columnWidths: [3000, 2500, 2500, 1360], rows: diseaseRows }));
+            elements.push(new Table({ width: { size: 9360, type: WidthType.DXA }, columnWidths: [3000, 2500, 2500, 1360], rows: diseaseRows }));
         }
         
         return elements;
@@ -7097,11 +7103,12 @@
         });
 
         nodes.push(new Table({
+            width: { size: cellWidth * monthNames.length, type: WidthType.DXA },
+            columnWidths: monthNames.map(function() { return cellWidth; }),
             rows: [
                 new TableRow({ children: headerCells }),
                 new TableRow({ children: dataCells })
-            ],
-            width: { size: 100, type: WidthType.PERCENTAGE }
+            ]
         }));
 
         // Optional site-uniform caption — combined-export uses this to
@@ -7385,6 +7392,15 @@
                 var activeSpBtn = document.querySelector('.gaip-sp-turf-btn.active');
                 if (activeSpBtn && activeSpBtn.dataset.type) {
                     data.turf.type = activeSpBtn.dataset.type;
+                }
+            }
+            // DOM fallback for subCategory (golf greens/fairways/tees) when
+            // GaipTurfProfile.state was cleared during site-switch and the
+            // controller restore has set the DOM button but not yet the state.
+            if (data.turf.type === 'golf' && !data.turf.subCategory) {
+                var activeSubBtn = document.querySelector('.gaip-subcategory-option.active');
+                if (activeSubBtn) {
+                    data.turf.subCategory = activeSubBtn.dataset.surface || activeSubBtn.dataset.sport || '';
                 }
             }
             // Legacy panel button (defensive, older skins)
@@ -10705,6 +10721,7 @@
 
                 sections.push(new Table({
                     width: { size: 9200, type: WidthType.DXA },
+                    columnWidths: [1800, 2000, 2400, 1400, 1600],
                     rows: aaCompRows
                 }));
 
@@ -12901,10 +12918,7 @@
                 }));
             });
             
-            sections.push(new Table({
-                width: { size: 100, type: WidthType.PERCENTAGE },
-                rows: zoneTableRows
-            }));
+            sections.push(new Table({ width: { size: 8300, type: WidthType.DXA }, columnWidths: [2000, 900, 1100, 1200, 800, 1000, 1300], rows: zoneTableRows }));
             sections.push(new Paragraph({ children: [] }));
             
             // v2.1.0: Zone-Specific Recommendations
@@ -13170,10 +13184,7 @@
                         ]
                     });
                     
-                    sections.push(new Table({
-                        width: { size: 100, type: WidthType.PERCENTAGE },
-                        rows: [headerRow].concat(stressRows)
-                    }));
+                    sections.push(new Table({ width: { size: 9500, type: WidthType.DXA }, columnWidths: [2000, 4500, 3000], rows: [headerRow].concat(stressRows) }));
                     sections.push(new Paragraph({ children: [] }));
                 }
                 
@@ -13283,10 +13294,7 @@
                             ]
                         });
                         
-                        sections.push(new Table({
-                            width: { size: 100, type: WidthType.PERCENTAGE },
-                            rows: [modHeaderRow].concat(modRows)
-                        }));
+                        sections.push(new Table({ width: { size: 9500, type: WidthType.DXA }, columnWidths: [2000, 4500, 3000], rows: [modHeaderRow].concat(modRows) }));
                         sections.push(new Paragraph({ children: [] }));
                     }
                 }
@@ -13511,12 +13519,12 @@
                     var risk = Math.round(d.adjustedRisk || d.riskScore || 0);
                     var level = risk >= 70 ? 'Severe' : risk >= 50 ? 'High' : risk >= 30 ? 'Moderate' : 'Low';
                     cdRows.push(new TableRow({ children: [
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: d.displayName || d.disease || '', size: 20 })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: risk + '%', size: 20 })] })] }),
-                        new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: level, size: 20 })] })] }),
+                        new TableCell({ width: { size: 4500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.displayName || d.disease || '', size: 20 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: risk + '%', size: 20 })] })] }),
+                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: level, size: 20 })] })] }),
                     ]}));
                 });
-                sections.push(new Table({ rows: cdRows, width: { size: 9000, type: WidthType.DXA } }));
+                sections.push(new Table({ columnWidths: [4500, 1500, 3000], rows: cdRows, width: { size: 9000, type: WidthType.DXA } }));
             }
             sections.push(new Paragraph({ spacing: { after: 300 }, children: [] }));
         }
@@ -14002,10 +14010,16 @@
             },
             sections: [{
                 properties: {
-                    page: { margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 } }
+                    page: {
+                        // Explicit A4 portrait size. Without this, Word on mobile
+                        // does not know the intended page dimensions and squeezes
+                        // all table columns to near-zero width.
+                        size: { width: 11906, height: 16838, orientation: PageOrientation.PORTRAIT },
+                        margin: { top: 1080, right: 1080, bottom: 1080, left: 1080 }
+                    }
                 },
                 headers: {
-                    default: new Header({ children: [new Paragraph({ 
+                    default: new Header({ children: [new Paragraph({
                         alignment: AlignmentType.RIGHT,
                         children: [new TextRun({ text: 'GAIP Analysis Report', size: 18, color: '9CA3AF' })]
                     })] })
