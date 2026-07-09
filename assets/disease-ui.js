@@ -226,9 +226,14 @@ const DiseaseUI = {
     buildDriversSummary(drivers) {
         if (!drivers) return '';
         
+        const suppressedNotes = [];
         const driverItems = Object.entries(drivers).map(([key, data]) => {
             if (!data || typeof data !== 'object') return '';
-            
+            if (data.suppressed) {
+                if (data.suppressedNote) suppressedNotes.push(data.suppressedNote);
+                return '';
+            }
+
             const label = this.formatDriverLabel(key);
             // Handle Pythium's 'wetness' driver which uses leafWetnessHours + nightHumidity
             let value;
@@ -241,7 +246,7 @@ const DiseaseUI = {
             }
             const contribution = data.contribution || 0;
             const status = data.status || 'normal';
-            
+
             return `
                 <div class="gaip-driver-item">
                     <div class="gaip-driver-label">${label}</div>
@@ -252,8 +257,11 @@ const DiseaseUI = {
                 </div>
             `;
         }).filter(Boolean).join('');
-        
-        return `<div class="gaip-drivers-list">${driverItems}</div>`;
+
+        const suppressedHtml = suppressedNotes.length
+            ? `<div class="gaip-driver-suppressed">${suppressedNotes.join(' · ')}</div>`
+            : '';
+        return `<div class="gaip-drivers-list">${driverItems}${suppressedHtml}</div>`;
     },
     
     /**

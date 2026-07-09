@@ -402,8 +402,13 @@
         var drivers = disease.drivers;
         if (drivers && typeof drivers === 'object' && Object.keys(drivers).length > 0) {
             html += '<div class="gl-section-label">Environmental Drivers ' + infoBtn('dr-drivers') + '</div>';
+            var suppressedNotes1 = [];
             Object.keys(drivers).forEach(function (key) {
                 var dv      = drivers[key];
+                if (dv.suppressed) {
+                    if (dv.suppressedNote) suppressedNotes1.push(dv.suppressedNote);
+                    return;
+                }
                 var contrib = dv.contribution != null ? Math.round(dv.contribution) : null;
                 var val     = dv.value != null ? dv.value : null;
                 var label   = driverLabel(key);
@@ -423,6 +428,9 @@
                 }
                 html += '</div>';
             });
+            if (suppressedNotes1.length) {
+                html += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">' + suppressedNotes1.map(esc).join(' · ') + '</div>';
+            }
             html += '<hr class="gl-section-sep">';
         }
 
@@ -1336,8 +1344,13 @@
         var drivers = d.drivers;
         if (drivers && typeof drivers === 'object' && Object.keys(drivers).length > 0) {
             html += '<div class="gl-section-label">Environmental Drivers</div>';
+            var suppressedNotes2 = [];
             Object.keys(drivers).forEach(function(key) {
                 var dv      = drivers[key];
+                if (dv.suppressed) {
+                    if (dv.suppressedNote) suppressedNotes2.push(dv.suppressedNote);
+                    return;
+                }
                 var contrib = dv.contribution != null ? Math.round(dv.contribution) : null;
                 var val     = dv.value != null ? dv.value : null;
                 var label   = driverLabel(key);
@@ -1357,6 +1370,9 @@
                 }
                 html += '</div>';
             });
+            if (suppressedNotes2.length) {
+                html += '<div style="font-size:11px;color:#6b7280;margin-bottom:8px">' + suppressedNotes2.map(esc).join(' · ') + '</div>';
+            }
             html += '<hr class="gl-section-sep">';
         }
 

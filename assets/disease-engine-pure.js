@@ -4210,6 +4210,7 @@ const TakeAllModel = {
                     value: soilPH,
                     contribution: Math.round(phFactor * 100),
                     status: soilPH > 7 ? 'high_risk' : soilPH > 6.5 ? 'elevated' : 'normal',
+                    ...(phFactor === 0 ? { suppressed: true, suppressedNote: 'No pH risk at current level (pH ≤ 6.5 suppressive threshold)' } : {}),
                 },
                 manganese: {
                     value: soilMn,
@@ -4634,9 +4635,14 @@ function buildRecommendation(disease, fungicideRegion, trendDelta, fungicideFilt
             timing   = null;
         }
     } else if (diseaseKey === 'takeAll') {
+        const pHSuppressed = disease.drivers?.pH?.suppressed;
         headline = score >= cfg.action
-            ? 'Soil chemistry intervention required, fungicides provide limited suppression.'
-            : 'Monitor soil pH and Mn. Chemical control is secondary to soil management.';
+            ? (pHSuppressed
+                ? 'Mn deficiency driving risk. Apply Mn sulphate; fungicides provide limited suppression.'
+                : 'Soil chemistry intervention required, fungicides provide limited suppression.')
+            : (pHSuppressed
+                ? 'Monitor Mn levels. Chemical control is secondary to soil management.'
+                : 'Monitor soil pH and Mn. Chemical control is secondary to soil management.');
         timing = disease.infectionWindow?.active
             ? `Infection window active, soil temp ${disease.infectionWindow.soilTemp}°C. Prioritise Mn applications now.`
             : null;

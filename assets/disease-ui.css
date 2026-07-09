@@ -276,6 +276,12 @@
     text-align: right;
 }
 
+.gaip-driver-suppressed {
+    font-size: 11px;
+    color: var(--gaip-text-muted, #6b7280);
+    margin-top: 4px;
+}
+
 /* Key Message */
 .gaip-key-message {
     margin: 16px 0;
