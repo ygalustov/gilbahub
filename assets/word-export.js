@@ -3931,8 +3931,8 @@
                     bodyCell(d.kgResidual.toFixed(1), colW.residual, { align: AlignmentType.CENTER, shading: 'F8FAFC' }),
                     bodyCell(productText, colW.product),
                     bodyCell(theoreticalText, colW.theoretical, { align: AlignmentType.CENTER, shading: 'FEF3C7' }),
-                    bodyCell(practicalText,   colW.practical,   { align: AlignmentType.CENTER, shading: 'DCFCE7', bold: true }),
-                    bodyCell(statusLabel, colW.status, { bold: true, color: statusColor, shading: statusBg, align: AlignmentType.CENTER })
+                    bodyCell(practicalText,   colW.practical,   { align: AlignmentType.CENTER, shading: 'DCFCE7' }),
+                    bodyCell(statusLabel, colW.status, { color: statusColor, shading: statusBg, align: AlignmentType.CENTER })
                 ]
             }));
         });
@@ -6537,7 +6537,7 @@
                 ratingRows.push(new TableRow({
                     children: [
                         new TableCell({ width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 22 })] })] }),
-                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.value, size: 22, bold: true, color: color })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.value, size: 22, color: color })] })] }),
                         new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.scale || '1-9', size: 22, color: '6B7280' })] })] }),
                         new TableCell({ width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: assessment, size: 22, color: color })] })] })
                     ]
@@ -12317,7 +12317,7 @@
                         spacing: { before: 30, after: 50 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: assessment.recommendation, size: 22, bold: true, color: '374151' })
+                            new TextRun({ text: assessment.recommendation, size: 22, color: '374151' })
                         ]
                     }));
                 }
@@ -13373,7 +13373,7 @@
             if (osc.recommendations && osc.recommendations.length > 0) {
                 sections.push(new Paragraph({ 
                     spacing: { before: 200, after: 80 },
-                    children: [new TextRun({ text: 'Recommendations:', bold: true, size: 22 })] 
+                    children: [new TextRun({ text: 'Recommendations:', size: 22, color: '1F2937' })]
                 }));
                 osc.recommendations.forEach(function(rec) {
                     sections.push(new Paragraph({
@@ -13998,6 +13998,9 @@
                 styles: {
                 default: { document: { run: { font: 'Times New Roman', size: 22 } } },
                 paragraphStyles: [
+                    { id: 'Normal', name: 'Normal',
+                      run: { font: 'Times New Roman', size: 22, bold: false },
+                      paragraph: { spacing: { after: 0 } } },
                     { id: 'Title', name: 'Title', basedOn: 'Normal',
                       run: { size: 48, bold: true, color: '1F2937', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },

@@ -360,7 +360,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-174** Enhance disease analysis and UI: Added handling for suppressed environmental drivers in disease-analysis.js and disease-ui.js, displaying relevant notes. Updated disease-engine-pure.js to adjust recommendations based on pH suppression status. Introduced new CSS class for suppressed driver notes in disease-ui.css.
 **GH-174** Update table widths and page orientation in word export files for improved layout and consistency.
 **GH-175** Tests
-
+**GH-176** Enhance word export UI: Updated progress overlay styling for improved aesthetics and usability, including new layout elements and enhanced color schemes. Adjusted sample label handling in progress updates for clarity.
+**GH-177** Update word export styles: Increased font sizes for various text elements in word-export-combined.js and word-export.js to enhance readability. Adjusted related text properties for consistency across the document. Updated instructions.md with a date entry.
 
 
 ## Backlog
@@ -397,7 +398,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176. 
+79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177.  
 
 
 81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. 
