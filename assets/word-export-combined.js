@@ -1034,7 +1034,7 @@
                 verticalAlign: VerticalAlign.CENTER,
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    children: [new TextRun({ text: String(text), bold: true, size: 16, color: 'FFFFFF' })]
+                    children: [new TextRun({ text: String(text), bold: true, size: 20, color: 'FFFFFF' })]
                 })]
             });
         }
@@ -1048,7 +1048,7 @@
                 verticalAlign: VerticalAlign.CENTER,
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    children: [new TextRun({ text: String(text), size: 16, color: '1F2937' })]
+                    children: [new TextRun({ text: String(text), size: 20, color: '1F2937' })]
                 })]
             });
         }
@@ -1061,7 +1061,7 @@
                 shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
                 verticalAlign: VerticalAlign.CENTER,
                 children: [new Paragraph({
-                    children: [new TextRun({ text: String(text), bold: true, size: 16, color: '374151' })]
+                    children: [new TextRun({ text: String(text), bold: true, size: 20, color: '374151' })]
                 })]
             });
         }
@@ -1175,7 +1175,7 @@
                 verticalAlign: VerticalAlign.CENTER,
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    children: [new TextRun({ text: String(text), bold: true, size: 16, color: 'FFFFFF' })]
+                    children: [new TextRun({ text: String(text), bold: true, size: 20, color: 'FFFFFF' })]
                 })]
             });
         }
@@ -1607,7 +1607,7 @@
                     text: 'Soil nutrient status and growth potential across all analysed zones. ' +
                           'Green = adequate (above MLSN minimum). Red = deficit (below MLSN minimum). ' +
                           'Amber = low growth potential.',
-                    size: 18, color: '6B7280'
+                    size: 22, color: '6B7280'
                 })]
             }));
             try {
@@ -1640,7 +1640,7 @@
                         children: [new TextRun({
                             text: 'Aggregated diagnostic flags per zone. Deficiency thresholds, nutrient antagonisms, ' +
                                   'pH, EC, and CEC assessed against current soil data.',
-                            size: 18, color: '6B7280'
+                            size: 22, color: '6B7280'
                         })]
                     }));
                     allChildren.push(issuesTable);
@@ -1687,7 +1687,7 @@
                                 children: [
                                     new Paragraph({
                                         spacing: { after: 60 },
-                                        children: [new TextRun({ text: cr.sampleLabel || cr.sampleId, bold: true, size: 18, color: '374151' })]
+                                        children: [new TextRun({ text: cr.sampleLabel || cr.sampleId, bold: true, size: 22, color: '374151' })]
                                     }),
                                     new Paragraph({
                                         alignment: AlignmentType.CENTER,
@@ -2438,7 +2438,7 @@
 
             allChildren.push(new Paragraph({
                 spacing: { after: 200 },
-                children: [new TextRun({ text: 'Report ' + (r + 1) + ' of ' + reports.length, size: 18, color: '9CA3AF' })]
+                children: [new TextRun({ text: 'Report ' + (r + 1) + ' of ' + reports.length, size: 22, color: '9CA3AF' })]
             }));
 
             // b35fix310a Fix A1: zone provenance footer
@@ -2452,7 +2452,7 @@
                 if (zp.candidateCount > 1) {
                     provenanceRuns.push(new TextRun({
                         text: 'Recommendations based on latest sample: ' + zp.winnerLabel + winnerDate + '. ',
-                        italics: true, size: 18, color: '6B7280'
+                        italics: true, size: 22, color: '6B7280'
                     }));
                     var priorDates = (zp.priorSamples || []).map(function(s) {
                         return s.date || s.label || s.sampleId;
@@ -2464,13 +2464,13 @@
                               ' for this zone (' + priorDates + ') ' +
                               (priorCount === 1 ? 'informs' : 'inform') +
                               ' the Nutrient Trend Analysis section.',
-                        italics: true, size: 18, color: '6B7280'
+                        italics: true, size: 22, color: '6B7280'
                     }));
                 } else {
                     provenanceRuns.push(new TextRun({
                         text: 'Recommendations based on sample: ' + zp.winnerLabel + winnerDate +
                               ' (single sample for this zone, no trend history available).',
-                        italics: true, size: 18, color: '6B7280'
+                        italics: true, size: 22, color: '6B7280'
                     }));
                 }
                 allChildren.push(new Paragraph({
@@ -2986,7 +2986,7 @@
                     width: width ? { size: width, type: WidthType.DXA } : undefined,
                     children: [new Paragraph({
                         alignment: AlignmentType.CENTER,
-                        children: [new TextRun({ text: text, bold: true, size: 16, color: HEADER_TEXT })]
+                        children: [new TextRun({ text: text, bold: true, size: 20, color: HEADER_TEXT })]
                     })]
                 });
             }
@@ -3026,7 +3026,7 @@
                     var soil = r._anr && r._anr.s78 ? r._anr.s78 : (r.data && r.data.soil ? r.data.soil : null);
 
                     var cells = [_mkCell(r.sampleLabel || r.sampleId, {
-                        fill: rowFill, bold: true, size: 16, width: SAMPLE_COL_W_COTULA
+                        fill: rowFill, bold: true, size: 20, width: SAMPLE_COL_W_COTULA
                     })];
 
                     S78_COLS.forEach(function(col) {
@@ -3043,14 +3043,14 @@
                             ? parseFloat(raw).toFixed(2).replace(/\.?0+$/, '')
                             : '-';
                         cells.push(_mkCell(displayVal, {
-                            fill: rowFill, bold: true, size: 16, color: color,
+                            fill: rowFill, bold: true, size: 20, color: color,
                             align: AlignmentType.CENTER, width: col.width
                         }));
                     });
 
                     // N programme — empirical range for cotula (not GP-modelled)
                     cells.push(_mkCell('50–120', {
-                        fill: rowFill, bold: true, size: 16, color: '1D4ED8',
+                        fill: rowFill, bold: true, size: 20, color: '1D4ED8',
                         align: AlignmentType.CENTER, width: NPROG_COL_W
                     }));
 
@@ -3123,7 +3123,7 @@
                     var cells = [
                         // Sample label — bold, left-aligned
                         _mkCell(r.sampleLabel || r.sampleId, {
-                            fill: rowFill, bold: true, size: 16, width: SAMPLE_COL_W
+                            fill: rowFill, bold: true, size: 20, width: SAMPLE_COL_W
                         }),
                         // N Total — single column, no soil ppm equivalent
                         _mkCell(nVal, {
@@ -3308,13 +3308,13 @@
 
                         reconRows.push(new TableRow({ children: [
                             _mkCell(r.sampleLabel || r.sampleId, {
-                                fill: rowFill, bold: true, size: 16, width: 2200
+                                fill: rowFill, bold: true, size: 20, width: 2200
                             }),
                             _mkCell(req != null ? req.toFixed(1) : '-', {
-                                fill: rowFill, size: 16, align: AlignmentType.CENTER, width: 1200
+                                fill: rowFill, size: 20, align: AlignmentType.CENTER, width: 1200
                             }),
                             _mkCell(String(kDel), {
-                                fill: rowFill, size: 16, color: '6B7280', italics: true,
+                                fill: rowFill, size: 20, color: '6B7280', italics: true,
                                 align: AlignmentType.CENTER, width: 1400
                             }),
                             _mkCell(balText, {
@@ -3681,7 +3681,7 @@
                         width: { size: rollupCols[idx], type: WidthType.DXA },
                         children: [new Paragraph({
                             alignment: idx === 0 ? AlignmentType.LEFT : AlignmentType.CENTER,
-                            children: [new TextRun({ text: label, bold: true, size: 18, color: 'FFFFFF' })]
+                            children: [new TextRun({ text: label, bold: true, size: 22, color: 'FFFFFF' })]
                         })]
                     });
                 });
@@ -3697,17 +3697,17 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[0], type: WidthType.DXA },
-                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 18 })] })]
+                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 22 })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[1], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(agg.kgAbsSum).toString(), bold: true, size: 18, color: '1F2937' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(agg.kgAbsSum).toString(), bold: true, size: 22, color: '1F2937' })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[2], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0), size: 18, color: '6B7280' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0), size: 22, color: '6B7280' })] })]
                             })
                         ];
 
@@ -3719,7 +3719,7 @@
                             cells.push(new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[colIdx], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(value || 0).toString(), size: 18, color: '6B7280' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(value || 0).toString(), size: 22, color: '6B7280' })] })]
                             }));
                             colIdx++;
                         }
@@ -3735,17 +3735,17 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[0], type: WidthType.DXA },
-                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 18 })] })]
+                                children: [new Paragraph({ children: [new TextRun({ text: name, bold: true, size: 22 })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[1], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0), bold: true, size: 18, color: '1F2937' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0), bold: true, size: 22, color: '1F2937' })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[2], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: agg.samplesContributing + '/' + siteReports.length, size: 18, color: '6B7280' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: agg.samplesContributing + '/' + siteReports.length, size: 22, color: '6B7280' })] })]
                             })
                         ];
                     }
@@ -3771,15 +3771,15 @@
                         children: [new TextRun({
                             text: 'Excluded from procurement (' + staleReports.length +
                                   ' sample' + (staleReports.length === 1 ? '' : 's') + '): ',
-                            bold: true, size: 18, color: '6B7280'
+                            bold: true, size: 22, color: '6B7280'
                         }), new TextRun({
                             text: excludedLabels + '. ',
-                            size: 18, color: '6B7280'
+                            size: 22, color: '6B7280'
                         }), new TextRun({
                             text: 'Most recent sample exceeds the ' +
                                   (sm && sm.STALENESS_CONFIG ? sm.STALENESS_CONFIG.thresholdMonths : 18) +
                                   '-month freshness threshold. Re-sample to include.',
-                            italics: true, size: 18, color: '6B7280'
+                            italics: true, size: 22, color: '6B7280'
                         })]
                     }));
                 }
@@ -3790,14 +3790,14 @@
                         spacing: { before: 40, after: 40 },
                         children: [new TextRun({
                             text: 'Area (ha) missing for: ',
-                            bold: true, size: 18, color: '6B7280'
+                            bold: true, size: 22, color: '6B7280'
                         }), new TextRun({
                             text: samplesMissingArea.join(', ') + '. ',
-                            size: 18, color: '6B7280'
+                            size: 22, color: '6B7280'
                         }), new TextRun({
                             text: 'Absolute kg totals above exclude these zones. ' +
                                   'Enter sample area on each to include them.',
-                            italics: true, size: 18, color: '6B7280'
+                            italics: true, size: 22, color: '6B7280'
                         })]
                     }));
                 }
@@ -3822,16 +3822,21 @@
         var doc = new Document({
             features: { updateFields: true },
             styles: {
-                default: { document: { run: { font: 'Calibri', size: 22 } } },
+                default: { document: { run: { font: 'Times New Roman', size: 22 } } },
                 paragraphStyles: [
+                    // Explicit Normal style so Pages respects Calibri on body text
+                    // (Pages ignores docDefaults but honours paragraph style fonts)
+                    { id: 'Normal', name: 'Normal',
+                      run: { font: 'Times New Roman', size: 22 },
+                      paragraph: { spacing: { after: 0 } } },
                     { id: 'Title', name: 'Title', basedOn: 'Normal',
-                      run: { size: 48, bold: true, color: '1F2937', font: 'Calibri' },
+                      run: { size: 48, bold: true, color: '1F2937', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },
                     { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 28, bold: true, color: '1F2937', font: 'Calibri' },
+                      run: { size: 28, bold: true, color: '1F2937', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 0 } },
                     { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 24, bold: true, color: '374151', font: 'Calibri' },
+                      run: { size: 24, bold: true, color: '374151', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 1 } }
                 ]
             },
@@ -3856,7 +3861,7 @@
                         // global.GAIP_HUB_VERSION the export-metadata footer uses.
                         children: [new TextRun({
                             text: 'GAIP Combined Report  \u2022  Hub v' + (global.GAIP_HUB_VERSION || '11.3.10'),
-                            size: 18, color: '9CA3AF'
+                            size: 22, color: '9CA3AF'
                         })]
                     })] })
                 },
@@ -3864,10 +3869,10 @@
                     default: new Footer({ children: [new Paragraph({
                         alignment: AlignmentType.CENTER,
                         children: [
-                            new TextRun({ text: 'Page ', size: 18, color: '9CA3AF' }),
-                            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF' }),
-                            new TextRun({ text: ' of ', size: 18, color: '9CA3AF' }),
-                            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, color: '9CA3AF' })
+                            new TextRun({ text: 'Page ', size: 22, color: '9CA3AF' }),
+                            new TextRun({ children: [PageNumber.CURRENT], size: 22, color: '9CA3AF' }),
+                            new TextRun({ text: ' of ', size: 22, color: '9CA3AF' }),
+                            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 22, color: '9CA3AF' })
                         ]
                     })] })
                 },

@@ -390,7 +390,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-
+10/07/26
 
 35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
 59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?

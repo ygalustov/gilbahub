@@ -768,14 +768,14 @@
             paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({
                 text: 'Soil pH ' + pH + ' reduces plant availability of iron, manganese, zinc, and copper regardless of soil ppm. ' +
                       'Foliar applications are more effective than soil applications at this pH. Use chelated iron (Fe-EDDHA or Fe-EDTA), sulphate forms precipitate rapidly above pH 6.5.',
-                size: 18, color: '374151' })]}));
+                size: 22, color: '374151' })]}));
         } else if (pH && pH < 5.5) {
             var lowMsg = 'Soil pH ' + pH + ' increases manganese and aluminium solubility. ';
             if (soilData.Mn && parseFloat(soilData.Mn) > 100) {
                 lowMsg += 'Manganese at ' + soilData.Mn + ' ppm with pH ' + pH + ' presents phytotoxicity risk, lime to pH 5.8–6.0 is the priority intervention. ';
             }
             lowMsg += 'Aluminium toxicity (Al³⁺) is not routinely measured but becomes phytotoxic below pH 5.0, disrupting root elongation and P uptake. Tissue testing recommended.';
-            paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: lowMsg, size: 18, color: '374151' })]}));
+            paragraphs.push(new Paragraph({ spacing: { before: 120, after: 80 }, children: [new TextRun({ text: lowMsg, size: 22, color: '374151' })]}));
         }
 
         if (soilData.Fe && soilData.Mn) {
@@ -784,17 +784,17 @@
             if (ratio > 50) {
                 paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
                     text: 'Fe:Mn ratio ' + ratio.toFixed(0) + ':1, elevated iron relative to manganese may suppress Mn uptake through competitive inhibition.',
-                    size: 18, color: '374151' })]}));
+                    size: 22, color: '374151' })]}));
             } else if (ratio < 1.5) {
                 paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
                     text: 'Fe:Mn ratio ' + ratio.toFixed(1) + ':1, high manganese relative to iron may suppress Fe uptake.',
-                    size: 18, color: '374151' })]}));
+                    size: 22, color: '374151' })]}));
             }
         }
 
         if (issues.length > 0) {
             paragraphs.push(new Paragraph({ spacing: { before: 80, after: 80 }, children: [new TextRun({
-                text: 'Issues identified: ' + issues.join('; ') + '.', size: 18, color: '374151' })]}));
+                text: 'Issues identified: ' + issues.join('; ') + '.', size: 22, color: '374151' })]}));
         }
 
         var extractantLabel = extractant === 'dtpa' ? 'DTPA' : extractant === 'hotwater' ? 'hot water' :
@@ -802,7 +802,7 @@
         paragraphs.push(new Paragraph({ spacing: { before: 80, after: 120 }, children: [new TextRun({
             text: 'Sufficiency ranges based on ' + extractantLabel + ' extraction (Turner & Hummel 1992; Carrow et al. 2001). ' +
                   'Soil ppm alone does not determine plant availability, pH, organic matter, and redox conditions all modify uptake.',
-            size: 16, italics: true, color: '6B7280' })]}));
+            size: 20, italics: true, color: '6B7280' })]}));
 
         return paragraphs;
     }
@@ -3805,7 +3805,7 @@
                 text: 'Soil deficits are reconciled against the nutrition programme delivery before ' +
                       'recommending standalone amendments. Where the programme already meets the deficit, ' +
                       'the standalone product is suppressed; otherwise the rate is reduced to the residual.',
-                size: 18, italics: true, color: '6B7280'
+                size: 22, italics: true, color: '6B7280'
             })]
         }));
 
@@ -3819,7 +3819,7 @@
                 shading: { fill: bg || 'F3F4F6', type: ShadingType.CLEAR },
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    children: [new TextRun({ text: text, bold: true, size: 18 })]
+                    children: [new TextRun({ text: text, bold: true, size: 22 })]
                 })]
             });
         }
@@ -3834,7 +3834,7 @@
                     alignment: opts.align || AlignmentType.LEFT,
                     children: [new TextRun({
                         text: String(text == null ? '-' : text),
-                        size: 16,
+                        size: 20,
                         bold: !!opts.bold,
                         color: opts.color || '1F2937'
                     })]
@@ -3955,7 +3955,7 @@
                           'Practical = (theoretical / amendment efficiency) / years to correct. ' +
                           'Practical figures account for fixation, leaching, and amendment-loss pathways; ' +
                           'apply the Practical column figure as the annual programme rate.',
-                    size: 16,italics: true, color: '6B7280'
+                    size: 20,italics: true, color: '6B7280'
                 })]
             }));
         }
@@ -3975,7 +3975,7 @@
                 spacing: { before: 80, after: 60 },
                 children: [new TextRun({
                     text: contribLines.join(' | '),
-                    size: 16,italics: true, color: '6B7280'
+                    size: 20,italics: true, color: '6B7280'
                 })]
             }));
         }
@@ -4016,7 +4016,8 @@
 
                 // Warning body paragraph (inline title + text + source)
                 var titleByCode = {
-                    'lime_ammoniacal_sequencing':  'Lime/dolomite ↔ ammoniacal N timing',
+                    'severe_deficit_attention':     'Severe Deficit',
+                    'lime_ammoniacal_sequencing':   'Lime/dolomite ↔ ammoniacal N timing',
                     'ca_phosphate_incompatibility': 'Calcium nitrate + phosphate fertigation incompatibility',
                     'ca_sulphate_incompatibility':  'Calcium nitrate + ammonium sulphate fertigation incompatibility'
                 };
@@ -4026,8 +4027,8 @@
                     spacing: { before: 80, after: 40 },
                     shading: { fill: bgColour, type: ShadingType.CLEAR },
                     children: [
-                        new TextRun({ text: title + ': ', bold: true, size: 16, color: headerColour }),
-                        new TextRun({ text: w.text, size: 16, color: '1F2937' })
+                        new TextRun({ text: title + ': ', bold: true, size: 20, color: headerColour }),
+                        new TextRun({ text: w.text, size: 20, color: '1F2937' })
                     ]
                 }));
 
@@ -4036,7 +4037,7 @@
                         spacing: { after: 40 },
                         children: [new TextRun({
                             text: 'Source: ' + w.source,
-                            size: 16, italics: true, color: '6B7280'
+                            size: 20, italics: true, color: '6B7280'
                         })]
                     }));
                 }
@@ -4048,7 +4049,7 @@
             children: [new TextRun({
                 text: 'Rates expressed as elemental kg/ha. Soil deficit = (threshold − measured) × 10 cm × 1.4 g/cm³ × 0.1. ' +
                       'Programme delivery summed across annual applications.',
-                size: 16,italics: true, color: '9CA3AF'
+                size: 20,italics: true, color: '9CA3AF'
             })]
         }));
 
@@ -5263,7 +5264,7 @@
         if (narrativeData.recommendations && narrativeData.recommendations.length > 0) {
             elements.push(new Paragraph({
                 spacing: { before: 150, after: 80 },
-                children: [new TextRun({ text: 'Recommendations:', bold: true, size: 22, color: '1F2937' })]
+                children: [new TextRun({ text: 'Recommendations:', size: 22, color: '1F2937' })]
             }));
             
             narrativeData.recommendations.forEach(function(rec) {
@@ -5329,7 +5330,7 @@
             spacing: { before: 100, after: 200 },
             children: [new TextRun({ 
                 text: 'Reference definitions for technical terms used in this report.',
-                size: 18, italics: true, color: '6B7280'
+                size: 22, italics: true, color: '6B7280'
             })]
         }));
         
@@ -5438,39 +5439,39 @@
             children: [
                 new TableCell({
                     borders: borders,
-                    width: { size: 2000, type: WidthType.DXA },
+                    width: { size: 2200, type: WidthType.DXA },
                     shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ children: [new TextRun({ text: 'Nutrient', bold: true, size: 20 })] })]
+                    children: [new Paragraph({ children: [new TextRun({ text: 'Nutrient', bold: true, size: 22 })] })]
                 }),
                 new TableCell({
                     borders: borders,
                     width: { size: 1400, type: WidthType.DXA },
                     shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Measured', bold: true, size: 20 })] })]
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Measured', bold: true, size: 22 })] })]
                 }),
                 new TableCell({
                     borders: borders,
                     width: { size: 1400, type: WidthType.DXA },
                     shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Min', bold: true, size: 20, color: '1E40AF' })] })]
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Min', bold: true, size: 22, color: '1E40AF' })] })]
                 }),
                 new TableCell({
                     borders: borders,
                     width: { size: 1400, type: WidthType.DXA },
                     shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Status', bold: true, size: 20, color: '1E40AF' })] })]
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'MLSN Status', bold: true, size: 22, color: '1E40AF' })] })]
                 }),
                 new TableCell({
                     borders: borders,
                     width: { size: 1600, type: WidthType.DXA },
                     shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Range', bold: true, size: 20, color: '92400E' })] })]
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Range', bold: true, size: 22, color: '92400E' })] })]
                 }),
                 new TableCell({
                     borders: borders,
                     width: { size: 1400, type: WidthType.DXA },
                     shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
-                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Status', bold: true, size: 20, color: '92400E' })] })]
+                    children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'SLAN Status', bold: true, size: 22, color: '92400E' })] })]
                 })
             ]
         });
@@ -5514,35 +5515,35 @@
                 children: [
                     new TableCell({
                         borders: borders,
-                        width: { size: 2000, type: WidthType.DXA },
-                        children: [new Paragraph({ children: [new TextRun({ text: n.name, size: 20 })] })]
+                        width: { size: 2200, type: WidthType.DXA },
+                        children: [new Paragraph({ children: [new TextRun({ text: n.name, size: 22 })] })]
                     }),
                     new TableCell({
                         borders: borders,
                         width: { size: 1400, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: value + ' ppm', size: 20, bold: true })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: value + ' ppm', size: 22 })] })]
                     }),
                     new TableCell({
                         borders: borders,
                         width: { size: 1400, type: WidthType.DXA },
                         shading: { fill: 'F8FAFC', type: ShadingType.CLEAR },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '>' + mlsn.min, size: 20, color: '64748B' })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '>' + mlsn.min, size: 22, color: '64748B' })] })]
                     }),
                     new TableCell({
                         borders: borders,
                         width: { size: 1400, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: mlsnStatus, size: 20, bold: true, color: mlsnColor })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: mlsnStatus, size: 22, color: mlsnColor })] })]
                     }),
                     new TableCell({
                         borders: borders,
                         width: { size: 1600, type: WidthType.DXA },
                         shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slan.min + '-' + slan.max, size: 20, color: '78716C' })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slan.min + '-' + slan.max, size: 22, color: '78716C' })] })]
                     }),
                     new TableCell({
                         borders: borders,
                         width: { size: 1400, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slanStatus, size: 20, bold: true, color: slanColor })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: slanStatus, size: 22, color: slanColor })] })]
                     })
                 ]
             }));
@@ -5601,7 +5602,7 @@
             
             elements.push(new Paragraph({
                 spacing: { before: 150, after: 50 },
-                children: [new TextRun({ text: 'Soil pH: ' + pH, bold: true, size: 22 })]
+                children: [new TextRun({ text: 'Soil pH: ' + pH, size: 22 })]
             }));
             
             // Add species tolerance context
@@ -5609,10 +5610,10 @@
                 spacing: { after: 80 },
                 indent: { left: 200 },
                 children: [
-                    new TextRun({ text: speciesName + ' pH requirements: ', bold: true, size: 22, color: '374151' }),
+                    new TextRun({ text: speciesName + ' pH requirements: ', size: 22, color: '374151' }),
                     new TextRun({ text: 'Optimal ' + optRangeStr + ' | Tolerance ' + tolRangeStr, size: 22, color: '6B7280' }),
-                    acidTolerant ? new TextRun({ text: ' | Acid-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' }),
-                    alkalineTolerant ? new TextRun({ text: ' | Alkaline-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' })
+                    acidTolerant ? new TextRun({ text: ' | Acid-tolerant', size: 22, color: '059669' }) : new TextRun({ text: '' }),
+                    alkalineTolerant ? new TextRun({ text: ' | Alkaline-tolerant', size: 22, color: '059669' }) : new TextRun({ text: '' })
                 ]
             }));
             
@@ -5669,7 +5670,7 @@
             
             elements.push(new Paragraph({
                 spacing: { before: 150, after: 50 },
-                children: [new TextRun({ text: 'Cation Exchange Capacity: ' + CEC + ' meq/100g', bold: true, size: 22 })]
+                children: [new TextRun({ text: 'Cation Exchange Capacity: ' + CEC + ' meq/100g', size: 22 })]
             }));
             
             if (CEC < 5) {
@@ -5733,7 +5734,7 @@
                 spacing: { before: 150, after: 100 },
                 shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
                 border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'F59E0B' } },
-                children: [new TextRun({ text: 'SAR vs SARadj, Important Distinction', bold: true, size: 22, color: '92400E' })]
+                children: [new TextRun({ text: 'SAR vs SARadj, Important Distinction', size: 22, color: '92400E' })]
             }));
             
             var explanationText = 'Standard SAR (' + SAR.toFixed(1) + ') assumes all measured calcium remains available to counteract sodium. However, your water contains elevated bicarbonate (' + HCO3 + ' mg/L), which causes calcium to precipitate as lime when the water enters the soil. ';
@@ -5752,7 +5753,7 @@
                 spacing: { after: 100 },
                 indent: { left: 200 },
                 children: [
-                    new TextRun({ text: 'Management recommendation: ', bold: true, size: 22, color: '374151' }),
+                    new TextRun({ text: 'Management recommendation: ', size: 22, color: '374151' }),
                     new TextRun({ text: 'Base your sodium management decisions on SARadj rather than standard SAR. Consider acidification to reduce bicarbonate levels and preserve calcium availability.', size: 22, color: '374151' })
                 ]
             }));
@@ -5795,12 +5796,12 @@
         var headerRow = new TableRow({
             tableHeader: true,
             children: [
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Date', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Active Ingredient', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rate', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Zone', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Category', bold: true, size: 20 })] })] })
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Date', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Active Ingredient', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rate', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Zone', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Category', bold: true, size: 22 })] })] })
             ]
         });
         
@@ -5822,12 +5823,12 @@
             
             rows.push(new TableRow({
                 children: [
-                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: dateStr, size: 20 })] })] }),
-                    new TableCell({ width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.product_name || '', size: 20 })] })] }),
-                    new TableCell({ width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.active_ingredient || '', size: 20 })] })] }),
-                    new TableCell({ width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rateStr, size: 20 })] })] }),
-                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.zone || '', size: 20 })] })] }),
-                    new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.category || '', size: 20 })] })] })
+                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: dateStr, size: 22 })] })] }),
+                    new TableCell({ width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.product_name || '', size: 22 })] })] }),
+                    new TableCell({ width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.active_ingredient || '', size: 22 })] })] }),
+                    new TableCell({ width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rateStr, size: 22 })] })] }),
+                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.zone || '', size: 22 })] })] }),
+                    new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.category || '', size: 22 })] })] })
                 ]
             }));
         });
@@ -5913,7 +5914,7 @@
                     elements.push(new Paragraph({
                         spacing: { after: 80 },
                         indent: { left: 400 },
-                        children: [new TextRun({ text: 'Ref: ' + f.citation, size: 18, color: '9CA3AF', italics: true })]
+                        children: [new TextRun({ text: 'Ref: ' + f.citation, size: 22, color: '9CA3AF', italics: true })]
                     }));
                 }
             });
@@ -5977,23 +5978,23 @@
 
             // Build header
             var headerCells = [
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 20 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })] })
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 22 })] })] }),
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 22 })] })] })
             ];
             if (includeP) {
-                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'P', bold: true, size: 20 })] })] }));
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'P', bold: true, size: 22 })] })] }));
             }
-            headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'K', bold: true, size: 20 })] })] }));
+            headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'K', bold: true, size: 22 })] })] }));
             if (includeCa) {
-                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ca', bold: true, size: 20 })] })] }));
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ca', bold: true, size: 22 })] })] }));
             }
             if (includeMg) {
-                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Mg', bold: true, size: 20 })] })] }));
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Mg', bold: true, size: 22 })] })] }));
             }
             if (includeS) {
-                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'S', bold: true, size: 20 })] })] }));
+                headerCells.push(new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'S', bold: true, size: 22 })] })] }));
             }
 
             var summaryRows = [new TableRow({ tableHeader: true, children: headerCells })];
@@ -6002,23 +6003,23 @@
             rowsData.forEach(function(r) {
                 var n = r.nutrients;
                 var rowCells = [
-                    new TableCell({ width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 20 })] })] }),
-                    new TableCell({ width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 20 })] })] }),
-                    new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 20 })] })] }),
-                    new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.N).toString(), size: 20 })] })] })
+                    new TableCell({ width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 22 })] })] }),
+                    new TableCell({ width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 22 })] })] }),
+                    new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 22 })] })] }),
+                    new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.N).toString(), size: 22 })] })] })
                 ];
                 if (includeP) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.P).toString(), size: 20 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.P).toString(), size: 22 })] })] }));
                 }
-                rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.K).toString(), size: 20 })] })] }));
+                rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.K).toString(), size: 22 })] })] }));
                 if (includeCa) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Ca).toString(), size: 20 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Ca).toString(), size: 22 })] })] }));
                 }
                 if (includeMg) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Mg).toString(), size: 20 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Mg).toString(), size: 22 })] })] }));
                 }
                 if (includeS) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.S).toString(), size: 20 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.S).toString(), size: 22 })] })] }));
                 }
                 summaryRows.push(new TableRow({ children: rowCells }));
             });
@@ -6045,9 +6046,9 @@
             new TableRow({
                 tableHeader: true,
                 children: [
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Month', bold: true, size: 20 })] })] }),
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GP%', bold: true, size: 20 })] })] }),
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product Recommendations', bold: true, size: 20 })] })] })
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Month', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GP%', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product Recommendations', bold: true, size: 22 })] })] })
                 ]
             })
         ];
@@ -6091,9 +6092,9 @@
             
             monthlyRows.push(new TableRow({
                 children: [
-                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 20 })] })] }),
-                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 20, color: gpColor })] })] }),
-                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 20, color: m.coveredBy ? '6B7280' : '374151', italics: !!m.coveredBy })] })] })
+                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 22 })] })] }),
+                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 22, color: gpColor })] })] }),
+                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 22, color: m.coveredBy ? '6B7280' : '374151', italics: !!m.coveredBy })] })] })
                 ]
             }));
         });
@@ -6520,10 +6521,10 @@
                 new TableRow({
                     tableHeader: true,
                     children: [
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Characteristic', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rating', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Scale', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Assessment', bold: true, size: 20 })] })] })
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Characteristic', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Rating', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Scale', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Assessment', bold: true, size: 22 })] })] })
                     ]
                 })
             ];
@@ -6535,10 +6536,10 @@
                 
                 ratingRows.push(new TableRow({
                     children: [
-                        new TableCell({ width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 20 })] })] }),
-                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.value, size: 20, bold: true, color: color })] })] }),
-                        new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.scale || '1-9', size: 18, color: '6B7280' })] })] }),
-                        new TableCell({ width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: assessment, size: 20, color: color })] })] })
+                        new TableCell({ width: { size: 3500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.label, size: 22 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.value, size: 22, bold: true, color: color })] })] }),
+                        new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.scale || '1-9', size: 22, color: '6B7280' })] })] }),
+                        new TableCell({ width: { size: 3360, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: assessment, size: 22, color: color })] })] })
                     ]
                 }));
             });
@@ -6563,8 +6564,8 @@
                 elements.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: card.category + ': ', bold: true, size: 22, color: '1F2937' }),
-                        new TextRun({ text: card.rating, size: 22, color: card.color, bold: true }),
+                        new TextRun({ text: card.category + ': ', size: 22, color: '1F2937' }),
+                        new TextRun({ text: card.rating, size: 22, color: card.color }),
                         new TextRun({ text: ', ' + card.modifier, size: 22, color: '4B5563' })
                     ]
                 }));
@@ -6573,7 +6574,7 @@
                     elements.push(new Paragraph({
                         spacing: { after: 100 },
                         indent: { left: 360 },
-                        children: [new TextRun({ text: card.source, size: 18, color: '9CA3AF', italics: true })]
+                        children: [new TextRun({ text: card.source, size: 22, color: '9CA3AF', italics: true })]
                     }));
                 }
             });
@@ -6592,10 +6593,10 @@
                 new TableRow({
                     tableHeader: true,
                     children: [
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Resistance', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk Modifier', bold: true, size: 20 })] })] }),
-                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Confidence', bold: true, size: 20 })] })] })
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Resistance', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk Modifier', bold: true, size: 22 })] })] }),
+                        new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Confidence', bold: true, size: 22 })] })] })
                     ]
                 })
             ];
@@ -6603,10 +6604,10 @@
             profile.diseaseCards.forEach(function(d) {
                 diseaseRows.push(new TableRow({
                     children: [
-                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.disease, size: 20 })] })] }),
-                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.rating, size: 20, color: d.color, bold: true })] })] }),
-                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.modifier, size: 20, color: d.color })] })] }),
-                        new TableCell({ width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: d.confidence, size: 18, color: '6B7280' })] })] })
+                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.disease, size: 22 })] })] }),
+                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.rating, size: 22, color: d.color, bold: true })] })] }),
+                        new TableCell({ width: { size: 2500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.modifier, size: 22, color: d.color })] })] }),
+                        new TableCell({ width: { size: 1360, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: d.confidence, size: 22, color: '6B7280' })] })] })
                     ]
                 }));
             });
@@ -7068,7 +7069,7 @@
             return new TableCell({
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    children: [new TextRun({ text: month, bold: true, size: 18 })]
+                    children: [new TextRun({ text: month, bold: true, size: 22 })]
                 })],
                 shading: { fill: 'F3F4F6' },
                 width: { size: cellWidth, type: WidthType.DXA }
@@ -7094,8 +7095,8 @@
                 children: [new Paragraph({
                     alignment: AlignmentType.CENTER,
                     children: [
-                        new TextRun({ text: n.toFixed(0), bold: true, size: 20, color: nColor }),
-                        new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 16,color: '6B7280' })
+                        new TextRun({ text: n.toFixed(0), bold: true, size: 22, color: nColor }),
+                        new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 20,color: '6B7280' })
                     ]
                 })],
                 width: { size: cellWidth, type: WidthType.DXA }
@@ -7123,7 +7124,7 @@
                 spacing: { before: 80, after: 120 },
                 children: [new TextRun({
                     text: captionText,
-                    size: 16,
+                    size: 20,
                     italics: true,
                     color: '6B7280'
                 })]
@@ -10088,7 +10089,7 @@
                     spacing: { before: 50, after: 100 },
                     children: [new TextRun({ 
                         text: 'Thresholds based on ' + priorityActions.effectiveSpecies + ' tolerances (' + Math.round(data.turf.c3Fraction * 100) + '% cover)',
-                        size: 18, italics: true, color: '6B7280'
+                        size: 22, italics: true, color: '6B7280'
                     })]
                 }));
             }
@@ -10099,7 +10100,7 @@
                     spacing: { before: 100, after: 50 },
                     shading: { fill: 'FEF2F2', type: ShadingType.CLEAR },
                     border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'DC2626' } },
-                    children: [new TextRun({ text: '⚠️ IMMEDIATE (0-7 days)', bold: true, size: 22, color: 'DC2626' })]
+                    children: [new TextRun({ text: 'IMMEDIATE (0-7 days)', bold: true, size: 22, color: 'DC2626' })]
                 }));
                 priorityActions.immediate.forEach(function(action) {
                     sections.push(new Paragraph({
@@ -10116,7 +10117,7 @@
                     spacing: { before: 100, after: 50 },
                     shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
                     border: { left: { style: BorderStyle.SINGLE, size: 24, color: 'F59E0B' } },
-                    children: [new TextRun({ text: '⏰ SHORT-TERM (7-30 days)', bold: true, size: 22, color: 'F59E0B' })]
+                    children: [new TextRun({ text: 'SHORT-TERM (7-30 days)', bold: true, size: 22, color: 'F59E0B' })]
                 }));
                 priorityActions.shortTerm.forEach(function(action) {
                     sections.push(new Paragraph({
@@ -10133,7 +10134,7 @@
                     spacing: { before: 100, after: 50 },
                     shading: { fill: 'EFF6FF', type: ShadingType.CLEAR },
                     border: { left: { style: BorderStyle.SINGLE, size: 24, color: '3B82F6' } },
-                    children: [new TextRun({ text: '📋 MEDIUM-TERM (30-90 days)', bold: true, size: 22, color: '3B82F6' })]
+                    children: [new TextRun({ text: 'MEDIUM-TERM (30-90 days)', bold: true, size: 22, color: '3B82F6' })]
                 }));
                 priorityActions.mediumTerm.forEach(function(action) {
                     sections.push(new Paragraph({
@@ -10333,7 +10334,7 @@
                 spacing: { before: 50, after: 150 },
                 children: [new TextRun({
                     text: 'AI-assisted analysis identifying interactions and anomalies across soil, water, and tissue data.',
-                    size: 18, italics: true, color: '6B7280'
+                    size: 22, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -10415,7 +10416,7 @@
             if (synthesisInterpretation.cached) {
                 sections.push(new Paragraph({
                     spacing: { before: 50, after: 100 },
-                    children: [new TextRun({ text: '(Cached analysis)', size: 16,italics: true, color: '9CA3AF' })]
+                    children: [new TextRun({ text: '(Cached analysis)', size: 20,italics: true, color: '9CA3AF' })]
                 }));
             }
             sections.push(new Paragraph({ children: [] }));
@@ -10526,7 +10527,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: soilMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
+                        new TextRun({ text: soilMetaParts.join('  •  '), size: 22, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -10564,7 +10565,7 @@
                     shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
                     children: [
                         new TextRun({ text: '', size: 22 }),
-                        new TextRun({ text: data.soil.extractantWarning, size: 18, color: 'B45309', italics: true })
+                        new TextRun({ text: data.soil.extractantWarning, size: 22, color: 'B45309', italics: true })
                     ]
                 }));
             } else if (!data.soil.extractant || data.soil.extractant === '') {
@@ -10574,7 +10575,7 @@
                     shading: { fill: 'FEF3C7', type: ShadingType.CLEAR },
                     children: [
                         new TextRun({ text: '', size: 22 }),
-                        new TextRun({ text: 'Extraction method not specified. MLSN guidelines require Mehlich 3 data. Please verify your lab methodology.', size: 18, color: 'B45309', italics: true })
+                        new TextRun({ text: 'Extraction method not specified. MLSN guidelines require Mehlich 3 data. Please verify your lab methodology.', size: 22, color: 'B45309', italics: true })
                     ]
                 }));
             }
@@ -10620,7 +10621,7 @@
                         spacing: { after: 100 },
                         children: [new TextRun({ 
                             text: 'This table shows how your soil nutrient levels are interpreted under both MLSN (Minimum Level for Sustainable Nutrition) and SLAN (Sufficiency Level of Available Nutrients) guidelines.',
-                            size: 18, italics: true, color: '6B7280'
+                            size: 22, italics: true, color: '6B7280'
                         })]
                     }));
                     sections.push(dualTable);
@@ -10642,7 +10643,7 @@
                         text: 'This sample was extracted using the Ammonium Acetate (NH\u2084OAc pH 8.1) + Olsen P method (Hill Laboratories NZ). ' +
                               'MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. ' +
                               'The table below shows the three frameworks side by side so you can see how they differ in philosophy and threshold basis.',
-                        size: 18, italics: true, color: '4B5563'
+                        size: 22, italics: true, color: '4B5563'
                     })]
                 }));
 
@@ -10653,19 +10654,19 @@
                     children: [
                         new TableCell({ borders: aaBorders, width: { size: 1800, type: WidthType.DXA },
                             shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'Framework', bold: true, size: 18 })] })] }),
-                        new TableCell({ borders: aaBorders, width: { size: 2000, type: WidthType.DXA },
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Framework', bold: true, size: 22 })] })] }),
+                        new TableCell({ borders: aaBorders, width: { size: 2200, type: WidthType.DXA },
                             shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'Extractant', bold: true, size: 18 })] })] }),
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Extractant', bold: true, size: 22 })] })] }),
                         new TableCell({ borders: aaBorders, width: { size: 2400, type: WidthType.DXA },
                             shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'Philosophy', bold: true, size: 18 })] })] }),
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Philosophy', bold: true, size: 22 })] })] }),
                         new TableCell({ borders: aaBorders, width: { size: 1400, type: WidthType.DXA },
                             shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'AU/NZ/UK use', bold: true, size: 18 })] })] }),
+                            children: [new Paragraph({ children: [new TextRun({ text: 'AU/NZ/UK use', bold: true, size: 22 })] })] }),
                         new TableCell({ borders: aaBorders, width: { size: 1600, type: WidthType.DXA },
                             shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
-                            children: [new Paragraph({ children: [new TextRun({ text: 'Compatible with this sample?', bold: true, size: 18 })] })] })
+                            children: [new Paragraph({ children: [new TextRun({ text: 'Compatible with this sample?', bold: true, size: 22 })] })] })
                     ]
                 });
                 aaCompRows.push(aaHdrRow);
@@ -10702,19 +10703,19 @@
                         children: [
                             new TableCell({ borders: aaBorders, width: { size: 1800, type: WidthType.DXA },
                                 shading: { fill: fw.fill, type: ShadingType.CLEAR },
-                                children: [new Paragraph({ children: [new TextRun({ text: fw.name, bold: true, size: 18, color: fw.textColor })] })] }),
-                            new TableCell({ borders: aaBorders, width: { size: 2000, type: WidthType.DXA },
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.name, bold: true, size: 22, color: fw.textColor })] })] }),
+                            new TableCell({ borders: aaBorders, width: { size: 2200, type: WidthType.DXA },
                                 shading: { fill: fw.fill, type: ShadingType.CLEAR },
-                                children: [new Paragraph({ children: [new TextRun({ text: fw.extractant, size: 18 })] })] }),
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.extractant, size: 22 })] })] }),
                             new TableCell({ borders: aaBorders, width: { size: 2400, type: WidthType.DXA },
                                 shading: { fill: fw.fill, type: ShadingType.CLEAR },
-                                children: [new Paragraph({ children: [new TextRun({ text: fw.philosophy, size: 18 })] })] }),
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.philosophy, size: 22 })] })] }),
                             new TableCell({ borders: aaBorders, width: { size: 1400, type: WidthType.DXA },
                                 shading: { fill: fw.fill, type: ShadingType.CLEAR },
-                                children: [new Paragraph({ children: [new TextRun({ text: fw.regional, size: 18 })] })] }),
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.regional, size: 22 })] })] }),
                             new TableCell({ borders: aaBorders, width: { size: 1600, type: WidthType.DXA },
                                 shading: { fill: fw.fill, type: ShadingType.CLEAR },
-                                children: [new Paragraph({ children: [new TextRun({ text: fw.compatible, size: 18, bold: true })] })] })
+                                children: [new Paragraph({ children: [new TextRun({ text: fw.compatible, size: 22, bold: true })] })] })
                         ]
                     }));
                 });
@@ -10730,7 +10731,7 @@
                     children: [new TextRun({
                         text: 'Note: If Mehlich-3 results are available for this site, contact your agronomist to run the full MLSN/SLAN dual comparison. ' +
                               'Approximate conversion factors exist (e.g. Mehlich-3 K \u2248 1.1\u00D7 AA K) but introduce error and are not recommended for formal recommendations.',
-                        size: 16, italics: true, color: '6B7280'
+                        size: 20, italics: true, color: '6B7280'
                     })]
                 }));
             }
@@ -10878,7 +10879,7 @@
                         spacing: { before: 80, after: 100 },
                         children: [new TextRun({
                             text: citationText,
-                            size: 16,
+                            size: 20,
                             italics: true,
                             color: '6B7280'
                         })]
@@ -10890,7 +10891,7 @@
                     spacing: { before: 100, after: 150 },
                     children: [new TextRun({
                         text: 'Note: This interpretation is AI-generated based on your soil analysis data. Always verify recommendations with local agronomic expertise and site-specific conditions.',
-                        size: 16,
+                        size: 20,
                         italics: true,
                         color: '92400E'
                     })]
@@ -10949,7 +10950,7 @@
                                     + 'availability independently of absolute soil levels, a nutrient above its '
                                     + 'sufficiency threshold may still be functionally deficient if a competing '
                                     + 'element is elevated.',
-                                size: 18, color: '6B7280'
+                                size: 22, color: '6B7280'
                             })]
                         }));
 
@@ -10970,7 +10971,7 @@
                         sections.push(new Paragraph({
                             spacing: { after: 160 },
                             shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
-                            children: [new TextRun({ text: _extractantNote, size: 16, italics: true, color: '6B7280' })]
+                            children: [new TextRun({ text: _extractantNote, size: 20, italics: true, color: '6B7280' })]
                         }));
 
                         // One paragraph block per interaction
@@ -10992,13 +10993,13 @@
                             }));
                             sections.push(new Paragraph({
                                 spacing: { after: 60 },
-                                children: [new TextRun({ text: f.detail, size: 18, color: '374151' })]
+                                children: [new TextRun({ text: f.detail, size: 22, color: '374151' })]
                             }));
                             sections.push(new Paragraph({
                                 spacing: { after: 120 },
                                 children: [new TextRun({
                                     text: f.citation,
-                                    size: 16, italics: true, color: '9CA3AF'
+                                    size: 20, italics: true, color: '9CA3AF'
                                 })]
                             }));
                         });
@@ -11223,7 +11224,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({
                     text: _b35fix331_caption,
-                    size: 18, italics: true, color: '6B7280'
+                    size: 22, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -11298,7 +11299,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: tissueMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
+                        new TextRun({ text: tissueMetaParts.join('  •  '), size: 22, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -11502,7 +11503,7 @@
                                 verticalAlign: VerticalAlign.CENTER,
                                 children: [new Paragraph({ 
                                     alignment: AlignmentType.CENTER,
-                                    children: [new TextRun({ text: cell.text, bold: true, size: 18, color: 'FFFFFF' })] 
+                                    children: [new TextRun({ text: cell.text, bold: true, size: 22, color: 'FFFFFF' })] 
                                 })]
                             });
                         })
@@ -11622,7 +11623,7 @@
                                         alignment: AlignmentType.CENTER,
                                         children: [new TextRun({ 
                                             text: cell.text, 
-                                            size: 18, 
+                                            size: 22, 
                                             color: cell.color || '374151',
                                             bold: cell.bold || false
                                         })] 
@@ -11650,7 +11651,7 @@
                             spacing: { after: 100 },
                             children: [new TextRun({ 
                                 text: 'Dashed line indicates the ' + tLabel.thresholdLabel + ' threshold guideline.',
-                                size: 18, color: '9CA3AF', italics: true 
+                                size: 22, color: '9CA3AF', italics: true 
                             })]
                         }));
                     
@@ -11669,7 +11670,7 @@
                                     new Paragraph({
                                         alignment: AlignmentType.CENTER,
                                         spacing: { before: 60, after: 20 },
-                                        children: [new TextRun({ text: sparkNutrient, bold: true, size: 18, color: '374151' })]
+                                        children: [new TextRun({ text: sparkNutrient, bold: true, size: 22, color: '374151' })]
                                     })
                                 ];
                                 if (sparkChart && sparkChart.base64) {
@@ -11762,7 +11763,7 @@
                 sections.push(new Paragraph({
                     spacing: { before: 60, after: 40 },
                     shading: { fill: bgColor, type: ShadingType.CLEAR },
-                    border: { left: { style: BorderStyle.SINGLE, size: 18, color: accentColor } },
+                    border: { left: { style: BorderStyle.SINGLE, size: 22, color: accentColor } },
                     indent: { left: 180 },
                     children: [
                         new TextRun({ text: 'Pathway:  ', bold: true, size: 22 }),
@@ -11899,7 +11900,7 @@
                     sections.push(new Paragraph({
                         spacing: { before: 40, after: 40 },
                         shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
-                        border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'F59E0B' } },
+                        border: { left: { style: BorderStyle.SINGLE, size: 22, color: 'F59E0B' } },
                         indent: { left: 180 },
                         children: [new TextRun({ text: note, size: 22, color: '374151' })]
                     }));
@@ -11913,7 +11914,7 @@
                     text: 'Note: Indicative rates require adjustment for actual soil deficit, bulk density, and rootzone depth. ' +
                           'Split applications are recommended for all soluble products (kieserite, Epsom salts) at rates exceeding 20 kg Mg/ha. ' +
                           'Confirm product availability and pricing with your supplier before ordering.',
-                    size: 18, italics: true, color: '9CA3AF'
+                    size: 22, italics: true, color: '9CA3AF'
                 })]
             }));
 
@@ -11961,7 +11962,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: waterMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
+                        new TextRun({ text: waterMetaParts.join('  •  '), size: 22, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -12083,7 +12084,7 @@
                     spacing: { after: 120 },
                     children: [new TextRun({
                         text: 'Each chart shows all water sources plotted against the same axis. Dashed amber line indicates threshold guideline where applicable.',
-                        size: 18, color: '6B7280', italics: true
+                        size: 22, color: '6B7280', italics: true
                     })]
                 }));
                 var msoWaterNuts = Object.keys(charts.multiSource.water);
@@ -12184,7 +12185,7 @@
                         spacing: { before: 80, after: 100 },
                         children: [new TextRun({
                             text: waterCitationText,
-                            size: 16,
+                            size: 20,
                             italics: true,
                             color: '6B7280'
                         })]
@@ -12197,7 +12198,7 @@
                         spacing: { before: 50, after: 100 },
                         children: [new TextRun({
                             text: '(Cached interpretation)',
-                            size: 16,
+                            size: 20,
                             italics: true,
                             color: '9CA3AF'
                         })]
@@ -12228,7 +12229,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({ 
                     text: 'Direct plant damage from irrigation water ions applied via ' + (data.phytotoxicity.irrigationMethod || 'sprinkler') + ' irrigation. This assessment is separate from soil chemistry impacts (SAR, structure degradation).',
-                    size: 18, italics: true, color: '6B7280'
+                    size: 22, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -12261,7 +12262,7 @@
                 sections.push(new Paragraph({
                     spacing: { before: 120, after: 50 },
                     shading: { fill: statusBg, type: ShadingType.CLEAR },
-                    border: { left: { style: BorderStyle.SINGLE, size: 16, color: statusColor } },
+                    border: { left: { style: BorderStyle.SINGLE, size: 20, color: statusColor } },
                     children: [
                         new TextRun({ text: assessment.parameter + ': ', bold: true, size: 22, color: '374151' }),
                         new TextRun({ text: assessment.value + ' ' + (assessment.unit || 'mg/L'), bold: true, size: 22, color: statusColor }),
@@ -12358,7 +12359,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({ 
                     text: 'Long-term impacts of irrigation water chemistry on soil conditions and turf performance.',
-                    size: 18, italics: true, color: '6B7280'
+                    size: 22, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -12591,9 +12592,9 @@
                 
                 // Show validation warning if extrapolated (v2.3.0+)
                 if (data.pgr.thresholdValidated === false && data.pgr.thresholdSource) {
-                    pgrRows.push(createKeyValueRow('⚠️ Threshold', 'Extrapolated: ' + data.pgr.thresholdSource, '#F59E0B'));
+                    pgrRows.push(createKeyValueRow('Threshold', 'Extrapolated: ' + data.pgr.thresholdSource, '#F59E0B'));
                 } else if (data.pgr.thresholdValidated === true && data.pgr.thresholdSource) {
-                    pgrRows.push(createKeyValueRow('✓ Threshold', 'Research-validated: ' + data.pgr.thresholdSource, '#16A34A'));
+                    pgrRows.push(createKeyValueRow('Threshold', 'Research-validated: ' + data.pgr.thresholdSource, '#16A34A'));
                 }
             }
             
@@ -12612,7 +12613,7 @@
             
             // Shade warning if present
             if (data.pgr.shadeWarning) {
-                pgrRows.push(createKeyValueRow('⚠️ Shade Warning', data.pgr.shadeWarning, '#DC2626'));
+                pgrRows.push(createKeyValueRow('Shade Warning', data.pgr.shadeWarning, '#DC2626'));
             }
             
             sections.push(createTable(pgrRows));
@@ -12685,7 +12686,7 @@
             if (data.dmi.combinedRisk && data.pgr && data.pgr.product) {
                 var combColor = data.dmi.combinedWarningLevel === 'danger' ? '#DC2626' : 
                                data.dmi.combinedWarningLevel === 'warning' ? '#F59E0B' : '#EAB308';
-                dmiRows.push(createKeyValueRow('⚠️ PGR + DMI Risk', data.dmi.combinedWarningLevel.toUpperCase(), combColor));
+                dmiRows.push(createKeyValueRow('PGR + DMI Risk', data.dmi.combinedWarningLevel.toUpperCase(), combColor));
                 
                 if (data.dmi.combinedMessage) {
                     dmiRows.push(createKeyValueRow('Assessment', data.dmi.combinedMessage));
@@ -12701,7 +12702,7 @@
             sections.push(new Paragraph({ 
                 children: [new TextRun({ 
                     text: 'Note: This assessment is based on peer-reviewed research (Mitkowski & Chaves 2013, Penn State 2025, GreenKeeper/Kreuser). DMI standalone growth effects are minimal on most turfgrass species.', 
-                    size: 18,
+                    size: 22,
                     italics: true,
                     color: '666666'
                 })]
@@ -12780,38 +12781,38 @@
                 children: [
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
-                        width: { size: 2000, type: WidthType.DXA },
-                        children: [new Paragraph({ children: [new TextRun({ text: 'Zone', bold: true, size: 20 })] })]
+                        width: { size: 2200, type: WidthType.DXA },
+                        children: [new Paragraph({ children: [new TextRun({ text: 'Zone', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 900, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 1100, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Avg VWC', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Avg VWC', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 1200, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Range', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Range', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 800, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Trend', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Trend', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 1000, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Status', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Status', bold: true, size: 22 })] })]
                     }),
                     new TableCell({ 
                         shading: { fill: 'f3f4f6', type: ShadingType.CLEAR },
                         width: { size: 1300, type: WidthType.DXA },
-                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Irrigation', bold: true, size: 20 })] })]
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Irrigation', bold: true, size: 22 })] })]
                     })
                 ]
             }));
@@ -12888,31 +12889,31 @@
                     children: [
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ children: [new TextRun({ text: zone.name, bold: isSelected, size: 20 })] })]
+                            children: [new Paragraph({ children: [new TextRun({ text: zone.name, bold: isSelected, size: 22 })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(zone.count), size: 20 })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(zone.count), size: 22 })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgVwc !== null && avgVwc !== undefined ? avgVwc.toFixed(1) + '%' : '-', size: 20 })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgVwc !== null && avgVwc !== undefined ? avgVwc.toFixed(1) + '%' : '-', size: 22 })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rangeText, size: 20 })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rangeText, size: 22 })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: trendText, size: 20, color: trendColor })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: trendText, size: 22, color: trendColor })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusText, size: 20, color: statusColor })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: statusText, size: 22, color: statusColor })] })]
                         }),
                         new TableCell({ 
                             shading: rowShading,
-                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: irrigText, size: 20, bold: irrigText !== '-' && irrigText !== 'None', color: irrigColor })] })]
+                            children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: irrigText, size: 22, bold: irrigText !== '-' && irrigText !== 'None', color: irrigColor })] })]
                         })
                     ]
                 }));
@@ -13135,7 +13136,7 @@
                     stressRows.push(new TableRow({
                         children: [
                             new TableCell({
-                                width: { size: 2000, type: WidthType.DXA },
+                                width: { size: 2200, type: WidthType.DXA },
                                 children: [new Paragraph({ 
                                     children: [new TextRun({ text: factorName, bold: true, size: 22, color: color })] 
                                 })]
@@ -13161,7 +13162,7 @@
                     var headerRow = new TableRow({
                         children: [
                             new TableCell({
-                                width: { size: 2000, type: WidthType.DXA },
+                                width: { size: 2200, type: WidthType.DXA },
                                 shading: { fill: 'E5E7EB' },
                                 children: [new Paragraph({ 
                                     children: [new TextRun({ text: 'Stress Factor', bold: true, size: 22 })] 
@@ -13195,7 +13196,7 @@
                         shading: { fill: 'FEF2F2' },
                         border: { left: { color: 'DC2626', size: 24, style: BorderStyle.SINGLE } },
                         children: [
-                            new TextRun({ text: '⚠ Warning: ', bold: true, size: 22, color: 'DC2626' }),
+                            new TextRun({ text: 'Warning: ', bold: true, size: 22, color: 'DC2626' }),
                             new TextRun({ text: adjustedRecovery.warning, size: 22 })
                         ]
                     }));
@@ -13230,7 +13231,7 @@
                         var salEffect = '+' + Math.round((rm.salinity.factor - 1) * 100) + '% recovery time';
                         modRows.push(new TableRow({
                             children: [
-                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                new TableCell({ width: { size: 2200, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Salinity', bold: true, size: 22, color: '0891B2' })] })] }),
                                 new TableCell({ width: { size: 4500, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: rm.salinity.note || 'Elevated water EC', size: 22 })] })] }),
@@ -13244,7 +13245,7 @@
                         var shadeEffect = '+' + Math.round((rm.shade - 1) * 100) + '% recovery time';
                         modRows.push(new TableRow({
                             children: [
-                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                new TableCell({ width: { size: 2200, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Shade', bold: true, size: 22, color: '6366F1' })] })] }),
                                 new TableCell({ width: { size: 4500, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'DLI deficit reducing photosynthesis', size: 22 })] })] }),
@@ -13258,7 +13259,7 @@
                         var tempEffect = '+' + Math.round((rm.temperatureStress.factor - 1) * 100) + '% recovery time';
                         modRows.push(new TableRow({
                             children: [
-                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                new TableCell({ width: { size: 2200, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Temperature', bold: true, size: 22, color: 'DC2626' })] })] }),
                                 new TableCell({ width: { size: 4500, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'ESI ' + (rm.temperatureStress.esi || '?') + '/100', size: 22 })] })] }),
@@ -13272,7 +13273,7 @@
                         var growthEffect = '+' + Math.round((1/rm.growth - 1) * 100) + '% recovery time';
                         modRows.push(new TableRow({
                             children: [
-                                new TableCell({ width: { size: 2000, type: WidthType.DXA },
+                                new TableCell({ width: { size: 2200, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Growth Rate', bold: true, size: 22, color: '059669' })] })] }),
                                 new TableCell({ width: { size: 4500, type: WidthType.DXA },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Low growth potential (' + Math.round(rm.growth * 100) + '%)', size: 22 })] })] }),
@@ -13285,7 +13286,7 @@
                     if (modRows.length > 0) {
                         var modHeaderRow = new TableRow({
                             children: [
-                                new TableCell({ width: { size: 2000, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
+                                new TableCell({ width: { size: 2200, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Stress Factor', bold: true, size: 22 })] })] }),
                                 new TableCell({ width: { size: 4500, type: WidthType.DXA }, shading: { fill: 'E5E7EB' },
                                     children: [new Paragraph({ children: [new TextRun({ text: 'Condition', bold: true, size: 22 })] })] }),
@@ -13431,7 +13432,7 @@
                             spacing: { after: 160 },
                             children: [new TextRun({ 
                                 text: 'Reference: ' + rel.source, 
-                                size: 18, 
+                                size: 22, 
                                 color: '6B7280',
                                 italics: true
                             })]
@@ -13509,9 +13510,9 @@
                     new TableRow({
                         tableHeader: true,
                         children: [
-                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk', bold: true, color: 'FFFFFF', size: 20 })] })] }),
-                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Level', bold: true, color: 'FFFFFF', size: 20 })] })] }),
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Disease', bold: true, color: 'FFFFFF', size: 22 })] })] }),
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Risk', bold: true, color: 'FFFFFF', size: 22 })] })] }),
+                            new TableCell({ shading: { fill: '1E3A5F', type: ShadingType.CLEAR }, children: [new Paragraph({ children: [new TextRun({ text: 'Level', bold: true, color: 'FFFFFF', size: 22 })] })] }),
                         ]
                     })
                 ];
@@ -13519,9 +13520,9 @@
                     var risk = Math.round(d.adjustedRisk || d.riskScore || 0);
                     var level = risk >= 70 ? 'Severe' : risk >= 50 ? 'High' : risk >= 30 ? 'Moderate' : 'Low';
                     cdRows.push(new TableRow({ children: [
-                        new TableCell({ width: { size: 4500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.displayName || d.disease || '', size: 20 })] })] }),
-                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: risk + '%', size: 20 })] })] }),
-                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: level, size: 20 })] })] }),
+                        new TableCell({ width: { size: 4500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: d.displayName || d.disease || '', size: 22 })] })] }),
+                        new TableCell({ width: { size: 1500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: risk + '%', size: 22 })] })] }),
+                        new TableCell({ width: { size: 3000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: level, size: 22 })] })] }),
                     ]}));
                 });
                 sections.push(new Table({ columnWidths: [4500, 1500, 3000], rows: cdRows, width: { size: 9000, type: WidthType.DXA } }));
@@ -13610,7 +13611,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 40 },
                     indent: { left: 360 },
-                    children: [new TextRun({ text: '• ' + ref, size: 18, color: '6B7280' })]
+                    children: [new TextRun({ text: '• ' + ref, size: 22, color: '6B7280' })]
                 }));
             });
         });
@@ -13640,7 +13641,7 @@
             spacing: { before: 400 },
             children: [new TextRun({ 
                 text: 'Generated by Gilba Agronomic Intelligence Hub • ' + new Date().toLocaleString(), 
-                size: 18, 
+                size: 22, 
                 color: '9CA3AF',
                 italics: true
             })] 
@@ -13995,16 +13996,16 @@
             var doc = new Document({
                 features: { updateFields: true },
                 styles: {
-                default: { document: { run: { font: 'Calibri', size: 22 } } },
+                default: { document: { run: { font: 'Times New Roman', size: 22 } } },
                 paragraphStyles: [
                     { id: 'Title', name: 'Title', basedOn: 'Normal',
-                      run: { size: 48, bold: true, color: '1F2937', font: 'Calibri' },
+                      run: { size: 48, bold: true, color: '1F2937', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 0, after: 60 }, alignment: AlignmentType.CENTER } },
                     { id: 'Heading1', name: 'Heading 1', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 28, bold: true, color: '1F2937', font: 'Calibri' },
+                      run: { size: 28, bold: true, color: '1F2937', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 300, after: 120 }, outlineLevel: 0 } },
                     { id: 'Heading2', name: 'Heading 2', basedOn: 'Normal', next: 'Normal', quickFormat: true,
-                      run: { size: 24, bold: true, color: '374151', font: 'Calibri' },
+                      run: { size: 24, bold: true, color: '374151', font: 'Times New Roman' },
                       paragraph: { spacing: { before: 200, after: 100 }, outlineLevel: 1 } }
                 ]
             },
@@ -14021,17 +14022,17 @@
                 headers: {
                     default: new Header({ children: [new Paragraph({
                         alignment: AlignmentType.RIGHT,
-                        children: [new TextRun({ text: 'GAIP Analysis Report', size: 18, color: '9CA3AF' })]
+                        children: [new TextRun({ text: 'GAIP Analysis Report', size: 22, color: '9CA3AF' })]
                     })] })
                 },
                 footers: {
                     default: new Footer({ children: [new Paragraph({ 
                         alignment: AlignmentType.CENTER,
                         children: [
-                            new TextRun({ text: 'Page ', size: 18, color: '9CA3AF' }), 
-                            new TextRun({ children: [PageNumber.CURRENT], size: 18, color: '9CA3AF' }), 
-                            new TextRun({ text: ' of ', size: 18, color: '9CA3AF' }), 
-                            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 18, color: '9CA3AF' })
+                            new TextRun({ text: 'Page ', size: 22, color: '9CA3AF' }), 
+                            new TextRun({ children: [PageNumber.CURRENT], size: 22, color: '9CA3AF' }), 
+                            new TextRun({ text: ' of ', size: 22, color: '9CA3AF' }), 
+                            new TextRun({ children: [PageNumber.TOTAL_PAGES], size: 22, color: '9CA3AF' })
                         ]
                     })] })
                 },
