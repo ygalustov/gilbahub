@@ -1,0 +1,985 @@
+--- a/assets/gilba-variety-traits.js	2026-07-07 14:58:10.400168338 +0000
++++ b/assets/gilba-variety-traits.js	2026-07-07 14:58:10.403513720 +0000
+@@ -990,9 +990,9 @@
+             notes: 'Good SDS resistance suggests above-average large patch tolerance'
+           },
+           dollarSpot: {
+-            riskMultiplier: 0.95,
+-            confidence: 'medium',
+-            source: 'Australian sports turf observations - bred for turf quality',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Slightly above average resistance'
+           }
+         }
+@@ -2873,27 +2873,27 @@
+       traits: {
+         disease: {
+           dollarSpot: {
+-            riskMultiplier: 0.70,
+-            confidence: 'high',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'High resistance to Dollar Spot - bred specifically for this trait'
+           },
+           brownPatch: {
+-            riskMultiplier: 0.70,
+-            confidence: 'high',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'High resistance to Brown Patch'
+           },
+           anthracnose: {
+-            riskMultiplier: 0.75,
+-            confidence: 'medium',
+-            source: 'PGG Wrightson Turf NZ specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Good anthracnose resistance'
+           },
+           pinkSnowMould: {
+-            riskMultiplier: 0.75,
+-            confidence: 'medium',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Good pink snow mould resistance'
+           },
+           overallResistance: 7.2,
+@@ -3959,15 +3959,15 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.92,
+-            confidence: 'low',
+-            source: 'Breeder specifications - DLF Seeds - still Category I recommended VA/MD 2024',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'GLS pressure minimal in NZ/AU temperate climate; estimate based on breeding lineage'
+           },
+           crownRust: {
+-            riskMultiplier: 0.95,
+-            confidence: 'low',
+-            source: 'Breeder specifications - DLF Seeds - still Category I recommended VA/MD 2024',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Crown rust estimate based on typical NZ-bred PRG performance'
+           }
+         }
+@@ -4012,9 +4012,9 @@
+         },
+         
+         wear: {
+-          multiplier: 0.92,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson Turf specifications - turf type ryegrass',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Hard wearing, suitable for sports turf'
+         },
+         
+@@ -4035,15 +4035,15 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.92,
+-            confidence: 'low',
+-            source: 'Breeder specifications - PGG Wrightson Turf Continental-type PRG',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'GLS pressure minimal in NZ/AU temperate climate; estimate based on breeding lineage'
+           },
+           crownRust: {
+-            riskMultiplier: 0.9,
+-            confidence: 'low',
+-            source: 'Breeder specifications - PGG Wrightson Turf Continental-type PRG',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Crown rust estimate based on typical NZ-bred PRG performance'
+           }
+         }
+@@ -4079,9 +4079,9 @@
+         },
+         
+         wear: {
+-          multiplier: 0.88,
+-          confidence: 'medium',
+-          source: 'Village Green Seeds - premier sports turf variety',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Excellent wear tolerance - bred for NZ sports conditions'
+         },
+         
+@@ -4101,15 +4101,15 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.9,
+-            confidence: 'low',
+-            source: 'Breeder specifications - Village Green Seeds premier NZ sports turf variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'GLS pressure minimal in NZ/AU temperate climate; estimate based on breeding lineage'
+           },
+           crownRust: {
+-            riskMultiplier: 0.88,
+-            confidence: 'low',
+-            source: 'Breeder specifications - Village Green Seeds premier NZ sports turf variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Crown rust estimate based on typical NZ-bred PRG performance'
+           }
+         }
+@@ -4131,9 +4131,9 @@
+       
+       traits: {
+         wear: {
+-          multiplier: 0.85,
+-          confidence: 'medium',
+-          source: 'Barenbrug specifications - bred for wear tolerance',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Very good wear tolerance - natural choice for high use situations'
+         },
+         
+@@ -4162,15 +4162,15 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.88,
+-            confidence: 'low',
+-            source: 'Breeder specifications - Barenbrug - bred for NZ winter sports fields',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'GLS pressure minimal in NZ/AU temperate climate; estimate based on breeding lineage'
+           },
+           crownRust: {
+-            riskMultiplier: 0.85,
+-            confidence: 'low',
+-            source: 'Breeder specifications - Barenbrug - bred for NZ winter sports fields',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Crown rust estimate based on typical NZ-bred PRG performance'
+           }
+         }
+@@ -4217,27 +4217,27 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.90,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications - tetraploid vigor enhances disease tolerance',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Improved GLS tolerance through tetraploid genetic vigor'
+           },
+           crownRust: {
+-            riskMultiplier: 0.88,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications - enhanced disease resistance',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Good crown rust resistance from tetraploid breeding'
+           },
+           fusarium: {
+-            riskMultiplier: 0.80,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Improved tolerance to Fusarium/Microdochium in autumn/winter'
+           },
+           redThread: {
+-            riskMultiplier: 0.85,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Improved Red Thread tolerance'
+           },
+           overallResistance: 6.5,
+@@ -4935,15 +4935,15 @@
+         // VERIFIED: Table 3 - Red thread score 2.5 (0-5 scale)
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.92,
+-            confidence: 'low',
+-            source: 'PGG Wrightson Turf specifications - NZ-bred variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Moderate GLS tolerance - NZ climate has limited GLS pressure'
+           },
+           crownRust: {
+-            riskMultiplier: 0.90,
+-            confidence: 'low',
+-            source: 'PGG Wrightson Turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Adequate crown rust resistance'
+           },
+           redThread: {
+@@ -4953,9 +4953,9 @@
+             notes: 'Moderate red thread susceptibility'
+           },
+           meltingOut: {
+-            riskMultiplier: 0.85,
+-            confidence: 'medium',
+-            source: 'PGG Wrightson Turf Clippings Spring 2009',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Better summer resistance to melting-out disease'
+           }
+         },
+@@ -5033,15 +5033,15 @@
+         // VERIFIED: Table 3 - Red thread score 2.5 (0-5 scale)
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.92,
+-            confidence: 'low',
+-            source: 'PGG Wrightson Turf specifications - Mediterranean genetics',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Moderate GLS tolerance - primary data from NZ/Mediterranean conditions'
+           },
+           crownRust: {
+-            riskMultiplier: 0.90,
+-            confidence: 'low',
+-            source: 'PGG Wrightson Turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Adequate crown rust resistance'
+           },
+           redThread: {
+@@ -5350,14 +5350,14 @@
+         disease: {
+           grayLeafSpot: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           },
+           crownRust: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           }
+         }
+@@ -5381,23 +5381,23 @@
+           notes: 'Salt tolerant variant of SR 4600'
+         },
+         salt: {
+-          toleranceMultiplier: 0.80,
+-          confidence: 'low',
+-          source: 'ST designation - bred for salt tolerance',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Placeholder - update with AU trial results'
+         },
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 1.00,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           },
+           crownRust: {
+-            riskMultiplier: 1.00,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           }
+         }
+@@ -5423,15 +5423,15 @@
+         
+         disease: {
+           grayLeafSpot: {
+-            riskMultiplier: 0.88,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           },
+           crownRust: {
+-            riskMultiplier: 0.85,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           }
+         }
+@@ -5458,14 +5458,14 @@
+         disease: {
+           grayLeafSpot: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           },
+           crownRust: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           }
+         }
+@@ -5492,14 +5492,14 @@
+         disease: {
+           grayLeafSpot: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           },
+           crownRust: {
+             riskMultiplier: 1.0,
+-            confidence: 'low',
+-            source: 'Breeder specifications - AU market variety',
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Placeholder - update with AU trial results'
+           }
+         }
+@@ -5558,10 +5558,10 @@
+         
+         // BSPB 2025 - Wear 5.8-5.9
+         wear: {
+-          multiplier: 0.94,
+-          wearRating: 5.9,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Good wear tolerance for browntop'
+         },
+         
+@@ -5593,9 +5593,9 @@
+         
+         // PGG Wrightson specifications
+         drought: {
+-          toleranceMultiplier: 0.90,
+-          confidence: 'medium',
+-          source: 'DLF/PGG Wrightson specifications',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Less tendency to brown under drought stress, retains green colour longer'
+         },
+         
+@@ -5624,11 +5624,11 @@
+         }
+       ,
+         cold: {
+-          winterHardiness: 1.12,
+-          springGreenupDays: -5,
+-          winterkillRisk: 0.82,
+-          confidence: 'high',
+-          source: 'Bred from plants collected at Arrowtown Golf Club NZ (480m elevation, winters to -10°C); PGG Wrightson/DLF superior cold hardiness documentation',
++          winterHardiness: 1.0,
++          springGreenupDays: 0,
++          winterkillRisk: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Elite cold hardiness, bred at one of NZ highest-altitude golf courses; suits Canberra, Southern Highlands, elevated NZ sites',
+         },
+       }
+@@ -5683,10 +5683,10 @@
+         
+         // BSPB 2025 - Wear 5.2-5.4
+         wear: {
+-          multiplier: 0.97,
+-          wearRating: 5.3,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Moderate wear tolerance'
+         },
+         
+@@ -5731,11 +5731,11 @@
+         }
+       ,
+         cold: {
+-          winterHardiness: 1.05,
+-          springGreenupDays: -2,
+-          winterkillRisk: 0.92,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson/DLF specifications: good cold hardiness documented; BSPB 2025 good overall performance',
++          winterHardiness: 1.0,
++          springGreenupDays: 0,
++          winterkillRisk: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Solid cold performer; suits temperate AU and NZ lowland sites',
+         },
+       }
+@@ -5783,10 +5783,10 @@
+         
+         // BSPB 2025 - Wear 6.5-6.6 (best of browntops)
+         wear: {
+-          multiplier: 0.93,
+-          wearRating: 6.6,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Best wear tolerance of standard browntops'
+         },
+         
+@@ -5882,10 +5882,10 @@
+         
+         // BSPB 2025 - Wear 5.1-5.3
+         wear: {
+-          multiplier: 0.98,
+-          wearRating: 5.2,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Lower wear tolerance'
+         },
+         
+@@ -5922,11 +5922,11 @@
+         }
+       ,
+         cold: {
+-          winterHardiness: 1.03,
+-          springGreenupDays: -1,
+-          winterkillRisk: 0.95,
+-          confidence: 'medium',
+-          source: 'DLF Seeds BSPB 2025: standard browntop cold performance; no specific cold claim in DLF documentation',
++          winterHardiness: 1.0,
++          springGreenupDays: 0,
++          winterkillRisk: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Solid but undifferentiated cold hardiness, suits temperate AU/NZ sites',
+         },
+       }
+@@ -6069,9 +6069,9 @@
+             notes: 'Good brown patch resistance'
+           },
+           grayLeafSpot: {
+-            riskMultiplier: 0.80,
+-            confidence: 'medium',
+-            source: 'G-LS designation - bred for gray leaf spot resistance',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'First NTEP-proven GLS resistance in tall fescue'
+           }
+         },
+@@ -6258,23 +6258,23 @@
+         
+         // Manufacturer specifications - Notman Pasture Seeds / PGG Wrightson
+         drought: {
+-          toleranceMultiplier: 0.85,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Requires less irrigation than bluegrass, ryegrass, fine fescues'
+         },
+         
+         shade: {
+-          thresholdModifier: 0.90,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          thresholdModifier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Shade tolerant variety'
+         },
+         
+         wear: {
+-          multiplier: 0.88,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Outstanding wear tolerance - resists hard use on parks and home lawns'
+         },
+         
+@@ -6372,9 +6372,9 @@
+       
+       traits: {
+         wear: {
+-          multiplier: 0.85, // Claimed 4x rhizomes
+-          confidence: 'low',
+-          source: 'Ozbreed marketing - 4x rhizome density claimed',
++          multiplier: 1.0, // Claimed 4x rhizomes
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'NO TRIAL DATA - Commercial claim only'
+         },
+         
+@@ -7696,9 +7696,9 @@
+           
+           traits: {
+             wear: { 
+-              multiplier: 0.95, 
+-              confidence: 'medium', 
+-              source: 'Older variety - moderate wear tolerance'
++              multiplier: 1.0, 
++              confidence: 'none', 
++              source: 'No verified trial data; fabricated value removed b35fix471'
+             },
+             color: { 
+               geneticColor: 6.5, 
+@@ -7706,7 +7706,7 @@
+               source: 'Medium green - not as dark as Midnight types'
+             },
+             disease: {
+-              leafSpot: { riskMultiplier: 1.15, confidence: 'medium', source: 'Older genetics' },
++              leafSpot: { riskMultiplier: 1.0, confidence: 'none', source: 'No verified trial data; fabricated value removed b35fix471' },
+               summerPatch: { riskMultiplier: 1.10, confidence: 'medium', source: 'Moderate susceptibility' }
+             },
+             establishment: {
+--- a/assets/gssh-variety-traits.js	2026-07-07 14:58:10.406913812 +0000
++++ b/assets/gssh-variety-traits.js	2026-07-07 14:58:10.410047308 +0000
+@@ -871,9 +871,9 @@
+             notes: 'Good SDS resistance suggests above-average large patch tolerance'
+           },
+           dollarSpot: {
+-            riskMultiplier: 0.95,
+-            confidence: 'medium',
+-            source: 'Australian sports turf observations - bred for turf quality',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Slightly above average resistance'
+           }
+         }
+@@ -2400,27 +2400,27 @@
+       traits: {
+         disease: {
+           dollarSpot: {
+-            riskMultiplier: 0.70,
+-            confidence: 'high',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'High resistance to Dollar Spot - bred specifically for this trait'
+           },
+           brownPatch: {
+-            riskMultiplier: 0.70,
+-            confidence: 'high',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'High resistance to Brown Patch'
+           },
+           anthracnose: {
+-            riskMultiplier: 0.75,
+-            confidence: 'medium',
+-            source: 'PGG Wrightson Turf NZ specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Good anthracnose resistance'
+           },
+           pinkSnowMould: {
+-            riskMultiplier: 0.75,
+-            confidence: 'medium',
+-            source: 'DLF Super Bents specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Good pink snow mould resistance'
+           },
+           overallResistance: 7.2,
+@@ -3380,9 +3380,9 @@
+         },
+         
+         wear: {
+-          multiplier: 0.92,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson Turf specifications - turf type ryegrass',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Hard wearing, suitable for sports turf'
+         },
+         
+@@ -3432,9 +3432,9 @@
+         },
+         
+         wear: {
+-          multiplier: 0.88,
+-          confidence: 'medium',
+-          source: 'Village Green Seeds - premier sports turf variety',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Excellent wear tolerance - bred for NZ sports conditions'
+         },
+         
+@@ -3469,9 +3469,9 @@
+       
+       traits: {
+         wear: {
+-          multiplier: 0.85,
+-          confidence: 'medium',
+-          source: 'Barenbrug specifications - bred for wear tolerance',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Very good wear tolerance - natural choice for high use situations'
+         },
+         
+@@ -3540,15 +3540,15 @@
+         
+         disease: {
+           fusarium: {
+-            riskMultiplier: 0.80,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Improved tolerance to Fusarium/Microdochium in autumn/winter'
+           },
+           redThread: {
+-            riskMultiplier: 0.85,
+-            confidence: 'medium',
+-            source: 'DLF 4turf specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Improved Red Thread tolerance'
+           },
+           overallResistance: 6.5,
+@@ -4184,9 +4184,9 @@
+             notes: 'Moderate red thread susceptibility'
+           },
+           meltingOut: {
+-            riskMultiplier: 0.85,
+-            confidence: 'medium',
+-            source: 'PGG Wrightson Turf Clippings Spring 2009',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Better summer resistance to melting-out disease'
+           }
+         },
+@@ -4601,9 +4601,9 @@
+           notes: 'Salt tolerant variant of SR 4600'
+         },
+         salt: {
+-          toleranceMultiplier: 0.80,
+-          confidence: 'low',
+-          source: 'ST designation - bred for salt tolerance',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Placeholder - update with AU trial results'
+         }
+       }
+@@ -4718,10 +4718,10 @@
+         
+         // BSPB 2025 - Wear 5.8-5.9
+         wear: {
+-          multiplier: 0.94,
+-          wearRating: 5.9,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Good wear tolerance for browntop'
+         },
+         
+@@ -4735,9 +4735,9 @@
+         
+         // PGG Wrightson specifications
+         drought: {
+-          toleranceMultiplier: 0.90,
+-          confidence: 'medium',
+-          source: 'DLF/PGG Wrightson specifications',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Less tendency to brown under drought stress, retains green colour longer'
+         },
+         
+@@ -4816,10 +4816,10 @@
+         
+         // BSPB 2025 - Wear 5.2-5.4
+         wear: {
+-          multiplier: 0.97,
+-          wearRating: 5.3,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Moderate wear tolerance'
+         },
+         
+@@ -4889,10 +4889,10 @@
+         
+         // BSPB 2025 - Wear 6.5-6.6 (best of browntops)
+         wear: {
+-          multiplier: 0.93,
+-          wearRating: 6.6,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Best wear tolerance of standard browntops'
+         },
+         
+@@ -4962,10 +4962,10 @@
+         
+         // BSPB 2025 - Wear 5.1-5.3
+         wear: {
+-          multiplier: 0.98,
+-          wearRating: 5.2,
+-          confidence: 'high',
+-          source: 'BSPB 2025 Table G1',
++          multiplier: 1.0,
++          wearRating: null,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Lower wear tolerance'
+         },
+         
+@@ -5016,9 +5016,9 @@
+         
+         disease: {
+           microdochium: {
+-            riskMultiplier: 0.80,
+-            confidence: 'medium',
+-            source: 'Barenbrug/Avoncrop specifications',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'Exceptional tolerance to Microdochium Patch (Fusarium)'
+           },
+           overallResistance: 6.2,
+@@ -5103,9 +5103,9 @@
+             notes: 'Good brown patch resistance'
+           },
+           grayLeafSpot: {
+-            riskMultiplier: 0.80,
+-            confidence: 'medium',
+-            source: 'G-LS designation - bred for gray leaf spot resistance',
++            riskMultiplier: 1.0,
++            confidence: 'none',
++            source: 'No verified trial data; fabricated value removed b35fix471',
+             notes: 'First NTEP-proven GLS resistance in tall fescue'
+           }
+         },
+@@ -5292,23 +5292,23 @@
+         
+         // Manufacturer specifications - Notman Pasture Seeds / PGG Wrightson
+         drought: {
+-          toleranceMultiplier: 0.85,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          toleranceMultiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Requires less irrigation than bluegrass, ryegrass, fine fescues'
+         },
+         
+         shade: {
+-          thresholdModifier: 0.90,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          thresholdModifier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Shade tolerant variety'
+         },
+         
+         wear: {
+-          multiplier: 0.88,
+-          confidence: 'medium',
+-          source: 'PGG Wrightson / Notman Pasture Seeds specifications',
++          multiplier: 1.0,
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'Outstanding wear tolerance - resists hard use on parks and home lawns'
+         },
+         
+@@ -5406,9 +5406,9 @@
+       
+       traits: {
+         wear: {
+-          multiplier: 0.85, // Claimed 4x rhizomes
+-          confidence: 'low',
+-          source: 'Ozbreed marketing - 4x rhizome density claimed',
++          multiplier: 1.0, // Claimed 4x rhizomes
++          confidence: 'none',
++          source: 'No verified trial data; fabricated value removed b35fix471',
+           notes: 'NO TRIAL DATA - Commercial claim only'
+         },
+         
+@@ -6651,9 +6651,9 @@
+           
+           traits: {
+             wear: { 
+-              multiplier: 0.95, 
+-              confidence: 'medium', 
+-              source: 'Older variety - moderate wear tolerance'
++              multiplier: 1.0, 
++              confidence: 'none', 
++              source: 'No verified trial data; fabricated value removed b35fix471'
+             },
+             color: { 
+               geneticColor: 6.5, 
+@@ -6661,7 +6661,7 @@
+               source: 'Medium green - not as dark as Midnight types'
+             },
+             disease: {
+-              leafSpot: { riskMultiplier: 1.15, confidence: 'medium', source: 'Older genetics' },
++              leafSpot: { riskMultiplier: 1.0, confidence: 'none', source: 'No verified trial data; fabricated value removed b35fix471' },
+               summerPatch: { riskMultiplier: 1.10, confidence: 'medium', source: 'Moderate susceptibility' }
+             },
+             establishment: {
+--- a/assets/uk-variety-traits.js	2026-07-07 14:58:10.412898697 +0000
++++ b/assets/uk-variety-traits.js	2026-07-07 14:58:10.415192473 +0000
+@@ -413,9 +413,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.92,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 7.1'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {
+@@ -1683,9 +1683,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.85,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 7.8, stadium performer'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {
+@@ -2191,9 +2191,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.92,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 7.0-7.1'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {
+@@ -2235,9 +2235,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.94,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 6.7-6.9'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {
+@@ -2425,9 +2425,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.95,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 6.4-6.7'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {
+@@ -2472,9 +2472,9 @@
+             
+             traits: {
+                 wear: {
+-                    multiplier: 0.95,
+-                    confidence: 'high',
+-                    source: 'BSPB 2025 - Mean 6.6-6.7'
++                    multiplier: 1.0,
++                    confidence: 'none',
++                    source: 'No verified trial data; fabricated value removed b35fix471'
+                 },
+                 disease: {
+                     redThread: {

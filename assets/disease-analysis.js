@@ -1088,7 +1088,9 @@
         var speciesKeyMap = {
             'Creeping Bentgrass (Greens)': 'bentgrass', 'Creeping Bentgrass (Fairway)': 'bentgrass',
             'Creeping Bentgrass': 'bentgrass', 'Colonial Bentgrass': 'bentgrass',
-            'Browntop Bent': 'browntopBent', 'Perennial Ryegrass': 'perennialRyegrass',
+            'Browntop Bent': 'browntopBent', 'Browntop Bent (Greens)': 'browntopBent',
+            'Browntop Bent (Fairways)': 'browntopBent', 'Browntop Bent / Colonial': 'browntopBent',
+            'Perennial Ryegrass': 'perennialRyegrass',
             'Kentucky Bluegrass': 'kentuckyBluegrass', 'Tall Fescue': 'tallFescue',
             'Fine Fescue': 'fineFescue', 'Chewings Fescue': 'chewingsFescue',
             'Poa annua': null, 'Couch': 'couch', 'Bermuda': 'couch', 'Kikuyu': 'kikuyu',

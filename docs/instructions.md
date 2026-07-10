@@ -363,7 +363,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-176** Enhance word export UI: Updated progress overlay styling for improved aesthetics and usability, including new layout elements and enhanced color schemes. Adjusted sample label handling in progress updates for clarity.
 **GH-177** Update word export styles: Increased font sizes for various text elements in word-export-combined.js and word-export.js to enhance readability. Adjusted related text properties for consistency across the document. Updated instructions.md with a date entry.
 **GH-178** Enhance surface type determination: Added handling for turf subCategory in shade-engine.js and shade-engine-pure.js to improve surface type assignment logic for mowing height guidance.
-
+**GH-179** Update variety traits data: Standardized risk multipliers and confidence levels across multiple variety traits scripts, replacing fabricated values with a consistent 'none' confidence level and a risk multiplier of 1.0. Adjusted species key mapping in disease-analysis.js to include additional Browntop Bent variations for improved accuracy.
 
 
 
@@ -397,19 +397,19 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 10/07/26
 
-35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t. GH-178.
-59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
++35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t. GH-178.
++59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green? GH-178.
 
 
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177.  
 
 
-81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. 
-Could you please just explain what you’d like to change, and I’ll do it? It’s much easier and less time-consuming than comparing the whole project.
+81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. - GH-179 - applied it, could you please check if it's what you expected? 
 
 
-+84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. 
+
+84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. 
 
 
 
