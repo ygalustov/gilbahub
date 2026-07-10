@@ -359,7 +359,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-173** Enhance disease analysis scripts and integration: Added multiple variety traits scripts to ensure proper loading order for disease engine functionality, and updated the disease-forecast.js to remove unvalidated brown patch risk calculations, replacing them with a validated model approach for improved accuracy in risk assessment.
 **GH-174** Enhance disease analysis and UI: Added handling for suppressed environmental drivers in disease-analysis.js and disease-ui.js, displaying relevant notes. Updated disease-engine-pure.js to adjust recommendations based on pH suppression status. Introduced new CSS class for suppressed driver notes in disease-ui.css.
 **GH-174** Update table widths and page orientation in word export files for improved layout and consistency.
-
+**GH-175** Tests
 
 
 
@@ -394,6 +394,10 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
 59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
+
+
+
+79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176. 
 
 
 81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. 

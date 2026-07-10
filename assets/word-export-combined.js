@@ -322,51 +322,105 @@
     function createProgressUI(totalSamples) {
         var overlay = document.createElement('div');
         overlay.id = 'combined-export-overlay';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:10000;display:flex;align-items:center;justify-content:center;padding:20px;';
 
         var box = document.createElement('div');
-        box.style.cssText = 'background:var(--gaip-surface);border-radius:12px;padding:32px 48px;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Calibri,Arial,sans-serif;min-width:400px;text-align:center;';
+        box.style.cssText = [
+            'background:var(--gaip-bg-raised,#ffffff)',
+            'color:var(--gaip-text,#1a2b23)',
+            'border:1px solid var(--gaip-border,#d0d7d4)',
+            'border-radius:12px',
+            'box-shadow:0 20px 60px rgba(0,0,0,0.4)',
+            'font-family:var(--gaip-font,\'Barlow\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif)',
+            'font-size:14px',
+            'line-height:1.4',
+            'min-width:400px',
+            'max-width:520px',
+            'width:100%'
+        ].join(';');
 
-        box.innerHTML =
-            '<h3 style="margin:0 0 8px;color:#059669;">📋 Combined Report Export</h3>' +
-            '<p id="combined-export-status" style="margin:4px 0 16px;color:var(--gaip-text-secondary);font-size:14px;">Preparing...</p>' +
-            '<div style="background:var(--gaip-border);border-radius:6px;height:8px;overflow:hidden;margin-bottom:12px;">' +
-            '  <div id="combined-export-bar" style="background:#059669;height:100%;width:0%;transition:width 0.3s;border-radius:6px;"></div>' +
-            '</div>' +
-            '<p id="combined-export-count" style="margin:0;color:var(--gaip-text-muted);font-size:13px;">0 / ' + totalSamples + ' samples</p>' +
-            '<button id="combined-export-cancel" style="margin-top:16px;padding:6px 20px;border:1px solid var(--gaip-border);background:var(--gaip-surface);border-radius:6px;cursor:pointer;color:var(--gaip-text-secondary);font-size:13px;">Cancel</button>';
+        var head = document.createElement('div');
+        head.style.cssText = 'padding:16px 24px;border-bottom:1px solid var(--gaip-border,#d0d7d4);';
 
+        var title = document.createElement('h3');
+        title.style.cssText = 'margin:0;font-family:var(--gaip-font-display,\'Fraunces\',Georgia,serif);font-size:18px;font-weight:600;color:var(--gaip-text,#1a2b23);';
+        title.textContent = 'Combined Report Export';
+        head.appendChild(title);
+
+        var body = document.createElement('div');
+        body.style.cssText = 'padding:20px 24px 24px;';
+
+        var statusEl = document.createElement('p');
+        statusEl.id = 'combined-export-status';
+        statusEl.style.cssText = 'margin:0 0 16px;color:var(--gaip-text-secondary,#5a6b65);font-size:14px;';
+        statusEl.textContent = 'Preparing...';
+
+        var barTrack = document.createElement('div');
+        barTrack.style.cssText = 'background:var(--gaip-border,#d0d7d4);border-radius:4px;height:6px;overflow:hidden;margin-bottom:12px;';
+
+        var barFill = document.createElement('div');
+        barFill.id = 'combined-export-bar';
+        barFill.style.cssText = 'background:var(--gaip-primary,#059669);height:100%;width:0%;transition:width 0.3s ease;border-radius:4px;';
+        barTrack.appendChild(barFill);
+
+        var countEl = document.createElement('p');
+        countEl.id = 'combined-export-count';
+        countEl.style.cssText = 'margin:0 0 20px;color:var(--gaip-text-muted,#8a9e97);font-size:13px;';
+        countEl.textContent = '0 / ' + totalSamples + ' samples';
+
+        var cancelBtn = document.createElement('button');
+        cancelBtn.id = 'combined-export-cancel';
+        cancelBtn.style.cssText = [
+            'padding:7px 18px',
+            'border:1px solid var(--gaip-border,#d0d7d4)',
+            'background:transparent',
+            'border-radius:6px',
+            'cursor:pointer',
+            'color:var(--gaip-text-secondary,#5a6b65)',
+            'font-size:13px',
+            'font-family:var(--gaip-font,\'Barlow\',-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif)',
+            'line-height:1.4'
+        ].join(';');
+        cancelBtn.textContent = 'Cancel';
+
+        body.appendChild(statusEl);
+        body.appendChild(barTrack);
+        body.appendChild(countEl);
+        body.appendChild(cancelBtn);
+
+        box.appendChild(head);
+        box.appendChild(body);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
 
         var cancelled = false;
-        document.getElementById('combined-export-cancel').addEventListener('click', function() {
+        cancelBtn.addEventListener('click', function() {
             cancelled = true;
         });
 
         return {
-            update: function(current, siteLabel, sampleId) {
+            update: function(current, siteLabel, sampleLabel) {
                 var pct = Math.round((current / totalSamples) * 100);
                 var bar = document.getElementById('combined-export-bar');
-                var status = document.getElementById('combined-export-status');
-                var count = document.getElementById('combined-export-count');
+                var st = document.getElementById('combined-export-status');
+                var cnt = document.getElementById('combined-export-count');
                 if (bar) bar.style.width = pct + '%';
-                if (status) status.textContent = 'Analysing: ' + siteLabel + ', ' + sampleId;
-                if (count) count.textContent = current + ' / ' + totalSamples + ' samples';
+                if (st) st.textContent = siteLabel + ' — ' + sampleLabel;
+                if (cnt) cnt.textContent = current + ' / ' + totalSamples + ' samples';
             },
             finish: function(msg) {
-                var status = document.getElementById('combined-export-status');
+                var st = document.getElementById('combined-export-status');
                 var bar = document.getElementById('combined-export-bar');
                 if (bar) bar.style.width = '100%';
-                if (status) status.textContent = msg || 'Complete!';
+                if (st) st.textContent = msg || 'Export complete';
                 setTimeout(function() {
                     var el = document.getElementById('combined-export-overlay');
                     if (el) el.remove();
                 }, 1500);
             },
             error: function(msg) {
-                var status = document.getElementById('combined-export-status');
-                if (status) { status.textContent = msg; status.style.color = '#DC2626'; }
+                var st = document.getElementById('combined-export-status');
+                if (st) { st.textContent = msg; st.style.color = '#DC2626'; }
                 setTimeout(function() {
                     var el = document.getElementById('combined-export-overlay');
                     if (el) el.remove();
@@ -458,7 +512,7 @@
                 }
 
                 var entry = samples[i];
-                progress.update(i + 1, entry.siteLabel, entry.sampleId);
+                progress.update(i + 1, entry.siteLabel, entry.sampleLabel || entry.sampleId);
 
                 // Switch to the sample's site
                 sm.setActiveSite(entry.siteId);
@@ -1330,32 +1384,84 @@
         var HeadingLevel = global.docx.HeadingLevel;
         var ImageRun = global.docx.ImageRun;
         var PageOrientation = global.docx.PageOrientation;
+        var Tab = global.docx.Tab;
 
         var we = global.GAIP_WordExport;
 
         // Build sections array: one set of content per report, with page breaks between
         var allChildren = [];
 
-        // Cover page
-        allChildren.push(new Paragraph({ spacing: { before: 2400 }, children: [] }));
-
-        // Logo (if uploaded) — same logic as word-export.js
+        // ── COVER PAGE ──────────────────────────────────────────────────────────
         var combinedLogo = typeof global.GAIP_getReportLogo === 'function' ? global.GAIP_getReportLogo() : null;
-        if (combinedLogo && combinedLogo.base64) {
+        var hasLogo = combinedLogo && combinedLogo.base64;
+        var coverNoBorder = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
+        var coverNoBorders = { top: coverNoBorder, bottom: coverNoBorder, left: coverNoBorder, right: coverNoBorder };
+
+        // Compute site groups
+        var siteGroups = {};
+        reports.forEach(function(r) {
+            if (!siteGroups[r.siteLabel]) siteGroups[r.siteLabel] = [];
+            siteGroups[r.siteLabel].push(r.sampleLabel || r.sampleId);
+        });
+        var siteKeys = Object.keys(siteGroups);
+        var siteCount = siteKeys.length;
+
+        // ── GREEN HEADER BAND ────────────────────────────────────────────────
+        allChildren.push(new Table({
+            width: { size: 9746, type: WidthType.DXA },
+            columnWidths: [9746],
+            rows: [new TableRow({
+                children: [new TableCell({
+                    shading: { type: ShadingType.CLEAR, fill: '059669' },
+                    verticalAlign: VerticalAlign.CENTER,
+                    margins: { top: 720, bottom: 720, left: 720, right: 720 },
+                    borders: coverNoBorders,
+                    children: [
+                        new Paragraph({
+                            alignment: AlignmentType.LEFT,
+                            spacing: { before: 0, after: 120 },
+                            children: [new TextRun({ text: 'Gilba Agronomic Intelligence Hub', bold: true, size: 52, color: 'FFFFFF' })]
+                        }),
+                        new Paragraph({
+                            alignment: AlignmentType.LEFT,
+                            spacing: { before: 0, after: 0 },
+                            children: [new TextRun({ text: 'Combined Analysis Report', size: 52, color: 'D1FAE5' })]
+                        })
+                    ]
+                })]
+            })]
+        }));
+
+        // ── BODY SECTION: single borderless table for reliable centering ────────
+        // Using table cells because cell alignment & margins are honored by Pages
+        // and Word alike, unlike standalone paragraph alignment which Pages ignores.
+        var primarySiteName = siteCount === 1 ? siteKeys[0] : 'Multi-Site Report';
+
+        // ── BODY: standalone paragraphs — alignment:CENTER works reliably here
+        //    (spacing.before works since these follow the green band Table, not first in doc)
+
+        // Spacer after green band
+        allChildren.push(new Paragraph({
+            spacing: { before: 900, after: 0 },
+            children: [new TextRun({ text: '' })]
+        }));
+
+        // Logo
+        if (hasLogo) {
             try {
                 var clBase64 = combinedLogo.base64.split(',')[1] || combinedLogo.base64;
-                var clMaxW = 180, clMaxH = 80;
+                var clMaxW = 120, clMaxH = 120;
                 var clScale = Math.min(clMaxW / combinedLogo.width, clMaxH / combinedLogo.height, 1);
                 var clW = Math.round(combinedLogo.width * clScale);
                 var clH = Math.round(combinedLogo.height * clScale);
                 allChildren.push(new Paragraph({
                     alignment: AlignmentType.CENTER,
-                    spacing: { after: 120 },
+                    spacing: { before: 0, after: 160 },
                     children: [new ImageRun({
                         type: combinedLogo.type.includes('png') ? 'png' : 'jpg',
                         data: Uint8Array.from(atob(clBase64), function(c) { return c.charCodeAt(0); }),
                         transformation: { width: clW, height: clH },
-                        altText: { title: 'Organisation Logo', description: 'Custom logo for report header', name: 'logo_combined_cover' }
+                        altText: { title: 'Organisation Logo', name: 'logo_combined_cover' }
                     })]
                 }));
             } catch (e) {
@@ -1363,47 +1469,62 @@
             }
         }
 
+        // Site name
         allChildren.push(new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { after: 120 },
-            children: [new TextRun({ text: 'Gilba Agronomic Intelligence Hub', bold: true, size: 48, color: '1F2937' })]
-        }));
-        allChildren.push(new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 400 },
-            children: [new TextRun({ text: 'Combined Analysis Report', bold: true, size: 44, color: '374151' })]
+            spacing: { before: 0, after: siteCount > 1 ? 100 : 0 },
+            children: [new TextRun({ text: primarySiteName, bold: true, size: 56, color: '111827' })]
         }));
 
-        // Summary of contents
-        var siteGroups = {};
-        reports.forEach(function(r) {
-            if (!siteGroups[r.siteLabel]) siteGroups[r.siteLabel] = [];
-            siteGroups[r.siteLabel].push(r.sampleLabel || r.sampleId);
-        });
-
-        allChildren.push(new Paragraph({
-            alignment: AlignmentType.CENTER,
-            spacing: { after: 100 },
-            children: [new TextRun({ text: reports.length + ' samples across ' + Object.keys(siteGroups).length + ' site(s)', size: 24, color: '6B7280' })]
-        }));
-
-        var siteKeys = Object.keys(siteGroups);
-        for (var sk = 0; sk < siteKeys.length; sk++) {
-            var siteSamples = siteGroups[siteKeys[sk]];
+        // Multi-site sub-names
+        if (siteCount > 1) {
             allChildren.push(new Paragraph({
                 alignment: AlignmentType.CENTER,
-                spacing: { after: 40 },
-                children: [
-                    new TextRun({ text: siteKeys[sk] + ': ', bold: true, size: 22, color: '374151' }),
-                    new TextRun({ text: siteSamples.join(', '), size: 22, color: '6B7280' })
-                ]
+                spacing: { before: 0, after: 0 },
+                children: [new TextRun({ text: siteKeys.join('  ·  '), size: 30, color: '6B7280' })]
             }));
         }
 
+        // Spacer before samples
+        allChildren.push(new Paragraph({
+            spacing: { before: 700, after: 0 },
+            children: [new TextRun({ text: '' })]
+        }));
+
+        // Samples count
         allChildren.push(new Paragraph({
             alignment: AlignmentType.CENTER,
-            spacing: { before: 200 },
-            children: [new TextRun({ text: 'Generated: ' + new Date().toLocaleString(), size: 20, color: '9CA3AF' })]
+            spacing: { before: 0, after: 80 },
+            children: [new TextRun({
+                text: reports.length + ' sample' + (reports.length !== 1 ? 's' : '') +
+                      (siteCount > 1 ? ' across ' + siteCount + ' sites' : ''),
+                size: 22, color: '6B7280'
+            })]
+        }));
+
+        // Samples list
+        for (var sk = 0; sk < siteKeys.length; sk++) {
+            var siteSamples = siteGroups[siteKeys[sk]];
+            var sampleRunChildren = [];
+            if (siteCount > 1) {
+                sampleRunChildren.push(new TextRun({ text: siteKeys[sk] + '  ', bold: true, size: 30, color: '1F2937' }));
+            }
+            sampleRunChildren.push(new TextRun({ text: siteSamples.join('  ·  '), size: 30, color: '374151' }));
+            allChildren.push(new Paragraph({
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 0, after: 60 },
+                children: sampleRunChildren
+            }));
+        }
+
+        // Date
+        var _months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+        var _d = new Date();
+        var _dateStr = _d.getDate() + ' ' + _months[_d.getMonth()] + ' ' + _d.getFullYear();
+        allChildren.push(new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { before: 100, after: 0 },
+            children: [new TextRun({ text: _dateStr, size: 20, color: 'A0AEC0', italics: true })]
         }));
 
         // Cross-Module Pattern Analysis — before Zone Comparison
@@ -2520,6 +2641,20 @@
                             }
                             continue;
                         }
+                    }
+
+                    // "Site Information" in word-export.js carries pageBreakBefore:true
+                    // (correct for single-report). In combined export this creates an extra
+                    // page break that separates the heading from its table. Re-create
+                    // the heading without pageBreakBefore so it flows naturally with its table.
+                    if (extractHeadingText(sections[si3]) === 'Site Information') {
+                        allChildren.push(new Paragraph({
+                            heading: HeadingLevel.HEADING_1,
+                            keepNext: true,
+                            spacing: { before: 200, after: 100 },
+                            children: [new TextRun('Site Information')]
+                        }));
+                        continue;
                     }
 
                     allChildren.push(sections[si3]);

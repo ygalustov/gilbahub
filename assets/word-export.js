@@ -3792,7 +3792,7 @@
                     text: 'No standalone soil amendments required, all measured nutrients are at or ' +
                           'above ' + (isAA ? 'Ammonium Acetate (Hill Labs)' : methodology) +
                           ' guideline levels.',
-                    size: 20, italics: true, color: '6B7280'
+                    size: 22, italics: true, color: '6B7280'
                 })]
             }));
             return sectionPieces;
@@ -3955,7 +3955,7 @@
                           'Practical = (theoretical / amendment efficiency) / years to correct. ' +
                           'Practical figures account for fixation, leaching, and amendment-loss pathways; ' +
                           'apply the Practical column figure as the annual programme rate.',
-                    size: 14, italics: true, color: '6B7280'
+                    size: 16,italics: true, color: '6B7280'
                 })]
             }));
         }
@@ -3975,7 +3975,7 @@
                 spacing: { before: 80, after: 60 },
                 children: [new TextRun({
                     text: contribLines.join(' | '),
-                    size: 14, italics: true, color: '6B7280'
+                    size: 16,italics: true, color: '6B7280'
                 })]
             }));
         }
@@ -4002,7 +4002,7 @@
                 keepNext: true,
                 children: [new TextRun({
                     text: 'Application Warnings & Sequencing Notes',
-                    bold: true, size: 20, color: 'B45309'
+                    bold: true, size: 22, color: 'B45309'
                 })]
             }));
 
@@ -4036,7 +4036,7 @@
                         spacing: { after: 40 },
                         children: [new TextRun({
                             text: 'Source: ' + w.source,
-                            size: 13, italics: true, color: '6B7280'
+                            size: 16, italics: true, color: '6B7280'
                         })]
                     }));
                 }
@@ -4048,7 +4048,7 @@
             children: [new TextRun({
                 text: 'Rates expressed as elemental kg/ha. Soil deficit = (threshold − measured) × 10 cm × 1.4 g/cm³ × 0.1. ' +
                       'Programme delivery summed across annual applications.',
-                size: 14, italics: true, color: '9CA3AF'
+                size: 16,italics: true, color: '9CA3AF'
             })]
         }));
 
@@ -5329,7 +5329,7 @@
             spacing: { before: 100, after: 200 },
             children: [new TextRun({ 
                 text: 'Reference definitions for technical terms used in this report.',
-                size: 20, italics: true, color: '6B7280'
+                size: 18, italics: true, color: '6B7280'
             })]
         }));
         
@@ -5341,7 +5341,7 @@
             elements.push(new Paragraph({
                 spacing: { after: 80 },
                 indent: { left: 200 },
-                children: [new TextRun({ text: item.definition, size: 20, color: '4B5563' })]
+                children: [new TextRun({ text: item.definition, size: 22, color: '4B5563' })]
             }));
         });
         
@@ -5609,8 +5609,8 @@
                 spacing: { after: 80 },
                 indent: { left: 200 },
                 children: [
-                    new TextRun({ text: speciesName + ' pH requirements: ', bold: true, size: 20, color: '374151' }),
-                    new TextRun({ text: 'Optimal ' + optRangeStr + ' | Tolerance ' + tolRangeStr, size: 20, color: '6B7280' }),
+                    new TextRun({ text: speciesName + ' pH requirements: ', bold: true, size: 22, color: '374151' }),
+                    new TextRun({ text: 'Optimal ' + optRangeStr + ' | Tolerance ' + tolRangeStr, size: 22, color: '6B7280' }),
                     acidTolerant ? new TextRun({ text: ' | Acid-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' }),
                     alkalineTolerant ? new TextRun({ text: ' | Alkaline-tolerant', size: 18, color: '059669' }) : new TextRun({ text: '' })
                 ]
@@ -5692,10 +5692,10 @@
             elements.push(new Paragraph({
                 spacing: { after: 100 },
                 indent: { left: 200 },
-                children: [new TextRun({ text: text, size: 20, color: '4B5563' })]
+                children: [new TextRun({ text: text, size: 22, color: '4B5563' })]
             }));
         });
-        
+
         // Add recommendations
         if (recommendations.length > 0) {
             recommendations.forEach(function(rec) {
@@ -5703,7 +5703,7 @@
                     spacing: { after: 80 },
                     indent: { left: 200 },
                     children: [
-                        new TextRun({ text: rec, size: 20, color: '374151' })
+                        new TextRun({ text: rec, size: 22, color: '374151' })
                     ]
                 }));
             });
@@ -5745,15 +5745,15 @@
             elements.push(new Paragraph({
                 spacing: { after: 100 },
                 indent: { left: 200 },
-                children: [new TextRun({ text: explanationText, size: 20, color: '4B5563' })]
+                children: [new TextRun({ text: explanationText, size: 22, color: '4B5563' })]
             }));
-            
+
             elements.push(new Paragraph({
                 spacing: { after: 100 },
                 indent: { left: 200 },
                 children: [
-                    new TextRun({ text: 'Management recommendation: ', bold: true, size: 20, color: '374151' }),
-                    new TextRun({ text: 'Base your sodium management decisions on SARadj rather than standard SAR. Consider acidification to reduce bicarbonate levels and preserve calcium availability.', size: 20, color: '374151' })
+                    new TextRun({ text: 'Management recommendation: ', bold: true, size: 22, color: '374151' }),
+                    new TextRun({ text: 'Base your sodium management decisions on SARadj rather than standard SAR. Consider acidification to reduce bicarbonate levels and preserve calcium availability.', size: 22, color: '374151' })
                 ]
             }));
         }
@@ -5822,12 +5822,12 @@
             
             rows.push(new TableRow({
                 children: [
-                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: dateStr, size: 19 })] })] }),
-                    new TableCell({ width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.product_name || '', size: 19 })] })] }),
-                    new TableCell({ width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.active_ingredient || '', size: 19 })] })] }),
-                    new TableCell({ width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rateStr, size: 19 })] })] }),
-                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.zone || '', size: 19 })] })] }),
-                    new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.category || '', size: 19 })] })] })
+                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: dateStr, size: 20 })] })] }),
+                    new TableCell({ width: { size: 2200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.product_name || '', size: 20 })] })] }),
+                    new TableCell({ width: { size: 1600, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: e.active_ingredient || '', size: 20 })] })] }),
+                    new TableCell({ width: { size: 900, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: rateStr, size: 20 })] })] }),
+                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.zone || '', size: 20 })] })] }),
+                    new TableCell({ width: { size: 1000, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: e.category || '', size: 20 })] })] })
                 ]
             }));
         });
@@ -5892,7 +5892,7 @@
                 spacing: { after: 80 },
                 children: [new TextRun({
                     text: 'The following antagonistic interactions were detected in the soil sample. Product selection has been adjusted to avoid aggravating these antagonisms.',
-                    size: 20, color: '78350F', italics: true
+                    size: 22, color: '78350F', italics: true
                 })]
             }));
             allMuldersFlags.forEach(function(f) {
@@ -5906,7 +5906,7 @@
                     elements.push(new Paragraph({
                         spacing: { after: 40 },
                         indent: { left: 400 },
-                        children: [new TextRun({ text: f.message, size: 20, color: '374151' })]
+                        children: [new TextRun({ text: f.message, size: 22, color: '374151' })]
                     }));
                 }
                 if (f.citation) {
@@ -6474,7 +6474,7 @@
         if (profile.ratingSource) {
             elements.push(new Paragraph({
                 spacing: { after: 200 },
-                children: [new TextRun({ text: 'Data source: ' + profile.ratingSource, size: 20, color: '6B7280', italics: true })]
+                children: [new TextRun({ text: 'Data source: ' + profile.ratingSource, size: 22, color: '6B7280', italics: true })]
             }));
         }
         
@@ -6488,14 +6488,14 @@
             if (profile.supplier) {
                 elements.push(new Paragraph({
                     spacing: { after: 80 },
-                    children: [new TextRun({ text: 'Supplier: ' + profile.supplier, size: 20, color: '4B5563' })]
+                    children: [new TextRun({ text: 'Supplier: ' + profile.supplier, size: 22, color: '4B5563' })]
                 }));
             }
             
             if (profile.application) {
                 elements.push(new Paragraph({
                     spacing: { after: 100 },
-                    children: [new TextRun({ text: 'Application: ' + profile.application, size: 20, color: '4B5563' })]
+                    children: [new TextRun({ text: 'Application: ' + profile.application, size: 22, color: '4B5563' })]
                 }));
             }
             
@@ -6556,16 +6556,16 @@
             
             elements.push(new Paragraph({
                 spacing: { after: 120 },
-                children: [new TextRun({ text: 'These modifiers adjust baseline species calculations in the Hub analysis:', size: 20, color: '6B7280' })]
+                children: [new TextRun({ text: 'These modifiers adjust baseline species calculations in the Hub analysis:', size: 22, color: '6B7280' })]
             }));
             
             profile.traitCards.forEach(function(card) {
                 elements.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: card.category + ': ', bold: true, size: 20, color: '1F2937' }),
-                        new TextRun({ text: card.rating, size: 20, color: card.color, bold: true }),
-                        new TextRun({ text: ', ' + card.modifier, size: 20, color: '4B5563' })
+                        new TextRun({ text: card.category + ': ', bold: true, size: 22, color: '1F2937' }),
+                        new TextRun({ text: card.rating, size: 22, color: card.color, bold: true }),
+                        new TextRun({ text: ', ' + card.modifier, size: 22, color: '4B5563' })
                     ]
                 }));
                 
@@ -7095,7 +7095,7 @@
                     alignment: AlignmentType.CENTER,
                     children: [
                         new TextRun({ text: n.toFixed(0), bold: true, size: 20, color: nColor }),
-                        new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 14, color: '6B7280' })
+                        new TextRun({ text: '\nGP ' + Math.round(gp * 100) + '%', size: 16,color: '6B7280' })
                     ]
                 })],
                 width: { size: cellWidth, type: WidthType.DXA }
@@ -10088,7 +10088,7 @@
                     spacing: { before: 50, after: 100 },
                     children: [new TextRun({ 
                         text: 'Thresholds based on ' + priorityActions.effectiveSpecies + ' tolerances (' + Math.round(data.turf.c3Fraction * 100) + '% cover)',
-                        size: 20, italics: true, color: '6B7280'
+                        size: 18, italics: true, color: '6B7280'
                     })]
                 }));
             }
@@ -10105,7 +10105,7 @@
                     sections.push(new Paragraph({
                         spacing: { before: 50, after: 50 },
                         indent: { left: 400 },
-                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                        children: [new TextRun({ text: '• ' + action, size: 22 })]
                     }));
                 });
             }
@@ -10122,7 +10122,7 @@
                     sections.push(new Paragraph({
                         spacing: { before: 50, after: 50 },
                         indent: { left: 400 },
-                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                        children: [new TextRun({ text: '• ' + action, size: 22 })]
                     }));
                 });
             }
@@ -10139,7 +10139,7 @@
                     sections.push(new Paragraph({
                         spacing: { before: 50, after: 50 },
                         indent: { left: 400 },
-                        children: [new TextRun({ text: '• ' + action, size: 20 })]
+                        children: [new TextRun({ text: '• ' + action, size: 22 })]
                     }));
                 });
             }
@@ -10333,7 +10333,7 @@
                 spacing: { before: 50, after: 150 },
                 children: [new TextRun({
                     text: 'AI-assisted analysis identifying interactions and anomalies across soil, water, and tissue data.',
-                    size: 20, italics: true, color: '6B7280'
+                    size: 18, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -10380,7 +10380,7 @@
                         bParts.forEach(function(part) {
                             if (part) {
                                 bulletChildren.push(new TextRun({
-                                    text: part, bold: isBoldB, size: 20,
+                                    text: part, bold: isBoldB, size: 22,
                                     color: isBoldB ? '374151' : '374151'
                                 }));
                             }
@@ -10403,7 +10403,7 @@
                 sParts.forEach(function(part) {
                     if (part) {
                         synChildren.push(new TextRun({
-                            text: part, bold: isBoldS, size: 20,
+                            text: part, bold: isBoldS, size: 22,
                             color: isBoldS ? '374151' : '374151'
                         }));
                     }
@@ -10415,7 +10415,7 @@
             if (synthesisInterpretation.cached) {
                 sections.push(new Paragraph({
                     spacing: { before: 50, after: 100 },
-                    children: [new TextRun({ text: '(Cached analysis)', size: 14, italics: true, color: '9CA3AF' })]
+                    children: [new TextRun({ text: '(Cached analysis)', size: 16,italics: true, color: '9CA3AF' })]
                 }));
             }
             sections.push(new Paragraph({ children: [] }));
@@ -10440,7 +10440,7 @@
             spacing: { before: 200, after: 200 },
             children: [new TextRun({
                 text: 'Live disease pressure, irrigation status, and pre-emergent timing update against current weather in the GAIP Hub dashboard. This export captures soil chemistry and recommendations only.',
-                size: 20,
+                size: 22,
                 italics: true,
                 color: '4B5563'
             })]
@@ -10526,7 +10526,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: soilMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                        new TextRun({ text: soilMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -10854,7 +10854,7 @@
                             children.push(new TextRun({
                                 text: part,
                                 bold: isBold,
-                                size: 20,
+                                size: 22,
                                 color: isBold ? '166534' : '1F2937'
                             }));
                         }
@@ -10983,12 +10983,12 @@
                                 spacing: { before: 160, after: 60 },
                                 children: [new TextRun({
                                     text: f.suppressor + ' suppresses ' + f.suppressed + ratioStr,
-                                    bold: true, size: 20, color: '374151'
+                                    bold: true, size: 22, color: '374151'
                                 })]
                             }));
                             sections.push(new Paragraph({
                                 spacing: { after: 60 },
-                                children: [new TextRun({ text: f.message, size: 20, color: '1F2937' })]
+                                children: [new TextRun({ text: f.message, size: 22, color: '1F2937' })]
                             }));
                             sections.push(new Paragraph({
                                 spacing: { after: 60 },
@@ -11223,7 +11223,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({
                     text: _b35fix331_caption,
-                    size: 20, italics: true, color: '6B7280'
+                    size: 18, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -11298,7 +11298,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: tissueMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                        new TextRun({ text: tissueMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -11469,9 +11469,9 @@
                     sections.push(new Paragraph({
                         spacing: { after: 100 },
                         children: [
-                            new TextRun({ text: zoneData.sampleCount + ' samples', bold: true, size: 20, color: '374151' }),
-                            new TextRun({ text: '  |  ', size: 20, color: '9CA3AF' }),
-                            new TextRun({ text: zoneData.dateRange, size: 20, color: '6B7280' })
+                            new TextRun({ text: zoneData.sampleCount + ' samples', bold: true, size: 22, color: '374151' }),
+                            new TextRun({ text: '  |  ', size: 22, color: '9CA3AF' }),
+                            new TextRun({ text: zoneData.dateRange, size: 22, color: '6B7280' })
                         ]
                     }));
                 
@@ -11730,7 +11730,7 @@
                 'where irrigation water SO₄ is already elevated).';
             sections.push(new Paragraph({
                 spacing: { after: 160 },
-                children: [new TextRun({ text: amendIntro, size: 20, color: '374151' })]
+                children: [new TextRun({ text: amendIntro, size: 22, color: '374151' })]
             }));
 
             // Helper to build a product detail block
@@ -11765,8 +11765,8 @@
                     border: { left: { style: BorderStyle.SINGLE, size: 18, color: accentColor } },
                     indent: { left: 180 },
                     children: [
-                        new TextRun({ text: 'Pathway:  ', bold: true, size: 20 }),
-                        new TextRun({ text: pathwayLabel, size: 20, color: '374151' })
+                        new TextRun({ text: 'Pathway:  ', bold: true, size: 22 }),
+                        new TextRun({ text: pathwayLabel, size: 22, color: '374151' })
                     ]
                 }));
 
@@ -11777,8 +11777,8 @@
                         spacing: { before: 40, after: 40 },
                         indent: { left: 180 },
                         children: [
-                            new TextRun({ text: 'Primary product:  ', bold: true, size: 20 }),
-                            new TextRun({ text: primaryText, size: 20 })
+                            new TextRun({ text: 'Primary product:  ', bold: true, size: 22 }),
+                            new TextRun({ text: primaryText, size: 22 })
                         ]
                     }));
                     if (primary.rate) {
@@ -11786,8 +11786,8 @@
                             spacing: { before: 20, after: 40 },
                             indent: { left: 180 },
                             children: [
-                                new TextRun({ text: 'Indicative rate:  ', bold: true, size: 20 }),
-                                new TextRun({ text: primary.rate, size: 20 })
+                                new TextRun({ text: 'Indicative rate:  ', bold: true, size: 22 }),
+                                new TextRun({ text: primary.rate, size: 22 })
                             ]
                         }));
                     }
@@ -11795,7 +11795,7 @@
                         sections.push(new Paragraph({
                             spacing: { before: 20, after: 60 },
                             indent: { left: 180 },
-                            children: [new TextRun({ text: primary.notes, size: 19, color: '6B7280', italics: true })]
+                            children: [new TextRun({ text: primary.notes, size: 22, color: '6B7280', italics: true })]
                         }));
                     }
                 }
@@ -11807,8 +11807,8 @@
                         spacing: { before: 40, after: 40 },
                         indent: { left: 180 },
                         children: [
-                            new TextRun({ text: 'Alternative:  ', bold: true, size: 20 }),
-                            new TextRun({ text: alt.name + (alt.analysis ? '  (' + alt.analysis + ')' : ''), size: 20, color: '6B7280' })
+                            new TextRun({ text: 'Alternative:  ', bold: true, size: 22 }),
+                            new TextRun({ text: alt.name + (alt.analysis ? '  (' + alt.analysis + ')' : ''), size: 22, color: '6B7280' })
                         ]
                     }));
                 }
@@ -11821,8 +11821,8 @@
                         spacing: { before: 40, after: 40 },
                         indent: { left: 180 },
                         children: [
-                            new TextRun({ text: 'Urgency:  ', bold: true, size: 20 }),
-                            new TextRun({ text: decision.urgency, bold: true, size: 20, color: urgencyColor })
+                            new TextRun({ text: 'Urgency:  ', bold: true, size: 22 }),
+                            new TextRun({ text: decision.urgency, bold: true, size: 22, color: urgencyColor })
                         ]
                     }));
                 }
@@ -11833,8 +11833,8 @@
                         spacing: { before: 40, after: 40 },
                         indent: { left: 180 },
                         children: [new TextRun({
-                            text: '⚠️  Lime application required, pH correction is the primary intervention for this pathway.',
-                            bold: true, size: 20, color: 'D97706'
+                            text: 'Lime application required, pH correction is the primary intervention for this pathway.',
+                            bold: true, size: 22, color: 'D97706'
                         })]
                     }));
                 }
@@ -11846,7 +11846,7 @@
                         indent: { left: 180 },
                         children: [new TextRun({
                             text: 'Foliar bridge recommended while soil amendment takes effect.',
-                            size: 20, italics: true, color: '374151'
+                            size: 22, italics: true, color: '374151'
                         })]
                     }));
                 }
@@ -11856,14 +11856,14 @@
                     sections.push(new Paragraph({
                         spacing: { before: 80, after: 40 },
                         indent: { left: 180 },
-                        children: [new TextRun({ text: 'Modifying factors:', bold: true, size: 20 })]
+                        children: [new TextRun({ text: 'Modifying factors:', bold: true, size: 22 })]
                     }));
                     decision.modifyingFactors.forEach(function(factor) {
                         sections.push(new Paragraph({
                             spacing: { before: 20, after: 20 },
                             indent: { left: 360 },
                             bullet: { level: 0 },
-                            children: [new TextRun({ text: factor, size: 19, color: '374151' })]
+                            children: [new TextRun({ text: factor, size: 22, color: '374151' })]
                         }));
                     });
                 }
@@ -11874,7 +11874,7 @@
                         spacing: { before: 80, after: 120 },
                         shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
                         indent: { left: 180 },
-                        children: [new TextRun({ text: decision.rationale, size: 19, italics: true, color: '4B5563' })]
+                        children: [new TextRun({ text: decision.rationale, size: 22, italics: true, color: '4B5563' })]
                     }));
                 }
             }
@@ -11901,7 +11901,7 @@
                         shading: { fill: 'FFFBEB', type: ShadingType.CLEAR },
                         border: { left: { style: BorderStyle.SINGLE, size: 18, color: 'F59E0B' } },
                         indent: { left: 180 },
-                        children: [new TextRun({ text: note, size: 20, color: '374151' })]
+                        children: [new TextRun({ text: note, size: 22, color: '374151' })]
                     }));
                 });
             }
@@ -11961,7 +11961,7 @@
                 sections.push(new Paragraph({
                     spacing: { after: 60 },
                     children: [
-                        new TextRun({ text: waterMetaParts.join('  •  '), size: 20, color: '6B7280', italics: true })
+                        new TextRun({ text: waterMetaParts.join('  •  '), size: 18, color: '6B7280', italics: true })
                     ]
                 }));
             }
@@ -12013,7 +12013,7 @@
                     if (ccpiDesc) {
                         sections.push(new Paragraph({
                             spacing: { before: 80, after: 80 },
-                            children: [new TextRun({ text: ccpiDesc, size: 19, color: '374151', italics: true })]
+                            children: [new TextRun({ text: ccpiDesc, size: 22, color: '374151', italics: true })]
                         }));
                     }
                 }
@@ -12056,12 +12056,12 @@
                     sections.push(createTable(optRows));
                     sections.push(new Paragraph({
                         spacing: { before: 80, after: 80 },
-                        children: [new TextRun({ text: 'Maximises proportion of ' + opt.primaryLabel + ' (lowest EC×SAR) within safe thresholds (Ayers & Westcot 1985).', size: 19, color: '374151', italics: true })]
+                        children: [new TextRun({ text: 'Maximises proportion of ' + opt.primaryLabel + ' (lowest EC×SAR) within safe thresholds (Ayers & Westcot 1985).', size: 22, color: '374151', italics: true })]
                     }));
                 } else if (opt && !opt.found) {
                     sections.push(new Paragraph({
                         spacing: { before: 160, after: 80 },
-                        children: [new TextRun({ text: 'Blend Optimisation: ' + opt.message, size: 19, color: 'D97706', italics: true })]
+                        children: [new TextRun({ text: 'Blend Optimisation: ' + opt.message, size: 22, color: 'D97706', italics: true })]
                     }));
                 }
             }
@@ -12095,7 +12095,7 @@
                     sections.push(new Paragraph({
                         alignment: AlignmentType.CENTER,
                         spacing: { before: 80, after: 40 },
-                        children: [new TextRun({ text: msoDisplayNames[mwNut] || mwNut, bold: true, size: 20, color: '374151' })]
+                        children: [new TextRun({ text: msoDisplayNames[mwNut] || mwNut, bold: true, size: 22, color: '374151' })]
                     }));
                     imageIdCounter++;
                     sections.push(new Paragraph({
@@ -12160,8 +12160,8 @@
                             children.push(new TextRun({
                                 text: part,
                                 bold: isBold,
-                                size: 20,
-                                color: isBold ? '1E40AF' : '1F2937'  // Blue for bold
+                                size: 22,
+                                color: isBold ? '1E40AF' : '1F2937'
                             }));
                         }
                         isBold = !isBold;
@@ -12197,7 +12197,7 @@
                         spacing: { before: 50, after: 100 },
                         children: [new TextRun({
                             text: '(Cached interpretation)',
-                            size: 14,
+                            size: 16,
                             italics: true,
                             color: '9CA3AF'
                         })]
@@ -12228,7 +12228,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({ 
                     text: 'Direct plant damage from irrigation water ions applied via ' + (data.phytotoxicity.irrigationMethod || 'sprinkler') + ' irrigation. This assessment is separate from soil chemistry impacts (SAR, structure degradation).',
-                    size: 20, italics: true, color: '6B7280'
+                    size: 18, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -12246,7 +12246,7 @@
                     new TextRun({ text: 'Overall Phytotoxicity Risk: ', bold: true, size: 22, color: '374151' }),
                     new TextRun({ text: phytoRisk.toUpperCase(), bold: true, size: 22, color: riskColor }),
                     new TextRun({ text: ' for ' + (data.phytotoxicity.species || 'turfgrass'), size: 22, color: '374151' }),
-                    new TextRun({ text: ' (' + (data.phytotoxicity.sensitivityClass || 'unknown') + ' sensitivity)', size: 20, italics: true, color: '6B7280' })
+                    new TextRun({ text: ' (' + (data.phytotoxicity.sensitivityClass || 'unknown') + ' sensitivity)', size: 22, italics: true, color: '6B7280' })
                 ]
             }));
             
@@ -12265,7 +12265,7 @@
                     children: [
                         new TextRun({ text: assessment.parameter + ': ', bold: true, size: 22, color: '374151' }),
                         new TextRun({ text: assessment.value + ' ' + (assessment.unit || 'mg/L'), bold: true, size: 22, color: statusColor }),
-                        new TextRun({ text: ', ' + (assessment.status || 'unknown').toUpperCase() + ' RISK', size: 20, color: statusColor })
+                        new TextRun({ text: ', ' + (assessment.status || 'unknown').toUpperCase() + ' RISK', size: 22, color: statusColor })
                     ]
                 }));
                 
@@ -12275,8 +12275,8 @@
                         spacing: { before: 30, after: 30 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: 'Exposure pathway: ', size: 20, color: '6B7280' }),
-                            new TextRun({ text: assessment.pathway, size: 20, color: '374151' })
+                            new TextRun({ text: 'Exposure pathway: ', size: 22, color: '6B7280' }),
+                            new TextRun({ text: assessment.pathway, size: 22, color: '374151' })
                         ]
                     }));
                 }
@@ -12291,8 +12291,8 @@
                             spacing: { before: 30, after: 30 },
                             indent: { left: 200 },
                             children: [
-                                new TextRun({ text: 'Thresholds: ', size: 20, color: '6B7280' }),
-                                new TextRun({ text: threshText.join(' | '), size: 20, color: '374151' })
+                                new TextRun({ text: 'Thresholds: ', size: 22, color: '6B7280' }),
+                                new TextRun({ text: threshText.join(' | '), size: 22, color: '374151' })
                             ]
                         }));
                     }
@@ -12304,8 +12304,8 @@
                         spacing: { before: 30, after: 30 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: 'Potential damage: ', size: 20, color: '6B7280' }),
-                            new TextRun({ text: assessment.risks.join(', '), size: 20, color: '374151' })
+                            new TextRun({ text: 'Potential damage: ', size: 22, color: '6B7280' }),
+                            new TextRun({ text: assessment.risks.join(', '), size: 22, color: '374151' })
                         ]
                     }));
                 }
@@ -12316,7 +12316,7 @@
                         spacing: { before: 30, after: 50 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: assessment.recommendation, size: 20, bold: true, color: '374151' })
+                            new TextRun({ text: assessment.recommendation, size: 22, bold: true, color: '374151' })
                         ]
                     }));
                 }
@@ -12336,8 +12336,8 @@
                         spacing: { before: 50, after: 50 },
                         indent: { left: 200 },
                         children: [
-                            new TextRun({ text: '• ', size: 20, color: actionColor }),
-                            new TextRun({ text: action.action || action.text || action, size: 20, color: '374151' })
+                            new TextRun({ text: '• ', size: 22, color: actionColor }),
+                            new TextRun({ text: action.action || action.text || action, size: 22, color: '374151' })
                         ]
                     }));
                 });
@@ -12358,7 +12358,7 @@
                 spacing: { before: 50, after: 100 },
                 children: [new TextRun({ 
                     text: 'Long-term impacts of irrigation water chemistry on soil conditions and turf performance.',
-                    size: 20, italics: true, color: '6B7280'
+                    size: 18, italics: true, color: '6B7280'
                 })]
             }));
             
@@ -12378,7 +12378,7 @@
                 sections.push(new Paragraph({
                     spacing: { before: 50, after: 100 },
                     indent: { left: 200 },
-                    children: [new TextRun({ text: interaction.text, size: 20 })]
+                    children: [new TextRun({ text: interaction.text, size: 22 })]
                 }));
             });
             
@@ -12392,7 +12392,7 @@
                     sections.push(new Paragraph({
                         spacing: { before: 50, after: 50 },
                         indent: { left: 200 },
-                        children: [new TextRun({ text: '• ' + projection, size: 20 })]
+                        children: [new TextRun({ text: '• ' + projection, size: 22 })]
                     }));
                 });
             }
@@ -12407,14 +12407,14 @@
                     sections.push(new Paragraph({
                         spacing: { before: 50, after: 50 },
                         indent: { left: 200 },
-                        children: [new TextRun({ text: '• ' + rec, size: 20 })]
+                        children: [new TextRun({ text: '• ' + rec, size: 22 })]
                     }));
                 });
             }
-            
+
             sections.push(new Paragraph({ children: [] }));
         }
-        
+
         // SALINITY IMPACT SECTION (v2.0.8)
         // Shows salinity penalty and its effects on growth/recovery
         // Suppressed in combined export — water source is site-level, same for all greens.
@@ -12483,13 +12483,13 @@
                 sections.push(new Paragraph({
                     spacing: { before: 50, after: 50 },
                     indent: { left: 200 },
-                    children: [new TextRun({ text: '• ' + rec, size: 20 })]
+                    children: [new TextRun({ text: '• ' + rec, size: 22 })]
                 }));
             });
-            
+
             sections.push(new Paragraph({ children: [] }));
         }
-        
+
         // Shade section - no page break needed, flows naturally from salinity
         if (data.shade && data.shade.currentDLI) {
             // Build appropriate header based on effective species
@@ -12635,8 +12635,8 @@
             // Evidence-based intro
             sections.push(new Paragraph({ 
                 children: [new TextRun({ 
-                    text: 'DMI (demethylation inhibitor) fungicides are tracked for potential interactions with PGR programs. Research shows DMIs alone have minimal effect on clipping yield, but when combined with PGRs can cause elevated suppression and phytotoxicity.', 
-                    size: 20 
+                    text: 'DMI (demethylation inhibitor) fungicides are tracked for potential interactions with PGR programs. Research shows DMIs alone have minimal effect on clipping yield, but when combined with PGRs can cause elevated suppression and phytotoxicity.',
+                    size: 22
                 })]
             }));
             sections.push(new Paragraph({ children: [] }));
