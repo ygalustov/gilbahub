@@ -1318,6 +1318,8 @@
             surfaceType = state.soil.surfaceType;
         } else if (state.turf && state.turf.surfaceType) {
             surfaceType = state.turf.surfaceType;
+        } else if (state.turf && state.turf.subCategory) {
+            surfaceType = state.turf.subCategory;
         } else if (window.gaipTurfProfile && window.gaipTurfProfile.state && window.gaipTurfProfile.state.subCategory) {
             surfaceType = window.gaipTurfProfile.state.subCategory;
         }

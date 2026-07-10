@@ -362,6 +362,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-175** Tests
 **GH-176** Enhance word export UI: Updated progress overlay styling for improved aesthetics and usability, including new layout elements and enhanced color schemes. Adjusted sample label handling in progress updates for clarity.
 **GH-177** Update word export styles: Increased font sizes for various text elements in word-export-combined.js and word-export.js to enhance readability. Adjusted related text properties for consistency across the document. Updated instructions.md with a date entry.
+**GH-178** Enhance surface type determination: Added handling for turf subCategory in shade-engine.js and shade-engine-pure.js to improve surface type assignment logic for mowing height guidance.
+
+
+
 
 
 ## Backlog
@@ -393,7 +397,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 10/07/26
 
-35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t
+35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t. GH-178.
 59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green?
 
 

@@ -1200,8 +1200,10 @@
             surfaceType = state.soil.surfaceType;
         } else if (state.turf && state.turf.surfaceType) {
             surfaceType = state.turf.surfaceType;
+        } else if (state.turf && state.turf.subCategory) {
+            surfaceType = state.turf.subCategory;
         }
-        
+
         // Mowing height guidance (now surface-type aware)
         var currentHOC = state.turf && state.turf.hoc ? state.turf.hoc : null;
         var mowingGuidance = mowingHeightGuidance(deficitPct, speciesKey, currentHOC, surfaceType);
