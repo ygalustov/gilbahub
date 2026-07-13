@@ -1054,10 +1054,32 @@
 
       const growthToWrite = gpAlreadyCorrected ? existingGrowth : climate.growthPotential;
 
+      // Protect real temperature data from being overwritten by _defaults() null values.
+      // When ClimateEngine runs before weather is fetched (e.g. reactive compute on
+      // inputs.site change), it produces source='default' with temperature={mean:null,...}.
+      // If hub-tissue already wrote real temperature to window.climateMetrics, shim must
+      // not replace it with nulls — this would cause computeAll() (triggered 300ms after
+      // gaip:analysis-complete) to see null temperature and mark all diseases as DEGRADED.
+      const newTempIsReal = climate.temperature?.mean != null ||
+        climate.temperature?.max  != null ||
+        climate.temperature?.min  != null;
+      const existingTempIsReal = window.climateMetrics?.temperature?.mean != null ||
+        window.climateMetrics?.temperature?.max  != null ||
+        window.climateMetrics?.temperature?.min  != null;
+      const temperatureToWrite = (!newTempIsReal && existingTempIsReal)
+        ? window.climateMetrics.temperature
+        : climate.temperature;
+
+      if (!newTempIsReal && existingTempIsReal) {
+        console.warn('[ClimateEngine v2] Shim: suppressed null-temperature overwrite ' +
+          '(source=' + (climate.quality?.source || 'unknown') + '); keeping existing real temperature ' +
+          window.climateMetrics.temperature.mean + '°C');
+      }
+
       // Build the v1 format that existing modules expect
       window.climateMetrics = {
         // Direct mappings
-        temperature: climate.temperature,
+        temperature: temperatureToWrite,
         moisture: {
           humidity: climate.humidity,
           dewpoint: climate.dewpoint

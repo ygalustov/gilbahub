@@ -993,7 +993,6 @@ var DiseaseForecast = (function() {
         // Track disease risks across all days
         var diseaseRisksByDay = {};  // { diseaseName: [day0risk, day1risk, ...] }
         var diseaseMetadata = {};    // { diseaseName: { beta, riskLevel, ... } }
-        
         // Run DiseaseEngine for each forecast day
         // v1.6.0: Prefer DiseaseEnginePure when available (uses Smith-Kerns concurrent hours)
         var useEngine = (window.GILBA_USE_PURE_DISEASE !== false && window.DiseaseEnginePure)
@@ -1162,7 +1161,7 @@ var DiseaseForecast = (function() {
 
             try {
                 var dayResults = useEngine.analyse(dayInputs);
-                
+
                 if (dayResults && dayResults.diseases) {
                     dayResults.diseases.forEach(function(disease) {
                         // Use displayName for chart legend, fall back to name or disease key
@@ -1252,10 +1251,10 @@ var DiseaseForecast = (function() {
                 peakRisk: maxPeak,
                 peakDay: sortedDiseases.length > 0 ? sortedDiseases[0].peakDay : null,
                 riskLevel: classifyRisk(maxPeak)
-            }
+            },
         };
     }
-    
+
     function isBetaDisease(diseaseKey) {
         // b35fix462 (C59g): drechsleraPoae removed from beta array following
         // promotion to validated (DRECHSLERA_POAE_VALIDATION_STATUS in

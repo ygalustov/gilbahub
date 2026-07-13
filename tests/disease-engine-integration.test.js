@@ -289,3 +289,120 @@ describe('analyse() — brownPatch absent from species with zero susceptibility'
         expect(bp.adjustedRisk).toBeGreaterThan(60);
     });
 });
+
+
+// =============================================================================
+// 6. analyse() — soil Mn drives Take-all risk (full inputs vs partial)
+// =============================================================================
+
+// Take-all optimal temperature: 14.5°C ± 4.5°C (range ~10–19°C).
+// Bentgrass susceptibility = 1.5 (passes dispatcher gate > 0.5).
+var TAKEALL_CLIMATE = {
+    temperature: { min: 10, max: 18, mean: 14 },
+    moisture:    { humidity: { mean: 80 }, precipitation: { total: 3 } },
+};
+
+describe('TakeAllModel — soil Mn_ppm affects risk (b35fix84 full-inputs)', () => {
+
+    test('Mn-deficient soil (5 ppm) gives higher Take-all risk than adequate (25 ppm)', function () {
+        var highMn = DiseaseEnginePure.analyse({
+            climate: TAKEALL_CLIMATE,
+            species: 'bentgrass',
+            soil:    { Mn_ppm: 25, pH: 6.5 },
+            region:  'AU',
+        });
+        var lowMn = DiseaseEnginePure.analyse({
+            climate: TAKEALL_CLIMATE,
+            species: 'bentgrass',
+            soil:    { Mn_ppm: 5, pH: 6.5 },
+            region:  'AU',
+        });
+        var taHigh = findDisease(highMn, 'takeAll');
+        var taLow  = findDisease(lowMn,  'takeAll');
+        var scoreHigh = taHigh ? taHigh.adjustedRisk : 0;
+        var scoreLow  = taLow  ? taLow.adjustedRisk  : 0;
+        expect(scoreLow).toBeGreaterThan(scoreHigh);
+    });
+
+    test('Take-all drivers.manganese.value reflects actual soil Mn_ppm passed in', function () {
+        var result = DiseaseEnginePure.analyse({
+            climate: TAKEALL_CLIMATE,
+            species: 'bentgrass',
+            soil:    { Mn_ppm: 8, pH: 6.5 },
+            region:  'AU',
+        });
+        var ta = findDisease(result, 'takeAll');
+        expect(ta).not.toBeNull();
+        expect(ta.drivers).toBeDefined();
+        expect(ta.drivers.manganese).toBeDefined();
+        expect(ta.drivers.manganese.value).toBe(8);
+    });
+
+    test('high pH (7.8) raises Take-all risk vs neutral pH (6.5) — reduces Mn availability', function () {
+        var neutralPH = DiseaseEnginePure.analyse({
+            climate: TAKEALL_CLIMATE,
+            species: 'bentgrass',
+            soil:    { Mn_ppm: 12, pH: 6.5 },
+            region:  'AU',
+        });
+        var highPH = DiseaseEnginePure.analyse({
+            climate: TAKEALL_CLIMATE,
+            species: 'bentgrass',
+            soil:    { Mn_ppm: 12, pH: 7.8 },
+            region:  'AU',
+        });
+        var taNeutral = findDisease(neutralPH, 'takeAll');
+        var taHigh    = findDisease(highPH,    'takeAll');
+        var scoreNeutral = taNeutral ? taNeutral.adjustedRisk : 0;
+        var scoreHigh    = taHigh    ? taHigh.adjustedRisk    : 0;
+        expect(scoreHigh).toBeGreaterThan(scoreNeutral);
+    });
+});
+
+
+// =============================================================================
+// 7. analyse() — nitrogen status affects disease risk
+// =============================================================================
+
+// Fusarium is amplified by excess nitrogen (lush soft tissue).
+// Optimal Fusarium climate: ~6°C mean, high RH.
+var FUSARIUM_CLIMATE = {
+    temperature: { min: 3, max: 10, mean: 6 },
+    moisture:    { humidity: { mean: 92 }, precipitation: { total: 5 } },
+};
+
+describe('analyse() — nitrogen status modifies disease risk', () => {
+
+    test('excessive nitrogen increases Fusarium risk vs deficient nitrogen', function () {
+        var highN = DiseaseEnginePure.analyse({
+            climate:  FUSARIUM_CLIMATE,
+            species:  'perennialRyegrass',
+            nitrogen: { status: 'excessive' },
+            region:   'AU',
+        });
+        var lowN = DiseaseEnginePure.analyse({
+            climate:  FUSARIUM_CLIMATE,
+            species:  'perennialRyegrass',
+            nitrogen: { status: 'deficient' },
+            region:   'AU',
+        });
+        var fHigh = findDisease(highN, 'fusarium');
+        var fLow  = findDisease(lowN,  'fusarium');
+        expect(fHigh).not.toBeNull();
+        expect(fLow).not.toBeNull();
+        expect(fHigh.adjustedRisk).toBeGreaterThan(fLow.adjustedRisk);
+    });
+
+    test('nitrogen status object is accepted as { status } shape (mirrors buildDiseaseInputs output)', function () {
+        // Verify the engine accepts the same nitrogen shape that disease-analysis.js now builds
+        var result = DiseaseEnginePure.analyse({
+            climate:  FUSARIUM_CLIMATE,
+            species:  'perennialRyegrass',
+            nitrogen: { status: 'adequate', value: 4.1, thresholds: { deficient: 3.0, low: 3.5, optimal: 4.25, high: 5.0, excessive: 5.5 } },
+            region:   'AU',
+        });
+        var f = findDisease(result, 'fusarium');
+        expect(f).not.toBeNull();
+        expect(f.adjustedRisk).toBeGreaterThan(0);
+    });
+});

@@ -837,6 +837,34 @@
       climateMetrics = global.climateMetrics;
       climateSource = climateMetrics.quality?.source || "api";
       log("canonical", "Using climateMetrics from Climate Engine");
+
+      // If climate-engine-v2 shim ran before hub-tissue and wrote _defaults() nulls,
+      // temperature will be an object but all fields null. Recover from rawWeatherData
+      // hourly array so disease engine gets real temperature instead of degrading.
+      var _t = climateMetrics.temperature;
+      if (_t && _t.mean == null && _t.max == null && _t.min == null) {
+        var _rawHourly = (global.rawWeatherData && global.rawWeatherData.forecast && global.rawWeatherData.forecast.hourly)
+          || (global.rawWeatherData && global.rawWeatherData.hourly)
+          || null;
+        if (_rawHourly && _rawHourly.temperature_2m && _rawHourly.temperature_2m.length >= 24) {
+          var _temps = _rawHourly.temperature_2m.slice(0, 168);
+          var _sum = 0;
+          for (var _i = 0; _i < _temps.length; _i++) _sum += _temps[_i];
+          var _recoveredMean = parseFloat((_sum / _temps.length).toFixed(1));
+          var _recoveredMax = parseFloat(Math.max.apply(null, _temps).toFixed(1));
+          var _recoveredMin = parseFloat(Math.min.apply(null, _temps).toFixed(1));
+          climateMetrics = Object.assign({}, climateMetrics, {
+            temperature: {
+              mean: _recoveredMean,
+              max: _recoveredMax,
+              min: _recoveredMin,
+              current: _rawHourly.temperature_2m[0] || _recoveredMean,
+            }
+          });
+          climateSource = "api";
+          log("canonical", "Recovered temperature from rawWeatherData hourly (shim had written null defaults): mean=" + _recoveredMean);
+        }
+      }
     }
     // Priority 2: Manual inputs
     else if (inputs?.climate?.manual || _hubState.inputs.climate?.manual) {

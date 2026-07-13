@@ -215,7 +215,8 @@
         var data = global.GAIP_DASHBOARD_DATA;
         if (!data) return null;
         var computed   = data.computed || {};
-        var diseaseObj = computed.disease || {};
+        var diseaseObj = computed.disease || null;
+        if (!diseaseObj) return null;
         var rawScore = diseaseObj.overallScore != null ? diseaseObj.overallScore : null;
         var rawLevel = (diseaseObj.overallRisk || diseaseObj.riskLevel || '').toLowerCase() || null;
         var _knownLevels = { severe: 1, high: 1, moderate: 1, low: 1 };
@@ -411,6 +412,7 @@
                 }
                 var contrib = dv.contribution != null ? Math.round(dv.contribution) : null;
                 var val     = dv.value != null ? dv.value : null;
+                var valStr  = val != null ? (typeof val === 'number' ? Math.round(val) : String(val)) : null;
                 var label   = driverLabel(key);
                 if (contrib == null && val == null) return;
                 var barColor = contrib >= 70 ? '#ef4444' : contrib >= 40 ? '#f97316' : '#eab308';
@@ -418,8 +420,8 @@
                 html += '  <div style="display:flex;justify-content:space-between;margin-bottom:4px">';
                 html += '    <span style="font-size:12px;color:#374151">' + esc(label) + '</span>';
                 html += '    <span style="font-size:12px;font-weight:600;color:#17231f">';
-                if (val != null) html += esc(String(val));
-                if (contrib != null) html += (val != null ? ' · ' : '') + contrib + '% contribution';
+                if (valStr != null) html += esc(valStr);
+                if (contrib != null) html += (valStr != null ? ' · ' : '') + contrib + '% contribution';
                 html += '    </span>';
                 html += '  </div>';
                 if (contrib != null) {
@@ -992,12 +994,18 @@
 
     // ── State & render ────────────────────────────────────────────────────────
 
-    var _selectedIdx = 0;
-    var _diseases    = [];
+    var _selectedIdx  = 0;
+    var _diseases     = [];
+    var _cachedForecastHtml = null;  // cached after first initForecastChart() load
 
     global.drSelectDisease = function (idx) {
         _selectedIdx = idx;
         renderPage();
+        // After renderPage() the placeholder #dr-forecast-wrap reappears — restore cached chart
+        if (_cachedForecastHtml) {
+            var wrap = document.getElementById('dr-forecast-wrap');
+            if (wrap) wrap.outerHTML = _cachedForecastHtml;
+        }
     };
 
     function renderPage() {
@@ -1355,6 +1363,7 @@
                 }
                 var contrib = dv.contribution != null ? Math.round(dv.contribution) : null;
                 var val     = dv.value != null ? dv.value : null;
+                var valStr  = val != null ? (typeof val === 'number' ? Math.round(val) : String(val)) : null;
                 var label   = driverLabel(key);
                 if (contrib == null && val == null) return;
                 var barColor = contrib >= 70 ? '#ef4444' : contrib >= 40 ? '#f97316' : '#eab308';
@@ -1362,8 +1371,8 @@
                 html += '<div style="display:flex;justify-content:space-between;margin-bottom:4px">';
                 html += '<span style="font-size:12px;color:#374151">' + esc(label) + '</span>';
                 html += '<span style="font-size:12px;font-weight:600;color:#17231f">';
-                if (val != null) html += esc(String(val));
-                if (contrib != null) html += (val != null ? ' · ' : '') + contrib + '% contribution';
+                if (valStr != null) html += esc(valStr);
+                if (contrib != null) html += (valStr != null ? ' · ' : '') + contrib + '% contribution';
                 html += '</span>';
                 html += '</div>';
                 if (contrib != null) {
@@ -1565,9 +1574,73 @@
                     dailyPattern: moistureDaily.length ? moistureDaily : null,
                 });
 
+                // Build full state mirroring buildDiseaseInputs() in hub-orchestrator.js
+                // so that generateForecast() uses complete site data (tissue, soil, shade,
+                // wear, nitrogen) — not just climate + species.
+                var _dd        = global.GAIP_DASHBOARD_DATA || {};
+                var _ddInputs  = _dd.inputs  || {};
+                var _ddComp    = _dd.computed || {};
+                var _ddTurf    = _ddInputs.turf || {};
+                var _ddTissue  = _ddComp.tissue || _ddInputs.tissue || null;
+                var _isC4      = (global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.turf && global.GAIP_CANONICAL_STATE.turf.isC4) || false;
+
+                // Nitrogen status — mirrors buildDiseaseInputs() C3/C4 thresholds
+                var _nitrogenStatus = { status: 'adequate' };
+                if (_ddTissue && _ddTissue.N != null) {
+                    var _tissueN = parseFloat(_ddTissue.N);
+                    var _nRanges = _isC4
+                        ? { deficient: 2.5, low: 3.0, optimal: 3.65, high: 4.3, excessive: 5.0 }
+                        : { deficient: 3.0, low: 3.5, optimal: 4.25, high: 5.0, excessive: 5.5 };
+                    var _nStat;
+                    if (_tissueN < _nRanges.deficient)       _nStat = 'deficient';
+                    else if (_tissueN < _nRanges.low)        _nStat = 'low';
+                    else if (_tissueN < _nRanges.optimal)    _nStat = 'adequate';
+                    else if (_tissueN <= _nRanges.high)      _nStat = 'optimal';
+                    else if (_tissueN <= _nRanges.excessive) _nStat = 'high';
+                    else                                     _nStat = 'excessive';
+                    _nitrogenStatus = { status: _nStat, value: _tissueN, thresholds: _nRanges };
+                }
+
+                // Tissue nutrient modifiers — mirrors buildDiseaseInputs() K/Ca/KN logic
+                var _tissueNutrients = null;
+                if (_ddTissue) {
+                    _tissueNutrients = { hasData: true, modifiers: {} };
+                    if (_ddTissue.K != null) {
+                        var _K = parseFloat(_ddTissue.K);
+                        if (_K < (_isC4 ? 1.6 : 2.0))
+                            _tissueNutrients.modifiers.K = { status: 'deficient', factor: 1.2, value: _K };
+                    }
+                    if (_ddTissue.Ca != null) {
+                        var _Ca = parseFloat(_ddTissue.Ca);
+                        if (_Ca < 0.3)
+                            _tissueNutrients.modifiers.Ca = { status: 'deficient', factor: 1.15, value: _Ca };
+                    }
+                    if (_ddTissue.K != null && _ddTissue.N != null) {
+                        var _KN = parseFloat(_ddTissue.K) / parseFloat(_ddTissue.N);
+                        if (_KN < 0.6)
+                            _tissueNutrients.modifiers.KN_ratio = { status: 'poor', factor: 1.15, value: _KN };
+                    }
+                }
+
                 var state = {
-                    climateMetrics: climateForForecast,
-                    turf: { grassSpecies: cfg.turfSpecies || 'perennialRyegrass' }
+                    climateMetrics:  climateForForecast,
+                    turf: {
+                        grassSpecies:    cfg.turfSpecies || _ddTurf.grassSpecies || 'perennialRyegrass',
+                        heightOfCut:     _ddTurf.heightOfCut     || null,
+                        mowingFrequency: _ddTurf.mowingFrequency || null,
+                    },
+                    tissue:          _ddTissue,
+                    nitrogenStatus:  _nitrogenStatus,
+                    tissueNutrients: _tissueNutrients,
+                    soilMetrics:     _ddInputs.soil   || null,
+                    shadeMetrics:    _ddComp.shade    || null,
+                    wearMetrics:     _ddComp.wear     || null,
+                    mowingData: {
+                        height:    _ddTurf.heightOfCut     || 25,
+                        frequency: _ddTurf.mowingFrequency || 'regular',
+                    },
+                    siteHistory:     _ddComp.siteHistory || _ddInputs.siteHistory || null,
+                    region:          cfg.region || 'AU',
                 };
 
                 // ── 1. Dew forecast (always, independent of chart) ──────────────
@@ -1651,6 +1724,7 @@
                 var forecastArr = result.diseases[0].forecast;
                 var labels      = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
                 var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, result.summary || null);
+                _cachedForecastHtml = chartHtml;  // cache so drSelectDisease() can restore without re-fetch
                 var wrap = document.getElementById('dr-forecast-wrap');
                 if (wrap) {
                     wrap.outerHTML = chartHtml;

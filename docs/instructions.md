@@ -132,7 +132,10 @@ Do you want me to switch it to match PACE?
 +82. Dew onset logged at 00:00 on five of seven days. Likely a default/fallback time rather than a computed dew-point crossing. GH-172. 
 +83. Take-all pH driver at 0% contribution while pH is 6.5. Take-all is strongly pH-driven (favoured above ~6.5, suppressed by acidification and Mn). Zeroing pH for take-all is agronomically backwards. GH-174. 
 
-
+10/07/26
++35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t. GH-178.
++59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green? GH-178.
++81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. - GH-179 - applied it, could you please check if it's what you expected? 
 
 
 
@@ -364,14 +367,12 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-177** Update word export styles: Increased font sizes for various text elements in word-export-combined.js and word-export.js to enhance readability. Adjusted related text properties for consistency across the document. Updated instructions.md with a date entry.
 **GH-178** Enhance surface type determination: Added handling for turf subCategory in shade-engine.js and shade-engine-pure.js to improve surface type assignment logic for mowing height guidance.
 **GH-179** Update variety traits data: Standardized risk multipliers and confidence levels across multiple variety traits scripts, replacing fabricated values with a consistent 'none' confidence level and a risk multiplier of 1.0. Adjusted species key mapping in disease-analysis.js to include additional Browntop Bent variations for improved accuracy.
-
+**GH-180** Enhance climate data handling and disease analysis: Implemented safeguards in climate-engine-v2.js to prevent overwriting real temperature data with null values. Updated disease-analysis.js to ensure proper handling of null disease objects and improved display of contribution metrics. Enhanced hub-orchestrator.js to recover temperature data from raw weather inputs when defaults are null. Added tests for disease risk analysis based on soil manganese and nitrogen status in disease-engine-integration.test.js.
 
 
 
 ## Backlog
 44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
-+45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
-+46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
 47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition
 48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
 49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?
@@ -384,39 +385,38 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 56.⁠ ⁠stress index is ok as its 22 vs 19
 57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
-+61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
-+62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
 64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
+79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
 
 
 
-10/07/26
-
-+35. Burns golf club growth and light recommendations. Raise mowing height to 34mm. Not on a golf green you don’t. GH-178.
-+59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green? GH-178.
-
-
-
-79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177.  
-
-
-81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. - GH-179 - applied it, could you please check if it's what you expected? 
+13/07/26
++45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
++46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
++61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
++62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
 
 
 
-84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. 
++84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. Also fixed some calculations for diseases as found some differences from the old hub GH-180. 
 
+Gh 85 The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed
 
+screenshots
+file
 
+Is the nutrition calendar module part of the SaaS work you’ve started, or still untouched from the b35fix395 baseline? I need to know before I decide whether to patch it in the plugin or hand you the change to make on your side.
 
+Gh86 couch and bermudagrass are the same thing
 
+GH87 file
 
-
+GH88 file does my doing it this way help? 
 
 
 
