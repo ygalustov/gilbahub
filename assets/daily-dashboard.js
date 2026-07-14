@@ -1113,8 +1113,11 @@
             }
         }
         
-        // Check growth potential
-        if (global.climateMetrics && global.climateMetrics.growthPotential?.weighted < 0.3) {
+        // Check growth potential — dailyPattern[0] (daily mean, 0-100 scale)
+        const _agDp = global.climateMetrics?.growth?.dailyPattern;
+        const _agDp0 = _agDp && _agDp.length > 0 ? _agDp[0] : null;
+        const _todayGP = _agDp0 ? _agDp0.weighted : null;
+        if (_todayGP != null && _todayGP < 30) {
             actions.push({
                 priority: 'low',
                 text: 'Low growth - reduce traffic if possible'
@@ -1179,8 +1182,10 @@
         
         // If no actions, show a positive summary with context
         if (actions.length === 0) {
-            const gp = global.climateMetrics?.growthPotential?.weighted ?? null;
-            const gpText = gp !== null ? Math.round(gp * 100) + '% GP' : '';
+            const _posDp = global.climateMetrics?.growth?.dailyPattern;
+            const _posDp0 = _posDp && _posDp.length > 0 ? _posDp[0] : null;
+            const gp = _posDp0 ? _posDp0.weighted : null;
+            const gpText = gp !== null ? Math.round(gp) + '% GP' : '';
             actions.push({
                 priority: 'low',
                 text: gpText ? 'On track - ' + gpText + ', no alerts' : 'All parameters within acceptable range'
@@ -1227,10 +1232,12 @@
             const c4Frac = turfState.c4Fraction ?? (turfState.species?.c4Fraction) ??
                            (turfState.speciesFractions?.c4Fraction) ?? null;
 
-            // Primary: climateMetrics.growth (set by hub-tissue GP sync)
-            let gpWeighted = global.climateMetrics?.growth?.weighted;
-            let gpC3 = global.climateMetrics?.growth?.c3;
-            let gpC4 = global.climateMetrics?.growth?.c4;
+            // Primary: dailyPattern[0] (daily mean per PACE contract — not current-hour override)
+            const _ddDp = global.climateMetrics?.growth?.dailyPattern;
+            const _ddDp0 = _ddDp && _ddDp.length > 0 ? _ddDp[0] : null;
+            let gpWeighted = _ddDp0 ? _ddDp0.weighted : global.climateMetrics?.growth?.weighted;
+            let gpC3 = _ddDp0 ? _ddDp0.c3 : global.climateMetrics?.growth?.c3;
+            let gpC4 = _ddDp0 ? _ddDp0.c4 : global.climateMetrics?.growth?.c4;
 
             // Fallback: GAIP_CLIMATE_V2_RESULT (stable — never overwritten by shim)
             if (gpWeighted == null || gpWeighted === 0) {
@@ -1268,8 +1275,9 @@
             };
             
             data.weather = {
-                // FIX v10.9.6: prefer rawWeatherData current hour over climateMetrics.current
-                temp: (function() { var raw = window.rawWeatherData; if (raw && raw.forecast && raw.forecast.hourly && raw.forecast.hourly.temperature_2m) { var h = new Date().getHours(); var arr = raw.forecast.hourly.temperature_2m; if (h < arr.length && arr[h] != null) return arr[h]; } return global.climateMetrics.temperature?.current ?? global.climateMetrics.temperature?.mean; })(),
+                // Daily mean from dailyPattern[0].temp per PACE contract (not current-hour reading)
+                temp: (_ddDp0 && _ddDp0.temp != null) ? _ddDp0.temp :
+                      (global.climateMetrics.temperature?.todayMean ?? global.climateMetrics.temperature?.mean ?? null),
                 humidity: global.climateMetrics.moisture?.humidity?.mean 
                     ?? global.climateMetrics.humidity?.mean 
                     ?? global.climateMetrics.humidity

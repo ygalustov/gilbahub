@@ -370,6 +370,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-180** Enhance climate data handling and disease analysis: Implemented safeguards in climate-engine-v2.js to prevent overwriting real temperature data with null values. Updated disease-analysis.js to ensure proper handling of null disease objects and improved display of contribution metrics. Enhanced hub-orchestrator.js to recover temperature data from raw weather inputs when defaults are null. Added tests for disease risk analysis based on soil manganese and nitrogen status in disease-engine-integration.test.js.
 **GH-181** Remove fabricated trait values from NZ variety data: Neutralized all fabricated numeric traits across 86 NZ-visible varieties in the variety traits data files. Updated risk multipliers to 1.0 and set confidence levels to 'none' for affected traits, ensuring only verified trial-backed data is presented. This change enhances the accuracy and reliability of the variety traits displayed in the hub.
 **GH-182** Enhance N cap application in nutrition calendar: Updated the applyNCap function to include overflow redistribution for monthly nitrogen allocations. Improved handling of unschedulable allocations and added detailed reporting of scheduled totals, redistributed amounts, and unschedulable values. Adjusted UI messages to reflect these changes for better user feedback.
+**GH-183** Refactor growth potential calculations to use GilbaGrowthPotentialEngine: Updated various scripts to replace inline Gaussian models for growth potential with calls to the GilbaGrowthPotentialEngine, ensuring consistent calculations across C3 and C4 species. Adjusted dashboard and climate modules to reflect daily mean values from the new engine, enhancing accuracy in growth potential reporting.
 
 
 
@@ -398,6 +399,8 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
+
+
 13/07/26
 +45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
 +46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
@@ -406,9 +409,13 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
 +86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
 +84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
-+87. Nutrition calendar (file). Changes applied - could you please check if all good? GH-182. 
++87. Nutrition calendar (file). GH-182. 
+88. GP reconciliation (file). GH-183
 
-88. GP reconciliation (file). Does my doing it this way help? - Yes, very helpful — please keep sending them this way. 
+Does my doing it this way help? - Yes, very helpful — please keep sending them this way. 
+
+
+
 
 
 

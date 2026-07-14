@@ -300,18 +300,11 @@
         }
     }
 
-    /**
-     * Growth potential from temperature (Gaussian model).
-     * Port of scenario engine getGrowthPotential().
-     */
     function getGrowthPotential(tempMean, isC4) {
-        if (isC4) {
-            return Math.max(0, Math.min(100,
-                100 * Math.exp(-0.5 * Math.pow((tempMean - 31) / 7.5, 2))));
-        } else {
-            return Math.max(0, Math.min(100,
-                100 * Math.exp(-0.5 * Math.pow((tempMean - 20) / 6.5, 2))));
-        }
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const species = isC4 ? 'c4' : 'c3';
+        const gp = GPE ? GPE.compute(tempMean, { model: 'pace', species: species }) : null;
+        return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
     }
 
     // =========================================================================

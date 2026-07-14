@@ -9,7 +9,7 @@
  * WHAT IT DOES:
  *   1. Reads saved site location from localStorage (gilba_hub_site_configs)
  *   2. Fetches Open-Meteo forecast for that location
- *   3. Computes growth potential inline (Kreuser & Soldat 2011 curve)
+ *   3. Computes growth potential via GilbaGrowthPotentialEngine (PACE)
  *   4. Runs DiseaseEnginePure.analyse() — loaded as a dependency
  *   5. Runs gaip_pgr_calculate_pure() if PGR is configured in saved site state
  *   6. Writes to window.GAIP_DISEASE_RESULT, window.GAIP_CLIMATE_STRESS_RESULT,
@@ -37,11 +37,7 @@
     var VERSION = '1.0.0';
     var OPEN_METEO = 'https://api.open-meteo.com/v1/forecast';
 
-    // GP curve coefficients — Kreuser & Soldat 2011
-    var GP_COEFF = {
-        c3: { optMin: 15.6, optMax: 23.9, varLow: 6.8,  varHigh: 6.8  },
-        c4: { optMin: 31.1, optMax: 35.0, varLow: 9.0,  varHigh: 9.0  }
-    };
+    // GP delegated to GilbaGrowthPotentialEngine (PACE, b35fix473).
 
     function log()  { var a = Array.prototype.slice.call(arguments); a.unshift('[FieldAnalysis]'); console.log.apply(console, a); }
     function warn() { var a = Array.prototype.slice.call(arguments); a.unshift('[FieldAnalysis WARN]'); console.warn.apply(console, a); }
@@ -73,20 +69,13 @@
     }
 
     // -------------------------------------------------------------------------
-    // GP CURVE (inline — no climate-engine-v2.js needed)
+    // GP CURVE — delegates to GilbaGrowthPotentialEngine (PACE model)
     // -------------------------------------------------------------------------
     function calcGP(tempC, type) {
         if (tempC == null) { return null; }
-        var c = GP_COEFF[type] || GP_COEFF.c3;
-        if (tempC < c.optMin) {
-            var d = c.optMin - tempC;
-            return Math.round(Math.exp(-0.5 * Math.pow(d / c.varLow,  2)) * 1000) / 1000;
-        }
-        if (tempC > c.optMax) {
-            var d2 = tempC - c.optMax;
-            return Math.round(Math.exp(-0.5 * Math.pow(d2 / c.varHigh, 2)) * 1000) / 1000;
-        }
-        return 1.0;
+        var GPE = global.GilbaGrowthPotentialEngine;
+        if (!GPE) { return null; }
+        return GPE.compute(tempC, { model: 'pace', species: (type === 'c4' ? 'c4' : 'c3') });
     }
 
     // Weighted GP for mixed C3/C4 profiles

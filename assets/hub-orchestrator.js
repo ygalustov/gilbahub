@@ -1536,24 +1536,20 @@
   }
 
   /**
-   * Calculate growth potential from temperature and species
+   * Calculate growth potential from temperature and species.
+   * Delegates to GilbaGrowthPotentialEngine (PACE model, b35fix473).
    */
   function calculateGrowthPotential(tempC, species) {
-    // Determine if C3 or C4
     const isC4 = isC4Species(species);
-
+    const GPE = global.GilbaGrowthPotentialEngine;
     if (isC4) {
-      // C4: Peak at 31°C
       if (tempC <= 0 || tempC >= 45) return 0;
-      const Topt = 31;
-      const sigma = 8;
-      return Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2)) * 100;
+      const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c4' }) : null;
+      return gp != null ? gp * 100 : 0;
     } else {
-      // C3: Peak at 20°C
       if (tempC <= -5 || tempC >= 40) return 0;
-      const Topt = 20;
-      const sigma = 10; // Curve width - matches PACE Turf published data
-      return Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2)) * 100;
+      const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c3' }) : null;
+      return gp != null ? gp * 100 : 0;
     }
   }
 

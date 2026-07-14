@@ -599,11 +599,10 @@
     // =========================================================================
 
     function calculateGPForTemp(temp, c3Fraction = 1) {
-        const c3Params = NUTRITION_CONFIG.gpParams.c3;
-        const c4Params = NUTRITION_CONFIG.gpParams.c4;
-        const c3GP = Math.exp(-0.5 * Math.pow((temp - c3Params.optimalTemp) / c3Params.sigma, 2));
-        const c4GP = Math.exp(-0.5 * Math.pow((temp - c4Params.optimalTemp) / c4Params.sigma, 2));
-        return c3Fraction * c3GP + (1 - c3Fraction) * c4GP;
+        const GPE = global.GilbaGrowthPotentialEngine;
+        if (!GPE) return 0;
+        const gp = GPE.compute(temp, { model: 'pace', species: 'blend', c3Fraction: c3Fraction });
+        return gp != null ? gp : 0;
     }
 
     /**

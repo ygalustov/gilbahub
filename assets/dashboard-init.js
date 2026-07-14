@@ -355,11 +355,13 @@
             return;
         }
 
-        // Growth Potential
-        // GP — computed.climate.growth.weighted is the actual key (not growthPotential)
+        // Growth Potential — from dailyPattern[0] (daily mean per PACE contract)
         var _climateGrowth = computed && computed.climate && computed.climate.growth;
-        var gpRaw = m.growthPotential != null ? m.growthPotential
-                  : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null);
+        var _vitDp = _climateGrowth && Array.isArray(_climateGrowth.dailyPattern) ? _climateGrowth.dailyPattern : null;
+        var _vitDp0 = _vitDp && _vitDp.length > 0 ? _vitDp[0] : null;
+        var gpRaw = _vitDp0 ? _vitDp0.weighted
+                  : (m.growthPotential != null ? m.growthPotential
+                  : (_climateGrowth && _climateGrowth.weighted != null ? _climateGrowth.weighted : null));
 
         // Determine banner state based on last analysis result
         var _wxSrc = m.weatherSource; // 'live', 'cache', 'manual_override', undefined
@@ -385,18 +387,22 @@
                 gpBar.style.background = gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626');
             }
 
-            // GP footer: season type + thermal from computed.climate.growth
+            // GP footer: season type + 8-day avg (main number is today's GP)
             var gpObj = _climateGrowth;
             if (gpObj) {
-                var c3 = gpObj.c3 != null ? Math.round(gpObj.c3 > 1 ? gpObj.c3 : gpObj.c3 * 100) : null;
-                var c4 = gpObj.c4 != null ? Math.round(gpObj.c4 > 1 ? gpObj.c4 : gpObj.c4 * 100) : null;
                 var c3f = gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac != null ? gpObj.c3Frac : 1);
                 var c4f = gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac != null ? gpObj.c4Frac : 0);
                 var isWarm = c4f > c3f;
-                var thermalVal = isWarm ? c4 : c3;
                 var seasonLabel = isWarm ? 'Warm-Season' : 'Cool-Season';
-                var gpFooterStr = thermalVal != null
-                    ? seasonLabel + ' · Current GP ' + thermalVal + '%'
+                var _avgDp = Array.isArray(gpObj.dailyPattern) ? gpObj.dailyPattern : null;
+                var _avgGP8 = null;
+                if (_avgDp && _avgDp.length > 0) {
+                    var _aSum = 0, _aN = Math.min(8, _avgDp.length);
+                    for (var _ai = 0; _ai < _aN; _ai++) _aSum += (_avgDp[_ai].weighted || 0);
+                    _avgGP8 = Math.round(_aSum / _aN);
+                }
+                var gpFooterStr = _avgGP8 != null
+                    ? seasonLabel + ' · 8-Day Avg: ' + _avgGP8 + '%'
                     : seasonLabel;
                 setText('db-gp-footer', gpFooterStr);
             } else if (m.soilTemp != null) {
@@ -1014,24 +1020,32 @@
         var gpObj   = c && c.climate && c.climate.growth;
         var climate = c && c.climate;
 
-        // 8-day average (matches old hub: days 0–7 of forecast)
+        // Species type (needed before dailyPattern GP selection)
+        var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
+        var c4f     = gpObj ? (gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0)) : 0;
+        var isWarm  = c4f > c3f;
+        var isMixed = c3f > 0 && c4f > 0;
+        var gpField = isMixed ? 'weighted' : (isWarm ? 'c4' : 'c3');
+
+        // dailyPattern from climate.growth.dailyPattern (correct field name)
+        var dailyArr = gpObj && Array.isArray(gpObj.dailyPattern) ? gpObj.dailyPattern : null;
+        var todayEntry = dailyArr && dailyArr.length > 0 ? dailyArr[0] : null;
+
+        // 8-day average from dailyPattern (PACE: daily mean per entry)
         var avgGP = null;
-        var dailyArr = gpObj && Array.isArray(gpObj.dailyGrowthPotential) ? gpObj.dailyGrowthPotential : null;
         if (dailyArr && dailyArr.length > 0) {
             var eightDay = dailyArr.slice(0, 8);
-            avgGP = Math.round(eightDay.reduce(function (a, b) { return a + b; }, 0) / eightDay.length);
+            var _avgSum = 0;
+            eightDay.forEach(function(d) { _avgSum += (d[gpField] != null ? d[gpField] : (d.weighted || 0)); });
+            avgGP = Math.round(_avgSum / eightDay.length);
         } else {
             var avgRaw = m && m.growthPotential != null ? m.growthPotential
                        : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
             if (avgRaw != null) avgGP = avgRaw > 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100);
         }
 
-        // Today's GP
-        var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
-        var c4f     = gpObj ? (gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0)) : 0;
-        var isWarm  = c4f > c3f;
-        var todayRaw = gpObj ? (isWarm ? gpObj.c4 : gpObj.c3) : null;
-        if (todayRaw == null && gpObj) todayRaw = gpObj.weighted;
+        // Today's GP — from dailyPattern[0] (daily mean per PACE contract, not current-hour override)
+        var todayRaw = todayEntry ? (todayEntry[gpField] != null ? todayEntry[gpField] : todayEntry.weighted) : null;
         var todayGP  = todayRaw != null ? (todayRaw > 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
         var todayCls = todayGP != null ? (todayGP >= 70 ? 'ok' : (todayGP >= 40 ? 'warning' : 'critical')) : '';
 
@@ -1040,20 +1054,9 @@
         var speciesName = cfg.turfSpecies ? cfg.turfSpecies : null;
         var seasonTag   = isWarm ? 'C4 warm-season grass' : 'C3 cool-season grass';
 
-        // Temperature — prefer weather widget cache (current.temperature_2m)
-        var todayTemp = (function() {
-            try {
-                for (var i = 0; i < localStorage.length; i++) {
-                    var k = localStorage.key(i);
-                    if (k && k.startsWith('gaip_weather_cache_')) {
-                        var entry = safeJson(localStorage.getItem(k));
-                        var cur = entry && entry.data && (entry.data.current || entry.data.current_weather);
-                        if (cur) return cur.temperature_2m !== undefined ? cur.temperature_2m : cur.temperature;
-                    }
-                }
-            } catch (e) {}
-            return climate && climate.temperature ? climate.temperature.todayMean : null;
-        })();
+        // Temperature — daily mean from dailyPattern[0].temp (PACE: daily mean, not current-hour reading)
+        var todayTemp = (todayEntry && todayEntry.temp != null) ? todayEntry.temp :
+                        (climate && climate.temperature ? climate.temperature.todayMean : null);
         var insightText = (function() {
             if (todayTemp == null) return null;
             var t = todayTemp;
@@ -1115,23 +1118,25 @@
                 '</div>';
         }
 
-        // Hero: 16-day average (matches dashboard card)
-        html += panelHero(avgGP != null ? avgGP + '%' : '—', avgCls, '8-Day Average Growth Potential');
+        // Hero: Today's GP (main number, daily mean per PACE contract)
+        html += panelHero(todayGP != null ? todayGP + '%' : '—', todayCls, 'Today\'s Growth Potential');
 
-        // Current GP + insight
-        if (todayGP != null || insightText) {
+        // Insight text under hero
+        if (insightText) {
             var insightColor = todayCls === 'ok' ? '#14532d' : (todayCls === 'warning' ? '#78350f' : '#7f1d1d');
             var insightBg    = todayCls === 'ok' ? '#f0fdf4' : (todayCls === 'warning' ? '#fffbeb' : '#fef2f2');
-            var currentRow = todayGP != null
-                ? '<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px"><span style="font-size:22px;font-weight:700;color:var(--gaip-text,#1a2b23)">' + todayGP + '%</span><span style="font-size:12px;color:var(--gaip-text-muted,#6b8878)">today</span></div>'
-                : '';
             var soilPrefix = stVal != null ? '<strong>' + Math.round(stVal) + '°C soil</strong>' : '';
-            var prefixStr  = soilPrefix || '';
-            var insightRow = insightText
-                ? '<div style="padding:8px 10px;border-radius:6px;background:' + insightBg + ';font-size:12px;color:' + insightColor + ';line-height:1.5">' +
-                  (prefixStr ? prefixStr + ' &mdash; ' : '') + insightText + '</div>'
-                : '';
-            html += panelSection('Current Conditions', currentRow + insightRow);
+            var insightRow = '<div style="padding:8px 10px;border-radius:6px;background:' + insightBg + ';font-size:12px;color:' + insightColor + ';line-height:1.5">' +
+                  (soilPrefix ? soilPrefix + ' &mdash; ' : '') + insightText + '</div>';
+            html += panelSection('Today\'s Conditions', insightRow);
+        }
+
+        // 8-Day Average below
+        if (avgGP != null) {
+            var avgColor = avgCls === 'ok' ? '#16a34a' : (avgCls === 'warning' ? '#d97706' : '#dc2626');
+            var avgContent = '<div style="display:flex;align-items:baseline;gap:8px"><span style="font-size:22px;font-weight:700;color:' + avgColor + '">' + avgGP + '%</span>' +
+                '<span style="font-size:12px;color:var(--gaip-text-muted,#6b8878)">8-day forecast average</span></div>';
+            html += panelSection('8-Day Average GP', avgContent);
         }
 
 

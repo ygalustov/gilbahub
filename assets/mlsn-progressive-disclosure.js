@@ -994,16 +994,18 @@ function calculateC3C4Fractions(turf) {
  * Calculate mixed growth potential
  */
 function calcMixedGrowthPotential(temp, c3frac, c4frac) {
-    // C3 optimal around 20°C, C4 optimal around 31°C
-    const c3GP = 100 * Math.exp(-0.5 * Math.pow((temp - 20) / 5.5, 2));
-    const c4GP = 100 * Math.exp(-0.5 * Math.pow((temp - 31) / 7, 2));
-    
-    const weighted = c3frac * c3GP + c4frac * c4GP;
-    
+    var GPE = window.GilbaGrowthPotentialEngine;
+    var c3GP = 0, c4GP = 0;
+    if (GPE) {
+        var r3 = GPE.compute(temp, { model: 'pace', species: 'c3' });
+        var r4 = GPE.compute(temp, { model: 'pace', species: 'c4' });
+        c3GP = r3 != null ? r3 * 100 : 0;
+        c4GP = r4 != null ? r4 * 100 : 0;
+    }
     return {
         c3: Math.round(c3GP),
         c4: Math.round(c4GP),
-        weighted: Math.round(weighted)
+        weighted: Math.round(c3frac * c3GP + c4frac * c4GP)
     };
 }
 

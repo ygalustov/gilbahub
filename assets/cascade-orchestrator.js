@@ -346,16 +346,19 @@
                 // Build weather with growth potential
                 const weatherWithGP = weather || {};
                 if (global.climateMetrics && global.climateMetrics.growth) {
-                    let growthPotential = global.climateMetrics.growth.weighted || 50;
+                    // Use dailyPattern[0] (daily mean per PACE contract) not current-hour override
+                    const _weDp = global.climateMetrics.growth.dailyPattern;
+                    const _weDp0 = _weDp && _weDp.length > 0 ? _weDp[0] : null;
+                    let growthPotential = _weDp0 && _weDp0.weighted != null ? _weDp0.weighted : (global.climateMetrics.growth.weighted || 50);
                     let salinityModifier = 1;
-                    
+
                     if (salinityResult && salinityResult.relativeYieldPct < 100) {
                         salinityModifier = salinityResult.relativeYieldPct / 100;
                     }
-                    
+
                     weatherWithGP.growthPotential = Math.round(growthPotential * salinityModifier);
-                    weatherWithGP.growthC3 = global.climateMetrics.growth.c3;
-                    weatherWithGP.growthC4 = global.climateMetrics.growth.c4;
+                    weatherWithGP.growthC3 = _weDp0 ? _weDp0.c3 : global.climateMetrics.growth.c3;
+                    weatherWithGP.growthC4 = _weDp0 ? _weDp0.c4 : global.climateMetrics.growth.c4;
                     weatherWithGP.salinityModifier = salinityModifier;
                 }
                 
@@ -510,7 +513,7 @@
                 // Nutrition stress inputs
                 nutrition: {
                     tissueN: state.tissue?.N || computed.tissue?.normalized?.N || null,
-                    growthPotential: global.climateMetrics?.growth?.weighted || 50
+                    growthPotential: (function() { var _dp = global.climateMetrics?.growth?.dailyPattern; var _dp0 = _dp && _dp.length > 0 ? _dp[0] : null; return _dp0 && _dp0.weighted != null ? _dp0.weighted : (global.climateMetrics?.growth?.weighted || 50); })()
                 },
                 
                 // Species context

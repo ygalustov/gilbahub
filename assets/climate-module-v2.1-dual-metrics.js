@@ -236,26 +236,18 @@
     // GROWTH POTENTIAL CALCULATIONS (PACE Turf Model)
     // ========================================================================
 
-    /**
-     * Calculate C4 growth potential (warm-season grasses)
-     * Gaussian bell curve peaking at 31°C
-     */
     function calculateC4GP(tempC) {
         if (tempC <= 0 || tempC >= 45) return 0;
-        const Topt = 31;
-        const sigma = 8;
-        return Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2)) * 100;
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c4' }) : null;
+        return gp != null ? gp * 100 : 0;
     }
 
-    /**
-     * Calculate C3 growth potential (cool-season grasses)
-     * Gaussian bell curve peaking at 20°C
-     */
     function calculateC3GP(tempC) {
         if (tempC <= -5 || tempC >= 40) return 0;
-        const Topt = 20;
-        const sigma = 10;
-        return Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2)) * 100;
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c3' }) : null;
+        return gp != null ? gp * 100 : 0;
     }
 
     // ========================================================================

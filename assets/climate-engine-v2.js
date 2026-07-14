@@ -61,11 +61,7 @@
     'sunset'
   ];
 
-  // Growth potential curve coefficients (Kreuser & Soldat 2011)
-  const GPP_COEFFICIENTS = {
-    c3: { optMin: 15.6, optMax: 23.9, varLow: 6.8, varHigh: 6.8 },
-    c4: { optMin: 31.1, optMax: 35.0, varLow: 9.0, varHigh: 9.0 }
-  };
+  // GP delegated to GilbaGrowthPotentialEngine (PACE, b35fix473).
 
   // Stress thresholds (°C unless noted)
   const STRESS_THRESHOLDS = {
@@ -240,28 +236,15 @@
   // ---------------------------------------------------------------------------
 
   /**
-   * Growth Potential (GPP) — Kreuser & Soldat 2011
-   * Uses the standard bell-curve model adopted by GCSAA.
+   * Growth Potential (GPP) — PACE model via GilbaGrowthPotentialEngine.
    */
   function calcGPP(tempC, type = 'c3') {
     if (tempC == null) return null;
-    const c = GPP_COEFFICIENTS[type];
-    if (!c) return null;
-
-    const optMid = (c.optMin + c.optMax) / 2;
-
-    if (tempC < c.optMin) {
-      // Below optimum — left side of curve
-      const dist = c.optMin - tempC;
-      return round(Math.exp(-0.5 * Math.pow(dist / c.varLow, 2)), 3);
-    }
-    if (tempC > c.optMax) {
-      // Above optimum — right side of curve
-      const dist = tempC - c.optMax;
-      return round(Math.exp(-0.5 * Math.pow(dist / c.varHigh, 2)), 3);
-    }
-    // Within optimum range
-    return 1.0;
+    const GPE = window.GilbaGrowthPotentialEngine;
+    if (!GPE) return null;
+    const species = type === 'c4' ? 'c4' : 'c3';
+    const gp = GPE.compute(tempC, { model: 'pace', species });
+    return gp != null ? round(gp, 3) : null;
   }
 
   /**
@@ -618,9 +601,8 @@
       const avgDailyMJ = avg(radDailySum);
 
       // --- Growth Potential ---
-      // b35fix297: GP is a daily metric (Kreuser & Soldat 2011). Use today's
-      // daily mean, not the multi-day hourly average which dampens shoulder-season
-      // signals. Aligns hub GP with field log analysis calculation.
+      // GP is a daily metric (PACE model). Use today's daily mean, not the
+      // multi-day hourly average which dampens shoulder-season signals.
       const c3Frac = turf.c3Fraction ?? (turf.isC4 ? 0 : 1);
       const c4Frac = turf.c4Fraction ?? (turf.isC4 ? 1 : 0);
       const todayDailyMean = (daily.temperature_2m_mean || [])[0];
@@ -1191,7 +1173,6 @@
       estimateSoilTemp,
       classifyStress,
       buildDailyForecast,
-      GPP_COEFFICIENTS,
       STRESS_THRESHOLDS,
       SOIL_DIFFUSIVITY
     };

@@ -82,15 +82,16 @@
         return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
-    // Growth potential for a given temperature (C3 species, Gaussian)
     function gpC3(temp) {
-        var t = safeNum(temp, 15);
-        return Math.round(Math.exp(-0.5 * Math.pow((t - 20) / 5.5, 2)) * 100);
+        var GPE = global.GilbaGrowthPotentialEngine;
+        var gp = GPE ? GPE.compute(safeNum(temp, 15), { model: 'pace', species: 'c3' }) : null;
+        return gp != null ? Math.round(gp * 100) : 0;
     }
 
     function gpC4(temp) {
-        var t = safeNum(temp, 25);
-        return Math.round(Math.exp(-0.5 * Math.pow((t - 31) / 7, 2)) * 100);
+        var GPE = global.GilbaGrowthPotentialEngine;
+        var gp = GPE ? GPE.compute(safeNum(temp, 25), { model: 'pace', species: 'c4' }) : null;
+        return gp != null ? Math.round(gp * 100) : 0;
     }
 
     function nowMonth() { return new Date().getMonth(); }

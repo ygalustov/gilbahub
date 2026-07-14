@@ -86,7 +86,9 @@
     }
 
     function keyInsight(climateMetrics, grassType, specName) {
-        var t = (climateMetrics && climateMetrics.temperature && climateMetrics.temperature.todayMean) || 0;
+        var _dp = climateMetrics && climateMetrics.growth && climateMetrics.growth.dailyPattern;
+        var t = (_dp && _dp[0] && _dp[0].temp != null) ? _dp[0].temp :
+                ((climateMetrics && climateMetrics.temperature && climateMetrics.temperature.todayMean) || 0);
         var heatActive = climateMetrics && climateMetrics.stress && climateMetrics.stress.heat && climateMetrics.stress.heat.days > 0;
         var heatMax = (climateMetrics && climateMetrics.stress && climateMetrics.stress.heat && climateMetrics.stress.heat.maxTemp) || t;
         var gt = grassType || 'mixed';
@@ -305,6 +307,11 @@
             if (f.type === 'salinity') salinityFactor = f;
         });
 
+        // Trajectory engine is the authoritative stress source (same as stress-analysis.js)
+        var trajObj   = computed.stressTrajectory || null;
+        var trajScore = trajObj && trajObj.summary && trajObj.summary.currentScore != null ? Math.round(trajObj.summary.currentScore) : null;
+        var trajLevel = trajObj && trajObj.summary && trajObj.summary.currentLevel ? trajObj.summary.currentLevel : null;
+
         var confScore = (conf.overall && conf.overall.score)
             || (climate._meta && climate._meta.confidence && climate._meta.confidence.score)
             || null;
@@ -342,11 +349,14 @@
                 cold:    coldFactor    ? { days: coldFactor.days    || 0, frostDays: coldFactor.frostDays || 0, minTemp: coldFactor.minTemp || null } : { days: 0, frostDays: 0 },
                 drought:   droughtFactor  || null,
                 salinity:  salinityFactor || null,
-                level:   stressObj.severity || null,
-                index:   shade.stressIndex  || null,
+                // Trajectory engine is the authoritative overall stress score (same source as stress-analysis.js)
+                level:   trajLevel || stressObj.severity || null,
+                index:   trajScore != null ? trajScore : (stressObj.environmentalStressIndex != null ? Math.round(stressObj.environmentalStressIndex) : (shade.stressIndex || null)),
                 stressClass: shade.stressClass || null,
                 factors: stressFactors,
-                environmentalStressIndex: stressObj.environmentalStressIndex || null
+                environmentalStressIndex: stressObj.environmentalStressIndex || null,
+                trajectoryScore: trajScore,
+                trajectoryLevel: trajLevel
             },
             disease: {
                 riskLevel:    diseaseObj.overallRisk  || null,
@@ -390,8 +400,8 @@
             body:  'Growth Potential (GP) is a 0–100% index of how favourable current temperature and moisture conditions are for your grass to grow. A high GP means the turf is in its ideal growth window; a low GP means growth has slowed or stalled.\n\nThis figure is the average GP across the next 8 days of forecast — smoothing out single-day spikes to reveal the underlying trend: whether growth is building or easing over the coming week. Use it to plan fertiliser applications, overseeding, and recovery work.'
         },
         'gl-gp-today': {
-            title: 'Current Growth Potential',
-            body:  'Growth potential at today\'s current air temperature. Cool-season grasses grow best around 20°C, warm-season grasses around 31°C. This value reflects conditions right now and may differ from the forecast average if warmer or cooler weather is on the way.'
+            title: 'Today\'s Growth Potential',
+            body:  'Growth Potential (GP) for today, computed from today\'s forecast daily mean temperature — the average of all 24 hourly readings for the day. Per the PACE agronomy model (Gelernter & Stowell 2005), GP is a daily metric and must use the daily mean, not the current-hour temperature. Cool-season grasses (C3) grow best around 20°C; warm-season grasses (C4) peak near 31°C.'
         },
         'gl-c3c4': {
             title: 'C3 vs C4 Grass Types',
@@ -467,7 +477,7 @@
         },
         'gl-stress-overall': {
             title: 'Overall Stress',
-            body:  'A combined environmental stress score (0–100) that summarises how much the current conditions are limiting turf growth potential. It integrates shade deficit, heat load, cold exposure, and moisture stress into a single index.\n\nLow (0–24): Conditions are favourable — minimal drag on growth.\nModerate (25–49): Some stress present but growth is not critically impaired.\nHigh (50–74): Conditions are significantly limiting turf performance. Review individual stress factors.\nExtreme (≥75): Severe multi-factor stress — growth is heavily suppressed.\n\nESI (Environmental Stress Index) is the raw score before banding, shown for reference.'
+            body:  'A combined stress score (0–100) from the trajectory engine — the same source shown on the Stress Analysis page. Integrates heat load, cold exposure, moisture, and shade into a single index.\n\nNormal (0–24): Conditions are favourable — minimal drag on growth.\nElevated (25–49): Some stress present but growth is not critically impaired.\nHigh (50–74): Conditions are significantly limiting turf performance. Review individual stress factors.\nExtreme (≥75): Severe multi-factor stress — growth is heavily suppressed.\n\nESI (Environmental Stress Index) is an alternative raw score from the climate engine, shown for reference.'
         },
         'gl-stress-shade': {
             title: 'Shade Stress',
@@ -597,8 +607,15 @@
     // =========================================================================
 
     function renderHeader(cm, shade) {
-        var gp        = cm && cm.growth ? cm.growth.weighted : null;
-        var gpStatus  = cm && cm.growth ? cm.growth.status   : null;
+        var _hDp = cm && cm.growth && cm.growth.dailyPattern;
+        var _hDp0 = _hDp && _hDp.length > 0 ? _hDp[0] : null;
+        // Today's GP from dailyPattern[0] (daily mean per PACE contract)
+        var _hGrassType = detectGrassType(shade);
+        var gp = _hDp0 ? (_hGrassType === 'c3' ? (_hDp0.c3 != null ? _hDp0.c3 : _hDp0.weighted) :
+                          _hGrassType === 'c4' ? (_hDp0.c4 != null ? _hDp0.c4 : _hDp0.weighted) :
+                          _hDp0.weighted)
+               : (cm && cm.growth ? cm.growth.weighted : null);
+        var gpStatus  = gp != null ? (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low') : (cm && cm.growth ? cm.growth.status : null);
         var dli       = getDLI(shade);
         var dliStatus = shade ? shade.effectiveStatus : null;
         var shadeShort = dliStatus ? dliStatus.split('(')[0].trim() : null;
@@ -624,7 +641,7 @@
 
         var cards = [];
         if (gp !== null) {
-            cards.push(kpiCard('8-Day Avg GP', fmt(gp, 0) + '%', '', esc(gpStatus || ''), gpColor(gp), 'gl-gp'));
+            cards.push(kpiCard('Today\'s GP', fmt(gp, 0) + '%', '', esc(gpStatus || ''), gpColor(gp), 'gl-gp-today'));
         }
         if (dli !== null) {
             cards.push(kpiCard('Light (DLI)', fmt(dli, 1), 'mol/m²/day', esc(dliStatus || ''), dliColor(dliStatus), 'gl-dli'));
@@ -691,11 +708,30 @@
 
         var growth = cm.growth || {};
         var temp   = cm.temperature || {};
-        var gp       = growth.weighted;
-        var gpStatus = growth.status || 'Unknown';
-        var avgTemp  = temp.todayMean;
         var grassType = detectGrassType(shade);
         var dailyPattern = (growth.dailyPattern || []).slice(0, 9); // today + 8 forecast days
+        var todayEntry = dailyPattern.length > 0 ? dailyPattern[0] : null;
+
+        // Per PACE contract: GP uses daily mean temperature, never current-hour.
+        // todayEntry.temp = forecast daily mean for today (the correct input).
+        // Fallback to todayMean only when no forecast data exists.
+        var avgTemp = todayEntry && todayEntry.temp != null ? todayEntry.temp : temp.todayMean;
+
+        // 8-day average GP computed from dailyPattern (all days including today)
+        var gp = null;
+        if (dailyPattern.length > 0) {
+            var _gpSum = 0;
+            for (var _gi = 0; _gi < dailyPattern.length; _gi++) {
+                var _gv = grassType === 'c3' ? (dailyPattern[_gi].c3 != null ? dailyPattern[_gi].c3 : dailyPattern[_gi].weighted) :
+                          grassType === 'c4' ? (dailyPattern[_gi].c4 != null ? dailyPattern[_gi].c4 : dailyPattern[_gi].weighted) :
+                          dailyPattern[_gi].weighted;
+                if (_gv != null) _gpSum += _gv;
+            }
+            gp = Math.round(_gpSum / dailyPattern.length);
+        } else {
+            gp = growth.weighted;
+        }
+        var gpStatus = gp != null ? (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low') : (growth.status || 'Unknown');
         var cfg = global.GAIP_HUB_CONFIG || {};
         var _specRaw = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
         var speciesLabel = _specRaw ? capitalize(_specRaw) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);
@@ -728,34 +764,46 @@
             ].join('');
         }
 
-        // Today's GP value
+        // Today's GP value — from dailyPattern[0] (daily mean), not from growth.c3/c4 (current-hour override)
         var todayVal, todayColor;
-        if (grassType === 'c3') {
-            todayVal = growth.c3 != null ? growth.c3 : gp;
-        } else if (grassType === 'c4') {
-            todayVal = growth.c4 != null ? growth.c4 : gp;
+        if (todayEntry) {
+            if (grassType === 'c3') {
+                todayVal = todayEntry.c3 != null ? todayEntry.c3 : todayEntry.weighted;
+            } else if (grassType === 'c4') {
+                todayVal = todayEntry.c4 != null ? todayEntry.c4 : todayEntry.weighted;
+            } else {
+                todayVal = todayEntry.weighted;
+            }
         } else {
-            todayVal = gp;
+            if (grassType === 'c3') {
+                todayVal = growth.c3 != null ? growth.c3 : gp;
+            } else if (grassType === 'c4') {
+                todayVal = growth.c4 != null ? growth.c4 : gp;
+            } else {
+                todayVal = gp;
+            }
         }
         todayColor = gpColor(todayVal);
 
         // Today left: number + badge
         var todayLeftHtml;
         if (grassType === 'mixed') {
-            var baseGpVal = growth.c3 != null ? growth.c3 : gp;
+            var baseGpVal = todayEntry ? (todayEntry.c3 != null ? todayEntry.c3 : todayEntry.weighted) : (growth.c3 != null ? growth.c3 : gp);
+            var baseTodayStatus = baseGpVal != null ? (baseGpVal >= 70 ? 'High' : baseGpVal >= 40 ? 'Moderate' : 'Low') : gpStatus;
             todayLeftHtml = [
-                '<div class="gl-hero-section-label">Current Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
+                '<div class="gl-hero-section-label">Today\'s Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
                 '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
                 '  <span class="gl-gp-big" style="color:' + gpColor(baseGpVal) + '">' + fmt(baseGpVal, 0, '—') + (baseGpVal != null ? '%' : '') + '</span>',
-                '  ' + statusBadge(esc(gpStatus), gpColor(baseGpVal)),
+                '  ' + statusBadge(esc(baseTodayStatus), gpColor(baseGpVal)),
                 '</div>'
             ].join('\n');
         } else {
+            var todayStatus = todayVal != null ? (todayVal >= 70 ? 'High' : todayVal >= 40 ? 'Moderate' : 'Low') : gpStatus;
             todayLeftHtml = [
-                '<div class="gl-hero-section-label">Current Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
+                '<div class="gl-hero-section-label">Today\'s Growth Potential ' + infoBtn('gl-gp-today') + '</div>',
                 '<div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
                 '  <span class="gl-gp-big" style="color:' + todayColor + '">' + fmt(todayVal, 0, '—') + (todayVal != null ? '%' : '') + '</span>',
-                '  ' + statusBadge(esc(gpStatus), todayColor),
+                '  ' + statusBadge(esc(todayStatus), todayColor),
                 '</div>'
             ].join('\n');
         }
@@ -934,7 +982,9 @@
 
     function renderBellCurve(cm, shade, grassType) {
         var temp   = cm && cm.temperature ? cm.temperature : {};
-        var currentTemp = temp.todayMean;
+        var _bcDp  = cm && cm.growth && cm.growth.dailyPattern;
+        // Use daily mean for the marker per PACE contract; fallback to todayMean only if no dailyPattern
+        var currentTemp = (_bcDp && _bcDp[0] && _bcDp[0].temp != null) ? _bcDp[0].temp : temp.todayMean;
         var showC3 = grassType !== 'c4';
         var showC4 = grassType !== 'c3';
         var cfg = global.GAIP_HUB_CONFIG || {};
@@ -944,9 +994,9 @@
 
         // Chart is always shown — curves are mathematical
 
-        // Must match climate-engine.js calculateC3Growth / calculateC4Growth
-        var C3_PEAK = 20.0, C3_SIGMA = 10.0;
-        var C4_PEAK = 31.0, C4_SIGMA = 10.0;
+        // PACE model coefficients (Gelernter & Stowell 2005)
+        var C3_PEAK = 20.0, C3_SIGMA = 5.5;
+        var C4_PEAK = 31.0, C4_SIGMA = 7.0;
         var T_MIN = -5, T_MAX = 45;
         var W = 600, H = 180, padL = 40, padR = 20, padT = 22, padB = 40;
         var innerW = W - padL - padR;
@@ -1266,7 +1316,9 @@
         }
 
         // ── Temperature × Light interaction ───────────────────────────────────
-        var todayTemp = (cm && cm.temperature && cm.temperature.todayMean != null) ? cm.temperature.todayMean : null;
+        var _tlDp = cm && cm.growth && cm.growth.dailyPattern;
+        var todayTemp = (_tlDp && _tlDp[0] && _tlDp[0].temp != null) ? _tlDp[0].temp :
+                        (cm && cm.temperature && cm.temperature.todayMean != null) ? cm.temperature.todayMean : null;
         var tempLightHtml = '';
         if (todayTemp !== null) {
             var _tempNotes = [];
@@ -1440,9 +1492,16 @@
         var grassType = detectGrassType(shade);
         var growth = cm ? (cm.growth || {}) : {};
 
-        // Overall stress card (from shade engine)
-        var overallColor = stressClass ? (stressClass.colour || '#9ca3af') : '#9ca3af';
-        var overallLabel = stressClass ? stressClass.label : (stress.level ? capitalize(stress.level) : null);
+        // Overall stress: trajectory engine is authoritative (same source as Stress page)
+        var TRAJ_LEVEL_META = {
+            normal:   { label: 'Normal',   color: '#16a34a' },
+            elevated: { label: 'Elevated', color: '#d97706' },
+            high:     { label: 'High',     color: '#ea580c' },
+            extreme:  { label: 'Extreme',  color: '#dc2626' }
+        };
+        var trajLevelMeta = stress.trajectoryLevel ? (TRAJ_LEVEL_META[stress.trajectoryLevel] || null) : null;
+        var overallColor  = trajLevelMeta ? trajLevelMeta.color : (stressClass ? (stressClass.colour || '#9ca3af') : '#9ca3af');
+        var overallLabel  = trajLevelMeta ? trajLevelMeta.label : (stressClass ? stressClass.label : (stress.level ? capitalize(stress.level) : null));
         var hasBothGP = grassType === 'mixed' && growth.c3 != null && growth.c4 != null;
         var overallSplitHtml = '';
         if (hasBothGP) {
@@ -1743,16 +1802,19 @@
             }
         }
 
+        // Use dailyPattern[0] (daily mean) for recommendations per PACE contract
+        var _recDp0 = growth.dailyPattern && growth.dailyPattern.length > 0 ? growth.dailyPattern[0] : null;
+
         if (grassType === 'mixed') {
             // Mixed stand: separate rec for each component — blended number is misleading
-            gpRec(growth.c3 != null ? growth.c3 : null, (recGrassNames.c3 || 'Cool-season') + ' (C3) ');
-            gpRec(growth.c4 != null ? growth.c4 : null, (recGrassNames.c4 || 'Warm-season') + ' (C4) ');
+            gpRec(_recDp0 ? _recDp0.c3 : (growth.c3 != null ? growth.c3 : null), (recGrassNames.c3 || 'Cool-season') + ' (C3) ');
+            gpRec(_recDp0 ? _recDp0.c4 : (growth.c4 != null ? growth.c4 : null), (recGrassNames.c4 || 'Warm-season') + ' (C4) ');
         } else if (grassType === 'c3') {
             var label3 = speciesLabel ? speciesLabel + ' (C3) ' : 'C3 ';
-            gpRec(growth.c3 != null ? growth.c3 : growth.weighted, label3);
+            gpRec(_recDp0 ? (_recDp0.c3 != null ? _recDp0.c3 : _recDp0.weighted) : (growth.c3 != null ? growth.c3 : growth.weighted), label3);
         } else {
             var label4 = speciesLabel ? speciesLabel + ' (C4) ' : 'C4 ';
-            gpRec(growth.c4 != null ? growth.c4 : growth.weighted, label4);
+            gpRec(_recDp0 ? (_recDp0.c4 != null ? _recDp0.c4 : _recDp0.weighted) : (growth.c4 != null ? growth.c4 : growth.weighted), label4);
         }
 
         // ── Heat stress ──────────────────────────────────────────────────────

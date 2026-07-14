@@ -1353,22 +1353,14 @@ function renderBasicClimateInfo(e, t, r) {
             }
             w /= n.length;
             var M = 0;
-            if (
-                "c3" ===
-                (r.turf.grassSpecies &&
+            var _gpSpecies = (r.turf.grassSpecies &&
                     (r.turf.grassSpecies.toLowerCase().indexOf("bent") >= 0 ||
                         r.turf.grassSpecies.toLowerCase().indexOf("rye") >= 0 ||
-                        r.turf.grassSpecies.toLowerCase().indexOf("fescue") >= 0) ?
-                    "c3" :
-                    "c4")
-            ) {
-                var I = (w - 20) / 7.5;
-                M = Math.exp(-0.5 * I * I);
-            } else {
-                I = (w - 31) / 8;
-                M = Math.exp(-0.5 * I * I);
-            }
-            M = 100 * Math.max(0, Math.min(1, M));
+                        r.turf.grassSpecies.toLowerCase().indexOf("fescue") >= 0)) ?
+                    "c3" : "c4";
+            var _gpe = window && window.GilbaGrowthPotentialEngine;
+            var _gpR = _gpe ? _gpe.compute(w, { model: 'pace', species: _gpSpecies }) : null;
+            M = _gpR != null ? 100 * Math.max(0, Math.min(1, _gpR)) : 0;
             var k = [];
             (x > 35 ?
                 k.push({
@@ -2066,13 +2058,15 @@ function getAverageTemperature(e, t) {
 }
 
 function calcC3GrowthPotential(e) {
-    var t = Math.exp(-0.5 * Math.pow((e - 20) / 10, 2));
-    return Math.max(0, Math.min(100, 100 * t));
+    var GPE = window && window.GilbaGrowthPotentialEngine;
+    var gp = GPE ? GPE.compute(e, { model: 'pace', species: 'c3' }) : null;
+    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
 }
 
 function calcC4GrowthPotential(e) {
-    var t = Math.exp(-0.5 * Math.pow((e - 31) / 8, 2));
-    return Math.max(0, Math.min(100, 100 * t));
+    var GPE = window && window.GilbaGrowthPotentialEngine;
+    var gp = GPE ? GPE.compute(e, { model: 'pace', species: 'c4' }) : null;
+    return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
 }
 
 function calcMixedGrowthPotential(e, t, r) {

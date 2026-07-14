@@ -867,10 +867,9 @@
         let gpC4 = 50, gpC3 = 50; // Defaults
         
         if (avgTemp !== null) {
-            // C4 growth potential (optimal ~31°C, sigma=8 per PACE Turf)
-            gpC4 = 100 * Math.exp(-0.5 * Math.pow((avgTemp - 31) / 8, 2));
-            // C3 growth potential (optimal ~20°C, sigma=10 per PACE Turf)
-            gpC3 = 100 * Math.exp(-0.5 * Math.pow((avgTemp - 20) / 10, 2));
+            const GPE = global.GilbaGrowthPotentialEngine;
+            gpC4 = GPE ? (GPE.compute(avgTemp, { model: 'pace', species: 'c4' }) ?? 0) * 100 : 0;
+            gpC3 = GPE ? (GPE.compute(avgTemp, { model: 'pace', species: 'c3' }) ?? 0) * 100 : 0;
         }
         
         // Determine if overseed is actually present based on season
@@ -1113,33 +1112,18 @@
         };
     }
 
-    /**
-     * C4 growth potential calculation (PACE Turf model)
-     * Gaussian bell curve peaking at 31°C
-     */
     function calculateC4GrowthPotential(tempC) {
         if (tempC <= 0 || tempC >= 45) return 0;
-        
-        const Topt = 31;   // Optimal temperature
-        const sigma = 8;   // Curve width
-        
-        const gp = Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2));
-        return Math.max(0, Math.min(1, gp));
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c4' }) : null;
+        return gp != null ? Math.max(0, Math.min(1, gp)) : 0;
     }
 
-    /**
-     * C3 growth potential calculation (PACE Turf model)
-     */
     function calculateC3GrowthPotential(tempC) {
-        // PACE Turf C3 Growth Potential model (Gelernter & Stowell)
-        // Gaussian bell curve peaking at 20°C
         if (tempC <= -5 || tempC >= 40) return 0;
-        
-        const Topt = 20;   // Optimal temperature
-        const sigma = 10;  // Curve width - matches PACE Turf published data
-        
-        const gp = Math.exp(-0.5 * Math.pow((tempC - Topt) / sigma, 2));
-        return Math.max(0, Math.min(1, gp));
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const gp = GPE ? GPE.compute(tempC, { model: 'pace', species: 'c3' }) : null;
+        return gp != null ? Math.max(0, Math.min(1, gp)) : 0;
     }
 
     // ========================================================================

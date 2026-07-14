@@ -491,13 +491,10 @@
     }
 
     function getGrowthPotential(temp, isC4) {
-        if (isC4) {
-            const variance = 7.5;
-            return Math.max(0, Math.min(100, 100 * Math.exp(-0.5 * Math.pow((temp - 31) / variance, 2))));
-        } else {
-            const variance = 6.5;
-            return Math.max(0, Math.min(100, 100 * Math.exp(-0.5 * Math.pow((temp - 20) / variance, 2))));
-        }
+        const GPE = global.GilbaGrowthPotentialEngine;
+        const species = isC4 ? 'c4' : 'c3';
+        const gp = GPE ? GPE.compute(temp, { model: 'pace', species: species }) : null;
+        return gp != null ? Math.max(0, Math.min(100, gp * 100)) : 0;
     }
 
     function detectRegion(lat, lon) {
