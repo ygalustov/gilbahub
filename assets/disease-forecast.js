@@ -1141,7 +1141,13 @@ var DiseaseForecast = (function() {
                         } else {
                             synthRH.push(nighttimeRH);
                         }
-                        synthTemp.push(isConcurrent ? (dayClimate.mean || 22) : (dayClimate.mean || 20));
+                        // Nighttime (h<6 or h>=20): use dayClimate.min — temperature minima
+                        // occur overnight/early morning. Fidanza E2 requires the daily
+                        // minimum, so min(synthTemp[0..24]) must equal dayClimate.min,
+                        // not dayClimate.mean. Pre-fix: all 24 hours = mean → min = mean
+                        // → E2 underestimated for warm days → Brown Patch risk below
+                        // the 15% filter threshold even when conditions support it.
+                        synthTemp.push(isDaytime ? (dayClimate.mean || 22) : (dayClimate.min != null ? dayClimate.min : (dayClimate.mean || 20)));
                         synthTime.push(baseDate + 'T' + (h < 10 ? '0' : '') + h + ':00');
                     }
                 } else {
@@ -1482,51 +1488,49 @@ var DiseaseForecast = (function() {
     /**
      * Build daily pattern from fallback sources when climateMetrics.temperature.dailyPattern is missing
      */
-    function buildDailyPatternFallback(state, climateMetrics) {
+    function buildDailyPatternFallback(_state, climateMetrics) {
         var daily = [];
-        
-        
-        // Try 1: Build from raw weather hourly data if available
-        if (window.rawWeatherData && window.rawWeatherData.forecast && window.rawWeatherData.forecast.hourly) {
-            var hourly = window.rawWeatherData.forecast.hourly;
-            
-            if (hourly.time && hourly.temperature_2m) {
-                var hoursPerDay = 24;
-                var numDays = Math.min(Math.ceil(hourly.time.length / hoursPerDay), 14);
-                
-                for (var d = 0; d < numDays; d++) {
-                    var startIdx = d * hoursPerDay;
-                    var endIdx = Math.min(startIdx + hoursPerDay, hourly.time.length);
-                    var dayTemps = hourly.temperature_2m.slice(startIdx, endIdx);
-                    
-                    if (dayTemps.length > 0) {
-                        daily.push({
-                            date: hourly.time[startIdx].split('T')[0],
-                            min: Math.min.apply(null, dayTemps),
-                            max: Math.max.apply(null, dayTemps),
-                            mean: dayTemps.reduce(function(a,b) { return a+b; }, 0) / dayTemps.length
-                        });
-                    }
-                }
-                
-                if (daily.length > 0) {
-                    return daily;
-                }
+
+        // Try 0: Per-day min/max/mean from OM forecast hourly data (midnight-to-midnight slices).
+        // Using actual forecast temperatures eliminates the flat-Fusarium problem caused by
+        // Try 2's fixed period spread: period min=0.2°C, max=17.1°C → diurnal range≈17.9°C
+        // → fluctuationMod=1.25 on every forecast day → Fusarium 100% flat.
+        // Real NZ July forecast diurnal ranges are typically 8-12°C → fluctuationMod=1.0
+        // → Fusarium ≈ 75-80%, consistent with Active Threats.
+        // Brown Patch is not affected: forecast overnight mins in NZ winter remain well
+        // below 7.68°C (the E2≥0 threshold at RH≈86%) so riskScore stays 0 for all days.
+        var forecastHourly = _state && _state.forecastHourly;
+        if (forecastHourly && Array.isArray(forecastHourly.temperature_2m) && forecastHourly.temperature_2m.length >= 24) {
+            var omTemps = forecastHourly.temperature_2m;
+            var today = new Date();
+            var ok = true;
+            for (var i = 0; i < 7; i++) {
+                var startH = i * 24;
+                var endH   = Math.min(startH + 24, omTemps.length);
+                if (endH - startH < 12) { ok = false; break; }
+                var slice = omTemps.slice(startH, endH);
+                var sliceMin  = Math.min.apply(null, slice);
+                var sliceMax  = Math.max.apply(null, slice);
+                var sliceMean = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
+                var dateStr = new Date(today.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                daily.push({
+                    date: dateStr,
+                    min:  Math.round(sliceMin  * 10) / 10,
+                    max:  Math.round(sliceMax  * 10) / 10,
+                    mean: Math.round(sliceMean * 10) / 10,
+                });
             }
+            if (ok && daily.length === 7) return daily;
+            daily = [];
         }
-        
-        // Try 2: Create synthetic 7-day forecast from current climate metrics
-        // Uses gradual variation, not random spikes
+
+        // Try 2: Synthetic pattern from period climate metrics (sinusoidal variation).
+        // Fallback when OM hourly temperature data is not available in state.
         if (climateMetrics && climateMetrics.temperature) {
-            
             var baseTemp = climateMetrics.temperature.mean || 20;
             var minTemp = climateMetrics.temperature.min || baseTemp - 5;
             var maxTemp = climateMetrics.temperature.max || baseTemp + 5;
             var today = new Date();
-            
-            
-            // Create 7 days with GRADUAL sinusoidal variation (no random spikes)
-            // Simulates realistic weather patterns with ±1.5°C gentle oscillation
             for (var i = 0; i < 7; i++) {
                 var dateStr = new Date(today.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
                 

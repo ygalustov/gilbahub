@@ -847,7 +847,13 @@
           || (global.rawWeatherData && global.rawWeatherData.hourly)
           || null;
         if (_rawHourly && _rawHourly.temperature_2m && _rawHourly.temperature_2m.length >= 24) {
-          var _temps = _rawHourly.temperature_2m.slice(0, 168);
+          // Use only TODAY's 24-hour window (slice 0–23), matching what
+          // buildDailyPatternFallback uses for forecast day 0 and what the
+          // Fidanza E2 model requires ("minimum daily air temperature" for the
+          // current 24-h period). Using the 7-day global minimum produced a lower
+          // value (cold snap days 4-7) that pushed E2 below 0 and hid Brown Patch
+          // from Active Threats even when today's conditions clearly support it.
+          var _temps = _rawHourly.temperature_2m.slice(0, 24);
           var _sum = 0;
           for (var _i = 0; _i < _temps.length; _i++) _sum += _temps[_i];
           var _recoveredMean = parseFloat((_sum / _temps.length).toFixed(1));
@@ -863,6 +869,12 @@
           });
           climateSource = "api";
           log("canonical", "Recovered temperature from rawWeatherData hourly (shim had written null defaults): mean=" + _recoveredMean);
+          // hub-persistence.js reads global.climateMetrics.temperature when building
+          // cache.computed.climate (line 939) and overwrites whatever GAIP_CANONICAL_STATE
+          // already has. Without this assignment the recovered temperature stays local,
+          // global.climateMetrics still has the null-filled shim object, and
+          // computed.climate.temperature.min is saved as null even after a correct re-run.
+          global.climateMetrics = climateMetrics;
         }
       }
     }

@@ -1088,10 +1088,36 @@ function getFusariumNModifier(nStatus, meanTemp) {
  * 2018 corrected in b35fix335.
  */
 function getFidanzaE2(climate) {
-    // T = minimum daily air temperature.
-    // The paper uses minimum daily air temp as the temperature input
-    // (NOT night-temp computed from hourly data; NOT mean temp).
-    const T = climate?.temperature?.min ?? null;
+    // T = minimum daily air temperature for the current 24-hour period.
+    // The paper (Fidanza et al. 1996 p386) uses "minimum air temperature
+    // during the 24-h interval beginning and ending at 0600 h."
+    //
+    // Prefer hourly data first 24h (same window buildDailyPatternFallback uses
+    // for forecast day 0) so Active Threats and the Forecast chart use the same
+    // temperature. climate.temperature.min is the 7-day global minimum across the
+    // entire forecast window — if a cold snap is predicted on day 5 it depresses
+    // T below the Brown Patch threshold even when today's conditions support it.
+    let T = null;
+    let tSource = null;
+    // Accept both Open-Meteo key names (temperature_2m — rawWeatherData.forecast.hourly)
+    // and climate-engine-v2 renamed keys (temperature — climateMetrics.hourly).
+    // getAuthoritativeClimate() may provide either format depending on which global
+    // is populated first. Without this dual-key check, the _2m path silently falls
+    // back to climate.temperature.min (7-day global min) even when good hourly data
+    // is present under the alternative key.
+    const _tArr = climate?.hourlyData?.temperature_2m || climate?.hourlyData?.temperature;
+    if (Array.isArray(_tArr) && _tArr.length >= 24) {
+        const todayTemps = _tArr.slice(0, 24)
+            .filter(v => typeof v === 'number' && !isNaN(v));
+        if (todayTemps.length > 0) {
+            T = Math.min.apply(null, todayTemps);
+            tSource = 'hourly day-0 min';
+        }
+    }
+    if (T == null) {
+        T = climate?.temperature?.min ?? null;
+        tSource = T != null ? 'period min (fallback)' : null;
+    }
 
     // RH = mean daily relative humidity (24-h period ending 0600h).
     // Paper p386: "All variables summarized a 24-h interval beginning and
@@ -1110,10 +1136,12 @@ function getFidanzaE2(climate) {
     // even though E2 was actually computed from hourly mean ~68.33%.
     let RH = null;
     let rhSource = null;
-    if (Array.isArray(climate?.hourlyData?.relative_humidity_2m) &&
-        climate.hourlyData.relative_humidity_2m.length >= 24) {
+    // Same dual-key pattern: Open-Meteo uses relative_humidity_2m, climateMetrics.hourly
+    // uses humidity. Accept either so both data shapes work correctly.
+    const _rhArr = climate?.hourlyData?.relative_humidity_2m || climate?.hourlyData?.humidity;
+    if (Array.isArray(_rhArr) && _rhArr.length >= 24) {
         // Most recent 24 hours
-        const arr = climate.hourlyData.relative_humidity_2m;
+        const arr = _rhArr;
         const start = Math.max(0, arr.length - 24);
         let sum = 0, count = 0;
         for (let i = start; i < arr.length; i++) {
@@ -1134,11 +1162,11 @@ function getFidanzaE2(climate) {
     }
 
     if (T == null || RH == null) {
-        return { e2: null, T, RH, rhSource: rhSource || 'no data' };
+        return { e2: null, T, RH, tSource: tSource || 'no data', rhSource: rhSource || 'no data' };
     }
 
     const e2 = -21.5 + 0.15 * RH + 1.4 * T - 0.033 * T * T;
-    return { e2, T, RH, rhSource };
+    return { e2, T, RH, tSource, rhSource };
 }
 
 /**

@@ -400,23 +400,18 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
 +61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
 +62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
++85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
++86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
 
 
+84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180. 
 
-+84. There is a problem with the brown patch graph as it’s using the wrong model. GH-173. Also fixed some calculations for diseases as found some differences from the old hub GH-180. 
 
-Gh 85 The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed
+Is the nutrition calendar module part of the SaaS work you’ve started, or still untouched from the b35fix395 baseline? I need to know before I decide whether to patch it in the plugin or hand you the change to make on your side. 
 
-screenshots
-file
+87. Nutrition calendar (file).
 
-Is the nutrition calendar module part of the SaaS work you’ve started, or still untouched from the b35fix395 baseline? I need to know before I decide whether to patch it in the plugin or hand you the change to make on your side.
-
-Gh86 couch and bermudagrass are the same thing
-
-GH87 file
-
-GH88 file does my doing it this way help? 
+88. GP reconciliation (file). Does my doing it this way help? - Yes, very helpful — please keep sending them this way. 
 
 
 

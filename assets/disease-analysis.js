@@ -472,7 +472,7 @@
 
     var CHART_COLORS = ['#ef4444', '#2563eb', '#16a34a', '#f97316', '#7c3aed', '#0891b2', '#ca8a04'];
 
-    function buildForecastSeries(diseases, forecastArr) {
+    function buildForecastSeries(diseases) {
         var series = [];
 
         // Try per-disease forecast arrays first
@@ -492,23 +492,12 @@
             return series;
         }
 
-        // Global forecast array: [{day, label, diseases:{name: score}}] or [{day, scores:{name: score}}]
-        if (forecastArr.length > 1) {
-            var diseaseNames = {};
-            forecastArr.forEach(function (pt) {
-                var scores = pt.diseases || pt.scores || {};
-                Object.keys(scores).forEach(function (k) { diseaseNames[k] = true; });
-            });
-            var colorIdx = 0;
-            Object.keys(diseaseNames).slice(0, 5).forEach(function (key) {
-                var values = forecastArr.map(function (pt) {
-                    var scores = pt.diseases || pt.scores || {};
-                    return Math.min(100, Math.max(0, Number(scores[key]) || 0));
-                });
-                series.push({ name: driverLabel(key), color: CHART_COLORS[colorIdx++ % CHART_COLORS.length], values: values });
-            });
-            return series;
-        }
+        // Note: the global d.forecast array from DB is intentionally skipped here.
+        // It may contain stale data from a previous analysis run (e.g. diseases that
+        // are no longer active after a re-run). Skipping it forces renderForecastChart
+        // to return '' (numPoints < 2 from the synthesis fallback below), which inserts
+        // the dr-forecast-wrap placeholder and causes initForecastChart to call
+        // generateForecast dynamically with fresh OM weather data.
 
         // Fallback: synthesise from current scores (flat line, at least show something)
         diseases.slice(0, 4).forEach(function (disease, i) {
@@ -526,7 +515,7 @@
         var diseases   = filterDiseases(d.diseases.length ? d.diseases : d.topThreats);
         if (diseases.length === 0) return '';
 
-        var series     = buildForecastSeries(diseases, d.forecast);
+        var series     = buildForecastSeries(diseases);
         if (series.length === 0) return '';
 
         var numPoints  = series[0].values.length;
@@ -1513,9 +1502,15 @@
             .then(function (data) {
                 if (!data.hourly || !data.hourly.time) return;
 
-                // Expose hourly data for disease-forecast.js buildDailyPatternFallback
                 var hourly = data.hourly;
-                global.rawWeatherData = { forecast: { hourly: hourly } };
+                // NOTE: rawWeatherData is intentionally NOT set here.
+                // The fresh OM hourly data is instead passed via state.forecastHourly (below)
+                // and consumed by buildDailyPatternFallback Try 0, which uses Math.min() of
+                // each 24-h slice to get true overnight minimums — consistent with getFidanzaE2
+                // in Active Threats. Previously Try 1 relied on window.rawWeatherData set by
+                // hub-tissue (race condition), and Try 2 fell back to climateMetrics.temperature.min
+                // (hub-tissue historical, could be 12°C NZ July) → Brown Patch 25% in forecast /
+                // 0% in Active Threats. Try 0 eliminates both problems.
 
                 var rh     = hourly.relative_humidity_2m || [];
                 var times  = hourly.time || [];
@@ -1558,20 +1553,26 @@
                 // hub-persistence.js adds dailyPattern to the saved cache (from rawWeatherData),
                 // but the old site's window.climateMetrics never has it. If dailyPattern is
                 // present, generateForecast uses it directly instead of calling
-                // buildDailyPatternFallback — which on the analysis page would give stale
-                // historical lookback temperatures instead of current/forecast ones.
+                // buildDailyPatternFallback — which would use stale saved per-day temperatures
+                // instead of generating a pattern from climateForForecast.temperature (stored
+                // historical climate, same period as the active threats analysis).
                 var climateForForecast = Object.assign({}, storedClimate);
                 if (climateForForecast.temperature) {
                     climateForForecast.temperature = Object.assign({}, climateForForecast.temperature);
                     delete climateForForecast.temperature.dailyPattern;
                 }
-                // Add fresh per-day humidity from the OM fetch so buildDailyClimate gives
-                // realistic day-by-day values (mirrors old site's P.moisture.dailyPattern).
+                // Humidity: use the period mean (from stored analysis climate) for ALL forecast
+                // days so that buildDailyClimate falls back to climateMetrics.moisture.humidity.mean.
+                // Per-day OM humidity makes Forecast "Today" diverge from Active Threats because
+                // today's 24-h average (e.g. 74%) is drier than the multi-day period mean (e.g. 85%),
+                // causing moisture-sensitive diseases (Fusarium) to show much lower scores in the
+                // "Today" column than in Active Threats.  The old hub always used period-mean humidity
+                // for all forecast days — dailyPattern: null restores that behaviour.
                 climateForForecast.moisture = Object.assign({}, climateForForecast.moisture || {}, {
                     humidity: climateForForecast.moisture && climateForForecast.moisture.humidity
                         ? climateForForecast.moisture.humidity
                         : (climateForForecast.humidity || { mean: meanHumidity }),
-                    dailyPattern: moistureDaily.length ? moistureDaily : null,
+                    dailyPattern: null,
                 });
 
                 // Build full state mirroring buildDiseaseInputs() in hub-orchestrator.js
@@ -1640,7 +1641,15 @@
                         frequency: _ddTurf.mowingFrequency || 'regular',
                     },
                     siteHistory:     _ddComp.siteHistory || _ddInputs.siteHistory || null,
-                    region:          cfg.region || 'AU',
+                    region:          cfg.region
+                                     || (loc && !isNaN(loc.lat) && !isNaN(loc.lon)
+                                         ? (loc.lat < 0 && loc.lon > 165 && loc.lon < 180 ? 'NZ'
+                                           : loc.lat < 0 && loc.lon >= 113 && loc.lon <= 165 ? 'AU'
+                                           : null)
+                                         : null)
+                                     || (global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.region)
+                                     || 'AU',
+                    forecastHourly:  { temperature_2m: hourly.temperature_2m || [] },
                 };
 
                 // ── 1. Dew forecast (always, independent of chart) ──────────────
@@ -1712,18 +1721,36 @@
                 var series = [];
                 result.diseases.forEach(function (disease, i) {
                     if (!Array.isArray(disease.forecast) || disease.forecast.length < 2) return;
+                    var values = disease.forecast.map(function (f) { return f.risk; });
                     series.push({
                         name:   disease.name,
-                        color:  CHART_COLORS[i % CHART_COLORS.length],
-                        values: disease.forecast.map(function (f) { return f.risk; }),
+                        color:  CHART_COLORS[series.length % CHART_COLORS.length],
+                        values: values,
                         beta:   !!disease.beta,
                     });
                 });
-                if (series.length === 0) return;
+                if (series.length === 0) {
+                    var noActiveFw = document.getElementById('dr-forecast-wrap');
+                    if (noActiveFw) noActiveFw.innerHTML = '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant active threat forecast.</div>';
+                    return;
+                }
+
+                var activePeak = null;
+                series.forEach(function (s) {
+                    var peak = Math.max.apply(null, s.values);
+                    var day = s.values.indexOf(peak);
+                    if (!activePeak || peak > activePeak.peakRisk) {
+                        activePeak = {
+                            topThreat: s.name,
+                            peakRisk: peak,
+                            peakDay: day,
+                        };
+                    }
+                });
 
                 var forecastArr = result.diseases[0].forecast;
                 var labels      = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
-                var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, result.summary || null);
+                var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, activePeak);
                 _cachedForecastHtml = chartHtml;  // cache so drSelectDisease() can restore without re-fetch
                 var wrap = document.getElementById('dr-forecast-wrap');
                 if (wrap) {
@@ -1733,9 +1760,9 @@
 
                 // Inject forecast peak KPI card into header grid when peak >> current risk
                 var kpiSlot = document.getElementById('dr-forecast-kpi-slot');
-                if (kpiSlot && result.summary) {
+                if (kpiSlot && activePeak) {
                     var currentScore = (getDiseaseData() || {}).overallScore;
-                    var cardHtml = renderForecastAlertCard(result.summary, currentScore);
+                    var cardHtml = renderForecastAlertCard(activePeak, currentScore);
                     if (cardHtml) kpiSlot.outerHTML = cardHtml;
                 }
             })
