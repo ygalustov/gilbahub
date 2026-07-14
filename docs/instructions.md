@@ -368,6 +368,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-178** Enhance surface type determination: Added handling for turf subCategory in shade-engine.js and shade-engine-pure.js to improve surface type assignment logic for mowing height guidance.
 **GH-179** Update variety traits data: Standardized risk multipliers and confidence levels across multiple variety traits scripts, replacing fabricated values with a consistent 'none' confidence level and a risk multiplier of 1.0. Adjusted species key mapping in disease-analysis.js to include additional Browntop Bent variations for improved accuracy.
 **GH-180** Enhance climate data handling and disease analysis: Implemented safeguards in climate-engine-v2.js to prevent overwriting real temperature data with null values. Updated disease-analysis.js to ensure proper handling of null disease objects and improved display of contribution metrics. Enhanced hub-orchestrator.js to recover temperature data from raw weather inputs when defaults are null. Added tests for disease risk analysis based on soil manganese and nitrogen status in disease-engine-integration.test.js.
+**GH-181** Remove fabricated trait values from NZ variety data: Neutralized all fabricated numeric traits across 86 NZ-visible varieties in the variety traits data files. Updated risk multipliers to 1.0 and set confidence levels to 'none' for affected traits, ensuring only verified trial-backed data is presented. This change enhances the accuracy and reliability of the variety traits displayed in the hub.
+**GH-182** Enhance N cap application in nutrition calendar: Updated the applyNCap function to include overflow redistribution for monthly nitrogen allocations. Improved handling of unschedulable allocations and added detailed reporting of scheduled totals, redistributed amounts, and unschedulable values. Adjusted UI messages to reflect these changes for better user feedback.
+
 
 
 
@@ -402,14 +405,8 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
 +85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
 +86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
-
-
-84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180. 
-
-
-Is the nutrition calendar module part of the SaaS work you’ve started, or still untouched from the b35fix395 baseline? I need to know before I decide whether to patch it in the plugin or hand you the change to make on your side. 
-
-87. Nutrition calendar (file).
++84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
++87. Nutrition calendar (file). Changes applied - could you please check if all good? GH-182. 
 
 88. GP reconciliation (file). Does my doing it this way help? - Yes, very helpful — please keep sending them this way. 
 

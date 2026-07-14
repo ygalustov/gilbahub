@@ -895,24 +895,68 @@
     };
 
     /**
-     * Apply monthly N cap
+     * Apply monthly N cap with overflow redistribution.
+     *
+     * null / undefined / 0 / '' / NaN → "no cap" (Infinity).
+     * Overflow is redistributed into months that already carry a non-zero
+     * allocation (dormant months are never eligible). If the cap is too low
+     * to absorb the overflow, the remainder is reported as `unschedulable`.
      */
     NutritionCalendar.applyNCap = function(nAllocations, maxN) {
-        const capped = {};
-        let totalCapped = 0;
+        const cap = (typeof maxN === 'number' && isFinite(maxN) && maxN > 0) ? maxN : Infinity;
+
+        const result = {};
         let originalTotal = 0;
-        
+        let overflow = 0;
+
         for (let m = 0; m < 12; m++) {
-            originalTotal += nAllocations[m] || 0;
-            capped[m] = Math.min(nAllocations[m] || 0, maxN);
-            totalCapped += capped[m];
+            const alloc = nAllocations[m] || 0;
+            originalTotal += alloc;
+            if (alloc > cap) {
+                result[m] = cap;
+                overflow += alloc - cap;
+            } else {
+                result[m] = alloc;
+            }
         }
-        
+
+        let redistributed = 0;
+        let unschedulable = 0;
+
+        if (overflow > 0.001) {
+            let remaining = overflow;
+            let iterations = 0;
+            while (remaining > 0.001 && iterations < 20) {
+                iterations++;
+                const eligible = [];
+                let totalHeadroom = 0;
+                for (let m = 0; m < 12; m++) {
+                    const headroom = cap - result[m];
+                    if ((nAllocations[m] || 0) > 0 && headroom > 0.001) {
+                        eligible.push({ m, headroom });
+                        totalHeadroom += headroom;
+                    }
+                }
+                if (totalHeadroom < 0.001) break;
+                const toPlace = Math.min(remaining, totalHeadroom);
+                for (const { m, headroom } of eligible) {
+                    result[m] = Math.min(cap, result[m] + toPlace * (headroom / totalHeadroom));
+                }
+                redistributed += toPlace;
+                remaining -= toPlace;
+            }
+            unschedulable = Math.max(0, remaining);
+        }
+
+        const scheduledTotal = Object.values(result).reduce((s, v) => s + v, 0);
+
         return {
-            allocations: capped,
-            capApplied: totalCapped < originalTotal * 0.99,
-            originalTotal: Math.round(originalTotal),
-            cappedTotal: Math.round(totalCapped),
+            allocations: result,
+            capApplied: overflow > 0.001,
+            redistributed: Math.round(redistributed * 10) / 10,
+            unschedulable: Math.round(unschedulable * 10) / 10,
+            originalTotal: Math.round(originalTotal * 10) / 10,
+            scheduledTotal: Math.round(scheduledTotal * 10) / 10,
         };
     };
 
@@ -1084,7 +1128,9 @@
             adjustments: {
                 n_cap_applied: nCapResult.capApplied,
                 original_n_total: nCapResult.originalTotal,
-                capped_n_total: nCapResult.cappedTotal,
+                scheduled_n_total: nCapResult.scheduledTotal,
+                n_redistributed: nCapResult.redistributed,
+                n_unschedulable: nCapResult.unschedulable,
                 traffic_modifier: trafficMod,
                 clipping_management: inputs.clippingManagement,
                 clipping_factors: clipMgmt,
@@ -1248,12 +1294,18 @@
                     `).join('')}
                 </div>
 
-                ${p.adjustments.n_cap_applied ? `
+                ${p.adjustments.n_cap_applied ? (
+                    p.adjustments.n_unschedulable > 0 ? `
                     <div class="gilba-nut-banner gilba-nut-banner--warning">
-                        <strong>Monthly N caps applied:</strong>
-                        Original ${p.adjustments.original_n_total} kg/ha → Capped ${p.adjustments.capped_n_total} kg/ha
+                        <strong>Monthly N cap too low:</strong>
+                        Target ${p.adjustments.original_n_total} kg/ha — ${p.adjustments.n_unschedulable} kg/ha cannot be scheduled within the cap. Scheduled: ${p.adjustments.scheduled_n_total} kg/ha.
                     </div>
-                ` : ''}
+                ` : `
+                    <div class="gilba-nut-banner gilba-nut-banner--good">
+                        <strong>Monthly N cap applied:</strong>
+                        Peak months trimmed, ${p.adjustments.n_redistributed} kg/ha redistributed to shoulder months. Full target of ${p.adjustments.original_n_total} kg/ha delivered.
+                    </div>
+                `) : ''}
             </div>
         `;
     };
