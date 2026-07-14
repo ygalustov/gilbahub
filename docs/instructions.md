@@ -371,7 +371,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-181** Remove fabricated trait values from NZ variety data: Neutralized all fabricated numeric traits across 86 NZ-visible varieties in the variety traits data files. Updated risk multipliers to 1.0 and set confidence levels to 'none' for affected traits, ensuring only verified trial-backed data is presented. This change enhances the accuracy and reliability of the variety traits displayed in the hub.
 **GH-182** Enhance N cap application in nutrition calendar: Updated the applyNCap function to include overflow redistribution for monthly nitrogen allocations. Improved handling of unschedulable allocations and added detailed reporting of scheduled totals, redistributed amounts, and unschedulable values. Adjusted UI messages to reflect these changes for better user feedback.
 **GH-183** Refactor growth potential calculations to use GilbaGrowthPotentialEngine: Updated various scripts to replace inline Gaussian models for growth potential with calls to the GilbaGrowthPotentialEngine, ensuring consistent calculations across C3 and C4 species. Adjusted dashboard and climate modules to reflect daily mean values from the new engine, enhancing accuracy in growth potential reporting.
-
+**GH-184** Integrate growth potential engine into nutrition calendar: Added the growth-potential-engine.js script to the plan view and refactored nutrition calendar calculations to utilize the GilbaGrowthPotentialEngine for improved accuracy in growth potential assessments. Updated related tests to ensure consistency and reliability in results.
 
 
 
@@ -410,12 +410,9 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
 +84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
 +87. Nutrition calendar (file). GH-182. 
-88. GP reconciliation (file). GH-183
++88. GP reconciliation (file). GH-183, GH-184. 
 
-Does my doing it this way help? - Yes, very helpful — please keep sending them this way. 
-
-
-
+Does my doing it this way help? - Yes, very helpful, 
 
 
 

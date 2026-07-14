@@ -71,12 +71,6 @@
         defaultSoilDepth: 10,  // cm
         defaultBulkDensity: 1.4,  // g/cm³
         
-        // GP calculation parameters (PACE Turf)
-        gpParams: {
-            c3: { optimalTemp: 20, sigma: 5.5 },
-            c4: { optimalTemp: 31, sigma: 7 }
-        },
-        
         // Minimum GP to allocate nutrients
         minGpThreshold: 0.10,
         
@@ -774,9 +768,12 @@
      * Calculate Growth Potential for a temperature
      */
     NutritionCalendar.calculateGP = function(temp, isC4) {
-        const params = isC4 ? CONFIG.gpParams.c4 : CONFIG.gpParams.c3;
-        const exponent = -0.5 * Math.pow((temp - params.optimalTemp) / params.sigma, 2);
-        return Math.exp(exponent);
+        var GPE = (typeof window !== 'undefined' && window.GilbaGrowthPotentialEngine)
+               || (typeof global !== 'undefined' && global.GilbaGrowthPotentialEngine)
+               || null;
+        if (!GPE) return 0;
+        var gp = GPE.compute(temp, { model: 'pace', species: isC4 ? 'c4' : 'c3' });
+        return gp != null ? gp : 0;
     };
 
     /**

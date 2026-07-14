@@ -2,12 +2,11 @@
  * Climate Engine — Growth Potential, Stress Classification, Light (DLI) tests
  *
  * Sources and verification method:
- *   GP:     Kreuser & Soldat 2011 (GCSAA standard bell-curve).
- *           Expected values computed independently:
- *             GP(T) = exp(-0.5 * ((T - optBound) / variance)²) outside optimal range
- *             GP(T) = 1.0 inside [optMin, optMax]
- *           C3: optMin=15.6, optMax=23.9, variance=6.8
- *           C4: optMin=31.1, optMax=35.0, variance=9.0
+ *   GP:     PACE Turf Growth Potential Model — Gelernter & Stowell 2005.
+ *           GP(T) = exp(-0.5 * ((T - T_opt) / sigma)^2)
+ *           C3: T_opt=20.0°C, sigma=5.5   C4: T_opt=31.0°C, sigma=7.0
+ *           Reference values from handover doc b35fix473 Section 2,
+ *           independently verified against GilbaGrowthPotentialEngine.compute().
  *   Stress: thresholds from STRESS_THRESHOLDS constant (heat/cold/drought/moisture).
  *   Light:  mjToDLI constant 2.04 mol/MJ from McCree 1972 / Thimijan & Heins 1983.
  *           Shade modifier in DollarSpot: shadeMod = 1 + (dliDeficit - 30) / 100
@@ -19,136 +18,262 @@ global.document = global.document || { addEventListener: function () {}, documen
 global.console  = { group: function () {}, groupEnd: function () {}, groupCollapsed: function () {},
                     log: function () {}, warn: function () {}, info: function () {}, error: function () {} };
 
-var climateEngine  = require('../assets/climate-engine-v2.js');
-var calcGPP        = climateEngine.calcGPP;
+// Load canonical GP engine so climate-engine-v2 can find it via window.GilbaGrowthPotentialEngine
+// growth-potential-engine.js exports Engine directly: module.exports = Engine
+var gpEngine = require('../assets/growth-potential-engine.js');
+global.window.GilbaGrowthPotentialEngine = gpEngine;
+
+var climateEngine   = require('../assets/climate-engine-v2.js');
+var calcGPP         = climateEngine.calcGPP;
 var calcWeightedGPP = climateEngine.calcWeightedGPP;
-var classifyStress = climateEngine.classifyStress;
-var GPP_COEFFICIENTS = climateEngine.GPP_COEFFICIENTS;
+var classifyStress  = climateEngine.classifyStress;
 var STRESS_THRESHOLDS = climateEngine.STRESS_THRESHOLDS;
 
 var DiseaseEnginePure = require('../assets/disease-engine-pure.js');
 var DollarSpotModel   = DiseaseEnginePure.models.dollarSpot;
 
+var GPE = global.window.GilbaGrowthPotentialEngine;
+
 
 // =============================================================================
-// 1. Growth Potential (calcGPP) — Kreuser & Soldat 2011
+// 1. GilbaGrowthPotentialEngine — canonical PACE model (b35fix473)
 // =============================================================================
 
-describe('calcGPP — C3 grass (Kreuser & Soldat 2011)', function () {
+describe('GilbaGrowthPotentialEngine — PACE C3 (T_opt=20, sigma=5.5)', function () {
 
-    test('GP = 1.0 at lower optimal boundary (15.6°C)', function () {
-        expect(calcGPP(15.6, 'c3')).toBe(1);
+    test('GP = 1.0 at optimum (20°C)', function () {
+        expect(GPE.compute(20, { species: 'c3' })).toBeCloseTo(1.0, 5);
     });
 
-    test('GP = 1.0 at upper optimal boundary (23.9°C)', function () {
-        expect(calcGPP(23.9, 'c3')).toBe(1);
+    test('GP ≈ 0.6616 at 15°C (symmetric: same distance from opt as 25°C)', function () {
+        // Handover doc reference: 0.661551
+        expect(GPE.compute(15, { species: 'c3' })).toBeCloseTo(0.6616, 3);
     });
 
-    test('GP = 1.0 anywhere within optimal range (20°C)', function () {
-        expect(calcGPP(20, 'c3')).toBe(1);
+    test('GP ≈ 0.6616 at 25°C (symmetric)', function () {
+        expect(GPE.compute(25, { species: 'c3' })).toBeCloseTo(0.6616, 3);
     });
 
-    test('GP ≈ 0.712 at 10°C — manually: exp(-0.5*(5.6/6.8)²)', function () {
-        // dist = 15.6 - 10 = 5.6; GP = exp(-0.5*(5.6/6.8)²) = exp(-0.339) ≈ 0.712
-        var gp = calcGPP(10, 'c3');
-        expect(gp).toBeCloseTo(0.712, 2);
+    test('GP ≈ 0.1915 at 10°C — handover doc reference value', function () {
+        // Handover: 0.191496
+        expect(GPE.compute(10, { species: 'c3' })).toBeCloseTo(0.1915, 3);
     });
 
-    test('GP ≈ 0.669 at 30°C — manually: exp(-0.5*(6.1/6.8)²)', function () {
-        // dist = 30 - 23.9 = 6.1; GP = exp(-0.5*(6.1/6.8)²) = exp(-0.401) ≈ 0.669
-        var gp = calcGPP(30, 'c3');
-        expect(gp).toBeCloseTo(0.669, 2);
+    test('GP ≈ 0.0725 at 7.4°C — the production regression anchor', function () {
+        // Handover: 0.072503; verified live: GilbaGrowthPotentialEngine.compute(7.4,{species:'c3'}) = 0.0725026...
+        // This pin specifically rejects 15%, 45%, and 48% (the three wrong models from plugin era)
+        var gp = GPE.compute(7.4, { species: 'c3' });
+        expect(gp).toBeCloseTo(0.0725, 3);
+        expect(gp).toBeLessThan(0.10);   // not the Kreuser 'plateau' range
+        expect(gp).not.toBeCloseTo(0.45, 1); // not sigma=10 fabricated
+        expect(gp).not.toBeCloseTo(0.48, 1); // not Kreuser
     });
 
-    test('GP ≈ 0.072 at 0°C (deep winter — very low growth potential)', function () {
-        // dist = 15.6; GP = exp(-0.5*(15.6/6.8)²) = exp(-2.634) ≈ 0.072
-        var gp = calcGPP(0, 'c3');
-        expect(gp).toBeCloseTo(0.072, 2);
+    test('GP ≈ 0.0047 at 2°C (deep winter)', function () {
+        // Handover: 0.004703
+        expect(GPE.compute(2, { species: 'c3' })).toBeCloseTo(0.0047, 3);
     });
 
-    test('GP decreases monotonically as temperature moves away from optimal', function () {
-        expect(calcGPP(20, 'c3')).toBeGreaterThan(calcGPP(15, 'c3'));
-        expect(calcGPP(15, 'c3')).toBeGreaterThan(calcGPP(10, 'c3'));
-        expect(calcGPP(10, 'c3')).toBeGreaterThan(calcGPP(5, 'c3'));
-        expect(calcGPP(20, 'c3')).toBeGreaterThan(calcGPP(27, 'c3'));
-        expect(calcGPP(27, 'c3')).toBeGreaterThan(calcGPP(32, 'c3'));
+    test('GP returns null for null temperature', function () {
+        expect(GPE.compute(null, { species: 'c3' })).toBeNull();
     });
 
-    test('GP returns null when temperature is null', function () {
-        expect(calcGPP(null, 'c3')).toBeNull();
+    test('GP monotonically decreasing as temperature moves away from 20°C', function () {
+        expect(GPE.compute(20, { species: 'c3' })).toBeGreaterThan(GPE.compute(15, { species: 'c3' }));
+        expect(GPE.compute(15, { species: 'c3' })).toBeGreaterThan(GPE.compute(10, { species: 'c3' }));
+        expect(GPE.compute(10, { species: 'c3' })).toBeGreaterThan(GPE.compute(5, { species: 'c3' }));
+        expect(GPE.compute(20, { species: 'c3' })).toBeGreaterThan(GPE.compute(25, { species: 'c3' }));
+        expect(GPE.compute(25, { species: 'c3' })).toBeGreaterThan(GPE.compute(30, { species: 'c3' }));
     });
 });
 
-describe('calcGPP — C4 grass (Kreuser & Soldat 2011)', function () {
+describe('GilbaGrowthPotentialEngine — PACE C4 (T_opt=31, sigma=7.0)', function () {
 
-    test('GP = 1.0 at lower optimal boundary (31.1°C)', function () {
-        expect(calcGPP(31.1, 'c4')).toBe(1);
+    test('GP = 1.0 at optimum (31°C)', function () {
+        expect(GPE.compute(31, { species: 'c4' })).toBeCloseTo(1.0, 5);
     });
 
-    test('GP = 1.0 at upper optimal boundary (35.0°C)', function () {
-        expect(calcGPP(35, 'c4')).toBe(1);
+    test('GP ≈ 0.2909 at 20°C — handover doc reference', function () {
+        // Handover: 0.290923
+        expect(GPE.compute(20, { species: 'c4' })).toBeCloseTo(0.2909, 3);
     });
 
-    test('GP ≈ 0.467 at 20°C — cold suppression on warm-season grass', function () {
-        // dist = 31.1 - 20 = 11.1; GP = exp(-0.5*(11.1/9)²) = exp(-0.76) ≈ 0.467
-        var gp = calcGPP(20, 'c4');
-        expect(gp).toBeCloseTo(0.467, 2);
+    test('GP ≈ 0.6926 at 25°C', function () {
+        // Handover: 0.692569
+        expect(GPE.compute(25, { species: 'c4' })).toBeCloseTo(0.6926, 3);
     });
 
-    test('C4 has near-zero GP at 10°C (cold stress, dist=21.1)', function () {
-        var gp = calcGPP(10, 'c4');
-        expect(gp).toBeLessThan(0.1);
-        expect(gp).toBeCloseTo(0.064, 2);
+    test('GP ≈ 0.0113 at 10°C (cold suppression)', function () {
+        // Handover: 0.011252
+        expect(GPE.compute(10, { species: 'c4' })).toBeCloseTo(0.0113, 3);
     });
 
-    test('C4 GP at 20°C is much lower than C3 GP at 20°C (species difference)', function () {
-        // At 20°C: C3 is within optimal → GP=1.0; C4 is well below optimum → GP≈0.467
-        expect(calcGPP(20, 'c4')).toBeLessThan(calcGPP(20, 'c3'));
+    test('C4 GP at 20°C is much lower than C3 GP at 20°C', function () {
+        expect(GPE.compute(20, { species: 'c4' })).toBeLessThan(GPE.compute(20, { species: 'c3' }));
     });
 
     test('C4 GP at 33°C is much higher than C3 GP at 33°C (warm-season advantage)', function () {
-        // At 33°C: C3 is outside optimum and declining; C4 is within optimal → GP=1.0
-        expect(calcGPP(33, 'c4')).toBeGreaterThan(calcGPP(33, 'c3'));
+        expect(GPE.compute(33, { species: 'c4' })).toBeGreaterThan(GPE.compute(33, { species: 'c3' }));
+    });
+});
+
+describe('GilbaGrowthPotentialEngine — default model is pace, blend mode', function () {
+
+    test('omitting model option equals explicit pace call (default has not drifted)', function () {
+        var explicit = GPE.compute(15, { model: 'pace', species: 'c3' });
+        var implicit = GPE.compute(15, { species: 'c3' });
+        expect(explicit).toBeCloseTo(implicit, 5);
+    });
+
+    test('blend mode equals manual C3/C4 weighting at 0.7 C3 fraction', function () {
+        var c3f = 0.7, c4f = 0.3;
+        var blended = GPE.compute(18, { species: 'blend', c3Fraction: c3f });
+        var manual  = c3f * GPE.compute(18, { species: 'c3' }) + c4f * GPE.compute(18, { species: 'c4' });
+        expect(blended).toBeCloseTo(manual, 5);
+    });
+
+    test('PACE coefficients are exactly T_opt=20/sigma=5.5 for C3 and T_opt=31/sigma=7.0 for C4', function () {
+        var c3coeff = GPE.getCoefficients('pace', 'c3');
+        var c4coeff = GPE.getCoefficients('pace', 'c4');
+        expect(c3coeff.optimum).toBe(20);
+        expect(c3coeff.sigma).toBe(5.5);
+        expect(c4coeff.optimum).toBe(31);
+        expect(c4coeff.sigma).toBe(7.0);
+    });
+});
+
+
+// =============================================================================
+// 2. calcGPP (climate-engine-v2 wrapper) — delegates to canonical engine
+// =============================================================================
+
+describe('calcGPP — delegates to GilbaGrowthPotentialEngine (PACE)', function () {
+
+    test('C3 at 20°C ≈ 1.0 (rounds to 3dp in engine wrapper)', function () {
+        expect(calcGPP(20, 'c3')).toBeCloseTo(1.0, 2);
+    });
+
+    test('C3 at 7.4°C ≈ 0.073 — matches production anchor (calcGPP rounds to 3dp)', function () {
+        // Engine returns 0.0725026; calcGPP rounds to 3dp → 0.073
+        expect(calcGPP(7.4, 'c3')).toBeCloseTo(0.073, 2);
+    });
+
+    test('C3 at 10°C ≈ 0.191', function () {
+        expect(calcGPP(10, 'c3')).toBeCloseTo(0.191, 2);
+    });
+
+    test('C4 at 31°C ≈ 1.0', function () {
+        expect(calcGPP(31, 'c4')).toBeCloseTo(1.0, 2);
+    });
+
+    test('calcGPP returns null when temperature is null', function () {
+        expect(calcGPP(null, 'c3')).toBeNull();
+    });
+
+    test('calcGPP C3/C4 ratio at 20°C matches engine directly', function () {
+        var engineC3 = GPE.compute(20, { species: 'c3' });
+        var engineC4 = GPE.compute(20, { species: 'c4' });
+        expect(calcGPP(20, 'c3')).toBeCloseTo(engineC3, 2);
+        expect(calcGPP(20, 'c4')).toBeCloseTo(engineC4, 2);
     });
 });
 
 describe('calcWeightedGPP — mixed C3/C4 turf', function () {
 
-    test('pure C3 profile returns c3 GP', function () {
+    test('pure C3 profile returns C3 GP', function () {
         var r = calcWeightedGPP(10, 1, 0);
         expect(r.weighted).toBeCloseTo(calcGPP(10, 'c3'), 2);
         expect(r.c3).toBeCloseTo(calcGPP(10, 'c3'), 2);
     });
 
-    test('pure C4 profile returns c4 GP', function () {
-        var r = calcWeightedGPP(33, 0, 1);
-        expect(r.weighted).toBeCloseTo(calcGPP(33, 'c4'), 2);
-        expect(r.c4).toBeCloseTo(calcGPP(33, 'c4'), 2);
+    test('pure C4 profile returns C4 GP', function () {
+        var r = calcWeightedGPP(31, 0, 1);
+        expect(r.weighted).toBeCloseTo(calcGPP(31, 'c4'), 2);
+        expect(r.c4).toBeCloseTo(calcGPP(31, 'c4'), 2);
     });
 
     test('50/50 mix at 20°C is average of C3 and C4 GP', function () {
-        // C3(20)=1.0, C4(20)≈0.467 → weighted ≈ 0.734
         var r = calcWeightedGPP(20, 0.5, 0.5);
         var expected = (calcGPP(20, 'c3') + calcGPP(20, 'c4')) / 2;
         expect(r.weighted).toBeCloseTo(expected, 2);
-    });
-
-    test('GPP_COEFFICIENTS are the published Kreuser & Soldat 2011 values', function () {
-        // C3: optMin=15.6, optMax=23.9 (°C)
-        expect(GPP_COEFFICIENTS.c3.optMin).toBe(15.6);
-        expect(GPP_COEFFICIENTS.c3.optMax).toBe(23.9);
-        expect(GPP_COEFFICIENTS.c3.varLow).toBe(6.8);
-        expect(GPP_COEFFICIENTS.c3.varHigh).toBe(6.8);
-        // C4: optMin=31.1, optMax=35.0 (°C)
-        expect(GPP_COEFFICIENTS.c4.optMin).toBe(31.1);
-        expect(GPP_COEFFICIENTS.c4.optMax).toBe(35.0);
-        expect(GPP_COEFFICIENTS.c4.varLow).toBe(9.0);
     });
 });
 
 
 // =============================================================================
-// 2. Stress classification (classifyStress)
+// 3. Single-source audit — no local GP Gaussian outside the canonical engine
+//    (b35fix473 handover doc Section 8)
+// =============================================================================
+
+describe('GP single-source audit — no local Gaussian in assets', function () {
+
+    var fs   = require('fs');
+    var path = require('path');
+    var ASSETS_DIR = path.join(__dirname, '../assets');
+
+    // Files legitimately allowed to contain GP-shaped Gaussians (pathogen curves,
+    // physical models, visual rendering helpers — not turf growth potential)
+    var EXCLUDED = [
+        'growth-potential-engine.js',   // canonical engine — the ONE allowed source
+        'disease-engine-pure.js',       // pathogen temperature-response curves
+        'disease-forecast.js',          // pathogen curves
+        'red-thread-model.js',          // pathogen curve
+        'bipolaris-curvularia-models.js', // pathogen curves
+        'smith-kerns-model.js',         // pathogen model
+        'growth-light-analysis.js',     // gaus() helper is for SVG bell-curve rendering only
+        'gaip-scenario-engine.js',      // Math.exp in calculateDiseaseRisk() — pathogen curve, not turf GP
+        'gssh-scenario-engine.js',      // same: disease risk Gaussian, not turf GP
+        'docx.min.js',                  // minified library — sigma appears in Unicode table
+        'uk-fertiliser-products.js',    // product IDs containing "sigma" in name
+    ];
+
+    test('no module outside the canonical engine reimplements the PACE Gaussian for turf GP', function () {
+        var violations = [];
+
+        var files = fs.readdirSync(ASSETS_DIR).filter(function (f) {
+            return f.endsWith('.js') && !EXCLUDED.includes(f);
+        });
+
+        files.forEach(function (file) {
+            var src = fs.readFileSync(path.join(ASSETS_DIR, file), 'utf8');
+            // Pattern: Math.exp(-0.5 with a temperature offset around 20 or 31
+            // (the PACE optima). A sigma=5.5 or 7.0 nearby is even more diagnostic.
+            var hasGaussian = /Math\.exp\s*\(\s*-0\.5\s*\*\s*Math\.pow/.test(src);
+            if (hasGaussian) {
+                violations.push(file);
+            }
+        });
+
+        if (violations.length > 0) {
+            console.error('Files with local GP Gaussian (should use GilbaGrowthPotentialEngine):', violations);
+        }
+        expect(violations).toEqual([]);
+    });
+
+    test('gaip-scenario-engine uses GilbaGrowthPotentialEngine for getGrowthPotential', function () {
+        var src = fs.readFileSync(path.join(ASSETS_DIR, 'gaip-scenario-engine.js'), 'utf8');
+        expect(src).toContain('GilbaGrowthPotentialEngine');
+    });
+
+    test('gssh-scenario-engine uses GilbaGrowthPotentialEngine for getGrowthPotential', function () {
+        var src = fs.readFileSync(path.join(ASSETS_DIR, 'gssh-scenario-engine.js'), 'utf8');
+        expect(src).toContain('GilbaGrowthPotentialEngine');
+    });
+
+    test('hub-tissue-v3 uses GilbaGrowthPotentialEngine for calcC3/C4GrowthPotential', function () {
+        var src = fs.readFileSync(path.join(ASSETS_DIR, 'hub-tissue-v3.js'), 'utf8');
+        expect(src).toContain('GilbaGrowthPotentialEngine');
+    });
+
+    test('nutrition-summary-integration uses GilbaGrowthPotentialEngine', function () {
+        var src = fs.readFileSync(path.join(ASSETS_DIR, 'nutrition-summary-integration.js'), 'utf8');
+        expect(src).toContain('GilbaGrowthPotentialEngine');
+    });
+});
+
+
+// =============================================================================
+// 4. Stress classification (classifyStress)
 // =============================================================================
 
 // Build minimal daily data object for testing
@@ -266,7 +391,7 @@ describe('classifyStress — moisture stress (consecutive wet days / heavy preci
 
 
 // =============================================================================
-// 3. Light / DLI — shade modifier in DollarSpotModel
+// 5. Light / DLI — shade modifier in DollarSpotModel
 //    shadeMod = dliDeficit > 30 ? 1 + (dliDeficit - 30) / 100 : 1
 // =============================================================================
 
@@ -311,7 +436,7 @@ describe('DollarSpotModel — shade modifier (light stress via DLI deficit)', fu
     });
 
     test('heavy shade increases riskScore relative to no shade', function () {
-        var noShade  = DollarSpotModel.calculate(DS_ACTIVE_CLIMATE, null, null, null, null);
+        var noShade    = DollarSpotModel.calculate(DS_ACTIVE_CLIMATE, null, null, null, null);
         var heavyShade = DollarSpotModel.calculate(DS_ACTIVE_CLIMATE, null, null, { dliDeficit: { percentage: 60 } }, null);
         expect(heavyShade.riskScore).toBeGreaterThan(noShade.riskScore);
     });

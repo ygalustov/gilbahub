@@ -935,6 +935,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('gilba-pgr-module-v3.js') }}"></script>
 <script src="{{ $legacyAssetUrl('pgr-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('plan-ui.js') }}"></script>
+<script src="{{ $legacyAssetUrl('growth-potential-engine.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 <script src="{{ $legacyAssetUrl('prebbles-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-prebble-integration.js') }}"></script>
