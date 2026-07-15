@@ -63,6 +63,93 @@
         'sensors'   => 'Sensor Data',
         'spray-log' => 'Spray Log',
     ];
+
+    // Detect FRAC group from active ingredient and/or product name (mirrors SprayLogController::detectFracGroup)
+    $detectFrac = function(?string $ai, ?string $productName, ?string $type): ?string {
+        if ($type === 'pgr') return null;
+        $map = [
+            '1'  => ['thiophanate', 'thiabendazole', 'carbendazim'],
+            '2'  => ['iprodione', 'procymidone'],
+            '3'  => ['propiconazole', 'tebuconazole', 'myclobutanil', 'triticonazole', 'difenoconazole',
+                     'metconazole', 'prothioconazole', 'mefentrifluconazole', 'triadimenol', 'prochloraz', 'cyproconazole'],
+            '4'  => ['metalaxyl', 'mefenoxam', 'propamocarb'],
+            '7'  => ['penthiopyrad', 'fluopyram', 'boscalid', 'fluxapyroxad', 'benzovindiflupyr', 'pydiflumetofen', 'flutolanil'],
+            '11' => ['azoxystrobin', 'azoxy', 'trifloxystrobin', 'trifloxy', 'pyraclostrobin', 'mandestrobin'],
+            '12' => ['fludioxonil'],
+            '14' => ['etridiazole'],
+            '21' => ['cyazofamid'],
+            '29' => ['fluazinam'],
+            '33' => ['fosetyl'],
+            '49' => ['oxathiapiprolin'],
+        ];
+        // Search both AI and product name; AI takes priority if both match different groups
+        foreach (array_filter([
+            strtolower(trim((string)($ai ?? ''))),
+            strtolower(trim((string)($productName ?? ''))),
+        ]) as $haystack) {
+            foreach ($map as $frac => $needles) {
+                foreach ($needles as $needle) {
+                    if (str_contains($haystack, $needle)) return $frac;
+                }
+            }
+        }
+        return null;
+    };
+
+    // Compute residual protection % from AI name and application date
+    // Matches exponential decay in spray-log-cascade.js calculateResidualProtection()
+    $calcResidualPct = function(?string $ai, ?string $date, ?string $type, ?string $productName = null): ?int {
+        if ($type !== 'fungicide' || !$date) return null;
+        $days = (int) now()->diffInDays($date, false) * -1;
+        if ($days < 0) return null;
+        $windows = [
+            'azoxystrobin'        => [21, 14], 'azoxy'                => [21, 14],
+            'trifloxystrobin'     => [14, 10], 'trifloxy'             => [14, 10],
+            'pyraclostrobin'      => [14, 10], 'mandestrobin'         => [14, 10],
+            'fludioxonil'         => [14, 10], 'propiconazole'        => [14, 10],
+            'tebuconazole'        => [14, 10], 'myclobutanil'         => [14, 10],
+            'difenoconazole'      => [14, 10], 'metconazole'          => [14, 10],
+            'prothioconazole'     => [21, 14], 'mefentrifluconazole'  => [14, 10],
+            'triadimenol'         => [28, 18], 'prochloraz'           => [14, 10],
+            'cyproconazole'       => [14, 10], 'penthiopyrad'         => [14, 10],
+            'boscalid'            => [14, 10], 'fluopyram'            => [14, 10],
+            'fluxapyroxad'        => [14, 10], 'benzovindiflupyr'     => [14, 10],
+            'pydiflumetofen'      => [14, 10], 'flutolanil'           => [14, 10],
+            'cyprodinil'          => [10, 7],  'mancozeb'             => [7, 5],
+            'thiram'              => [7, 5],   'captan'               => [7, 5],
+            'chlorothalonil'      => [7, 5],   'iprodione'            => [14, 10],
+            'thiophanate-methyl'  => [14, 10], 'thiophanat methyl'    => [14, 10],
+            'carbendazim'         => [14, 10], 'etridiazole'          => [5, 3],
+            'metalaxyl'           => [14, 10], 'mefenoxam'            => [14, 10],
+            'propamocarb'         => [7, 5],   'cyazofamid'           => [21, 14],
+            'fluazinam'           => [7, 5],   'fosetyl'              => [14, 10],
+            'oxathiapiprolin'     => [14, 10],
+        ];
+        $normalize = fn(string $s) => strtolower(str_replace(['-', '_'], ' ', $s));
+        $halfLife = 10;
+        $found = false;
+        foreach (array_filter([$ai, $productName]) as $src) {
+            $norm = $normalize($src);
+            foreach ($windows as $key => [$w, $h]) {
+                if (str_contains($norm, $normalize($key))) {
+                    $halfLife = $h;
+                    $found = true;
+                    break 2;
+                }
+            }
+        }
+        // Only compute if we matched a known AI or product name; otherwise return null to avoid
+        // showing meaningless residual bars for unknown generics
+        if (!$found && !$ai) return null;
+        return max(0, min(100, (int) round(100 * exp(-log(2) / $halfLife * $days))));
+    };
+
+    $residualColor = function(?int $pct): string {
+        if ($pct === null) return '#9ca3af';
+        if ($pct >= 50) return '#16a34a';
+        if ($pct >= 20) return '#d97706';
+        return '#dc2626';
+    };
 @endphp
 @extends('layouts.db-shell', ['title' => $sectionTitles[$section] ?? 'Data', 'currentPage' => 'data'])
 
@@ -145,6 +232,18 @@
 .dat-area-row.skipped { opacity: 0.4; }
 .dat-area-col-hd-check { width: 16px; height: 16px; flex-shrink: 0; }
 .dat-area-col-hd-unit { width: 20px; flex-shrink: 0; }
+.frac-badge {
+    display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 1px 5px; border-radius: 3px; border: 1px solid;
+    vertical-align: middle; white-space: nowrap; margin-top: 3px;
+}
+.frac-g1,.frac-g2 { background:#f3f4f6; color:#4b5563; border-color:#d1d5db; }
+.frac-g3  { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+.frac-g4  { background:#ede9fe; color:#5b21b6; border-color:#c4b5fd; }
+.frac-g7  { background:#fce7f3; color:#9d174d; border-color:#f9a8d4; }
+.frac-g11 { background:#dcfce7; color:#15803d; border-color:#86efac; }
+.frac-g12 { background:#d1fae5; color:#065f46; border-color:#6ee7b7; }
+.frac-g14,.frac-g21,.frac-g29,.frac-g33,.frac-g49 { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
 </style>
 @endsection
 
@@ -620,16 +719,23 @@
                         <th>Zone type</th>
                         <th>Product</th>
                         <th>Category</th>
+                        <th>FRAC</th>
                         <th class="dat-th-num">Rate</th>
                         <th>Target</th>
+                        <th style="white-space:nowrap">Residual</th>
                         <th>Actions</th>
                     </tr></thead>
                     <tbody>
                     @foreach($rows as $row)
                     @php
-                        $date = $row->event_date ?? null;
-                        $zone = $row->zone ? ucfirst($row->zone) : '—';
-                        $catCls = match(strtolower($row->product_type ?? '')) {
+                        $date         = $row->event_date ?? null;
+                        $zone         = $row->zone ? ucfirst($row->zone) : '—';
+                        $ai           = $row->active_ingredient ?? null;
+                        $productType  = $row->product_type ?? 'other';
+                        $fracGroup    = $detectFrac($ai, $row->product_name ?? null, $productType);
+                        $residualPct  = $calcResidualPct($ai, $date, $productType, $row->product_name ?? null);
+                        $reColor      = $residualColor($residualPct);
+                        $catCls = match(strtolower($productType)) {
                             'fungicide'            => 'cat-fungicide',
                             'pgr'                  => 'cat-pgr',
                             'fertiliser','fertilizer' => 'cat-fertiliser',
@@ -640,8 +746,10 @@
                             'id' => $row->id, 'section' => 'spray-log',
                             'date' => $date, 'zone' => $zone,
                             'product' => $row->product_name ?? '—',
-                            'category' => $row->product_type ?? '—',
-                            'active_ingredient' => $row->active_ingredient ?? null,
+                            'category' => $productType,
+                            'active_ingredient' => $ai,
+                            'frac_group' => $fracGroup,
+                            'residual_pct' => $residualPct,
                             'rate' => $row->rate_value ?? null,
                             'rate_unit' => $row->rate_unit ?? null,
                             'target' => $row->target ?? null,
@@ -658,9 +766,16 @@
                         <td><span class="dat-zone-tag {{ $zoneClass($zone) }}">{{ $zone }}</span></td>
                         <td>
                             <div class="dat-sample-name">{{ $row->product_name ?? '—' }}</div>
-                            @if(!empty($row->active_ingredient))<div class="dat-lab-id">{{ $row->active_ingredient }}</div>@endif
+                            @if(!empty($ai))<div class="dat-lab-id">{{ $ai }}</div>@endif
                         </td>
-                        <td><span class="dat-cat-tag {{ $catCls }}">{{ ucfirst($row->product_type ?? 'other') }}</span></td>
+                        <td><span class="dat-cat-tag {{ $catCls }}">{{ ucfirst($productType) }}</span></td>
+                        <td>
+                            @if($fracGroup)
+                                <span class="frac-badge frac-g{{ $fracGroup }}">FRAC {{ $fracGroup }}</span>
+                            @else
+                                <span style="color:var(--gaip-text-muted,#9ca3af);font-size:12px">—</span>
+                            @endif
+                        </td>
                         <td class="dat-td-num">
                             @if(!is_null($row->rate_value))
                                 {{ $row->rate_value }}{{ $row->rate_unit ? ' '.$row->rate_unit : '' }}
@@ -668,6 +783,18 @@
                             @endif
                         </td>
                         <td style="color:var(--gaip-text-muted,#6b8878);font-size:12px">{{ $row->target ?? '—' }}</td>
+                        <td>
+                            @if($productType === 'fungicide' && $residualPct !== null)
+                                <div style="display:flex;align-items:center;gap:5px">
+                                    <div style="width:36px;height:4px;background:#e5e7eb;border-radius:2px;flex-shrink:0">
+                                        <div style="height:4px;background:{{ $reColor }};border-radius:2px;width:{{ $residualPct }}%"></div>
+                                    </div>
+                                    <span style="font-size:12px;font-weight:600;color:{{ $reColor }}">{{ $residualPct }}%</span>
+                                </div>
+                            @else
+                                <span style="color:var(--gaip-text-muted,#9ca3af);font-size:12px">—</span>
+                            @endif
+                        </td>
                         <td class="dat-td-actions">
                             <button class="dat-view-btn" type="button">View Details</button>
                             <button class="dat-edit-row-btn" type="button">Edit</button>
@@ -993,12 +1120,20 @@
     }
 
     function buildSpray(data) {
+        var residualStr = null;
+        if (data.category === 'fungicide' && data.residual_pct != null) {
+            var pct = data.residual_pct;
+            var col = pct >= 50 ? '#16a34a' : (pct >= 20 ? '#d97706' : '#dc2626');
+            residualStr = pct + '% active — ' + (pct >= 50 ? 'good protection' : pct >= 20 ? 'diminishing — consider reapplication' : 'low — reapplication recommended');
+        }
         var pairs = [
             ['Date',              data.date ? fmtDate(data.date) : null],
             ['Zone type',         data.zone && data.zone !== '—' ? data.zone : null],
             ['Product',           data.product && data.product !== '—' ? data.product : null],
+            ['FRAC Group',        data.frac_group ? 'FRAC ' + data.frac_group : null],
             ['Category',          data.category && data.category !== '—' ? data.category.charAt(0).toUpperCase() + data.category.slice(1) : null],
             ['Active Ingredient', data.active_ingredient || null],
+            ['Residual Activity', residualStr],
             ['Rate',              (data.rate !== null && data.rate !== undefined) ? String(data.rate) + (data.rate_unit ? ' ' + data.rate_unit : '') : null],
             ['Target',            data.target && data.target !== '—' ? data.target : null],
             ['Source',            data.source || 'manual'],
@@ -1618,6 +1753,7 @@
                 var customEl = document.getElementById('dat-sl-product-custom');
                 if (this.value === '__other__') {
                     if (customEl) { customEl.style.display = ''; customEl.focus(); }
+                    updateFracHint();
                     return;
                 }
                 if (customEl) customEl.style.display = 'none';
@@ -1631,8 +1767,11 @@
                         if (unitEl.options[i].value === opt.dataset.unit) { unitEl.selectedIndex = i; break; }
                     }
                 }
+                updateFracHint();
             });
         }
+        var customEl = document.getElementById('dat-sl-product-custom');
+        if (customEl) customEl.addEventListener('input', updateFracHint);
     }
 
     // ── Modal state ───────────────────────────────────────────────
@@ -1842,6 +1981,7 @@
 
         var aiEl = q('dat-sl-ai');
         if (aiEl) aiEl.value = data.active_ingredient || '';
+        updateFracHint();
 
         var rateEl = q('dat-sl-rate');
         if (rateEl && data.rate != null) rateEl.value = data.rate;
@@ -1927,6 +2067,65 @@
         return metaHTML + nutHTML + notesHTML;
     }
 
+    // ── FRAC detection (mirrors PHP detectFrac in blade) ─────────
+    var FRAC_MAP = {
+        '1':  ['thiophanate','thiabendazole','carbendazim'],
+        '2':  ['iprodione','procymidone'],
+        '3':  ['propiconazole','tebuconazole','myclobutanil','triticonazole','difenoconazole',
+               'metconazole','prothioconazole','mefentrifluconazole','triadimenol','prochloraz','cyproconazole'],
+        '4':  ['metalaxyl','mefenoxam','propamocarb'],
+        '7':  ['penthiopyrad','fluopyram','boscalid','fluxapyroxad','benzovindiflupyr','pydiflumetofen','flutolanil'],
+        '11': ['azoxystrobin','azoxy','trifloxystrobin','trifloxy','pyraclostrobin','mandestrobin'],
+        '12': ['fludioxonil'],
+        '14': ['etridiazole'],
+        '21': ['cyazofamid'],
+        '29': ['fluazinam'],
+        '33': ['fosetyl'],
+        '49': ['oxathiapiprolin'],
+    };
+    var FRAC_DESC = {
+        '1':'MBC · benzimidazole','2':'DCC · dicarboximide',
+        '3':'DMI · triazole','4':'PA · phenylamide',
+        '7':'SDHI · succinate dehydrogenase inhibitor',
+        '11':'QoI · strobilurin','12':'PP · phenylpyrrole',
+        '14':'AH · aromatic hydrocarbon','21':'CAA · carboxylic acid amide',
+        '29':'fluazinam','33':'P · phosphonate','49':'OSBPI',
+    };
+    function detectFracJS(ai, productName) {
+        var sources = [ai, productName].filter(Boolean).map(function(s) { return s.toLowerCase().trim(); });
+        for (var si = 0; si < sources.length; si++) {
+            var h = sources[si];
+            var keys = Object.keys(FRAC_MAP);
+            for (var ki = 0; ki < keys.length; ki++) {
+                var frac = keys[ki], needles = FRAC_MAP[frac];
+                for (var ni = 0; ni < needles.length; ni++) {
+                    if (h.indexOf(needles[ni]) !== -1) return frac;
+                }
+            }
+        }
+        return null;
+    }
+    function updateFracHint() {
+        var hint = document.getElementById('dat-sl-frac-hint');
+        if (!hint) return;
+        var cat = (document.getElementById('dat-sl-cat') || {}).value || '';
+        if (cat !== 'fungicide') { hint.style.display = 'none'; return; }
+        var ai = ((document.getElementById('dat-sl-ai') || {}).value || '').trim();
+        var productEl = document.getElementById('dat-sl-product');
+        var productCustomEl = document.getElementById('dat-sl-product-custom');
+        var productName = productEl
+            ? (productEl.tagName === 'SELECT'
+                ? (productEl.value === '__other__' ? ((productCustomEl || {}).value || '') : productEl.value)
+                : productEl.value)
+            : '';
+        var frac = detectFracJS(ai, productName);
+        if (!frac) { hint.style.display = 'none'; return; }
+        hint.style.display = 'flex';
+        hint.innerHTML = '<span class="frac-badge frac-g' + frac + '" style="font-family:inherit">FRAC ' + frac + '</span>'
+            + '<span style="font-size:11px;color:var(--gaip-text-muted,#6b8878);margin-left:6px;font-family:inherit">'
+            + esc(FRAC_DESC[frac] || '') + '</span>';
+    }
+
     // ── Spray log form builder ────────────────────────────────────
     function buildSprayBody() {
         var catOpts = SPRAY_CATS.map(function(c) {
@@ -1943,7 +2142,7 @@
             + '<div class="dat-mf-field"><label class="dat-mf-label">Date</label><input type="date" class="dat-mf-input" id="dat-sl-date" value="' + todayISO() + '"></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Category</label><select class="dat-mf-select" id="dat-sl-cat">' + catOpts + '</select></div>'
             + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Product</label><div id="dat-sl-product-wrap">' + renderSlProductField('fungicide') + '</div></div>'
-            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Active Ingredient</label><input type="text" class="dat-mf-input" id="dat-sl-ai" placeholder="e.g. azoxystrobin"></div>'
+            + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Active Ingredient</label><input type="text" class="dat-mf-input" id="dat-sl-ai" placeholder="e.g. azoxystrobin"><div id="dat-sl-frac-hint" style="display:none;align-items:center;gap:0;margin-top:5px"></div></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Rate</label><input type="number" step="any" class="dat-mf-input" id="dat-sl-rate" placeholder="0.0"></div>'
             + '<div class="dat-mf-field"><label class="dat-mf-label">Unit</label><select class="dat-mf-select" id="dat-sl-unit">' + unitOpts + '</select></div>'
             + '<div class="dat-mf-field dat-mf-full"><label class="dat-mf-label">Target (pest / disease)</label><input type="text" class="dat-mf-input" id="dat-sl-target" placeholder="e.g. Dollar Spot"></div>'
@@ -2008,11 +2207,18 @@
             });
         });
 
-        // Category change → update product field
+        // Category change → update product field + FRAC hint
         var slCat = document.getElementById('dat-sl-cat');
         if (slCat) {
-            slCat.addEventListener('change', function() { updateSlProductField(this.value); });
+            slCat.addEventListener('change', function() {
+                updateSlProductField(this.value);
+                updateFracHint();
+            });
         }
+
+        // AI input → live FRAC hint
+        var slAi = document.getElementById('dat-sl-ai');
+        if (slAi) slAi.addEventListener('input', updateFracHint);
 
         // Zone pills (spray log)
         document.querySelectorAll('.dat-zone-pill').forEach(function(pill) {

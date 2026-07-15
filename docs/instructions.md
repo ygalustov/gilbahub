@@ -391,15 +391,26 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-185** Enhance disease analysis and forecasting: Updated disease-analysis.js to prioritize climate data from getAuthoritativeClimate for improved accuracy and added a new function to inject Active Threats Day 0 scores into disease-forecast.js. This ensures consistency in risk assessments and enhances the display of disease data in forecasts. Adjusted risk thresholds for better handling of low scores from the engine.
 **GH-186** Fix turf cover calculation in plan-ui.js: Updated the logic to prioritize turf.c3Cover over turf.percentC3Cover when available, ensuring more accurate representation of C3 cover in calculations.
 **GH-187** Refactor C3 cover calculation logic in plan-ui.js: Enhanced the handling of turf cover values by introducing checks for species type and adjusting the calculation of C3 fraction based on species classification. This improves accuracy in turf cover representation.
+**GH-188** Implement FRAC group detection and residual protection calculation in data view: Added functions to detect FRAC groups based on active ingredients and product names, and to compute residual protection percentages based on application dates. Enhanced the data view to display FRAC group and residual protection metrics, improving the accuracy and usability of the spray log data.
+
 
 
 
 ## Backlog
-+48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186. 
-49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?
-50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity
-51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C 
++48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
++49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldnt reproduce - probably was fixed (comment #33 - GH-107, GH-118).
++50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
+
+
+
+51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. 
+
+
+
 52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window
+
+
+
 54.⁠ ⁠Where is soil water integration?
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
@@ -416,7 +427,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 15/07/26
-+44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you not sure in calculations - let me know which location to check. 
++44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you are not sure in the calculations - let me know which location to check. 
 +47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
 
 

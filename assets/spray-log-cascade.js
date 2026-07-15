@@ -262,14 +262,30 @@
             'chlorothalonil': { window: 7, halfLife: 5 }  // AU 7-14d; NZ 7-14d
         };
 
+        // Add short-form aliases (matches PHP detectFrac map)
+        protectionWindows['azoxy']    = protectionWindows['azoxystrobin'];
+        protectionWindows['trifloxy'] = protectionWindows['trifloxystrobin'];
+
+        // Substring search — mirrors PHP str_contains logic.
+        // Sort keys longest-first so 'azoxystrobin' matches before 'azoxy'.
+        const _pwKeys = Object.keys(protectionWindows).sort((a, b) => b.length - a.length);
+        function findSpecBySubstring(str) {
+            if (!str) return null;
+            const norm = str.toLowerCase().replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+            for (let i = 0; i < _pwKeys.length; i++) {
+                if (norm.indexOf(_pwKeys[i].replace(/[-_]+/g, ' ')) !== -1) return protectionWindows[_pwKeys[i]];
+            }
+            return null;
+        }
+
         const ai = (lastFungicide.active_ingredient || '').toLowerCase()
-            .replace(/[_]+/g, '-')   // underscores to hyphens
-            .replace(/\s+/g, ' ')    // normalise whitespace
+            .replace(/[_]+/g, '-')
+            .replace(/\s+/g, ' ')
             .trim();
-        const spec = protectionWindows[ai]
-            || protectionWindows[ai.replace(/-/g, ' ')]   // try space variant
-            || protectionWindows[ai.replace(/\s/g, '-')]; // try hyphen variant
-        
+
+        const spec = findSpecBySubstring(lastFungicide.active_ingredient)
+                  || findSpecBySubstring(lastFungicide.product_name);
+
         // Default if unknown product
         const baseWindow = spec ? spec.window : 14;
         const baseHalfLife = spec ? spec.halfLife : 10;
