@@ -664,7 +664,16 @@
             return;
         }
 
-        var c3Frac   = safeNum(turf && (turf.c3Cover !== undefined ? turf.c3Cover : turf.percentC3Cover), 70) / 100;
+        var _c3CoverRaw = turf && (turf.c3Cover !== undefined ? turf.c3Cover : turf.percentC3Cover);
+        var _c3CoverNum = safeNum(_c3CoverRaw, null);
+        var _species    = (turf && turf.species) || (hub && hub.turfSpecies) || '';
+        var _c4Species  = ['bermuda', 'couch', 'zoysiagrass', 'kikuyu', 'buffalo', 'seashorePaspalum', 'mixedWarm'];
+        var _isC4Primary = _c4Species.some(function(s) { return _species === s || _species.toLowerCase().indexOf(s) !== -1; });
+        // c3Cover=0 is both the default (never set) and "pure C4". Use species to disambiguate:
+        // if species is not C4, 0 means "not filled in" → treat as pure C3.
+        var c3Frac = (_c3CoverNum === null || _c3CoverNum === 0)
+            ? (_isC4Primary ? 0 : 1)
+            : _c3CoverNum / 100;
         var curMo    = nowMonth();
 
         // Compute seasonal averages using actual GP from analysis cache (or default)

@@ -390,7 +390,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-184** Integrate growth potential engine into nutrition calendar: Added the growth-potential-engine.js script to the plan view and refactored nutrition calendar calculations to utilize the GilbaGrowthPotentialEngine for improved accuracy in growth potential assessments. Updated related tests to ensure consistency and reliability in results.
 **GH-185** Enhance disease analysis and forecasting: Updated disease-analysis.js to prioritize climate data from getAuthoritativeClimate for improved accuracy and added a new function to inject Active Threats Day 0 scores into disease-forecast.js. This ensures consistency in risk assessments and enhances the display of disease data in forecasts. Adjusted risk thresholds for better handling of low scores from the engine.
 **GH-186** Fix turf cover calculation in plan-ui.js: Updated the logic to prioritize turf.c3Cover over turf.percentC3Cover when available, ensuring more accurate representation of C3 cover in calculations.
-
+**GH-187** Refactor C3 cover calculation logic in plan-ui.js: Enhanced the handling of turf cover values by introducing checks for species type and adjusting the calculation of C3 fraction based on species classification. This improves accuracy in turf cover representation.
 
 
 
