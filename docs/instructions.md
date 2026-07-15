@@ -137,6 +137,22 @@ Do you want me to switch it to match PACE?
 +59. Hydrosight still keeps saying to raise the height of cut to 32m m on a golf green? GH-178.
 +81. I’ve tried to makes things easier with changes for the cultivar performance data. If it doesn’t make things easier let me know please. - GH-179 - applied it, could you please check if it's what you expected? 
 
+13/07/26
++45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
++46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
++61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
++62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
++85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
++86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
++84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
++87. Nutrition calendar (file). GH-182. 
++88. GP reconciliation (file). GH-183, GH-184. 
+Does my doing it this way help? - Yes, very helpful - it gives more context. 
++54.⁠ ⁠GP Hydrosight is 70 vs 48. GH-183. GH-184. 
++55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe. - Could you please check after today's changes if all good now. 
++56.⁠ ⁠stress index is ok as its 22 vs 19. Ok
++57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%). - Could you please check after today's changes if all good now. 
++64.⁠ ⁠temperature 8C but growth potential graph shows 14.1? - Could you please check after today's changes if all good now. 
 
 
 
@@ -372,47 +388,33 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-182** Enhance N cap application in nutrition calendar: Updated the applyNCap function to include overflow redistribution for monthly nitrogen allocations. Improved handling of unschedulable allocations and added detailed reporting of scheduled totals, redistributed amounts, and unschedulable values. Adjusted UI messages to reflect these changes for better user feedback.
 **GH-183** Refactor growth potential calculations to use GilbaGrowthPotentialEngine: Updated various scripts to replace inline Gaussian models for growth potential with calls to the GilbaGrowthPotentialEngine, ensuring consistent calculations across C3 and C4 species. Adjusted dashboard and climate modules to reflect daily mean values from the new engine, enhancing accuracy in growth potential reporting.
 **GH-184** Integrate growth potential engine into nutrition calendar: Added the growth-potential-engine.js script to the plan view and refactored nutrition calendar calculations to utilize the GilbaGrowthPotentialEngine for improved accuracy in growth potential assessments. Updated related tests to ensure consistency and reliability in results.
-
+**GH-185** Enhance disease analysis and forecasting: Updated disease-analysis.js to prioritize climate data from getAuthoritativeClimate for improved accuracy and added a new function to inject Active Threats Day 0 scores into disease-forecast.js. This ensures consistency in risk assessments and enhances the display of disease data in forecasts. Adjusted risk thresholds for better handling of low scores from the engine.
 
 
 ## Backlog
-44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently
-47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition
 48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
 49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?
 50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity
 51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C 
 52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window
 54.⁠ ⁠Where is soil water integration?
-54.⁠ ⁠GP Hydrosight is 70 vs 48
-55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe.
-56.⁠ ⁠stress index is ok as its 22 vs 19
-57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%)
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
-64.⁠ ⁠temperature 8C but growth potential graph shows 14.1?
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
+86. Yes remove bermudagrass please as that American!
 
 
 
 
 
 
-13/07/26
-+45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
-+46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
-+61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
-+62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
-+85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
-+86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
-+84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
-+87. Nutrition calendar (file). GH-182. 
-+88. GP reconciliation (file). GH-183, GH-184. 
 
-Does my doing it this way help? - Yes, very helpful, 
+15/07/26
++44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you not sure in calculations - let me know which location to check. 
++47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
 
 
 

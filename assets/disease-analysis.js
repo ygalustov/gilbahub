@@ -1537,12 +1537,17 @@
                 }
                 var meanHumidity = allRhCount > 0 ? allRhSum / allRhCount : null;
 
-                // Use stored climate from the analysis run — same as what the old site
-                // passes as window.GAIP_STATE.climateMetrics (= computed.climate from
-                // getAuthoritativeClimate).
-                var storedClimate = (global.GAIP_DASHBOARD_DATA &&
-                                     global.GAIP_DASHBOARD_DATA.computed &&
-                                     global.GAIP_DASHBOARD_DATA.computed.climate) || {};
+                // Prefer getAuthoritativeClimate() — same source as Active Threats.
+                // GAIP_DASHBOARD_DATA.computed.climate can differ (e.g. humidity) from
+                // GAIP_CANONICAL_STATE because they come from different pipeline stages.
+                var storedClimate = (typeof window !== 'undefined' &&
+                                     window.GaipOrchestrator &&
+                                     typeof window.GaipOrchestrator.getAuthoritativeClimate === 'function'
+                                     ? window.GaipOrchestrator.getAuthoritativeClimate() : null)
+                                    || (global.GAIP_DASHBOARD_DATA &&
+                                        global.GAIP_DASHBOARD_DATA.computed &&
+                                        global.GAIP_DASHBOARD_DATA.computed.climate)
+                                    || {};
 
                 // Expose stored dew result for leaf-wetness-sensitive diseases.
                 if (global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed && global.GAIP_DASHBOARD_DATA.computed.dew) {
@@ -1650,6 +1655,22 @@
                                      || (global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.region)
                                      || 'AU',
                     forecastHourly:  { temperature_2m: hourly.temperature_2m || [] },
+                    day0ActiveThreats: (function() {
+                        var _d0 = {};
+                        var _atList = (global.GAIP_DASHBOARD_DATA &&
+                                       global.GAIP_DASHBOARD_DATA.computed &&
+                                       global.GAIP_DASHBOARD_DATA.computed.disease &&
+                                       global.GAIP_DASHBOARD_DATA.computed.disease.diseases) || [];
+                        for (var _i = 0; _i < _atList.length; _i++) {
+                            var _d = _atList[_i];
+                            if (_d && _d.disease) {
+                                var _s = _d.adjustedRisk != null ? Math.round(_d.adjustedRisk)
+                                       : _d.riskScore    != null ? Math.round(_d.riskScore) : 0;
+                                _d0[_d.disease] = { score: _s, displayName: _d.displayName || _d.name || _d.disease };
+                            }
+                        }
+                        return _d0;
+                    })(),
                 };
 
                 // ── 1. Dew forecast (always, independent of chart) ──────────────

@@ -1198,9 +1198,44 @@ var DiseaseForecast = (function() {
             }
         }
         
+        // Inject Active Threats Day 0 scores — guarantees "Today" column matches Active Threats.
+        // Also adds AT diseases not computed by engine (insufficient wet-hours history etc.)
+        // as flat lines so they appear in the chart with their current risk level.
+        var _d0at = state && state.day0ActiveThreats;
+        if (_d0at) {
+            // Step 1: override Day 0 for diseases already in diseaseRisksByDay
+            for (var _dn in diseaseMetadata) {
+                var _dkey = diseaseMetadata[_dn].key;
+                if (_d0at[_dkey] != null && diseaseRisksByDay[_dn] && diseaseRisksByDay[_dn].length > 0) {
+                    diseaseRisksByDay[_dn][0].risk = _d0at[_dkey].score;
+                }
+            }
+            // Step 2: add AT diseases not computed by engine at all (flat line at AT score)
+            for (var _atKey in _d0at) {
+                var _atVal = _d0at[_atKey];
+                if (_atVal.score < 10) continue;
+                var _alreadyHave = false;
+                for (var _chk in diseaseMetadata) {
+                    if (diseaseMetadata[_chk].key === _atKey) { _alreadyHave = true; break; }
+                }
+                if (_alreadyHave) continue;
+                var _dName = _atVal.displayName;
+                var _flatArr = [];
+                for (var _ddi = 0; _ddi < dailyClimate.length; _ddi++) {
+                    _flatArr.push({ day: _ddi, date: dailyClimate[_ddi] ? dailyClimate[_ddi].date : '', risk: _atVal.score });
+                }
+                diseaseRisksByDay[_dName] = _flatArr;
+                diseaseMetadata[_dName] = {
+                    key: _atKey, name: _dName, fullName: _dName,
+                    beta: isBetaDisease(_atKey), riskLevel: classifyRisk(_atVal.score),
+                    fromActiveThreats: true,
+                };
+            }
+        }
+
         // Build forecast structure
         var diseaseForecasts = {};
-        
+
         for (var diseaseName in diseaseRisksByDay) {
             var forecast = diseaseRisksByDay[diseaseName];
             var meta = diseaseMetadata[diseaseName];
@@ -1222,8 +1257,9 @@ var DiseaseForecast = (function() {
             
             // Check if consecutive day amplification occurred
             var hasConsecutiveBoost = forecast.some(function(f) { return f.consecutiveDays && f.consecutiveDays >= 2; });
-            
-            if ((avgRisk >= CONFIG.minRiskThreshold || peakRisk >= 30) && peakRisk >= 15) {
+            // peakRisk >= 20 (instead of >= 30) catches AT-injected Day 0 diseases where engine
+            // gives low scores for Days 1-6 (avgRisk < minRiskThreshold) but Day 0 AT score is high.
+            if ((avgRisk >= CONFIG.minRiskThreshold || peakRisk >= 20) && peakRisk >= 15) {
                 diseaseForecasts[diseaseName] = {
                     key: meta.key,
                     name: diseaseName,
@@ -1505,20 +1541,32 @@ var DiseaseForecast = (function() {
             var today = new Date();
             var ok = true;
             for (var i = 0; i < 7; i++) {
-                var startH = i * 24;
-                var endH   = Math.min(startH + 24, omTemps.length);
-                if (endH - startH < 12) { ok = false; break; }
-                var slice = omTemps.slice(startH, endH);
-                var sliceMin  = Math.min.apply(null, slice);
-                var sliceMax  = Math.max.apply(null, slice);
-                var sliceMean = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
                 var dateStr = new Date(today.getTime() + i * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                daily.push({
-                    date: dateStr,
-                    min:  Math.round(sliceMin  * 10) / 10,
-                    max:  Math.round(sliceMax  * 10) / 10,
-                    mean: Math.round(sliceMean * 10) / 10,
-                });
+                if (i === 0) {
+                    // Day 0: use stored period climate — same source as Active Threats
+                    // so "Today" column matches Active Threats values exactly.
+                    var t = climateMetrics && climateMetrics.temperature;
+                    daily.push({
+                        date: dateStr,
+                        min:  t && t.min  != null ? t.min  : 5,
+                        max:  t && t.max  != null ? t.max  : 15,
+                        mean: t && t.mean != null ? t.mean : 10,
+                    });
+                } else {
+                    var startH = i * 24;
+                    var endH   = Math.min(startH + 24, omTemps.length);
+                    if (endH - startH < 12) { ok = false; break; }
+                    var slice = omTemps.slice(startH, endH);
+                    var sliceMin  = Math.min.apply(null, slice);
+                    var sliceMax  = Math.max.apply(null, slice);
+                    var sliceMean = slice.reduce(function (a, b) { return a + b; }, 0) / slice.length;
+                    daily.push({
+                        date: dateStr,
+                        min:  Math.round(sliceMin  * 10) / 10,
+                        max:  Math.round(sliceMax  * 10) / 10,
+                        mean: Math.round(sliceMean * 10) / 10,
+                    });
+                }
             }
             if (ok && daily.length === 7) return daily;
             daily = [];
