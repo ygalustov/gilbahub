@@ -2737,6 +2737,18 @@
                 lsSet('gilba_sensor_last_fetch', JSON.stringify({
                     fetchedAt: new Date().toISOString(), provider: 'Hydrosight', locations: readings
                 }));
+                // Write sensor→site mapping so sensor-api-bridge.js passes the
+                // hydrosightHasData() mapping check when hub-orchestrator runs analysis.
+                try {
+                    var _smap = JSON.parse(localStorage.getItem('gilba_sensor_mappings') || '{}');
+                    if (!_smap[SITE_ID]) _smap[SITE_ID] = {};
+                    if (!_smap[SITE_ID].hydrosight) _smap[SITE_ID].hydrosight = [];
+                    readings.forEach(function(r) {
+                        if (r.sensorId && _smap[SITE_ID].hydrosight.indexOf(r.sensorId) < 0)
+                            _smap[SITE_ID].hydrosight.push(r.sensorId);
+                    });
+                    localStorage.setItem('gilba_sensor_mappings', JSON.stringify(_smap));
+                } catch (_) {}
             } catch (e) {
                 console.warn('[Sensors] Hydrosight refresh failed:', e.message);
             }

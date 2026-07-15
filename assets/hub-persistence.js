@@ -126,6 +126,38 @@
             console.log('[GilbaRerun] 20s absolute fallback firing, _rerunSignalSent:', _rerunSignalSent);
             _signalRerunComplete();
         }, 20000);
+
+        /* Sensor-upgrade re-sync: hub-orchestrator dispatches gaip:sensor-upgrade-complete
+           when Hydrosight data arrived after the initial analysis (race condition where
+           sensor fetch completes after first computeAll). Re-POST the updated computed
+           state so Plan/dashboard pages show sensor soil temp instead of physics_model.
+           Only fires once and only after the first sync has already completed. */
+        var _sensorUpgradeSynced = false;
+        document.addEventListener('gaip:sensor-upgrade-complete', function () {
+            if (_sensorUpgradeSynced || !_rerunSignalSent) return;
+            _sensorUpgradeSynced = true;
+            var snap    = cacheAnalysisResults();
+            var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId) || (snap && snap.siteId);
+            if (!siteId) return;
+            var csrf    = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.csrfToken)
+                          || ((document.querySelector('meta[name="csrf-token"]') || {}).content);
+            var restUrl = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.restUrl) || '/api/';
+            console.log('[GilbaRerun] Sensor upgrade re-sync for site', siteId);
+            fetch(restUrl + 'analysis-cache', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf || '', 'Accept': 'application/json' },
+                body: JSON.stringify({
+                    site_id:     siteId,
+                    analyzed_at: new Date().toISOString(),
+                    metrics:     snap.dashboard,
+                    computed:    snap.computed || null,
+                }),
+            }).then(function () {
+                console.log('[GilbaRerun] Sensor upgrade re-sync success');
+            }).catch(function (e) {
+                console.warn('[GilbaRerun] Sensor upgrade re-sync failed:', e);
+            });
+        });
     }
 
     // =========================================================================

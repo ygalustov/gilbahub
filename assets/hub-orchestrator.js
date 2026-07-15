@@ -958,7 +958,7 @@
     let soilTempDepths = null;
     let soilTempWarning = null;
 
-    // Priority 1: Sensor data (TDR/Pogo)
+    // Priority 1: Sensor data (TDR/Pogo via GAIP_Sensor bridge)
     if (global.GAIP_Sensor && global.GAIP_Sensor.hasData()) {
       const sensorData = global.GAIP_Sensor.getIrrigationData();
       if (sensorData && sensorData.soilTemp !== null) {
@@ -978,6 +978,25 @@
           zoneCount: sensorData.zoneCount || 0,
         };
       }
+    }
+
+    // Priority 1b: Hydrosight direct (bridge site-mapping check may block even when data exists)
+    if (soilTempSource !== "sensor" && global.GAIP_Hydrosight
+        && typeof global.GAIP_Hydrosight.hasData === "function" && global.GAIP_Hydrosight.hasData()) {
+      try {
+        const hsData = global.GAIP_Hydrosight.getIrrigationData();
+        if (hsData && hsData.soilTemp != null) {
+          soilTempValue = hsData.soilTemp;
+          soilTempSource = "sensor";
+          soilTempReliability = 95;
+          log("canonical", `Soil temp from Hydrosight direct: ${soilTempValue}°C`);
+          GAIP_CANONICAL_STATE.sensor = {
+            available: true, source: "Hydrosight",
+            vwc: hsData.vwc, ec: hsData.ec, soilTemp: hsData.soilTemp,
+            zoneCount: hsData.zoneCount || 0,
+          };
+        }
+      } catch (e) { /* ignore */ }
     }
 
     // Priority 2: API soil temp (from climateMetrics)
@@ -1016,12 +1035,18 @@
           const profileType = GAIP_CANONICAL_STATE.turf.construction || GAIP_CANONICAL_STATE.turf.profileType || "usga";
           const soilMoisture = climateMetrics?.moisture?.soilMoisture?.mean || 0.25;
 
-          const physicsResult = global.gaip_enhanced_soil_temp(
+          const rawPhysics = global.gaip_enhanced_soil_temp(
             hourlyForPhysics.temperature_2m,
             hourlyForPhysics.shortwave_radiation || null,
             soilMoisture,
             { profileType: profileType },
           );
+          // gaip_enhanced_soil_temp returns raw T_NNmm series; convert to
+          // depth-summary shape via gaip_soil_temp_summary so the .depths
+          // check below resolves correctly.
+          const physicsResult = (global.gaip_soil_temp_summary && rawPhysics)
+            ? global.gaip_soil_temp_summary(rawPhysics)
+            : rawPhysics;
 
           if (physicsResult && physicsResult.depths) {
             soilTempDepths = {
@@ -1036,8 +1061,8 @@
             };
             // Use 50mm as the default "mean" (seed zone)
             soilTempValue = soilTempDepths.d50mm || soilTempDepths.d100mm;
-            soilTempSource = "estimated";
-            soilTempReliability = 65;
+            soilTempSource = "physics_model";
+            soilTempReliability = 75;
             log("canonical", "Soil temp from physics model", soilTempDepths);
           }
         } catch (e) {
@@ -2726,8 +2751,8 @@
     let soilTemp5cm = null;
     let soilTempSource = "unknown";
 
-    // Priority 1: sensor (TDR/Pogo) — call getIrrigationData() directly.
-    // hasData() gate blocks Hydrosight when no CSV loaded; bypass it here.
+    // Priority 1: sensor bridge (TDR/Pogo/Hydrosight via GAIP_Sensor).
+    // hasData() gate blocks Hydrosight when mapping not configured; bypass hasData() here.
     try {
       const sd =
         global.GAIP_Sensor && typeof global.GAIP_Sensor.getIrrigationData === "function"
@@ -2740,13 +2765,30 @@
     } catch (e) {
       /* ignore */
     }
-    // Priority 2: Physics Model result from GAIP_CANONICAL_STATE (Climate Engine v2, 50mm depth)
-    // Far more accurate than air temp derivation - always prefer it when available
+    // Priority 1b: Hydrosight direct — bridge mapping check can block even when data exists
+    // (site not yet mapped in gilba_sensor_mappings). Read GAIP_Hydrosight directly instead.
     if (soilTemp5cm == null) {
-      const canonDepths = global.GAIP_CANONICAL_STATE?.soilTemp?.depths;
+      try {
+        if (global.GAIP_Hydrosight && typeof global.GAIP_Hydrosight.hasData === "function"
+            && global.GAIP_Hydrosight.hasData()) {
+          const hsData = global.GAIP_Hydrosight.getIrrigationData();
+          if (hsData && hsData.soilTemp != null) {
+            soilTemp5cm = hsData.soilTemp;
+            soilTempSource = "sensor";
+          }
+        }
+      } catch (e) { /* ignore */ }
+    }
+    // Priority 2: GAIP_CANONICAL_STATE.soilTemp — sensor/api/physics/estimated
+    // Propagate the actual source recorded by the canonical state builder instead of
+    // hardcoding "physics_model"; canonical state itself uses the full sensor→api→physics
+    // cascade, so the source label here must reflect what canonical state resolved.
+    if (soilTemp5cm == null) {
+      const canonSoilTemp = global.GAIP_CANONICAL_STATE?.soilTemp;
+      const canonDepths = canonSoilTemp?.depths;
       if (canonDepths?.d50mm != null) {
         soilTemp5cm = canonDepths.d50mm;
-        soilTempSource = "physics_model";
+        soilTempSource = canonSoilTemp.source || "physics_model";
       }
     }
     // Priority 3: computed climate soilTemp
@@ -4566,6 +4608,51 @@
           console.error("[Orchestrator] computeAll (weather-ready retry) FAILED:", err);
         });
       }, 500);
+    });
+
+    // Re-trigger computeAll when Hydrosight sensor data arrives after initial analysis.
+    // Race: hub loads → analysis fires (gaip:analysis-complete) → Hydrosight fetch completes
+    // 2-5 s later → soilTemp now available. Without this listener, pre-emergent stays on
+    // physics_model despite a connected sensor.
+    var _sensorSoilTempFired = false;
+    document.addEventListener("gaip:sensor:updated", function () {
+      if (_sensorSoilTempFired || _isComputingAll) return;
+      try {
+        // Resolve soil temp: try bridge first, then Hydrosight direct (bypasses mapping check)
+        var _soilTemp = null;
+        try {
+          var _sd = global.GAIP_Sensor && typeof global.GAIP_Sensor.getIrrigationData === "function"
+            ? global.GAIP_Sensor.getIrrigationData() : null;
+          if (_sd && _sd.soilTemp != null) _soilTemp = _sd.soilTemp;
+        } catch (e) { /* ignore */ }
+        if (_soilTemp == null && global.GAIP_Hydrosight
+            && typeof global.GAIP_Hydrosight.hasData === "function"
+            && global.GAIP_Hydrosight.hasData()) {
+          var _hsData = global.GAIP_Hydrosight.getIrrigationData();
+          if (_hsData && _hsData.soilTemp != null) _soilTemp = _hsData.soilTemp;
+        }
+        if (_soilTemp == null) return;
+        // Skip only if already using Hydrosight specifically.
+        // If current source is "sensor" from TDR/CSV and Hydrosight just became ready,
+        // we still want to re-run so the bridge can upgrade to the live reading.
+        var _currentSrc = _hubState.computed.preEmergent &&
+                          _hubState.computed.preEmergent.summary &&
+                          _hubState.computed.preEmergent.summary.soilTempSource;
+        var _hsNowReady = global.GAIP_Hydrosight
+            && typeof global.GAIP_Hydrosight.hasData === "function"
+            && global.GAIP_Hydrosight.hasData();
+        if (_currentSrc === "sensor" && !_hsNowReady) return;
+        _sensorSoilTempFired = true;
+        log("pre-emergent", "Sensor soilTemp arrived (" + _soilTemp + "°C), re-running computeAll");
+        clearTimeout(_autoComputeTimer);
+        _autoComputeTimer = setTimeout(function () {
+          computeAll().then(function () {
+            document.dispatchEvent(new CustomEvent("gaip:sensor-upgrade-complete"));
+          }).catch(function (err) {
+            console.error("[Orchestrator] computeAll (sensor-updated) FAILED:", err);
+          });
+        }, 600);
+      } catch (e) { /* ignore */ }
     });
 
     log("integration", "Integration hooks initialized");

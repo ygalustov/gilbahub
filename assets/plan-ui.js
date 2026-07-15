@@ -215,9 +215,28 @@
         // Footer with soil temp + trend
         var trendArrow = summary.trendDirection === 'warming' ? '↑ Warming' :
                          summary.trendDirection === 'cooling' ? '↓ Cooling' : '→ Stable';
+        var sourceLabels = {
+            'sensor':                   'sensor',
+            'hydrosight':               'sensor',
+            'tdr':                      'sensor',
+            'pogo':                     'sensor',
+            'physics_model':            'physics model',
+            'api':                      '16d avg',
+            'manual':                   'manual',
+            'estimated':                'estimated',
+            'climate_temperature_soil': 'climate model',
+            'climateMetrics_global':    'climate model',
+            'climateMetrics_temp':      'climate model',
+            'climate_engine':           'climate model',
+            'derived_from_air_temp':    'air temp',
+            'canonical':                'estimated'
+        };
+        var srcKey  = summary.soilTempSource || '';
+        var srcLabel = sourceLabels[srcKey] || (srcKey ? srcKey.replace(/_/g, ' ') : null);
         var footerHtml = '<div class="plan-pe-footer">' +
             '<svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" d="M12 3v9.5M8.5 12a4 4 0 105 0"/></svg>' +
             'Soil temp: ' + (summary.soilTemp5cm != null ? safeNum(summary.soilTemp5cm,0).toFixed(1) + '°C' : '—') +
+            (srcLabel ? ' <span style="opacity:0.55;font-size:10px">(' + srcLabel + ')</span>' : '') +
             ' · ' + trendArrow +
             (summary.region ? ' · Region: ' + esc(summary.region) : '') +
             '</div>';

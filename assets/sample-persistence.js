@@ -385,9 +385,9 @@
                         SM.addSiteWithId(siteId, siteLabel);
                     }
 
-                    if (typeof SM.setActiveSite === 'function') {
-                        SM.setActiveSite(siteId);
-                    }
+                    // Do NOT call setActiveSite() per-sample — it dispatches gaip:site-changed
+                    // for every sample, causing the hub to re-run analysis hundreds of times.
+                    // The active site is restored once after the loop (line ~420 below).
 
                     var sampleId = sample.client_uid || (sample.payload && (sample.payload.label || sample.payload.sampleId)) || ('sample_' + sample.id);
                     if (SM.getSample && SM.getSample(sample.sample_type, sampleId)) {

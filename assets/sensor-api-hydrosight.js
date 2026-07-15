@@ -448,15 +448,30 @@
         if (!forceRefresh) {
             var cached = loadCache();
             if (cached) {
-                console.log('[Hydrosight] Using cached data');
+                console.log('[Hydrosight] Using cached data (' + (cached.readings ? cached.readings.length : 0) + ' readings)');
+                if (cached.readings) {
+                    cached.readings.forEach(function(r) {
+                        console.log('[Hydrosight]  •', r.zoneName || r.sensorId,
+                            '| VWC:', r.vwc != null ? r.vwc.toFixed(1) + '%' : '—',
+                            '| Temp:', r.soilTemp != null ? r.soilTemp.toFixed(1) + '°C' : '—',
+                            '| EC:', r.ec != null ? r.ec.toFixed(2) : '—',
+                            '| id:', r.sensorId);
+                    });
+                    if (cached.summary && cached.summary.soilTemp) {
+                        console.log('[Hydrosight]  → avg soilTemp:', cached.summary.soilTemp.mean.toFixed(1) + '°C',
+                            '| avg VWC:', cached.summary.vwc ? cached.summary.vwc.mean.toFixed(1) + '%' : '—');
+                    }
+                }
                 state.cachedReadings = cached;
                 return cached;
             }
         }
 
+        var _fetchSiteId = getActiveSiteId(); // capture before async work begins
+
         try {
             console.log('[Hydrosight] Fetching live sensor data...');
-            
+
             var sensors = await fetchSensors();
 
             // Filter to only sensors mapped to the active site.
@@ -476,9 +491,15 @@
                 }
             } catch (e) { /* non-fatal — fall through to all sensors */ }
 
+            // Priority 1: gilba_sensor_mappings (site-to-sensor bridge map)
+            // Priority 2: state.sensorZoneMapping keys (sensors the user assigned to zones in Settings)
+            // Priority 3: all sensors (no config at all — may average across unrelated sites)
+            var zoneMappedIds = Object.keys(state.sensorZoneMapping || {});
             var sensorsToUse = mappedSensorIds.length > 0
                 ? sensors.filter(function(s) { return mappedSensorIds.indexOf(s.sensorId) !== -1; })
-                : sensors;
+                : zoneMappedIds.length > 0
+                    ? sensors.filter(function(s) { return zoneMappedIds.indexOf(s.sensorId) !== -1; })
+                    : sensors;
 
             if (mappedSensorIds.length > 0 && sensorsToUse.length === 0) {
                 console.warn('[Hydrosight] Mapped sensor IDs not found in account sensors — falling back to all sensors');
@@ -506,12 +527,53 @@
 
             var gaipData = transformToGAIPFormat(sensorsWithData);
             
+            // If site changed while fetch was in flight, save result to the original site's
+            // localStorage cache so the next reloadForSite() for that site uses cached data
+            // instead of triggering another API call. Do NOT update state (wrong site active).
+            if (getActiveSiteId() !== _fetchSiteId) {
+                console.log('[Hydrosight] Site changed during fetch (was', _fetchSiteId, '→ now', getActiveSiteId(), ') — caching under original site, discarding from state');
+                try {
+                    var _staleCache = { data: gaipData, timestamp: Date.now(), v: CONFIG.cacheVersion };
+                    _ls.setItem(CONFIG.cacheKeyBase + '_' + _fetchSiteId, JSON.stringify(_staleCache));
+                } catch (_ce) { /* non-fatal */ }
+                return null;
+            }
+
             state.cachedReadings = gaipData;
             state.lastFetch = new Date();
             saveCache(gaipData);
-            
-            console.log('[Hydrosight] Fetched', gaipData.readings.length, 'readings from', 
+
+            // Auto-map discovered sensors to this site if no explicit mapping existed.
+            // Prevents stale-config disable on next reloadForSite() call.
+            if (mappedSensorIds.length === 0 && gaipData.readings.length > 0 && activeSiteId) {
+                try {
+                    var _lsAM = (typeof GilbaStorageNS !== 'undefined' && GilbaStorageNS.raw)
+                        ? GilbaStorageNS.raw : localStorage;
+                    var _smap = JSON.parse(_lsAM.getItem('gilba_sensor_mappings') || '{}');
+                    if (!_smap[activeSiteId]) _smap[activeSiteId] = {};
+                    if (!_smap[activeSiteId].hydrosight) _smap[activeSiteId].hydrosight = [];
+                    gaipData.readings.forEach(function(r) {
+                        if (r.sensorId && _smap[activeSiteId].hydrosight.indexOf(r.sensorId) < 0)
+                            _smap[activeSiteId].hydrosight.push(r.sensorId);
+                    });
+                    _lsAM.setItem('gilba_sensor_mappings', JSON.stringify(_smap));
+                    console.log('[Hydrosight] Auto-mapped', gaipData.readings.length, 'sensors to site', activeSiteId);
+                } catch (_e) { /* non-fatal */ }
+            }
+
+            console.log('[Hydrosight] Fetched', gaipData.readings.length, 'readings from',
                         Object.keys(gaipData.zones).length, 'sensors');
+            gaipData.readings.forEach(function(r) {
+                console.log('[Hydrosight]  •', r.zoneName || r.sensorId,
+                    '| VWC:', r.vwc != null ? r.vwc.toFixed(1) + '%' : '—',
+                    '| Temp:', r.soilTemp != null ? r.soilTemp.toFixed(1) + '°C' : '—',
+                    '| EC:', r.ec != null ? r.ec.toFixed(2) : '—',
+                    '| id:', r.sensorId);
+            });
+            if (gaipData.summary && gaipData.summary.soilTemp) {
+                console.log('[Hydrosight]  → avg soilTemp:', gaipData.summary.soilTemp.mean.toFixed(1) + '°C',
+                    '| avg VWC:', gaipData.summary.vwc ? gaipData.summary.vwc.mean.toFixed(1) + '%' : '—');
+            }
             
             document.dispatchEvent(new CustomEvent('gaip:hydrosight:updated', { detail: gaipData }));
             
@@ -844,9 +906,16 @@
                         console.log('[Hydrosight] Enabled via SensorManager mapping for site:', activeSiteId);
                     }
                 } else if (!hasMappingEntry && state.enabled) {
-                    // Config says enabled but no mapping — stale config, disable
-                    console.log('[Hydrosight] No sensor mapping for site:', activeSiteId, '— disabling fetch but preserving config');
-                    state.enabled = false;
+                    // No site mapping in gilba_sensor_mappings.
+                    // Allow fetch only if user configured a zone mapping in Settings (sensorZoneMapping).
+                    // Without zone mapping the API may return sensors for unrelated surfaces → disable.
+                    var hasZoneMapping = Object.keys(state.sensorZoneMapping || {}).length > 0;
+                    if (!hasZoneMapping) {
+                        console.log('[Hydrosight] No site mapping and no zone mapping for site:', activeSiteId, '— disabling to prevent cross-site contamination');
+                        state.enabled = false;
+                    } else {
+                        console.log('[Hydrosight] Zone mapping exists for site:', activeSiteId, '— fetching', Object.keys(state.sensorZoneMapping).length, 'configured sensors');
+                    }
                 }
             }
         }

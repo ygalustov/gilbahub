@@ -392,7 +392,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-186** Fix turf cover calculation in plan-ui.js: Updated the logic to prioritize turf.c3Cover over turf.percentC3Cover when available, ensuring more accurate representation of C3 cover in calculations.
 **GH-187** Refactor C3 cover calculation logic in plan-ui.js: Enhanced the handling of turf cover values by introducing checks for species type and adjusting the calculation of C3 fraction based on species classification. This improves accuracy in turf cover representation.
 **GH-188** Implement FRAC group detection and residual protection calculation in data view: Added functions to detect FRAC groups based on active ingredients and product names, and to compute residual protection percentages based on application dates. Enhanced the data view to display FRAC group and residual protection metrics, improving the accuracy and usability of the spray log data.
-
+**GH-189** Enhance sensor data handling and mapping in hub-orchestrator and related scripts: Implemented direct access to Hydrosight data to bypass mapping checks, ensuring accurate soil temperature readings. Added event listeners for sensor updates to trigger re-computation of analysis when new data arrives. Improved caching and logging for Hydrosight data fetching, and updated UI to reflect accurate source labels for soil temperature. This enhances the reliability and responsiveness of the system in handling sensor data.
 
 
 
@@ -400,14 +400,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 +48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
 +49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldnt reproduce - probably was fixed (comment #33 - GH-107, GH-118).
 +50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
++51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
 
 
 
-51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. 
-
-
-
-52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window
+52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. 
 
 
 
@@ -422,7 +419,7 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-
+also update reading on the sensor data page after fetching during run
 
 
 
