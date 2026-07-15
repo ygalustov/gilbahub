@@ -664,7 +664,7 @@
             return;
         }
 
-        var c3Frac   = safeNum(turf && turf.percentC3Cover, 70) / 100;
+        var c3Frac   = safeNum(turf && (turf.c3Cover !== undefined ? turf.c3Cover : turf.percentC3Cover), 70) / 100;
         var curMo    = nowMonth();
 
         // Compute seasonal averages using actual GP from analysis cache (or default)

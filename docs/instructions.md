@@ -389,10 +389,13 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-183** Refactor growth potential calculations to use GilbaGrowthPotentialEngine: Updated various scripts to replace inline Gaussian models for growth potential with calls to the GilbaGrowthPotentialEngine, ensuring consistent calculations across C3 and C4 species. Adjusted dashboard and climate modules to reflect daily mean values from the new engine, enhancing accuracy in growth potential reporting.
 **GH-184** Integrate growth potential engine into nutrition calendar: Added the growth-potential-engine.js script to the plan view and refactored nutrition calendar calculations to utilize the GilbaGrowthPotentialEngine for improved accuracy in growth potential assessments. Updated related tests to ensure consistency and reliability in results.
 **GH-185** Enhance disease analysis and forecasting: Updated disease-analysis.js to prioritize climate data from getAuthoritativeClimate for improved accuracy and added a new function to inject Active Threats Day 0 scores into disease-forecast.js. This ensures consistency in risk assessments and enhances the display of disease data in forecasts. Adjusted risk thresholds for better handling of low scores from the engine.
+**GH-186** Fix turf cover calculation in plan-ui.js: Updated the logic to prioritize turf.c3Cover over turf.percentC3Cover when available, ensuring more accurate representation of C3 cover in calculations.
+
+
 
 
 ## Backlog
-48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom?
++48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186. 
 49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition?
 50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity
 51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C 
