@@ -437,7 +437,7 @@
         // Get hourly data from rawWeatherData
         const rawWeather = global.rawWeatherData;
         const hourlyData = rawWeather?.hourly || rawWeather?.forecast?.hourly;
-        
+
         if (!hourlyData?.temperature_2m) {
             return ''; // No hourly data available
         }

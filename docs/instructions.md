@@ -140,19 +140,21 @@ Do you want me to switch it to match PACE?
 13/07/26
 +45.⁠ ⁠Is it me or is this showing the same light level for every site? Could you please give me an example? I see different levels. 
 +46.⁠ ⁠Analysis> soil and nutrition > only shows 1 active growing month? - Could you please send me an example? I see 12 months. 
++54.⁠ ⁠GP Hydrosight is 70 vs 48. GH-183. GH-184. 
++55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe. - Could you please check after today's changes if all good now. 
++56.⁠ ⁠stress index is ok as its 22 vs 19. Ok
++57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%). - Could you please check after today's changes if all good now. 
 +61.⁠ ⁠the soil test figures are correct and this location is set up for ammonium acetate (AA) as its in NZ. however, the interpretation is MLSN which isnt right. AA is AA and MLSN is MLSN etc. - Location was incorrect. 
 +62.⁠ ⁠plan/nutrition still show australia and hte dropdown still shows australian companies and not 	nz. - Location was incorrect. 
++64.⁠ ⁠temperature 8C but growth potential graph shows 14.1? - Could you please check after today's changes if all good now. 
 +85. The PGR response curve is showing an error and the cultivar cards are a lot better but a few minor tweaks needed. Could you please let me know what error do you mean?
 +86. Couch and bermudagrass are the same thing. - In the calculations they are considered the same grass (we fixed this based on comment #18 (GH-123)). If you want me to remove one of them from the list - let me know. 
 +84. There is a problem with the brown patch graph as it’s using the wrong model (file). GH-173, GH-180, GH-181. 
 +87. Nutrition calendar (file). GH-182. 
 +88. GP reconciliation (file). GH-183, GH-184. 
 Does my doing it this way help? - Yes, very helpful - it gives more context. 
-+54.⁠ ⁠GP Hydrosight is 70 vs 48. GH-183. GH-184. 
-+55.⁠ ⁠disease risk is 11% for dollar spot vs 100???% fusarium although both show severe. - Could you please check after today's changes if all good now. 
-+56.⁠ ⁠stress index is ok as its 22 vs 19. Ok
-+57.⁠ ⁠the hydrosight hub text only shows dollar spot although the graph also shows fusarium anthracnose brown patch and take all. the gaip hub shows red thread waitea patch dollar spot (12%). - Could you please check after today's changes if all good now. 
-+64.⁠ ⁠temperature 8C but growth potential graph shows 14.1? - Could you please check after today's changes if all good now. 
+
+
 
 
 
@@ -393,39 +395,74 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-187** Refactor C3 cover calculation logic in plan-ui.js: Enhanced the handling of turf cover values by introducing checks for species type and adjusting the calculation of C3 fraction based on species classification. This improves accuracy in turf cover representation.
 **GH-188** Implement FRAC group detection and residual protection calculation in data view: Added functions to detect FRAC groups based on active ingredients and product names, and to compute residual protection percentages based on application dates. Enhanced the data view to display FRAC group and residual protection metrics, improving the accuracy and usability of the spray log data.
 **GH-189** Enhance sensor data handling and mapping in hub-orchestrator and related scripts: Implemented direct access to Hydrosight data to bypass mapping checks, ensuring accurate soil temperature readings. Added event listeners for sensor updates to trigger re-computation of analysis when new data arrives. Improved caching and logging for Hydrosight data fetching, and updated UI to reflect accurate source labels for soil temperature. This enhances the reliability and responsiveness of the system in handling sensor data.
+**GH-190** Refactor climate data handling in hub-orchestrator.js: Removed legacy temperature recovery logic and implemented direct computation of temperature metrics from rawWeatherData. This ensures consistent and accurate temperature readings across non-manual modes, enhancing the reliability of climate metrics. Updated logging for better traceability of temperature calculations.
+
+
 
 
 
 ## Backlog
-+48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
-+49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldnt reproduce - probably was fixed (comment #33 - GH-107, GH-118).
-+50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
-+51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
-
-
-
-52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. 
-
-
-
 54.⁠ ⁠Where is soil water integration?
+
+
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
+
+
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
+
 66.⁠ ⁠same with water tests as with soil (65)
 when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
+
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
+
+
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
+
 86. Yes remove bermudagrass please as that American!
 
 
 
-also update reading on the sensor data page after fetching during run
 
-
-
-15/07/26
+17/07/26
 +44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you are not sure in the calculations - let me know which location to check. 
 +47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
++48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
++49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldn't reproduce - probably was fixed (comment #33 - GH-107, GH-118). Could you please let me know if you notice it again?
++50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
++51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
++52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. - Could you please rerun with latest changes for soil temperature (comment #51) and check again?
+
+
+
+
+Save fetched data which you do every 30 mins. 
+I rolled back this as it didnt help. 
+
+            try {
+                var polledData = await fetchLiveData(true);
+                if (polledData && polledData.readings) {
+                    var siteId = getActiveSiteId();
+                    var sensorNameMap = {};
+                    (state.sensors || []).forEach(function(s) { sensorNameMap[s.sensorId] = s.name || s.sensorId; });
+                    var uiReadings = polledData.readings.map(function(r) {
+                        return {
+                            sensorId: r.sensorId,
+                            name:     sensorNameMap[r.sensorId] || r.zoneName || r.sensorId,
+                            vwc:      r.vwc,
+                            ec:       r.ec,
+                            soilTemp: r.soilTemp,
+                            zone:     r.zoneName || null
+                        };
+                    });
+                    try {
+                        global.localStorage.setItem(
+                            'gaip_hydrosight_readings_cache_' + siteId,
+                            JSON.stringify({ timestamp: Date.now(), data: uiReadings })
+                        );
+                    } catch (_) {}
+                    document.dispatchEvent(new CustomEvent('gaip:hydrosight:polled'));
+                }
+            }
 
 
 

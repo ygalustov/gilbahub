@@ -837,46 +837,6 @@
       climateMetrics = global.climateMetrics;
       climateSource = climateMetrics.quality?.source || "api";
       log("canonical", "Using climateMetrics from Climate Engine");
-
-      // If climate-engine-v2 shim ran before hub-tissue and wrote _defaults() nulls,
-      // temperature will be an object but all fields null. Recover from rawWeatherData
-      // hourly array so disease engine gets real temperature instead of degrading.
-      var _t = climateMetrics.temperature;
-      if (_t && _t.mean == null && _t.max == null && _t.min == null) {
-        var _rawHourly = (global.rawWeatherData && global.rawWeatherData.forecast && global.rawWeatherData.forecast.hourly)
-          || (global.rawWeatherData && global.rawWeatherData.hourly)
-          || null;
-        if (_rawHourly && _rawHourly.temperature_2m && _rawHourly.temperature_2m.length >= 24) {
-          // Use only TODAY's 24-hour window (slice 0–23), matching what
-          // buildDailyPatternFallback uses for forecast day 0 and what the
-          // Fidanza E2 model requires ("minimum daily air temperature" for the
-          // current 24-h period). Using the 7-day global minimum produced a lower
-          // value (cold snap days 4-7) that pushed E2 below 0 and hid Brown Patch
-          // from Active Threats even when today's conditions clearly support it.
-          var _temps = _rawHourly.temperature_2m.slice(0, 24);
-          var _sum = 0;
-          for (var _i = 0; _i < _temps.length; _i++) _sum += _temps[_i];
-          var _recoveredMean = parseFloat((_sum / _temps.length).toFixed(1));
-          var _recoveredMax = parseFloat(Math.max.apply(null, _temps).toFixed(1));
-          var _recoveredMin = parseFloat(Math.min.apply(null, _temps).toFixed(1));
-          climateMetrics = Object.assign({}, climateMetrics, {
-            temperature: {
-              mean: _recoveredMean,
-              max: _recoveredMax,
-              min: _recoveredMin,
-              current: _rawHourly.temperature_2m[0] || _recoveredMean,
-            }
-          });
-          climateSource = "api";
-          log("canonical", "Recovered temperature from rawWeatherData hourly (shim had written null defaults): mean=" + _recoveredMean);
-          // hub-persistence.js reads global.climateMetrics.temperature when building
-          // cache.computed.climate (line 939) and overwrites whatever GAIP_CANONICAL_STATE
-          // already has. Without this assignment the recovered temperature stays local,
-          // global.climateMetrics still has the null-filled shim object, and
-          // computed.climate.temperature.min is saved as null even after a correct re-run.
-          global.climateMetrics = climateMetrics;
-        }
-      }
     }
     // Priority 2: Manual inputs
     else if (inputs?.climate?.manual || _hubState.inputs.climate?.manual) {
@@ -890,6 +850,44 @@
       climateSource = "default";
       issues.push({ type: "climate", severity: "warning", message: "No climate data - using defaults" });
       log("canonical", "No climate data available, using defaults");
+    }
+
+    // Always recompute temperature from rawWeatherData for non-manual modes.
+    // hub-tissue-v3 and climate-engine-v2 both write to global.climateMetrics but
+    // use different windows and field sets: hub-tissue writes mean-of-daily-means
+    // without `current`; climate-engine-v2 writes mean of all hourly + currentHour
+    // for `current`. Whichever writer runs last determines the canonical temperature,
+    // causing non-deterministic Fusarium risk (86% vs 100%) on consecutive runs of
+    // the same site with identical rawWeatherData. Reading rawWeatherData directly
+    // here bypasses the race — same data always produces same output.
+    if (climateSource !== "manual") {
+      var _rawHourly = (global.rawWeatherData && global.rawWeatherData.forecast && global.rawWeatherData.forecast.hourly)
+        || (global.rawWeatherData && global.rawWeatherData.hourly)
+        || null;
+      if (_rawHourly && _rawHourly.temperature_2m && _rawHourly.temperature_2m.length >= 24) {
+        var _allTemps = _rawHourly.temperature_2m.filter(function(v) { return v != null; });
+        if (_allTemps.length >= 24) {
+          var _sum = 0;
+          for (var _i = 0; _i < _allTemps.length; _i++) _sum += _allTemps[_i];
+          var _recoveredMean = parseFloat((_sum / _allTemps.length).toFixed(1));
+          var _recoveredMax = parseFloat(Math.max.apply(null, _allTemps).toFixed(1));
+          var _recoveredMin = parseFloat(Math.min.apply(null, _allTemps).toFixed(1));
+          var _currentHour = Math.min(new Date().getHours(), _rawHourly.temperature_2m.length - 1);
+          var _currentTemp = _rawHourly.temperature_2m[_currentHour];
+          climateMetrics = climateMetrics ? Object.assign({}, climateMetrics) : {};
+          climateMetrics.temperature = {
+            mean: _recoveredMean,
+            max: _recoveredMax,
+            min: _recoveredMin,
+            current: (_currentTemp != null ? _currentTemp : _recoveredMean),
+          };
+          climateSource = "api";
+          log("canonical", "Temperature pinned to rawWeatherData (full forecast window): mean=" + _recoveredMean + ", min=" + _recoveredMin + ", max=" + _recoveredMax);
+          // hub-persistence.js reads global.climateMetrics.temperature when building
+          // cache.computed.climate — write back so it sees the canonical value.
+          global.climateMetrics = climateMetrics;
+        }
+      }
     }
 
     // Populate climate state
