@@ -540,11 +540,11 @@
     }
 
     var _overseedGroups = {
-        'Warm-season (C4)': ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
+        'Warm-season (C4)': ['Couch', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
         'Cool-season (C3)': ['Perennial Ryegrass', 'Annual Ryegrass', 'Tall Fescue', 'Fine Fescue', 'Kentucky Bluegrass', 'Creeping Bentgrass'],
     };
 
-    var _C4_VALUES = ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo', 'Buffalograss'];
+    var _C4_VALUES = ['Couch', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo', 'Buffalograss'];
     function getPrimarySpeciesType() {
         if (!turfSpeciesEl || !turfSpeciesEl.value) return null;
         return _C4_VALUES.indexOf(turfSpeciesEl.value) !== -1 ? 'c4' : 'c3';

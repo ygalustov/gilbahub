@@ -438,7 +438,7 @@
                                     <select id="stg-turf-cool-overseed" name="overseedSpecies">
                                         <option value="">— none —</option>
                                         @foreach([
-                                            'Warm-season (C4)' => ['Couch', 'Bermuda', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
+                                            'Warm-season (C4)' => ['Couch', 'Kikuyu', 'Zoysia', 'Seashore Paspalum', 'Buffalo'],
                                             'Cool-season (C3)' => ['Perennial Ryegrass', 'Annual Ryegrass', 'Tall Fescue', 'Fine Fescue', 'Kentucky Bluegrass', 'Creeping Bentgrass'],
                                         ] as $overseedGroup => $overseedSpecies)
                                         <optgroup label="{{ $overseedGroup }}">

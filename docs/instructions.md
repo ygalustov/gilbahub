@@ -397,16 +397,14 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-189** Enhance sensor data handling and mapping in hub-orchestrator and related scripts: Implemented direct access to Hydrosight data to bypass mapping checks, ensuring accurate soil temperature readings. Added event listeners for sensor updates to trigger re-computation of analysis when new data arrives. Improved caching and logging for Hydrosight data fetching, and updated UI to reflect accurate source labels for soil temperature. This enhances the reliability and responsiveness of the system in handling sensor data.
 **GH-190** Refactor climate data handling in hub-orchestrator.js: Removed legacy temperature recovery logic and implemented direct computation of temperature metrics from rawWeatherData. This ensures consistent and accurate temperature readings across non-manual modes, enhancing the reliability of climate metrics. Updated logging for better traceability of temperature calculations.
 **GH-191** Enhance soil temperature computation and logging in climate-module-v2-ui.js: Introduced detailed logging for soil moisture, temperature, and CEC/OM values to improve traceability. Updated soil temperature calculations to utilize computed soil moisture values, ensuring more accurate results. Added debug statements for better insight into soil temperature results and summaries, enhancing overall data reliability.
-
+**GH-192** Refactor overseed species options in settings and related scripts: Removed 'Bermuda' from the warm-season overseed species list in settings.blade.php, gaip-whatif-ui.js, and settings-init.js to streamline options. 
 
 
 
 ## Backlog
 54.⁠ ⁠Where is soil water integration?
 
-
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it () but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
-
 
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
 
@@ -415,14 +413,10 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 
-
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
-
-86. Yes remove bermudagrass please as that American!
 
 87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
-
 
 88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
@@ -441,6 +435,9 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 +50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
 +51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
 +52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. - Could you please rerun with latest changes for soil temperature (comment #51) and check again?
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it () but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
++86. Yes remove bermudagrass please as that American!
+
 
 
 

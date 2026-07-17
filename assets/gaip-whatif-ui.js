@@ -93,7 +93,7 @@
                     { value: '', label: 'No change' },
                     { value: 'Perennial Ryegrass', label: 'Perennial Ryegrass' },
                     { value: 'Kikuyu', label: 'Kikuyu' },
-                    { value: 'Couch', label: 'Couch (Bermuda)' },
+                    { value: 'Couch', label: 'Couch' },
                     { value: 'Zoysia', label: 'Zoysia' },
                     { value: 'Buffalo', label: 'Buffalo (St. Augustine)' },
                     { value: 'Kentucky Bluegrass', label: 'Kentucky Bluegrass' },
