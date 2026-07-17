@@ -396,7 +396,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-188** Implement FRAC group detection and residual protection calculation in data view: Added functions to detect FRAC groups based on active ingredients and product names, and to compute residual protection percentages based on application dates. Enhanced the data view to display FRAC group and residual protection metrics, improving the accuracy and usability of the spray log data.
 **GH-189** Enhance sensor data handling and mapping in hub-orchestrator and related scripts: Implemented direct access to Hydrosight data to bypass mapping checks, ensuring accurate soil temperature readings. Added event listeners for sensor updates to trigger re-computation of analysis when new data arrives. Improved caching and logging for Hydrosight data fetching, and updated UI to reflect accurate source labels for soil temperature. This enhances the reliability and responsiveness of the system in handling sensor data.
 **GH-190** Refactor climate data handling in hub-orchestrator.js: Removed legacy temperature recovery logic and implemented direct computation of temperature metrics from rawWeatherData. This ensures consistent and accurate temperature readings across non-manual modes, enhancing the reliability of climate metrics. Updated logging for better traceability of temperature calculations.
-
+**GH-191** Enhance soil temperature computation and logging in climate-module-v2-ui.js: Introduced detailed logging for soil moisture, temperature, and CEC/OM values to improve traceability. Updated soil temperature calculations to utilize computed soil moisture values, ensuring more accurate results. Added debug statements for better insight into soil temperature results and summaries, enhancing overall data reliability.
 
 
 
@@ -405,7 +405,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 54.⁠ ⁠Where is soil water integration?
 
 
-60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C?
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it () but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
 
 
 63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
@@ -420,6 +420,16 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 86. Yes remove bermudagrass please as that American!
 
+87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
+
+
+88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
+
+
+89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
 
 
 

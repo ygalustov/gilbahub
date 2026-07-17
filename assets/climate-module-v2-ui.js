@@ -446,29 +446,69 @@
             // Get soil profile from state (currentState is more reliably populated for construction)
             const state = global.currentState || global.GAIP_STATE || {};
             const profileType = state.turf?.construction || 'sand-carpet';
-            
+
             // Get CEC and OM from soil test if available (for texture inference on native soils)
             const soilCEC = state.soil?.CEC || null;
             const soilOM = state.soil?.LOI || state.soil?.OM || null;
-            
+
+            const _soilMoistureArr = hourlyData.soil_moisture_0_to_7cm;
+            const _soilMoistureVal = _soilMoistureArr
+                ? _soilMoistureArr.reduce((a,b) => a + (b||0), 0) / _soilMoistureArr.filter(x => x !== null && x !== undefined).length
+                : 0.25;
+
+            const _at = hourlyData.temperature_2m;
+            console.log('[SoilTemp DEBUG] inputs:',
+                'profile=' + profileType +
+                ' | moisture=' + Math.round(_soilMoistureVal * 1000) / 1000 +
+                ' | cec=' + soilCEC + ' om=' + soilOM +
+                ' | stateSource=' + (global.currentState ? 'currentState' : global.GAIP_STATE ? 'GAIP_STATE' : 'none') +
+                ' | construction=' + state.turf?.construction +
+                ' | airLen=' + _at.length +
+                ' | airFirst5=[' + _at.slice(0,5).map(v=>Math.round(v*10)/10).join(',') + ']' +
+                ' | airMin=' + Math.round(Math.min(..._at)*10)/10 +
+                ' | airMax=' + Math.round(Math.max(..._at)*10)/10 +
+                ' | airMean=' + Math.round(_at.reduce((a,b)=>a+b,0)/_at.length*10)/10 +
+                ' | hasSolar=' + !!hourlyData.shortwave_radiation +
+                ' | solarFirst5=[' + (hourlyData.shortwave_radiation?.slice(0,5).map(v=>Math.round(v)).join(',') || 'n/a') + ']'
+            );
+
             // Compute enhanced soil temperatures
             const soilResult = global.gaip_enhanced_soil_temp(
                 hourlyData.temperature_2m,
                 hourlyData.shortwave_radiation,
-                hourlyData.soil_moisture_0_to_7cm ? 
-                    hourlyData.soil_moisture_0_to_7cm.reduce((a,b) => a + (b||0), 0) / 
-                    hourlyData.soil_moisture_0_to_7cm.filter(x => x !== null && x !== undefined).length : 0.25,
-                { 
+                _soilMoistureVal,
+                {
                     profileType: profileType,
                     cec: soilCEC,
                     om: soilOM
                 }
             );
-            
+
+            if (soilResult) {
+                const _fmt = arr => arr ? arr.slice(0,3).map(v=>Math.round(v*10)/10).join(',') + ' ... ' + arr.slice(-3).map(v=>Math.round(v*10)/10).join(',') : 'n/a';
+                const _mean = arr => arr ? Math.round(arr.reduce((a,b)=>a+b,0)/arr.length*10)/10 : null;
+                console.log('[SoilTemp DEBUG] soilResult:',
+                    'profile=' + soilResult.profileType +
+                    ' | len=' + soilResult.T_50mm?.length +
+                    ' | kappa=' + soilResult.thermalProps?.kappa?.toExponential(2) +
+                    ' | lambda=' + soilResult.thermalProps?.lambda?.toFixed(3) +
+                    '\n  T_20mm mean=' + _mean(soilResult.T_20mm) + ' | [' + _fmt(soilResult.T_20mm) + ']' +
+                    '\n  T_50mm mean=' + _mean(soilResult.T_50mm) + ' | [' + _fmt(soilResult.T_50mm) + ']' +
+                    '\n  T_100mm mean=' + _mean(soilResult.T_100mm) + ' | [' + _fmt(soilResult.T_100mm) + ']'
+                );
+            }
+
             if (!soilResult) return '';
-            
+
             // Get summary for UI
             const soilData = global.gaip_soil_temp_summary(soilResult);
+
+            console.log('[SoilTemp DEBUG] summary:', soilData ? {
+                depths: Object.entries(soilData.depths || {}).map(([d, v]) => `${d}: mean=${v.mean} current=${v.current}`),
+                mean: soilData.mean,
+                current: soilData.current,
+            } : 'null');
+
             if (!soilData || !soilData.available) return '';
             
             // STORE GLOBALLY for disease/overseed modules to use
