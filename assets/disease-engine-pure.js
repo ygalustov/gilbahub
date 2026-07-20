@@ -842,22 +842,16 @@ function getLeafWetnessHours(climate, dewData) {
         return Math.round((dewData.leafWetness.totalWetHours / 7) * 0.5);
     if (!climate?.hourlyData?.relative_humidity_2m) return 0;
     const rh = climate.hourlyData.relative_humidity_2m;
-    const time = climate.hourlyData.time;
+    // b35fix496 Trap6: apply same flat 0.5 factor as the dew path (round(averageWetHours * 0.5))
+    // so both paths agree on overnight-dominant NZ cool-season dew patterns.
+    // Prior code used a 06:00-20:00 daytime window which discarded overnight RH while the dew
+    // path kept half of it, causing band-crossing divergence on mixed-feed pilot sites.
     let wetHours = 0;
     for (let i = 0; i < rh.length; i++) {
-        if (rh[i] >= 90) {
-            // Restrict to daytime (06:00-20:00) — same rationale as SmithKerns:
-            // overnight condensation on inactive turf is a weak infection driver.
-            if (time && time[i]) {
-                const h = new Date(time[i]).getHours();
-                if (h >= 6 && h < 20) { wetHours++; }
-            } else {
-                wetHours++; // no time data — count all (conservative fallback)
-            }
-        }
+        if (rh[i] >= 90) wetHours++;
     }
     const days = Math.max(1, rh.length / 24);
-    return Math.round(wetHours / days);
+    return Math.round(wetHours / days * 0.5);
 }
 
 /**

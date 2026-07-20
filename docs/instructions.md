@@ -406,6 +406,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-198** Enhance fungicide product filtering: Added deduplication logic in au-fungicides.js to filter products by active ingredient, ensuring only the first occurrence is retained for improved efficacy representation.
 **GH-199** Enhance disease analysis and recommendation rendering: Added CSS styles for product cards and risk badges in disease-analysis.js. Implemented a new function to render product cards based on active ingredients, improving the display of recommendations. Updated buildRecommendation function in disease-engine-pure.js to expose structured product actives for rendering. This enhances the user interface for displaying fungicide recommendations and improves data handling for active ingredients.
 **GH-200** Enhance mixture credit rendering and data handling: Added CSS styles for the mixture credit section in disease-analysis.js, including new functions to format and render mixture credit information. Updated buildRecommendation in disease-engine-pure.js to attach mixture credit data for products with FRAC groups. Enhanced fungicide-filter.js with a new getMixtureCredit function to retrieve mixture credit from the database. Updated nz-fungicides.js to include partner activity and efficacy in the mixture credit data structure, improving the overall display and accuracy of fungicide recommendations.
+**GH-201** Update Large Patch Model to reflect confidence adjustments and provenance: Introduced constants for confidence level and score, updated model instances to use these constants, and changed validation status to 'unvalidated'. Added detailed provenance notes regarding the weighted-sum equation and its sources.
+**GH-202** Refactor leaf wetness calculation in disease-engine-pure.js: Removed daytime restriction for wet hours and applied a consistent 0.5 factor to align with dew path calculations, addressing discrepancies in overnight humidity impact on disease modeling.
+
+
+
 
 
 
@@ -422,14 +427,6 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
-
-
-
-
-
-89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
-GH-202
 
 
 
@@ -456,6 +453,9 @@ GH-193, GH-194, GH-195, GH-196, GH-197, GH198, GH-199, GH-200
 +88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
 GH-193, GH-194, GH-195, GH-196, GH-197, GH-198, GH-199, GH-200, GH-201.
++89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
+GH-202
 
 
 
