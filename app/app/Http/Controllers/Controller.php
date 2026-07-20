@@ -22,9 +22,9 @@ abstract class Controller
      */
     protected static function effectiveMethodology(?string $saved, ?float $lat, ?float $lon): string
     {
-        if (self::isNewZealand($lat, $lon)) {
-            return 'ammonium_acetate';
+        if ($saved !== null && $saved !== '') {
+            return $saved;
         }
-        return $saved ?? 'mlsn';
+        return self::isNewZealand($lat, $lon) ? 'ammonium_acetate' : 'mlsn';
     }
 }

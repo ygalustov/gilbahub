@@ -507,6 +507,16 @@
             updateMethodologyVisibility();
         });
 
+        // On site switch the explicit-choice flag from the previous site must not
+        // block NZ auto-detection for the incoming site. Clear it so
+        // updateMethodologyVisibility can re-run cleanly after the new site's
+        // state is restored. Delay lets sample-persistence and site-config-
+        // persistence finish restoring the new site's config first.
+        document.addEventListener('gaip:site-changed', function() {
+            _b35fix393_setSoilField('methodologyExplicit', false);
+            setTimeout(updateMethodologyVisibility, 300);
+        });
+
     }
 
     /**

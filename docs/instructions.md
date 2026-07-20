@@ -399,8 +399,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-191** Enhance soil temperature computation and logging in climate-module-v2-ui.js: Introduced detailed logging for soil moisture, temperature, and CEC/OM values to improve traceability. Updated soil temperature calculations to utilize computed soil moisture values, ensuring more accurate results. Added debug statements for better insight into soil temperature results and summaries, enhancing overall data reliability.
 **GH-192** Refactor overseed species options in settings and related scripts: Removed 'Bermuda' from the warm-season overseed species list in settings.blade.php, gaip-whatif-ui.js, and settings-init.js to streamline options. 
 **193** WIP - Update disease models and validation statuses: Changed Drechslera poae status to 'unvalidated' in bipolaris-curvularia-models.js, updated disease analysis to exclude unvalidated models from graphs, and added new CSS classes for unvalidated badges. Enhanced climate engine to ensure accurate site-switch handling and updated fungicide authorisation documentation for NZ compliance.
-
-
+**GH-194** Enhance site handling and sample persistence: Updated SampleController to skip processing when no client UIDs are provided, ensuring efficient data management. Improved SiteController to validate site IDs and reject auto-generated site names. Enhanced hub-persistence.js and sample-persistence.js to correctly manage active site restoration during imports, ensuring accurate sample data handling across site switches. Added event listeners in sample-switcher-ui.js for dynamic sample selector updates on site changes.
+**GH-195** Refactor turf methodology handling: Updated effectiveMethodology to prioritize saved methodology values over location-based defaults. Adjusted DashboardController, DataController, and ReportsController to utilize the new method for determining turf methodology. Enhanced settings view to ensure proper selection of methodology based on user input and location. Improved JavaScript handling for site changes to maintain methodology consistency.
 
 
 ## Backlog
@@ -421,11 +421,11 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
-GH-193.
+GH-193, GH-194, GH-195
 
 88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
-GH-193.
+GH-193, GH-194, GH-195
 
 89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
@@ -446,6 +446,12 @@ GH-193.
 These are all pre-existing TypeScript hints (unused variable warnings) 
 
 explain how do you calc disease risk - lets start with Take-all Patch
+
+
+
+
+
+
 
 Save fetched data which you do every 30 mins. 
 I rolled back this as it didnt help. 

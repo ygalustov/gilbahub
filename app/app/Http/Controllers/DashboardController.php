@@ -42,9 +42,11 @@ class DashboardController extends Controller
             $gaipConfig = is_array($gaipRecord?->config) ? $gaipRecord->config : [];
 
             $turfSpecies     = $gaipConfig['turf']['species'] ?? null;
-            $turfMethodology = isset($gaipConfig['turf']['methodology'])
-                ? strtoupper($gaipConfig['turf']['methodology'])
-                : null;
+            $turfMethodology = strtoupper(self::effectiveMethodology(
+                $gaipConfig['turf']['methodology'] ?? null,
+                $activeSite->latitude  !== null ? (float) $activeSite->latitude  : null,
+                $activeSite->longitude !== null ? (float) $activeSite->longitude : null,
+            ));
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
         }
 
