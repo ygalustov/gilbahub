@@ -371,52 +371,56 @@
                 }
 
                 var SM = global.GAIP_SampleManager;
-                var originalSite = SM.getActiveSiteId ? SM.getActiveSiteId() : 'default';
                 var restored = 0;
+
+                // Build a per-site snapshot from server data. SM.addSample() always
+                // writes to _currentSite, so calling it in a multi-site loop would
+                // put every sample under 'default'. Instead, assemble the snapshot
+                // structure directly and restore it all at once via restoreFromPersistence.
+                var serverSnap = SM.getAllSamples();  // capture current site registry
 
                 samples.forEach(function(sample) {
                     var siteId = sample.site_id;
                     if (!siteId || !sample.sample_type || !sample.payload) return;
 
-                    var existingSites = SM.getSiteList ? SM.getSiteList() : [];
-                    var exists = existingSites.some(function(site) { return site.id === siteId; });
-                    if (!exists && typeof SM.addSiteWithId === 'function') {
+                    // Ensure site exists in registry
+                    if (!serverSnap.sites[siteId]) {
                         var siteLabel = (sample.summary && sample.summary.site_name) || siteId;
-                        SM.addSiteWithId(siteId, siteLabel);
+                        serverSnap.sites[siteId] = { label: siteLabel, createdAt: '' };
                     }
 
-                    // Do NOT call setActiveSite() per-sample — it dispatches gaip:site-changed
-                    // for every sample, causing the hub to re-run analysis hundreds of times.
-                    // The active site is restored once after the loop (line ~420 below).
+                    // Ensure per-site store and type bucket exist
+                    if (!serverSnap.allSites[siteId]) serverSnap.allSites[siteId] = {};
+                    if (!serverSnap.allSites[siteId][sample.sample_type]) {
+                        serverSnap.allSites[siteId][sample.sample_type] = {};
+                    }
 
                     var sampleId = sample.client_uid || (sample.payload && (sample.payload.label || sample.payload.sampleId)) || ('sample_' + sample.id);
-                    if (SM.getSample && SM.getSample(sample.sample_type, sampleId)) {
-                        return;
-                    }
+                    if (serverSnap.allSites[siteId][sample.sample_type][sampleId]) return;  // already present
 
                     // _label/_zone: stored by sync() alongside rawData since b35fix-label-roundtrip.
                     // Falls back to legacy fields (payload.label, payload.zone) for older records.
                     var pld = sample.payload || {};
-                    var resolvedLabel = pld._label || pld.label || sampleId;
-                    var resolvedZone  = pld._zone  || pld.zone  || 'other';
-
-                    SM.addSample(sample.sample_type, {
-                        id: sampleId,
-                        label: resolvedLabel,
-                        date: sample.lab_date || sample.sample_date || null,
-                        notes: sample.notes || '',
-                        zoneType: resolvedZone,
-                        values: pld
-                    });
+                    serverSnap.allSites[siteId][sample.sample_type][sampleId] = {
+                        id:       sampleId,
+                        label:    pld._label || pld.label || sampleId,
+                        date:     sample.lab_date || sample.sample_date || null,
+                        notes:    sample.notes || '',
+                        zoneType: pld._zone  || pld.zone  || 'other',
+                        values:   pld
+                    };
                     restored++;
                 });
 
+                if (restored > 0) {
+                    SM.restoreFromPersistence(serverSnap);
+                }
+
                 // After syncing from DB, switch to the PHP-injected active site UUID
                 // (GAIP_HUB_CONFIG.activeSiteId) so getSamples() returns samples for
-                // the correct site. Without this, _currentSite stays 'default' and
-                // getSamples() returns empty even though samples exist under their UUID.
+                // the correct site.
                 var configSiteId = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || null;
-                var targetSite = configSiteId || originalSite;
+                var targetSite = configSiteId || (SM.getActiveSiteId ? SM.getActiveSiteId() : 'default');
                 if (typeof SM.setActiveSite === 'function' && targetSite) {
                     SM.setActiveSite(targetSite);
                 }

@@ -1893,7 +1893,32 @@
                 setTimeout(() => {
                     if (global._gaipSamplePersistenceReady) {
                         // sample-persistence already set up SampleManager correctly.
-                        // Just ensure the active site matches PHP config.
+                        // If an import just happened, honour the imported site instead of
+                        // forcing the PHP-active UUID (which would hide the imported data).
+                        var _importSite = null;
+                        try { _importSite = sessionStorage.getItem('gilba_import_active_site'); } catch (_e) {}
+                        if (_importSite) {
+                            try { sessionStorage.removeItem('gilba_import_active_site'); } catch (_e) {}
+                            var _smI = global.GAIP_SampleManager;
+                            if (_smI && typeof _smI.setActiveSite === 'function') {
+                                var _listI = typeof _smI.getSiteList === 'function' ? _smI.getSiteList() : [];
+                                if (_listI.some(function(s) { return s.id === _importSite; })) {
+                                    _smI.setActiveSite(_importSite);
+                                    // Tell the server which site is active so subsequent PHP
+                                    // page loads (data.blade.php, etc.) open on the right site.
+                                    try {
+                                        var _csrf = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.csrfToken) || '';
+                                        fetch('/api/active-site', {
+                                            method: 'PATCH',
+                                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': _csrf },
+                                            body: JSON.stringify({ site_id: _importSite })
+                                        }).catch(function(){});
+                                    } catch (_e) {}
+                                    return;
+                                }
+                            }
+                        }
+                        // Default: ensure the active site matches PHP config.
                         var _cfgSite = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
                         if (_cfgSite && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.setActiveSite === 'function') {
                             global.GAIP_SampleManager.setActiveSite(_cfgSite);

@@ -85,7 +85,17 @@ class SiteController extends Controller
                 continue;
             }
 
+            // sites.id is CHAR(36) — skip IDs that would overflow the column
+            if (strlen($siteId) > 36) {
+                continue;
+            }
+
             $name = trim((string) ($siteData['label'] ?? $siteData['name'] ?? ''));
+            // Reject auto-generated TPC profile keys as site names — they indicate
+            // a client-side bug where a turf profile key was used as a site label.
+            if (str_starts_with($name, '__site__')) {
+                $name = '';
+            }
             $site = Site::query()->find($siteId);
 
             if ($site) {

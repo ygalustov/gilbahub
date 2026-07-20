@@ -333,6 +333,9 @@
                 if (SM2 && typeof SM2.setActiveSite === 'function') {
                     SM2.setActiveSite(incomingSiteId);
                 }
+                // Persist import target across the reload so hub-persistence restores
+                // the correct site instead of forcing the PHP-active UUID.
+                try { sessionStorage.setItem('gilba_import_active_site', incomingSiteId); } catch (_e) {}
                 showToast('✓ Imported ' + sampleCount + ' samples for ' + incomingSiteLabel + ', reloading…');
                 setTimeout(function () { location.reload(); }, 1200);
             }, 300);

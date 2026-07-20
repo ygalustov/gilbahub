@@ -413,14 +413,17 @@ class SampleController extends Controller
     {
         $clientUids = array_values(array_unique(array_filter($clientUids, fn ($value) => is_string($value) && $value !== '')));
 
+        // Empty list means the caller has no samples for this type — skip rather than
+        // wiping everything. An explicit clearSiteData already handles bulk deletion.
+        if ($clientUids === []) {
+            return 0;
+        }
+
         $query = Sample::query()
             ->where('site_id', $siteId)
             ->where('sample_type', $sampleType)
-            ->whereNotNull('client_uid');
-
-        if ($clientUids !== []) {
-            $query->whereNotIn('client_uid', $clientUids);
-        }
+            ->whereNotNull('client_uid')
+            ->whereNotIn('client_uid', $clientUids);
 
         $sampleIds = $query->pluck('id');
         if ($sampleIds->isEmpty()) {

@@ -1231,9 +1231,16 @@
       var sm = window.GAIP_SampleManager;
       if (!sm) return;
 
-      // Derive siteId: use stored _siteId, or generate from profile name
-      var siteId = profile._siteId ||
-          profileName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      // Derive siteId: use stored _siteId, or extract UUID from __site__<UUID> profile key,
+      // or fall back to slugifying the profile name.
+      var siteId = profile._siteId;
+      if (!siteId) {
+        // Auto-profiles are keyed as '__site__<UUID>' — extract the UUID directly
+        // instead of slugifying (which produces 41-char IDs that overflow CHAR(36)).
+        var _autoMatch = /^__site__(.+)$/.exec(profileName);
+        siteId = _autoMatch ? _autoMatch[1] :
+            profileName.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+      }
       if (!siteId) return;
 
       // If site doesn't exist yet, create it
@@ -1241,13 +1248,14 @@
       var exists = sites.some(function(s) { return s.id === siteId; });
       if (!exists) {
         console.log("[TurfProfile] Creating site for profile:", profileName, "->", siteId);
-        sm.addSite(profileName);
-        // addSite generates its own ID from the label, so re-derive it
-        sites = sm.listSites ? sm.listSites() : [];
-        var match = sites.find(function(s) {
-          return s.id === siteId || s.label === profileName;
-        });
-        if (match) siteId = match.id;
+        if (typeof sm.addSiteWithId === 'function') {
+          sm.addSiteWithId(siteId, profileName);
+        } else {
+          sm.addSite(profileName);
+          sites = sm.listSites ? sm.listSites() : [];
+          var match = sites.find(function(s) { return s.id === siteId || s.label === profileName; });
+          if (match) siteId = match.id;
+        }
       }
 
       // Switch to the site ONLY if persistence has already restored the correct active site.

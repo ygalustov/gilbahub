@@ -221,6 +221,11 @@
             }
         }
 
+        // Rebuild selector when site switches — SM now holds a different set of samples
+        document.addEventListener('gaip:site-changed', () => {
+            updateSampleSelector(wrapper, dataType);
+        });
+
         // Listen for sample events
         document.addEventListener('gaip:samples-imported', (e) => {
             if (e.detail.dataType === dataType) {
