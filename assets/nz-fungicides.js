@@ -116,7 +116,12 @@
         },
 
         azoxystrobinPropiconazole: {
-            frac: '11+3', useCategory: 'professional',
+            frac: '11+3',
+            components: [
+                { active: 'azoxystrobin', frac: 11 },
+                { active: 'propiconazole', frac: 3 }
+            ],
+            useCategory: 'professional',
             allowedUses: ['golf', 'sportsfield', 'amenity', 'bowling'],
             products: [
                 {
@@ -183,11 +188,16 @@
             ],
             targets: ['fusarium','brownPatch','anthracnose','dollarSpot','helminthosporium','redThread'],
             systemic: false, mode: 'Signal transduction (C)', resistanceRisk: 'L-M',
-            efficacyNZ: { anthracnose:2.5, brownPatch:3, dampingOff:3.5, dollarSpot:4, meltingOut:3, redThread:2.5 }
+            efficacyNZ: { anthracnose:2.5, brownPatch:3, dampingOff:3.5, dollarSpot:4, fusarium:4, meltingOut:3, redThread:2.5 }
         },
 
         difenoconazoleFludioxonil: {
-            frac: '3+12', useCategory: 'professional',
+            frac: '3+12',
+            components: [
+                { active: 'difenoconazole', frac: 3 },
+                { active: 'fludioxonil', frac: 12 }
+            ],
+            useCategory: 'professional',
             allowedUses: ['golf', 'sportsfield', 'amenity', 'bowling'],
             products: [
                 {
@@ -359,7 +369,12 @@
         },
 
         chlorothalonilThiophanate: {
-            frac: 'M05+1', useCategory: 'professional',
+            frac: 'M05+1',
+            components: [
+                { active: 'chlorothalonil', frac: 'M05' },
+                { active: 'thiophanateMethyl', frac: 1 }
+            ],
+            useCategory: 'professional',
             allowedUses: ['golf', 'sportsfield', 'amenity', 'bowling'],
             products: [
                 {
@@ -485,7 +500,12 @@
         },
 
         metalaxylMMancozeb: {
-            frac: '4+M03', useCategory: 'professional',
+            frac: '4+M03',
+            components: [
+                { active: 'metalaxyl', frac: 4 },
+                { active: 'mancozeb', frac: 'M03' }
+            ],
+            useCategory: 'professional',
             allowedUses: ['golf', 'sportsfield', 'amenity', 'bowling'],
             products: [
                 {
@@ -567,6 +587,15 @@
             targets: ['dollarSpot','brownPatch','fusarium'],
             systemic: false, mode: 'Biological (C)', resistanceRisk: 'L',
             efficacyNZ: { dollarSpot:1.5, brownPatch:1, fusarium:1 }
+        },
+
+        difenoconazole: {
+            frac: 3, useCategory: 'professional',
+            allowedUses: ['golf', 'sportsfield', 'amenity', 'bowling'],
+            products: [],
+            targets: [],
+            systemic: true, mode: 'DMI - Triazole (XMS)', resistanceRisk: 'M',
+            efficacyNZ: {}
         }
     };
 
@@ -584,6 +613,20 @@
         return String(fracStr).split('+').every(function(c) {
             return /^M\d/i.test(c.trim());
         });
+    }
+
+    function getFracComponents(fracStr) {
+        return String(fracStr).split('+').map(function(c) { return c.trim(); });
+    }
+
+    // Groups subject to R2 consecutive limits and R3 season caps.
+    var _MANAGED_GROUPS = { '1': 1, '2': 1, '3': 1, '4': 1, '7': 1, '11': 1 };
+
+    function isManagedGroup(g) { return !!_MANAGED_GROUPS[String(g)]; }
+
+    // Returns the FRAC component groups subject to R2/R3 management for a FRAC string.
+    function getManagedComponents(fracStr) {
+        return getFracComponents(fracStr).filter(function(g) { return isManagedGroup(g); });
     }
 
     // R0: exact match against per-product targets (falls back to block targets).
@@ -628,6 +671,144 @@
         return results;
     }
 
+    // ========================================================================
+    // R4: MIXTURE CREDIT
+    // ========================================================================
+
+    // Returns array of { component, active, hasCredit, reason } for each managed
+    // (resistance-prone) component in a mixture block.
+    // Rule (a/b): single-site partner efficacy strictly > 3 grants credit.
+    // Rule (b'): multi-site partner grants credit if it has activity > 0 against the disease.
+    function getMixtureCredit(blockKey, disease) {
+        var entry = FUNGICIDES_NZ[blockKey];
+        if (!entry || !entry.components || entry.components.length < 2) return [];
+
+        var result = [];
+
+        entry.components.forEach(function(comp) {
+            if (!isManagedGroup(String(comp.frac))) return;
+
+            var hasCredit = false;
+            var reason = 'no credit';
+
+            entry.components.forEach(function(partner) {
+                if (hasCredit || String(partner.frac) === String(comp.frac)) return;
+
+                var partnerEntry = FUNGICIDES_NZ[partner.active];
+                var partnerEff = (partnerEntry && partnerEntry.efficacyNZ)
+                    ? partnerEntry.efficacyNZ[disease]
+                    : undefined;
+                var partnerIsMS = /^M\d/i.test(String(partner.frac));
+
+                if (partnerIsMS) {
+                    if (typeof partnerEff === 'number' && partnerEff > 0) {
+                        hasCredit = true;
+                        reason = 'FRAC ' + partner.frac + ' partner has activity (' + partnerEff + ')';
+                    } else {
+                        reason = 'FRAC ' + partner.frac + ' partner has no activity against ' + disease;
+                    }
+                } else {
+                    if (typeof partnerEff === 'number' && partnerEff > 3) {
+                        hasCredit = true;
+                        reason = 'FRAC ' + partner.frac + ' partner efficacy ' + partnerEff + ' > 3';
+                    } else {
+                        reason = 'FRAC ' + partner.frac + ' partner efficacy ' +
+                            (partnerEff != null ? partnerEff : 'unknown') + ' ≤3';
+                    }
+                }
+            });
+
+            result.push({ component: String(comp.frac), active: comp.active, hasCredit: hasCredit, reason: reason });
+        });
+
+        return result;
+    }
+
+    // ========================================================================
+    // R2/R3: PROGRAMME VALIDATION
+    // ========================================================================
+
+    var _R2_LIMITS     = { '1': 2, '2': 2, '3': 1, '4': 2, '7': 1, '11': 1 };
+    var _R3_COUNT_CAPS = { '2': 3, '3': 4, '4': 4, '7': 4 };
+
+    // Validate an ordered fungicide programme for R2 (consecutive limits) and R3 (season caps).
+    // steps:       array of FRAC strings in application order, e.g. ['M05', '3', '11+3', '7']
+    // totalSprays: total spray count for the season (for fraction caps; defaults to steps.length)
+    // Returns { valid: boolean, violations: [{ step, rule, reason }] }
+    function validateProgramme(steps, totalSprays) {
+        var violations = [];
+        totalSprays = totalSprays || steps.length;
+
+        var groupCounts = {};
+        var frac1Solo  = false;
+        var frac11Solo = false;
+
+        steps.forEach(function(fracStr, idx) {
+            var comps = getFracComponents(fracStr);
+            var hasMS = comps.some(function(g) { return /^M\d/i.test(g); });
+
+            comps.forEach(function(g) {
+                if (!isManagedGroup(g)) return;
+
+                groupCounts[g] = (groupCounts[g] || 0) + 1;
+
+                if (g === '1'  && !hasMS) frac1Solo  = true;
+                if (g === '11' && !hasMS) frac11Solo = true;
+
+                // R2: count the current consecutive run length ending at this step
+                var run = 0;
+                for (var i = idx; i >= 0; i--) {
+                    if (getFracComponents(steps[i]).indexOf(g) !== -1) { run++; } else { break; }
+                }
+                var limit = _R2_LIMITS[g];
+                if (limit !== undefined && run > limit) {
+                    violations.push({ step: idx + 1, rule: 'R2',
+                        reason: 'FRAC ' + g + ': ' + run + ' consecutive exceeds limit of ' + limit });
+                }
+            });
+        });
+
+        // R3: fixed count caps
+        Object.keys(_R3_COUNT_CAPS).forEach(function(g) {
+            var count = groupCounts[g] || 0;
+            var cap   = _R3_COUNT_CAPS[g];
+            if (count > cap) {
+                violations.push({ step: null, rule: 'R3',
+                    reason: 'FRAC ' + g + ': ' + count + ' applications exceeds season cap of ' + cap });
+            }
+        });
+
+        // R3: FRAC 1 — fixed cap 5 AND fraction cap (33% solo / 50% all premix)
+        var frac1Count = groupCounts['1'] || 0;
+        if (frac1Count > 0) {
+            if (frac1Count > 5) {
+                violations.push({ step: null, rule: 'R3',
+                    reason: 'FRAC 1: ' + frac1Count + ' applications exceeds season cap of 5' });
+            }
+            var frac1Cap = frac1Solo ? 0.33 : 0.50;
+            var frac1Pct = frac1Count / totalSprays;
+            if (frac1Pct > frac1Cap) {
+                violations.push({ step: null, rule: 'R3',
+                    reason: 'FRAC 1: ' + Math.round(frac1Pct * 100) + '% of sprays exceeds ' +
+                        Math.round(frac1Cap * 100) + '% cap' + (frac1Solo ? ' (solo use detected)' : ' (all premix)') });
+            }
+        }
+
+        // R3: FRAC 11 — fraction cap only, no fixed count (33% solo / 50% all premix)
+        var frac11Count = groupCounts['11'] || 0;
+        if (frac11Count > 0) {
+            var frac11Cap = frac11Solo ? 0.33 : 0.50;
+            var frac11Pct = frac11Count / totalSprays;
+            if (frac11Pct > frac11Cap) {
+                violations.push({ step: null, rule: 'R3',
+                    reason: 'FRAC 11: ' + Math.round(frac11Pct * 100) + '% of sprays exceeds ' +
+                        Math.round(frac11Cap * 100) + '% cap' + (frac11Solo ? ' (solo use detected)' : ' (all premix)') });
+            }
+        }
+
+        return { valid: violations.length === 0, violations: violations };
+    }
+
     function getRotationForDisease(disease) {
         var products = getProductsForDisease(disease);
         var fracGroups = {};
@@ -635,15 +816,78 @@
             var f = String(p.frac);
             if (!fracGroups[f]) fracGroups[f] = p;
         });
-        var rotation = [], keys = Object.keys(fracGroups);
+
+        var rotation = [];
+        var keys = Object.keys(fracGroups);
+
+        // Multi-site steps first (R1: every component M-prefixed)
         keys.forEach(function(k) {
-            if (isAllMultiSite(k) && rotation.length < 4)
-                rotation.push({ step: rotation.length + 1, trade: fracGroups[k].trade, frac: k, rate: fracGroups[k].rate, reason: 'Multi-site (low resistance risk)' });
+            if (rotation.length < 2 && isAllMultiSite(k)) {
+                var p = fracGroups[k];
+                rotation.push({
+                    step: rotation.length + 1,
+                    trade: p.trade, frac: k, rate: p.rate,
+                    reason: 'Multi-site (low resistance risk)',
+                    mixtureCredit: getMixtureCredit(p.active, disease)
+                });
+            }
         });
-        keys.forEach(function(k) {
-            if (!isAllMultiSite(k) && rotation.length < 4)
-                rotation.push({ step: rotation.length + 1, trade: fracGroups[k].trade, frac: k, rate: fracGroups[k].rate, reason: 'FRAC ' + k + ' rotation' });
-        });
+
+        // At-risk steps: R2-aware ordering — avoid consecutive FRAC 3/7/11
+        var atRiskQueue = keys.filter(function(k) { return !isAllMultiSite(k); });
+        var lastMC = null;
+
+        while (atRiskQueue.length > 0 && rotation.length < 4) {
+            var chosen = null;
+            var chosenIdx = -1;
+            var r2Warn = false;
+
+            for (var i = 0; i < atRiskQueue.length; i++) {
+                var k = atRiskQueue[i];
+                var mc = getManagedComponents(k);
+                var violates = lastMC !== null && mc.some(function(g) {
+                    return _R2_LIMITS[g] === 1 && lastMC.indexOf(g) !== -1;
+                });
+                if (!violates) { chosen = k; chosenIdx = i; break; }
+            }
+
+            if (chosen === null) {
+                chosen = atRiskQueue[0]; chosenIdx = 0; r2Warn = true;
+            }
+
+            atRiskQueue.splice(chosenIdx, 1);
+            lastMC = getManagedComponents(chosen);
+
+            var p = fracGroups[chosen];
+            var credit = getMixtureCredit(p.active, disease);
+
+            var reason = 'FRAC ' + chosen + ' rotation';
+            if (credit.length) {
+                var credited   = credit.filter(function(c) { return c.hasCredit; });
+                var uncredited = credit.filter(function(c) { return !c.hasCredit; });
+                if (credited.length) {
+                    reason += ' — ' + credited.map(function(c) {
+                        return 'FRAC ' + c.component + ' protected (' + c.reason + ')';
+                    }).join('; ');
+                }
+                if (uncredited.length) {
+                    reason += (credited.length ? ' | ' : ' — ') + uncredited.map(function(c) {
+                        return 'FRAC ' + c.component + ' unprotected (' + c.reason + ')';
+                    }).join('; ');
+                }
+            }
+            if (r2Warn) {
+                reason += ' [R2: space away from previous step]';
+            }
+
+            rotation.push({
+                step: rotation.length + 1,
+                trade: p.trade, frac: chosen, rate: p.rate,
+                reason: reason,
+                mixtureCredit: credit
+            });
+        }
+
         return rotation;
     }
 
@@ -655,7 +899,9 @@
         db: FUNGICIDES_NZ,
         getProductsForDisease: getProductsForDisease,
         getRotationForDisease: getRotationForDisease,
-        version: '3.0.0',
+        getMixtureCredit: getMixtureCredit,
+        validateProgramme: validateProgramme,
+        version: '3.1.0',
         region: 'NZ',
         source: 'Living Turf NZ Fungicide Chart, PGG Wrightson Turf, Syngenta NZ, ACVM Register, J. Spencer label verification Jul 2026'
     };

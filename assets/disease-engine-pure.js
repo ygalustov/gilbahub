@@ -4518,9 +4518,10 @@ function _formatProductLines(actives, region, registrationBody) {
     const primary = actives.filter(a => a.type === 'primary' || !a.type);
     const items = (primary.length > 0 ? primary : actives).slice(0, 4);
     const formatted = items.map(a => {
-        const reg = a.registration ? ` (${a.registration})` : '';
+        const reg  = a.registration ? ` (${a.registration})` : '';
         const frac = a.fracGroup ? ` [FRAC ${a.fracGroup}]` : '';
-        return `${a.activeIngredient || a.active}${reg}${frac}`;
+        const name = a.trade || a.activeIngredient || a.active;
+        return `${name}${reg}${frac}`;
     });
     return [...new Set(formatted)];
 }
