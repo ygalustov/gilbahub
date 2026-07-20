@@ -402,8 +402,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-194** Enhance site handling and sample persistence: Updated SampleController to skip processing when no client UIDs are provided, ensuring efficient data management. Improved SiteController to validate site IDs and reject auto-generated site names. Enhanced hub-persistence.js and sample-persistence.js to correctly manage active site restoration during imports, ensuring accurate sample data handling across site switches. Added event listeners in sample-switcher-ui.js for dynamic sample selector updates on site changes.
 **GH-195** Refactor turf methodology handling: Updated effectiveMethodology to prioritize saved methodology values over location-based defaults. Adjusted DashboardController, DataController, and ReportsController to utilize the new method for determining turf methodology. Enhanced settings view to ensure proper selection of methodology based on user input and location. Improved JavaScript handling for site changes to maintain methodology consistency.
 **GH-196** Update climate recovery tests for improved accuracy: Refactored test cases in hub-orchestrator-climate-recovery.test.js to ensure proper handling of temperature recovery logic. Adjusted tests to verify that overrides run correctly in non-manual modes, utilize the full forecast window, and ensure global climate metrics are updated conditionally based on available data. Enhanced assertions for clarity and accuracy in recovery processes.
-
-
+**GH-197** Enhance fungicide data structure and validation logic: Updated nz-fungicides.js to include component breakdown for multiple active ingredients and improved efficacy data for specific diseases. Added new functions for managing FRAC components and validating fungicide application sequences. Enhanced tests for mixture credit and consecutive limits to ensure accurate compliance with R2/R3 regulations.
+**GH-198** Enhance fungicide product filtering: Added deduplication logic in au-fungicides.js to filter products by active ingredient, ensuring only the first occurrence is retained for improved efficacy representation.
+**GH-199** Enhance disease analysis and recommendation rendering: Added CSS styles for product cards and risk badges in disease-analysis.js. Implemented a new function to render product cards based on active ingredients, improving the display of recommendations. Updated buildRecommendation function in disease-engine-pure.js to expose structured product actives for rendering. This enhances the user interface for displaying fungicide recommendations and improves data handling for active ingredients.
+**GH-200** Enhance mixture credit rendering and data handling: Added CSS styles for the mixture credit section in disease-analysis.js, including new functions to format and render mixture credit information. Updated buildRecommendation in disease-engine-pure.js to attach mixture credit data for products with FRAC groups. Enhanced fungicide-filter.js with a new getMixtureCredit function to retrieve mixture credit from the database. Updated nz-fungicides.js to include partner activity and efficacy in the mixture credit data structure, improving the overall display and accuracy of fungicide recommendations.
 
 
 
@@ -423,16 +425,18 @@ when add manual data for water ther e is no way to add carbonate, phosphate or n
 
 
 
-87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
-GH-193, GH-194, GH-195, GH-196
 
-88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
-GH-193, GH-194, GH-195, GH-196
 
 89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
+GH-202
+
+
+
+
+
+
+
 
 
 
@@ -446,12 +450,28 @@ GH-193, GH-194, GH-195, GH-196
 +52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. - Could you please rerun with latest changes for soil temperature (comment #51) and check again?
 60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
 +86. Yes remove bermudagrass please as that American! GH-192.
++87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
+GH-193, GH-194, GH-195, GH-196, GH-197, GH198, GH-199, GH-200
++88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
+GH-193, GH-194, GH-195, GH-196, GH-197, GH-198, GH-199, GH-200, GH-201.
 
-These are all pre-existing TypeScript hints (unused variable warnings) 
-
-explain how do you calc disease risk - lets start with Take-all Patch
 
 
+
+
+
+
+
+
+
+
+Одна реальная проблема в логе: source=unset — DiseaseForecast не получает данные влажности через правильный путь на analysis page. Видите в логе: moisture.humidity.mean=74.09375 | humidity.mean=undefined. Это значит climate shape mapping не совпадает между тем что пишет climate engine и тем что ожидает disease forecast. Но это отдельная проблема от Trap6.
+
+
+
+These are all pre-existing TypeScript hints (unused variable warnings)  - fix
 
 
 
