@@ -40,18 +40,20 @@ describe('populateCanonicalState — GH-180 temperature recovery propagates to g
         expect(src.length).toBeGreaterThan(0);
     });
 
-    test('recovery block still detects all-null temperature condition', () => {
-        // Guard: the recovery must still trigger when all three fields are null
-        expect(src).toMatch(/_t\.mean\s*==\s*null\s*&&\s*_t\.max\s*==\s*null\s*&&\s*_t\.min\s*==\s*null/);
+    test('override runs for non-manual mode (climateSource !== manual guard)', () => {
+        // The override always runs for API/default modes to eliminate the race between
+        // hub-tissue (writes mean-of-daily-means, no `current`) and climate-engine-v2
+        // (writes mean of all hourly + currentHour). Both write to global.climateMetrics;
+        // whichever runs last determined the canonical temperature — now bypassed entirely.
+        expect(src).toMatch(/climateSource\s*!==\s*["']manual["']/);
     });
 
-    test('recovery uses today\'s 24-hour slice, not 7-day global minimum', () => {
-        // slice(0,24) = today's temps → matches buildDailyPatternFallback day 0
-        // and satisfies Fidanza "minimum daily air temperature" for the current period.
-        // slice(0,168) was wrong: a cold snap on day 5 depressed _recoveredMin below
-        // the Brown Patch threshold even when today was warm.
-        expect(src).toMatch(/\.slice\s*\(\s*0\s*,\s*24\s*\)/);
-        expect(src).not.toMatch(/\.slice\s*\(\s*0\s*,\s*168\s*\)/);
+    test('override uses full forecast window, not a 24-hour slice', () => {
+        // Full window matches climate-engine-v2 _fromAPI() exactly (Math.min/Max of all airTemps).
+        // Fidanza E2 is unaffected — getFidanzaE2() reads hourlyData.temperature_2m.slice(0,24)
+        // directly and never uses climate.temperature.min for today's minimum.
+        expect(src).not.toMatch(/temperature_2m\.slice\s*\(\s*0\s*,\s*24\s*\)/);
+        expect(src).toMatch(/filter\s*\(\s*function\s*\(v\)\s*\{\s*return\s*v\s*!=\s*null/);
     });
 
     test('global.climateMetrics is updated after recovery (not just local variable)', () => {
@@ -59,26 +61,23 @@ describe('populateCanonicalState — GH-180 temperature recovery propagates to g
         expect(src).toMatch(/global\.climateMetrics\s*=\s*climateMetrics/);
     });
 
-    test('global.climateMetrics assignment follows the recovery Object.assign block', () => {
-        // The assignment must come AFTER the recovery, not before it.
-        var recoveryIdx = src.indexOf('Object.assign({}, climateMetrics, {');
-        var assignIdx   = src.indexOf('global.climateMetrics = climateMetrics');
-        expect(recoveryIdx).toBeGreaterThan(-1);
+    test('global.climateMetrics assignment follows the temperature override block', () => {
+        // The write-back must come AFTER the temperature is computed, not before.
+        var tempAssignIdx = src.indexOf('climateMetrics.temperature = {');
+        var assignIdx     = src.indexOf('global.climateMetrics = climateMetrics');
+        expect(tempAssignIdx).toBeGreaterThan(-1);
         expect(assignIdx).toBeGreaterThan(-1);
-        expect(assignIdx).toBeGreaterThan(recoveryIdx);
+        expect(assignIdx).toBeGreaterThan(tempAssignIdx);
     });
 
-    test('global.climateMetrics assignment is inside the recovery if-block (conditional, not unconditional)', () => {
-        // The assignment must only happen when recovery actually ran (inside the
-        // rawHourly length check), not on every populateCanonicalState call.
-        // Verify by checking the assignment appears between the recovery Object.assign
-        // and the closing braces of the rawHourly-exists if block.
+    test('global.climateMetrics assignment is inside the rawHourly if-block (conditional)', () => {
+        // The write-back must only happen when rawWeatherData is available.
+        // The log message that immediately precedes the assignment should be within
+        // ~400 chars of the assignment (they're adjacent in the same if-block).
         var assignIdx = src.indexOf('global.climateMetrics = climateMetrics');
-
-        // The log statement that immediately precedes the assignment should be within
-        // ~300 chars of the assignment (they're adjacent in the same if-block).
-        var logIdx = src.indexOf('Recovered temperature from rawWeatherData hourly');
+        var logIdx    = src.indexOf('Temperature pinned to rawWeatherData');
         expect(logIdx).toBeGreaterThan(-1);
+        expect(assignIdx).toBeGreaterThan(-1);
         expect(assignIdx - logIdx).toBeLessThan(700);
     });
 
