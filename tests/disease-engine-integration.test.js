@@ -373,7 +373,9 @@ var FUSARIUM_CLIMATE = {
 
 describe('analyse() — nitrogen status modifies disease risk', () => {
 
-    test('excessive nitrogen increases Fusarium risk vs deficient nitrogen', function () {
+    // b35fix495: nModifier retired from Fusarium riskScore — N is now qualitative only.
+    // adjustedRisk is identical across N statuses; winterRisk flag distinguishes them.
+    test('Fusarium adjustedRisk is N-neutral; winterRisk flag differs by N status', function () {
         var highN = DiseaseEnginePure.analyse({
             climate:  FUSARIUM_CLIMATE,
             species:  'perennialRyegrass',
@@ -390,7 +392,11 @@ describe('analyse() — nitrogen status modifies disease risk', () => {
         var fLow  = findDisease(lowN,  'fusarium');
         expect(fHigh).not.toBeNull();
         expect(fLow).not.toBeNull();
-        expect(fHigh.adjustedRisk).toBeGreaterThan(fLow.adjustedRisk);
+        // Same formula output — N does not change riskScore since b35fix495
+        expect(fHigh.adjustedRisk).toBe(fLow.adjustedRisk);
+        // Qualitative flag: excessive N at ≤15°C triggers winterRisk
+        expect(fHigh.drivers.nitrogen.winterRisk).toBe(true);
+        expect(fLow.drivers.nitrogen.winterRisk).toBe(false);
     });
 
     test('nitrogen status object is accepted as { status } shape (mirrors buildDiseaseInputs output)', function () {

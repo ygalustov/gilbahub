@@ -2889,7 +2889,7 @@ const VARIETY_TRAITS = {
                 notes: 'Average - less resistant than Declaration, 007'
               },
               brownPatch: { riskMultiplier: 0.90, confidence: 'medium', source: 'Tee-2-Green' },
-              fusariumPatch: { riskMultiplier: 0.85, confidence: 'medium', source: 'Tee-2-Green' }
+              fusarium: { riskMultiplier: 0.85, confidence: 'medium', source: 'Tee-2-Green' }
             }
           },
           
@@ -2921,7 +2921,7 @@ const VARIETY_TRAITS = {
             shade: { thresholdModifier: 0.85, confidence: 'high', source: 'NTEP' },
             disease: {
               dollarSpot: { riskMultiplier: 1.10, confidence: 'high', source: 'Penn State 2008-2013' },
-              fusariumPatch: { riskMultiplier: 0.85, confidence: 'medium', source: 'NTEP' }
+              fusarium: { riskMultiplier: 0.85, confidence: 'medium', source: 'NTEP' }
             }
           },
           

@@ -3425,7 +3425,7 @@ const VARIETY_TRAITS = {
                 notes: 'Average - less resistant than Declaration, 007'
               },
               brownPatch: { riskMultiplier: 0.90, confidence: 'medium', source: 'Tee-2-Green' },
-              fusariumPatch: { riskMultiplier: 0.85, confidence: 'medium', source: 'Tee-2-Green' }
+              fusarium: { riskMultiplier: 0.85, confidence: 'medium', source: 'Tee-2-Green' }
             }
           },
           
@@ -3457,7 +3457,7 @@ const VARIETY_TRAITS = {
             shade: { thresholdModifier: 0.85, confidence: 'high', source: 'NTEP' },
             disease: {
               dollarSpot: { riskMultiplier: 1.10, confidence: 'high', source: 'Penn State 2008-2013' },
-              fusariumPatch: { riskMultiplier: 0.85, confidence: 'medium', source: 'NTEP' }
+              fusarium: { riskMultiplier: 0.85, confidence: 'medium', source: 'NTEP' }
             }
           ,
             cold: {
@@ -5567,7 +5567,7 @@ const VARIETY_TRAITS = {
         
         // BSPB 2025 - Disease 5.5-6.0
         disease: {
-          fusariumPatch: {
+          fusarium: {
             riskMultiplier: 1.12,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: overall disease resistance 5.8/9; dense sward (density 7.0) increases canopy moisture retention and fusarium risk',
@@ -5578,7 +5578,7 @@ const VARIETY_TRAITS = {
             confidence: 'medium',
             source: 'BSPB 2025: moderate overall disease resistance; dollar spot susceptibility near browntop average',
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH and site history are primary drivers, variety modifier assumed neutral',
@@ -5692,7 +5692,7 @@ const VARIETY_TRAITS = {
         
         // BSPB 2025 - Disease 5.5-5.7
         disease: {
-          fusariumPatch: {
+          fusarium: {
             riskMultiplier: 1.08,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: overall disease resistance 5.6/9; moderate density (6.7), slightly elevated fusarium risk',
@@ -5703,7 +5703,7 @@ const VARIETY_TRAITS = {
             confidence: 'medium',
             source: 'BSPB 2025: moderate disease resistance; dollar spot susceptibility assumed at browntop average',
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH primary driver',
@@ -5792,7 +5792,7 @@ const VARIETY_TRAITS = {
         
         // BSPB 2025 - Disease 6.1-6.3
         disease: {
-          fusariumPatch: {
+          fusarium: {
             riskMultiplier: 0.88,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: best overall disease resistance of browntops (6.2/9); slowest regrowth (6.7) implies drier surface between mowings, lower fusarium risk',
@@ -5803,7 +5803,7 @@ const VARIETY_TRAITS = {
             confidence: 'medium',
             source: 'BSPB 2025: best disease resistance rating correlates with better dollar spot tolerance',
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH primary driver',
@@ -5891,7 +5891,7 @@ const VARIETY_TRAITS = {
         
         // BSPB 2025 - Disease 5.1-5.2
         disease: {
-          fusariumPatch: {
+          fusarium: {
             riskMultiplier: 1.00,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: overall disease resistance 6.0/9, near browntop average; density 6.3 implies standard moisture retention',
@@ -5902,7 +5902,7 @@ const VARIETY_TRAITS = {
             confidence: 'medium',
             source: 'BSPB 2025: average disease resistance; dollar spot susceptibility near browntop average',
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH primary driver',
@@ -5961,7 +5961,7 @@ const VARIETY_TRAITS = {
         },
         
         disease: {
-          fusariumPatch: {
+          fusarium: {
             riskMultiplier: 1.15,
             confidence: 'medium',
             source: 'BSPB 2025 Table G1: lowest disease resistance of browntops (5.0/9); shade-tolerant variety with dense shade canopy increases moisture retention and fusarium risk',
@@ -5972,7 +5972,7 @@ const VARIETY_TRAITS = {
             confidence: 'medium',
             source: 'BSPB 2025: lowest disease resistance rating, slightly elevated dollar spot susceptibility',
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.00,
             confidence: 'low',
             source: 'No variety-specific take-all data; soil pH primary driver',
@@ -8013,7 +8013,7 @@ const VARIETY_TRAITS = {
             source: 'TurfFinder Sea Isle 2000 entry, Queensland field reports of spring dead patch on paspalum',
             notes: 'Species-level concern in subtropical AU; not specifically calibrated for Saltene'
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.30,
             confidence: 'medium',
             source: 'Duncan & Carrow 2005 GCM Feb p.114-118; Duncan & Carrow 2002 GCM 70(4):57-60 (scalping → take-all); Florida reports (per Brosnan & Deputy 2008)',
@@ -8140,7 +8140,7 @@ const VARIETY_TRAITS = {
             source: 'TurfFinder Sea Isle 2000, Queensland field reports of spring dead patch on paspalum',
             notes: 'Species-level concern; Velvetene-specific incidence not characterised'
           },
-          takeAllPatch: {
+          takeAll: {
             riskMultiplier: 1.30,
             confidence: 'medium',
             source: 'Duncan & Carrow 2005 GCM Feb p.114-118; Heckman et al. 2003 Crop Sci 43:1395-1398 (Mn fertilisation pathway); Brosnan & Deputy 2008 UH-CTAHR TM-1 (Florida reports on paspalum)',

@@ -26,6 +26,7 @@
         '.dr-val-badge{display:inline-flex;align-items:center;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;letter-spacing:.03em;flex-shrink:0;margin-left:4px}',
         '.dr-val-badge.validated{background:#dcfce7;color:#15803d;border:1px solid #86efac}',
         '.dr-val-badge.beta{background:#ede9fe;color:#7c3aed;border:1px solid #c4b5fd}',
+        '.dr-val-badge.unvalidated{background:#f3f4f6;color:#6b7280;border:1px solid #d1d5db}',
         /* forecast chart */
         '.dr-forecast-legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:14px;padding:0 4px}',
         '.dr-forecast-legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151}',
@@ -108,6 +109,8 @@
             return '<span class="dr-val-badge validated">✓ Validated</span>';
         if (s === 'beta')
             return '<span class="dr-val-badge beta">Beta</span>';
+        if (s === 'unvalidated')
+            return '<span class="dr-val-badge unvalidated">Unvalidated</span>';
         return '';
     }
 
@@ -472,8 +475,16 @@
 
     var CHART_COLORS = ['#ef4444', '#2563eb', '#16a34a', '#f97316', '#7c3aed', '#0891b2', '#ca8a04'];
 
+    // #88: Fusarium, Large Patch, Drechslera removed from graph (unvalidated models)
+    var _GRAPH_EXCLUDED_KEYS  = { fusarium: 1, largePatch: 1, drechsleraPoae: 1 };
+    var _GRAPH_EXCLUDED_NAMES = { 'Fusarium': 1, 'Drechslera Melting-Out': 1, 'Large Patch': 1 };
+
     function buildForecastSeries(diseases) {
         var series = [];
+        // Exclude unvalidated diseases from graph (#88)
+        diseases = diseases.filter(function(d) {
+            return d.validationStatus !== 'unvalidated' && !_GRAPH_EXCLUDED_KEYS[d.disease] && !_GRAPH_EXCLUDED_KEYS[d.name];
+        });
 
         // Try per-disease forecast arrays first
         var hasDiseaseForecasts = diseases.some(function (d) {
@@ -1740,8 +1751,10 @@
                 }
 
                 var series = [];
-                result.diseases.forEach(function (disease, i) {
+                result.diseases.forEach(function (disease) {
                     if (!Array.isArray(disease.forecast) || disease.forecast.length < 2) return;
+                    // #88: exclude unvalidated diseases from graph (filter by key, not display name)
+                    if (_GRAPH_EXCLUDED_KEYS[disease.key] || _GRAPH_EXCLUDED_NAMES[disease.name]) return;
                     var values = disease.forecast.map(function (f) { return f.risk; });
                     series.push({
                         name:   disease.name,

@@ -1486,7 +1486,12 @@ var DiseaseForecast = (function() {
         if (typeof species !== 'string') return 'perennialRyegrass';
         
         var s = species.toLowerCase().replace(/[\s\-_]/g, '');
-        
+
+        // b35fix503 — browntop/colonial/capillaris must resolve BEFORE generic 'bent'
+        // Mirrors b35fix492 in disease-engine-pure.js.  Needed here because
+        // normalizeSpecies("browntopBent") — already-normalised key from b35fix501
+        // GAIP_STATE write — contains "bent" and was silently returning 'bentgrass'.
+        if (s.indexOf('browntop') >= 0 || s.indexOf('colonial') >= 0 || s.indexOf('capillaris') >= 0) return 'browntopBent';
         if (s.indexOf('bent') >= 0) return 'bentgrass';
         if (s.indexOf('rye') >= 0 || s === 'prg') return 'perennialRyegrass';
         if (s.indexOf('blue') >= 0 || s === 'kbg') return 'kentuckyBluegrass';

@@ -600,36 +600,108 @@
                         // v10.9.9: Keep _isRestoring true until the FULL cascade is done.
                         // This prevents auto-save from overwriting config with partial state.
                         setTimeout(function() {
+                            var _wasSiteSwitch = _isSiteSwitch;  // b35fix504: capture BEFORE clearing
                             _isRestoring = false;
-                            _isSiteSwitch = false;  // Clear here — after full cascade, not before
-                            var finalSpecies = skipTurfIdentity ? (tp.state && tp.state.species || '(from profile)') : turf.species;
+                            _isSiteSwitch = false;
+                            // b35fix504: use tp.state.species (post-location-update) not turf.species
+                            // (stored value).  Location preloader fires ~150ms into cascade and calls
+                            // selectSpecies() which updates tp.state.  By 500ms the final species is set.
+                            var finalSpecies = (tp && tp.state && tp.state.species) || turf.species || null;
                             log('Restore cascade complete for', skipTurfIdentity ? tp.state.turfType : turf.turfType, finalSpecies);
 
-                            // Sync corrected species/turfType back into the last-loaded saved profile.
-                            // Without this, loadLastProfile() on the next page load reads stale species
-                            // (e.g. Perennial Ryegrass) and dispatches it before site-config restores.
-                            // ONLY run on page-load restore — on site-switch, lastProfileName reflects
-                            // the PREVIOUS site's profile and would corrupt it with the new site's species.
-                            try {
-                                if (!_isSiteSwitch) {
-                                var tp2 = global.GaipTurfProfile;
-                                var lastKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY + '_last' : 'gilba_turf_profiles_last';
-                                var profilesKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY : 'gilba_turf_profiles';
-                                var lastProfileName = _ls.getItem(lastKey);
-                                if (lastProfileName) {
-                                    var profiles = JSON.parse(_ls.getItem(profilesKey) || '{}');
-                                    if (profiles[lastProfileName]) {
-                                        var p = profiles[lastProfileName];
-                                        if (!skipTurfIdentity && turf.turfType)  p.turfType  = turf.turfType;
-                                        if (!skipTurfIdentity && turf.subCategory !== undefined) p.subCategory = turf.subCategory;
-                                        if (!skipTurfIdentity && turf.species)   p.species   = turf.species;
-                                        if (!skipTurfIdentity && turf.variety)   p.variety   = turf.variety;
-                                        _ls.setItem(profilesKey, JSON.stringify(profiles));
-                                        log('Synced saved profile "' + lastProfileName + '" — species: ' + p.species);
+                            // b35fix504: write auto-profile for the CURRENT active site and point _last at it.
+                            // Uses SM.getActiveSiteId() at cascade-end time — always the correct final site,
+                            // regardless of whether we arrived here from a site-switch or a page-load cascade.
+                            //
+                            // Previous approaches failed because they relied on _restoringSiteId (a module
+                            // variable set in restoreNewSiteConfig), which was silently skipped when
+                            // gaip:site-changed fired AFTER the 800ms page-load timer had already set
+                            // _previousSiteId = Russley — causing the duplicate-event guard (line 1225)
+                            // to skip restoreNewSiteConfig entirely, leaving _restoringSiteId null.
+                            //
+                            // SM.getActiveSiteId() always reflects the live active site; no guard needed.
+                            if (finalSpecies) {
+                                try {
+                                    var _sm504 = global.GAIP_SampleManager;
+                                    var _sid504 = _sm504 && typeof _sm504.getActiveSiteId === 'function'
+                                        ? _sm504.getActiveSiteId() : null;
+                                    if (_sid504) {
+                                        var _tp504 = global.GaipTurfProfile;
+                                        var _lk504 = (_tp504 && _tp504.STORAGE_KEY ? _tp504.STORAGE_KEY : 'gilba_turf_profiles') + '_last';
+                                        var _pk504 = _tp504 && _tp504.STORAGE_KEY ? _tp504.STORAGE_KEY : 'gilba_turf_profiles';
+                                        var _key504 = '__site__' + _sid504;
+                                        var _profs504 = JSON.parse(_ls.getItem(_pk504) || '{}');
+                                        _profs504[_key504] = {
+                                            turfType:    (tp && tp.state && tp.state.turfType)    || turf.turfType    || null,
+                                            subCategory: (tp && tp.state && tp.state.subCategory) || turf.subCategory || null,
+                                            species:     finalSpecies,
+                                            variety:     (tp && tp.state && tp.state.variety)     || turf.variety     || null,
+                                            construction: turf.construction || null,
+                                            _siteId:     _sid504,
+                                            _auto:       true,
+                                            _savedAt:    new Date().toISOString()
+                                        };
+                                        _ls.setItem(_pk504, JSON.stringify(_profs504));
+                                        // b35fix504b: for site-switch cascades use the explicit target
+                                        // site (from gaip:site-changed), not SM which may lag.
+                                        // For page-load cascades: skip _last if a site switch already
+                                        // happened — restoreNewSiteConfig wrote it immediately.
+                                        if (_wasSiteSwitch) {
+                                            var _lastSite504 = _lastSwitchedToSiteId || _sid504;
+                                            _ls.setItem(_lk504, '__site__' + _lastSite504);
+                                            log('b35fix504: _last → "__site__' + _lastSite504 + '" species=' + finalSpecies + ' [switch]');
+                                        } else if (!_lastSwitchedToSiteId) {
+                                            _ls.setItem(_lk504, _key504);
+                                            log('b35fix504: _last → "' + _key504 + '" species=' + finalSpecies + ' [page-load]');
+                                        }
+
+                                        // Also update _configs[siteId].turf.species so next cascade
+                                        // uses the correct (location-resolved) species, not a stale
+                                        // stored value.  Without this, the cascade calls
+                                        // selectSpecies(storedStaleSpecies) before the location
+                                        // preloader corrects it, causing intermediate wrong dispatches
+                                        // and the auto-run to fire with the wrong species.
+                                        if (_configs[_sid504] && _configs[_sid504].turf) {
+                                            var _prevSpecies = _configs[_sid504].turf.species;
+                                            if (_prevSpecies !== finalSpecies) {
+                                                _configs[_sid504].turf.species = finalSpecies;
+                                                if ((tp && tp.state && tp.state.variety) && tp.state.variety !== 'generic') {
+                                                    _configs[_sid504].turf.variety = tp.state.variety;
+                                                }
+                                                saveToStorage();
+                                                log('b35fix504: corrected _configs[' + _sid504 + '].turf.species ' + _prevSpecies + ' → ' + finalSpecies);
+                                            }
+                                        }
                                     }
-                                }
-                                }
-                            } catch (e) { /* non-fatal */ }
+                                } catch (_e504) { /* non-fatal */ }
+                            }
+
+                            // Sync corrected species/turfType back into the last-loaded saved profile.
+                            // ONLY on page-load restore (_wasSiteSwitch=false): the last profile belongs
+                            // to the current site so syncing species is safe.
+                            // On site-switch (_wasSiteSwitch=true): lastProfileName is the PREVIOUS site's
+                            // profile — do NOT write new-site species into it (would corrupt it).
+                            // b35fix504: fixed guard — was using _isSiteSwitch after it was already cleared.
+                            if (!_wasSiteSwitch) {
+                                try {
+                                    var tp2 = global.GaipTurfProfile;
+                                    var lastKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY + '_last' : 'gilba_turf_profiles_last';
+                                    var profilesKey = tp2 && tp2.STORAGE_KEY ? tp2.STORAGE_KEY : 'gilba_turf_profiles';
+                                    var lastProfileName = _ls.getItem(lastKey);
+                                    if (lastProfileName) {
+                                        var profiles = JSON.parse(_ls.getItem(profilesKey) || '{}');
+                                        if (profiles[lastProfileName]) {
+                                            var p = profiles[lastProfileName];
+                                            if (!skipTurfIdentity && turf.turfType)  p.turfType  = turf.turfType;
+                                            if (!skipTurfIdentity && turf.subCategory !== undefined) p.subCategory = turf.subCategory;
+                                            if (!skipTurfIdentity && turf.species)   p.species   = turf.species;
+                                            if (!skipTurfIdentity && turf.variety)   p.variety   = turf.variety;
+                                            _ls.setItem(profilesKey, JSON.stringify(profiles));
+                                            log('Synced saved profile "' + lastProfileName + '" — species: ' + p.species);
+                                        }
+                                    }
+                                } catch (e) { /* non-fatal */ }
+                            }
                         }, 500);
                     }, 50);
 
@@ -828,6 +900,37 @@
      */
     function restoreNewSiteConfig(newSiteId) {
         _isSiteSwitch = true;
+
+        // b35fix504b: write _last immediately on site switch.
+        // Cascade end is ~1350ms away and SM timing can cause it to write the wrong
+        // site (e.g. page-load cascade still running Burns GC fires after Russley
+        // cascade end, overwriting _last).  We KNOW the target site here — write now.
+        // Cascade end still updates the auto-profile species (post-location-update).
+        try {
+            var _tp_sw = global.GaipTurfProfile;
+            var _pk_sw = _tp_sw && _tp_sw.STORAGE_KEY ? _tp_sw.STORAGE_KEY : 'gilba_turf_profiles';
+            var _lk_sw = _pk_sw + '_last';
+            var _key_sw = '__site__' + newSiteId;
+            _ls.setItem(_lk_sw, _key_sw);
+            // Create stub auto-profile if absent so TPC can load it on next page init
+            var _profs_sw = JSON.parse(_ls.getItem(_pk_sw) || '{}');
+            if (!_profs_sw[_key_sw]) {
+                var _cfg_sw = _configs[newSiteId];
+                var _turf_sw = _cfg_sw && _cfg_sw.turf ? _cfg_sw.turf : {};
+                _profs_sw[_key_sw] = {
+                    turfType:    _turf_sw.turfType    || null,
+                    subCategory: _turf_sw.subCategory || null,
+                    species:     _turf_sw.species     || null,
+                    variety:     _turf_sw.variety     || null,
+                    _siteId:     newSiteId,
+                    _auto:       true,
+                    _savedAt:    new Date().toISOString()
+                };
+                _ls.setItem(_pk_sw, JSON.stringify(_profs_sw));
+            }
+            log('b35fix504b: immediate _last → "' + _key_sw + '"');
+        } catch (_e_sw) { /* non-fatal */ }
+
         var config = _configs[newSiteId];
         if (config) {
             restoreConfig(config);
@@ -876,6 +979,7 @@
     var _isRestoring = false;
     var _isSiteSwitch = false;  // True during site-switch restores — prevents profile name sync
     var _bootCooldown = true;  // Prevent auto-save during page initialization
+    var _lastSwitchedToSiteId = null;  // b35fix504b: set on gaip:site-changed; cascade end uses this
 
     function init() {
         loadFromStorage();
@@ -1086,6 +1190,13 @@
             var configAtFireTime = _configs[currentId];
             if (configAtFireTime) {
                 log('Restoring saved config for', currentId, 'on page load');
+                // b35fix504: _restoringSiteId is intentionally NOT set here.
+                // _last is only updated from site-switch cascades (restoreNewSiteConfig),
+                // not from the page-load cascade.  The page-load cascade runs for the
+                // server-initial site (which may differ from the user's last-used site),
+                // and setting _restoringSiteId here caused the page-load cascade
+                // to overwrite _last ~1300ms after load — after the site-switch cascade
+                // had already correctly written _last at ~700ms.
                 restoreConfig(configAtFireTime);
                 // Dispatch after restoreConfig's internal setTimeout cascade completes.
                 // restoreConfig now manages _isRestoring internally (~1050ms total).
@@ -1182,6 +1293,9 @@
             if (newSiteId === _previousSiteId) return;
 
             log('Site switch detected:', _previousSiteId, '->', newSiteId);
+
+            // b35fix504b: record last explicit switch so cascade end knows the target site
+            _lastSwitchedToSiteId = newSiteId;
 
             // Save config for the site we're LEAVING
             saveCurrentSiteConfig();

@@ -868,23 +868,17 @@
         }
       });
 
-      // Refetch on site switch — site:changed fires with no coords in payload,
-      // so read from the DOM inputs which site-config-persistence has already updated
+      // b35fix505: site:changed fires BEFORE site-config-persistence.js runs
+      // restoreNewSiteConfig (which updates .gaip-lat/.gaip-lon to the new site's
+      // coords). Reading the DOM here gives the PREVIOUS site's coordinates, so
+      // fetchAndStore would fetch the wrong site's weather and overwrite
+      // window.climateMetrics with stale data. The orchestrator then runs disease
+      // calculations with that stale weather, producing wrong results (e.g. Red
+      // Thread appearing for a site that has none).
+      // Fix: reset _lastFetchKey so site:config-applied (which fires AFTER coords
+      // are updated) can trigger a fresh fetch for the correct location.
       hub.events.on('site:changed', () => {
-        const latEl = document.querySelector('.gaip-lat');
-        const lonEl = document.querySelector('.gaip-lon');
-        if (latEl && lonEl) {
-          const lat = parseFloat(latEl.value);
-          const lon = parseFloat(lonEl.value);
-          if (!isNaN(lat) && !isNaN(lon)) {
-            hub.store.set('inputs.site', {
-              ...(hub.store.peek('inputs.site') || {}),
-              latitude: lat,
-              longitude: lon,
-            }, 'climate-site-switch');
-            this.fetchAndStore(lat, lon);
-          }
-        }
+        this._lastFetchKey = null;
       });
 
       // Listen for location changes

@@ -88,7 +88,18 @@ const CONFIDENCE_SCORES = Object.freeze({
 const SPECIES_SUSCEPTIBILITY = Object.freeze({
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added.
-    bentgrass:        { dollarSpot: 1.3, brownPatch: 1.3, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, takeAll: 1.5, grayLeafSpot: 0.5, springDeadSpot: 0, helminthosporium: 0.3, largePatch: 0, redThread: 0.9, drechsleraPoae: 0.6 },
+    // b35fix493: grayLeafSpot 0.5→0. Creeping bentgrass is a documented non-host
+    // (Ohio State HYG-3083, Purdue BP-107-W). Was gate-suppressed at 0.5 (exactly at
+    // the 0.5 gate) — reason-text correction; no live false positive was emitted.
+    bentgrass:        { dollarSpot: 1.3, brownPatch: 1.3, pythium: 1.3, anthracnose: 1.4, fusarium: 1.2, takeAll: 1.5, grayLeafSpot: 0, springDeadSpot: 0, helminthosporium: 0.3, largePatch: 0, redThread: 0.9, drechsleraPoae: 0.6 },
+    // b35fix492: browntopBent (Agrostis capillaris / colonial bent) added.
+    // Cultivar layer already keyed NZ browntop cultivars (Arrowtown, Egmont, Sefton)
+    // with deltas "vs browntop average" — those deltas were sitting on the creeping-bent
+    // baseline pre-fix because normalizeSpecies routed browntop into the generic `bent`
+    // partial. Deltas vs creeping bent: fusarium 1.2→1.4 (Microdochium primary NZ greens
+    // disease in cool maritime climate), takeAll 1.5→1.2, grayLeafSpot 0→0 (Agrostis
+    // is a documented GLS non-host).
+    browntopBent:     { dollarSpot: 1.3, brownPatch: 1.3, pythium: 1.3, anthracnose: 1.4, fusarium: 1.4, takeAll: 1.2, grayLeafSpot: 0, springDeadSpot: 0, helminthosporium: 0.3, largePatch: 0, redThread: 0.9, drechsleraPoae: 0.6 },
     // b35fix396: dollarSpot 0.95→1.1. Literature consistently groups perennial ryegrass  
     // with highly susceptible species: "Certain cultivars of creeping bentgrass,
     // perennial ryegrass, and Kentucky bluegrass are very susceptible to dollar spot"
@@ -102,13 +113,25 @@ const SPECIES_SUSCEPTIBILITY = Object.freeze({
     // b35fix461 (C59): drechsleraPoae column added. KBG is the primary
     // host per BIPOLARIS_CURVULARIA_SUSCEPTIBILITY v3.0 comment in
     // bipolaris-curvularia-models.js:234 ("Primary host for D. poae").
-    kentuckyBluegrass:{ dollarSpot: 1.0, brownPatch: 0.9, pythium: 1.1, anthracnose: 0.7, fusarium: 1.2, takeAll: 0.8, grayLeafSpot: 0.6, springDeadSpot: 0, helminthosporium: 1.3, largePatch: 0, redThread: 1.1, drechsleraPoae: 1.8 },
+    // b35fix493: grayLeafSpot 0.6→0. KBG's 0.6 sat above the 0.5 dispatcher gate so
+    // the engine was running GLS and emitting risk on a documented non-host (Ohio State
+    // HYG-3083, Purdue BP-107-W, Kansas State). Zeroing suppresses the model at the gate.
+    kentuckyBluegrass:{ dollarSpot: 1.0, brownPatch: 0.9, pythium: 1.1, anthracnose: 0.7, fusarium: 1.2, takeAll: 0.8, grayLeafSpot: 0, springDeadSpot: 0, helminthosporium: 1.3, largePatch: 0, redThread: 1.1, drechsleraPoae: 1.8 },
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added.
     tallFescue:       { dollarSpot: 0.8, brownPatch: 1.4, pythium: 0.9, anthracnose: 0.5, fusarium: 0.7, takeAll: 0.5, grayLeafSpot: 0.9, springDeadSpot: 0, helminthosporium: 0.6, largePatch: 0, redThread: 0.7, drechsleraPoae: 0.5 },
+    // b35fix492: fineFescue (Festuca rubra complex) added. Pre-fix: normaliseSpecies
+    // produced 'fineFescue' and COOL_SEASON_HOSTS listed it, but no row existed so
+    // fine fescue sites fell back to the perennial ryegrass profile.
+    // grayLeafSpot: 0.2 (genuine weak host, Vines et al. 2022). Red thread: 1.5
+    // (Festuca rubra is a primary red thread host). Other values: species-layer
+    // baseline, no cultivar layer (cultivar deltas applied above this in analysis).
+    fineFescue:       { dollarSpot: 1.0, brownPatch: 1.0, pythium: 0.9, anthracnose: 0.7, fusarium: 1.1, takeAll: 0.5, grayLeafSpot: 0.2, springDeadSpot: 0, helminthosporium: 0.5, largePatch: 0, redThread: 1.5, drechsleraPoae: 0.6 },
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added.
-    poaAnnua:         { dollarSpot: 1.4, brownPatch: 1.0, pythium: 1.5, anthracnose: 1.8, fusarium: 1.3, takeAll: 1.0, grayLeafSpot: 0.3, springDeadSpot: 0, helminthosporium: 0.4, largePatch: 0, redThread: 1.0, drechsleraPoae: 1.0 },
+    // b35fix493: grayLeafSpot 0.3→0. Poa annua is a documented non-host (same sources).
+    // Was already gate-suppressed at 0.3 < 0.5, so behavioural change is reason-text only.
+    poaAnnua:         { dollarSpot: 1.4, brownPatch: 1.0, pythium: 1.5, anthracnose: 1.8, fusarium: 1.3, takeAll: 1.0, grayLeafSpot: 0, springDeadSpot: 0, helminthosporium: 0.4, largePatch: 0, redThread: 1.0, drechsleraPoae: 1.0 },
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added (0, warm-season non-host).
     bermuda:          { dollarSpot: 0.3, brownPatch: 0.2, pythium: 0.6, anthracnose: 0.3, fusarium: 0.0, takeAll: 0.3, grayLeafSpot: 0.5, springDeadSpot: 1.5, helminthosporium: 1.4, largePatch: 0.7, redThread: 0.35, drechsleraPoae: 0 },
@@ -125,7 +148,8 @@ const SPECIES_SUSCEPTIBILITY = Object.freeze({
     //         anthracnose significant per Georgia/UGA data (was 0.4 → 0.7)
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added (0, warm-season non-host).
-    zoysia:           { dollarSpot: 0.9, brownPatch: 0.7, pythium: 0.7, anthracnose: 0.7, fusarium: 0.0, takeAll: 0.5, grayLeafSpot: 0.6, springDeadSpot: 1.2, helminthosporium: 1.3, largePatch: 1.4, redThread: 0.4, drechsleraPoae: 0 },
+    // b35fix498: largePatch 1.4→1.3 (field data, J. Spencer Jul 2026)
+    zoysia:           { dollarSpot: 0.9, brownPatch: 0.7, pythium: 0.7, anthracnose: 0.7, fusarium: 0.0, takeAll: 0.5, grayLeafSpot: 0.6, springDeadSpot: 1.2, helminthosporium: 1.3, largePatch: 1.3, redThread: 0.4, drechsleraPoae: 0 },
     // buffalo (St Augustine): GLS primary host but management-responsive (was 1.8 → 1.3 per Lebanon/Lawn Institute);
     //         take-all root rot major disease (was 0.3 → 0.8 per Clemson/TAMU data);
     //         SDS secondary host Perth-documented (was 0 → 0.3)
@@ -136,7 +160,8 @@ const SPECIES_SUSCEPTIBILITY = Object.freeze({
     // b35fix461 (C59): drechsleraPoae column added (0, Buchloe not enumerated
     // in BIPOLARIS_CURVULARIA_SUSCEPTIBILITY; benchmarked by buffalo analogy
     // as warm-season non-host).
-    buffalograss:     { dollarSpot: 0.5, brownPatch: 0.15, pythium: 0.5, anthracnose: 0.2, fusarium: 0.0, takeAll: 0.3, grayLeafSpot: 0.3, springDeadSpot: 0, helminthosporium: 0.8, largePatch: 0.6, redThread: 0.3, drechsleraPoae: 0 },
+    // b35fix498: largePatch 0.6→0.9 (buffalograss documented susceptible host, J. Spencer Jul 2026)
+    buffalograss:     { dollarSpot: 0.5, brownPatch: 0.15, pythium: 0.5, anthracnose: 0.2, fusarium: 0.0, takeAll: 0.3, grayLeafSpot: 0.3, springDeadSpot: 0, helminthosporium: 0.8, largePatch: 0.9, redThread: 0.3, drechsleraPoae: 0 },
     // seashore_paspalum (Paspalum vaginatum): halophytic warm-season C4 grass.
     //   Disease profile distinct from couch/bermuda — TAKE-ALL PATCH is the
     //   signature paspalum vulnerability (Duncan & Carrow 2005 GCM Feb p.114-118;
@@ -179,7 +204,8 @@ const SPECIES_SUSCEPTIBILITY = Object.freeze({
     // b35fix459 (C64): redThread column added.
     // b35fix461 (C59): drechsleraPoae column added (0, warm-season halophytic
     // non-host; benchmarked by paspalum row in BIPOLARIS_CURVULARIA_SUSCEPTIBILITY).
-    seashore_paspalum:{ dollarSpot: 0.7, brownPatch: 0.3, pythium: 0.7, anthracnose: 0.3, fusarium: 0.3, takeAll: 1.4, grayLeafSpot: 0.7, springDeadSpot: 0, helminthosporium: 1.0, largePatch: 0.6, redThread: 0.3, drechsleraPoae: 0 },
+    // b35fix498: largePatch 0.6→1.4 (seashore paspalum is highly susceptible, J. Spencer Jul 2026)
+    seashore_paspalum:{ dollarSpot: 0.7, brownPatch: 0.3, pythium: 0.7, anthracnose: 0.3, fusarium: 0.3, takeAll: 1.4, grayLeafSpot: 0.7, springDeadSpot: 0, helminthosporium: 1.0, largePatch: 1.4, redThread: 0.3, drechsleraPoae: 0 },
 });
 
 // =============================================================================
@@ -216,6 +242,9 @@ function normalizeSpecies(sp) {
         buffalo: 'buffalo', stenotaphrum: 'buffalo', buffalograss: 'buffalograss', buchloe: 'buffalograss',
         perennialryegrass: 'perennialRyegrass', prg: 'perennialRyegrass', ryegrass: 'perennialRyegrass', loliumperenne: 'perennialRyegrass',
         bentgrass: 'bentgrass', bent: 'bentgrass', creepingbent: 'bentgrass', creepingbentgrass: 'bentgrass', agrostis: 'bentgrass',
+        // b35fix492: browntopBent aliases must resolve before the generic `bent` partial below
+        browntopbent: 'browntopBent', browntop: 'browntopBent', colonialbent: 'browntopBent',
+        colonialrentgrass: 'browntopBent', agrostiscapillaris: 'browntopBent', capillaris: 'browntopBent',
         kentuckybluegrass: 'kentuckyBluegrass', kbg: 'kentuckyBluegrass', bluegrass: 'kentuckyBluegrass', poapratensis: 'kentuckyBluegrass',
         tallfescue: 'tallFescue', fescue: 'tallFescue', festuca: 'tallFescue',
         finefescue: 'fineFescue',
@@ -224,7 +253,8 @@ function normalizeSpecies(sp) {
     };
     if (aliases[lower]) return aliases[lower];
     if (SPECIES_SUSCEPTIBILITY[lower]) return lower;
-    // Partial matches
+    // Partial matches — browntop/colonial BEFORE generic bent (b35fix492)
+    if (lower.includes('browntop') || lower.includes('colonial') || lower.includes('capillaris')) return 'browntopBent';
     if (lower.includes('bent')) return 'bentgrass';
     if (lower.includes('rye')) return 'perennialRyegrass';
     if (lower.includes('couch')) return 'couch';
@@ -2902,6 +2932,19 @@ const AnthracnoseModel = {
     },
 };
 
+// b35fix495-497: Fusarium model provenance + moisture + modifier corrections.
+//   Weighted-sum algorithm is internal Gilba (not from Smith et al. 1989 —
+//   that paper provides the temperature envelope / biological directions only).
+//   Four modifiers retired: freezeThaw, fluctuationMod, snowFactor, nModifier.
+//   All four lacked peer-reviewed support for the specific coefficient values
+//   used and caused measured output inflation (Russley GC log: ~82% where
+//   honest formula gives ~57%). New formula: (0.40×tempFactor + 0.60×moistureFactor)×100.
+//   Confidence downgraded to 'moderate'/60 (was 'high'/90) to reflect the
+//   honest Gilba-authored weighted-sum status.
+const FUSARIUM_MODEL_SOURCE         = 'Gilba weighted-sum (Smith, Jackson & Woolhouse 1989 — temperature envelope only; CABI 2024 Box 6.17)';
+const FUSARIUM_MODEL_CONFIDENCE_LEVEL = 'moderate';
+const FUSARIUM_MODEL_CONFIDENCE_SCORE = 60;
+
 // =============================================================================
 // b35fix452 (C57): CABI 2024 cross-reference for FusariumModel.
 //   Beehag, G.W., Walker, N.R., Wong, P.T.W. and Kaapro, J. (2024)
@@ -2947,7 +2990,11 @@ const AnthracnoseModel = {
 const FusariumModel = {
     name: 'Fusarium Patch (Microdochium)',
     pathogen: 'Microdochium nivale',
-    calculate(climate, nitrogen, variety) {
+    // b35fix495-497: dewData added as 4th arg. moistureFactor now uses actual
+    // leaf-wetness hours when available. Four modifiers (freezeThaw, fluctuationMod,
+    // snowFactor, nModifier) retired — all lacked peer-reviewed support for the
+    // specific coefficients used and caused measured output inflation.
+    calculate(climate, nitrogen, variety, dewData) {
         const meanTemp = climate?.temperature?.mean || climate?.temperature?.current || null;
         // b35fix98: return 0 risk if no temperature data — prevents false positive
         // from the || 10 fallback producing AU Fusarium risk in warm climates.
@@ -2956,49 +3003,35 @@ const FusariumModel = {
                 disease: 'fusarium', displayName: 'Fusarium Patch (Microdochium)',
                 riskScore: 0, riskLevel: 'minimal', confidence: 'low', confidenceScore: 20,
                 drivers: { temperature: { value: null, note: 'No temperature data available' } },
-                source: 'Smith, Jackson & Woolhouse 1989',
+                source: FUSARIUM_MODEL_SOURCE,
             };
         }
         const minTemp = climate?.temperature?.min ?? (meanTemp - 5);
         const maxTemp = climate?.temperature?.max ?? (meanTemp + 5);
-        // b35fix344: humidity null-passthrough. Pre-fix `|| 80` fabricated 80% RH on
-        // every site without upstream humidity data — visible in production log
-        // 2026-04-26 on 20 of 22 sites where SK degraded but Fusarium still printed
-        // `humidity : 80%`. Post-fix: humidity stays null, moistureFactor uses a
-        // conservative 0.2 (the lowest tier — same as <80% real humidity case),
-        // and a humiditySource tag flows through diagnostics for transparency.
+        // b35fix344: humidity null-passthrough.
         const humidityRaw = climate?.moisture?.humidity?.mean;
         const humidity = (typeof humidityRaw === 'number' && !isNaN(humidityRaw)) ? humidityRaw : null;
         const humiditySource = humidity != null ? 'period mean' : 'no data';
         const precip = climate?.precipitation?.total || climate?.moisture?.precipitation?.total || 0;
         const nStatus = nitrogen?.status || 'adequate';
-        const diurnalRange = maxTemp - minTemp;
-        const hasFreezeCycle = minTemp < -1.0 && maxTemp > 2; // Requires genuine sub-zero min, not forecast noise (< -1.0°C per Smiley et al. tissue damage threshold)
-        const snowCover = climate?.snowCover?.present || climate?.precipitation?.snow > 0 || false;
-        const snowDays = climate?.snowCover?.consecutiveDays || 0;
+        const winterNRisk = (nStatus === 'high' || nStatus === 'excessive') && meanTemp <= 15;
         // b35fix454 (C60): ceiling raised 18 -> 20 deg C per CABI 2024 Box 6.17
-        // (Beehag, Walker, Wong & Kaapro 2024). See banner above for full
-        // rationale and coordinated band at line ~2680. Coupled with the
-        // tempFactor band condition: both literals must move together.
         if (meanTemp > 20) {
             return {
                 disease: 'fusarium', displayName: 'Fusarium Patch (Microdochium)',
-                riskScore: 0, riskLevel: 'minimal', confidence: 'high', confidenceScore: 90,
+                riskScore: 0, riskLevel: 'minimal',
+                confidence: FUSARIUM_MODEL_CONFIDENCE_LEVEL, confidenceScore: FUSARIUM_MODEL_CONFIDENCE_SCORE,
                 drivers: {
                     temperature: { value: meanTemp, optimalRange: '0-12°C', contribution: 0, note: 'Too warm for Fusarium development' },
                     moisture: { humidity, humiditySource, rain: precip, contribution: 0 },
-                    nitrogen: { status: nStatus, modifier: 1 },
-                    freezeThaw: { active: false, contribution: 0 },
+                    nitrogen: { status: nStatus, winterRisk: winterNRisk },
                 },
-                source: 'Smith, Jackson & Woolhouse 1989',
+                source: FUSARIUM_MODEL_SOURCE,
             };
         }
 
-        // Temperature factor (asymmetric, peaks 5-8°C)
-        // b35fix454 (C60): upper bound raised 18 -> 20 deg C per CABI 2024
-        // Box 6.17. Coupled with the early-return ceiling gate above. The
-        // Gaussian above 8 deg C (sigma=6) tails to 0.066 at 20, so the new
-        // 18-20 band emits damped but non-zero risk.
+        // Temperature factor (asymmetric Gaussian, peaks 5-8°C)
+        // b35fix454 (C60): upper bound raised 18 -> 20 deg C per CABI 2024 Box 6.17.
         let tempFactor = 0;
         if (meanTemp >= -2 && meanTemp <= 20) {
             tempFactor = meanTemp <= 8
@@ -3006,90 +3039,46 @@ const FusariumModel = {
                 : Math.exp(-0.5 * Math.pow((meanTemp - 6) / 6, 2));
         }
 
-        // Freeze-thaw factor
-        let freezeThawFactor = 0, freezeThawNote = null;
-        if (hasFreezeCycle) {
-            freezeThawFactor = maxTemp > 5 ? 0.9 : 0.7;
-            if (minTemp < -3 && maxTemp > 8) {
-                freezeThawFactor = 1.0;
-                freezeThawNote = 'SEVERE freeze-thaw cycle - high infection risk';
-            } else {
-                freezeThawNote = 'Freeze-thaw cycle detected - elevated risk';
-            }
-        }
-
-        // Diurnal fluctuation
-        // PROVENANCE NOTE: Specific diurnal range thresholds (8, 10, 15°C) lack peer-reviewed citation.
-        // Temperature fluctuation concept is sound but exact values are unverified assumptions.
-        // Future: locate literature supporting specific diurnal temperature effects on Microdochium.
-        let fluctuationMod = 1.0;
-        if (diurnalRange > 15) fluctuationMod = 1.25; // UNVERIFIED threshold
-        else if (diurnalRange > 10) fluctuationMod = 1.15; // UNVERIFIED threshold
-        else if (diurnalRange > 8) fluctuationMod = 1.08; // UNVERIFIED threshold
-
-        // Snow cover
-        // PROVENANCE NOTE: Specific day thresholds (7, 14) lack direct peer-reviewed citation.
-        // Literature supports snow duration effect but exact timing needs verification.
-        // Future: locate studies with specific snow cover duration vs disease severity data.
-        let snowFactor = 0, snowNote = null;
-        if (snowCover && meanTemp > -5 && meanTemp < 5) {
-            snowFactor = Math.min(1, snowDays / 10);
-            if (snowDays > 14) snowNote = 'Extended snow cover - Pink Snow Mould risk elevated'; // UNVERIFIED threshold
-            else if (snowDays > 7) snowNote = 'Snow cover persisting - monitor for snow mould'; // UNVERIFIED threshold
-        }
-
-        // Moisture
-        // b35fix344: when humidity is null, fall back to precip-only signal.
-        // The pre-fix `humidity > 90 || precip > 15` worked because comparisons
-        // against the literal-80 default returned false, but it concealed the
-        // data absence. Post-fix we explicitly check humidity != null and
-        // collapse to a precip-only ladder when humidity is missing — same
-        // contribution tiers but transparently degraded.
-        let moistureFactor;
-        if (humidity != null) {
+        // b35fix496: Moisture factor — leaf wetness hours when dewData available,
+        // fall back to humidity/precip period-mean ladder.
+        let moistureFactor, moistureSource;
+        const lwHours = getLeafWetnessHours(climate, dewData);
+        if (lwHours > 0) {
+            // CABI 2024 Box 6.17: infection requires prolonged leaf wetness >24h;
+            // scale 0→1 over 0-10 hour daily average (saturates at ≥10h/day).
+            moistureFactor = Math.min(1, lwHours / 10);
+            moistureSource = 'leaf wetness hours';
+        } else if (humidity != null) {
+            // b35fix344: period-mean humidity ladder — same tiers as pre-fix.
             moistureFactor = (humidity > 90 || precip > 15) ? 1 : (humidity > 80 || precip > 5) ? 0.6 : 0.2;
+            moistureSource = 'humidity/precip ladder';
         } else {
-            // No humidity data — precip-only ladder. 0.2 is the same conservative
-            // floor used when humidity is below 80% in the real-data path.
             moistureFactor = (precip > 15) ? 1 : (precip > 5) ? 0.6 : 0.2;
+            moistureSource = 'precip-only ladder';
         }
 
-        // N modifier
-        const nModifier = getFusariumNModifier(nStatus, meanTemp);
-        const winterNRisk = (nStatus === 'high' || nStatus === 'excessive') && meanTemp <= 15;
-
-        // Combined risk
-        let baseRisk;
-        if (freezeThawFactor > 0 || snowFactor > 0) {
-            baseRisk = 0.30 * tempFactor + 0.35 * moistureFactor + 0.25 * freezeThawFactor + 0.10 * Math.max(snowFactor, tempFactor);
-        } else {
-            baseRisk = 0.40 * tempFactor + 0.60 * moistureFactor;
-        }
-
-        let riskScore = baseRisk * fluctuationMod * nModifier * 100 // variety mod applied in analyse();
+        // b35fix495: Clean formula — four modifiers retired (freezeThaw, fluctuationMod,
+        // snowFactor, nModifier). nModifier kept as audit record (getFusariumNModifier
+        // remains defined) but not applied to the score.
+        let riskScore = (0.40 * tempFactor + 0.60 * moistureFactor) * 100;
         riskScore = Math.min(100, Math.max(0, riskScore));
 
-        let primaryDriver = 'temperature';
-        if (freezeThawFactor > tempFactor && freezeThawFactor > moistureFactor) primaryDriver = 'freeze_thaw';
-        else if (moistureFactor > tempFactor) primaryDriver = 'moisture';
-        if (winterNRisk && nModifier > 1.3) primaryDriver = 'excess_nitrogen';
+        const primaryDriver = moistureFactor >= tempFactor ? 'moisture' : 'temperature';
 
-        // --- DIAGNOSTIC (b35fix104): log intermediate values to browser console ---
+        // --- DIAGNOSTIC (b35fix104 / b35fix495): log intermediate values ---
         if (typeof console !== 'undefined') {
-            console.group('[Fusarium.calculate() diagnostic]');
+            console.group('[Fusarium.calculate() diagnostic — b35fix495]');
             console.log('meanTemp      :', meanTemp.toFixed(1), '°C (optimal: 0-12°C)');
             console.log('minTemp       :', minTemp.toFixed(1), '°C');
             console.log('maxTemp       :', maxTemp.toFixed(1), '°C');
-            console.log('diurnalRange  :', diurnalRange.toFixed(1), '°C (fluctuationMod:', fluctuationMod, ')');
             console.log('humidity      :', humidity != null ? humidity + ' %' : 'n/a', '(' + humiditySource + ')');
             console.log('precip        :', precip, 'mm');
-            console.log('freezeThaw    :', hasFreezeCycle ? 'YES (factor: ' + freezeThawFactor.toFixed(4) + ')' : 'no');
-            console.log('snowCover     :', snowCover ? 'YES (' + snowDays + ' days, factor: ' + snowFactor.toFixed(4) + ')' : 'no');
+            console.log('lwHours       :', lwHours, '(moistureSource:', moistureSource + ')');
             console.log('tempFactor    :', tempFactor.toFixed(4));
             console.log('moistureFactor:', moistureFactor.toFixed(4));
-            console.log('nModifier     :', nModifier.toFixed(4), '(N status:', nStatus, ', winterRisk:', winterNRisk, ')');
+            console.log('N status      :', nStatus, '(winterRisk:', winterNRisk, '— qualitative flag only, not in score)');
             console.log('primaryDriver :', primaryDriver);
-            console.log('riskScore     :', Math.round(riskScore), '(capped at 100)');
+            console.log('riskScore     :', Math.round(riskScore), '(= (0.40×temp + 0.60×moisture)×100)');
             console.groupEnd();
         }
         // --- END DIAGNOSTIC ---
@@ -3097,16 +3086,14 @@ const FusariumModel = {
         return {
             disease: 'fusarium', displayName: 'Fusarium Patch (Microdochium)',
             riskScore: Math.round(riskScore), riskLevel: classifyRisk(riskScore),
-            confidence: 'high', confidenceScore: 90, primaryDriver, modelVersion: '2.0',
+            confidence: FUSARIUM_MODEL_CONFIDENCE_LEVEL, confidenceScore: FUSARIUM_MODEL_CONFIDENCE_SCORE,
+            primaryDriver, modelVersion: '3.0',
             drivers: {
-                temperature: { value: meanTemp, min: minTemp, max: maxTemp, diurnalRange: Math.round(diurnalRange * 10) / 10, optimalRange: '0-12°C', contribution: Math.round(tempFactor * 100) },
-                freezeThaw: { active: hasFreezeCycle, contribution: Math.round(freezeThawFactor * 100), note: freezeThawNote, severity: hasFreezeCycle ? (minTemp < -3 && maxTemp > 8 ? 'severe' : 'moderate') : 'none' },
-                fluctuation: { diurnalRange: Math.round(diurnalRange * 10) / 10, modifier: fluctuationMod, note: diurnalRange > 10 ? 'Large temp swings increasing stress' : null },
-                moisture: { humidity, humiditySource, rain: precip, contribution: Math.round(moistureFactor * 100) },
-                snow: { present: snowCover, days: snowDays, contribution: Math.round(snowFactor * 100), note: snowNote },
-                nitrogen: { status: nStatus, modifier: nModifier, winterRisk: winterNRisk, note: winterNRisk ? 'Excess N in cool conditions significantly elevates risk' : null },
+                temperature: { value: meanTemp, min: minTemp, max: maxTemp, optimalRange: '0-12°C', contribution: Math.round(tempFactor * 100) },
+                moisture: { humidity, humiditySource, rain: precip, leafWetnessHours: lwHours > 0 ? lwHours : null, moistureSource, contribution: Math.round(moistureFactor * 100) },
+                nitrogen: { status: nStatus, winterRisk: winterNRisk, note: winterNRisk ? 'Excess N in cool conditions elevates risk (qualitative flag)' : null },
             },
-            source: 'Smith, Jackson & Woolhouse 1989',
+            source: FUSARIUM_MODEL_SOURCE,
         };
     },
     getInterventions(riskLevel, opts) {
@@ -3291,7 +3278,7 @@ const HelminthosporiumModel = {
 
         // b35fix353 scope flag: detect cool-season host context if species known.
         const COOL_SEASON_HOSTS = new Set(['kentuckyBluegrass', 'tallFescue',
-                                          'perennialRyegrass', 'bentgrass', 'poaAnnua',
+                                          'perennialRyegrass', 'bentgrass', 'browntopBent', 'poaAnnua',
                                           'fineFescue']);
         const speciesKey = species ? normalizeSpecies(species) : null;
         const coolSeasonScopeFlag = speciesKey ? COOL_SEASON_HOSTS.has(speciesKey) : false;
@@ -3658,6 +3645,30 @@ const WaiteaPatchModel = {
             if (airTemp >= 10 && airTemp <= 35) {
                 tempFactor = Math.exp(-0.5 * Math.pow((airTemp - 27) / 8, 2));
             }
+        }
+
+        // b35fix498 / Waitea temperature gate: when tempFactor=0 the host,
+        // moisture, light and N terms (×0.25+0.10+0.15+0.15) still produce
+        // up to ~26% base risk — a false positive for a warm-season disease
+        // outside its active temperature range. Suppress at the envelope edge.
+        if (tempFactor === 0) {
+            const belowRange = airTemp < (variant === 'zeae' ? 20 : 10);
+            return {
+                disease: 'waiteaPatch',
+                displayName: variant === 'zeae' ? 'Brown Patch' : 'Waitea Patch',
+                pathogen: variant === 'zeae' ? 'Waitea circinata var. zeae' : 'Waitea circinata var. circinata',
+                riskScore: 0, rawRisk: 0, adjustedRisk: 0,
+                riskLevel: 'low', confidence: 'high', confidenceScore: 85,
+                validationStatus: 'beta', validationBadge: 'BETA',
+                variant, envelopeSuppressed: true,
+                factors: {
+                    temperature: {
+                        value: airTemp, factor: 0,
+                        note: belowRange ? 'Below active temperature range' : 'Above active temperature range',
+                    },
+                },
+                source: 'Burpee et al. 2006 (Plant Disease); Wong & Harman 2001 (Australasian Plant Pathology); Chen et al. 2009',
+            };
         }
 
         // Moisture
@@ -4970,30 +4981,44 @@ function analyse(input) {
     if (susceptibility.dollarSpot > 0) {
         const result = DollarSpotModel.calculate(climate, nitrogen, variety, shade, dewData);
         result.speciesSusceptibility = susceptibility.dollarSpot;
-        let tissueMod = 1;
-        const vMod = getVarietyModifier('dollarSpot');
-        if (tissueNutrients?.modifiers?.K?.status === 'deficient') tissueMod *= 1.2;
-        if (tissueNutrients?.modifiers?.KN_ratio?.status === 'poor') tissueMod *= 1.15;
-        // Use rawRisk (uncapped) as the base for taperMultiplier so that when
-        // riskScore saturates at 100, the species/variety multiplier (e.g. bentgrass
-        // 1.3) still has headroom to drive adjustedRisk above display-capped riskScore.
-        // Without this, L-93 bentgrass reads 100% any time base conditions are moderate,
-        // because taperMultiplier(100, 1.3) = 1.3 → 130 → clamped to 100; correct, but
-        // rawRisk of e.g. 77 → taperMultiplier(77, 1.3*1.3=1.69) → ~1.65 → 127 → 100
-        // only for genuinely extreme conditions, not moderate ones.
-        const baseForTaper = result.rawRisk ?? result.riskScore;
-        { const rawMult = susceptibility.dollarSpot * tissueMod * vMod; result.adjustedRisk = Math.min(100, Math.round(baseForTaper * taperMultiplier(baseForTaper, rawMult))); }
-        result.riskLevel = classifyRisk(result.adjustedRisk);
-        result.interventions = DollarSpotModel.getInterventions(result.riskLevel, { nitrogen, shade, region: regionCode });
-        if (vMod !== 1) result.varietyNote = `Variety "${variety?.name}" modifier: ${vMod < 1 ? '-' : '+'}${Math.abs(Math.round((1 - vMod) * 100))}%`;
-        if (tissueMod > 1) result.nutrientNote = 'Risk increased by tissue nutrient imbalance';
-        // Smith-Kerns warm-season caveat: model validated on cool-season bentgrass only.
-        // Running on C4 species with susceptibility modifier but score is indicative only.
-        const C4_WARM_SEASON = ['bermuda','couch','kikuyu','zoysia','buffalo','buffalograss','paspalum'];
-        if (C4_WARM_SEASON.includes(normalizedSpecies)) {
-            result.warmSeasonCaveat = 'Smith-Kerns model validated on cool-season bentgrass only. Dollar spot score on warm-season turf is indicative, use as trend guidance, not a precise threshold.';
+
+        // b35fix494: route temperature-envelope-suppressed result to suppressedDiseases[].
+        // "Outside validity envelope" (real temp, out of 10-35°C range) and "insufficient
+        // data" (null temp) are distinct states. inactive===true means real temperature
+        // confirmed outside range → suppressedDiseases; null temp → degraded path stays
+        // in diseases[] with low confidence. This matches the spec: no diseases[] row,
+        // one suppressedDiseases[] entry with envelopeSuppressed:true.
+        if (result.inactive === true) {
+            suppressedDiseases.push({
+                disease: 'dollarSpot',
+                displayName: 'Dollar Spot',
+                speciesSusceptibility: susceptibility.dollarSpot,
+                reason: result.inactiveReason,
+                envelopeSuppressed: true,
+                temperature: result.drivers?.temperature?.value,
+                bounds: { min: 10, max: 35 },
+                suppressedProbability: result.suppressedProbability,
+            });
+        } else {
+            let tissueMod = 1;
+            const vMod = getVarietyModifier('dollarSpot');
+            if (tissueNutrients?.modifiers?.K?.status === 'deficient') tissueMod *= 1.2;
+            if (tissueNutrients?.modifiers?.KN_ratio?.status === 'poor') tissueMod *= 1.15;
+            // Use rawRisk (uncapped) as the base for taperMultiplier so that when
+            // riskScore saturates at 100, the species/variety multiplier (e.g. bentgrass
+            // 1.3) still has headroom to drive adjustedRisk above display-capped riskScore.
+            const baseForTaper = result.rawRisk ?? result.riskScore;
+            { const rawMult = susceptibility.dollarSpot * tissueMod * vMod; result.adjustedRisk = Math.min(100, Math.round(baseForTaper * taperMultiplier(baseForTaper, rawMult))); }
+            result.riskLevel = classifyRisk(result.adjustedRisk);
+            result.interventions = DollarSpotModel.getInterventions(result.riskLevel, { nitrogen, shade, region: regionCode });
+            if (vMod !== 1) result.varietyNote = `Variety "${variety?.name}" modifier: ${vMod < 1 ? '-' : '+'}${Math.abs(Math.round((1 - vMod) * 100))}%`;
+            if (tissueMod > 1) result.nutrientNote = 'Risk increased by tissue nutrient imbalance';
+            const C4_WARM_SEASON = ['bermuda','couch','kikuyu','zoysia','buffalo','buffalograss','paspalum'];
+            if (C4_WARM_SEASON.includes(normalizedSpecies)) {
+                result.warmSeasonCaveat = 'Smith-Kerns model validated on cool-season bentgrass only. Dollar spot score on warm-season turf is indicative, use as trend guidance, not a precise threshold.';
+            }
+            diseases.push(result);
         }
-        diseases.push(result);
     }
 
     // === Brown Patch ===
@@ -5127,9 +5152,16 @@ function analyse(input) {
         if (result && result.applicable !== false) {
             const vMod = getVarietyModifier('largePatch');
             result.speciesSusceptibility = susceptibility.largePatch;
-            { const rawMult = susceptibility.largePatch * vMod; result.adjustedRisk = Math.min(100, Math.round(result.riskScore * taperMultiplier(result.riskScore, rawMult))); }
+            // b35fix498: honour adjustedRisk already computed by the model
+            // (model applies nModifier × susceptibility × variety internally).
+            // Only fall back to dispatcher taper when the model didn't set it.
+            if (result.adjustedRisk == null) {
+                const rawMult = susceptibility.largePatch * vMod;
+                result.adjustedRisk = Math.min(100, Math.round(result.riskScore * taperMultiplier(result.riskScore, rawMult)));
+            }
             result.riskLevel = classifyRisk(result.adjustedRisk);
             if (vMod !== 1) result.varietyNote = `Variety "${variety?.name}" modifier: ${vMod < 1 ? '-' : '+'}${Math.abs(Math.round((1 - vMod) * 100))}%`;
+            result.validationStatus = 'unvalidated'; // #88: Gilba weighted-sum, not peer-validated
             diseases.push(result);
         }
     }
@@ -5195,7 +5227,7 @@ function analyse(input) {
 
     // === Fusarium ===
     if (susceptibility.fusarium > 0) {
-        const result = FusariumModel.calculate(climate, nitrogen, variety);
+        const result = FusariumModel.calculate(climate, nitrogen, variety, dewData);
         const vMod = getVarietyModifier('fusarium');
         result.speciesSusceptibility = susceptibility.fusarium;
         { const rawMult = susceptibility.fusarium * vMod; result.adjustedRisk = Math.min(100, Math.round(result.riskScore * taperMultiplier(result.riskScore, rawMult))); }
@@ -5205,6 +5237,7 @@ function analyse(input) {
         if (result.drivers?.nitrogen?.winterRisk) {
             result.nutrientNote = 'Excess N in cool conditions dramatically increases Fusarium risk';
         }
+        result.validationStatus = 'unvalidated'; // #88: Gilba weighted-sum, not peer-validated
         diseases.push(result);
     }
 

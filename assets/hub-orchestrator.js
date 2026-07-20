@@ -690,6 +690,70 @@
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // b35fix501 — site-switch race guard
+    //
+    // When the user switches sites, hub-tissue auto-runs and passes a
+    // snapshot of inputs.turf that was captured BEFORE GAIP_STATE is
+    // updated with the new site's turf data.  That snapshot carries the
+    // previous site's grassSpecies / effectiveSpecies, making speciesKey
+    // stale (e.g. "bentgrass" for Russley which is browntopBent).
+    //
+    // SpeciesController.getBaseSpecies() is synchronously updated by
+    // TurfProfileController when it processes the new site's config —
+    // always before hub-tissue triggers the auto-run.  If SC reports a
+    // confident, non-default base species that disagrees with speciesKey,
+    // SC wins: it holds the current-site truth that inputs.turf lacks.
+    //
+    // Guard conditions (all must hold):
+    //   1. SC is available and returns a non-null value
+    //   2. SC base ≠ _DEFAULT_SPECIES_KEY (prevents SC placeholder from
+    //      shadowing a correctly-resolved species when no site is loaded)
+    //   3. SC base ≠ speciesKey (only fires on actual disagreement)
+    // ─────────────────────────────────────────────────────────────────────
+    if (global.SpeciesController && typeof global.SpeciesController.getBaseSpecies === "function") {
+      try {
+        var _scBase501 = global.SpeciesController.getBaseSpecies();
+        var _scBaseKey501 = _scBase501
+          ? (typeof global.SpeciesController.normalize === "function"
+              ? global.SpeciesController.normalize(_scBase501)
+              : normalizeSpeciesKey(_scBase501))
+          : null;
+        if (
+          _scBaseKey501 &&
+          _scBaseKey501 !== _DEFAULT_SPECIES_KEY &&
+          _scBaseKey501 !== speciesKey
+        ) {
+          log(
+            "canonical",
+            "b35fix501 site-switch race guard: speciesKey corrected from stale \"" +
+              speciesKey + "\" to SC.getBaseSpecies() \"" + _scBaseKey501 + "\"",
+          );
+          speciesKey = _scBaseKey501;
+          effectiveSpeciesKey = _scBaseKey501;
+          // Also write the corrected species back to GAIP_STATE so downstream
+          // modules that read it directly (DiseaseForecast, hub-persistence)
+          // see the correct value. Without this, the stale grassSpecies is
+          // saved to the analysis cache and the /analysis page loads with the
+          // wrong species for disease forecast calculations.
+          try {
+            if (global.GAIP_STATE) {
+              if (global.GAIP_STATE.turf) {
+                global.GAIP_STATE.turf.grassSpecies = _scBaseKey501;
+                global.GAIP_STATE.turf.effectiveSpecies = _scBaseKey501;
+              }
+              if (global.GAIP_STATE.inputs && global.GAIP_STATE.inputs.turf) {
+                global.GAIP_STATE.inputs.turf.grassSpecies = _scBaseKey501;
+                global.GAIP_STATE.inputs.turf.effectiveSpecies = _scBaseKey501;
+              }
+            }
+          } catch (_gsErr501) { /* GAIP_STATE write failed — non-fatal */ }
+        }
+      } catch (_scErr501) {
+        // SC not ready or threw — leave speciesKey as already resolved
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // b35fix365 — DIAGNOSTIC ONLY (no behaviour change)
     //
     // Surfaces every species source consulted by populateCanonicalState at
@@ -2245,7 +2309,15 @@
         height: turf?.heightOfCut || 25,
         frequency: turf?.mowingFrequency || "regular",
       },
-      soil: _hubState.inputs.soil || null,
+      soil: (() => {
+        const raw = _hubState.inputs.soil || null;
+        if (!raw) return null;
+        // Normalize soil keys for pure engine: GAIP_STATE.soil uses soil_ph/pH_Water/Mn
+        // but disease-engine-pure.js TakeAllModel reads soil.pH and soil.Mn_ppm.
+        const pH = raw.pH ?? raw.soil_ph ?? raw.pH_Water ?? raw.pH_water ?? null;
+        const Mn_ppm = raw.Mn_ppm ?? raw.Mn ?? null;
+        return Object.assign({}, raw, { pH, Mn_ppm });
+      })(),
       region: detectRegion(),
       // Pass stress aggregates for compound effects
       stressAggregates: stress,

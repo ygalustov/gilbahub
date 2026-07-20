@@ -174,9 +174,9 @@ Feedback welcomed to improve model accuracy.`,
 // DiseaseEngine.analyse path, defunct since b35fix328+ legacy-to-pure
 // cutover (same orphan-class as Red Thread / C64 / b35fix459).
 const DRECHSLERA_POAE_VALIDATION_STATUS = {
-    status: 'validated',
+    status: 'unvalidated', // C71 #88: temperature curve from CABI 2024, but weighted-sum forecaster not peer-validated
     version: '3.2.0',
-    displayBadge: '✓ VALIDATED',
+    displayBadge: 'Unvalidated',
     shortMessage: 'CABI 2024 cardinal temperatures',
     detailedMessage: `DrechsleraPoaeModel validated against CABI 2024 Box 7.7
 Pyrenophora poae cardinal temperatures (Beehag, Walker, Wong and Kaapro
