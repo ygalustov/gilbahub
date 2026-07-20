@@ -1,3 +1,12 @@
+// C73: LargePatchModel honest provenance + confidence drop (mirrors b35fix495 Fusarium pass).
+//   Weighted-sum equation and point allocations in calculate() are Gilba-chosen, not peer-reviewed.
+//   Kerns & Tredway 2013, Envu AU 2023, Penn State, CABI 2024 Ch.6 inform temperature thresholds,
+//   host-range, and biological direction only; they are not the source of the weighted-sum equation.
+//   Confidence ceiling set to moderate/60 on all computed paths. No math changed.
+const LARGE_PATCH_MODEL_SOURCE = 'Gilba weighted-sum (Kerns & Tredway 2013; Envu AU 2023; Penn State; CABI 2024 Ch.6 — temperature thresholds and host-range only; combine weights Gilba-chosen, not calibrated)';
+const LARGE_PATCH_MODEL_CONFIDENCE_LEVEL = 'moderate';
+const LARGE_PATCH_MODEL_CONFIDENCE_SCORE = 60;
+
 /**
  * Large Patch Model v1.0.0
  * 
@@ -154,10 +163,9 @@ const LargePatchModel = {
                 riskScore: 0,
                 adjustedRisk: 0,
                 riskLevel: 'minimal',
-                confidence: 'high',
-                confidenceScore: 90,
-                validationStatus: 'production',
-                validationBadge: 'VALIDATED',
+                confidence: LARGE_PATCH_MODEL_CONFIDENCE_LEVEL,
+                confidenceScore: LARGE_PATCH_MODEL_CONFIDENCE_SCORE,
+                validationStatus: 'unvalidated',
                 drivers: {
                     temperature: {
                         air: meanTemp,
@@ -175,7 +183,7 @@ const LargePatchModel = {
                         'Begin preventive program when soil temp at 50mm drops to 21-24°C in autumn'
                     ]
                 },
-                source: 'Kerns & Tredway 2013, Envu AU 2023'
+                source: LARGE_PATCH_MODEL_SOURCE
             };
         }
         
@@ -187,10 +195,9 @@ const LargePatchModel = {
                 riskScore: 5,
                 adjustedRisk: Math.round(5 * susceptibility),
                 riskLevel: 'minimal',
-                confidence: 'medium',
-                confidenceScore: 75,
-                validationStatus: 'production',
-                validationBadge: 'VALIDATED',
+                confidence: LARGE_PATCH_MODEL_CONFIDENCE_LEVEL,
+                confidenceScore: LARGE_PATCH_MODEL_CONFIDENCE_SCORE,
+                validationStatus: 'unvalidated',
                 drivers: {
                     temperature: {
                         air: meanTemp,
@@ -200,7 +207,7 @@ const LargePatchModel = {
                         note: 'Below optimal temperature range - limited pathogen activity'
                     }
                 },
-                source: 'Kerns & Tredway 2013'
+                source: LARGE_PATCH_MODEL_SOURCE
             };
         }
         
@@ -347,12 +354,11 @@ const LargePatchModel = {
             riskScore: Math.round(baseRisk),
             adjustedRisk: adjustedRisk,
             riskLevel: riskLevel,
-            confidence: soilTempSource !== 'estimated' ? 'high' : 'medium',
-            confidenceScore: soilTempSource !== 'estimated' ? 85 : 70,
+            confidence: LARGE_PATCH_MODEL_CONFIDENCE_LEVEL,
+            confidenceScore: LARGE_PATCH_MODEL_CONFIDENCE_SCORE,
             primaryDriver: primaryDriver,
             modelVersion: '1.0',
-            validationStatus: 'production',
-            validationBadge: 'VALIDATED',
+            validationStatus: 'unvalidated',
             drivers: {
                 temperature: {
                     air: meanTemp,
@@ -388,7 +394,7 @@ const LargePatchModel = {
             applicationWindow: applicationWindow,
             applicationNote: applicationNote,
             interventions: interventions,
-            source: 'Kerns & Tredway 2013, Envu AU 2023, Penn State'
+            source: LARGE_PATCH_MODEL_SOURCE
         };
     },
     
