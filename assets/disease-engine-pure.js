@@ -4748,6 +4748,7 @@ function buildRecommendation(disease, fungicideRegion, trendDelta, fungicideFilt
     let products        = [];
     let productsLabel   = '';
     let productWarnings = [];
+    let productActives  = [];
 
     if (fungicideFilter && (action === 'preventive' || action === 'curative' || action === 'prepare')) {
         try {
@@ -4757,6 +4758,9 @@ function buildRecommendation(disease, fungicideRegion, trendDelta, fungicideFilt
             if (result && result.actives && result.actives.length > 0) {
                 products      = _formatProductLines(result.actives, fungicideRegion, result.registrationBody);
                 productsLabel = `Registered (${fungicideRegion}${result.registrationBody ? ', ' + result.registrationBody : ''})`;
+                // Expose structured actives for card rendering (same 4 items as _formatProductLines)
+                const _primary = result.actives.filter(a => a.type === 'primary' || !a.type);
+                productActives = (_primary.length > 0 ? _primary : result.actives).slice(0, 4);
             }
             if (result?.warnings?.length > 0) {
                 productWarnings = result.warnings;
@@ -4778,6 +4782,7 @@ function buildRecommendation(disease, fungicideRegion, trendDelta, fungicideFilt
         products,
         productsLabel,
         productWarnings,
+        productActives,
         resistanceNote,
         caveat: urgency.note || null,
     };

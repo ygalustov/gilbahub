@@ -50,6 +50,22 @@
         '.dr-app-item-label{font-size:11px;font-weight:700;color:#5b6a65;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}',
         '.dr-app-item-value{font-size:16px;font-weight:700;color:#17231f}',
         '.dr-app-item-note{font-size:11px;color:#5b6a65;margin-top:2px}',
+        /* product cards */
+        '.dr-product-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}',
+        '@media(max-width:600px){.dr-product-cards{grid-template-columns:1fr}}',
+        '.dr-product-card{background:#fff;border:1px solid #d8e0dc;border-radius:8px;padding:10px 12px;font-family:inherit;display:flex;flex-direction:column;gap:3px}',
+        '.dr-product-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}',
+        '.dr-product-name{font-size:13px;font-weight:700;color:#17231f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+        '.dr-product-frac{font-size:11px;font-weight:700;color:#5b6a65;white-space:nowrap;flex-shrink:0}',
+        '.dr-product-meta{font-size:11px;color:#5b6a65}',
+        '.dr-risk-badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.02em;padding:2px 7px;border-radius:4px;margin-top:4px;width:fit-content}',
+        '.dr-risk-NR{background:#dcfce7;color:#15803d}',
+        '.dr-risk-L{background:#dcfce7;color:#15803d}',
+        '.dr-risk-LM{background:#d1fae5;color:#0f766e}',
+        '.dr-risk-M{background:#fef3c7;color:#92400e}',
+        '.dr-risk-MH{background:#ffedd5;color:#c2410c}',
+        '.dr-risk-H{background:#fee2e2;color:#b91c1c}',
+        '.dr-risk-unknown{background:#f3f4f6;color:#6b7280}',
     ].join('');
     document.head.appendChild(style);
 
@@ -71,6 +87,33 @@
         return capitalize(
             key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim()
         );
+    }
+
+    var _RISK_BADGE_CLASS = { NR: 'NR', L: 'L', 'L-M': 'LM', M: 'M', 'M-H': 'MH', H: 'H' };
+    var _RISK_LABEL       = { NR: 'No resistance risk', L: 'Low resistance risk', 'L-M': 'Low–Med resistance risk', M: 'Medium resistance risk', 'M-H': 'Med–High resistance risk', H: 'High resistance risk' };
+
+    function _renderProductCards(productActives) {
+        if (!productActives || !productActives.length) return '';
+        var cards = productActives.map(function(a) {
+            var name     = esc(a.trade || a.activeIngredient || a.active || '');
+            var frac     = a.fracGroup ? 'FRAC ' + esc(String(a.fracGroup)) : '';
+            var rate     = esc(a.rateRange || a.rate || '');
+            var ivRaw    = a.interval ? String(a.interval).trim() : '';
+            var interval = ivRaw ? 'every ' + esc(ivRaw) + '+ days' : '';
+            var meta     = [rate, interval].filter(Boolean).join(' · ');
+            var rr       = (a.resistanceRisk || '').toUpperCase();
+            var rrKey    = _RISK_BADGE_CLASS[rr] || 'unknown';
+            var rrLabel  = _RISK_LABEL[rr] || esc(a.resistanceRisk || 'Unknown');
+            return '<div class="dr-product-card">' +
+                '<div class="dr-product-card-top">' +
+                    '<span class="dr-product-name">' + name + '</span>' +
+                    (frac ? '<span class="dr-product-frac">' + frac + '</span>' : '') +
+                '</div>' +
+                (meta ? '<div class="dr-product-meta">' + meta + '</div>' : '') +
+                '<span class="dr-risk-badge dr-risk-' + rrKey + '">' + rrLabel + '</span>' +
+            '</div>';
+        });
+        return '<div class="dr-product-cards">' + cards.join('') + '</div>';
     }
 
     var RISK_COLORS = {
@@ -442,12 +485,12 @@
         // Recommendation
         var rec = disease.recommendation;
         if (rec) {
-            var action   = (rec.action || '').toLowerCase();
-            var headline = rec.headline || rec.text || '';
-            var timing   = rec.timing  || '';
-            var products = Array.isArray(rec.products) ? rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; }) : [];
-            var recClass = ACTION_REC_CLASS[action] || 'monitor';
-            var recIcon  = ACTION_ICON[action]  || '✓';
+            var action         = (rec.action || '').toLowerCase();
+            var headline       = rec.headline || rec.text || '';
+            var timing         = rec.timing  || '';
+            var productActives = Array.isArray(rec.productActives) ? rec.productActives : [];
+            var recClass       = ACTION_REC_CLASS[action] || 'monitor';
+            var recIcon        = ACTION_ICON[action]  || '✓';
 
             html += '<div class="gl-section-label">Recommendation ' + infoBtn('dr-recommendation') + '</div>';
             html += '<div class="gl-rec ' + recClass + '">';
@@ -455,9 +498,9 @@
             html += '    <span>' + recIcon + ' ' + capitalize(rec.action || 'Monitor') + '</span>';
             if (timing) html += '    <span style="font-weight:400;opacity:.75">· ' + esc(timing) + '</span>';
             html += '  </div>';
-            if (headline) html += '<div style="line-height:1.5' + (products.length ? ';margin-bottom:8px' : '') + '">' + esc(headline) + '</div>';
-            if (products.length) {
-                html += '<div style="font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(products.join(', ')) + '</div>';
+            if (headline) html += '<div style="line-height:1.5' + (productActives.length ? ';margin-bottom:4px' : '') + '">' + esc(headline) + '</div>';
+            if (productActives.length) {
+                html += _renderProductCards(productActives);
             }
             html += '</div>';
         }
@@ -922,16 +965,16 @@
                 headline = '';
                 timing   = '';
             }
-            var cls      = ACTION_REC_CLASS[action] || 'monitor';
-            var icon     = ACTION_ICON[action] || '✓';
-            var products = rec && Array.isArray(rec.products) && rec.products.length ? rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; }) : [];
-            var prefix   = labelPrefix ? '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-right:4px">' + labelPrefix + ' · </span>' : '';
+            var cls            = ACTION_REC_CLASS[action] || 'monitor';
+            var icon           = ACTION_ICON[action] || '✓';
+            var productActives = rec && Array.isArray(rec.productActives) ? rec.productActives : [];
+            var prefix         = labelPrefix ? '<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.6;margin-right:4px">' + labelPrefix + ' · </span>' : '';
             return '<div class="gl-rec ' + cls + '">' +
                 '<div class="gl-rec-priority">' + prefix + esc(name) + '</div>' +
                 icon + ' ' + capitalize(rec ? (rec.action || 'Monitor') : action) +
                 (timing ? ' <span style="font-weight:400;opacity:.75">· ' + esc(timing) + '</span>' : '') +
                 (headline ? '<div style="margin-top:4px;opacity:.85">' + esc(headline) + '</div>' : '') +
-                (products.length ? '<div style="margin-top:4px;font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(products.join(', ')) + '</div>' : '') +
+                (productActives.length ? _renderProductCards(productActives) : '') +
                 '</div>';
         }
 
@@ -1399,10 +1442,10 @@
             html += '<span>' + recIcon + ' ' + capitalize(rec.action || 'Monitor') + '</span>';
             if (rec.timing) html += '<span style="font-weight:400;opacity:.75">· ' + esc(rec.timing) + '</span>';
             html += '</div>';
-            if (rec.headline) html += '<div style="line-height:1.5' + (rec.products && rec.products.length ? ';margin-bottom:8px' : '') + '">' + esc(rec.headline) + '</div>';
-            if (rec.products && rec.products.length) {
-                var uniqueProds = rec.products.filter(function(p, i, a) { return a.indexOf(p) === i; });
-                html += '<div style="font-size:12px;opacity:.8"><strong>Products:</strong> ' + esc(uniqueProds.join(', ')) + '</div>';
+            var _pa = Array.isArray(rec.productActives) ? rec.productActives : [];
+            if (rec.headline) html += '<div style="line-height:1.5' + (_pa.length ? ';margin-bottom:4px' : '') + '">' + esc(rec.headline) + '</div>';
+            if (_pa.length) {
+                html += _renderProductCards(_pa);
             }
             html += '</div>';
         }
