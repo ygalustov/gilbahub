@@ -685,6 +685,14 @@
     function getActivesForDisease(disease) {
         var products = getProductsForDisease(disease);
 
+        // Deduplicate by active ingredient block key: keep first occurrence (pre-sorted by efficacy desc).
+        var seenActive = {};
+        products = products.filter(function(p) {
+            if (seenActive[p.active]) return false;
+            seenActive[p.active] = true;
+            return true;
+        });
+
         if (!products.length) {
             return {
                 actives: [],
