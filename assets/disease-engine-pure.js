@@ -4761,6 +4761,16 @@ function buildRecommendation(disease, fungicideRegion, trendDelta, fungicideFilt
                 // Expose structured actives for card rendering (same 4 items as _formatProductLines)
                 const _primary = result.actives.filter(a => a.type === 'primary' || !a.type);
                 productActives = (_primary.length > 0 ? _primary : result.actives).slice(0, 4);
+                // Attach R4 mixture credit for mixture products (FRAC contains '+')
+                if (fungicideFilter.getMixtureCredit) {
+                    const _regionOpt = { region: _fungicideRegionToFilterKey(fungicideRegion) };
+                    productActives.forEach(a => {
+                        const blockKey = a.active || a.activeIngredient;
+                        if (blockKey && String(a.fracGroup || '').includes('+')) {
+                            a.mixtureCredit = fungicideFilter.getMixtureCredit(blockKey, diseaseKey, _regionOpt);
+                        }
+                    });
+                }
             }
             if (result?.warnings?.length > 0) {
                 productWarnings = result.warnings;

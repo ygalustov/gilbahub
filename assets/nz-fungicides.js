@@ -690,6 +690,8 @@
 
             var hasCredit = false;
             var reason = 'no credit';
+            var reportingPartnerActive = null;
+            var reportingPartnerEfficacy = null;
 
             entry.components.forEach(function(partner) {
                 if (hasCredit || String(partner.frac) === String(comp.frac)) return;
@@ -699,6 +701,9 @@
                     ? partnerEntry.efficacyNZ[disease]
                     : undefined;
                 var partnerIsMS = /^M\d/i.test(String(partner.frac));
+
+                reportingPartnerActive   = partner.active;
+                reportingPartnerEfficacy = (partnerEff != null) ? partnerEff : null;
 
                 if (partnerIsMS) {
                     if (typeof partnerEff === 'number' && partnerEff > 0) {
@@ -718,7 +723,14 @@
                 }
             });
 
-            result.push({ component: String(comp.frac), active: comp.active, hasCredit: hasCredit, reason: reason });
+            result.push({
+                component: String(comp.frac),
+                active: comp.active,
+                hasCredit: hasCredit,
+                reason: reason,
+                partnerActive: reportingPartnerActive,
+                partnerEfficacy: reportingPartnerEfficacy
+            });
         });
 
         return result;

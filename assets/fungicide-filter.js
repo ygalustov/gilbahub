@@ -821,10 +821,23 @@
     // EXPORTS
     // ========================================================================
 
+    function getMixtureCredit(blockKey, disease, options = {}) {
+        const region  = getCurrentRegion(options);
+        const dbType  = REGION_TO_FUNGICIDE_DB[region]?.dbType;
+        const DB_BY_TYPE = {
+            nz:  typeof window !== 'undefined' ? window.GAIP_NZ_FUNGICIDES : null,
+            au:  typeof window !== 'undefined' ? window.GAIP_AU_FUNGICIDES : null,
+        };
+        const DB = DB_BY_TYPE[dbType] || null;
+        if (DB?.getMixtureCredit) return DB.getMixtureCredit(blockKey, disease);
+        return [];
+    }
+
     const FungicideFilter = {
         // Main API
         getApprovedFungicides,
         getRotationRecommendation,
+        getMixtureCredit,
         isActiveRegistered,
         
         // Utilities

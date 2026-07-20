@@ -52,6 +52,14 @@
         '.dr-app-item-note{font-size:11px;color:#5b6a65;margin-top:2px}',
         /* product cards */
         '.dr-product-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}',
+        /* mixture credit section */
+        '.dr-mixture-credit{margin-top:6px;display:flex;flex-direction:column;gap:3px}',
+        '.dr-credit-row{display:flex;align-items:flex-start;gap:5px;font-size:11px;line-height:1.4}',
+        '.dr-credit-icon{flex-shrink:0;margin-top:1px}',
+        '.dr-credit-yes .dr-credit-label{color:#15803d}',
+        '.dr-credit-no .dr-credit-label{color:#b91c1c}',
+        '.dr-credit-frac{font-weight:700;color:#374151}',
+        '.dr-credit-reason{color:#5b6a65}',
         '@media(max-width:600px){.dr-product-cards{grid-template-columns:1fr}}',
         '.dr-product-card{background:#fff;border:1px solid #d8e0dc;border-radius:8px;padding:10px 12px;font-family:inherit;display:flex;flex-direction:column;gap:3px}',
         '.dr-product-card-top{display:flex;align-items:baseline;justify-content:space-between;gap:6px}',
@@ -92,6 +100,54 @@
     var _RISK_BADGE_CLASS = { NR: 'NR', L: 'L', 'L-M': 'LM', M: 'M', 'M-H': 'MH', H: 'H' };
     var _RISK_LABEL       = { NR: 'No resistance risk', L: 'Low resistance risk', 'L-M': 'Low–Med resistance risk', M: 'Medium resistance risk', 'M-H': 'Med–High resistance risk', H: 'High resistance risk' };
 
+    var _SVG_CREDIT_YES = '<svg class="dr-credit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="#16a34a"/><path d="M3.5 6L5.5 8L8.5 4" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    var _SVG_CREDIT_NO  = '<svg class="dr-credit-icon" width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="6" fill="#dc2626"/><path d="M4 4L8 8M8 4L4 8" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>';
+
+    function _fmtActiveName(key) {
+        if (!key) return key;
+        return key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
+    }
+
+    var _FRAC_GROUP_NAME = { '1': 'benzimidazole', '2': 'dicarboximide', '3': 'DMI (triazole)', '4': 'phenylamide', '7': 'SDHI', '11': 'strobilurin (QoI)' };
+
+    function _renderMixtureCredit(mixtureCredit) {
+        if (!mixtureCredit || !mixtureCredit.length) return '';
+        var rows = mixtureCredit.map(function(c) {
+            var icon      = c.hasCredit ? _SVG_CREDIT_YES : _SVG_CREDIT_NO;
+            var rowClass  = c.hasCredit ? 'dr-credit-yes' : 'dr-credit-no';
+            var fracLabel = 'FRAC ' + esc(String(c.component));
+            var aiName    = c.active ? esc(_fmtActiveName(c.active)) : '';
+            var fracText  = aiName ? fracLabel + ' (' + aiName + ')' : fracLabel;
+            var status    = c.hasCredit ? 'Protected' : 'Unprotected';
+
+            var reasonLine = '';
+            if (c.partnerActive) {
+                var pName = esc(_fmtActiveName(c.partnerActive));
+                var pEff  = c.partnerEfficacy != null ? c.partnerEfficacy : null;
+                if (c.hasCredit) {
+                    reasonLine = pEff != null
+                        ? 'Partner ' + pName + ' is effective against this disease (' + pEff + '/5)'
+                        : 'Partner ' + pName + ' is active against this disease';
+                } else {
+                    var groupName = _FRAC_GROUP_NAME[String(c.component)] || ('FRAC ' + c.component);
+                    reasonLine = pEff != null
+                        ? 'Partner ' + pName + ' too weak (' + pEff + '/5, minimum &gt; 3.0) — behaves as solo ' + groupName
+                        : 'Partner ' + pName + ' has no activity — behaves as solo ' + groupName;
+                }
+            }
+
+            return '<div class="dr-credit-row ' + rowClass + '">' +
+                icon +
+                '<div>' +
+                    '<span class="dr-credit-frac">' + fracText + '</span>' +
+                    ' <span class="dr-credit-label">— ' + status + '</span>' +
+                    (reasonLine ? '<div class="dr-credit-reason">' + reasonLine + '</div>' : '') +
+                '</div>' +
+            '</div>';
+        });
+        return '<div class="dr-mixture-credit">' + rows.join('') + '</div>';
+    }
+
     function _renderProductCards(productActives) {
         if (!productActives || !productActives.length) return '';
         var cards = productActives.map(function(a) {
@@ -104,12 +160,16 @@
             var rr       = (a.resistanceRisk || '').toUpperCase();
             var rrKey    = _RISK_BADGE_CLASS[rr] || 'unknown';
             var rrLabel  = _RISK_LABEL[rr] || esc(a.resistanceRisk || 'Unknown');
+            var creditHtml = Array.isArray(a.mixtureCredit) && a.mixtureCredit.length
+                ? _renderMixtureCredit(a.mixtureCredit)
+                : '';
             return '<div class="dr-product-card">' +
                 '<div class="dr-product-card-top">' +
                     '<span class="dr-product-name">' + name + '</span>' +
                     (frac ? '<span class="dr-product-frac">' + frac + '</span>' : '') +
                 '</div>' +
                 (meta ? '<div class="dr-product-meta">' + meta + '</div>' : '') +
+                creditHtml +
                 '<span class="dr-risk-badge dr-risk-' + rrKey + '">' + rrLabel + '</span>' +
             '</div>';
         });
