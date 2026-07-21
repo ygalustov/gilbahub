@@ -159,6 +159,135 @@
         return bar;
     }
 
+    // ─── Sample selectors (soil + water) ─────────────────────────────────────
+    // Compact dropdown buttons in the site bar, styled like sn-drop-* in soil-nutrition-analysis.js.
+
+    var _smpDropCss = [
+        '.ss-smp-sep{margin:0 6px;color:#d1d5db;font-size:14px;line-height:1}',
+        '.ss-smp-wrap{position:relative;display:inline-flex;align-items:center}',
+        '.ss-smp-btn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid #86efac;border-radius:6px;background:var(--gaip-surface,#fff);cursor:pointer;font-size:12px;color:#166534;white-space:nowrap;max-width:200px;font-family:inherit}',
+        '.ss-smp-btn:hover{border-color:#2da85e;color:#166534}',
+        '.ss-smp-btn:disabled{opacity:.5;cursor:default}',
+        '.ss-smp-type{font-weight:700;flex-shrink:0;margin-right:2px}',
+        '.ss-smp-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px}',
+        '.ss-smp-panel{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:9999;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:200px;max-width:300px;padding:4px 0;font-family:inherit}',
+        '.ss-smp-open .ss-smp-panel{display:block}',
+        '.ss-smp-row{display:flex;justify-content:space-between;align-items:center;padding:7px 12px;cursor:pointer;font-size:12px;color:#374151;gap:8px}',
+        '.ss-smp-row:hover{background:#f0fdf4}',
+        '.ss-smp-row.active{background:#f0fdf4;font-weight:600;color:#166534}',
+        '.ss-smp-row-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+        '.ss-smp-row-date{flex-shrink:0;font-size:11px;color:#9ca3af}',
+    ].join('');
+
+    var _smpCssInjected = false;
+    function _injectSmpCss() {
+        if (_smpCssInjected) return;
+        var st = document.createElement('style');
+        st.textContent = _smpDropCss;
+        document.head.appendChild(st);
+        _smpCssInjected = true;
+    }
+
+    function _smpLabel(sample) {
+        if (!sample) return null;
+        return sample.label || sample.id || null;
+    }
+
+    function _buildSmpRows(samples, activeId) {
+        if (!samples || !samples.length) return '<div style="padding:8px 12px;font-size:12px;color:#9ca3af">No samples</div>';
+        return samples.map(function(s) {
+            var id = s.id || s.sampleId;
+            var name = _smpLabel(s) || id;
+            var date = s.date ? s.date.slice(0, 10) : '';
+            var active = (id === activeId);
+            return '<div class="ss-smp-row' + (active ? ' active' : '') + '" data-id="' + id.replace(/"/g, '&quot;') + '">' +
+                '<span class="ss-smp-row-name">' + name + '</span>' +
+                (date ? '<span class="ss-smp-row-date">' + date + '</span>' : '') +
+                '</div>';
+        }).join('');
+    }
+
+    function _buildSampleDropdown(dataType) {
+        var SM = global.GAIP_SampleManager;
+        var samples = (SM && SM.getSamples && SM.getSamples(dataType)) || [];
+        var activeId = SM && SM.getActiveSampleId && SM.getActiveSampleId(dataType);
+        var activeSmp = samples.find(function(s){ return (s.id || s.sampleId) === activeId; });
+        var label = activeSmp ? (_smpLabel(activeSmp) || activeId) : (samples.length > 0 ? '—' : 'No ' + dataType);
+        var typeLbl = dataType === 'soil' ? 'Soil' : 'Water';
+
+        var wrap = document.createElement('div');
+        wrap.className = 'ss-smp-wrap';
+        wrap.id = 'ss-smp-wrap-' + dataType;
+        wrap.dataset.type = dataType;
+
+        var svgChev = '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ss-smp-btn';
+        btn.id = 'ss-smp-btn-' + dataType;
+        btn.innerHTML = '<span class="ss-smp-type">' + typeLbl + ':</span><span class="ss-smp-label" id="ss-smp-label-' + dataType + '">' + label + '</span>' + svgChev;
+        btn.disabled = samples.length === 0;
+        wrap.appendChild(btn);
+
+        var panel = document.createElement('div');
+        panel.className = 'ss-smp-panel';
+        panel.id = 'ss-smp-panel-' + dataType;
+        panel.innerHTML = _buildSmpRows(samples, activeId);
+        wrap.appendChild(panel);
+
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var other = dataType === 'soil' ? 'water' : 'soil';
+            var ow = document.getElementById('ss-smp-wrap-' + other);
+            if (ow) ow.classList.remove('ss-smp-open');
+            wrap.classList.toggle('ss-smp-open');
+        });
+
+        panel.addEventListener('click', function(e) {
+            var row = e.target.closest('.ss-smp-row[data-id]');
+            if (!row) return;
+            wrap.classList.remove('ss-smp-open');
+            _switchSample(dataType, row.dataset.id);
+        });
+
+        return wrap;
+    }
+
+    function _switchSample(dataType, sampleId) {
+        var SM = global.GAIP_SampleManager;
+        if (!SM || !sampleId) return;
+        log('Switching ' + dataType + ' sample to: ' + sampleId);
+        SM.loadSample(dataType, sampleId);
+        updateSampleSelectors();
+        setTimeout(function() {
+            var runBtn = document.querySelector('.gaip-run-btn');
+            if (runBtn) runBtn.click();
+        }, 80);
+    }
+
+    function updateSampleSelectors() {
+        ['soil', 'water'].forEach(function(dataType) {
+            var SM = global.GAIP_SampleManager;
+            var samples = (SM && SM.getSamples && SM.getSamples(dataType)) || [];
+            var activeId = SM && SM.getActiveSampleId && SM.getActiveSampleId(dataType);
+            var activeSmp = samples.find(function(s){ return (s.id || s.sampleId) === activeId; });
+            var label = activeSmp ? (_smpLabel(activeSmp) || activeId) : (samples.length > 0 ? '—' : 'No ' + dataType);
+            var labelEl = document.getElementById('ss-smp-label-' + dataType);
+            if (labelEl) labelEl.textContent = label;
+            var btn = document.getElementById('ss-smp-btn-' + dataType);
+            if (btn) btn.disabled = samples.length === 0;
+            var panel = document.getElementById('ss-smp-panel-' + dataType);
+            if (panel) panel.innerHTML = _buildSmpRows(samples, activeId);
+        });
+    }
+
+    // Close dropdowns on outside click
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.ss-smp-wrap.ss-smp-open').forEach(function(w){ w.classList.remove('ss-smp-open'); });
+    });
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     var _updatingUI = false;
     var _lastDispatchedSiteId = null;  // prevents bounce from restore-triggered updateUI calls
     function updateUI() {
@@ -209,6 +338,8 @@
 
         var badge = document.getElementById('gaip-site-sample-count');
         if (badge) badge.textContent = getSampleCountText();
+
+        updateSampleSelectors();
 
         // Update sample switcher dropdowns if available
         var switchers = document.querySelectorAll('.gaip-sample-select');
@@ -273,6 +404,8 @@
                 log('Cleared ' + dt + ' form (no samples on this site)');
             }
         }
+
+        updateSampleSelectors();
     }
 
     /**
@@ -568,6 +701,7 @@
         updateUI: updateUI,
         inject: inject,
         reloadActiveSample: reloadActiveSample,
+        updateSampleSelectors: updateSampleSelectors,
         version: CONFIG.version
     };
 

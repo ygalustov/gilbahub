@@ -110,6 +110,9 @@
 @endsection
 
 @section('scripts')
+{{-- Sample management: needed for soil/water sample selectors in Water Balance tab --}}
+<script src="{{ $legacyAssetUrl('sample-manager.js') }}"></script>
+<script src="{{ $legacyAssetUrl('sample-persistence.js') }}"></script>
 <script src="{{ $legacyAssetUrl('spray-log.js') }}"></script>
 <script src="{{ $legacyAssetUrl('uv-residual-engine.js') }}"></script>
 <script src="{{ $legacyAssetUrl('spray-log-cascade.js') }}"></script>

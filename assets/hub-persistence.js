@@ -1091,10 +1091,39 @@
                 var _bulkDensity = parseFloat(_si.bulkDensity) || 1.4;
                 var _turfType    = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
                                    ? 'warm-season' : 'cool-season';
+                // Sample-store fallback for pH/ECe/Na: read by GAIP_HUB_CONFIG.activeSiteId so
+                // a site switch to 'default' (site-config-persistence race) doesn't affect us.
+                var _soilSmpData = (function() {
+                    try {
+                        if (!global.GAIP_SampleManager) return {};
+                        var _hubSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                        if (_hubSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
+                            var _allS = global.GAIP_SampleManager.getAllSamples();
+                            var _sSiteStore = _allS.allSites && _allS.allSites[_hubSite];
+                            var _sSoilSamples = (_sSiteStore && _sSiteStore.soil) || {};
+                            var _sActiveIds = _allS.allActive && _allS.allActive[_hubSite];
+                            var _sActiveId = _sActiveIds && _sActiveIds.soil;
+                            var _sSmp = (_sActiveId && _sSoilSamples[_sActiveId]) ||
+                                        Object.values(_sSoilSamples).sort(function(a,b){ return (b.date||'')>(a.date||'')?1:-1; })[0];
+                            if (_sSmp) return (_sSmp.rawData || _sSmp.values) || {};
+                        }
+                        var _ss = global.GAIP_SampleManager.getActiveSample('soil');
+                        return (_ss && (_ss.rawData || _ss.values)) || {};
+                    } catch(e) { return {}; }
+                })();
+                var _texMultipliers = {sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10};
+                console.log('[GilbaPersist] _soilSmpData EC/pH/Na keys:', Object.keys(_soilSmpData).filter(function(k){ return /ec|ph|na/i.test(k); }), '| EC:', _soilSmpData.EC, '| EC_1_5:', _soilSmpData.EC_1_5, '| EC_dSm:', _soilSmpData.EC_dSm);
+                var _soilSmpEC15 = parseFloat(_soilSmpData.EC || _soilSmpData.EC_1_5 || _soilSmpData.EC_dSm || 0);
+                var _soilSmpTex  = _soilSmpData.Texture || _soilSmpData.texture || _soilSmpData.Soil_Texture || 'loam';
+                var _soilSmpECe  = _soilSmpEC15 > 0 ? _soilSmpEC15 * (_texMultipliers[_soilSmpTex] || 7) : 0;
+                var _soilSmpPH   = parseFloat(_soilSmpData.pH_Water || _soilSmpData.pH || _soilSmpData.ph || 0);
+                var _soilSmpNa   = parseFloat(_soilSmpData.Na || _soilSmpData.Na_ppm || 0);
                 cache.computed.soilNutrition = {
                     verdict:      _soilVerdict,
                     methodology:  _si.methodology || null,
-                    pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || null,
+                    pH:           _si.pH_water || _si.pH_cacl2 || _si.ph || _soilSmpPH || null,
+                    ECe:          _si.ECe || _soilSmpECe || null,
+                    soilNa:       (_si.ppm && _si.ppm.Na) || _si.Na_ppm || _soilSmpNa || null,
                     CEC:          _si.CEC || _si.cec || null,
                     sampleDate:   _si.testDate || null,
                     sampleLabel:  _si.sampleLabel || null,
@@ -1147,8 +1176,22 @@
         // Fallback: if hub form was empty (no soil inputs), try latest sample from GAIP_SampleManager
         if (!cache.computed.soilNutrition && global.GAIP_SampleManager && typeof global.mlsnEngine === 'function') {
             try {
-                var _smSamples = typeof global.GAIP_SampleManager.getSamples === 'function'
-                    ? global.GAIP_SampleManager.getSamples('soil') : null;
+                // Use getAllSamples() by GAIP_HUB_CONFIG.activeSiteId to avoid active-site mismatch
+                // when site-config-persistence has switched the active site to 'default'.
+                var _smSamples = (function() {
+                    try {
+                        var _hSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                        if (_hSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
+                            var _aS = global.GAIP_SampleManager.getAllSamples();
+                            return (_aS.allSites && _aS.allSites[_hSite] && _aS.allSites[_hSite].soil) || null;
+                        }
+                        return typeof global.GAIP_SampleManager.getSamples === 'function'
+                            ? global.GAIP_SampleManager.getSamples('soil') : null;
+                    } catch(e) {
+                        return typeof global.GAIP_SampleManager.getSamples === 'function'
+                            ? global.GAIP_SampleManager.getSamples('soil') : null;
+                    }
+                })();
                 if (_smSamples) {
                     // Pick the most recent sample by date
                     var _smLatestId = null, _smLatestDate = '';
@@ -1158,7 +1201,9 @@
                     });
                     if (_smLatestId) {
                         var _smSample = _smSamples[_smLatestId];
-                        var _smRaw = _smSample.rawData || {};
+                        // Server-fetched samples have .values, CSV-imported have .rawData
+                        var _smRaw = _smSample.rawData || _smSample.values || {};
+                        console.log('[GilbaPersist] fallback _smRaw EC/pH/Na keys for', _smLatestId, ':', Object.keys(_smRaw).filter(function(k){ return /ec|ph|na/i.test(k); }), '| EC:', _smRaw.EC, '| EC_1_5:', _smRaw.EC_1_5, '| EC_dSm:', _smRaw.EC_dSm);
                         // Map {K_ppm: 100, ...} → {K: 100, ...} for mlsnEngine
                         var _smPpm = {};
                         Object.keys(_smRaw).forEach(function(k) {
@@ -1211,10 +1256,23 @@
                             var _smBD    = parseFloat(_smRaw.bulkDensity) || 1.4;
                             var _smTurfType = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
                                              ? 'warm-season' : 'cool-season';
+                            // DOM fallback: same race condition as primary path
+                            var _smPhDom   = parseFloat((document.querySelector('.gaip-soil-ph') || {}).value) || 0;
+                            var _smEc15Dom = parseFloat((document.querySelector('.gaip-soil-ec') || {}).value) || 0;
+                            var _smTexDom  = (document.querySelector('.gaip-soil-texture') || {}).value || 'loam';
+                            var _smEceDom  = _smEc15Dom > 0 ? _smEc15Dom * ({sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10}[_smTexDom] || 7) : 0;
+                            var _smNaDom   = parseFloat(((document.querySelector('[data-mlsn="Na"]') || {})).value) || 0;
                             cache.computed.soilNutrition = {
                                 verdict:     _smVerdict,
                                 methodology: _smRaw.methodology || null,
-                                pH:          _smRaw.pH_Water || _smRaw.pH || _smRaw.ph || null,
+                                pH:          _smRaw.pH_Water || _smRaw.pH || _smRaw.ph || _smPhDom || null,
+                                ECe:         _smRaw.ECe || _smRaw.EC_paste || (function() {
+                                                 var ec15 = parseFloat(_smRaw.EC || _smRaw.EC_1_5 || _smRaw.EC_dSm || 0);
+                                                 if (!ec15) return _smEceDom || null;
+                                                 var tx = _smRaw.Texture || _smRaw.texture || _smTexDom || 'loam';
+                                                 return ec15 * ({sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10}[tx] || 7);
+                                             })(),
+                                soilNa:      _smPpm.Na || parseFloat(_smRaw.Na || 0) || _smNaDom || null,
                                 CEC:         _smRaw.CEC || _smRaw.cec || null,
                                 sampleDate:  _smSample.date || null,
                                 sampleLabel: _smSample.label || _smLatestId,
@@ -1344,6 +1402,71 @@
                         || (_gaipState && _gaipState.water)
                         || (global.__GAIP_WATER_STATE__ && global.__GAIP_WATER_STATE__.water)
                         || null;
+
+            // DOM fallback: if __GAIP_WATER_STATE__ was captured before the water sample
+            // was loaded into the form (race: server fetch completes after initial analysis),
+            // the state has ecw=0 and empty ions. Re-read from DOM in that case so the
+            // persisted cache reflects the sample values that are now in the form.
+            var _stateHasWater = _waterIn && (parseFloat(_waterIn.ecw) > 0 || Object.keys(_waterIn.ions || {}).some(function(k) { return _waterIn.ions[k] > 0; }));
+            if (!_stateHasWater) {
+                var _ecwDomEl = document.querySelector('.gaip-ecw');
+                var _ecwDomVal = _ecwDomEl ? parseFloat(_ecwDomEl.value) : 0;
+                if (_ecwDomVal > 0) {
+                    var _ionsDom = {};
+                    var _ionEls = document.querySelectorAll('[data-ion]');
+                    for (var _ii = 0; _ii < _ionEls.length; _ii++) {
+                        var _ik = _ionEls[_ii].getAttribute('data-ion');
+                        var _iv = parseFloat(_ionEls[_ii].value);
+                        if (_ik && !isNaN(_iv) && _iv > 0) _ionsDom[_ik] = _iv;
+                    }
+                    var _phDomEl = document.querySelector('.gaip-water-ph');
+                    _waterIn = {
+                        ecw:  _ecwDomVal,
+                        ions: _ionsDom,
+                        pH:   _phDomEl ? parseFloat(_phDomEl.value) : null,
+                        source: 'dom-fallback',
+                    };
+                    console.log('[GilbaPersist] Water DOM fallback used | ECw:', _ecwDomVal, '| ions:', Object.keys(_ionsDom).join(','));
+                }
+            }
+
+            // Sample-store fallback: site may switch to 'default' between loadSample and the
+            // 3s save timer (site-config-persistence race), clearing the DOM. Read directly
+            // from the sample store by GAIP_HUB_CONFIG.activeSiteId to bypass active-site binding.
+            if (!_waterIn || !(parseFloat(_waterIn.ecw) > 0)) {
+                try {
+                    var _hubSiteId = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                    if (_hubSiteId && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
+                        var _allSmpState = global.GAIP_SampleManager.getAllSamples();
+                        var _siteSmpStore = _allSmpState.allSites && _allSmpState.allSites[_hubSiteId];
+                        var _siteWaterSamples = (_siteSmpStore && _siteSmpStore.water) || {};
+                        var _activeWIds = _allSmpState.allActive && _allSmpState.allActive[_hubSiteId];
+                        var _activeWId = _activeWIds && _activeWIds.water;
+                        var _wSmp = (_activeWId && _siteWaterSamples[_activeWId]) ||
+                                    Object.values(_siteWaterSamples).sort(function(a,b) { return (b.date||'') > (a.date||'') ? 1 : -1; })[0];
+                        if (_wSmp) {
+                            var _wData = _wSmp.rawData || _wSmp.values || {};
+                            var _wEC = parseFloat(_wData.EC || _wData.ECw || _wData.ec || 0);
+                            if (_wEC > 0) {
+                                var _wIons = {};
+                                ['Ca','Mg','Na','K','HCO3','CO3','Cl','SO4'].forEach(function(ion) {
+                                    var v = parseFloat(_wData[ion] || 0);
+                                    if (v > 0) _wIons[ion] = v;
+                                });
+                                _waterIn = {
+                                    ecw:  _wEC,
+                                    ions: _wIons,
+                                    pH:   parseFloat(_wData.pH || _wData.ph) || null,
+                                    SAR:  parseFloat(_wData.SAR || _wData.sar) || null,
+                                    source: 'sample-store-fallback',
+                                };
+                                console.log('[GilbaPersist] Water sample-store fallback | site:', _hubSiteId, '| ECw:', _wEC, '| ions:', Object.keys(_wIons).join(','));
+                            }
+                        }
+                    }
+                } catch(e) {}
+            }
+
             var _ions = (_waterIn && _waterIn.ions) || {};
 
             // meq/L conversion factors (EW = MW / valence)
@@ -1368,8 +1491,38 @@
                 _SAR = _Na / Math.sqrt((_Ca + _Mg) / 2);
                 _SAR = Math.round(_SAR * 100) / 100;
             }
+            // Fallback: use lab-reported SAR directly if ions not available to compute it.
+            // data.blade.php water form has a SAR field; the old hub has no SAR DOM input
+            // so it's never picked up by gaip_build_state(). Read from sample-store by siteId.
+            if (_SAR === null) {
+                // First try: SAR already extracted by sample-store fallback above
+                var _sarFromStore = _waterIn && _waterIn.SAR;
+                if (_sarFromStore) {
+                    _SAR = _sarFromStore;
+                    _SARadj = _SAR;
+                } else if (global.GAIP_SampleManager) {
+                    try {
+                        var _sarHubSite = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                        var _wSampleForSAR = null;
+                        if (_sarHubSite && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
+                            var _sAll = global.GAIP_SampleManager.getAllSamples();
+                            var _sWStore = _sAll.allSites && _sAll.allSites[_sarHubSite] && _sAll.allSites[_sarHubSite].water || {};
+                            var _sWActive = _sAll.allActive && _sAll.allActive[_sarHubSite] && _sAll.allActive[_sarHubSite].water;
+                            _wSampleForSAR = (_sWActive && _sWStore[_sWActive]) ||
+                                             Object.values(_sWStore).sort(function(a,b){return (b.date||'')>(a.date||'')?1:-1;})[0];
+                        }
+                        if (!_wSampleForSAR) _wSampleForSAR = global.GAIP_SampleManager.getActiveSample('water');
+                        var _wDataForSAR = _wSampleForSAR && (_wSampleForSAR.rawData || _wSampleForSAR.values) || {};
+                        var _sarDirect = parseFloat(_wDataForSAR.SAR || _wDataForSAR.sar || _wDataForSAR.SAR_ppm);
+                        if (!isNaN(_sarDirect) && _sarDirect > 0) {
+                            _SAR = Math.round(_sarDirect * 100) / 100;
+                            _SARadj = _SAR;
+                        }
+                    } catch(e) {}
+                }
+            }
             // SARadj: simplified Suarez — reduce Ca if bicarbonate > Ca+Mg (calcite precipitation)
-            if (_SAR !== null) {
+            if (_SAR !== null && _SARadj === null) {
                 var _Cax = _Ca;
                 if (_HCO3 + _CO3 > _Ca + _Mg && _Ca > 0) {
                     _Cax = Math.max(0.1, _Ca - 0.5 * ((_HCO3 + _CO3) - (_Ca + _Mg)));

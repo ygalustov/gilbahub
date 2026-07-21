@@ -1337,21 +1337,23 @@
         }
 
         // Populate form fields
+        // Server-restored samples use `values` (from payload); CSV-imported ones use `rawData`.
+        const _sampleData = sample.rawData || sample.values || {};
         if (dataType === 'tissue') {
-            populated.push(...populateTissueFields(sample.rawData));
+            populated.push(...populateTissueFields(_sampleData));
         } else {
             // b35fix377: resolve fieldMap keys to actual row columns via the
             // case-and-suffix-tolerant resolver. Pre-fix this loop did
             // `sample.rawData[col]` direct lookup, so a sample whose rawData
             // came from a CSV with `K_Mehlich3` headers populated zero
             // nutrient inputs even though `K` is in fieldMap.
-            const rawKeys = Object.keys(sample.rawData || {});
+            const rawKeys = Object.keys(_sampleData);
             const idx = _buildColumnIndex(fieldMap, rawKeys);
 
             for (const col in fieldMap) {
                 const actualCol = idx.resolve(col);
                 if (actualCol === null) continue;
-                const rawVal = sample.rawData[actualCol];
+                const rawVal = _sampleData[actualCol];
                 if (rawVal === undefined || rawVal === '') continue;
 
                 const selector = fieldMap[col];

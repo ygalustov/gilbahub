@@ -8,6 +8,19 @@
 
     if (global.GAIP_WaterBalanceAnalysis) return;
 
+    // ─── Sample selector state ────────────────────────────────────────────────
+    var _wbSoilSamples    = [];
+    var _wbWaterSamples   = [];
+    var _wbSoilActiveIdx  = -1;
+    var _wbWaterActiveIdx = -1;
+
+    function _wbSaveActiveId(type, id) {
+        try { localStorage.setItem('gilba_wb_active_' + type, id); } catch(e) {}
+    }
+    function _wbLoadActiveId(type) {
+        try { return localStorage.getItem('gilba_wb_active_' + type) || null; } catch(e) { return null; }
+    }
+
     // =========================================================================
     // GLOSSARY (i-icons)
     // =========================================================================
@@ -335,6 +348,26 @@
             '@media(max-width:600px){.sn-verdict-rows{grid-template-columns:1fr}}',
             '.sn-verdict-row{font-size:12px;line-height:1.5}',
             '.sn-verdict-row strong{text-transform:uppercase;font-size:10px;letter-spacing:.06em;opacity:.7;display:block}',
+            /* Sample selectors (reuse sn-drop-* pattern from soil-nutrition) */
+            '.sn-drop-wrap{position:relative;display:block;font-family:inherit}',
+            '.sn-drop-btn{display:flex;align-items:center;gap:7px;padding:7px 12px;background:#fff;border:1px solid #d8e0dc;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:#17231f;width:100%;box-sizing:border-box;max-width:560px;font-family:inherit;text-align:left}',
+            '.sn-drop-btn:hover{border-color:#2da85e}',
+            '.sn-drop-open .sn-drop-btn{border-color:#2da85e;border-bottom-left-radius:0;border-bottom-right-radius:0}',
+            '.sn-drop-panel{display:none;position:absolute;top:100%;left:0;z-index:200;background:#fff;border:1px solid #2da85e;border-top:none;border-radius:0 8px 8px 8px;box-shadow:0 4px 16px rgba(0,0,0,.1);min-width:560px;max-width:min(720px,90vw)}',
+            '.sn-drop-open .sn-drop-panel{display:block}',
+            '.sn-drop-search{display:block;width:100%;box-sizing:border-box;padding:8px 12px;border:none;border-bottom:1px solid #e5e7eb;font-size:13px;outline:none;color:#17231f;font-family:inherit}',
+            '.sn-drop-search::placeholder{color:#9ca3af}',
+            '.sn-drop-header{display:grid;grid-template-columns:110px 60px 1fr 100px;gap:8px;padding:5px 12px;background:#f5f7f6;border-bottom:1px solid #e5e7eb;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65}',
+            '.sn-drop-list{max-height:240px;overflow-y:auto}',
+            '.sn-drop-row{display:grid;grid-template-columns:110px 60px 1fr 100px;gap:8px;padding:9px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;align-items:center}',
+            '.sn-drop-row:last-child{border-bottom:none}',
+            '.sn-drop-row:hover{background:#f0fdf4}',
+            '.sn-drop-row.active{background:#f0fdf4}',
+            '.sn-drop-cell-zone{font-size:12px;font-weight:600;color:#17231f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-row.active .sn-drop-cell-zone::before{content:"● ";color:#2da85e}',
+            '.sn-drop-cell-ref{font-size:12px;color:#5b6a65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-cell-file{font-size:11px;color:#5b6a65;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+            '.sn-drop-cell-date{font-size:11px;color:#5b6a65;white-space:nowrap}',
         ].join('\n');
         document.head.appendChild(el);
     }
@@ -423,9 +456,13 @@
             '<div style="display:flex;align-items:center;margin-bottom:2px">',
             '<h1 class="gl-title">Water Balance Analysis</h1>',
             '</div>',
-            '<div class="gl-subtitle">Irrigation water quality, salinity impact &amp; soil moisture balance</div>',
-            sourceInfo,
-            '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr)">'+cards.join('')+'</div>',
+            '<div class="gl-subtitle" style="margin-bottom:8px">Select soil and water samples to view irrigation quality, salinity impact &amp; moisture balance.</div>',
+            '<div style="display:flex;gap:12px;flex-wrap:wrap">',
+            '<div id="wb-soil-selector"></div>',
+            '<div id="wb-water-selector"></div>',
+            '</div>',
+            sourceInfo ? '<div style="margin-top:6px">'+sourceInfo+'</div>' : '',
+            '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:12px">'+cards.join('')+'</div>',
             '</div>',
             '</div>',
         ].join('\n');
@@ -891,6 +928,248 @@
     }
 
     // =========================================================================
+    // 7. SOIL × WATER CROSS-ANALYSIS
+    // =========================================================================
+
+    function analyzeSoilWaterInteraction(sn, wb) {
+        if (!sn || !wb) return null;
+
+        var soilPH   = parseFloat(sn.pH)     || 0;
+        var soilECe  = parseFloat(sn.ECe)    || 0;
+        var soilNa   = parseFloat(sn.soilNa) || 0;
+        var waterECw = parseFloat(wb.ecw)    || 0;
+
+        if (soilPH === 0 && soilECe === 0) return null;
+
+        // ions in cache are already meq/L
+        var ions     = wb.ions || {};
+        var wCa      = ions.Ca   || 0;
+        var wMg      = ions.Mg   || 0;
+        var wHCO3    = ions.HCO3 || 0;
+        var wCO3     = ions.CO3  || 0;
+
+        // mg/L equivalents for threshold comparisons that match the source algorithm
+        var wCaMgL   = wCa   * 20.04;
+        var wHCO3MgL = wHCO3 * 61.0;
+        var wCO3MgL  = wCO3  * 30.0;
+
+        // Use pre-computed SARadj from waterBalance
+        var waterSARadj = parseFloat(wb.SARadj) || parseFloat(wb.SAR) || 0;
+
+        var issues        = [];
+        var overallStatus = 'adequate';
+        var priority      = 0;
+
+        // 0. Soil EC × Water EC
+        if (soilECe > 0 && waterECw > 0) {
+            var ssEC = waterECw / (2 * 0.15);
+            if (soilECe > 4.0 && waterECw > 1.5) {
+                issues.push({ type:'Salinity Accumulation', severity:'high',
+                    description:'High soil EC (' + soilECe.toFixed(1) + ' dS/m) + saline irrigation (ECw ' + waterECw.toFixed(1) + ' dS/m)',
+                    impact:'Salt accumulation exceeding cool-season tolerance (~3-4 dS/m)',
+                    action:'Increase leaching fraction to 20-25%, monitor rootzone EC monthly' });
+                overallStatus = 'deficient'; priority = Math.max(priority, 3);
+            } else if (soilECe > 2.5 && waterECw > 1.0) {
+                issues.push({ type:'Salinity Build-up', severity:'moderate',
+                    description:'Elevated soil EC (' + soilECe.toFixed(1) + ' dS/m) with ECw ' + waterECw.toFixed(1) + ' dS/m',
+                    impact:'At 15% LF, steady-state EC ≈ ' + ssEC.toFixed(1) + ' dS/m',
+                    action:'Maintain leaching fraction ≥15%, monitor soil EC quarterly' });
+                overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+                priority = Math.max(priority, 2);
+            } else if (soilECe < waterECw * 0.8) {
+                issues.push({ type:'Effective Leaching', severity:'low',
+                    description:'Soil EC (' + soilECe.toFixed(1) + ' dS/m) below expected from ECw (' + waterECw.toFixed(1) + ' dS/m)',
+                    impact:'Current leaching regime effectively preventing salt accumulation',
+                    action:'Maintain current irrigation practices' });
+            }
+        } else if (soilECe > 2.5 && waterECw === 0) {
+            issues.push({ type:'Soil Salinity — No Water EC', severity:'moderate',
+                description:'Soil EC elevated (' + soilECe.toFixed(1) + ' dS/m) — water EC not entered',
+                impact:'Unable to assess salt loading from irrigation',
+                action:'Enter water EC to enable full salinity assessment' });
+            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+            priority = Math.max(priority, 1);
+        }
+
+        // 1. pH × Water Chemistry
+        var isDepositing = (wCaMgL > 60 && wHCO3MgL > 100);
+        var isStripping  = (wCaMgL < 20 && (wHCO3MgL > 100 || wCO3MgL > 10));
+
+        if (soilPH > 7.5 && isDepositing) {
+            issues.push({ type:'pH × Depositing Water', severity:'high',
+                description:'Alkaline soil (pH ' + soilPH.toFixed(1) + ') + Ca/HCO₃-rich water → Progressive pH increase',
+                impact:'Each irrigation deposits calcium carbonate, raising soil pH further',
+                action:'Acidify irrigation water to pH 6.5-7.0 or apply elemental sulphur' });
+            overallStatus = 'deficient'; priority = Math.max(priority, 3);
+        } else if (soilPH > 7.0 && isDepositing) {
+            issues.push({ type:'pH × Depositing Water', severity:'moderate',
+                description:'Slightly alkaline soil (pH ' + soilPH.toFixed(1) + ') + depositing water',
+                impact:'Monitor for gradual pH drift upward',
+                action:'Consider water acidification or sulphur applications' });
+            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+            priority = Math.max(priority, 2);
+        }
+
+        if (soilPH < 6.0 && isStripping) {
+            issues.push({ type:'pH × Stripping Water', severity:'moderate',
+                description:'Acidic soil (pH ' + soilPH.toFixed(1) + ') + low-Ca water',
+                impact:'Water may strip calcium from soil, degrading structure',
+                action:'Add gypsum or calcium chloride to maintain soil calcium' });
+            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+            priority = Math.max(priority, 2);
+        }
+
+        // 2. Combined Sodicity
+        if (soilNa > 50 && waterSARadj > 3) {
+            issues.push({ type:'Combined Sodicity', severity:'high',
+                description:'Elevated soil Na (' + soilNa.toFixed(0) + ' ppm) + moderate-high water SARadj (' + waterSARadj.toFixed(1) + ')',
+                impact:'Compounding sodium accumulation → infiltration failure risk',
+                action:'Immediate gypsum application + improve drainage' });
+            overallStatus = 'deficient'; priority = Math.max(priority, 3);
+        } else if (soilNa > 30 && waterSARadj > 6) {
+            issues.push({ type:'Combined Sodicity', severity:'high',
+                description:'Soil Na (' + soilNa.toFixed(0) + ' ppm) + high water SARadj (' + waterSARadj.toFixed(1) + ')',
+                impact:'Continuous sodium loading on already-sodic soil',
+                action:'Heavy gypsum required + consider water blending' });
+            overallStatus = 'deficient'; priority = Math.max(priority, 3);
+        } else if ((soilNa > 50 || waterSARadj > 6) && !(soilNa > 50 && waterSARadj > 6)) {
+            issues.push({ type:'Sodicity Watch', severity:'moderate',
+                description: soilNa > 50
+                    ? 'Elevated soil Na (' + soilNa.toFixed(0) + ' ppm) — water SARadj OK but monitor'
+                    : 'High water SARadj (' + waterSARadj.toFixed(1) + ') — soil Na OK but monitor',
+                impact:'One parameter elevated — prevent second from rising',
+                action:'Preventative gypsum, monitor both soil Na and water SARadj' });
+            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+            priority = Math.max(priority, 1);
+        }
+
+        // 3. Calcium Excess + Alkalinity
+        if (soilPH > 7.5 && wCaMgL > 100) {
+            issues.push({ type:'Calcium Excess + Alkalinity', severity:'low',
+                description:'High-Ca water (' + wCaMgL.toFixed(0) + ' mg/L) on alkaline soil (pH ' + soilPH.toFixed(1) + ')',
+                impact:'Ca dominance may induce Mg/K deficiency symptoms',
+                action:'Monitor Mg and K levels, supplement if deficiency appears' });
+            priority = Math.max(priority, 1);
+        }
+
+        // 4. Bicarbonate on Neutral/Alkaline Soils
+        if (soilPH > 6.5 && wHCO3MgL > 200) {
+            issues.push({ type:'Bicarbonate + Neutral/Alkaline pH', severity:'moderate',
+                description:'High HCO₃ water (' + wHCO3MgL.toFixed(0) + ' mg/L) on pH ' + soilPH.toFixed(1) + ' soil',
+                impact:'Bicarbonate accumulation → Fe/Mn chlorosis risk',
+                action:'Foliar Fe applications, consider acidifying fertilisers' });
+            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+            priority = Math.max(priority, 2);
+        }
+
+        if (issues.length === 0) return null;
+
+        var statusLabel, statusClass;
+        if (overallStatus === 'deficient') {
+            statusLabel = 'High Risk'; statusClass = 'status-deficient';
+        } else if (overallStatus === 'borderline') {
+            statusLabel = 'Monitor';   statusClass = 'status-borderline';
+        } else {
+            statusLabel = 'Acceptable'; statusClass = 'status-adequate';
+        }
+
+        var highIssues = issues.filter(function(i) { return i.severity === 'high'; });
+        var recommendation = (highIssues.length > 0 ? highIssues[0] : issues[0]).action;
+
+        return { statusLabel: statusLabel, statusClass: statusClass,
+                 issues: issues, recommendation: recommendation, priority: priority };
+    }
+
+    function renderSoilWaterInteraction(sn, wb) {
+        var result = analyzeSoilWaterInteraction(sn, wb);
+
+        // Header is always shown; body differs between results and missing-data hints
+        var header = '<div class="gl-block">' +
+            '<div class="gl-block-header">' +
+            '<div class="gl-block-accent" style="background:#6b7280"></div>' +
+            '<div class="gl-block-title">Soil × Water Interaction</div>';
+
+        // --- case: result found → render normally ---
+        if (result) {
+            var colMap = {
+                'status-deficient':  { border:'#dc2626', bg:'#fef2f2', text:'#991b1b' },
+                'status-borderline': { border:'#f59e0b', bg:'#fffbeb', text:'#92400e' },
+                'status-adequate':   { border:'#10b981', bg:'#f0fdf4', text:'#065f46' },
+            };
+            var col    = colMap[result.statusClass] || colMap['status-adequate'];
+            var sevClr = { high:'#dc2626', moderate:'#f59e0b', low:'#10b981' };
+            var count  = result.issues.length;
+
+            var issuesHtml = result.issues.map(function(issue) {
+                return '<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;' +
+                    'border-left:3px solid ' + (sevClr[issue.severity] || '#6b7280') + ';background:#f9fafb">' +
+                    '<div style="font-size:12px;font-weight:700;color:#111827;margin-bottom:3px">' + esc(issue.type) + '</div>' +
+                    '<div style="font-size:12px;color:#374151;margin-bottom:3px">' + esc(issue.description) + '</div>' +
+                    '<div style="font-size:11px;color:#6b7280;font-style:italic;margin-bottom:3px">' + esc(issue.impact) + '</div>' +
+                    '<div style="font-size:11px;color:#1d4ed8;font-weight:600">Action: ' + esc(issue.action) + '</div>' +
+                    '</div>';
+            }).join('');
+
+            return header.replace('background:#6b7280', 'background:' + col.border) +
+                '<div class="gl-block-sub" style="color:' + col.text + '">' + esc(result.statusLabel) +
+                ' — ' + count + ' interaction' + (count > 1 ? 's' : '') + ' detected</div>' +
+                '</div>' +
+                '<div class="gl-block-body">' +
+                issuesHtml +
+                '<div style="margin-top:8px;padding:8px 12px;background:' + col.bg + ';border:1px solid ' + col.border +
+                ';border-radius:8px;font-size:12px;color:' + col.text + '">' +
+                '<strong>Recommendation:</strong> ' + esc(result.recommendation) + '</div>' +
+                '</div></div>';
+        }
+
+        // --- case: incomplete data → show what needs to be added ---
+        var hints = [];
+
+        // Soil side
+        if (!sn || (!parseFloat(sn.pH) && !parseFloat(sn.ECe))) {
+            hints.push({ icon: 'soil', text: 'Add a soil test with pH and/or EC 1:5 to enable salinity and pH interaction checks.' });
+        } else {
+            if (!parseFloat(sn.pH))  hints.push({ icon: 'soil', text: 'Add soil pH to enable pH × water chemistry checks.' });
+            if (!parseFloat(sn.ECe)) hints.push({ icon: 'soil', text: 'Add soil EC 1:5 (from soil lab report) to enable salinity accumulation check.' });
+        }
+
+        // Water side
+        var ions = (wb && wb.ions) || {};
+        var hasCa  = parseFloat(ions.Ca)   > 0;
+        var hasMg  = parseFloat(ions.Mg)   > 0;
+        var hasNa  = parseFloat(ions.Na)   > 0;
+        var hasHCO3= parseFloat(ions.HCO3) > 0;
+
+        if (!hasCa || !hasMg) hints.push({ icon: 'water', text: 'Add Ca and Mg to irrigation water test to calculate SAR and enable sodicity and pH × depositing water checks.' });
+        if (!hasNa)           hints.push({ icon: 'water', text: 'Add Na to irrigation water test to calculate SAR and enable combined sodicity check.' });
+        if (!hasHCO3)         hints.push({ icon: 'water', text: 'Add HCO₃ to irrigation water test to enable bicarbonate and depositing water checks.' });
+
+        // If hints is empty, data is complete but no thresholds triggered
+        if (hints.length === 0) {
+            hints.push({ icon: 'ok', text: 'All data present. No significant soil–water interactions detected at current levels.' });
+        }
+
+        var hintRows = hints.map(function(h) {
+            var iconSvg = h.icon === 'water'
+                ? '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#6b7280" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2C12 2 5 10 5 14a7 7 0 0014 0c0-4-7-12-7-12z"/></svg>'
+                : h.icon === 'ok'
+                ? '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>'
+                : '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#6b7280" stroke-width="2" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7h18M3 12h18M3 17h18"/></svg>';
+            return '<div style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;font-size:12px;color:#374151">' +
+                iconSvg + '<span>' + esc(h.text) + '</span></div>';
+        }).join('');
+
+        return header +
+            '<div class="gl-block-sub" style="color:#6b7280">Incomplete data — see below</div>' +
+            '</div>' +
+            '<div class="gl-block-body">' +
+            '<div style="padding:10px 12px;border-radius:8px;border:1px dashed #d1d5db;background:#f9fafb;margin-bottom:4px">' +
+            '<div style="font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">To enable full analysis, add:</div>' +
+            hintRows +
+            '</div></div></div>';
+    }
+
+    // =========================================================================
     // INFO POPOVERS (same pattern as soil-nutrition-analysis.js)
     // =========================================================================
 
@@ -932,6 +1211,232 @@
     }
 
     // =========================================================================
+    // SAMPLE SELECTORS (soil + water, same pattern as sn-drop in soil-nutrition)
+    // =========================================================================
+
+    function _wbBuildDropRows(samples, activeIdx, type) {
+        if (!samples.length) return '<div style="padding:8px 12px;font-size:12px;color:#9ca3af">No samples</div>';
+        return samples.map(function(s, i) {
+            var pl   = s.payload || {};
+            var zone = type === 'water'
+                ? esc(s.client_uid || pl._label || ('Sample ' + (i + 1)))
+                : esc(pl._label || s.client_uid || ('Sample ' + (i + 1)));
+            var ref  = esc(s.lab_ref || '');
+            var file = esc(s.file_name || '');
+            var date = esc((s.lab_date || s.sample_date || '').substring(0, 10));
+            return '<div class="sn-drop-row' + (i === activeIdx ? ' active' : '') + '" data-wb-idx="' + i + '">' +
+                '<div class="sn-drop-cell-zone">' + zone + '</div>' +
+                '<div class="sn-drop-cell-ref">'  + ref  + '</div>' +
+                '<div class="sn-drop-cell-file">' + file + '</div>' +
+                '<div class="sn-drop-cell-date">' + date + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function _wbInjectDropdown(type) {
+        var elId   = type === 'soil' ? 'wb-soil-selector' : 'wb-water-selector';
+        var wrapId = 'wb-drop-wrap-' + type;
+        var selector = document.getElementById(elId);
+        if (!selector) return;
+
+        var samples   = type === 'soil' ? _wbSoilSamples : _wbWaterSamples;
+        var activeIdx = type === 'soil' ? _wbSoilActiveIdx : _wbWaterActiveIdx;
+        if (!samples.length) { selector.innerHTML = ''; return; }
+
+        var active   = activeIdx >= 0 ? samples[activeIdx] : null;
+        var pl       = active ? (active.payload || {}) : {};
+        var btnLabel = active
+            ? (type === 'water' ? esc(active.client_uid || pl._label || 'Sample') : esc(pl._label || active.client_uid || 'Sample'))
+            : 'Select…';
+        var typeLabel = type === 'soil' ? 'Soil Sample' : 'Water Sample';
+
+        var svgSearch  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#9ca3af"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+        var svgChevron = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
+
+        selector.innerHTML =
+            '<div class="sn-drop-wrap" id="' + wrapId + '">' +
+            '<div style="font-size:11px;font-weight:700;color:#5b6a65;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">' + typeLabel + '</div>' +
+            '<button class="sn-drop-btn" id="wb-drop-btn-' + type + '" type="button">' + svgSearch + '<span id="wb-drop-label-' + type + '">' + btnLabel + '</span>' + svgChevron + '</button>' +
+            '<div class="sn-drop-panel" id="wb-drop-panel-' + type + '">' +
+            '<input class="sn-drop-search" id="wb-drop-search-' + type + '" type="text" placeholder="Filter…" autocomplete="off">' +
+            '<div class="sn-drop-header"><span>' + (type === 'water' ? 'Name' : 'Zone Name') + '</span><span>Ref</span><span>File</span><span>Date</span></div>' +
+            '<div class="sn-drop-list" id="wb-drop-list-' + type + '">' + _wbBuildDropRows(samples, activeIdx, type) + '</div>' +
+            '</div></div>';
+
+        document.getElementById('wb-drop-btn-' + type).addEventListener('click', function(e) {
+            e.stopPropagation();
+            var wrap = document.getElementById(wrapId);
+            wrap.classList.toggle('sn-drop-open');
+            if (wrap.classList.contains('sn-drop-open')) {
+                var s = document.getElementById('wb-drop-search-' + type);
+                if (s) { s.value = ''; s.focus(); }
+                var list = document.getElementById('wb-drop-list-' + type);
+                var curIdx = type === 'soil' ? _wbSoilActiveIdx : _wbWaterActiveIdx;
+                if (list) list.innerHTML = _wbBuildDropRows(type === 'soil' ? _wbSoilSamples : _wbWaterSamples, curIdx, type);
+                _wbWireRows(type);
+            }
+        });
+
+        document.getElementById('wb-drop-search-' + type).addEventListener('input', function() {
+            var q   = this.value.toLowerCase();
+            var all = type === 'soil' ? _wbSoilSamples : _wbWaterSamples;
+            var cur = type === 'soil' ? _wbSoilActiveIdx : _wbWaterActiveIdx;
+            var filtered = !q ? all : all.filter(function(s) {
+                var pl = s.payload || {};
+                return (pl._label || '').toLowerCase().indexOf(q) !== -1 ||
+                       (s.client_uid || '').toLowerCase().indexOf(q) !== -1 ||
+                       (s.lab_date || s.sample_date || '').indexOf(q) !== -1 ||
+                       (s.file_name || '').toLowerCase().indexOf(q) !== -1;
+            });
+            var list = document.getElementById('wb-drop-list-' + type);
+            if (list) list.innerHTML = _wbBuildDropRows(filtered, cur, type);
+            _wbWireRows(type);
+        });
+
+        document.addEventListener('click', function(e) {
+            var wrap = document.getElementById(wrapId);
+            if (wrap && !wrap.contains(e.target)) wrap.classList.remove('sn-drop-open');
+        }, { once: false });
+
+        _wbWireRows(type);
+    }
+
+    function _wbWireRows(type) {
+        var list = document.getElementById('wb-drop-list-' + type);
+        if (!list) return;
+        list.querySelectorAll('.sn-drop-row[data-wb-idx]').forEach(function(row) {
+            row.addEventListener('click', function() {
+                var idx = parseInt(this.dataset.wbIdx, 10);
+                var samples = type === 'soil' ? _wbSoilSamples : _wbWaterSamples;
+                var sample  = samples[idx];
+                if (!sample) return;
+                var wrap = document.getElementById('wb-drop-wrap-' + type);
+                if (wrap) wrap.classList.remove('sn-drop-open');
+                if (type === 'soil') { _wbSoilActiveIdx = idx; }
+                else                 { _wbWaterActiveIdx = idx; }
+                _wbSaveActiveId(type, sample.id);
+                _wbSwitchSample(type, sample);
+            });
+        });
+    }
+
+    function _wbSwitchSample(type, sample) {
+        if (type === 'soil') {
+            // Re-fetch soil nutrition analysis, update GAIP_DASHBOARD_DATA, re-render
+            fetch('/api/samples/' + encodeURIComponent(sample.id) + '/analyse', {
+                headers: { 'Accept': 'application/json' },
+            })
+            .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function(res) {
+                var snData = res && res.data;
+                if (snData && global.GAIP_DASHBOARD_DATA) {
+                    if (!global.GAIP_DASHBOARD_DATA.computed) global.GAIP_DASHBOARD_DATA.computed = {};
+                    var existing = global.GAIP_DASHBOARD_DATA.computed.soilNutrition || {};
+                    global.GAIP_DASHBOARD_DATA.computed.soilNutrition = Object.assign({}, existing, snData);
+                }
+                render();
+                _wbInjectDropdown('soil');
+                _wbInjectDropdown('water');
+            })
+            .catch(function() {
+                _wbInjectDropdown('soil');
+                _wbInjectDropdown('water');
+            });
+        } else {
+            // Water sample: update active sample in SampleManager then trigger Re-run
+            var SM = global.GAIP_SampleManager;
+            if (SM && typeof SM.loadSample === 'function') {
+                SM.loadSample('water', sample.id);
+            }
+            var SP = global.GAIP_SamplePersistence;
+            if (SP && typeof SP.save === 'function') {
+                SP.save();
+            }
+            var rerunBtn = document.getElementById('db-rerun-btn');
+            if (rerunBtn) rerunBtn.click();
+        }
+    }
+
+    function initWbSamples() {
+        var siteId = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+        if (!siteId) return;
+
+        var data = global.GAIP_DASHBOARD_DATA;
+        var wb   = data && data.computed && data.computed.waterBalance;
+        var sn   = data && data.computed && data.computed.soilNutrition;
+
+        function sortSamples(samples) {
+            return samples.sort(function(a, b) {
+                var dA = a.lab_date || a.sample_date || '';
+                var dB = b.lab_date || b.sample_date || '';
+                if (dB !== dA) return dB.localeCompare(dA);
+                var lA = (a.payload && a.payload._label) || a.client_uid || '';
+                var lB = (b.payload && b.payload._label) || b.client_uid || '';
+                return lA.localeCompare(lB, undefined, { numeric: true });
+            });
+        }
+
+        function findActiveIdx(samples, savedId, currentLabel, currentDate) {
+            if (savedId) {
+                for (var j = 0; j < samples.length; j++) {
+                    if (samples[j].id === savedId) return j;
+                }
+            }
+            if (currentLabel) {
+                for (var i = 0; i < samples.length; i++) {
+                    var pl = samples[i].payload || {};
+                    if ((pl._label || samples[i].client_uid) === currentLabel) return i;
+                }
+            }
+            if (currentDate) {
+                for (var k = 0; k < samples.length; k++) {
+                    var sd = (samples[k].lab_date || samples[k].sample_date || '').substring(0, 10);
+                    if (sd && sd === currentDate.substring(0, 10)) return k;
+                }
+            }
+            return samples.length > 0 ? 0 : -1;
+        }
+
+        // Fetch soil samples
+        fetch('/api/samples?site_id=' + encodeURIComponent(siteId) + '&sample_type=soil&limit=100', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) {
+            var samples = sortSamples((res && res.data) || []);
+            if (!samples.length) return;
+            _wbSoilSamples = samples;
+            _wbSoilActiveIdx = findActiveIdx(
+                samples,
+                _wbLoadActiveId('soil'),
+                sn && sn.sampleLabel,
+                sn && sn.sampleDate ? String(sn.sampleDate) : null
+            );
+            _wbInjectDropdown('soil');
+        })
+        .catch(function() {});
+
+        // Fetch water samples
+        fetch('/api/samples?site_id=' + encodeURIComponent(siteId) + '&sample_type=water&limit=100', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) {
+            var samples = sortSamples((res && res.data) || []);
+            if (!samples.length) return;
+            _wbWaterSamples = samples;
+            _wbWaterActiveIdx = findActiveIdx(
+                samples,
+                _wbLoadActiveId('water'),
+                wb && wb.sourceLabel,
+                wb && wb.testDate ? String(wb.testDate) : null
+            );
+            _wbInjectDropdown('water');
+        })
+        .catch(function() {});
+    }
+
+    // =========================================================================
     // RENDER
     // =========================================================================
 
@@ -941,6 +1446,7 @@
 
         var data = global.GAIP_DASHBOARD_DATA;
         var wb   = data && data.computed && data.computed.waterBalance;
+        var sn   = data && data.computed && data.computed.soilNutrition;
 
         injectStyles();
 
@@ -948,17 +1454,18 @@
 
         initInfoPopovers();
 
-        var headerHtml  = renderPageHeader(wb);
-        var verdictHtml = renderWbVerdict(wb);
-        var recHtml     = renderRecommendations(wb);
-        var qualityHtml = renderWaterQuality(wb);
-        var ionHtml     = renderIons(wb);
-        var salHtml     = renderSalinity(wb);
-        var diagHtml    = renderDiagnostics(wb);
-        var irrHtml     = renderIrrigationBalance(wb);
-        var structHtml  = renderSoilStructureRisk(wb);
+        var headerHtml     = renderPageHeader(wb);
+        var verdictHtml    = renderWbVerdict(wb);
+        var recHtml        = renderRecommendations(wb);
+        var qualityHtml    = renderWaterQuality(wb);
+        var ionHtml        = renderIons(wb);
+        var salHtml        = renderSalinity(wb);
+        var diagHtml       = renderDiagnostics(wb);
+        var irrHtml        = renderIrrigationBalance(wb);
+        var structHtml     = renderSoilStructureRisk(wb);
+        var soilWaterHtml  = renderSoilWaterInteraction(sn, wb);
 
-        var bodyContent = verdictHtml + recHtml + diagHtml + qualityHtml + ionHtml + salHtml + structHtml + irrHtml;
+        var bodyContent = verdictHtml + recHtml + soilWaterHtml + diagHtml + qualityHtml + ionHtml + salHtml + structHtml + irrHtml;
 
         container.innerHTML =
             '<div class="wb-page">'+
@@ -967,6 +1474,8 @@
             bodyContent+
             '</div>'+
             '</div>';
+
+        initWbSamples();
     }
 
     // =========================================================================

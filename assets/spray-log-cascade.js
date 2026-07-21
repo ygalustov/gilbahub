@@ -266,6 +266,50 @@
         protectionWindows['azoxy']    = protectionWindows['azoxystrobin'];
         protectionWindows['trifloxy'] = protectionWindows['trifloxystrobin'];
 
+        // AI → canonical FRAC code. Used as fallback when frac_group is absent from
+        // the log entry (e.g. entries logged before the FRAC field was added, or
+        // free-text product entries where the dropdown auto-fill didn't fire).
+        const AI_TO_FRAC = {
+            'thiophanate-methyl': '1',  'thiophanate methyl': '1',
+            'thiabendazole': '1',       'carbendazim': '1',
+            'iprodione': '2',           'procymidone': '2',
+            'propiconazole': '3',       'tebuconazole': '3',
+            'myclobutanil': '3',        'triticonazole': '3',
+            'difenoconazole': '3',      'metconazole': '3',
+            'prothioconazole': '3',     'mefentrifluconazole': '3',
+            'triadimenol': '3',         'prochloraz': '3',
+            'cyproconazole': '3',
+            'metalaxyl-m': '4',         'metalaxyl': '4',
+            'mefenoxam': '4',
+            'penthiopyrad': '7',        'fluopyram': '7',
+            'boscalid': '7',            'fluxapyroxad': '7',
+            'benzovindiflupyr': '7',    'pydiflumetofen': '7',
+            'flutolanil': '7',
+            'cyprodinil': '9',
+            'azoxystrobin': '11',       'trifloxystrobin': '11',
+            'pyraclostrobin': '11',     'mandestrobin': '11',
+            'fludioxonil': '12',
+            'etridiazole': '14',        'tolclofos-methyl': '14',
+            'tolclofos methyl': '14',
+            'cyazofamid': '21',
+            'propamocarb': '28',
+            'fluazinam': '29',
+            'fosetyl-al': '33',         'fosetyl al': '33',
+            'phosphonate': '33',        'phosphite': '33',
+            'mancozeb': 'M3',           'thiram': 'M3',
+            'captan': 'M4',
+            'chlorothalonil': 'M5',
+        };
+        const _aiToFracKeys = Object.keys(AI_TO_FRAC).sort((a, b) => b.length - a.length);
+        function fracFromAI(str) {
+            if (!str) return null;
+            const norm = str.toLowerCase().replace(/[-_]+/g, ' ').trim();
+            for (let i = 0; i < _aiToFracKeys.length; i++) {
+                if (norm.indexOf(_aiToFracKeys[i].replace(/[-_]+/g, ' ')) !== -1) return AI_TO_FRAC[_aiToFracKeys[i]];
+            }
+            return null;
+        }
+
         // Substring search — mirrors PHP str_contains logic.
         // Sort keys longest-first so 'azoxystrobin' matches before 'azoxy'.
         const _pwKeys = Object.keys(protectionWindows).sort((a, b) => b.length - a.length);
@@ -337,7 +381,10 @@
         // Rainfall washoff — contact fungicides only
         // Contact FRAC groups: M3, M4, M5, 29, also fludioxonil (12) and etridiazole (14)
         const contactFRACs = ['m3', 'm4', 'm5', '29'];
-        const fracStr = (lastFungicide.frac_group || '').toString().toLowerCase();
+        // Derive FRAC from log entry; fall back to AI lookup when absent (pre-FRAC-field entries).
+        // Normalise M05 → M5 for the contact check (AU db uses M5, NZ db uses M05).
+        const _resolvedFrac = lastFungicide.frac_group || fracFromAI(ai) || fracFromAI(lastFungicide.active_ingredient) || '';
+        const fracStr = _resolvedFrac.toString().toLowerCase().replace(/^m0+(\d)$/, 'm$1');
         const isContact = contactFRACs.includes(fracStr) || !spec?.systemic === true;
         // More precisely: check if AI is in our contact list
         const CONTACT_AIS = [
@@ -382,12 +429,12 @@
         // FUNGICIDES_AU / FUNGICIDES_NZ databases already in the Hub.
         // Used by enrichDiseaseCards() to flag off-target applications.
         // ─────────────────────────────────────────────────────────────────────
-        const targets = getAITargets(ai, lastFungicide.frac_group);
+        const targets = getAITargets(ai, _resolvedFrac || lastFungicide.frac_group);
 
         const result = {
             productName: lastFungicide.product_name,
             activeIngredient: ai,
-            fracGroup: lastFungicide.frac_group,
+            fracGroup: _resolvedFrac || null,
             applicationDate: lastFungicide.application_date,
             daysSince,
             protectionWindow: adjustedWindow,

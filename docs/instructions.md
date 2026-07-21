@@ -97,7 +97,7 @@ Couch and bermudagrass are the same thing btw but the Americans call it bermudag
 Additionally, when you import soil data, zones are now automatically added to the Zones list in Settings if they don’t already exist.
 I also added the source file name, so it’s easy to see which file each sample was imported from. If that’s not useful, just let me know and I’ll remove it.
 +58.⁠ ⁠cultivar performance data absent of hydrosight. i know it in there somewhere :-). GH-149. 
-+65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. GH-144.
++65.⁠ ⁠when manually add soil data if from same site (Green 10 for example) but a different date the newest overides the old one. ⁠same with water tests as with soil (65). GH-144.
 
 
 
@@ -155,7 +155,28 @@ Do you want me to switch it to match PACE?
 Does my doing it this way help? - Yes, very helpful - it gives more context. 
 
 
+17/07/26
++44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you are not sure in the calculations - let me know which location to check. 
++47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
++48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
++49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldn't reproduce - probably was fixed (comment #33 - GH-107, GH-118). Could you please let me know if you notice it again?
++50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
++51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
++52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. - Could you please rerun with latest changes for soil temperature (comment #51) and check again?
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
++86. Yes remove bermudagrass please as that American! GH-192.
++87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
+GH-193, GH-194, GH-195, GH-196, GH-197, GH198, GH-199, GH-200
++88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
+GH-193, GH-194, GH-195, GH-196, GH-197, GH-198, GH-199, GH-200, GH-201.
++89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
+/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
+GH-202
 
+
+Could you please check #87-89 and see if you need more info in the UI. 
 
 
 ## Change log
@@ -412,62 +433,34 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
+21/07/26
++63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight. - I added PGR application to Russley GC and rerun analisys - attached screenshot with results. Are you expecting different data or you look somethere else?
+
+
+
+
 
 
 ## Backlog
+
+
+
 54.⁠ ⁠Where is soil water integration?
 
-60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
-
-63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight
-
-66.⁠ ⁠same with water tests as with soil (65)
-when add manual data for water ther e is no way to add carbonate, phosphate or nitrate
++66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 
 67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
 
+90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc
 
 
 
 
 
 
-
-
-17/07/26
-+44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you are not sure in the calculations - let me know which location to check. 
-+47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
-+48.⁠ ⁠Plan> nutrition the seasonal N plan should run off nutrition program annual N target. For twin creeks this is saying C3/C4 blend 70/30 at the bottom? GH-186, GH-187. 
-+49.⁠ ⁠I upload the json burns file which has 26 soil and 1 water test. I set the turf type to greens creeping bentgrass and 3mm. Then I add the PGR application. I run plan>nutrition>100 n target and all ok. Then it reverts to perennial ryegrass at 25mm and a sports ground and removes all the soil and water test results even though they are still in analysis>soil and nutrition? - Couldn't reproduce - probably was fixed (comment #33 - GH-107, GH-118). Could you please let me know if you notice it again?
-+50.⁠ ⁠Burns club Log fungicide application. Nothing shows up on front of site relating to resistance or longevity. GH-188. 
-+51.⁠ ⁠Burns club Plan> pre Emergent at bottom Says  soil temp 17C when air temp is 3.2C. GH-189. 
-+52.⁠ ⁠Pre emergent timing is wrong. We are in winter and have missed the window. Some of these you apply as temperature falls to a certain temperature and some you apply as temperature rises. Once temperature passes you tend to have missed the window. - Could you please rerun with latest changes for soil temperature (comment #51) and check again?
-60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
-+86. Yes remove bermudagrass please as that American! GH-192.
-+87. I updated and checked the fungicide resistance management for NZ. Ive done Australia as well but holding off on that as we are doing NZ first. Ill check the disease models and which we do and dont need this afternoon
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-87-registration-auth-model
-GH-193, GH-194, GH-195, GH-196, GH-197, GH198, GH-199, GH-200
-+88. Updated the NZ models and also added an Nmodifier to large patch. I think we should remove fusarium, large patch and dreschlera off the graph as they are not validated models. If we do keep them in the table we need to have an unvalidated badge/in development next to them (or just leave them off at this stage until later)
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-88-NZ-disease-largepatch
-GH-193, GH-194, GH-195, GH-196, GH-197, GH-198, GH-199, GH-200, GH-201.
-+89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
-/Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
-GH-202
-
-
-
-
-
-
-
-
-
-
-
-Одна реальная проблема в логе: source=unset — DiseaseForecast не получает данные влажности через правильный путь на analysis page. Видите в логе: moisture.humidity.mean=74.09375 | humidity.mean=undefined. Это значит climate shape mapping не совпадает между тем что пишет climate engine и тем что ожидает disease forecast. Но это отдельная проблема от Trap6.
 
 
 
@@ -512,6 +505,10 @@ I rolled back this as it didnt help.
 
 # Long backlog
 71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
+
+
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
+
 
 Integration with soil scout
 this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
