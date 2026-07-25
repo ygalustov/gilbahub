@@ -71,6 +71,39 @@
             btn.disabled = true;
             btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:db-spin 0.8s linear infinite"><path d="M4 12a8 8 0 018-8v4l4-4-4-4v4a10 10 0 100 10"/></svg> Running…';
 
+            // Stamp the correct active site into localStorage before the iframe loads /hub.
+            // The old hub's SP restores _currentSite from localStorage; if it still holds
+            // a previous site's ID the hub-persistence water fallback reads the wrong samples.
+            try {
+                var _cfg = global.GAIP_HUB_CONFIG;
+                var _sid = _cfg && _cfg.activeSiteId;
+                if (_sid) {
+                    var _lsRaw = localStorage.getItem('gilba_samples');
+                    var _lsSnap = _lsRaw ? JSON.parse(_lsRaw) : {};
+                    if (_lsSnap && typeof _lsSnap === 'object') {
+                        _lsSnap.currentSite = _sid;
+                        localStorage.setItem('gilba_samples', JSON.stringify(_lsSnap));
+                    }
+                }
+            } catch(_e) {}
+
+            // If the Water Balance tab has a water sample selected, write the override
+            // key so hub-persistence honours that selection even on repeated Re-runs
+            // where _wbSwitchSample is not called (dropdown hasn't changed).
+            try {
+                var _aws = global._gilbaActiveWaterSample;
+                if (_aws && _aws.payload) {
+                    var _awsSiteId = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+                    var _awsPl = _aws.payload;
+                    localStorage.setItem('gilba_wb_water_override', JSON.stringify({
+                        siteId:  _awsSiteId,
+                        id:      _aws.id,
+                        label:   _awsPl._label || _aws.client_uid || String(_aws.id),
+                        payload: _awsPl
+                    }));
+                }
+            } catch(_e) {}
+
             var iframe = document.createElement('iframe');
             iframe.src = '/hub';
             iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;border:0';

@@ -1002,12 +1002,20 @@
         { keys:['SAR','sar'],                              name:'SAR',            unit:'',      opt:[0,6],     max:20 },
     ];
     var WATER_FULL = [
-        { keys:['Ca','ca','calcium'],  name:'Calcium',   unit:'ppm' },
-        { keys:['Mg','mg','magnesium'],name:'Magnesium', unit:'ppm' },
-        { keys:['Na','na','sodium'],   name:'Sodium',    unit:'ppm' },
-        { keys:['Cl','cl','chloride'], name:'Chloride',  unit:'ppm' },
-        { keys:['SO4','so4','sulfate'],name:'Sulfate',   unit:'ppm' },
-        { keys:['Hardness','hardness'],name:'Hardness',  unit:'ppm' },
+        { keys:['TDS','tds'],                                               name:'TDS',        unit:'ppm' },
+        { keys:['Ca','ca','calcium'],                                        name:'Calcium',    unit:'ppm' },
+        { keys:['Mg','mg','magnesium'],                                      name:'Magnesium',  unit:'ppm' },
+        { keys:['Na','na','sodium'],                                         name:'Sodium',     unit:'ppm' },
+        { keys:['K','k','potassium'],                                        name:'Potassium',  unit:'ppm' },
+        { keys:['Cl','cl','chloride'],                                       name:'Chloride',   unit:'ppm' },
+        { keys:['SO4','so4','sulfate'],                                      name:'Sulfate',    unit:'ppm' },
+        { keys:['CO3','co3','carbonate','Carbonate'],                        name:'Carbonate',  unit:'ppm' },
+        { keys:['NO3','no3','nitrate','Nitrate'],                            name:'Nitrate',    unit:'ppm' },
+        { keys:['P','p','phosphate','Phosphate','PO4','phosphorus'],         name:'Phosphate',  unit:'ppm' },
+        { keys:['B','b','boron','Boron'],                                    name:'Boron',      unit:'ppm' },
+        { keys:['Fe','fe','iron','Iron'],                                    name:'Iron',       unit:'ppm' },
+        { keys:['Mn','mn','manganese','Manganese'],                          name:'Manganese',  unit:'ppm' },
+        { keys:['Hardness','hardness'],                                      name:'Hardness',   unit:'ppm' },
     ];
 
     function gv(p, keys) {

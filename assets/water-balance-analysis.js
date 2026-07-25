@@ -20,6 +20,14 @@
     function _wbLoadActiveId(type) {
         try { return localStorage.getItem('gilba_wb_active_' + type) || null; } catch(e) { return null; }
     }
+    function _wbShowToast(msg, type) {
+        var el = document.createElement('div');
+        var bg = type === 'error' ? '#dc2626' : type === 'info' ? '#1d4ed8' : '#166534';
+        el.style.cssText = 'position:fixed;bottom:20px;right:20px;background:' + bg + ';color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;font-weight:500;z-index:9999;font-family:inherit;box-shadow:0 4px 12px rgba(0,0,0,.2);max-width:360px;line-height:1.4';
+        el.textContent = msg;
+        document.body.appendChild(el);
+        setTimeout(function() { el.parentNode && el.parentNode.removeChild(el); }, 5000);
+    }
 
     // =========================================================================
     // GLOSSARY (i-icons)
@@ -457,9 +465,10 @@
             '<h1 class="gl-title">Water Balance Analysis</h1>',
             '</div>',
             '<div class="gl-subtitle" style="margin-bottom:8px">Select soil and water samples to view irrigation quality, salinity impact &amp; moisture balance.</div>',
-            '<div style="display:flex;gap:12px;flex-wrap:wrap">',
+            '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end">',
             '<div id="wb-soil-selector"></div>',
             '<div id="wb-water-selector"></div>',
+            '<span id="wb-water-status" style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:5px;padding-bottom:4px"></span>',
             '</div>',
             sourceInfo ? '<div style="margin-top:6px">'+sourceInfo+'</div>' : '',
             '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:12px">'+cards.join('')+'</div>',
@@ -1062,7 +1071,11 @@
             priority = Math.max(priority, 2);
         }
 
-        if (issues.length === 0) return null;
+        if (issues.length === 0) {
+            return { statusLabel: 'All Clear', statusClass: 'status-adequate',
+                     issues: [], recommendation: 'Continue current practices. No corrective action required at current levels.',
+                     priority: 0 };
+        }
 
         var statusLabel, statusClass;
         if (overallStatus === 'deficient') {
@@ -1099,6 +1112,17 @@
             var col    = colMap[result.statusClass] || colMap['status-adequate'];
             var sevClr = { high:'#dc2626', moderate:'#f59e0b', low:'#10b981' };
             var count  = result.issues.length;
+
+            // All-clear: no issues, show a simple OK summary
+            if (count === 0) {
+                return header.replace('background:#6b7280', 'background:' + col.border) +
+                    '<div class="gl-block-sub" style="color:' + col.text + '">' + esc(result.statusLabel) + '</div>' +
+                    '</div>' +
+                    '<div class="gl-block-body">' +
+                    '<div style="padding:10px 12px;border-radius:8px;background:' + col.bg + ';border:1px solid ' + col.border +
+                    ';font-size:12px;color:' + col.text + '">' + esc(result.recommendation) + '</div>' +
+                    '</div></div>';
+            }
 
             var issuesHtml = result.issues.map(function(issue) {
                 return '<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;' +
@@ -1313,7 +1337,10 @@
                 var wrap = document.getElementById('wb-drop-wrap-' + type);
                 if (wrap) wrap.classList.remove('sn-drop-open');
                 if (type === 'soil') { _wbSoilActiveIdx = idx; }
-                else                 { _wbWaterActiveIdx = idx; }
+                else {
+                    _wbWaterActiveIdx = idx;
+                    global._gilbaActiveWaterSample = sample;
+                }
                 _wbSaveActiveId(type, sample.id);
                 _wbSwitchSample(type, sample);
             });
@@ -1343,15 +1370,34 @@
                 _wbInjectDropdown('water');
             });
         } else {
-            // Water sample: update active sample in SampleManager then trigger Re-run
-            var SM = global.GAIP_SampleManager;
-            if (SM && typeof SM.loadSample === 'function') {
-                SM.loadSample('water', sample.id);
-            }
-            var SP = global.GAIP_SamplePersistence;
-            if (SP && typeof SP.save === 'function') {
-                SP.save();
-            }
+            // Water sample: write an override key to localStorage, then Re-run.
+            //
+            // Why not SM allActive in gilba_samples:
+            //   fetchSamplesFromServer in the old-hub iframe calls SM.getAllSamples()
+            //   when SM is still empty (async restore hasn't run yet), so serverSnap.allActive={}
+            //   and restoreFromPersistence wipes allActive[site].water.  If the server had
+            //   any samples, restoreFromLocalFallback is never called, so our allActive write
+            //   is never seen.
+            //
+            // Fix: use a separate one-shot key 'gilba_wb_water_override' that hub-persistence
+            // reads SYNCHRONOUSLY at the top of cacheAnalysisResults(), before any async SP
+            // init can interfere.  It is deleted after first use so stale overrides never
+            // accumulate.
+            var siteId = global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId;
+            try {
+                var wpl = sample.payload || {};
+                localStorage.setItem('gilba_wb_water_override', JSON.stringify({
+                    siteId:  siteId,
+                    id:      sample.id,
+                    label:   wpl._label || sample.client_uid || String(sample.id),
+                    payload: wpl
+                }));
+            } catch(e) {}
+            // Show inline status next to the water selector
+            var waterStatus = document.getElementById('wb-water-status');
+            if (waterStatus) waterStatus.innerHTML =
+                '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:db-spin 0.8s linear infinite;flex-shrink:0"><path d="M4 12a8 8 0 018-8v4l4-4-4-4v4a10 10 0 100 10"/></svg>' +
+                'Recalculating analysis…';
             var rerunBtn = document.getElementById('db-rerun-btn');
             if (rerunBtn) rerunBtn.click();
         }
@@ -1363,7 +1409,6 @@
 
         var data = global.GAIP_DASHBOARD_DATA;
         var wb   = data && data.computed && data.computed.waterBalance;
-        var sn   = data && data.computed && data.computed.soilNutrition;
 
         function sortSamples(samples) {
             return samples.sort(function(a, b) {
@@ -1378,8 +1423,10 @@
 
         function findActiveIdx(samples, savedId, currentLabel, currentDate) {
             if (savedId) {
+                // Compare as strings: server returns numeric id, localStorage stores as string
+                var savedStr = String(savedId);
                 for (var j = 0; j < samples.length; j++) {
-                    if (samples[j].id === savedId) return j;
+                    if (String(samples[j].id) === savedStr) return j;
                 }
             }
             if (currentLabel) {
@@ -1406,13 +1453,22 @@
             var samples = sortSamples((res && res.data) || []);
             if (!samples.length) return;
             _wbSoilSamples = samples;
+            // Read fresh sn at completion time (not from stale closure captured at call time)
+            var freshSn = global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed && global.GAIP_DASHBOARD_DATA.computed.soilNutrition;
+            var savedSoilId = _wbLoadActiveId('soil');
             _wbSoilActiveIdx = findActiveIdx(
                 samples,
-                _wbLoadActiveId('soil'),
-                sn && sn.sampleLabel,
-                sn && sn.sampleDate ? String(sn.sampleDate) : null
+                savedSoilId,
+                freshSn && freshSn.sampleLabel,
+                freshSn && freshSn.sampleDate ? String(freshSn.sampleDate) : null
             );
             _wbInjectDropdown('soil');
+            // Auto-fetch if persisted selection differs from cached page data (mirrors S&N pattern)
+            var activeSoil = _wbSoilActiveIdx >= 0 ? samples[_wbSoilActiveIdx] : null;
+            if (activeSoil && savedSoilId && String(activeSoil.id) === String(savedSoilId) &&
+                (activeSoil.client_uid || '') !== ((freshSn && freshSn.sampleLabel) || '')) {
+                _wbSwitchSample('soil', activeSoil);
+            }
         })
         .catch(function() {});
 
@@ -1431,6 +1487,9 @@
                 wb && wb.sourceLabel,
                 wb && wb.testDate ? String(wb.testDate) : null
             );
+            // Expose for Re-run handler in dashboard-ui.js so repeated Re-runs
+            // (without changing the dropdown) still use the correct water sample.
+            global._gilbaActiveWaterSample = _wbWaterActiveIdx >= 0 ? samples[_wbWaterActiveIdx] : null;
             _wbInjectDropdown('water');
         })
         .catch(function() {});

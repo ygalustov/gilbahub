@@ -429,8 +429,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-200** Enhance mixture credit rendering and data handling: Added CSS styles for the mixture credit section in disease-analysis.js, including new functions to format and render mixture credit information. Updated buildRecommendation in disease-engine-pure.js to attach mixture credit data for products with FRAC groups. Enhanced fungicide-filter.js with a new getMixtureCredit function to retrieve mixture credit from the database. Updated nz-fungicides.js to include partner activity and efficacy in the mixture credit data structure, improving the overall display and accuracy of fungicide recommendations.
 **GH-201** Update Large Patch Model to reflect confidence adjustments and provenance: Introduced constants for confidence level and score, updated model instances to use these constants, and changed validation status to 'unvalidated'. Added detailed provenance notes regarding the weighted-sum equation and its sources.
 **GH-202** Refactor leaf wetness calculation in disease-engine-pure.js: Removed daytime restriction for wet hours and applied a consistent 0.5 factor to align with dew path calculations, addressing discrepancies in overnight humidity impact on disease modeling.
-
-
+**GH-203** WIP - Enhance sample management and data handling: Added sample management scripts for soil and water selectors in the Water Balance tab. Updated data handling in various scripts to ensure accurate retrieval and display of sample data, including fallback mechanisms for sample attributes. Improved user interface for sample selection with new dropdown components and styles, enhancing overall usability and data interaction.
+**GH-204** Enhance sample analysis and water balance functionality: Updated SampleAnalysisController to include new parameters for pH, ECe, and soilNa. Added computeEce method for accurate ECe calculation based on various input formats. Improved data handling in water balance analysis scripts, including localStorage management for active water samples and inline status updates. Enhanced user interface for water sample selection with status indicators.
 
 
 21/07/26
@@ -438,18 +438,17 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
-
+when I change samples - I do not see any changes in the data on the page except 
 
 
 ## Backlog
 
-
-
-54.⁠ ⁠Where is soil water integration?
+54.⁠ ⁠Where is soil water integration? GH-203. 
 
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 
-67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample
+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204
+
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 

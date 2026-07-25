@@ -85,9 +85,11 @@
                 }),
             }).then(function (r) {
                 console.log('[GilbaRerun] POST /api/analysis-cache success, signalling parent');
+                try { localStorage.removeItem('gilba_wb_water_override'); } catch(_e) {}
                 _signalRerunComplete();
             }).catch(function (e) {
                 console.warn('[GilbaRerun] POST /api/analysis-cache FAILED:', e, '— signalling anyway');
+                try { localStorage.removeItem('gilba_wb_water_override'); } catch(_e) {}
                 _signalRerunComplete();
             });
         }
@@ -1112,7 +1114,6 @@
                     } catch(e) { return {}; }
                 })();
                 var _texMultipliers = {sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10};
-                console.log('[GilbaPersist] _soilSmpData EC/pH/Na keys:', Object.keys(_soilSmpData).filter(function(k){ return /ec|ph|na/i.test(k); }), '| EC:', _soilSmpData.EC, '| EC_1_5:', _soilSmpData.EC_1_5, '| EC_dSm:', _soilSmpData.EC_dSm);
                 var _soilSmpEC15 = parseFloat(_soilSmpData.EC || _soilSmpData.EC_1_5 || _soilSmpData.EC_dSm || 0);
                 var _soilSmpTex  = _soilSmpData.Texture || _soilSmpData.texture || _soilSmpData.Soil_Texture || 'loam';
                 var _soilSmpECe  = _soilSmpEC15 > 0 ? _soilSmpEC15 * (_texMultipliers[_soilSmpTex] || 7) : 0;
@@ -1203,7 +1204,6 @@
                         var _smSample = _smSamples[_smLatestId];
                         // Server-fetched samples have .values, CSV-imported have .rawData
                         var _smRaw = _smSample.rawData || _smSample.values || {};
-                        console.log('[GilbaPersist] fallback _smRaw EC/pH/Na keys for', _smLatestId, ':', Object.keys(_smRaw).filter(function(k){ return /ec|ph|na/i.test(k); }), '| EC:', _smRaw.EC, '| EC_1_5:', _smRaw.EC_1_5, '| EC_dSm:', _smRaw.EC_dSm);
                         // Map {K_ppm: 100, ...} → {K: 100, ...} for mlsnEngine
                         var _smPpm = {};
                         Object.keys(_smRaw).forEach(function(k) {
@@ -1396,12 +1396,59 @@
 
         // Water Balance data for /analysis#water-balance tab.
         try {
+            // One-shot override written by the new hub's water-balance-analysis.js when the
+            // user changes the active water sample in the WB dropdown.  We read it here
+            // synchronously — before any async SP.init() can interfere — and delete it
+            // immediately so it is never reused by a subsequent Re-run.
+            var _wbOverride = null;
+            try {
+                var _wbOvRaw = localStorage.getItem('gilba_wb_water_override');
+                if (_wbOvRaw) {
+                    // Do NOT delete the key here — cacheAnalysisResults() is called multiple
+                    // times during the Re-run lifecycle (once in init before analysis runs,
+                    // then again on form change events, then once more inside _doRerunSync).
+                    // Only _doRerunSync's call writes to the DB; earlier calls are discarded.
+                    // The key is deleted inside _doRerunSync after the POST succeeds so that
+                    // every cacheAnalysisResults() call in this Re-run session uses the override.
+                    var _wbOvParsed = JSON.parse(_wbOvRaw);
+                    var _hubSiteIdOv = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                    // Only honour the override for the current site (loose == to handle number/string)
+                    if (_wbOvParsed && String(_wbOvParsed.siteId) === String(_hubSiteIdOv)) {
+                        _wbOverride = _wbOvParsed;
+                        console.log('[GilbaPersist] WB water override found | site:', _hubSiteIdOv, '| label:', _wbOverride.label);
+                    }
+                }
+            } catch(_wbOvE) {}
+
             // GAIP_STATE.water is only set for blended water (hub-tissue-v3 line 5621).
             // For regular water the water engine captures state in __GAIP_WATER_STATE__.water.
             var _waterIn = (_gaipState && _gaipState.inputs && _gaipState.inputs.water)
                         || (_gaipState && _gaipState.water)
                         || (global.__GAIP_WATER_STATE__ && global.__GAIP_WATER_STATE__.water)
                         || null;
+
+            // If the WB dropdown override is set, build _waterIn from the selected
+            // sample payload regardless of what __GAIP_WATER_STATE__ captured.  This
+            // ensures the chosen sample is always used even when the analysis engine ran
+            // before SM async-loaded the correct sample into the water form.
+            if (_wbOverride && _wbOverride.payload) {
+                var _ovPl = _wbOverride.payload;
+                var _ovEC = parseFloat(_ovPl.EC || _ovPl.ECw || _ovPl.ec || _ovPl.EC_dSm || 0);
+                var _ovIons = {};
+                ['Ca','Mg','Na','K','HCO3','CO3','Cl','SO4'].forEach(function(ion) {
+                    var v = parseFloat(_ovPl[ion] || 0);
+                    if (v > 0) _ovIons[ion] = v;
+                });
+                _waterIn = {
+                    ecw:         _ovEC || (parseFloat(_ovPl.TDS || 0) / 640) || null,
+                    ions:        _ovIons,
+                    pH:          parseFloat(_ovPl.pH || _ovPl.ph) || null,
+                    SAR:         parseFloat(_ovPl.SAR || _ovPl.sar) || null,
+                    sourceLabel: _wbOverride.label || null,
+                    source:      'wb-dropdown-override',
+                };
+                console.log('[GilbaPersist] WB override applied | label:', _wbOverride.label, '| ECw:', _waterIn.ecw);
+            }
 
             // DOM fallback: if __GAIP_WATER_STATE__ was captured before the water sample
             // was loaded into the form (race: server fetch completes after initial analysis),

@@ -47,7 +47,9 @@ class SampleAnalysisController extends Controller
             'ratios'      => null,
             'sampleDate'  => $sample->lab_date?->toDateString() ?? $sample->sample_date?->toDateString(),
             'sampleLabel' => $sample->client_uid,
-            'pH'          => $payload['pH'] ?? $payload['ph'] ?? ($cachedSn['pH'] ?? null),
+            'pH'          => $payload['pH_Water'] ?? $payload['pH'] ?? $payload['ph'] ?? ($cachedSn['pH'] ?? null),
+            'ECe'         => $payload['ECe'] ?? $payload['EC_paste'] ?? $this->computeEce($payload) ?? ($cachedSn['ECe'] ?? null),
+            'soilNa'      => (($v = (float)($payload['Na'] ?? $payload['Na_ppm'] ?? 0)) > 0 ? $v : null) ?? ($cachedSn['soilNa'] ?? null),
             'CEC'         => $payload['CEC'] ?? $payload['cec'] ?? ($cachedSn['CEC'] ?? null),
             'validation'  => ($validation['errors'] || $validation['warnings']) ? $validation : null,
         ]);
@@ -114,6 +116,24 @@ class SampleAnalysisController extends Controller
                 'mlsn'        => (string) $mlsn,
             ]);
         }, $cachedNutrients));
+    }
+
+    private function computeEce(array $payload): ?float
+    {
+        // All EC 1:5 key variants seen across import paths and SampleManager normalisation
+        $ec15 = (float)(
+            $payload['EC']      ?? $payload['ec']     ??
+            $payload['EC1_5']   ?? $payload['EC_1_5'] ??
+            $payload['EC1:5']   ?? $payload['EC_1:5'] ??
+            $payload['EC_dSm']  ?? 0
+        );
+        if ($ec15 <= 0) return null;
+        $multipliers = [
+            'sand' => 5, 'loamy_sand' => 5.5, 'sandy_loam' => 6,
+            'loam' => 7, 'clay_loam' => 8, 'clay' => 10,
+        ];
+        $tex = strtolower((string)($payload['Texture'] ?? $payload['texture'] ?? 'loam'));
+        return round($ec15 * ($multipliers[$tex] ?? 7), 3);
     }
 
     private function validatePayload(array $payload): array
