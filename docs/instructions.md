@@ -443,11 +443,11 @@ when I change samples - I do not see any changes in the data on the page except
 
 ## Backlog
 
-54.⁠ ⁠Where is soil water integration? GH-203. 
+54.⁠ ⁠Where is soil water integration? GH-203, GH-204, 
 
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 
-67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204
+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, 
 
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 

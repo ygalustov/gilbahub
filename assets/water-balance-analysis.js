@@ -943,132 +943,77 @@
     function analyzeSoilWaterInteraction(sn, wb) {
         if (!sn || !wb) return null;
 
-        var soilPH   = parseFloat(sn.pH)     || 0;
-        var soilECe  = parseFloat(sn.ECe)    || 0;
-        var soilNa   = parseFloat(sn.soilNa) || 0;
-        var waterECw = parseFloat(wb.ecw)    || 0;
+        var soilPH = parseFloat(sn.pH)     || 0;
+        var soilNa = parseFloat(sn.soilNa) || 0;
 
-        if (soilPH === 0 && soilECe === 0) return null;
+        // Need at least soil pH or soil Na to run any check
+        if (soilPH === 0 && soilNa === 0) return null;
 
-        // ions in cache are already meq/L
+        // ions stored as meq/L — convert to mg/L for assessPHWaterInteraction thresholds
+        // (matches hub-tissue-v3.js assessPHWaterInteraction: Ca > 60 mg/L, HCO3 > 100 mg/L)
         var ions     = wb.ions || {};
-        var wCa      = ions.Ca   || 0;
-        var wMg      = ions.Mg   || 0;
-        var wHCO3    = ions.HCO3 || 0;
-        var wCO3     = ions.CO3  || 0;
-
-        // mg/L equivalents for threshold comparisons that match the source algorithm
-        var wCaMgL   = wCa   * 20.04;
-        var wHCO3MgL = wHCO3 * 61.0;
-        var wCO3MgL  = wCO3  * 30.0;
-
-        // Use pre-computed SARadj from waterBalance
-        var waterSARadj = parseFloat(wb.SARadj) || parseFloat(wb.SAR) || 0;
+        var wCaMgL   = (ions.Ca   || 0) * 20.04;
+        var wHCO3MgL = (ions.HCO3 || 0) * 61.0;
 
         var issues        = [];
         var overallStatus = 'adequate';
         var priority      = 0;
 
-        // 0. Soil EC × Water EC
-        if (soilECe > 0 && waterECw > 0) {
-            var ssEC = waterECw / (2 * 0.15);
-            if (soilECe > 4.0 && waterECw > 1.5) {
-                issues.push({ type:'Salinity Accumulation', severity:'high',
-                    description:'High soil EC (' + soilECe.toFixed(1) + ' dS/m) + saline irrigation (ECw ' + waterECw.toFixed(1) + ' dS/m)',
-                    impact:'Salt accumulation exceeding cool-season tolerance (~3-4 dS/m)',
-                    action:'Increase leaching fraction to 20-25%, monitor rootzone EC monthly' });
-                overallStatus = 'deficient'; priority = Math.max(priority, 3);
-            } else if (soilECe > 2.5 && waterECw > 1.0) {
-                issues.push({ type:'Salinity Build-up', severity:'moderate',
-                    description:'Elevated soil EC (' + soilECe.toFixed(1) + ' dS/m) with ECw ' + waterECw.toFixed(1) + ' dS/m',
-                    impact:'At 15% LF, steady-state EC ≈ ' + ssEC.toFixed(1) + ' dS/m',
-                    action:'Maintain leaching fraction ≥15%, monitor soil EC quarterly' });
-                overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
-                priority = Math.max(priority, 2);
-            } else if (soilECe < waterECw * 0.8) {
-                issues.push({ type:'Effective Leaching', severity:'low',
-                    description:'Soil EC (' + soilECe.toFixed(1) + ' dS/m) below expected from ECw (' + waterECw.toFixed(1) + ' dS/m)',
-                    impact:'Current leaching regime effectively preventing salt accumulation',
-                    action:'Maintain current irrigation practices' });
-            }
-        } else if (soilECe > 2.5 && waterECw === 0) {
-            issues.push({ type:'Soil Salinity — No Water EC', severity:'moderate',
-                description:'Soil EC elevated (' + soilECe.toFixed(1) + ' dS/m) — water EC not entered',
-                impact:'Unable to assess salt loading from irrigation',
-                action:'Enter water EC to enable full salinity assessment' });
-            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
-            priority = Math.max(priority, 1);
-        }
-
-        // 1. pH × Water Chemistry
+        // 1. pH × Water Chemistry — assessPHWaterInteraction (hub-tissue-v3.js exact match)
         var isDepositing = (wCaMgL > 60 && wHCO3MgL > 100);
-        var isStripping  = (wCaMgL < 20 && (wHCO3MgL > 100 || wCO3MgL > 10));
-
         if (soilPH > 7.5 && isDepositing) {
             issues.push({ type:'pH × Depositing Water', severity:'high',
                 description:'Alkaline soil (pH ' + soilPH.toFixed(1) + ') + Ca/HCO₃-rich water → Progressive pH increase',
-                impact:'Each irrigation deposits calcium carbonate, raising soil pH further',
-                action:'Acidify irrigation water to pH 6.5-7.0 or apply elemental sulphur' });
+                impact:'Each irrigation deposits calcium carbonate, raising soil pH further. Long-term risk: pH 8.0–8.5+ without intervention.',
+                action:'Acidify irrigation water to pH 6.5–7.0. Apply elemental sulphur to soil. Use acidifying fertilisers exclusively. Monitor soil pH quarterly.' });
             overallStatus = 'deficient'; priority = Math.max(priority, 3);
         } else if (soilPH > 7.0 && isDepositing) {
             issues.push({ type:'pH × Depositing Water', severity:'moderate',
-                description:'Slightly alkaline soil (pH ' + soilPH.toFixed(1) + ') + depositing water',
-                impact:'Monitor for gradual pH drift upward',
-                action:'Consider water acidification or sulphur applications' });
+                description:'Slightly alkaline soil (pH ' + soilPH.toFixed(1) + ') + depositing water → monitor for pH drift',
+                impact:'Water will deposit calcium carbonate over time.',
+                action:'Consider water acidification or sulphur applications to prevent pH increase.' });
             overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
             priority = Math.max(priority, 2);
         }
 
-        if (soilPH < 6.0 && isStripping) {
-            issues.push({ type:'pH × Stripping Water', severity:'moderate',
-                description:'Acidic soil (pH ' + soilPH.toFixed(1) + ') + low-Ca water',
-                impact:'Water may strip calcium from soil, degrading structure',
-                action:'Add gypsum or calcium chloride to maintain soil calcium' });
-            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
-            priority = Math.max(priority, 2);
+        // 2. pH × Sodium interaction (hub-tissue-v3.js lines 1684-1692 exact match)
+        if (soilPH > 0 && soilNa > 0) {
+            if (soilPH > 7.5 && soilNa > 60) {
+                issues.push({ type:'pH × Sodium — Critical', severity:'high',
+                    description:'High pH (' + soilPH.toFixed(1) + ') + elevated Na (' + soilNa.toFixed(0) + ' ppm) = Increased sodicity risk',
+                    impact:'Alkaline conditions favour sodium displacement of calcium on exchange sites. Progressive structure degradation and infiltration decline.',
+                    action:'Gypsum application (1.5–2.5 t/ha) + acidification program. Acidify to pH 6.5–7.0. Monitor SAR in irrigation water.' });
+                overallStatus = 'deficient'; priority = Math.max(priority, 3);
+            } else if (soilPH > 7.0 && soilNa > 45) {
+                issues.push({ type:'pH × Sodium', severity:'moderate',
+                    description:'Elevated pH (' + soilPH.toFixed(1) + ') + Na (' + soilNa.toFixed(0) + ' ppm)',
+                    impact:'Monitor for sodicity risk. Alkaline conditions increase sensitivity to sodium in irrigation water.',
+                    action:'Preventative gypsum. Monitor SAR in irrigation water.' });
+                overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
+                priority = Math.max(priority, 1);
+            }
         }
 
-        // 2. Combined Sodicity
-        if (soilNa > 50 && waterSARadj > 3) {
-            issues.push({ type:'Combined Sodicity', severity:'high',
-                description:'Elevated soil Na (' + soilNa.toFixed(0) + ' ppm) + moderate-high water SARadj (' + waterSARadj.toFixed(1) + ')',
-                impact:'Compounding sodium accumulation → infiltration failure risk',
-                action:'Immediate gypsum application + improve drainage' });
-            overallStatus = 'deficient'; priority = Math.max(priority, 3);
-        } else if (soilNa > 30 && waterSARadj > 6) {
-            issues.push({ type:'Combined Sodicity', severity:'high',
-                description:'Soil Na (' + soilNa.toFixed(0) + ' ppm) + high water SARadj (' + waterSARadj.toFixed(1) + ')',
-                impact:'Continuous sodium loading on already-sodic soil',
-                action:'Heavy gypsum required + consider water blending' });
-            overallStatus = 'deficient'; priority = Math.max(priority, 3);
-        } else if ((soilNa > 50 || waterSARadj > 6) && !(soilNa > 50 && waterSARadj > 6)) {
-            issues.push({ type:'Sodicity Watch', severity:'moderate',
-                description: soilNa > 50
-                    ? 'Elevated soil Na (' + soilNa.toFixed(0) + ' ppm) — water SARadj OK but monitor'
-                    : 'High water SARadj (' + waterSARadj.toFixed(1) + ') — soil Na OK but monitor',
-                impact:'One parameter elevated — prevent second from rising',
-                action:'Preventative gypsum, monitor both soil Na and water SARadj' });
+        // 3. Soil Na assessment (hub-tissue-v3.js assessSodiumStatus thresholds exact match)
+        if (soilNa >= 100) {
+            issues.push({ type:'Soil Sodium — High', severity:'high',
+                description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — High sodium. Significant risk of sodicity, poor infiltration, and turf stress.',
+                impact:'Significant risk of sodicity, poor infiltration, and turf stress.',
+                action:'URGENT: Apply gypsum 2.0–3.0 t/ha in split applications. Aggressive leaching program. Test for true ESP (exchangeable Na required). May need drainage improvements. Evaluate irrigation water source.' });
+            overallStatus = 'deficient'; priority = Math.max(priority, 2);
+        } else if (soilNa >= 60) {
+            issues.push({ type:'Soil Sodium — Elevated', severity:'high',
+                description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — Elevated sodium levels. Potential for structure/infiltration issues.',
+                impact:'Potential for structure and infiltration issues.',
+                action:'Apply gypsum 1.0–1.5 t/ha. Increase leaching fraction (LF 0.20–0.25). Test irrigation water SAR. Consider lab test for exchangeable Na and ESP.' });
+            overallStatus = 'deficient'; priority = Math.max(priority, 2);
+        } else if (soilNa >= 30) {
+            issues.push({ type:'Soil Sodium — Slightly Elevated', severity:'moderate',
+                description:'Soil Na: ' + soilNa.toFixed(0) + ' ppm (Mehlich-3) — Slightly elevated. Monitor for early signs of sodium stress.',
+                impact:'Monitor for early signs of sodium stress.',
+                action:'Monitor turf closely. Check irrigation water quality (SAR). Consider preventative gypsum (0.5 t/ha) if using high-Na water.' });
             overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
             priority = Math.max(priority, 1);
-        }
-
-        // 3. Calcium Excess + Alkalinity
-        if (soilPH > 7.5 && wCaMgL > 100) {
-            issues.push({ type:'Calcium Excess + Alkalinity', severity:'low',
-                description:'High-Ca water (' + wCaMgL.toFixed(0) + ' mg/L) on alkaline soil (pH ' + soilPH.toFixed(1) + ')',
-                impact:'Ca dominance may induce Mg/K deficiency symptoms',
-                action:'Monitor Mg and K levels, supplement if deficiency appears' });
-            priority = Math.max(priority, 1);
-        }
-
-        // 4. Bicarbonate on Neutral/Alkaline Soils
-        if (soilPH > 6.5 && wHCO3MgL > 200) {
-            issues.push({ type:'Bicarbonate + Neutral/Alkaline pH', severity:'moderate',
-                description:'High HCO₃ water (' + wHCO3MgL.toFixed(0) + ' mg/L) on pH ' + soilPH.toFixed(1) + ' soil',
-                impact:'Bicarbonate accumulation → Fe/Mn chlorosis risk',
-                action:'Foliar Fe applications, consider acidifying fertilisers' });
-            overallStatus = overallStatus === 'adequate' ? 'borderline' : overallStatus;
-            priority = Math.max(priority, 2);
         }
 
         if (issues.length === 0) {
@@ -1149,24 +1094,21 @@
         // --- case: incomplete data → show what needs to be added ---
         var hints = [];
 
-        // Soil side
-        if (!sn || (!parseFloat(sn.pH) && !parseFloat(sn.ECe))) {
-            hints.push({ icon: 'soil', text: 'Add a soil test with pH and/or EC 1:5 to enable salinity and pH interaction checks.' });
+        // Soil side — pH and Na are the required inputs
+        if (!sn || (!parseFloat(sn.pH) && !parseFloat(sn.soilNa))) {
+            hints.push({ icon: 'soil', text: 'Add a soil test with pH and/or Na (Mehlich-3) to enable interaction checks.' });
         } else {
-            if (!parseFloat(sn.pH))  hints.push({ icon: 'soil', text: 'Add soil pH to enable pH × water chemistry checks.' });
-            if (!parseFloat(sn.ECe)) hints.push({ icon: 'soil', text: 'Add soil EC 1:5 (from soil lab report) to enable salinity accumulation check.' });
+            if (!parseFloat(sn.pH))    hints.push({ icon: 'soil', text: 'Add soil pH to enable pH × water chemistry and pH × sodium checks.' });
+            if (!parseFloat(sn.soilNa)) hints.push({ icon: 'soil', text: 'Add soil Na (Mehlich-3) to enable sodium status and pH × sodium checks.' });
         }
 
-        // Water side
-        var ions = (wb && wb.ions) || {};
-        var hasCa  = parseFloat(ions.Ca)   > 0;
-        var hasMg  = parseFloat(ions.Mg)   > 0;
-        var hasNa  = parseFloat(ions.Na)   > 0;
-        var hasHCO3= parseFloat(ions.HCO3) > 0;
+        // Water side — Ca and HCO3 needed for pH × depositing water check
+        var ions  = (wb && wb.ions) || {};
+        var hasCa = parseFloat(ions.Ca)   > 0;
+        var hasHCO3 = parseFloat(ions.HCO3) > 0;
 
-        if (!hasCa || !hasMg) hints.push({ icon: 'water', text: 'Add Ca and Mg to irrigation water test to calculate SAR and enable sodicity and pH × depositing water checks.' });
-        if (!hasNa)           hints.push({ icon: 'water', text: 'Add Na to irrigation water test to calculate SAR and enable combined sodicity check.' });
-        if (!hasHCO3)         hints.push({ icon: 'water', text: 'Add HCO₃ to irrigation water test to enable bicarbonate and depositing water checks.' });
+        if (!hasCa)   hints.push({ icon: 'water', text: 'Add Ca to irrigation water test to enable pH × depositing water check.' });
+        if (!hasHCO3) hints.push({ icon: 'water', text: 'Add HCO₃ to irrigation water test to enable pH × depositing water check.' });
 
         // If hints is empty, data is complete but no thresholds triggered
         if (hints.length === 0) {
