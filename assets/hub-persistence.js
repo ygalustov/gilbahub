@@ -1640,10 +1640,11 @@
                     netDeficit:   _netDeficit,
                     waterBalance: _wb || null,
                     schedule7:    _irr7 || null,
-                    // Salinity impact
-                    salinity:     _salinityResult || null,
-                    // Structured per-metric diagnostics from calculateWaterDiagnostics()
-                    diagnostics:  Array.isArray(global.__GAIP_WATER_DIAGNOSTICS__) ? global.__GAIP_WATER_DIAGNOSTICS__ : null,
+                    // Salinity impact — nulled when override is active because GAIP_SALINITY_RESULT
+                    // and __GAIP_WATER_DIAGNOSTICS__ are computed during the cascade before the
+                    // override patches _waterIn; they would reflect the pre-override water data.
+                    salinity:     _wbOverride ? null : (_salinityResult || null),
+                    diagnostics:  _wbOverride ? null : (Array.isArray(global.__GAIP_WATER_DIAGNOSTICS__) ? global.__GAIP_WATER_DIAGNOSTICS__ : null),
                 };
                 console.log('[GilbaPersist] Saved waterBalance to cache | ECw:', _ecw, '| pH:', _pH, '| SAR:', _SAR, '| LF:', _LF, '| source:', _waterIn ? 'found' : 'null');
             }

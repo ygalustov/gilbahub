@@ -804,9 +804,113 @@
     // DIAGNOSTIC CARDS (from calculateWaterDiagnostics — same data as Hub page)
     // =========================================================================
 
+    function _buildFallbackDiagnostics(wb) {
+        var out = [];
+        var ions = wb.ions || {};
+        function push(label, value, unit, st, driver, rec) {
+            out.push({ label: label, value: String(value), unit: unit,
+                       status: st.label, statusClass: 'status-' + st.cls,
+                       driver: driver || null, recommendation: rec || null });
+        }
+        if (wb.ecw != null) {
+            var st = ecwStatus(wb.ecw);
+            push('ECw', fmt(wb.ecw, 2), 'dS/m', st,
+                 'Electrical conductivity of irrigation water',
+                 wb.ecw > 3  ? 'Maintain leaching fraction ' + (wb.leachingFraction || 25) + '%+ to prevent salt accumulation.'
+               : wb.ecw > 1.5 ? 'Apply periodic leaching fractions to flush accumulated salts.'
+               : null);
+        }
+        if (wb.leachingFraction != null) {
+            var st = lfStatus(wb.leachingFraction);
+            push('Leaching Fraction', wb.leachingFraction, '%', st,
+                 'Fraction of applied water that must pass through the root zone', null);
+        }
+        if (wb.SAR != null) {
+            var st = sarStatus(wb.SAR);
+            push('SAR', fmt(wb.SAR, 1), 'meq/L ratio', st,
+                 'Sodium Adsorption Ratio — sodium hazard to soil structure',
+                 wb.SAR >= 9  ? 'Apply gypsum to displace Na from exchange sites.'
+               : wb.SAR >= 3  ? 'Monitor soil infiltration; consider periodic gypsum applications.'
+               : null);
+        }
+        if (wb.SARadj != null && wb.SAR != null && Math.abs(wb.SARadj - wb.SAR) >= 0.1) {
+            var st = sarStatus(wb.SARadj);
+            push('SARadj', fmt(wb.SARadj, 1), 'meq/L ratio', st,
+                 'Adjusted SAR — bicarbonate-corrected sodium hazard', null);
+        }
+        if (wb.naPct != null) {
+            var naSt = wb.naPct > 60 ? { label:'High',     cls:'deficient'  }
+                     : wb.naPct > 40 ? { label:'Elevated',  cls:'borderline' }
+                     :                 { label:'Normal',     cls:'adequate'   };
+            push('Na%', fmt(wb.naPct, 1), '%', naSt,
+                 'Sodium as percentage of total cations', null);
+        }
+        if (wb.pH != null) {
+            var phSt = wb.pH > 8.5 ? { label:'High', cls:'borderline' }
+                     : wb.pH < 6.5 ? { label:'Low',  cls:'borderline' }
+                     :               { label:'Normal',cls:'adequate'   };
+            push('pH', fmt(wb.pH, 1), '', phSt,
+                 'Water pH affects nutrient availability and equipment longevity', null);
+        }
+        if (wb.RSC != null) {
+            var st = rscStatus(wb.RSC);
+            push('RSC', fmt(wb.RSC, 2), 'meq/L', st,
+                 'Residual Sodium Carbonate — risk of Ca precipitation and pH rise',
+                 wb.RSC > 1.25 ? 'Inject acid to reduce alkalinity before application.' : null);
+        }
+        if (wb.LSI != null) {
+            var st = lsiStatus(wb.LSI);
+            push('LSI', fmt(wb.LSI, 2), '', st,
+                 'Langelier Saturation Index — CaCO₃ scale or corrosion tendency',
+                 wb.LSI > 0.5  ? 'Inject acid to lower LSI below +0.5.'
+               : wb.LSI < -0.5 ? 'Consider calcium injection or blending with harder water.'
+               : null);
+        }
+        if (ions.Cl != null && ions.Cl > 0) {
+            var clSt = ions.Cl > 10 ? { label:'Toxic',   cls:'deficient'  }
+                     : ions.Cl > 5  ? { label:'Caution', cls:'borderline' }
+                     :                { label:'Safe',     cls:'adequate'   };
+            push('Chloride (Cl)', fmt(ions.Cl, 2), 'meq/L', clSt,
+                 'Chloride toxicity — direct leaf damage at high concentrations',
+                 ions.Cl > 10 ? 'Blend with low-Cl source or restrict application to avoid foliar uptake.'
+               : ions.Cl > 5  ? 'Monitor for leaf scorch; avoid overhead irrigation in heat.'
+               : null);
+        }
+        if (ions.HCO3 != null && ions.HCO3 > 0) {
+            var hco3St = ions.HCO3 > 4   ? { label:'High',     cls:'deficient'  }
+                       : ions.HCO3 > 1.5 ? { label:'Elevated',  cls:'borderline' }
+                       :                   { label:'Normal',     cls:'adequate'   };
+            push('Bicarbonate (HCO₃)', fmt(ions.HCO3, 2), 'meq/L', hco3St,
+                 'Bicarbonate causes pH rise and calcium precipitation in soil',
+                 ions.HCO3 > 4   ? 'Acid injection recommended to neutralise alkalinity.'
+               : ions.HCO3 > 1.5 ? 'Monitor soil pH; consider periodic acid injection.'
+               : null);
+        }
+        if (wb.Fe != null && wb.Fe > 0) {
+            var feSt = wb.Fe > 1   ? { label:'High staining risk', cls:'deficient'  }
+                     : wb.Fe > 0.2 ? { label:'Staining risk',      cls:'borderline' }
+                     :               { label:'Acceptable',          cls:'adequate'   };
+            push('Iron (Fe)', fmt(wb.Fe, 2), 'mg/L', feSt,
+                 'Iron causes rust staining on turf and infrastructure',
+                 wb.Fe > 0.2 ? 'Install aeration/oxidation treatment; flush lines weekly.' : null);
+        }
+        if (wb.B != null && wb.B > 0) {
+            var bSt = wb.B > 1   ? { label:'Toxic',    cls:'deficient'  }
+                    : wb.B > 0.5 ? { label:'Caution',   cls:'borderline' }
+                    :              { label:'Acceptable', cls:'adequate'   };
+            push('Boron (B)', fmt(wb.B, 2), 'mg/L', bSt,
+                 'Boron accumulates in leaf tissue — leaching is the primary management',
+                 wb.B > 0.5 ? 'Apply excess water periodically to leach boron. Avoid boron-containing fertilisers.' : null);
+        }
+        return out;
+    }
+
     function renderDiagnostics(wb) {
         var diags = wb.diagnostics;
-        if (!Array.isArray(diags) || !diags.length) return '';
+        if (!Array.isArray(diags) || !diags.length) {
+            diags = _buildFallbackDiagnostics(wb);
+        }
+        if (!diags.length) return '';
 
         // Bar percentage based on status tier
         var BAR_PCT = { adequate: 85, borderline: 42, deficient: 12 };
