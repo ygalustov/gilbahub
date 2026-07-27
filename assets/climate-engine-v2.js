@@ -1023,10 +1023,13 @@
       // corrected the GP — keep those values. Only use climate.growthPotential as
       // the initial value when there is no existing correction in place.
       const existingGrowth = window.climateMetrics && window.climateMetrics.growth;
+      // A legitimate corrected GP of exactly 0% (e.g. dormant C4 grass in cold weather)
+      // must NOT be treated as "uncorrected" — excluding it here discarded hub-tissue's
+      // real 0% correction in favour of the shim's own (possibly stale/incomplete)
+      // climate.growthPotential, leaving window.climateMetrics.growth.weighted undefined.
       const gpAlreadyCorrected = window.GAIP_CLIMATE_V2_RESULT &&
         existingGrowth &&
-        existingGrowth.weighted != null &&
-        existingGrowth.weighted !== 0;
+        existingGrowth.weighted != null;
 
       const growthToWrite = gpAlreadyCorrected ? existingGrowth : climate.growthPotential;
 

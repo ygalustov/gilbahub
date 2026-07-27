@@ -174,9 +174,20 @@ GH-193, GH-194, GH-195, GH-196, GH-197, GH-198, GH-199, GH-200, GH-201.
 +89. After 88. GAIP_SaaS_Verification_LeafWetness_Divergence_b35fix496.md
 /Users/katep/Documents/Work/gilba/gilbahub/files/fixes/26-07-17-89-verification-leafwetness
 GH-202
-
-
 Could you please check #87-89 and see if you need more info in the UI. 
+
++63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight. - I added PGR application to Russley GC and rerun analisys - attached screenshot with results. Are you expecting different data or you look somethere else?
+
+
+
+
+
+27/07/26
++54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
++66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
++67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
++90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209, GH-211, GH-212
+
 
 
 ## Change log
@@ -439,17 +450,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-210** Fix GP calculation logic in dashboard-init.js: Updated growth potential calculations to use >= instead of > for more accurate percentage rounding. This change ensures correct display of GP values across the dashboard.
 **GH-211** Enhance soil nutrition analysis: Added a check for ammonium acetate methodology in the renderCorrectionProgram function to prevent correction dose calculations for AA, ensuring accurate nutrient classification and improving data handling.
 **GH-212** Standardize terminology: Updated instances of 'Sulfate' to 'Sulphate' across multiple files for consistency in naming conventions.
-
-
-
-
-27/07/26
-+54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
-+63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight. - I added PGR application to Russley GC and rerun analisys - Attached screenshot with results. Are you expecting different data or you look somethere else?
-+66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
-+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
-+90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209, GH-211, GH-212
-
+**GH-213** Enhance growth potential handling: Updated climate engine logic to correctly account for legitimate zero growth potential values, ensuring accurate data representation. Improved hub persistence logic to merge daily patterns without overwriting existing growth data, enhancing analysis accuracy. Updated instructions to clarify recent changes and added a link to analysis pages in the dashboard for better navigation.
 
 
 
@@ -478,6 +479,8 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 # My changes:
+
+Add link on the side tab on the dashboard to the analisys pages
 
 
 

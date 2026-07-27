@@ -1002,7 +1002,14 @@
                 if (_growthFull && Array.isArray(_growthFull.dailyPattern) && _growthFull.dailyPattern.length > 0) {
                     cache.computed = Object.assign({}, cache.computed || {});
                     cache.computed.climate = Object.assign({}, cache.computed.climate || {});
-                    cache.computed.climate.growth = Object.assign({}, cache.computed.climate.growth || {}, {
+                    // Orchestrator stores weighted/c3/c4 under 'growth' OR 'growthPotential' (see
+                    // growth-light-analysis.js buildClimateView). Merge dailyPattern into whichever
+                    // already holds that data — writing a bare 'growth' object here would shadow
+                    // 'growthPotential' downstream and make the page think no analysis ran.
+                    var _existingGrowth = (cache.computed.climate.growth && cache.computed.climate.growth.weighted !== undefined)
+                        ? cache.computed.climate.growth
+                        : cache.computed.climate.growthPotential;
+                    cache.computed.climate.growth = Object.assign({}, _existingGrowth || {}, {
                         dailyPattern: _growthFull.dailyPattern
                     });
                     console.log('[GilbaPersist] Augmented dailyPattern, length:', _growthFull.dailyPattern.length);
