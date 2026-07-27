@@ -104,7 +104,7 @@ class AccountController extends Controller
             $gpRaw     = $cacheData['metrics']['growthPotential'] ?? null;
             $status    = null;
             if ($gpRaw !== null) {
-                $gp     = (float) $gpRaw > 1 ? (float) $gpRaw : (float) $gpRaw * 100;
+                $gp     = (float) $gpRaw >= 1 ? (float) $gpRaw : (float) $gpRaw * 100;
                 $status = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
             }
 

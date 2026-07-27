@@ -77,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
                 $config = is_array($caches->get($siteId)?->config) ? $caches->get($siteId)->config : [];
                 $gpRaw  = $config['metrics']['growthPotential'] ?? null;
                 if ($gpRaw !== null) {
-                    $gp = (float) $gpRaw > 1 ? (float) $gpRaw : (float) $gpRaw * 100;
+                    $gp = (float) $gpRaw >= 1 ? (float) $gpRaw : (float) $gpRaw * 100;
                     $statusMap[$siteId] = $gp >= 70 ? 'green' : ($gp >= 40 ? 'amber' : 'red');
                 } else {
                     $statusMap[$siteId] = null;

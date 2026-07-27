@@ -453,8 +453,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-213** Enhance growth potential handling: Updated climate engine logic to correctly account for legitimate zero growth potential values, ensuring accurate data representation. Improved hub persistence logic to merge daily patterns without overwriting existing growth data, enhancing analysis accuracy. Updated instructions to clarify recent changes and added a link to analysis pages in the dashboard for better navigation.
 **GH-214** Update sensors tab status handling: Changed the sensors tab badge to reflect real connection status instead of a static claim. Implemented a script to check for valid API keys and live data, updating the badge text accordingly to enhance user awareness of sensor connectivity.
 **GH-215** Implement site label recovery: Added functionality to heal site labels stored in localStorage by retrieving the correct names from the topbar switcher. Updated site creation logic to ensure real names are used instead of internal keys, enhancing data accuracy and user experience.
-
-
+**GH-216** Update sensor source population logic: Modified the populateSensorSource function to accept siteId as a parameter, ensuring accurate fetching of sensor data specific to the site. Added checks to prevent reliance on globally stored fetch timestamps, enhancing data integrity and connection status reporting.
+**GH-217** Update growth potential calculation logic: Changed comparison operator in AccountController and AppServiceProvider to use >= instead of > for accurate growth potential evaluation. This ensures correct status mapping and improves data representation consistency.
 
 
 
