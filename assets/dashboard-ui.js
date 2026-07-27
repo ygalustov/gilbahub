@@ -129,6 +129,25 @@
         });
     }
 
+    // ── Site label repair ───────────────────────────────────────────────────
+    // A past bug could store a site's label as its raw internal storage key
+    // ('__site__<UUID>') instead of its real name (e.g. shown in the Export
+    // Report modal). Heal any such labels already sitting in localStorage by
+    // recovering the real name from the topbar switcher, which is always
+    // server-rendered from the sites.name DB column.
+
+    function healAutoSiteLabels() {
+        var sm = global.GAIP_SampleManager;
+        if (!sm || typeof sm.renameSite !== 'function' || typeof sm.getSiteList !== 'function') return;
+
+        sm.getSiteList().forEach(function (site) {
+            if (!site || typeof site.label !== 'string' || !/^__site__/.test(site.label)) return;
+            var topbarOption = document.querySelector('[data-site-id="' + site.id + '"]');
+            var realName = topbarOption && (topbarOption.dataset.siteName || topbarOption.textContent).trim();
+            if (realName) sm.renameSite(site.id, realName);
+        });
+    }
+
     // ── Tab badges ────────────────────────────────────────────────────────────
     // Reads GAIP_DASHBOARD_DATA.computed and populates the gl-badge-disease /
     // gl-badge-stress spans in the tabs bar consistently on all analysis pages.
@@ -261,6 +280,7 @@
 
     function boot() {
         initSiteSwitcher();
+        healAutoSiteLabels();
         initRerun();
         initTabBadges();
         initAnalysisTimestamp();

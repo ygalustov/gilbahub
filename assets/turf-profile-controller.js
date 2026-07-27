@@ -1244,16 +1244,29 @@
       if (!siteId) return;
 
       // If site doesn't exist yet, create it
-      var sites = sm.listSites ? sm.listSites() : [];
+      var sites = sm.getSiteList ? sm.getSiteList() : [];
       var exists = sites.some(function(s) { return s.id === siteId; });
       if (!exists) {
-        console.log("[TurfProfile] Creating site for profile:", profileName, "->", siteId);
+        // Auto-profile keys like '__site__<UUID>' are internal storage keys, not
+        // real names — never use them as a site label. Recover the real name from
+        // the topbar site switcher, which is server-rendered from sites.name and
+        // present in the DOM on every db-shell page.
+        var label = profileName;
+        if (/^__site__/.test(profileName)) {
+          label = null;
+          try {
+            var topbarOption = document.querySelector('[data-site-id="' + siteId + '"]');
+            if (topbarOption) label = topbarOption.textContent.trim() || null;
+          } catch (e) { /* ignore */ }
+          if (!label) label = 'Site ' + siteId.slice(0, 8);
+        }
+        console.log("[TurfProfile] Creating site for profile:", profileName, "->", siteId, "label:", label);
         if (typeof sm.addSiteWithId === 'function') {
-          sm.addSiteWithId(siteId, profileName);
+          sm.addSiteWithId(siteId, label);
         } else {
-          sm.addSite(profileName);
-          sites = sm.listSites ? sm.listSites() : [];
-          var match = sites.find(function(s) { return s.id === siteId || s.label === profileName; });
+          sm.addSite(label);
+          sites = sm.getSiteList ? sm.getSiteList() : [];
+          var match = sites.find(function(s) { return s.id === siteId || s.label === label; });
           if (match) siteId = match.id;
         }
       }
