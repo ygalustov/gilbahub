@@ -435,7 +435,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-206** Refactor water balance persistence and diagnostics: Updated salinity and diagnostics handling to account for water balance overrides, ensuring accurate data representation. Introduced a fallback mechanism for diagnostics in the water balance analysis, enhancing user guidance and clarity in the analysis section.
 **GH-207** Refactor water balance analysis: Removed redundant functions and streamlined water quality diagnostics. Enhanced status handling for sodium hazard and adjusted SAR calculations, improving clarity and accuracy in data representation. Updated user interface elements for better interaction and guidance.
 **GH-208** Refactor water balance analysis: Removed the source info display logic to streamline the user interface. This change enhances clarity by focusing on essential data representation without redundant information.
-
+**GH-209** Refactor sample analysis and nutrient computation: Updated SampleAnalysisController to incorporate ammonium acetate methodology for nutrient classification. Enhanced computeNutrients function to differentiate between MLSN and AA methodologies, improving accuracy in nutrient status reporting. Adjusted user interface elements to reflect changes in nutrient thresholds and classifications, ensuring clearer data representation.
 
 
 
@@ -455,7 +455,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
 
-90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc
+90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209
 
 
 

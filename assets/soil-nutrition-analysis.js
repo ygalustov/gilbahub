@@ -615,6 +615,7 @@
         var depth = sn.depthCm || 10;
         var bd    = sn.bulkDensity || 1.4;
         var depthFactor = depth * bd * 0.1; // ppm → kg/ha
+        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
 
         return nutrients.map(function(n, idx){
             var sc    = statusClass(n.statusClass||n.status||'');
@@ -626,13 +627,13 @@
             if ((isNaN(targetV) || !targetV) && mlsnV > 0) targetV = Math.round(mlsnV * 1.5 * 10) / 10;
             var uptakeV = parseFloat(n.uptakePpm);
 
-            // Progress bar: actual / (1.5 × mlsn), capped 0–100%
-            var barPct = (mlsnV > 0 && !isNaN(actual))
-                ? Math.min(100, actual / (mlsnV * 1.5) * 100) : 0;
+            // Progress bar: for MLSN use 1.5×threshold as 100%; for AA use rangeMax
+            var barMax = isAA ? parseFloat(n.rangeMax) : (mlsnV * 1.5);
+            var barPct = (barMax > 0 && !isNaN(actual)) ? Math.min(100, actual / barMax * 100) : 0;
             var barClr = sc==='deficient'?'#ef4444':sc==='borderline'?'#f59e0b':'#22c55e';
 
-            // MLSN multiplier classification
-            var multiplier = (mlsnV > 0 && !isNaN(actual)) ? (actual / mlsnV) : null;
+            // MLSN multiplier — only for MLSN sites
+            var multiplier = (!isAA && mlsnV > 0 && !isNaN(actual)) ? (actual / mlsnV) : null;
             var classLabel = null;
             if (multiplier != null) {
                 if (multiplier < 1)      classLabel = multiplier.toFixed(1)+'× MLSN minimum (deficient)';
@@ -643,7 +644,7 @@
 
             // Soil reserve kg/ha
             var reserveKgHa = (!isNaN(actual) && depthFactor) ? (actual * depthFactor) : null;
-            var mlsnKgHa    = (!isNaN(mlsnV) && depthFactor) ? (mlsnV * depthFactor) : null;
+            var mlsnKgHa    = (!isAA && !isNaN(mlsnV) && depthFactor) ? (mlsnV * depthFactor) : null;
             var surplusKgHa = (reserveKgHa!=null && mlsnKgHa!=null) ? Math.max(0, reserveKgHa - mlsnKgHa) : null;
             var demandKgHa  = (sn.annualDemand && sn.annualDemand[n.nutrient]) ? sn.annualDemand[n.nutrient] : null;
             if (!demandKgHa && !isNaN(uptakeV) && depthFactor) demandKgHa = uptakeV * depthFactor;
@@ -651,9 +652,10 @@
             // Why? content
             var whyId  = 'sn-why-'+idx;
             var whyRows = '';
-            if (classLabel)    whyRows += '<div class="sn-why-row"><span class="sn-why-label">Classification</span><span class="sn-why-val">'+esc(classLabel)+'</span></div>';
+            if (classLabel) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Classification</span><span class="sn-why-val">'+esc(classLabel)+'</span></div>';
             if (classLabel && !isNaN(targetV) && targetV) whyRows += '<div style="height:1px;background:#e5e7eb;margin:4px 0"></div>';
-            if (!isNaN(targetV) && targetV) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Target level (1.5× MLSN)</span><span class="sn-why-val">'+targetV+' ppm</span></div>';
+            if (!isAA && !isNaN(targetV) && targetV) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Target level (1.5× MLSN)</span><span class="sn-why-val">'+targetV+' ppm</span></div>';
+            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+n.rangeMin+'–'+n.rangeMax+' ppm</span></div>';
             if (reserveKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Soil reserve</span><span class="sn-why-val">'+reserveKgHa.toFixed(1)+' kg/ha</span></div>';
             if (surplusKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Reserve above threshold</span><span class="sn-why-val">'+surplusKgHa.toFixed(1)+' kg/ha</span></div>';
             if (demandKgHa!=null)  whyRows += '<div class="sn-why-row"><span class="sn-why-label">Est. annual demand</span><span class="sn-why-val">'+demandKgHa.toFixed(1)+' kg/ha</span></div>';
@@ -661,22 +663,27 @@
                 ? '<div class="sn-why-action">'+esc(n.recommendation)+'</div>' : '';
             var noteText = NUTRIENT_NOTES[n.nutrient] || '';
             var noteHtml = noteText ? '<div class="sn-why-note">'+esc(noteText)+'</div>' : '';
-            var sourceHtml =
-                '<div class="sn-why-source">'+
-                'Source: MLSN thresholds from Pace Turf research (Woods &amp; Stowell) &middot; '+
-                'Assumptions: '+depth+'&thinsp;cm depth &middot; '+bd+'&thinsp;g/cm&sup3; bulk density &middot; '+
-                'Apply fertiliser only when below the MLSN minimum &middot; '+
-                'Validated primarily on golf putting greens'+
-                '</div>';
+            var sourceHtml = isAA
+                ? '<div class="sn-why-source">Source: NH₄OAc (pH&nbsp;8.1) &amp; Olsen P extractants &middot; Hill Labs NZ sufficiency ranges (RJ Hill Laboratories Ltd, Hamilton NZ)</div>'
+                : '<div class="sn-why-source">'+
+                  'Source: MLSN thresholds from Pace Turf research (Woods &amp; Stowell) &middot; '+
+                  'Assumptions: '+depth+'&thinsp;cm depth &middot; '+bd+'&thinsp;g/cm&sup3; bulk density &middot; '+
+                  'Apply fertiliser only when below the MLSN minimum &middot; '+
+                  'Validated primarily on golf putting greens'+
+                  '</div>';
             var whyHtml = (whyRows || actionHtml || noteText)
                 ? '<button class="sn-why-btn" onclick="(function(b){var d=document.getElementById(\''+whyId+'\');var open=d.style.display===\'block\';d.style.display=open?\'none\':\'block\';b.textContent=open?\'Why? ▼\':\'▲ Hide\'})(this)">Why? ▼</button>'+
                   '<div id="'+whyId+'" class="sn-why" style="display:none">'+whyRows+actionHtml+noteHtml+sourceHtml+'</div>'
                 : '';
 
+            var thresholdHtml = isAA
+                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm</div>'
+                : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm</div>';
+
             return '<div class="sn-card '+sc+'">'+
-                '<div class="sn-card-nutrient">'+esc(n.nutrient)+' — '+esc(name)+'</div>'+
+                '<div class="sn-card-nutrient"><span style="text-transform:none">'+esc(n.nutrient)+'</span> — '+esc(name)+'</div>'+
                 '<div class="sn-card-value">'+esc(n.actual)+' <span>ppm</span></div>'+
-                '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm</div>'+
+                thresholdHtml+
                 '<div class="sn-card-bar"><div style="width:'+barPct.toFixed(1)+'%;background:'+barClr+'" class="sn-card-bar-fill"></div></div>'+
                 '<div><span class="sn-badge '+sc+'">'+icon+' '+esc(n.status||sc)+'</span></div>'+
                 whyHtml+'</div>';

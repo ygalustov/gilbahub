@@ -10,9 +10,19 @@ use Illuminate\Http\Request;
 class SampleAnalysisController extends Controller
 {
     private const MLSN_DEFAULTS = [
-        'K'  => 37,   'P'  => 6,   'Ca' => 331, 'Mg' => 47,
-        'S'  => 6,    'Fe' => 49,  'Mn' => 5,   'Zn' => 2.2,
+        'K'  => 37,   'P'  => 21,  'Ca' => 331, 'Mg' => 47,
+        'S'  => 7,    'Fe' => 49,  'Mn' => 5,   'Zn' => 2.2,
         'Cu' => 0.9,  'B'  => 0.5,
+    ];
+
+    // AA ranges from ammonium-acetate-methodology.js (Hill Labs NZ)
+    // Format: [low_ceiling, medium_ceiling] — value < low_ceiling = Low, < medium_ceiling = Sufficient, else High
+    private const AA_RANGES = [
+        'P'  => ['sands' => [12, 28],   'others' => [12, 28]],
+        'K'  => ['sands' => [75, 175],  'others' => [100, 235]],
+        'Ca' => ['sands' => [500, 750], 'others' => [500, 750]],
+        'Mg' => ['sands' => [100, 200], 'others' => [140, 250]],
+        'S'  => ['sands' => [30, 60],   'others' => [30, 60]],
     ];
 
     private const UNUSUAL_RANGES = [
@@ -31,8 +41,18 @@ class SampleAnalysisController extends Controller
         $config   = SiteConfig::where('site_id', $sample->site_id)->where('namespace', 'gaip')->first();
         $cachedSn = data_get($config?->config ?? [], 'computed.soilNutrition', []);
 
+        $site = $sample->site;
+        $lat  = $site->latitude  !== null ? (float) $site->latitude  : null;
+        $lon  = $site->longitude !== null ? (float) $site->longitude : null;
+        if ($lat === null) $lat = isset($config?->config['location']['lat']) ? (float) $config->config['location']['lat'] : null;
+        if ($lon === null) $lon = isset($config?->config['location']['lon']) ? (float) $config->config['location']['lon'] : null;
+
+        // Determine methodology before computing nutrients so AA classification applies
+        $methodology = self::effectiveMethodology($cachedSn['methodology'] ?? null, $lat, $lon);
+        $soilTexture = $sample->soil_texture_snapshot ?? 'sands';
+
         $thresholds = $this->buildThresholdMap($cachedSn);
-        $nutrients  = $this->computeNutrients($payload, $thresholds, $cachedSn);
+        $nutrients  = $this->computeNutrients($payload, $thresholds, $cachedSn, $methodology, $soilTexture);
 
         $statuses = array_column($nutrients, 'statusClass');
         $verdict  = in_array('deficient', $statuses)
@@ -52,15 +72,8 @@ class SampleAnalysisController extends Controller
             'soilNa'      => (($v = (float)($payload['Na'] ?? $payload['Na_ppm'] ?? 0)) > 0 ? $v : null) ?? ($cachedSn['soilNa'] ?? null),
             'CEC'         => $payload['CEC'] ?? $payload['cec'] ?? ($cachedSn['CEC'] ?? null),
             'validation'  => ($validation['errors'] || $validation['warnings']) ? $validation : null,
+            'methodology' => $methodology,
         ]);
-
-        $site = $sample->site;
-        $lat  = $site->latitude  !== null ? (float) $site->latitude  : null;
-        $lon  = $site->longitude !== null ? (float) $site->longitude : null;
-        // Fall back to coordinates stored in gaip config if not on the site model
-        if ($lat === null) $lat = isset($config?->config['location']['lat']) ? (float) $config->config['location']['lat'] : null;
-        if ($lon === null) $lon = isset($config?->config['location']['lon']) ? (float) $config->config['location']['lon'] : null;
-        $sn['methodology'] = self::effectiveMethodology($sn['methodology'] ?? null, $lat, $lon);
 
         return response()->json(['data' => $sn]);
     }
@@ -80,8 +93,13 @@ class SampleAnalysisController extends Controller
         return $thresholds;
     }
 
-    private function computeNutrients(array $payload, array $thresholds, array $cachedSn): array
-    {
+    private function computeNutrients(
+        array $payload, array $thresholds, array $cachedSn,
+        string $methodology = 'mlsn', string $soilTexture = 'sands'
+    ): array {
+        $isAA    = strtolower($methodology) === 'ammonium_acetate';
+        $texKey  = (stripos($soilTexture, 'sand') !== false) ? 'sands' : 'others';
+
         $cachedNutrients = data_get($cachedSn, 'nutrients', []);
 
         if (empty($cachedNutrients)) {
@@ -91,31 +109,51 @@ class SampleAnalysisController extends Controller
             );
         }
 
-        return array_values(array_map(function (array $n) use ($payload, $thresholds) {
-            $nut    = $n['nutrient'];
-            $mlsn   = $thresholds[$nut] ?? floatval($n['mlsn'] ?? 0);
-            $raw    = $payload[$nut] ?? null;
-            $actual = $raw !== null ? floatval($raw) : null;
+        return array_values(array_map(
+            function (array $n) use ($payload, $thresholds, $isAA, $texKey) {
+                $nut    = $n['nutrient'];
+                $raw    = $payload[$nut] ?? null;
+                $actual = $raw !== null ? floatval($raw) : null;
 
-            if ($actual === null) {
-                return array_merge($n, ['actual' => null, 'status' => 'No data', 'statusClass' => 'no-data']);
-            }
+                if ($actual === null) {
+                    return array_merge($n, ['actual' => null, 'status' => 'No data', 'statusClass' => 'no-data']);
+                }
 
-            if ($mlsn > 0) {
-                if ($actual < $mlsn)           { $status = 'Deficient';  $sc = 'deficient'; }
-                elseif ($actual < $mlsn * 1.2) { $status = 'Borderline'; $sc = 'borderline'; }
-                else                           { $status = 'Adequate';   $sc = 'adequate'; }
-            } else {
-                $status = 'Adequate'; $sc = 'adequate';
-            }
+                // AA methodology: use Hill Labs sufficiency ranges
+                if ($isAA && isset(self::AA_RANGES[$nut])) {
+                    [$lowCeil, $medCeil] = self::AA_RANGES[$nut][$texKey];
+                    if ($actual < $lowCeil)      { $status = 'Low';        $sc = 'deficient'; }
+                    elseif ($actual < $medCeil)  { $status = 'Sufficient'; $sc = 'adequate'; }
+                    else                         { $status = 'High';       $sc = 'high'; }
+                    return array_merge($n, [
+                        'actual'      => (string) $actual,
+                        'status'      => $status,
+                        'statusClass' => $sc,
+                        'mlsn'        => $lowCeil.'-'.$medCeil,  // "12-28" format, matches old hub
+                        'rangeMin'    => $lowCeil,
+                        'rangeMax'    => $medCeil,
+                    ]);
+                }
 
-            return array_merge($n, [
-                'actual'      => (string) $actual,
-                'status'      => $status,
-                'statusClass' => $sc,
-                'mlsn'        => (string) $mlsn,
-            ]);
-        }, $cachedNutrients));
+                // MLSN / SLAN: single-threshold classification
+                $mlsn = $thresholds[$nut] ?? floatval($n['mlsn'] ?? 0);
+                if ($mlsn > 0) {
+                    if ($actual < $mlsn)           { $status = 'Deficient';  $sc = 'deficient'; }
+                    elseif ($actual < $mlsn * 1.2) { $status = 'Borderline'; $sc = 'borderline'; }
+                    else                           { $status = 'Adequate';   $sc = 'adequate'; }
+                } else {
+                    $status = 'Adequate'; $sc = 'adequate';
+                }
+
+                return array_merge($n, [
+                    'actual'      => (string) $actual,
+                    'status'      => $status,
+                    'statusClass' => $sc,
+                    'mlsn'        => (string) $mlsn,
+                ]);
+            },
+            $cachedNutrients
+        ));
     }
 
     private function computeEce(array $payload): ?float
