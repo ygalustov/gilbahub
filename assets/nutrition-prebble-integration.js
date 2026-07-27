@@ -561,9 +561,9 @@
                 'mu': 'Methylene Urea (Microbial - needs warmth >13°C)',
                 'mesa': 'MESA (Hybrid - moderate temp range)',
                 'pcu': 'Polymer Coated (Diffusion - temp dependent)',
-                'scu': 'Sulfur Coated (Needs warmth + moisture)',
+                'scu': 'Sulphur Coated (Needs warmth + moisture)',
                 'pcscu': 'Polymer-Coated SCU (Dual coating - more predictable)',
-                'as': 'Ammonium Sulfate (Quick release)',
+                'as': 'Ammonium Sulphate (Quick release)',
                 'standard': 'Quick Release',
             };
             return labels[tech?.toLowerCase()] || 'Slow Release';

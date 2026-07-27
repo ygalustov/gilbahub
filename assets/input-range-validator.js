@@ -83,7 +83,7 @@
         Cl: { min: 0, max: 2000, typical: [10, 300], unit: 'mg/L', name: 'Chloride', highWarning: 'High Cl may cause leaf burn' },
         HCO3: { min: 0, max: 1000, typical: [50, 400], unit: 'mg/L', name: 'Bicarbonate' },
         CO3: { min: 0, max: 100, typical: [0, 20], unit: 'mg/L', name: 'Carbonate' },
-        SO4: { min: 0, max: 1000, typical: [10, 300], unit: 'mg/L', name: 'Sulfate' },
+        SO4: { min: 0, max: 1000, typical: [10, 300], unit: 'mg/L', name: 'Sulphate' },
         
         // Toxicity concerns
         B: { min: 0, max: 10, typical: [0, 1], unit: 'mg/L', name: 'Boron', highWarning: 'B > 1 mg/L can cause toxicity' },

@@ -896,15 +896,15 @@
     // =========================================================================
 
     var CORRECTION_SOURCES = {
-        K:  { product: 'Muriate of Potash (MOP)',    pct: 41.5, unit: 'kg/ha', note: '0-0-60, granular. Alternatively Sulfate of Potash (SOP) where chloride sensitivity is a concern.' },
+        K:  { product: 'Muriate of Potash (MOP)',    pct: 41.5, unit: 'kg/ha', note: '0-0-60, granular. Alternatively Sulphate of Potash (SOP) where chloride sensitivity is a concern.' },
         P:  { product: 'Monoammonium Phosphate (MAP)', pct: 26.5, unit: 'kg/ha', note: '12-26-0, granular. Also supplies nitrogen — account for N contribution in annual budget.' },
         Ca: { product: 'Agricultural Lime (CaCO₃)',  pct: 40,   unit: 'kg/ha', note: 'Also raises pH. Use gypsum (CaSO₄, 23% Ca) when pH correction is not needed.' },
-        Mg: { product: 'Kieserite (MgSO₄)',          pct: 13,   unit: 'kg/ha', note: 'Also supplies sulfur. Dolomite (12% Mg, 22% Ca) is an option if Ca is also needed.' },
-        S:  { product: 'Elemental Sulfur',            pct: 90,   unit: 'kg/ha', note: 'Apply early season — requires oxidation by soil bacteria. Gypsum is a faster-acting option.' },
-        Fe: { product: 'Iron Sulfate (FeSO₄·7H₂O)', pct: 20,   unit: 'kg/ha', note: 'Apply as foliar for rapid greening. Also available as chelated iron (EDTA/DTPA) for liquid programs.' },
-        Mn: { product: 'Manganese Sulfate',           pct: 26,   unit: 'kg/ha', note: 'Foliar application preferred at 2–5 kg Mn/ha. Soil apply at higher rates when pH > 6.5.' },
-        Cu: { product: 'Copper Sulfate',              pct: 25,   unit: 'kg/ha', note: 'Apply with caution — Cu accumulates in soil. Do not exceed 0.5 kg Cu/ha/yr on fine turf.' },
-        Zn: { product: 'Zinc Sulfate',                pct: 23,   unit: 'kg/ha', note: 'Foliar preferred for rapid correction. Soil apply at 1–3 kg Zn/ha for longer residual.' },
+        Mg: { product: 'Kieserite (MgSO₄)',          pct: 13,   unit: 'kg/ha', note: 'Also supplies sulphur. Dolomite (12% Mg, 22% Ca) is an option if Ca is also needed.' },
+        S:  { product: 'Elemental Sulphur',           pct: 90,   unit: 'kg/ha', note: 'Apply early season — requires oxidation by soil bacteria. Gypsum is a faster-acting option.' },
+        Fe: { product: 'Iron Sulphate (FeSO₄·7H₂O)', pct: 20,  unit: 'kg/ha', note: 'Apply as foliar for rapid greening. Also available as chelated iron (EDTA/DTPA) for liquid programs.' },
+        Mn: { product: 'Manganese Sulphate',          pct: 26,   unit: 'kg/ha', note: 'Foliar application preferred at 2–5 kg Mn/ha. Soil apply at higher rates when pH > 6.5.' },
+        Cu: { product: 'Copper Sulphate',             pct: 25,   unit: 'kg/ha', note: 'Apply with caution — Cu accumulates in soil. Do not exceed 0.5 kg Cu/ha/yr on fine turf.' },
+        Zn: { product: 'Zinc Sulphate',               pct: 23,   unit: 'kg/ha', note: 'Foliar preferred for rapid correction. Soil apply at 1–3 kg Zn/ha for longer residual.' },
         B:  { product: 'Borax (Na₂B₄O₇·10H₂O)',     pct: 11,   unit: 'kg/ha', note: 'Very narrow safe range — excess causes toxicity. Apply at 0.2–0.5 kg B/ha maximum.' },
     };
 

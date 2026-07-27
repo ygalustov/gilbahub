@@ -1086,7 +1086,7 @@
             N: 'Nitrogen (%)', P: 'Phosphorus', K: 'Potassium', Ca: 'Calcium', Mg: 'Magnesium',
             S: 'Sulphur', Fe: 'Iron', Mn: 'Manganese', Cu: 'Copper', Zn: 'Zinc', B: 'Boron',
             Na: 'Sodium', Mo: 'Molybdenum', Cl: 'Chloride', HCO3: 'Bicarbonate', CO3: 'Carbonate',
-            SO4: 'Sulfate', NO3: 'Nitrate', PO4: 'Phosphate'
+            SO4: 'Sulphate', NO3: 'Nitrate', PO4: 'Phosphate'
         };
         return labels[param] || param;
     }

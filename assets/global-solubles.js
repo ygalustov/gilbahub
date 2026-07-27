@@ -44,7 +44,7 @@
             // ============================================================
             {
                 id: 'SOL-SOP',
-                name: 'Soluble SOP (Potassium Sulfate)',
+                name: 'Soluble SOP (Potassium Sulphate)',
                 brand: 'various',
                 distributor: 'Various',
                 availability: 'National',

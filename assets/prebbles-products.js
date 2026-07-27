@@ -157,7 +157,7 @@
             // Generally considered less predictable than PCU
             // Spencer 2008: temperature dependent through microbial coating attack
             scu: {
-                description: 'Sulfur coated urea - coating breakdown + microbial, variable',
+                description: 'Sulphur coated urea - coating breakdown + microbial, variable',
                 tempCurve: [
                     { temp: 5, efficiency: 0.10 },
                     { temp: 10, efficiency: 0.25 },
@@ -852,7 +852,7 @@
             // ============================================================
             {
                 id: 'SOL-SOP',
-                name: 'Soluble SOP (Potassium Sulfate)',
+                name: 'Soluble SOP (Potassium Sulphate)',
                 brand: 'Various',
                 npk: '0-0-41.5',
                 analysis: { N: 0, P: 0, K: 41.5, S: 18 },
