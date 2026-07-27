@@ -374,7 +374,7 @@
         if (manualEl) manualEl.style.display = (!weatherFailed && weatherManual) ? 'flex' : 'none';
 
         if (gpRaw != null) {
-            var gp = gpRaw > 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
+            var gp = gpRaw >= 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
             setText('db-gp-value', gp + '%');
             // GP colour: >=70 green, 40-69 amber, <40 red (same as Hub daily-dashboard)
             var gpSev = gp >= 70 ? 'ok' : (gp >= 40 ? 'warning' : 'critical');
@@ -1041,12 +1041,12 @@
         } else {
             var avgRaw = m && m.growthPotential != null ? m.growthPotential
                        : (gpObj && gpObj.weighted != null ? gpObj.weighted : null);
-            if (avgRaw != null) avgGP = avgRaw > 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100);
+            if (avgRaw != null) avgGP = avgRaw >= 1 ? Math.round(avgRaw) : Math.round(avgRaw * 100);
         }
 
         // Today's GP — from dailyPattern[0] (daily mean per PACE contract, not current-hour override)
         var todayRaw = todayEntry ? (todayEntry[gpField] != null ? todayEntry[gpField] : todayEntry.weighted) : null;
-        var todayGP  = todayRaw != null ? (todayRaw > 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
+        var todayGP  = todayRaw != null ? (todayRaw >= 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
         var todayCls = todayGP != null ? (todayGP >= 70 ? 'ok' : (todayGP >= 40 ? 'warning' : 'critical')) : '';
 
         // Species info

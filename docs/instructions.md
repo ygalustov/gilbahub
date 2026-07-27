@@ -436,7 +436,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-207** Refactor water balance analysis: Removed redundant functions and streamlined water quality diagnostics. Enhanced status handling for sodium hazard and adjusted SAR calculations, improving clarity and accuracy in data representation. Updated user interface elements for better interaction and guidance.
 **GH-208** Refactor water balance analysis: Removed the source info display logic to streamline the user interface. This change enhances clarity by focusing on essential data representation without redundant information.
 **GH-209** Refactor sample analysis and nutrient computation: Updated SampleAnalysisController to incorporate ammonium acetate methodology for nutrient classification. Enhanced computeNutrients function to differentiate between MLSN and AA methodologies, improving accuracy in nutrient status reporting. Adjusted user interface elements to reflect changes in nutrient thresholds and classifications, ensuring clearer data representation.
-
+**GH-210** Fix GP calculation logic in dashboard-init.js: Updated growth potential calculations to use >= instead of > for more accurate percentage rounding. This change ensures correct display of GP values across the dashboard.
 
 
 
