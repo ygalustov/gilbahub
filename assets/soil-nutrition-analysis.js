@@ -909,6 +909,11 @@
     };
 
     function renderCorrectionProgram(sn) {
+        // AA sufficiency ranges aren't calibrated to a deficit threshold — legacy hub
+        // never derived a correction dose under Ammonium Acetate, only classified nutrients.
+        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
+        if (isAA) return '';
+
         var nutrients  = sn.nutrients || [];
         var depthFactor = (sn.depthCm || 10) * (sn.bulkDensity || 1.4) * 0.1;
 

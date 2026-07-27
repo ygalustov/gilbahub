@@ -437,6 +437,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-208** Refactor water balance analysis: Removed the source info display logic to streamline the user interface. This change enhances clarity by focusing on essential data representation without redundant information.
 **GH-209** Refactor sample analysis and nutrient computation: Updated SampleAnalysisController to incorporate ammonium acetate methodology for nutrient classification. Enhanced computeNutrients function to differentiate between MLSN and AA methodologies, improving accuracy in nutrient status reporting. Adjusted user interface elements to reflect changes in nutrient thresholds and classifications, ensuring clearer data representation.
 **GH-210** Fix GP calculation logic in dashboard-init.js: Updated growth potential calculations to use >= instead of > for more accurate percentage rounding. This change ensures correct display of GP values across the dashboard.
+**GH-211** Enhance soil nutrition analysis: Added a check for ammonium acetate methodology in the renderCorrectionProgram function to prevent correction dose calculations for AA, ensuring accurate nutrient classification and improving data handling.
+
+
 
 
 
@@ -455,7 +458,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
 
-90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209
+90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209, GH-211
 
 
 
