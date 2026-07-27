@@ -442,16 +442,6 @@
             'wb-salinity'
         ));
 
-        // Source info line
-        var sourceInfo = '';
-        if (wb.sourceLabel || wb.testDate) {
-            var parts = [];
-            if (wb.sourceLabel) parts.push(wb.sourceLabel);
-            if (wb.testDate)    parts.push('Tested ' + (fmtDate(wb.testDate) || wb.testDate));
-            if (wb.recycled)    parts.push('Recycled water');
-            sourceInfo = '<div style="font-size:12px;color:#6b7280;margin-top:2px">'+esc(parts.join(' · '))+'</div>';
-        }
-
         return [
             '<div class="gl-header">',
             '<div class="gl-header-inner">',
@@ -464,7 +454,6 @@
             '<div id="wb-water-selector"></div>',
             '<span id="wb-water-status" style="font-size:12px;color:#6b7280;display:flex;align-items:center;gap:5px;padding-bottom:4px"></span>',
             '</div>',
-            sourceInfo ? '<div style="margin-top:6px">'+sourceInfo+'</div>' : '',
             '<div class="gl-kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-top:12px">'+cards.join('')+'</div>',
             '</div>',
             '</div>',

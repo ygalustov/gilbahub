@@ -434,7 +434,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-205** Refactor water balance analysis logic: Simplified soil water interaction checks by removing redundant variables and conditions. Enhanced pH and sodium interaction assessments with clearer impact descriptions and actions. Updated instructions for water chemistry results visibility in the analysis section, ensuring better user guidance and clarity.
 **GH-206** Refactor water balance persistence and diagnostics: Updated salinity and diagnostics handling to account for water balance overrides, ensuring accurate data representation. Introduced a fallback mechanism for diagnostics in the water balance analysis, enhancing user guidance and clarity in the analysis section.
 **GH-207** Refactor water balance analysis: Removed redundant functions and streamlined water quality diagnostics. Enhanced status handling for sodium hazard and adjusted SAR calculations, improving clarity and accuracy in data representation. Updated user interface elements for better interaction and guidance.
-
+**GH-208** Refactor water balance analysis: Removed the source info display logic to streamline the user interface. This change enhances clarity by focusing on essential data representation without redundant information.
 
 
 
@@ -450,11 +450,11 @@ when I change samples - I do not see any changes in the data on the page except
 
 ## Backlog
 
-54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207
+54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
 
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 
-67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207
+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
 
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
