@@ -432,6 +432,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-203** WIP - Enhance sample management and data handling: Added sample management scripts for soil and water selectors in the Water Balance tab. Updated data handling in various scripts to ensure accurate retrieval and display of sample data, including fallback mechanisms for sample attributes. Improved user interface for sample selection with new dropdown components and styles, enhancing overall usability and data interaction.
 **GH-204** Enhance sample analysis and water balance functionality: Updated SampleAnalysisController to include new parameters for pH, ECe, and soilNa. Added computeEce method for accurate ECe calculation based on various input formats. Improved data handling in water balance analysis scripts, including localStorage management for active water samples and inline status updates. Enhanced user interface for water sample selection with status indicators.
 **GH-205** Refactor water balance analysis logic: Simplified soil water interaction checks by removing redundant variables and conditions. Enhanced pH and sodium interaction assessments with clearer impact descriptions and actions. Updated instructions for water chemistry results visibility in the analysis section, ensuring better user guidance and clarity.
+**GH-206** Refactor water balance persistence and diagnostics: Updated salinity and diagnostics handling to account for water balance overrides, ensuring accurate data representation. Introduced a fallback mechanism for diagnostics in the water balance analysis, enhancing user guidance and clarity in the analysis section.
+**GH-207** Refactor water balance analysis: Removed redundant functions and streamlined water quality diagnostics. Enhanced status handling for sodium hazard and adjusted SAR calculations, improving clarity and accuracy in data representation. Updated user interface elements for better interaction and guidance.
+
+
 
 
 
@@ -446,11 +450,11 @@ when I change samples - I do not see any changes in the data on the page except
 
 ## Backlog
 
-54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205
+54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207
 
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 
-67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205
+67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207
 
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 

@@ -182,12 +182,7 @@
         if (v < -0.5)   return { label:'Corrosive',   cls:'borderline', color:'#854d0e' };
         return                 { label:'Balanced',     cls:'adequate',   color:'#15803d' };
     }
-    function lfStatus(v) {
-        if (v == null)  return { label:'No data', cls:'no-data', color:'#6b7280' };
-        if (v <= 12)    return { label:'Low',     cls:'adequate',   color:'#15803d' };
-        if (v <= 20)    return { label:'Moderate',cls:'borderline', color:'#854d0e' };
-        return                { label:'High',     cls:'deficient',  color:'#991b1b' };
-    }
+
 
     function badgeHtml(label, cls) {
         var bg  = cls==='adequate'?'#dcfce7':cls==='borderline'?'#fef9c3':cls==='deficient'?'#fee2e2':'#f3f4f6';
@@ -449,10 +444,9 @@
 
         // Source info line
         var sourceInfo = '';
-        if (wb.sourceLabel || wb.source || wb.testDate) {
+        if (wb.sourceLabel || wb.testDate) {
             var parts = [];
             if (wb.sourceLabel) parts.push(wb.sourceLabel);
-            if (wb.source)      parts.push(wb.source);
             if (wb.testDate)    parts.push('Tested ' + (fmtDate(wb.testDate) || wb.testDate));
             if (wb.recycled)    parts.push('Recycled water');
             sourceInfo = '<div style="font-size:12px;color:#6b7280;margin-top:2px">'+esc(parts.join(' · '))+'</div>';
@@ -480,54 +474,6 @@
     // =========================================================================
     // 2. WATER QUALITY CARDS
     // =========================================================================
-
-    function renderWaterQuality(wb) {
-        var rows = [];
-
-        function qcard(label, value, unit, st, infoKey) {
-            return '<div class="wb-quality-card '+st.cls+'">'+
-                '<div class="wb-quality-label">'+esc(label)+' '+infoBtn(infoKey)+'</div>'+
-                '<div class="wb-quality-value">'+esc(value != null ? value : '—')+'</div>'+
-                '<div class="wb-quality-unit">'+esc(unit)+'</div>'+
-                '<div class="wb-quality-status">'+badgeHtml(st.label, st.cls)+'</div>'+
-                '</div>';
-        }
-
-        var cards = [
-            qcard('ECw', wb.ecw != null ? fmt(wb.ecw, 2) : null, 'dS/m', ecwStatus(wb.ecw), 'wb-ecw'),
-            qcard('SAR', wb.SAR != null ? fmt(wb.SAR, 1) : null, 'meq/L ratio', sarStatus(wb.SAR), 'wb-sar'),
-        ];
-
-        if (wb.SARadj != null) {
-            var adjDiff = wb.SARadj - wb.SAR;
-            var adjNote = adjDiff > 0.5 ? 'borderline' : 'adequate';
-            cards.push(qcard('SARadj', fmt(wb.SARadj, 1), 'bicarbonate-adjusted',
-                { label: adjDiff > 0.5 ? '+'+fmt(adjDiff,1)+' vs SAR' : 'Minimal adjustment', cls: adjNote }, 'wb-saradj'));
-        }
-        if (wb.RSC != null) {
-            cards.push(qcard('RSC', fmt(wb.RSC, 2), 'meq/L', rscStatus(wb.RSC), 'wb-rsc'));
-        }
-        if (wb.pH != null) {
-            var phSt = wb.pH < 6.5 ? {label:'Acidic',cls:'borderline'} : wb.pH > 8.5 ? {label:'Alkaline',cls:'borderline'} : {label:'OK',cls:'adequate'};
-            cards.push(qcard('pH', fmt(wb.pH, 1), '', phSt, 'wb-lsi'));
-        }
-        if (wb.leachingFraction != null) {
-            cards.push(qcard('Leaching Req.', wb.leachingFraction+'%', 'of irrigation volume', lfStatus(wb.leachingFraction), 'wb-lf'));
-        }
-        if (wb.LSI != null) {
-            cards.push(qcard('LSI', fmt(wb.LSI, 2), '', lsiStatus(wb.LSI), 'wb-lsi'));
-        }
-        if (wb.naPct != null) {
-            var naSt = wb.naPct < 20 ? {label:'Safe',cls:'adequate'} : wb.naPct < 40 ? {label:'Marginal',cls:'borderline'} : {label:'Concern',cls:'deficient'};
-            cards.push(qcard('Na%', fmt(wb.naPct, 1), '%', naSt, 'wb-napct'));
-        }
-
-        if (!cards.length) return '';
-        return '<div class="wb-section">'+
-            '<div class="wb-section-title">Water Quality Parameters</div>'+
-            '</div>'+
-            '<div class="wb-quality-grid">'+cards.join('')+'</div>';
-    }
 
     // =========================================================================
     // 3. ION ANALYSIS TABLE
@@ -807,100 +753,168 @@
     function _buildFallbackDiagnostics(wb) {
         var out = [];
         var ions = wb.ions || {};
+        // ions stored as meq/L — convert to mg/L for per-ion cards (matches old hub thresholds)
+        var caMgL  = (ions.Ca  || 0) * 20.04;
+        var mgMgL  = (ions.Mg  || 0) * 12.15;
+        var naMgL  = (ions.Na  || 0) * 23.0;
+        var kMgL   = (ions.K   || 0) * 39.1;
+        var clMgL  = (ions.Cl  || 0) * 35.45;
+        var so4MgL = (ions.SO4 || 0) * 48.0;
+
         function push(label, value, unit, st, driver, rec) {
             out.push({ label: label, value: String(value), unit: unit,
                        status: st.label, statusClass: 'status-' + st.cls,
                        driver: driver || null, recommendation: rec || null });
         }
-        if (wb.ecw != null) {
-            var st = ecwStatus(wb.ecw);
-            push('ECw', fmt(wb.ecw, 2), 'dS/m', st,
-                 'Electrical conductivity of irrigation water',
-                 wb.ecw > 3  ? 'Maintain leaching fraction ' + (wb.leachingFraction || 25) + '%+ to prevent salt accumulation.'
-               : wb.ecw > 1.5 ? 'Apply periodic leaching fractions to flush accumulated salts.'
-               : null);
-        }
-        if (wb.leachingFraction != null) {
-            var st = lfStatus(wb.leachingFraction);
-            push('Leaching Fraction', wb.leachingFraction, '%', st,
-                 'Fraction of applied water that must pass through the root zone', null);
-        }
+
+        // Order mirrors old hub's calculateWaterDiagnostics
         if (wb.SAR != null) {
             var st = sarStatus(wb.SAR);
-            push('SAR', fmt(wb.SAR, 1), 'meq/L ratio', st,
-                 'Sodium Adsorption Ratio — sodium hazard to soil structure',
-                 wb.SAR >= 9  ? 'Apply gypsum to displace Na from exchange sites.'
-               : wb.SAR >= 3  ? 'Monitor soil infiltration; consider periodic gypsum applications.'
-               : null);
+            push('Sodium Hazard (SAR)', fmt(wb.SAR, 2), '', st,
+                 'Low sodium hazard',
+                 wb.SAR >= 9 ? 'Apply gypsum 1.0–2.0 t/ha, monitor infiltration.'
+               : wb.SAR >= 6 ? 'Apply gypsum 1.0–2.0 t/ha, monitor infiltration.'
+               : wb.SAR >= 3 ? 'Consider preventative gypsum (0.5–1.0 t/ha).'
+               : 'No sodium management required.');
         }
-        if (wb.SARadj != null && wb.SAR != null && Math.abs(wb.SARadj - wb.SAR) >= 0.1) {
+        if (wb.SARadj != null) {
             var st = sarStatus(wb.SARadj);
-            push('SARadj', fmt(wb.SARadj, 1), 'meq/L ratio', st,
-                 'Adjusted SAR — bicarbonate-corrected sodium hazard', null);
+            var adjDiff = wb.SAR != null ? ((wb.SARadj / Math.max(wb.SAR, 0.01) - 1) * 100).toFixed(0) : null;
+            push('Adjusted SAR (SARadj)', fmt(wb.SARadj, 2), '', st,
+                 adjDiff !== null && Math.abs(Number(adjDiff)) > 2
+                     ? (Number(adjDiff) > 0 ? '+' : '') + adjDiff + '% vs basic SAR — bicarbonate-corrected (Suarez 1981)'
+                     : 'No significant adjustment — bicarbonate in equilibrium',
+                 null);
         }
-        if (wb.naPct != null) {
-            var naSt = wb.naPct > 60 ? { label:'High',     cls:'deficient'  }
-                     : wb.naPct > 40 ? { label:'Elevated',  cls:'borderline' }
-                     :                 { label:'Normal',     cls:'adequate'   };
-            push('Na%', fmt(wb.naPct, 1), '%', naSt,
-                 'Sodium as percentage of total cations', null);
-        }
-        if (wb.pH != null) {
-            var phSt = wb.pH > 8.5 ? { label:'High', cls:'borderline' }
-                     : wb.pH < 6.5 ? { label:'Low',  cls:'borderline' }
-                     :               { label:'Normal',cls:'adequate'   };
-            push('pH', fmt(wb.pH, 1), '', phSt,
-                 'Water pH affects nutrient availability and equipment longevity', null);
+        if (wb.ecw != null) {
+            var ecSt = wb.ecw < 0.7  ? { label:'Low Risk',   cls:'adequate'   }
+                     : wb.ecw < 1.5  ? { label:'Medium Risk', cls:'borderline' }
+                     : wb.ecw < 3.0  ? { label:'High Risk',   cls:'deficient'  }
+                     :                 { label:'Very High',    cls:'deficient'  };
+            push('Salinity (ECw)', fmt(wb.ecw, 2), 'dS/m', ecSt,
+                 wb.ecw < 0.7 ? 'Minimal salt accumulation' : wb.ecw < 1.5 ? 'Monitor salt levels' : 'Salt stress likely',
+                 wb.ecw >= 3.0 ? 'Leaching >25%, consider water treatment.'
+               : wb.ecw >= 1.5 ? 'Leaching 20–25%, salt-tolerant cultivars.'
+               : wb.ecw >= 0.7 ? 'Increase leaching to 15–20%.'
+               : 'Standard leaching (10–15%).');
         }
         if (wb.RSC != null) {
             var st = rscStatus(wb.RSC);
-            push('RSC', fmt(wb.RSC, 2), 'meq/L', st,
-                 'Residual Sodium Carbonate — risk of Ca precipitation and pH rise',
-                 wb.RSC > 1.25 ? 'Inject acid to reduce alkalinity before application.' : null);
+            push('Residual Sodium Carbonate', fmt(wb.RSC, 2), 'meq/L', st,
+                 wb.RSC < 0 ? 'No carbonate precipitation' : wb.RSC < 1.25 ? 'Some Ca/Mg precipitation' : 'Significant precipitation',
+                 wb.RSC >= 2.5 ? 'Acidification or heavy gypsum required.'
+               : wb.RSC >= 1.25 ? 'Regular gypsum applications.'
+               : wb.RSC >= 0   ? 'Monitor Ca/Mg availability.'
+               : 'Ca/Mg remain available.');
+        }
+        if (clMgL > 0) {
+            var clSt = clMgL >= 350 ? { label:'High Risk', cls:'deficient'  }
+                     : clMgL >= 100 ? { label:'Caution',   cls:'borderline' }
+                     :                { label:'Safe',       cls:'adequate'   };
+            push('Chloride Toxicity', fmt(clMgL, 1), 'mg/L', clSt,
+                 clMgL >= 350 ? 'Foliar damage likely' : clMgL >= 100 ? 'Monitor sensitive species' : 'No toxicity risk',
+                 clMgL >= 350 ? 'Avoid overhead irrigation, increase leaching.'
+               : clMgL >= 100 ? 'Avoid foliar irrigation during heat stress.'
+               : 'No chloride management required.');
+        }
+        if (naMgL > 0) {
+            var naSt = naMgL >= 150 ? { label:'High Risk', cls:'deficient'  }
+                     : naMgL >= 70  ? { label:'Caution',   cls:'borderline' }
+                     :                { label:'Safe',       cls:'adequate'   };
+            push('Sodium Toxicity', fmt(naMgL, 1), 'mg/L', naSt,
+                 naMgL >= 150 ? 'Direct toxicity risk' : naMgL >= 70 ? 'Monitor sensitive species' : 'No toxicity risk',
+                 naMgL >= 150 ? 'Gypsum applications, increase leaching.'
+               : naMgL >= 70  ? 'Maintain adequate soil calcium levels.'
+               : 'No sodium management required.');
+        }
+        if (wb.B != null && wb.B > 0) {
+            var bSt = wb.B >= 2.0 ? { label:'High Risk', cls:'deficient'  }
+                    : wb.B >= 0.5 ? { label:'Caution',   cls:'borderline' }
+                    :               { label:'Safe',       cls:'adequate'   };
+            push('Boron Toxicity', fmt(wb.B, 2), 'mg/L', bSt,
+                 wb.B >= 2.0 ? 'Toxicity likely' : wb.B >= 0.5 ? 'Sensitive turf affected' : 'No toxicity risk',
+                 wb.B >= 2.0 ? 'Water blending or treatment system required.'
+               : wb.B >= 0.5 ? 'Monitor sensitive species, increase leaching.'
+               : 'No boron management required.');
+        }
+        if (wb.Fe != null && wb.Fe > 0) {
+            var feSt = wb.Fe >= 2.0 ? { label:'Severe',    cls:'deficient'  }
+                     : wb.Fe >= 1.0 ? { label:'High Risk', cls:'deficient'  }
+                     : wb.Fe >= 0.3 ? { label:'Caution',   cls:'borderline' }
+                     :                { label:'Safe',       cls:'adequate'   };
+            push('Iron (Staining Risk)', fmt(wb.Fe, 2), 'mg/L', feSt,
+                 wb.Fe >= 2.0 ? 'Severe staining expected' : wb.Fe >= 1.0 ? 'Staining likely' : wb.Fe >= 0.3 ? 'Moderate staining possible' : 'No staining risk',
+                 wb.Fe >= 1.0 ? 'Install iron filtration system.'
+               : wb.Fe >= 0.3 ? 'Monitor surfaces, consider filtration if needed.'
+               : 'No iron management required.');
+        }
+        if (wb.pH != null) {
+            var phSt = wb.pH > 8.4 ? { label:'Alkaline',  cls:'deficient'  }
+                     : wb.pH < 6.5 ? { label:'Acidic',    cls:'borderline' }
+                     :               { label:'Suitable',   cls:'adequate'   };
+            push('pH', fmt(wb.pH, 1), '', phSt,
+                 wb.pH > 8.4 ? 'High pH promotes calcite precipitation, raises soil pH, reduces P availability'
+               : wb.pH < 6.5 ? 'Low pH may increase metal solubility and equipment corrosion'
+               : 'pH within normal irrigation range (6.5–8.4)',
+                 wb.pH > 8.4 ? 'Acidify water to pH 6.5–7.0; inject sulphuric or phosphoric acid.'
+               : wb.pH < 6.5 ? 'Check bicarbonate alkalinity; monitor equipment. pH <6.0 may require buffering.'
+               : 'No adjustment required.');
+        }
+        if (caMgL > 0) {
+            var caSt = caMgL > 200 ? { label:'High',     cls:'borderline' }
+                     : caMgL >= 20 ? { label:'Adequate', cls:'adequate'   }
+                     :               { label:'Low',       cls:'borderline' };
+            push('Calcium (Ca)', fmt(caMgL, 1), 'mg/L', caSt,
+                 caMgL > 200 ? 'Elevated Ca may contribute to scale and calcite deposition'
+               : caMgL >= 20 ? 'Adequate Ca, good buffering capacity'
+               : 'Low Ca, reduced buffering against sodium-induced sodicity',
+                 caMgL > 200 ? 'Check LSI; consider water treatment if scale is present.'
+               : caMgL >= 20 ? 'No action required.'
+               : 'Monitor SAR closely; consider Ca-containing amendments (gypsum).');
+        }
+        if (mgMgL > 0) {
+            var mgSt = mgMgL > 60 ? { label:'Elevated', cls:'borderline' }
+                     : mgMgL >= 5 ? { label:'Adequate', cls:'adequate'   }
+                     :              { label:'Low',       cls:'borderline' };
+            push('Magnesium (Mg)', fmt(mgMgL, 1), 'mg/L', mgSt,
+                 mgMgL > 60 ? 'High Mg relative to Ca can displace Ca on exchange sites'
+               : mgMgL >= 5 ? 'Adequate Mg, no concerns'
+               : 'Low Mg may limit plant uptake if soil Mg is borderline',
+                 mgMgL > 60 ? 'Check Ca:Mg ratio in soil; apply gypsum if Ca:Mg < 3:1.'
+               : mgMgL >= 5 ? 'No action required.'
+               : 'Supplement with MgSO₄ (Epsom salt) if soil Mg is also low.');
+        }
+        if (kMgL > 0) {
+            var kSt = kMgL >= 200 ? { label:'High',     cls:'deficient'  }
+                    : kMgL >= 78  ? { label:'Elevated', cls:'borderline' }
+                    :               { label:'Normal',    cls:'adequate'   };
+            push('Potassium (K)', fmt(kMgL, 1), 'mg/L', kSt,
+                 kMgL >= 200 ? 'High K can displace Ca/Mg on exchange sites'
+               : kMgL >= 78  ? 'Elevated K may contribute to K accumulation in soils'
+               : 'K within normal irrigation range',
+                 kMgL >= 200 ? 'Consider water blending; monitor Ca:K and Mg:K ratios in soil.'
+               : kMgL >= 78  ? 'Reduce K fertiliser inputs; monitor soil K levels.'
+               : 'No action required.');
+        }
+        if (so4MgL > 0) {
+            var soSt = so4MgL > 1000 ? { label:'High',     cls:'deficient'  }
+                     : so4MgL > 600  ? { label:'Elevated', cls:'borderline' }
+                     :                 { label:'Normal',    cls:'adequate'   };
+            push('Sulphate (SO₄)', fmt(so4MgL, 1), 'mg/L', soSt,
+                 so4MgL > 1000 ? 'High sulphate contributes significantly to EC and total salt load'
+               : so4MgL > 600  ? 'Elevated SO₄, monitor total salinity (EC)'
+               : 'Low to moderate sulphate, no concerns',
+                 so4MgL > 1000 ? 'Increase leaching fraction; consider water blending or treatment.'
+               : so4MgL > 600  ? 'Monitor ECw; ensure adequate leaching fraction.'
+               : 'No action required.');
         }
         if (wb.LSI != null) {
             var st = lsiStatus(wb.LSI);
-            push('LSI', fmt(wb.LSI, 2), '', st,
-                 'Langelier Saturation Index — CaCO₃ scale or corrosion tendency',
+            push('Langelier SI', fmt(wb.LSI, 2), '', st,
+                 'CaCO₃ scale or corrosion tendency',
                  wb.LSI > 0.5  ? 'Inject acid to lower LSI below +0.5.'
                : wb.LSI < -0.5 ? 'Consider calcium injection or blending with harder water.'
-               : null);
-        }
-        if (ions.Cl != null && ions.Cl > 0) {
-            var clSt = ions.Cl > 10 ? { label:'Toxic',   cls:'deficient'  }
-                     : ions.Cl > 5  ? { label:'Caution', cls:'borderline' }
-                     :                { label:'Safe',     cls:'adequate'   };
-            push('Chloride (Cl)', fmt(ions.Cl, 2), 'meq/L', clSt,
-                 'Chloride toxicity — direct leaf damage at high concentrations',
-                 ions.Cl > 10 ? 'Blend with low-Cl source or restrict application to avoid foliar uptake.'
-               : ions.Cl > 5  ? 'Monitor for leaf scorch; avoid overhead irrigation in heat.'
-               : null);
-        }
-        if (ions.HCO3 != null && ions.HCO3 > 0) {
-            var hco3St = ions.HCO3 > 4   ? { label:'High',     cls:'deficient'  }
-                       : ions.HCO3 > 1.5 ? { label:'Elevated',  cls:'borderline' }
-                       :                   { label:'Normal',     cls:'adequate'   };
-            push('Bicarbonate (HCO₃)', fmt(ions.HCO3, 2), 'meq/L', hco3St,
-                 'Bicarbonate causes pH rise and calcium precipitation in soil',
-                 ions.HCO3 > 4   ? 'Acid injection recommended to neutralise alkalinity.'
-               : ions.HCO3 > 1.5 ? 'Monitor soil pH; consider periodic acid injection.'
-               : null);
-        }
-        if (wb.Fe != null && wb.Fe > 0) {
-            var feSt = wb.Fe > 1   ? { label:'High staining risk', cls:'deficient'  }
-                     : wb.Fe > 0.2 ? { label:'Staining risk',      cls:'borderline' }
-                     :               { label:'Acceptable',          cls:'adequate'   };
-            push('Iron (Fe)', fmt(wb.Fe, 2), 'mg/L', feSt,
-                 'Iron causes rust staining on turf and infrastructure',
-                 wb.Fe > 0.2 ? 'Install aeration/oxidation treatment; flush lines weekly.' : null);
-        }
-        if (wb.B != null && wb.B > 0) {
-            var bSt = wb.B > 1   ? { label:'Toxic',    cls:'deficient'  }
-                    : wb.B > 0.5 ? { label:'Caution',   cls:'borderline' }
-                    :              { label:'Acceptable', cls:'adequate'   };
-            push('Boron (B)', fmt(wb.B, 2), 'mg/L', bSt,
-                 'Boron accumulates in leaf tissue — leaching is the primary management',
-                 wb.B > 0.5 ? 'Apply excess water periodically to leach boron. Avoid boron-containing fertilisers.' : null);
+               : 'No scale or corrosion concern.');
         }
         return out;
     }
@@ -1562,7 +1576,7 @@
         var headerHtml     = renderPageHeader(wb);
         var verdictHtml    = renderWbVerdict(wb);
         var recHtml        = renderRecommendations(wb);
-        var qualityHtml    = renderWaterQuality(wb);
+
         var ionHtml        = renderIons(wb);
         var salHtml        = renderSalinity(wb);
         var diagHtml       = renderDiagnostics(wb);
@@ -1570,7 +1584,7 @@
         var structHtml     = renderSoilStructureRisk(wb);
         var soilWaterHtml  = renderSoilWaterInteraction(sn, wb);
 
-        var bodyContent = verdictHtml + recHtml + soilWaterHtml + diagHtml + qualityHtml + ionHtml + salHtml + structHtml + irrHtml;
+        var bodyContent = verdictHtml + recHtml + soilWaterHtml + diagHtml + ionHtml + salHtml + structHtml + irrHtml;
 
         container.innerHTML =
             '<div class="wb-page">'+
