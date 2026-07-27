@@ -900,13 +900,19 @@
         }
     }
 
-    function populateSensorSource() {
-        var sensorData = safeJson(_ls.getItem('gilba_sensor_last_fetch'));
+    function populateSensorSource(siteId) {
+        // gilba_sensor_last_fetch is written globally (not per-site) by the sensor
+        // refresh flow, so it must not be trusted on its own — it can hold another
+        // site's fetch timestamp. Cross-check against this site's own readings cache.
+        var cache      = safeJson(_ls.getItem('gaip_hydrosight_readings_cache_' + (siteId || 'default')));
+        var hasSiteData = !!(cache && cache.data && cache.data.length);
+        var sensorData = hasSiteData ? safeJson(_ls.getItem('gilba_sensor_last_fetch')) : null;
         var dotEl  = document.querySelector('[data-source="sensors"] .db-source-dot');
         var textEl = document.getElementById('db-sensor-status');
 
         if (sensorData && sensorData.fetchedAt) {
-            var mins  = Math.round((Date.now() - new Date(sensorData.fetchedAt).getTime()) / 60000);
+            var ts    = cache.timestamp || new Date(sensorData.fetchedAt).getTime();
+            var mins  = Math.round((Date.now() - ts) / 60000);
             var label = mins < 60 ? mins + 'm ago' : Math.round(mins / 60) + 'h ago';
             if (dotEl)  dotEl.className  = 'db-source-dot ok';
             if (textEl) { textEl.className = 'db-source-status-text ok'; textEl.textContent = label; }
@@ -914,7 +920,7 @@
             var provEl = document.getElementById('db-sensor-provider');
             if (provEl && sensorData.provider) provEl.textContent = sensorData.provider;
         } else {
-            // No sensor data in localStorage — mark as not connected
+            // No sensor data cached for this site — mark as not connected
             if (dotEl)  dotEl.className  = 'db-source-dot warning';
             if (textEl) { textEl.className = 'db-source-status-text warning'; textEl.textContent = 'Not connected'; }
         }
@@ -1559,7 +1565,7 @@
         populateActionQueue(metrics, computed);
         populateTimestamp(ts);
         populatePills(siteId);
-        populateSensorSource();
+        populateSensorSource(siteId);
         initInfoPopovers();
         initCardPanels(metrics, computed);
 
