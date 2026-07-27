@@ -440,22 +440,17 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
-21/07/26
+27/07/26
++54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
 +63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight. - I added PGR application to Russley GC and rerun analisys - attached screenshot with results. Are you expecting different data or you look somethere else?
++66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
++67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
 
 
 
-when I change samples - I do not see any changes in the data on the page except 
 
 
 ## Backlog
-
-54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
-
-+66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
-
-67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
-
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
@@ -465,8 +460,24 @@ when I change samples - I do not see any changes in the data on the page except
 
 
 
+# Long backlog
+71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
 
 
+60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
+
+
+Integration with soil scout
+this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
+
+
+
+
+
+
+
+
+# My changes:
 
 
 
@@ -509,24 +520,8 @@ I rolled back this as it didnt help.
 
 
 
-# Long backlog
-71. the areas be better in m2 and you can’t tell which green is which. Fairways they tend to use hectares and greens and tees m2. Football pitches m2.
 
-
-60.⁠ ⁠soil temps are totally different. hydrosight 9.3/9.3/9.2/9 and gaip hub 7.9/7.8/7.7 and 7.5. i think there is an error with the gaip hub re air temperature which could explaiin some of these errors as mine says temperature is 8.4 and yours says 11.6C? - Found an issue in the new hub, fixed it (GH-191) but there is still a difference in soil temperatures. We can look at this after we fix everything for NZ if you are ok with it?
-
-
-Integration with soil scout
-this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
-
-
-
-
-
-
-
-
-# My changes:
+--
 
 data sources - all current but no tissiea test and water downloaded
 
@@ -541,7 +536,7 @@ Check what was implemented in the new hub (/Users/katep/Documents/Work/gilba/gil
 Write a comparison
 
 ----
-- also move branding settings to the settings page and make ui nice
+- also move branding settings to the settings page and make ui similar to what we have in the new hub
 
 - Stress Index Analysis - add  i icons where needed (ion the KPI section and component breakdown)
 
@@ -556,8 +551,6 @@ Save
 - Auto re-run - setup minutes or hours - how often to rerun
 
 - Task management
-
-- How often data should be pulled from sensors?
 
 - Soil temperature take from sensor ? 
  
