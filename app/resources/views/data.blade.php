@@ -296,7 +296,7 @@
                 <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">{!! $tab['icon'] !!}</svg>
                 <span>{{ $tab['label'] }}</span>
                 @if($tab['key'] === 'sensors')
-                    <span class="dat-tab-date live">Live</span>
+                    <span class="dat-tab-date" id="dat-sensors-tab-badge">Not connected</span>
                 @elseif($dateLabel)
                     <span class="dat-tab-date{{ $isWarn ? ' warn' : '' }}">{{ $dateLabel }}</span>
                 @endif
@@ -876,6 +876,39 @@
 <script src="{{ $legacyAssetUrl('nz-fungicides.js') }}"></script>
 <script src="{{ $legacyAssetUrl('uk-fungicides.js') }}"></script>
 @endif
+{{-- Sensors tab badge — reflects real connection status (validated API key + actual live data), not a static claim. Runs on every data sub-tab since the sub-nav is shared. --}}
+<script>
+window.GAIP_computeSensorStatus = function () {
+    var SITE_ID = '{{ $activeSite?->id ?? 'default' }}';
+    function lsJson(key) {
+        try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+    }
+    var hsCfg      = lsJson('gaip_hydrosight_config_' + SITE_ID) || {};
+    var hsHasCreds = !!(hsCfg.keyConfigured || hsCfg.apiKey);
+    var hsCache    = lsJson('gaip_hydrosight_readings_cache_' + SITE_ID) || {};
+    var hsHasData  = (hsCache.data || []).some(function (r) {
+        return r.vwc != null || r.ec != null || r.soilTemp != null;
+    });
+
+    var scCfg      = lsJson('gilba_specconnect_config') || {};
+    var scHasCreds = !!scCfg.apiKey;
+
+    return {
+        hsHasCreds:  hsHasCreds,
+        hsConnected: hsHasCreds && hsHasData,
+        scHasCreds:  scHasCreds,
+        scConnected: scHasCreds, // SpecConnect has no live readings cache yet — credentials are all we can check
+    };
+};
+(function () {
+    var badge = document.getElementById('dat-sensors-tab-badge');
+    if (!badge) return;
+    var status = window.GAIP_computeSensorStatus();
+    var isLive = status.hsConnected || status.scConnected;
+    badge.textContent = isLive ? 'Live' : 'Not connected';
+    badge.classList.toggle('live', isLive);
+}());
+</script>
 {{-- Data table interaction --}}
 <script>
 (function () {

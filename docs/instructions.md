@@ -451,7 +451,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-211** Enhance soil nutrition analysis: Added a check for ammonium acetate methodology in the renderCorrectionProgram function to prevent correction dose calculations for AA, ensuring accurate nutrient classification and improving data handling.
 **GH-212** Standardize terminology: Updated instances of 'Sulfate' to 'Sulphate' across multiple files for consistency in naming conventions.
 **GH-213** Enhance growth potential handling: Updated climate engine logic to correctly account for legitimate zero growth potential values, ensuring accurate data representation. Improved hub persistence logic to merge daily patterns without overwriting existing growth data, enhancing analysis accuracy. Updated instructions to clarify recent changes and added a link to analysis pages in the dashboard for better navigation.
-
+**GH-214** Update sensors tab status handling: Changed the sensors tab badge to reflect real connection status instead of a static claim. Implemented a script to check for valid API keys and live data, updating the badge text accordingly to enhance user awareness of sensor connectivity.
 
 
 ## Backlog
