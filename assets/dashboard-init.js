@@ -814,8 +814,11 @@
     function updateSourcesBadge() {
         var grid = document.getElementById('db-sources-grid');
         if (!grid) return;
+        // Dots with neither .ok nor .warning (class "none") mean "never tested" —
+        // they must not be counted as current, unlike the old `6 - warnings` formula did.
+        var total    = grid.querySelectorAll('.db-source-dot').length;
         var warnings = grid.querySelectorAll('.db-source-dot.warning').length;
-        var ok = 6 - warnings;
+        var ok       = grid.querySelectorAll('.db-source-dot.ok').length;
 
         var badge = document.getElementById('db-sources-badge');
         if (badge) {
@@ -830,8 +833,8 @@
         if (okEl)       okEl.textContent       = ok;
         if (issuesPart) issuesPart.style.display = warnings > 0 ? '' : 'none';
         if (issueEl)    issueEl.textContent    = warnings + ' needs update';
-        if (scoreEl)    scoreEl.textContent    = ok + '/6 sources';
-        if (fillEl)     fillEl.style.width     = Math.round(ok / 6 * 100) + '%';
+        if (scoreEl)    scoreEl.textContent    = ok + '/' + total + ' sources';
+        if (fillEl)     fillEl.style.width     = (total ? Math.round(ok / total * 100) : 0) + '%';
     }
 
     // =========================================================================
