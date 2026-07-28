@@ -462,8 +462,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-222** Refactor state restoration logic: Removed soil, water, and tissue data restoration from the state blob to prevent cross-site data contamination. Introduced a new event, 'gaip:site-samples-ready', to signal when the DOM forms reflect the currently active site, ensuring accurate analysis runs. Updated related functions to handle site switching more reliably and prevent stale data usage.
 **GH-223** Fix daily DLI selection logic for api_daily source: Updated the ambient DLI engine to prioritize the entry matching today's date when available, ensuring accurate DLI readings. If today's data is absent, the logic now correctly falls back to the most recent entry instead of the oldest, addressing inconsistencies observed in production. Added tests to validate this behavior.
 **GH-224** Refactor dashboard UI: Removed the applyBadge function and related logic for displaying disease and stress levels, streamlining the code for improved maintainability. This change focuses on enhancing the overall structure of the dashboard UI without altering its core functionality.
-
-
+**GH-225** Update growth potential logic in word-export.js: Refined the calculation of growth potential for C3 and C4 species by prioritizing drought-adjusted species-weighted GP when available. This change enhances the accuracy of growth potential representation in overseed situations and ensures proper labeling based on species type.
+**GH-226** Enhance dashboard analysis links: Added dynamic analysis links for various dashboard panels, improving user navigation to detailed analysis pages. Introduced new CSS styles for analysis link presentation, ensuring a consistent and visually appealing interface.
 
 
 
@@ -492,16 +492,6 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 # My changes:
-
-Add link on the side tab on the dashboard to the analisys pages for all KPIs
-
-
-
-These are all pre-existing TypeScript hints (unused variable warnings)  - fix
-
-
-
-
 
 Save fetched data which you do every 30 mins. 
 I rolled back this as it didnt help. 
@@ -533,13 +523,6 @@ I rolled back this as it didnt help.
             }
 
 
-
-
-
-
---
-
-data sources - all current but no tissiea test and water downloaded
 
 ---
 

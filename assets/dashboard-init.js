@@ -988,6 +988,20 @@
         else if (key === 'vwc')              html = buildVWCPanel(_panelMetrics, _panelComputed);
         else if (key === 'irrigation-plan')  html = buildIrrigationPanel(_panelMetrics, _panelComputed);
 
+        var ANALYSIS_TABS = {
+            'growth-potential': 'growth-light',
+            'disease-risk':     'disease',
+            'stress-index':     'stress',
+            'vwc':              'water-balance',
+            'irrigation-plan':  'water-balance'
+        };
+        if (html && ANALYSIS_TABS[key]) {
+            html += '<a class="db-panel-analysis-link" href="/analysis#' + ANALYSIS_TABS[key] + '">' +
+                'View full analysis' +
+                '<svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>' +
+                '</a>';
+        }
+
         body.innerHTML = html ||
             '<p style="color:var(--gaip-text-muted,#6b8878);font-size:13px;padding:8px 0">No data available — run analysis in Hub first.</p>';
         if (key === 'disease-risk') enrichDashboardResidual();
@@ -1195,13 +1209,6 @@
             html += panelSection('Light (DLI)', dliHtml);
         }
 
-        // Link to full analysis
-        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
-            '<a href="/analysis/growth-light" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
-            'View full Growth &amp; Light analysis' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
-            '</a></div>';
-
         return html;
     }
 
@@ -1361,12 +1368,6 @@
         }
 
         html += panelSection('Fungicide Residual', '<div id="db-disease-residual"></div>');
-
-        html += '<div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--gaip-border,#d8e0dc)">' +
-            '<a href="/analysis/disease" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--gaip-brand,#236b4a);text-decoration:none">' +
-            'View full Disease analysis' +
-            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>' +
-            '</a></div>';
 
         return html;
     }

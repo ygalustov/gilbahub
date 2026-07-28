@@ -1174,6 +1174,22 @@ body { margin: 0; padding: 0; }
     margin-bottom: 10px;
 }
 
+.db-panel-analysis-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: var(--gaip-accent, #2da85e);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.15s;
+}
+.db-panel-analysis-link:hover { background: var(--gaip-accent-hover, #259950); }
+
 /* Factor bars (stress components) */
 .db-factor-row {
     display: flex;
