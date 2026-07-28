@@ -994,6 +994,13 @@
           weighted: climateMetrics.growth?.weighted ?? null,
           c3: climateMetrics.growth?.c3 ?? null,
           c4: climateMetrics.growth?.c4 ?? null,
+          // b35fix: c3Fraction/c4Fraction were dropped here, so any consumer
+          // reading the cached/canonical growthPotential (e.g. dashboard-init.js
+          // buildGrowthPanel) had no species-type signal and defaulted every
+          // site to C3/cool-season - showing pure-C4 species (Buffalograss,
+          // Couch, Kikuyu...) with the wrong label and the wrong (c3) value.
+          c3Fraction: climateMetrics.growth?.c3Fraction ?? null,
+          c4Fraction: climateMetrics.growth?.c4Fraction ?? null,
         },
       };
     } else {
@@ -4673,11 +4680,28 @@
       _weatherReadyFired = true;
       log("integration", "gaip:weather-ready, re-triggering computeAll for disease");
       clearTimeout(_autoComputeTimer);
-      _autoComputeTimer = setTimeout(() => {
+      _autoComputeTimer = setTimeout(function _runWeatherReadyRetry(attemptsLeft) {
+        // b35fix: computeAll() has its own _isComputingAll re-entrancy guard
+        // that silently no-ops (log() is behind ORCHESTRATOR_CONFIG.debug) if
+        // another computeAll is still mid-flight when this fires. Since
+        // _weatherReadyFired is a one-shot latch, that silent no-op used to
+        // permanently strand the disease/GP result on the pre-weather (or, on
+        // a concurrent site-switch, stale-species) pass with no retry —
+        // observed as disease risk numbers differing between reruns of the
+        // same site/inputs depending on timing. Poll until computeAll is free
+        // instead of firing once and giving up.
+        if (_isComputingAll) {
+          if (attemptsLeft > 0) {
+            _autoComputeTimer = setTimeout(_runWeatherReadyRetry, 200, attemptsLeft - 1);
+          } else {
+            console.warn("[Orchestrator] weather-ready retry gave up waiting for computeAll to free up");
+          }
+          return;
+        }
         computeAll().catch((err) => {
           console.error("[Orchestrator] computeAll (weather-ready retry) FAILED:", err);
         });
-      }, 500);
+      }, 500, 25); // up to 500ms + 25*200ms = ~5.5s total wait
     });
 
     // Re-trigger computeAll when Hydrosight sensor data arrives after initial analysis.

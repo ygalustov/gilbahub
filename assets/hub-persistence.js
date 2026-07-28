@@ -952,6 +952,35 @@
                     cache.computed.climate.growth = Object.assign({}, _existingGrowth || {}, {
                         dailyPattern: _growthFull.dailyPattern
                     });
+                    // _todayMean (above) is read from the live window.climateMetrics.temperature,
+                    // which climate-engine-v2.js's legacy shim (climate-engine-v2.js:1059-1061)
+                    // overwrites on every v2 recompute — including a late, independent refetch
+                    // triggered by site-config-persistence.js well after this run finished — and
+                    // that overwrite is NOT guarded the way growth/growthPotential is
+                    // (climate-engine-v2.js:1030-1034). So dailyPattern[0] (freshly rebuilt from
+                    // _todayMean) can drift from the already race-protected _existingGrowth that
+                    // the rest of the app treats as authoritative for "today". Pin dailyPattern[0]
+                    // to it so the PACE-contract display (dashboard-init.js, growth-light-analysis.js,
+                    // which read dailyPattern[0] rather than growth.weighted) can't diverge.
+                    if (_existingGrowth && _existingGrowth.weighted != null) {
+                        // b35fix: for a pure-C3 or pure-C4 site, .c3/.c4 equal .weighted by
+                        // definition (calcWeightedGPP: weighted = c3*c3Fraction + c4*c4Fraction,
+                        // and one fraction is ~0). _existingGrowth.c3/.c4 come from the live
+                        // climateMetrics.growth object, which can still reflect the pre-override
+                        // current-hour-influenced value (see hub-tissue-v3.js "Climate V2 GP
+                        // override (pre-publish)") even after .weighted has been corrected -
+                        // observed as dashboard-init.js/growth-light-analysis.js showing e.g. 35%
+                        // ("Today's GP") for a pure-C3 site when the published/authoritative
+                        // value is 9%. Pin the pure species' field to .weighted too, same
+                        // protection already applied to .weighted itself above.
+                        var _pureC3 = _c4f < 0.05;
+                        var _pureC4 = _c3f < 0.05;
+                        cache.computed.climate.growth.dailyPattern[0] = Object.assign({}, _growthFull.dailyPattern[0], {
+                            weighted: _existingGrowth.weighted,
+                            c3: _pureC3 ? _existingGrowth.weighted : (_existingGrowth.c3 != null ? _existingGrowth.c3 : _growthFull.dailyPattern[0].c3),
+                            c4: _pureC4 ? _existingGrowth.weighted : (_existingGrowth.c4 != null ? _existingGrowth.c4 : _growthFull.dailyPattern[0].c4)
+                        });
+                    }
                     console.log('[GilbaPersist] Augmented dailyPattern, length:', _growthFull.dailyPattern.length);
                 }
                 if (_forecastFull && _forecastFull.temp) {

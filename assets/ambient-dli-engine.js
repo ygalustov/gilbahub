@@ -354,7 +354,28 @@
                     // else: keep the partial value — better than nothing
                 }
             }
-            
+
+            // PATCH: When source is api_daily, dailyDLIs[0] is not necessarily "today" —
+            // this array can arrive from the historical-archive fallback (fetched ascending,
+            // ending yesterday), in which case index 0 is the OLDEST day in the lookback
+            // window, not current conditions. Prefer the entry whose date matches today;
+            // if today isn't present (archive data only goes up to yesterday), use the most
+            // recent entry (last index) rather than the oldest.
+            if (result.source === 'api_daily' && dailyDLIs.length > 0) {
+                var todayISO = new Date().toISOString().slice(0, 10);
+                var todayEntry = dailyDLIs.find(function(d) { return d.date === todayISO && d.dli !== null; });
+                if (todayEntry) {
+                    result.current = todayEntry.dli;
+                } else {
+                    var mostRecent = dailyDLIs[dailyDLIs.length - 1];
+                    if (mostRecent && mostRecent.dli !== null) {
+                        result.current = mostRecent.dli;
+                    }
+                    // else: keep the index-0 value — better than nothing
+                }
+                result.currentRaw = result.current;
+            }
+
             result.classification = classifyDLIStatus(result.current, species);
             result.status = result.classification.status;
             

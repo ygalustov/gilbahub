@@ -1029,10 +1029,32 @@
         var gpObj   = c && c.climate && c.climate.growth;
         var climate = c && c.climate;
 
-        // Species type (needed before dailyPattern GP selection)
-        var c3f     = gpObj ? (gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1)) : 1;
-        var c4f     = gpObj ? (gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0)) : 0;
-        var isWarm  = c4f > c3f;
+        // Species info (needed before dailyPattern GP selection - species-name
+        // C4 detection below depends on it)
+        var cfg         = global.GAIP_HUB_CONFIG || {};
+        var speciesName = cfg.turfSpecies ? cfg.turfSpecies : null;
+
+        // Species type (needed before dailyPattern GP selection).
+        // Prefer c3Fraction/c4Fraction when present (mixed/overseed stands need
+        // the weighted blend), but climateMetrics.growth is rebuilt from scratch
+        // in hub-tissue-v3.js's GP-override step without ever copying those
+        // *Fraction fields onto it - so by the time this object is cached and
+        // read here they're normally absent, and c3f/c4f used to silently
+        // default to "pure C3" (c3f=1, c4f=0) regardless of actual species.
+        // Fall back to detecting C4 species directly from the name instead -
+        // same species list as hub-orchestrator.js's isC4Species(). Without
+        // this, every pure-C4 site (Buffalograss, Couch, Kikuyu...) showed as
+        // "C3 cool-season grass" and pulled the wrong (c3) daily-pattern field.
+        var c3f, c4f, isWarm;
+        if (gpObj && (gpObj.c3Fraction != null || gpObj.c4Fraction != null)) {
+            c3f = gpObj.c3Fraction != null ? gpObj.c3Fraction : (gpObj.c3Frac || 1);
+            c4f = gpObj.c4Fraction != null ? gpObj.c4Fraction : (gpObj.c4Frac || 0);
+            isWarm = c4f > c3f;
+        } else {
+            isWarm = /couch|bermuda|kikuyu|buffalo|zoysia|paspalum/i.test(speciesName || '');
+            c3f = isWarm ? 0 : 1;
+            c4f = isWarm ? 1 : 0;
+        }
         var isMixed = c3f > 0 && c4f > 0;
         var gpField = isMixed ? 'weighted' : (isWarm ? 'c4' : 'c3');
 
@@ -1058,9 +1080,6 @@
         var todayGP  = todayRaw != null ? (todayRaw >= 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
         var todayCls = todayGP != null ? (todayGP >= 70 ? 'ok' : (todayGP >= 40 ? 'warning' : 'critical')) : '';
 
-        // Species info
-        var cfg         = global.GAIP_HUB_CONFIG || {};
-        var speciesName = cfg.turfSpecies ? cfg.turfSpecies : null;
         var seasonTag   = isWarm ? 'C4 warm-season grass' : 'C3 cool-season grass';
 
         // Temperature — daily mean from dailyPattern[0].temp (PACE: daily mean, not current-hour reading)

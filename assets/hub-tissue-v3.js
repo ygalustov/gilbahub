@@ -1027,8 +1027,11 @@ function gaip_build_state(e) {
                 surfaceType: e.querySelector(".gaip-subcategory-option.selected")?.dataset?.surface ||
                     window.gaipTurfProfile?.state?.subCategory ||
                     "sports",
-                pH_water: safeNum(e.querySelector(".gaip-soil-ph")?.value, 0),
-                pH_cacl2: safeNum(e.querySelector(".gaip-soil-ph-cacl2")?.value, 0),
+                // Not measured → null, not 0 - a pH of "0" reads as real (implausibly
+                // acidic) data to disease models that use `??` to detect missing input
+                // (e.g. SpringDeadSpotModel's phFactor gate), not "not tested yet".
+                pH_water: safeNum(e.querySelector(".gaip-soil-ph")?.value, null),
+                pH_cacl2: safeNum(e.querySelector(".gaip-soil-ph-cacl2")?.value, null),
                 Na_ppm: 0,
                 // Not measured → null, not 0 - CEC/EC1_5/ECe of "0" reads as a real (implausible)
                 // lab result to the input-range validator, not "not tested".
@@ -1104,9 +1107,19 @@ function gaip_build_state(e) {
                     window.GAIP_STATE?.turf?.cotula === true ?
                     "bowls" :
                     ((a = e.querySelector(".gaip-turf-type-option.selected")),
-                        a && a.dataset.type ? a.dataset.type : e.querySelector(".gaip-turf-type")?.value || "sports"),
+                        // b35fix: TurfProfileController never toggles the .selected class on
+                        // the turf-type/subcategory tiles when restoring a saved profile
+                        // programmatically (it only updates its own internal state) - only a
+                        // manual user click does. Without this fallback, a freshly-restored
+                        // site (site switch, page load) read turfType as the hardcoded
+                        // "sports" default, which fed identity-enforcement.js's
+                        // extractTurfIntentKey() a wrong combined key, defaulted turfIntentKey
+                        // to "unknownIntent" (-20% confidence penalty) and permanently blocked
+                        // the wear-recovery engine. window.gaipTurfProfile.state is the same
+                        // authoritative source already used as the surfaceType fallback below.
+                        (a && a.dataset.type) || window.gaipTurfProfile?.state?.turfType || e.querySelector(".gaip-turf-type")?.value || "sports"),
                 subCategory: ((i = e.querySelector(".gaip-subcategory-option.selected")),
-                    (i && (i.dataset.surface || i.dataset.sport)) || ""),
+                    (i && (i.dataset.surface || i.dataset.sport)) || window.gaipTurfProfile?.state?.subCategory || ""),
                 // Cotula: if GAIP_STATE.turf.cotula is set, the DOM species may have been
                 // overwritten by TurfProfileController location-change repopulation.
                 // Read cotula directly from state rather than DOM in that case.
@@ -1284,7 +1297,7 @@ function gaip_build_state(e) {
                 "effectiveVariety =",
                 o.turf.effectiveVariety,
             )) :
-        ((o.turf.effectiveSpecies = o.turf.grassSpecies || o.turf.warmBase || "Couch"),
+        ((o.turf.effectiveSpecies = o.turf.grassSpecies || o.turf.warmBase || ""),
             (o.turf.effectiveVariety = o.turf.variety || "generic"),
             (o.turf.effectiveIsC4 = !!c),
             g &&
@@ -7424,11 +7437,20 @@ document.addEventListener("DOMContentLoaded", function() {
     // not yet cleared/repopulated) - the actual mechanism behind the water/soil
     // cross-site data bleed on site switch.
     var _siteSamplesReady = false;
+    // True once gaip:site-config-applied has fired for this switch, i.e.
+    // TurfProfileController has restored the real species/variety into the
+    // DOM/state. Without this gate, tryRun() could click Run as soon as
+    // site-samples-ready fires (soil/water samples loaded) - which happens
+    // faster than the ~2400ms species restore cascade on cold page-load -
+    // running the analysis with turf.grassSpecies still empty. That produced
+    // the effectiveSpecies fallback bug (species silently becoming wrong)
+    // and a TIER 0 identity failure in the wear/disease engines.
+    var _siteConfigApplied = false;
     var _readyDebounce = null;
     var _forceReadyTimer = null;
 
     function tryRun(reason) {
-        if (!_pendingSiteRun || !_siteSamplesReady) return;
+        if (!_pendingSiteRun || !_siteSamplesReady || !_siteConfigApplied) return;
         _pendingSiteRun = false;
         if (_forceReadyTimer) {
             clearTimeout(_forceReadyTimer);
@@ -7458,6 +7480,7 @@ document.addEventListener("DOMContentLoaded", function() {
     document.addEventListener("gaip:site-changed", function() {
         _pendingSiteRun = true;
         _siteSamplesReady = false; // a new switch invalidates any prior readiness
+        _siteConfigApplied = false; // a new switch invalidates any prior config-applied state
         console.log("[GAIP] Site switch queued, waiting for current analysis to finish");
         // Fallback: if analysis-complete never fires (e.g. no analysis was running),
         // run after 1s — BUT only if page-load config restore is already complete.
@@ -7484,10 +7507,16 @@ document.addEventListener("DOMContentLoaded", function() {
             if (_pendingSiteRun && !_forceReadyTimer) {
                 _forceReadyTimer = setTimeout(function() {
                     _forceReadyTimer = null;
+                    var forced = false;
                     if (!_siteSamplesReady) {
                         _siteSamplesReady = true;
-                        tryRun("forced after timeout");
+                        forced = true;
                     }
+                    if (!_siteConfigApplied) {
+                        _siteConfigApplied = true;
+                        forced = true;
+                    }
+                    if (forced) tryRun("forced after timeout");
                 }, 3000);
             }
         }, 1000);
@@ -7499,12 +7528,14 @@ document.addEventListener("DOMContentLoaded", function() {
     // DOM is ready - don't hand off to the page-load auto-run listener, since
     // its _autoRunFired latch means it will never fire again after the first run.
     document.addEventListener("gaip:site-config-applied", function(e) {
+        _siteConfigApplied = true;
         if (_fallbackTimer) {
             clearTimeout(_fallbackTimer);
             _fallbackTimer = null;
         }
         if (_pendingSiteRun) {
             console.log("[GAIP] Site config applied, waiting for site-samples-ready before re-running");
+            tryRun("site-config-applied");
         }
     });
 

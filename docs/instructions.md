@@ -464,6 +464,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
+for tab stress - label doesnt display real stress index data - like it is normal in the kpi but on the tab - moderate
+
+
+
 ## Backlog
 
 79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 

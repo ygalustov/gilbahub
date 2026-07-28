@@ -57,7 +57,6 @@
 
     // ── Utilities ─────────────────────────────────────────────────────────────
 
-    var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     var SEASONS_S = [
         { name: 'Summer', months: 'Dec–Feb', monthRange: [11,0,1],  avgTemp: 25 },
         { name: 'Autumn', months: 'Mar–May', monthRange: [2,3,4],   avgTemp: 18 },
@@ -114,10 +113,6 @@
         'due':              { cls: 'red',   label: 'Reapply Now'      },
         'expired':          { cls: 'red',   label: 'Window Expired'   }
     };
-
-    function makeBadge(cls, label) {
-        return '<span class="plan-badge ' + cls + '">' + esc(label) + '</span>';
-    }
 
     // ── Empty state HTML ──────────────────────────────────────────────────────
 
@@ -297,7 +292,6 @@
                                     : safeNum(gdd.progress, 0) * 100,
             0, 100
         );
-        var remaining = safeNum(gdd.remaining, 0);
         var thresh    = safeNum(gdd.threshold, 0);
         var accum     = safeNum(gdd.accumulated, 0);
         // Reapplication window opens at 75% of threshold (Kreuser & Soldat 2011)
@@ -636,7 +630,7 @@
         return DEFAULT_GP_MONTHLY;
     }
 
-    function initNutritionForm(computed, siteConfig) {
+    function initNutritionForm(siteConfig) {
         var form = document.getElementById('plan-nut-form');
         if (!form) return;
 
@@ -705,7 +699,7 @@
 
         html += '<div class="plan-seasonal-grid">';
 
-        seasons.forEach(function (s, idx) {
+        seasons.forEach(function (s) {
             var isCurrentQ = s.monthRange.indexOf(curMo) >= 0;
             // Average GP for this quarter
             var qGP = s.monthRange.reduce(function (sum, m) { return sum + gpMonthly[m]; }, 0) / s.monthRange.length;
@@ -836,7 +830,6 @@
         }
 
         // Card 4: Seasonal N this quarter
-        var gp = computed.growthLight || computed.growth;
         var soilN = computed.soilNutrition;
         if (soilN && soilN.annualDemand) {
             var monthlyN = safeNum(soilN.annualDemand.n, 0) / 12;
@@ -907,7 +900,7 @@
                 } else if (tabId === 'recovery') {
                     renderRecovery(computed, siteConfig);
                 } else if (tabId === 'nutrition') {
-                    initNutritionForm(computed, siteConfig);
+                    initNutritionForm(siteConfig);
                     renderSeasonalN(computed, siteConfig);
                 }
             }
