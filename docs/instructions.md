@@ -456,6 +456,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-216** Update sensor source population logic: Modified the populateSensorSource function to accept siteId as a parameter, ensuring accurate fetching of sensor data specific to the site. Added checks to prevent reliance on globally stored fetch timestamps, enhancing data integrity and connection status reporting.
 **GH-217** Update growth potential calculation logic: Changed comparison operator in AccountController and AppServiceProvider to use >= instead of > for accurate growth potential evaluation. This ensures correct status mapping and improves data representation consistency.
 **GH-218** Update dashboard source badge logic: Adjusted the calculation of the 'ok' sources to accurately reflect the total number of sources, including those that are 'never tested'. This change improves the display of source status on the dashboard, ensuring users receive a clearer representation of source health.
+**GH-219** Fix dashboard source status logic: Updated the $ageClass() function to return 'warning' for untested sources, treating them as needing attention. This change ensures accurate counting of current and needing update sources, improving the dashboard's source health representation.
+
+
+
 
 
 ## Backlog

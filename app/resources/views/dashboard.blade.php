@@ -8,7 +8,7 @@
         return $days . 'd ago';
     };
     $ageClass = function(?string $dateStr): string {
-        if (!$dateStr) return 'none';
+        if (!$dateStr) return 'warning'; // never tested counts as needing attention, same as stale data
         $days = (int) now()->diffInDays($dateStr, false) * -1;
         return $days > 30 ? 'warning' : 'ok';
     };
