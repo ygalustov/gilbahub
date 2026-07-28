@@ -406,6 +406,16 @@
         }
 
         updateSampleSelectors();
+
+        // Signal that the DOM forms now reflect the currently active site, so
+        // consumers that gate an analysis run on "site data ready" (rather than
+        // guessing with an independent timer) have something authoritative to
+        // wait for. Fires every time this function completes, regardless of
+        // which of the several call sites (site dropdown, samples-restored,
+        // site-changed, etc.) triggered the reload.
+        document.dispatchEvent(new CustomEvent('gaip:site-samples-ready', {
+            detail: { siteId: SM.getActiveSiteId ? SM.getActiveSiteId() : null }
+        }));
     }
 
     /**

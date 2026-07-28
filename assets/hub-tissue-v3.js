@@ -7319,13 +7319,23 @@ document.addEventListener("DOMContentLoaded", function() {
     var _autoRunFired = false;
     var _siteConfigApplied = false;
     var _stateRestored = false;
+    // True once site-selector-ui's reloadActiveSample() has confirmed the DOM
+    // forms reflect the currently active site (see gaip:site-samples-ready,
+    // dispatched from site-selector-ui.js). Without this gate, the DOM can
+    // still hold a *previous* site's leftover values (soil/water grids not
+    // yet cleared/repopulated) at the moment this fires, producing an
+    // analysis run for site A using site B's inputs.
+    var _siteSamplesReady = false;
+    var _samplesReadyDebounce = null;
 
     function triggerAutoRun() {
         if (_autoRunFired) return;
-        // Both conditions must be met: persistence restored AND site-config applied.
-        // This ensures gaip_build_state() reads the correct species/turfType from
-        // the DOM (not the TurfProfile default) on cold-start and incognito loads.
-        if (!_stateRestored || !_siteConfigApplied) return;
+        // All three conditions must be met: persistence restored, site-config
+        // applied, AND the DOM forms confirmed to match the active site. This
+        // ensures gaip_build_state() reads the correct species/turfType/samples
+        // from the DOM (not stale/default values) on cold-start, incognito
+        // loads, and loads that immediately switch to a non-default site.
+        if (!_stateRestored || !_siteConfigApplied || !_siteSamplesReady) return;
         // Defer to AutoRefresh if it already handled the run (returning users).
         // AutoRefresh is the primary auto-run mechanism; this gate is backup for
         // first-time/incognito users where AutoRefresh's wizard check may skip.
@@ -7339,6 +7349,19 @@ document.addEventListener("DOMContentLoaded", function() {
             console.warn("[GAIP] Auto-run: run button not found");
         }
     }
+
+    // reloadActiveSample() can fire gaip:site-samples-ready more than once in
+    // quick succession while a site switch settles (dropdown handler + several
+    // independently-timed delayed listeners all call it). Debounce so we only
+    // trust it once it's gone quiet, rather than acting on an intermediate
+    // (possibly not-yet-final) reload.
+    document.addEventListener("gaip:site-samples-ready", function() {
+        if (_samplesReadyDebounce) clearTimeout(_samplesReadyDebounce);
+        _samplesReadyDebounce = setTimeout(function() {
+            _siteSamplesReady = true;
+            triggerAutoRun();
+        }, 100);
+    });
 
     // Primary trigger: persistence has restored all inputs.
     document.addEventListener("gaip:state-restored", function() {
@@ -7379,6 +7402,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 console.warn("[GAIP] Auto-run safety fallback: site-config-applied not received, running now");
                 _siteConfigApplied = true;
                 _stateRestored = true;
+                _siteSamplesReady = true;
                 triggerAutoRun();
             }
         }, 4500);
@@ -7393,9 +7417,47 @@ document.addEventListener("DOMContentLoaded", function() {
 (function() {
     var _pendingSiteRun = false;
     var _fallbackTimer = null;
+    // True once site-selector-ui's reloadActiveSample() has confirmed the DOM
+    // forms reflect the site we're switching to (see gaip:site-samples-ready).
+    // Without this, a re-run triggered right as the switch completes could
+    // still read the *previous* site's leftover DOM values (soil/water grids
+    // not yet cleared/repopulated) - the actual mechanism behind the water/soil
+    // cross-site data bleed on site switch.
+    var _siteSamplesReady = false;
+    var _readyDebounce = null;
+    var _forceReadyTimer = null;
+
+    function tryRun(reason) {
+        if (!_pendingSiteRun || !_siteSamplesReady) return;
+        _pendingSiteRun = false;
+        if (_forceReadyTimer) {
+            clearTimeout(_forceReadyTimer);
+            _forceReadyTimer = null;
+        }
+        // Use setTimeout(0): gaip:analysis-complete fires just before
+        // _analysisRunning is cleared in the async handler (see the comment on
+        // GAIP_ForceRun above), so a synchronous click here can still hit the
+        // Run button's re-entry guard. Deferring one tick lets that clear first.
+        setTimeout(function() {
+            var btn = document.querySelector(".gaip-run-btn");
+            if (btn) {
+                console.log("[GAIP] Site switched, re-running analysis (" + reason + ")");
+                btn.click();
+            }
+        }, 0);
+    }
+
+    document.addEventListener("gaip:site-samples-ready", function() {
+        if (_readyDebounce) clearTimeout(_readyDebounce);
+        _readyDebounce = setTimeout(function() {
+            _siteSamplesReady = true;
+            tryRun("site-samples-ready");
+        }, 100);
+    });
 
     document.addEventListener("gaip:site-changed", function() {
         _pendingSiteRun = true;
+        _siteSamplesReady = false; // a new switch invalidates any prior readiness
         console.log("[GAIP] Site switch queued, waiting for current analysis to finish");
         // Fallback: if analysis-complete never fires (e.g. no analysis was running),
         // run after 1s — BUT only if page-load config restore is already complete.
@@ -7414,27 +7476,35 @@ document.addEventListener("DOMContentLoaded", function() {
                 console.log("[GAIP] Site switch fallback deferred, config restore pending, delegating to site-config-applied");
                 return; // site-config-applied listener will handle it
             }
-            _pendingSiteRun = false;
-            var btn = document.querySelector(".gaip-run-btn");
-            if (btn) {
-                console.log("[GAIP] Site switched, re-running analysis (fallback timer)");
-                btn.click();
+            tryRun("fallback timer");
+            // If we still haven't seen site-samples-ready by now, don't wait on
+            // it forever - force it after a further 3s so a queued re-run isn't
+            // silently dropped if SampleManager/reloadActiveSample never fires
+            // the event for some reason (e.g. no SampleManager on this page).
+            if (_pendingSiteRun && !_forceReadyTimer) {
+                _forceReadyTimer = setTimeout(function() {
+                    _forceReadyTimer = null;
+                    if (!_siteSamplesReady) {
+                        _siteSamplesReady = true;
+                        tryRun("forced after timeout");
+                    }
+                }, 3000);
             }
         }, 1000);
     });
 
-    // site-config-applied means config is restored and tissue auto-run will fire
-    // via its own listener. Cancel the fallback regardless of source.
-    // Also handles the page-load case where the 1000ms fallback deferred
-    // because GAIP_SITE_CONFIG_PENDING was still true.
+    // site-config-applied means config is restored. Cancel the fallback timer
+    // regardless of source, but leave _pendingSiteRun for tryRun() to resolve
+    // once site-samples-ready (or gaip:analysis-complete) actually confirms the
+    // DOM is ready - don't hand off to the page-load auto-run listener, since
+    // its _autoRunFired latch means it will never fire again after the first run.
     document.addEventListener("gaip:site-config-applied", function(e) {
         if (_fallbackTimer) {
             clearTimeout(_fallbackTimer);
             _fallbackTimer = null;
         }
         if (_pendingSiteRun) {
-            _pendingSiteRun = false;
-            console.log("[GAIP] Site config applied, auto-run delegated to tissue listener");
+            console.log("[GAIP] Site config applied, waiting for site-samples-ready before re-running");
         }
     });
 
@@ -7443,13 +7513,7 @@ document.addEventListener("DOMContentLoaded", function() {
             clearTimeout(_fallbackTimer);
             _fallbackTimer = null;
         }
-        if (!_pendingSiteRun) return;
-        _pendingSiteRun = false;
-        var btn = document.querySelector(".gaip-run-btn");
-        if (btn) {
-            console.log("[GAIP] Site switched, re-running analysis");
-            btn.click();
-        }
+        tryRun("analysis-complete");
     });
 })();
 

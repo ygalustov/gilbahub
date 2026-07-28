@@ -584,21 +584,18 @@
             restoreTurfProfile(state.turf);
         }
         
-        // Restore soil data
-        if (state.soil) {
-            restoreSoilData(state.soil);
-        }
-        
-        // Restore water data
-        if (state.water) {
-            restoreWaterData(state.water);
-        }
-        
-        // Restore tissue data
-        if (state.tissue) {
-            restoreTissueData(state.tissue);
-        }
-        
+        // Soil/water/tissue are intentionally NOT restored here. This state blob
+        // is keyed only by userId (CONFIG.keys.state), not by site, so it holds
+        // whichever site's form was last saved - restoring it unconditionally
+        // overwrites the DOM with a *different* site's sample data after a site
+        // switch (this ran on its own timer, uncoordinated with and often after
+        // GAIP_SampleManager's site-scoped reloadActiveSample(), so it would win
+        // and silently replace correct data with stale cross-site leftovers).
+        // GAIP_SampleManager is the authoritative, site-scoped source for these
+        // three - see reloadActiveSample() in site-selector-ui.js, which already
+        // loads the active site's own sample (or correctly clears the form when
+        // the site has none) for exactly these types: soil, water, tissue, loi.
+
         // Restore climate settings
         if (state.climate) {
             restoreClimateSettings(state.climate);
@@ -665,63 +662,6 @@
             setSelectValue('.gaip-overseed-summer-intent', turf.overseedIntent);
             setInputValue('.gaip-poa-percent', turf.poaPercent);
         }, 100);
-    }
-
-    function restoreSoilData(soil) {
-        setInputValue('.gaip-soil-ph', soil.ph);
-        setInputValue('.gaip-soil-ec', soil.ec);
-        setInputValue('.gaip-cec', soil.cec);
-        setSelectValue('.gaip-soil-texture', soil.texture);
-        setSelectValue('.gaip-soil-methodology', soil.methodology);
-        
-        // Sample identification
-        if (soil.sampleLabel) setInputValue('.gaip-soil-sample-label', soil.sampleLabel);
-        if (soil.labRef) setInputValue('.gaip-soil-lab-ref', soil.labRef);
-        if (soil.testDate) setInputValue('.gaip-soil-date', soil.testDate);
-        
-        setInputValue('.gaip-loi', soil.loi);
-        setInputValue('.gaip-loi-0-2', soil.loi_0_2);
-        setInputValue('.gaip-loi-2-4', soil.loi_2_4);
-        setInputValue('.gaip-loi-4-6', soil.loi_4_6);
-        
-        // Restore nutrients
-        if (soil.nutrients) {
-            Object.entries(soil.nutrients).forEach(([nutrient, value]) => {
-                setInputValue(`[data-mlsn="${nutrient}"]`, value);
-            });
-        }
-    }
-
-    function restoreWaterData(water) {
-        setInputValue('.gaip-water-ph', water.ph);
-        setInputValue('.gaip-ecw', water.ec);
-        setSelectValue('.gaip-water-source', water.source);
-
-        // Recycled water toggle
-        const rwFlag = document.querySelector('.gaip-recycled-water-flag');
-        if (rwFlag && typeof water.recycledWater !== 'undefined') {
-            rwFlag.checked = !!water.recycledWater;
-        }
-        
-        // Sample identification
-        if (water.sourceLabel) setInputValue('.gaip-water-source-label', water.sourceLabel);
-        if (water.labRef) setInputValue('.gaip-water-lab-ref', water.labRef);
-        if (water.testDate) setInputValue('.gaip-water-date', water.testDate);
-        
-        // Restore ions
-        if (water.ions) {
-            Object.entries(water.ions).forEach(([ion, value]) => {
-                setInputValue(`[data-ion="${ion}"]`, value);
-            });
-        }
-    }
-
-    function restoreTissueData(tissue) {
-        if (tissue.elements) {
-            Object.entries(tissue.elements).forEach(([element, value]) => {
-                setInputValue(`[data-tissue="${element}"], [data-val="${element}"]`, value);
-            });
-        }
     }
 
     function restoreClimateSettings(climate) {
@@ -1457,37 +1397,28 @@
                 console.log('[GilbaPersist] WB override applied | label:', _wbOverride.label, '| ECw:', _waterIn.ecw);
             }
 
-            // DOM fallback: if __GAIP_WATER_STATE__ was captured before the water sample
-            // was loaded into the form (race: server fetch completes after initial analysis),
-            // the state has ecw=0 and empty ions. Re-read from DOM in that case so the
-            // persisted cache reflects the sample values that are now in the form.
+            // If __GAIP_WATER_STATE__ was captured before the water sample was loaded into
+            // the form (race: server fetch completes after initial analysis, or a site switch
+            // fires an analysis before the new site's form is repopulated), the state has
+            // ecw=0 and empty ions. Resolve from the *current active site* rather than
+            // whatever happens to be sitting in the DOM at this exact moment.
             var _stateHasWater = _waterIn && (parseFloat(_waterIn.ecw) > 0 || Object.keys(_waterIn.ions || {}).some(function(k) { return _waterIn.ions[k] > 0; }));
-            if (!_stateHasWater) {
-                var _ecwDomEl = document.querySelector('.gaip-ecw');
-                var _ecwDomVal = _ecwDomEl ? parseFloat(_ecwDomEl.value) : 0;
-                if (_ecwDomVal > 0) {
-                    var _ionsDom = {};
-                    var _ionEls = document.querySelectorAll('[data-ion]');
-                    for (var _ii = 0; _ii < _ionEls.length; _ii++) {
-                        var _ik = _ionEls[_ii].getAttribute('data-ion');
-                        var _iv = parseFloat(_ionEls[_ii].value);
-                        if (_ik && !isNaN(_iv) && _iv > 0) _ionsDom[_ik] = _iv;
-                    }
-                    var _phDomEl = document.querySelector('.gaip-water-ph');
-                    _waterIn = {
-                        ecw:  _ecwDomVal,
-                        ions: _ionsDom,
-                        pH:   _phDomEl ? parseFloat(_phDomEl.value) : null,
-                        source: 'dom-fallback',
-                    };
-                    console.log('[GilbaPersist] Water DOM fallback used | ECw:', _ecwDomVal, '| ions:', Object.keys(_ionsDom).join(','));
-                }
-            }
 
-            // Sample-store fallback: site may switch to 'default' between loadSample and the
-            // 3s save timer (site-config-persistence race), clearing the DOM. Read directly
-            // from the sample store by GAIP_HUB_CONFIG.activeSiteId to bypass active-site binding.
-            if (!_waterIn || !(parseFloat(_waterIn.ecw) > 0)) {
+            // Sample-store fallback (tried first): read directly from the sample store by
+            // GAIP_HUB_CONFIG.activeSiteId, which is updated synchronously on site switch -
+            // this is the source of truth for "what site are we on", unlike the DOM form
+            // which repopulates asynchronously and can still hold the *previous* site's
+            // values for a window after the switch. Also covers the site-config-persistence
+            // race where the site briefly switches to 'default' between loadSample and the
+            // 3s save timer, clearing the DOM.
+            // True once the sample store has positively confirmed the active site has zero
+            // water samples - as opposed to "we don't know yet" (store/site not loaded). In
+            // the confirmed-empty case we must NOT fall through to the DOM fallback below,
+            // since the DOM can legitimately still hold a *different* site's leftover values
+            // for a window after switching (site-selector-ui's form-clear runs on its own
+            // uncoordinated timer, not before this save can fire).
+            var _siteWaterConfirmedEmpty = false;
+            if (!_stateHasWater) {
                 try {
                     var _hubSiteId = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
                     if (_hubSiteId && global.GAIP_SampleManager && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
@@ -1514,11 +1445,42 @@
                                     SAR:  parseFloat(_wData.SAR || _wData.sar) || null,
                                     source: 'sample-store-fallback',
                                 };
+                                _stateHasWater = true;
                                 console.log('[GilbaPersist] Water sample-store fallback | site:', _hubSiteId, '| ECw:', _wEC, '| ions:', Object.keys(_wIons).join(','));
                             }
                         }
+                        if (!_stateHasWater && _siteSmpStore && Object.keys(_siteWaterSamples).length === 0) {
+                            _siteWaterConfirmedEmpty = true;
+                            console.log('[GilbaPersist] Site', _hubSiteId, 'confirmed to have no water samples - skipping DOM fallback');
+                        }
                     }
                 } catch(e) {}
+            }
+
+            // DOM fallback (last resort): only if we couldn't positively resolve the active
+            // site's water either way (e.g. SampleManager not loaded yet) - never when the
+            // site is confirmed to have no water sample, since the DOM may hold another
+            // site's stale values in that case.
+            if (!_stateHasWater && !_siteWaterConfirmedEmpty) {
+                var _ecwDomEl = document.querySelector('.gaip-ecw');
+                var _ecwDomVal = _ecwDomEl ? parseFloat(_ecwDomEl.value) : 0;
+                if (_ecwDomVal > 0) {
+                    var _ionsDom = {};
+                    var _ionEls = document.querySelectorAll('[data-ion]');
+                    for (var _ii = 0; _ii < _ionEls.length; _ii++) {
+                        var _ik = _ionEls[_ii].getAttribute('data-ion');
+                        var _iv = parseFloat(_ionEls[_ii].value);
+                        if (_ik && !isNaN(_iv) && _iv > 0) _ionsDom[_ik] = _iv;
+                    }
+                    var _phDomEl = document.querySelector('.gaip-water-ph');
+                    _waterIn = {
+                        ecw:  _ecwDomVal,
+                        ions: _ionsDom,
+                        pH:   _phDomEl ? parseFloat(_phDomEl.value) : null,
+                        source: 'dom-fallback',
+                    };
+                    console.log('[GilbaPersist] Water DOM fallback used | ECw:', _ecwDomVal, '| ions:', Object.keys(_ionsDom).join(','));
+                }
             }
 
             var _ions = (_waterIn && _waterIn.ions) || {};
