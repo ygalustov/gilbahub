@@ -819,17 +819,20 @@
             cards.push(kpi('Pre-emergent', '—', '', badge('No data', 'grey'), '#6b7280'));
         }
 
-        // Card 3: Recovery / wear
-        var wear = computed.wear;
-        if (wear) {
-            var recovDays = Math.round((wear.recoveryCapacity && wear.recoveryCapacity.days) || wear.recoveryWindow || 0);
-            var wearScore = Math.round(((wear.wearResistance && wear.wearResistance.score) || 0) * 10) / 10;
-            var wearCls   = wearScore >= 7 ? 'green' : wearScore >= 5 ? 'amber' : 'red';
-            cards.push(kpi('Wear Resistance', wearScore.toFixed(1)+'/10', recovDays > 0 ? 'Recovery: '+recovDays+'d' : '',
-                badge(wearScore >= 7 ? 'Good' : wearScore >= 5 ? 'Moderate' : 'Poor', wearCls),
-                wearCls === 'red' ? '#dc2626' : wearCls === 'amber' ? '#d97706' : '#15803d'));
-        } else {
-            cards.push(kpi('Wear / Recovery', '—', '', badge('No traffic data', 'grey'), '#6b7280'));
+        // Card 3: Recovery / wear — sports fields only (traffic/wear model doesn't apply to golf/lawns)
+        var turfType = siteConfig && siteConfig.turf && siteConfig.turf.turfType;
+        if (turfType === 'sports') {
+            var wear = computed.wear;
+            if (wear) {
+                var recovDays = Math.round((wear.recoveryCapacity && wear.recoveryCapacity.days) || wear.recoveryWindow || 0);
+                var wearScore = Math.round(((wear.wearResistance && wear.wearResistance.score) || 0) * 10) / 10;
+                var wearCls   = wearScore >= 7 ? 'green' : wearScore >= 5 ? 'amber' : 'red';
+                cards.push(kpi('Wear Resistance', wearScore.toFixed(1)+'/10', recovDays > 0 ? 'Recovery: '+recovDays+'d' : '',
+                    badge(wearScore >= 7 ? 'Good' : wearScore >= 5 ? 'Moderate' : 'Poor', wearCls),
+                    wearCls === 'red' ? '#dc2626' : wearCls === 'amber' ? '#d97706' : '#15803d'));
+            } else {
+                cards.push(kpi('Wear / Recovery', '—', '', badge('No traffic data', 'grey'), '#6b7280'));
+            }
         }
 
         // Card 4: Seasonal N this quarter
