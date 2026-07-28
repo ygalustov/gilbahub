@@ -7606,22 +7606,22 @@
         if (cm) {
             data.climate.temperature = cm.temperature ? cm.temperature.mean : null;
             
-            // Use species-appropriate growth potential
+            // Use species-appropriate growth potential.
+            // cm.growth.weighted = drought-adjusted species-weighted GP (matches site "Today's GP").
+            // cm.growth.c4/c3 = base temperature-only GP (pre-drought), which diverges from site display.
             if (cm.growth) {
-                // For overseed situations, always capture both C3 and C4 GP
                 if (hasOverseed) {
-                    // Mixed sward / overseed - show both values
                     data.climate.c3Growth = cm.growth.c3;
                     data.climate.c4Growth = cm.growth.c4;
                     data.climate.growthPotential = cm.growth.weighted;
                     data.climate.showBothGP = true;
                 } else if (isC4) {
-                    // Pure C4
-                    data.climate.growthPotential = cm.growth.c4 || cm.growth.weighted;
+                    data.climate.growthPotential = cm.growth.weighted != null
+                        ? cm.growth.weighted : cm.growth.c4;
                     data.climate.gpLabel = 'C4';
                 } else {
-                    // Pure C3
-                    data.climate.growthPotential = cm.growth.c3 || cm.growth.weighted;
+                    data.climate.growthPotential = cm.growth.weighted != null
+                        ? cm.growth.weighted : cm.growth.c3;
                     data.climate.gpLabel = 'C3';
                 }
                 data.climate.status = cm.growth.status || null;
