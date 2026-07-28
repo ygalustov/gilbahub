@@ -157,25 +157,6 @@
         var computed = data && data.computed;
         if (!computed) return;
 
-        function applyBadge(id, text, level) {
-            var el = document.getElementById(id);
-            if (!el || !text) return;
-            var lvl = (level || '').toLowerCase();
-            var cls = lvl === 'severe' || lvl === 'high' ? 'high'
-                    : lvl === 'moderate'                 ? 'moderate'
-                    : 'ok';
-            el.textContent = text.charAt(0).toUpperCase() + text.slice(1);
-            el.className   = 'gl-tab-badge ' + cls;
-        }
-
-        var disease     = computed.disease || {};
-        var diseaseRisk = disease.overallRisk || disease.riskLevel || null;
-        if (diseaseRisk) applyBadge('gl-badge-disease', diseaseRisk, diseaseRisk);
-
-        var stress      = computed.stress || {};
-        var stressLevel = stress.severity || stress.level || null;
-        if (stressLevel) applyBadge('gl-badge-stress', stressLevel, stressLevel);
-
         var accEl = document.getElementById('gl-tab-accuracy');
         var conf  = computed.confidence;
         var confScore = conf && typeof conf === 'object' ? (conf.overall && conf.overall.score) : (typeof conf === 'number' ? conf : null);

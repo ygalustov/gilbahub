@@ -460,11 +460,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-220** Enhance data handling for soil measurements: Updated input parsing logic to treat unmeasured values as null instead of zero, improving accuracy in nutrient analysis and validation. Added checks to prevent misinterpretation of untested samples in nutrient results. Updated site synchronization logic to prevent overwriting real site labels from hidden contexts, ensuring data integrity.
 **GH-221** Update wear resistance card logic for sports fields: Modified the recovery/wear card to apply only to sports turf types, ensuring accurate data representation. Enhanced handling of wear data to display appropriate messages based on traffic data availability.
 **GH-222** Refactor state restoration logic: Removed soil, water, and tissue data restoration from the state blob to prevent cross-site data contamination. Introduced a new event, 'gaip:site-samples-ready', to signal when the DOM forms reflect the currently active site, ensuring accurate analysis runs. Updated related functions to handle site switching more reliably and prevent stale data usage.
+**GH-223** Fix daily DLI selection logic for api_daily source: Updated the ambient DLI engine to prioritize the entry matching today's date when available, ensuring accurate DLI readings. If today's data is absent, the logic now correctly falls back to the most recent entry instead of the oldest, addressing inconsistencies observed in production. Added tests to validate this behavior.
+**GH-224** Refactor dashboard UI: Removed the applyBadge function and related logic for displaying disease and stress levels, streamlining the code for improved maintainability. This change focuses on enhancing the overall structure of the dashboard UI without altering its core functionality.
 
 
-
-
-for tab stress - label doesnt display real stress index data - like it is normal in the kpi but on the tab - moderate
 
 
 
