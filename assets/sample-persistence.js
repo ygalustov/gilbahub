@@ -447,6 +447,13 @@
      * @param {object} sites  { siteId: { label, createdAt } }
      */
     function syncSiteListToServer(sites) {
+        // Never push site labels to the server from inside the hidden /hub
+        // re-run iframe: that page has no topbar/site-switcher DOM, so any
+        // locally-created site record there can only carry a placeholder
+        // label — syncing it would overwrite the real sites.name on the
+        // server. Mirrors the iframe guard in site-config-persistence.js.
+        if (global.top !== global.self) return Promise.resolve(false);
+
         var base = getApiBaseUrl();
         if (!base || typeof fetch === 'undefined') return Promise.resolve(false);
 

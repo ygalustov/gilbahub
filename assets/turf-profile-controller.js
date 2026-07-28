@@ -1250,7 +1250,10 @@
         // Auto-profile keys like '__site__<UUID>' are internal storage keys, not
         // real names — never use them as a site label. Recover the real name from
         // the topbar site switcher, which is server-rendered from sites.name and
-        // present in the DOM on every db-shell page.
+        // present in the DOM on new-hub pages (absent inside the /hub re-run
+        // iframe). If it can't be found, fall back to the bare siteId — same
+        // convention as _initSite's default — rather than fabricating a
+        // plausible-looking name that could get synced to the server as real.
         var label = profileName;
         if (/^__site__/.test(profileName)) {
           label = null;
@@ -1258,7 +1261,7 @@
             var topbarOption = document.querySelector('[data-site-id="' + siteId + '"]');
             if (topbarOption) label = topbarOption.textContent.trim() || null;
           } catch (e) { /* ignore */ }
-          if (!label) label = 'Site ' + siteId.slice(0, 8);
+          if (!label) label = siteId;
         }
         console.log("[TurfProfile] Creating site for profile:", profileName, "->", siteId, "label:", label);
         if (typeof sm.addSiteWithId === 'function') {

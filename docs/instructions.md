@@ -488,7 +488,7 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 # My changes:
 
-Add link on the side tab on the dashboard to the analisys pages
+Add link on the side tab on the dashboard to the analisys pages for all KPIs
 
 
 

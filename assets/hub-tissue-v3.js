@@ -578,7 +578,9 @@ function collectGridValues(e, t) {
         n = {};
     if (!r) return n;
     for (var i = r.querySelectorAll("input[" + t + "]"), a = 0; a < i.length; a++) {
-        n[i[a].getAttribute(t)] = safeNum(i[a].value, 0);
+        // Blank/unparseable input → null ("not measured"), not 0 ("measured as zero").
+        // Callers that need a numeric fallback already do safeNum(value, 0) at point of use.
+        n[i[a].getAttribute(t)] = safeNum(i[a].value, null);
     }
     return n;
 }
@@ -1028,18 +1030,24 @@ function gaip_build_state(e) {
                 pH_water: safeNum(e.querySelector(".gaip-soil-ph")?.value, 0),
                 pH_cacl2: safeNum(e.querySelector(".gaip-soil-ph-cacl2")?.value, 0),
                 Na_ppm: 0,
-                CEC: safeNum(e.querySelector(".gaip-cec")?.value, 0),
-                EC1_5: safeNum(e.querySelector(".gaip-soil-ec")?.value, 0),
+                // Not measured → null, not 0 - CEC/EC1_5/ECe of "0" reads as a real (implausible)
+                // lab result to the input-range validator, not "not tested".
+                CEC: safeNum(e.querySelector(".gaip-cec")?.value, null),
+                EC1_5: safeNum(e.querySelector(".gaip-soil-ec")?.value, null),
                 soilTexture: e.querySelector(".gaip-soil-texture")?.value || "loam",
-                ECe: safeNum(e.querySelector(".gaip-soil-ec")?.value, 0) *
-                    ({
-                        sand: 5,
-                        loamy_sand: 5.5,
-                        sandy_loam: 6,
-                        loam: 7,
-                        clay_loam: 8,
-                        clay: 10,
-                    } [e.querySelector(".gaip-soil-texture")?.value || "loam"] || 7),
+                ECe: (function() {
+                    const ec1_5 = safeNum(e.querySelector(".gaip-soil-ec")?.value, null);
+                    if (ec1_5 === null) return null;
+                    return ec1_5 *
+                        ({
+                            sand: 5,
+                            loamy_sand: 5.5,
+                            sandy_loam: 6,
+                            loam: 7,
+                            clay_loam: 8,
+                            clay: 10,
+                        } [e.querySelector(".gaip-soil-texture")?.value || "loam"] || 7);
+                })(),
                 samplingDepth: e.querySelector(".gaip-sampling-depth")?.value || "",
                 LOI: safeNum(e.querySelector(".gaip-loi")?.value, 0),
                 OM_pct: safeNum(e.querySelector(".gaip-loi")?.value, 0),
@@ -2635,12 +2643,31 @@ function mlsnEngine(state, weather) {
     const hasNProgramme = annualNRate > 0;
 
     nutrients.forEach((nutrient) => {
-        const actualPPM = safeNum(soilPPM[nutrient], 0);
+        const rawValue = soilPPM[nutrient];
+        const wasMeasured = rawValue !== null && rawValue !== undefined;
+        const actualPPM = safeNum(rawValue, 0);
         const mlsnThreshold = referenceThresholds[nutrient] || 0;
         const isSLAN = referenceThresholds._methodology === "SLAN";
         const ranges = referenceThresholds._ranges;
 
         let status, statusClass, recommendation;
+
+        // Nutrient wasn't tested in this sample - don't treat "not measured" as "measured as zero"
+        if (!wasMeasured) {
+            nutrientResults.push({
+                nutrient: nutrient,
+                actual: "-",
+                mlsn: mlsnThreshold || "N/A",
+                uptakePpm: 0,
+                targetPpm: 0,
+                status: "NOT MEASURED",
+                statusClass: "no-data",
+                recommendation: "Not tested in this sample",
+                deficitPpm: 0,
+                deficitKgHa: 0,
+            });
+            return;
+        }
 
         // No threshold data
         if (!mlsnThreshold) {
