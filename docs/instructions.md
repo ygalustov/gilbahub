@@ -464,13 +464,15 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-224** Refactor dashboard UI: Removed the applyBadge function and related logic for displaying disease and stress levels, streamlining the code for improved maintainability. This change focuses on enhancing the overall structure of the dashboard UI without altering its core functionality.
 **GH-225** Update growth potential logic in word-export.js: Refined the calculation of growth potential for C3 and C4 species by prioritizing drought-adjusted species-weighted GP when available. This change enhances the accuracy of growth potential representation in overseed situations and ensures proper labeling based on species type.
 **GH-226** Enhance dashboard analysis links: Added dynamic analysis links for various dashboard panels, improving user navigation to detailed analysis pages. Introduced new CSS styles for analysis link presentation, ensuring a consistent and visually appealing interface.
-
+**GH-227** Update dashboard UI styles and improve report instructions: Modified CSS for the dashboard vitals grid to use minmax for better responsiveness. Enhanced report instructions with additional improvements and clarified backlog items for better tracking.
 
 
 ## Backlog
 
-79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177 - made some improvements in the report. 
 
+28/07/26
++79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177, GH-225 - I've made a few improvements to the report. 
+I've also made some general improvements to the Hub. 
 
 
 
@@ -492,39 +494,6 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 # My changes:
-
-Save fetched data which you do every 30 mins. 
-I rolled back this as it didnt help. 
-
-            try {
-                var polledData = await fetchLiveData(true);
-                if (polledData && polledData.readings) {
-                    var siteId = getActiveSiteId();
-                    var sensorNameMap = {};
-                    (state.sensors || []).forEach(function(s) { sensorNameMap[s.sensorId] = s.name || s.sensorId; });
-                    var uiReadings = polledData.readings.map(function(r) {
-                        return {
-                            sensorId: r.sensorId,
-                            name:     sensorNameMap[r.sensorId] || r.zoneName || r.sensorId,
-                            vwc:      r.vwc,
-                            ec:       r.ec,
-                            soilTemp: r.soilTemp,
-                            zone:     r.zoneName || null
-                        };
-                    });
-                    try {
-                        global.localStorage.setItem(
-                            'gaip_hydrosight_readings_cache_' + siteId,
-                            JSON.stringify({ timestamp: Date.now(), data: uiReadings })
-                        );
-                    } catch (_) {}
-                    document.dispatchEvent(new CustomEvent('gaip:hydrosight:polled'));
-                }
-            }
-
-
-
----
 
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)

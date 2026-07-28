@@ -460,7 +460,7 @@ body { margin: 0; padding: 0; }
 /* ---------- Vital Signs ---------- */
 .db-vitals {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
 }
 
@@ -473,6 +473,7 @@ body { margin: 0; padding: 0; }
     flex-direction: column;
     gap: 4px;
     min-height: 130px;
+    min-width: 0;
 }
 
 .db-vital-label {
@@ -1414,7 +1415,7 @@ body { margin: 0; padding: 0; }
 
 /* Intermediate breakpoint: 5-col vitals gets cramped below ~1100px */
 @media (max-width: 1100px) {
-    .db-vitals { grid-template-columns: repeat(3, 1fr); }
+    .db-vitals { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* Intermediate breakpoint: action queue + data sources cramped at 769–900px */
