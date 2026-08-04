@@ -472,10 +472,16 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-225** Update growth potential logic in word-export.js: Refined the calculation of growth potential for C3 and C4 species by prioritizing drought-adjusted species-weighted GP when available. This change enhances the accuracy of growth potential representation in overseed situations and ensures proper labeling based on species type.
 **GH-226** Enhance dashboard analysis links: Added dynamic analysis links for various dashboard panels, improving user navigation to detailed analysis pages. Introduced new CSS styles for analysis link presentation, ensuring a consistent and visually appealing interface.
 **GH-227** Update dashboard UI styles and improve report instructions: Modified CSS for the dashboard vitals grid to use minmax for better responsiveness. Enhanced report instructions with additional improvements and clarified backlog items for better tracking.
-
+**GH-228** Refactor nutrition program persistence logic: Updated the integration scripts for various regions to utilize a unified method for retrieving the active site ID and persisting the generated nutrition program. This change ensures consistency across different modules and improves the reliability of data persistence during navigation and report generation.
 
 ## Backlog
+91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
 
+
+
+04/08/26
++92. Its Prebbles distributor on Plan>nutrition. GH-228.
+93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. 
 
 
 
