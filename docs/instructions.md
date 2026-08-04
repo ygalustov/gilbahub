@@ -180,13 +180,20 @@ Could you please check #87-89 and see if you need more info in the UI.
 
 
 
-
-
 27/07/26
 +54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 +67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
 +90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209, GH-211, GH-212
+
+
+
+28/07/26
++79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177, GH-225 - I've made a few improvements to the report. 
+I've also made some general improvements to the Hub. 
+
+
+
 
 
 
@@ -470,9 +477,6 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 ## Backlog
 
 
-28/07/26
-+79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177, GH-225 - I've made a few improvements to the report. 
-I've also made some general improvements to the Hub. 
 
 
 

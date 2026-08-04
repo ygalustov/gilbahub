@@ -356,9 +356,9 @@
                 this.lastProgram = program;
                 
                 // v10.3.38: Store program globally for Word export, tagged with site
-                program._generatedForSite = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId) 
-                    ? window.GAIP_SampleManager.getActiveSiteId() : 'unknown';
-                
+                var _nc = window.GilbaNutritionCalendar;
+                program._generatedForSite = (_nc && _nc.getActiveSiteId && _nc.getActiveSiteId()) || 'unknown';
+
                 // b35fix379 DEBUG: Log GAIP_NUTRITION_PROGRAM assignment
                 console.log('[NutritionAuFertiliserIntegration b35fix379] Setting GAIP_NUTRITION_PROGRAM:', {
                     siteId: program._generatedForSite,
@@ -369,7 +369,15 @@
                 });
                 
                 window.GAIP_NUTRITION_PROGRAM = program;
-                
+
+                // Persist the generated program to the per-site server config so it
+                // survives navigation to Reports > Export, which loads a fresh page
+                // (window.GAIP_NUTRITION_PROGRAM would otherwise be empty there).
+                if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
+                        && program._generatedForSite !== 'unknown') {
+                    _nc.persistSiteConfigPatch({ nutritionProgram: program });
+                }
+
                 this.renderProductRecommendations(program);
 
                 // Hide competing regional panels

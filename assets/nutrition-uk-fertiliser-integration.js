@@ -820,9 +820,20 @@
                 this.lastProgram = program;
 
                 // Store globally for Word export
-                program._generatedForSite = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId)
-                    ? window.GAIP_SampleManager.getActiveSiteId() : 'unknown';
-                window.GAIP_UK_NUTRITION_PROGRAM = program;
+                var _nc = window.GilbaNutritionCalendar;
+                program._generatedForSite = (_nc && _nc.getActiveSiteId && _nc.getActiveSiteId()) || 'unknown';
+                // b35fix: was window.GAIP_UK_NUTRITION_PROGRAM — word-export.js only ever
+                // reads window.GAIP_NUTRITION_PROGRAM (see nutrition-au/prebble-integration.js),
+                // so the UK Nutrition Program section was silently always empty in Word exports.
+                window.GAIP_NUTRITION_PROGRAM = program;
+
+                // Persist the generated program to the per-site server config so it
+                // survives navigation to Reports > Export, which loads a fresh page
+                // (window.GAIP_NUTRITION_PROGRAM would otherwise be empty there).
+                if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
+                        && program._generatedForSite !== 'unknown') {
+                    _nc.persistSiteConfigPatch({ nutritionProgram: program });
+                }
 
                 this.renderProductRecommendations(program);
 

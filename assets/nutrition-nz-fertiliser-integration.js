@@ -237,6 +237,20 @@
 
             this.lastProgram = program;
 
+            // This is the distributor-aware program the user actually sees on screen
+            // (selectedDistributor may differ from the Prebble-only default), so it
+            // must win as the canonical window.GAIP_NUTRITION_PROGRAM — the standalone
+            // Prebble integration (hidden below) may have already set this global to
+            // its own Prebble-only program for the same event; overwrite it here so
+            // Word export and the persisted site config match what's on screen.
+            var _nc = window.GilbaNutritionCalendar;
+            program._generatedForSite = (_nc && _nc.getActiveSiteId && _nc.getActiveSiteId()) || 'unknown';
+            window.GAIP_NUTRITION_PROGRAM = program;
+            if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
+                    && program._generatedForSite !== 'unknown') {
+                _nc.persistSiteConfigPatch({ nutritionProgram: program });
+            }
+
             var contentHtml = window.NutritionPrebbleIntegration.buildRecommendationsHTML(program);
             this.renderPanel(contentHtml);
 

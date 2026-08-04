@@ -202,6 +202,11 @@
         };
 
         this.bindEvents();
+
+        // On pages that never load site-config-persistence.js (plan.blade.php),
+        // window.GAIP_SITE_CONFIG is already available synchronously at this
+        // point (server-rendered) — no need to wait for gaip:site-config-applied.
+        this.restoreFromPersisted();
     };
 
     NutritionCalendar.bindEvents = function() {
@@ -1216,6 +1221,13 @@
 
         this.program = program;
 
+        // Persist so the results panel can be redisplayed after a page reload
+        // without re-entering inputs (see restoreFromPersisted() below). Keyed
+        // separately from the regional-integration "nutritionProgram" (product
+        // recommendations, different shape — see nutrition-prebble/au/uk/nz-
+        // fertiliser-integration.js) which is what Word export reads.
+        this.persistSiteConfigPatch({ nutritionCalendarProgram: program });
+
         // Render results
         this.renderResults();
         this.showResults();
@@ -1447,8 +1459,137 @@
         URL.revokeObjectURL(url);
     };
 
+    /**
+     * Persist a patch into the active site's server-side "gaip" config, without
+     * clobbering other keys already saved there (turf, location, etc.).
+     *
+     * Two call sites exist for this data (this module's own generate(), and the
+     * regional nutrition-prebble/au/uk/nz-fertiliser-integration.js modules), and
+     * two very different pages run them:
+     *   - Hub pages (Reports > Export's hidden runner, /hub) load
+     *     site-config-persistence.js, which owns an in-memory config cache +
+     *     localStorage + debounced server sync — route through its
+     *     GAIP_SiteConfig.mergeConfig() so this stays consistent with everything
+     *     else that module already persists.
+     *   - Plan > Nutrition (plan.blade.php) is a lightweight page that never loads
+     *     site-config-persistence.js (confirmed via console: GAIP_SiteConfig is
+     *     undefined there) — but it already has the current config server-rendered
+     *     into window.GAIP_SITE_CONFIG and the site id in
+     *     window.GAIP_HUB_CONFIG.activeSiteId, so PUT directly to the same
+     *     /sites/{id}/config/gaip endpoint (SiteController::updateConfig — a full
+     *     replace of the config column, hence merging into GAIP_SITE_CONFIG first).
+     */
+    /**
+     * Resolve the active site id regardless of which page/script-stack is
+     * running: GAIP_SampleManager on hub pages, GAIP_HUB_CONFIG.activeSiteId
+     * (server-rendered on every db-shell page, see layouts/db-shell.blade.php)
+     * as the fallback for lightweight pages like plan.blade.php.
+     */
+    NutritionCalendar.getActiveSiteId = function() {
+        if (window.GAIP_SampleManager && typeof window.GAIP_SampleManager.getActiveSiteId === 'function') {
+            const id = window.GAIP_SampleManager.getActiveSiteId();
+            if (id) return id;
+        }
+        const hub = window.GAIP_HUB_CONFIG || {};
+        return hub.activeSiteId || null;
+    };
+
+    NutritionCalendar.persistSiteConfigPatch = function(patch) {
+        const siteId = this.getActiveSiteId();
+        console.log('[NutritionCalendar] persist-debug: persistSiteConfigPatch siteId=', siteId,
+            'GAIP_SiteConfig?', !!window.GAIP_SiteConfig);
+        if (!siteId) {
+            console.warn('[NutritionCalendar] persist-debug: SKIPPED — no active site id');
+            return false;
+        }
+        try {
+            if (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.mergeConfig === 'function') {
+                const ok = window.GAIP_SiteConfig.mergeConfig(siteId, patch);
+                console.log('[NutritionCalendar] persist-debug: mergeConfig() returned', ok);
+                return ok;
+            }
+
+            const hub = window.GAIP_HUB_CONFIG || {};
+            if (!hub.restUrl) {
+                console.warn('[NutritionCalendar] persist-debug: SKIPPED — no GAIP_HUB_CONFIG.restUrl');
+                return false;
+            }
+
+            window.GAIP_SITE_CONFIG = Object.assign({}, window.GAIP_SITE_CONFIG || {}, patch);
+
+            fetch(hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+                method: 'PUT',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': hub.csrfToken || '' },
+                body: JSON.stringify({ config: window.GAIP_SITE_CONFIG })
+            }).then(function(r) {
+                console.log('[NutritionCalendar] persist-debug: direct PUT response status', r.status);
+            }).catch(function(err) {
+                console.warn('[NutritionCalendar] persist-debug: direct PUT failed', err && err.message);
+            });
+            return true;
+        } catch (e) {
+            console.warn('[NutritionCalendar] persistSiteConfigPatch threw', e && e.message);
+            return false;
+        }
+    };
+
     NutritionCalendar.getProgram = function() {
         return this.program;
+    };
+
+    /**
+     * Re-render the results panel from a previously generated (and persisted)
+     * program, e.g. after a page reload — without requiring the user to
+     * re-enter Annual N Target and click Generate again.
+     *
+     * Two sources depending on the page (see persistSiteConfigPatch() above for
+     * why there are two paths):
+     *   - window.GAIP_NUTRITION_CALENDAR_PROGRAM — set by site-config-persistence.js
+     *     restoreConfig() once its page-load cascade completes (hub pages only).
+     *   - window.GAIP_SITE_CONFIG.nutritionCalendarProgram — server-rendered
+     *     directly into the page on load, available synchronously (plan.blade.php,
+     *     which never loads site-config-persistence.js).
+     * Deliberately NOT window.GAIP_NUTRITION_PROGRAM — that's the regional
+     * integrations' product-recommendation object (different shape, see
+     * nutrition-prebble/au/uk/nz-fertiliser-integration.js), consumed by Word
+     * export, not by this panel.
+     */
+    NutritionCalendar.restoreFromPersisted = function() {
+        const program = window.GAIP_NUTRITION_CALENDAR_PROGRAM
+            || (window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.nutritionCalendarProgram);
+        console.log('[NutritionCalendar] persist-debug: restoreFromPersisted() called. ' +
+            'this.program already set? ' + !!this.program +
+            ' persisted program present? ' + !!program);
+        if (this.program) {
+            console.log('[NutritionCalendar] persist-debug: SKIPPED — this.program already set (user already generated this session)');
+            return; // don't clobber a program the user just generated
+        }
+        if (!program || !program.annual_totals) {
+            console.log('[NutritionCalendar] persist-debug: SKIPPED — no persisted program, or missing annual_totals. program=', program);
+            return;
+        }
+
+        if (!this.elements.results) this.init();
+        if (!this.elements.results) {
+            console.warn('[NutritionCalendar] persist-debug: SKIPPED — [data-nutrition-results] element not found even after init()');
+            return;
+        }
+
+        console.log('[NutritionCalendar] persist-debug: restoring panel from persisted program', program);
+        this.program = program;
+        if (this.elements.annualNInput && program.adjustments) {
+            this.elements.annualNInput.value = Math.round(program.adjustments.target_n);
+        }
+        if (this.elements.distributionSelect && program.meta && program.meta.distribution) {
+            this.elements.distributionSelect.value = program.meta.distribution;
+        }
+        if (this.elements.clippingSelect && program.meta && program.meta.clippingManagement) {
+            this.elements.clippingSelect.value = program.meta.clippingManagement;
+        }
+
+        this.renderResults();
+        this.showResults();
     };
 
     // ========================================================================
@@ -1471,6 +1612,13 @@
     // Re-init when results section becomes visible
     document.addEventListener('gaip:analysis-complete', () => {
         setTimeout(tryInit, 100);
+    });
+
+    // Restore last-generated program once site-config-persistence.js has finished
+    // restoring the active site's saved config (which now includes nutritionProgram).
+    document.addEventListener('gaip:site-config-applied', () => {
+        console.log('[NutritionCalendar] persist-debug: gaip:site-config-applied received');
+        NutritionCalendar.restoreFromPersisted();
     });
 
 })();

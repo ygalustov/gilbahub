@@ -507,6 +507,30 @@
                 var existing = _configs[siteId];
                 return !!(existing && existing.multiSiteTurf === true);
             })(),
+            // Same asymmetric-writers hazard as multiSiteTurf above: the generated
+            // Nutrition Program is written directly to _configs[siteId] via
+            // GAIP_SiteConfig.mergeConfig() (see nutrition-*-integration.js), not
+            // rebuilt from any DOM field, so it must be carried through here or a
+            // wholesale `_configs[siteId] = snapshotConfig()` replace would drop it.
+            nutritionProgram: (function () {
+                var SM_snap3 = global.GAIP_SampleManager;
+                var siteId = SM_snap3 && typeof SM_snap3.getActiveSiteId === 'function'
+                    ? SM_snap3.getActiveSiteId() : null;
+                if (!siteId) return undefined;
+                var existing = _configs[siteId];
+                return existing ? existing.nutritionProgram : undefined;
+            })(),
+            // Same hazard again — the base calendar (nutrition-calendar.js), a
+            // different object than nutritionProgram above. Written via
+            // GAIP_SiteConfig.mergeConfig() from NutritionCalendar.generate().
+            nutritionCalendarProgram: (function () {
+                var SM_snap4 = global.GAIP_SampleManager;
+                var siteId = SM_snap4 && typeof SM_snap4.getActiveSiteId === 'function'
+                    ? SM_snap4.getActiveSiteId() : null;
+                if (!siteId) return undefined;
+                var existing = _configs[siteId];
+                return existing ? existing.nutritionCalendarProgram : undefined;
+            })(),
             savedAt: new Date().toISOString()
         };
     }
@@ -532,6 +556,26 @@
         var turf = config.turf || {};
         var location = config.location || {};
         var tp = global.GaipTurfProfile;
+
+        console.log('[SiteConfig] persist-debug: restoreConfig() keys=', Object.keys(config),
+            'hasNutritionProgram=', !!config.nutritionProgram,
+            'hasNutritionCalendarProgram=', !!config.nutritionCalendarProgram);
+
+        // Restore the last-generated Nutrition Program (if any) so Reports > Export —
+        // a fresh page load with no in-memory GAIP_NUTRITION_PROGRAM of its own — can
+        // still find and print it. Written by GAIP_SiteConfig.mergeConfig() from
+        // nutrition-*-integration.js when the user clicks "Generate Nutrition Program".
+        if (config.nutritionProgram) {
+            global.GAIP_NUTRITION_PROGRAM = config.nutritionProgram;
+        }
+        // Base N/P/K/Ca/Mg/S calendar (nutrition-calendar.js computeProgram() output) —
+        // different shape/consumer than nutritionProgram above. Picked up by
+        // NutritionCalendar.restoreFromPersisted() to redisplay the Plan > Nutrition
+        // results panel after reload without requiring the user to regenerate.
+        if (config.nutritionCalendarProgram) {
+            global.GAIP_NUTRITION_CALENDAR_PROGRAM = config.nutritionCalendarProgram;
+            console.log('[SiteConfig] persist-debug: set GAIP_NUTRITION_CALENDAR_PROGRAM');
+        }
 
         // b35fix154b: On GSSH venue pages the venue selector is the authoritative
         // source for turfType and species — the saved GAIP site config (which may
