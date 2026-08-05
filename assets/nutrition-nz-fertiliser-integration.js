@@ -133,6 +133,21 @@
                 if (st === 'cotula_bowling_green') return 'bowling_greens';
                 return st;
             }
+            // b35fix428: window.GAIP_STATE.soil (legacy flat slot) is never populated
+            // on plan.blade.php — the canonical slot is GAIP_STATE.inputs.soil (see
+            // b35fix386 in nutrition-calendar.js). Without this check, every call on
+            // Plan fell through the branch above and hit the 'sports' default below
+            // regardless of the real surface, which silently disabled the recommender's
+            // multi-month coverage/carryover window for greens (spoonfeeding is greens-
+            // only — see the isGreens branch in prebbles-products.js generateProgram) —
+            // producing a fresh granular application every month in exports instead of
+            // matching the carryover shown on screen.
+            var canonicalSoil = window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil;
+            if (canonicalSoil && canonicalSoil.surfaceType) {
+                var cst = canonicalSoil.surfaceType;
+                if (cst === 'cotula_bowling_green') return 'bowling_greens';
+                return cst;
+            }
             if (window.GaipTurfProfile && window.GaipTurfProfile.state && window.GaipTurfProfile.state.subCategory) {
                 return window.GaipTurfProfile.state.subCategory;
             }
@@ -269,6 +284,21 @@
             window.PrebbleProducts.granular = products.granular;
             window.PrebbleProducts.liquid   = products.liquid;
 
+            // b35fix426 INSTRUMENTATION — pairs with [CombinedExport b35fix426] in
+            // word-export-combined.js. Diff this PRE block (same tag, path:'live-ui')
+            // against the report's PRE block for the same site/sample to find which
+            // input still differs between the on-screen calc and the report recompute.
+            var _b426Monthly = (calendarData.program && calendarData.program.monthly) || [];
+            console.log('[NutritionNzFertiliserIntegration b35fix426] PRE-recommender input snapshot:\n' + JSON.stringify({
+                path: 'live-ui',
+                siteId: (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.getActiveSiteId
+                    && window.GilbaNutritionCalendar.getActiveSiteId()) || null,
+                context: context,
+                monthlyNKP: _b426Monthly.map(function(m) {
+                    return { month: m.month_name || m.month, gp: +(m.gp || 0).toFixed(2), N: +(m.N || 0).toFixed(1), K: +(m.K || 0).toFixed(1), P: +(m.P || 0).toFixed(1) };
+                }),
+            }, null, 2));
+
             var program;
             try {
                 program = window.PrebbleRecommender.generateProgram(calendarData, context);
@@ -280,6 +310,24 @@
             if (!program || program.error) {
                 console.error('[NutritionNzFertiliserIntegration] Program error:', program && program.error);
                 return;
+            }
+
+            // b35fix426 INSTRUMENTATION — POST product set + coveredBy state per
+            // month, paired with the PRE block above.
+            try {
+                console.log('[NutritionNzFertiliserIntegration b35fix426] POST-recommender monthly:\n' + JSON.stringify({
+                    path: 'live-ui',
+                    monthly: (program.monthly || []).map(function(m) {
+                        return {
+                            month: m.month_name || m.month,
+                            granular: (m.granular || []).map(function(p) { return p.name + ' @ ' + (p.rateKgHa || 0) + 'kg/ha'; }),
+                            liquid: (m.liquid || []).map(function(p) { return p.name + ' @ ' + (p.rateLHa || 0) + 'L/ha'; }),
+                            coveredBy: m.coveredBy ? (m.coveredBy.product + ' (' + m.coveredBy.month + ')') : null,
+                        };
+                    }),
+                }, null, 2));
+            } catch (_e) {
+                console.warn('[NutritionNzFertiliserIntegration b35fix426] POST-instrument failed: ' + (_e && _e.message));
             }
 
             this.lastProgram = program;

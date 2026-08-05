@@ -2104,17 +2104,82 @@
                             granularCount: _swappedPrebblePool ? _pool.granular.length : (window.PrebbleProducts.granular || []).length,
                             granularIds: _swappedPrebblePool ? _pool.granular.map(function(p) { return p.id; }) : null,
                         });
+                        // Mirror NutritionNzFertiliserIntegration.generateAndRender()'s context
+                        // object as closely as the per-sample loop allows. Previously this call
+                        // only passed {surfaceType, methodology, muldersFlags} — missing
+                        // soilPpm/pDeficient/latitude/soilTemp/soilCEC/irrigationFrequency/
+                        // tissueStatus meant generateProgram() ran with soilPDeficient always
+                        // false and a default -35° latitude for its soil-temp/release-curve
+                        // estimate (see prebbles-products.js generateProgram), producing
+                        // different product picks and "covered by"/carryover windows than what
+                        // was shown on screen for the same sample. soilPpm/pDeficient now use
+                        // this sample's own soil (perSampleInputs.soilPpm, built above from
+                        // r.data.soil) — the rest (CEC/irrigation/soilTemp/latitude/tissue)
+                        // aren't sample-specific on screen either, so read via the same
+                        // NutritionPrebbleIntegration getters the live page calls, for parity
+                        // rather than inventing a different source here.
+                        var _pi = window.NutritionPrebbleIntegration;
+                        var _pThreshold = (perSampleInputs.methodology === 'mlsn') ? 21 : 30;
+                        var _pDeficient = perSampleInputs.soilPpm && perSampleInputs.soilPpm.P != null
+                            && perSampleInputs.soilPpm.P < _pThreshold;
+                        var _prebbleContext = {
+                            surfaceType: perSampleInputs.surfaceType,
+                            methodology: perSampleInputs.methodology,
+                            soilCEC: _pi && typeof _pi.getSoilCEC === 'function' ? _pi.getSoilCEC() : null,
+                            irrigationFrequency: _pi && typeof _pi.getIrrigationFrequency === 'function' ? _pi.getIrrigationFrequency() : null,
+                            soilTemp: _pi && typeof _pi.getSoilTemperature === 'function' ? _pi.getSoilTemperature() : null,
+                            latitude: _pi && typeof _pi.getLatitude === 'function' ? _pi.getLatitude() : null,
+                            hemisphere: 'southern',
+                            soilPpm: perSampleInputs.soilPpm,
+                            pDeficient: _pDeficient,
+                            tissueStatus: _pi && typeof _pi.getTissueStatus === 'function' ? _pi.getTissueStatus() : null,
+                            establishment: false,
+                            seeding: false,
+                            renovation: false,
+                            muldersFlags: {}
+                        };
+                        // b35fix426 INSTRUMENTATION — mirrors the [NutritionAuFertiliserIntegration
+                        // b35fix381] / [CombinedExport b35fix381] PRE/POST pair, applied to the
+                        // Prebble/NZ branch (never instrumented before). Diff this PRE block
+                        // against a matching PRE log added to NutritionNzFertiliserIntegration.
+                        // generateAndRender() for the same sample's site to find exactly which
+                        // input still differs between the on-screen calc and this per-sample
+                        // recompute.
+                        var _prebbleMonthly = (perSampleCalendar.program && perSampleCalendar.program.monthly) || [];
+                        console.log('[CombinedExport b35fix426] PRE-recommender input snapshot:\n' + JSON.stringify({
+                            path: 'combined-export-per-sample',
+                            siteId: r.siteId,
+                            sampleId: r.sampleId,
+                            context: _prebbleContext,
+                            monthlyNKP: _prebbleMonthly.map(function(m) {
+                                return { month: m.month_name || m.month, gp: +(m.gp || 0).toFixed(2), N: +(m.N || 0).toFixed(1), K: +(m.K || 0).toFixed(1), P: +(m.P || 0).toFixed(1) };
+                            }),
+                        }, null, 2));
                         try {
-                            perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, {
-                                surfaceType: perSampleInputs.surfaceType,
-                                methodology: perSampleInputs.methodology,
-                                muldersFlags: {}
-                            });
+                            perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, _prebbleContext);
                         } finally {
                             if (_swappedPrebblePool) {
                                 window.PrebbleProducts.granular = _origPrebbleGranular;
                                 window.PrebbleProducts.liquid = _origPrebbleLiquid;
                             }
+                        }
+                        // b35fix426 INSTRUMENTATION — POST product set + coveredBy state per
+                        // month, paired with the PRE block above.
+                        try {
+                            console.log('[CombinedExport b35fix426] POST-recommender monthly:\n' + JSON.stringify({
+                                path: 'combined-export-per-sample',
+                                sampleId: r.sampleId,
+                                monthly: (perSampleProgram && perSampleProgram.monthly || []).map(function(m) {
+                                    return {
+                                        month: m.month_name || m.month,
+                                        granular: (m.granular || []).map(function(p) { return p.name + ' @ ' + (p.rateKgHa || 0) + 'kg/ha'; }),
+                                        liquid: (m.liquid || []).map(function(p) { return p.name + ' @ ' + (p.rateLHa || 0) + 'L/ha'; }),
+                                        coveredBy: m.coveredBy ? (m.coveredBy.product + ' (' + m.coveredBy.month + ')') : null,
+                                    };
+                                }),
+                            }, null, 2));
+                        } catch (_e) {
+                            console.warn('[CombinedExport b35fix426] POST-instrument failed for ' + r.sampleId + ': ' + (_e && _e.message));
                         }
                     }
 

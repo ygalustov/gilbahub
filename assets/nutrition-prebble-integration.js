@@ -390,7 +390,30 @@
                 };
                 return result;
             }
-            
+
+            // b35fix427: on plan.blade.php there is no GilbaHub store (not loaded —
+            // lightweight page) and no soil DOM inputs, so both branches above always
+            // fall through to null regardless of which sample is selected. That silently
+            // fed pDeficient:false into the product recommender's starter-exclusion logic
+            // no matter what the real soil P was — while nutrition-calendar.js's own
+            // collectFromState() correctly reads real ppm from GAIP_STATE.inputs.soil for
+            // the base calendar (see b35fix386). Read the same canonical slot here so the
+            // recommender sees the same soil the calendar already used.
+            const canonicalSoil = window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil;
+            if (canonicalSoil) {
+                const ppmSrc = canonicalSoil.ppm || canonicalSoil;
+                const hasAny = ['P', 'K', 'Ca', 'Mg', 'S'].some(function(k) { return ppmSrc[k] != null; });
+                if (hasAny) {
+                    return {
+                        P: ppmSrc.P ?? null,
+                        K: ppmSrc.K ?? null,
+                        Ca: ppmSrc.Ca ?? null,
+                        Mg: ppmSrc.Mg ?? null,
+                        S: ppmSrc.S ?? null,
+                    };
+                }
+            }
+
             return defaultPpm;
         },
         
