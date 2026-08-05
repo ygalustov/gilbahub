@@ -362,6 +362,26 @@
                             });
                             merged++;
                         }
+
+                        // nutritionProgram / nutritionCalendarProgram / appliedMonthlyN /
+                        // maxNPerMonth have exactly one writer, NutritionCalendar.
+                        // persistSiteConfigPatch() (see nutrition-calendar.js), which
+                        // always pushes to the server immediately on every generate/
+                        // change — including from plan.blade.php, a page that never
+                        // loads this module and so has no local _configs entry of its
+                        // own to keep in sync. That means the server copy is never
+                        // staler than local for these keys, so (unlike identityFields
+                        // above) always take it, independent of the whole-row savedAt
+                        // comparison — which only reflects whichever page last ran
+                        // snapshotConfig()'s DOM-driven fields and is not a reliable
+                        // proxy for these separately-written keys.
+                        ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth'].forEach(function(key) {
+                            // != null (not truthy) — appliedMonthlyN/maxNPerMonth may legitimately be 0.
+                            if (serverCfg[key] != null) {
+                                local[key] = serverCfg[key];
+                                merged++;
+                            }
+                        });
                     }
                 });
 
@@ -483,7 +503,7 @@
             if (_pExisting.coolOverseed && !turf.coolOverseed) turf.coolOverseed = _pExisting.coolOverseed;
         })();
 
-        return {
+        var result = {
             turf: turf,
             location: location,
             pgr: pgr,
@@ -506,33 +526,31 @@
                 if (!siteId) return false;
                 var existing = _configs[siteId];
                 return !!(existing && existing.multiSiteTurf === true);
-            })(),
-            // Same asymmetric-writers hazard as multiSiteTurf above: the generated
-            // Nutrition Program is written directly to _configs[siteId] via
-            // GAIP_SiteConfig.mergeConfig() (see nutrition-*-integration.js), not
-            // rebuilt from any DOM field, so it must be carried through here or a
-            // wholesale `_configs[siteId] = snapshotConfig()` replace would drop it.
-            nutritionProgram: (function () {
-                var SM_snap3 = global.GAIP_SampleManager;
-                var siteId = SM_snap3 && typeof SM_snap3.getActiveSiteId === 'function'
-                    ? SM_snap3.getActiveSiteId() : null;
-                if (!siteId) return undefined;
-                var existing = _configs[siteId];
-                return existing ? existing.nutritionProgram : undefined;
-            })(),
-            // Same hazard again — the base calendar (nutrition-calendar.js), a
-            // different object than nutritionProgram above. Written via
-            // GAIP_SiteConfig.mergeConfig() from NutritionCalendar.generate().
-            nutritionCalendarProgram: (function () {
-                var SM_snap4 = global.GAIP_SampleManager;
-                var siteId = SM_snap4 && typeof SM_snap4.getActiveSiteId === 'function'
-                    ? SM_snap4.getActiveSiteId() : null;
-                if (!siteId) return undefined;
-                var existing = _configs[siteId];
-                return existing ? existing.nutritionCalendarProgram : undefined;
-            })(),
-            savedAt: new Date().toISOString()
+            })()
         };
+
+        // Same asymmetric-writers hazard as multiSiteTurf above: these fields
+        // are written directly to _configs[siteId] via GAIP_SiteConfig.
+        // mergeConfig() (see nutrition-calendar.js / nutrition-*-integration.js),
+        // never rebuilt from any DOM field, so each must be carried through
+        // here or a wholesale `_configs[siteId] = snapshotConfig()` replace
+        // would drop it.
+        //   nutritionProgram          — regional product-recommendation object
+        //   nutritionCalendarProgram  — base N/P/K/Ca/Mg/S calendar
+        //   appliedMonthlyN           — "Current Monthly N Rate" (N Program Validation)
+        //   maxNPerMonth              — "Max N per Application" cap
+        (function () {
+            var SM_pass = global.GAIP_SampleManager;
+            var siteId = SM_pass && typeof SM_pass.getActiveSiteId === 'function'
+                ? SM_pass.getActiveSiteId() : null;
+            var existing = siteId ? _configs[siteId] : null;
+            ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth'].forEach(function (key) {
+                result[key] = existing ? existing[key] : undefined;
+            });
+        })();
+
+        result.savedAt = new Date().toISOString();
+        return result;
     }
 
     function getSelectedTurfType() {

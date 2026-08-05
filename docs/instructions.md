@@ -476,12 +476,14 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 ## Backlog
 91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
+93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. 
 
+Change order of KPI cards on the management plan page. 1 Pre emergment 2 PGR progress
 
 
 04/08/26
 +92. Its Prebbles distributor on Plan>nutrition. GH-228.
-93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. 
+
 
 
 

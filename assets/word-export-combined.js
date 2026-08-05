@@ -1858,9 +1858,16 @@
             }
         }
 
+        // Not gated on _facilityCalendarInputs.annualNOverride here — that value
+        // comes from the hidden #rp-hub-runner's own .gaip-nutrition-annual-n
+        // DOM input, which this page never populates (it's not shown to the
+        // user), so it is always empty. Each sample resolves its own annual N
+        // target below (DOM value, if ever present, else the per-site persisted
+        // nutritionCalendarProgram written by Plan > Nutrition's Generate
+        // button — see NutritionCalendar.persistSiteConfigPatch()); samples
+        // with neither are skipped individually (_perSampleProgSkip).
         var _perSampleProgGen = !!(
             _facilityCalendarInputs &&
-            _facilityCalendarInputs.annualNOverride > 0 &&
             window.GilbaNutritionCalendar &&
             window.GilbaNutritionCalendar.computeProgram &&
             ((window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram) ||
@@ -1887,6 +1894,52 @@
                 if (r._anr && r._anr.isCotula) { _perSampleProgSkip++; return; }
 
                 var perSampleInputs = Object.assign({}, _facilityCalendarInputs);
+
+                // Resolve this sample's own site's Nutrition Program inputs from
+                // persisted state — see the _perSampleProgGen comment above for why
+                // the shared facility value (hidden DOM input) is always empty/at
+                // its default for ALL of annualNOverride, maxNPerMonth, distribution,
+                // and clippingManagement, not just the N target.
+                var _siteCfg = null;
+                try {
+                    _siteCfg = (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function')
+                        ? window.GAIP_SiteConfig.getConfig(r.siteId) : null;
+                } catch (_e) {
+                    console.warn('[CombinedExport] persist-debug: site config lookup failed for', r.siteId, _e && _e.message);
+                }
+                var _persistedCal = _siteCfg && _siteCfg.nutritionCalendarProgram;
+
+                if (!(perSampleInputs.annualNOverride > 0)) {
+                    var _persistedN = (_persistedCal && _persistedCal.adjustments && _persistedCal.adjustments.target_n > 0)
+                        ? _persistedCal.adjustments.target_n : null;
+                    console.log('[CombinedExport] persist-debug: sample', r.sampleId, 'site', r.siteId,
+                        'facility annualNOverride empty, persisted fallback =', _persistedN);
+                    if (_persistedN > 0) {
+                        perSampleInputs.annualNOverride = _persistedN;
+                    } else {
+                        _perSampleProgSkip++;
+                        return;
+                    }
+                }
+
+                // maxNPerMonth/distribution/clippingManagement: same hidden-DOM
+                // unreliability as annualNOverride above, but these three don't
+                // fail loudly (maxNPerMonth silently defaults to 50, distribution
+                // and clippingManagement fall back to a select's first option) —
+                // so unlike annualNOverride there's no natural signal to gate on.
+                // Always prefer the persisted value when one exists.
+                if (_siteCfg && _siteCfg.maxNPerMonth > 0) {
+                    perSampleInputs.maxNPerMonth = _siteCfg.maxNPerMonth;
+                }
+                if (_persistedCal && _persistedCal.meta) {
+                    if (_persistedCal.meta.distribution) {
+                        perSampleInputs.distribution = _persistedCal.meta.distribution;
+                    }
+                    if (_persistedCal.meta.clippingManagement) {
+                        perSampleInputs.clippingManagement = _persistedCal.meta.clippingManagement;
+                    }
+                }
+
                 perSampleInputs.soilPpm = {
                     P:  parseFloat(r.data.soil.P)  || 0,
                     K:  parseFloat(r.data.soil.K)  || 0,

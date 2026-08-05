@@ -8910,7 +8910,31 @@
                 nResult = window.gaip_validateNProgram(window.GAIP_STATE.fertility.monthlyN, effectiveSpecies, gp);
             }
         }
-        
+        // Fallback: window.GAIP_STATE.fertility.monthlyN is only ever populated
+        // from the hidden #rp-hub-runner's own .gaip-monthly-n-rate DOM input
+        // (hub-tissue-v3.js), which is never shown to the user and so is always
+        // empty on Reports > Export. Fall back to the "Current Monthly N Rate"
+        // value persisted from Plan > Nutinition (see
+        // NutritionCalendar.persistSiteConfigPatch()), same pattern as the
+        // annualNOverride fallback in word-export-combined.js.
+        if (!nResult && typeof window.gaip_validateNProgram === 'function') {
+            try {
+                var _nc = window.GilbaNutritionCalendar;
+                var _siteId = _nc && _nc.getActiveSiteId && _nc.getActiveSiteId();
+                var _siteCfg = _siteId && window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function'
+                    ? window.GAIP_SiteConfig.getConfig(_siteId) : null;
+                var _persistedMonthlyN = _siteCfg ? _siteCfg.appliedMonthlyN : null;
+                if (_persistedMonthlyN != null && _persistedMonthlyN >= 0) {
+                    var _effectiveSpecies = data.turf.effectiveSpecies || data.turf.species || 'Couch';
+                    var _gp = data.climate.growthPotential || 50;
+                    nResult = window.gaip_validateNProgram(_persistedMonthlyN, _effectiveSpecies, _gp);
+                    console.log('[WordExport] N Program Validation via persisted appliedMonthlyN =', _persistedMonthlyN, 'for site', _siteId);
+                }
+            } catch (_e) {
+                console.warn('[WordExport] persisted appliedMonthlyN fallback failed:', _e && _e.message);
+            }
+        }
+
         if (nResult) {
             data.nProgram.hasData = true;
             data.nProgram.appliedN = nResult.appliedNKgHa;

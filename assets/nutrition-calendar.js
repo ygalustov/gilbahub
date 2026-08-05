@@ -199,6 +199,11 @@
             annualNInput: container.querySelector('.gaip-nutrition-annual-n'),
             maxNInput: container.querySelector('.gaip-nutrition-max-n'),
             clippingSelect: container.querySelector('.gaip-nutrition-clipping'),
+            // "Current Monthly N Rate" — feeds the report's N Program Validation
+            // section (Applied N vs uptake capacity). Was previously never read by
+            // any JS at all (dead input) — see restoreFromPersisted() and
+            // persistSiteConfigPatch() calls below.
+            monthlyNInput: container.querySelector('#plan-nut-monthly-n'),
         };
 
         this.bindEvents();
@@ -214,6 +219,14 @@
             this.elements.generateBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 this.generate();
+            });
+        }
+        if (this.elements.monthlyNInput) {
+            var self = this;
+            this.elements.monthlyNInput.addEventListener('change', function() {
+                var val = parseFloat(self.elements.monthlyNInput.value);
+                if (!(val >= 0)) return;
+                self.persistSiteConfigPatch({ appliedMonthlyN: val });
             });
         }
     };
@@ -1226,7 +1239,17 @@
         // separately from the regional-integration "nutritionProgram" (product
         // recommendations, different shape — see nutrition-prebble/au/uk/nz-
         // fertiliser-integration.js) which is what Word export reads.
-        this.persistSiteConfigPatch({ nutritionCalendarProgram: program });
+        //
+        // maxNPerMonth is persisted alongside it (not embedded in `program` —
+        // computeProgram()'s adjustments only carry the RESULT of the cap
+        // — n_cap_applied, n_unschedulable — not the cap threshold itself).
+        // distribution/clippingManagement don't need a separate key: they're
+        // already on program.meta, read from there by the per-sample
+        // recompute fallback in word-export-combined.js.
+        this.persistSiteConfigPatch({
+            nutritionCalendarProgram: program,
+            maxNPerMonth: inputs.maxNPerMonth
+        });
 
         // Render results
         this.renderResults();
@@ -1515,15 +1538,27 @@
                 return false;
             }
 
-            window.GAIP_SITE_CONFIG = Object.assign({}, window.GAIP_SITE_CONFIG || {}, patch);
+            window.GAIP_SITE_CONFIG = Object.assign({}, window.GAIP_SITE_CONFIG || {}, patch, {
+                savedAt: new Date().toISOString()
+            });
 
-            fetch(hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip', {
+            var _putUrl = hub.restUrl.replace(/\/?$/, '/') + 'sites/' + encodeURIComponent(siteId) + '/config/gaip';
+            console.log('[NutritionCalendar] persist-debug: PUT', _putUrl, 'body keys=',
+                Object.keys(window.GAIP_SITE_CONFIG), 'csrfTokenPresent=', !!hub.csrfToken);
+            fetch(_putUrl, {
                 method: 'PUT',
                 credentials: 'same-origin',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': hub.csrfToken || '' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': hub.csrfToken || ''
+                },
                 body: JSON.stringify({ config: window.GAIP_SITE_CONFIG })
             }).then(function(r) {
-                console.log('[NutritionCalendar] persist-debug: direct PUT response status', r.status);
+                r.text().then(function(bodyText) {
+                    console.log('[NutritionCalendar] persist-debug: direct PUT response status', r.status,
+                        'ok=', r.ok, 'body=', bodyText.slice(0, 500));
+                });
             }).catch(function(err) {
                 console.warn('[NutritionCalendar] persist-debug: direct PUT failed', err && err.message);
             });
@@ -1556,6 +1591,16 @@
      * export, not by this panel.
      */
     NutritionCalendar.restoreFromPersisted = function() {
+        // Independent of the program restore below — repopulate "Current Monthly
+        // N Rate" whenever we have a persisted value, whether or not a program
+        // was ever generated this session.
+        if (this.elements.monthlyNInput && !this.elements.monthlyNInput.value) {
+            const _persistedMonthlyN = window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.appliedMonthlyN;
+            if (_persistedMonthlyN != null) {
+                this.elements.monthlyNInput.value = _persistedMonthlyN;
+            }
+        }
+
         const program = window.GAIP_NUTRITION_CALENDAR_PROGRAM
             || (window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.nutritionCalendarProgram);
         console.log('[NutritionCalendar] persist-debug: restoreFromPersisted() called. ' +
@@ -1586,6 +1631,9 @@
         }
         if (this.elements.clippingSelect && program.meta && program.meta.clippingManagement) {
             this.elements.clippingSelect.value = program.meta.clippingManagement;
+        }
+        if (this.elements.maxNInput && window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.maxNPerMonth > 0) {
+            this.elements.maxNInput.value = window.GAIP_SITE_CONFIG.maxNPerMonth;
         }
 
         this.renderResults();
