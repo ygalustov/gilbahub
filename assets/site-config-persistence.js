@@ -364,7 +364,7 @@
                         }
 
                         // nutritionProgram / nutritionCalendarProgram / appliedMonthlyN /
-                        // maxNPerMonth have exactly one writer, NutritionCalendar.
+                        // maxNPerMonth / nzDistributor have exactly one writer, NutritionCalendar.
                         // persistSiteConfigPatch() (see nutrition-calendar.js), which
                         // always pushes to the server immediately on every generate/
                         // change — including from plan.blade.php, a page that never
@@ -375,7 +375,7 @@
                         // comparison — which only reflects whichever page last ran
                         // snapshotConfig()'s DOM-driven fields and is not a reliable
                         // proxy for these separately-written keys.
-                        ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth'].forEach(function(key) {
+                        ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor'].forEach(function(key) {
                             // != null (not truthy) — appliedMonthlyN/maxNPerMonth may legitimately be 0.
                             if (serverCfg[key] != null) {
                                 local[key] = serverCfg[key];
@@ -539,12 +539,13 @@
         //   nutritionCalendarProgram  — base N/P/K/Ca/Mg/S calendar
         //   appliedMonthlyN           — "Current Monthly N Rate" (N Program Validation)
         //   maxNPerMonth              — "Max N per Application" cap
+        //   nzDistributor             — NZ product-pool filter ('all'/'prebble'/'pgg_wrightson')
         (function () {
             var SM_pass = global.GAIP_SampleManager;
             var siteId = SM_pass && typeof SM_pass.getActiveSiteId === 'function'
                 ? SM_pass.getActiveSiteId() : null;
             var existing = siteId ? _configs[siteId] : null;
-            ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth'].forEach(function (key) {
+            ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor'].forEach(function (key) {
                 result[key] = existing ? existing[key] : undefined;
             });
         })();

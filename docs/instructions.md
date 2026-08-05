@@ -473,12 +473,22 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-226** Enhance dashboard analysis links: Added dynamic analysis links for various dashboard panels, improving user navigation to detailed analysis pages. Introduced new CSS styles for analysis link presentation, ensuring a consistent and visually appealing interface.
 **GH-227** Update dashboard UI styles and improve report instructions: Modified CSS for the dashboard vitals grid to use minmax for better responsiveness. Enhanced report instructions with additional improvements and clarified backlog items for better tracking.
 **GH-228** Refactor nutrition program persistence logic: Updated the integration scripts for various regions to utilize a unified method for retrieving the active site ID and persisting the generated nutrition program. This change ensures consistency across different modules and improves the reliability of data persistence during navigation and report generation.
+**GH-229** Enhance nutrition calendar functionality: Added support for "Current Monthly N Rate" input, enabling persistence and retrieval of monthly nitrogen values. Updated site configuration logic to ensure accurate data handling for nutrition programs, including max N per month. Improved fallback mechanisms in report generation to utilize persisted values, enhancing overall reliability and user experience.
+
 
 ## Backlog
 91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
-93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. 
+93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229.
 
 Change order of KPI cards on the management plan page. 1 Pre emergment 2 PGR progress
+
+
+
+Also check annual Product summary in the report if same issue is there
+
+
+
+
 
 
 04/08/26

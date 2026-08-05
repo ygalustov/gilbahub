@@ -42,6 +42,7 @@
         lastProgram:         null,
         lastCalendarData:    null,
         selectedDistributor: 'all',
+        _distributorRestored: false,
 
         init: function() {
             if (!window.PrebbleRecommender || !window.PrebbleProducts) {
@@ -141,6 +142,41 @@
         },
 
         // ====================================================================
+        // DISTRIBUTOR CHOICE PERSISTENCE
+        // ====================================================================
+
+        // Restores the last distributor the user picked on this site, so a
+        // page reload (or the Reports > Export page, which recomputes this
+        // program per-sample from scratch) uses the same product pool that
+        // was actually shown on screen instead of silently resetting to
+        // 'all'. Only runs once per page load, and only before the dropdown
+        // has been touched, so it can't clobber a manual mid-session change.
+        restoreSelectedDistributor: function() {
+            if (this._distributorRestored) return;
+            this._distributorRestored = true;
+            try {
+                var _nc = window.GilbaNutritionCalendar;
+                var siteId = _nc && typeof _nc.getActiveSiteId === 'function' ? _nc.getActiveSiteId() : null;
+                // Two sources depending on the page — same split as
+                // NutritionCalendar.restoreFromPersisted() / persistSiteConfigPatch():
+                //   - window.GAIP_SiteConfig.getConfig(siteId) — full-stack pages
+                //     (old hub, Reports > Export), where the SiteConfig module exists.
+                //   - window.GAIP_SITE_CONFIG — plan.blade.php, a lightweight page
+                //     that never loads that module; the server-rendered config lives
+                //     directly on this global instead (and is what persistSiteConfigPatch
+                //     mutates in place on that page).
+                var cfg = siteId && window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function'
+                    ? window.GAIP_SiteConfig.getConfig(siteId) : null;
+                if (!cfg && window.GAIP_SITE_CONFIG && window.GAIP_SITE_CONFIG.nzDistributor) {
+                    cfg = window.GAIP_SITE_CONFIG;
+                }
+                if (cfg && cfg.nzDistributor) {
+                    this.selectedDistributor = cfg.nzDistributor;
+                }
+            } catch (e) {}
+        },
+
+        // ====================================================================
         // PRODUCT POOL BY DISTRIBUTOR
         // ====================================================================
 
@@ -188,6 +224,8 @@
                 return;
             }
 
+            this.restoreSelectedDistributor();
+
             var pi = window.NutritionPrebbleIntegration;
 
             // Sync soil state to GAIP_STATE (same as Prebble integration does)
@@ -215,6 +253,15 @@
 
             // Build filtered product pool for selected distributor
             var products = this.getProductsForDistributor(this.selectedDistributor);
+
+            console.log('[NutritionNzFertiliserIntegration] nzdist-debug UI generate:', {
+                siteId: (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.getActiveSiteId
+                    && window.GilbaNutritionCalendar.getActiveSiteId()) || null,
+                selectedDistributor: this.selectedDistributor,
+                granularCount: products.granular.length,
+                liquidCount: products.liquid.length,
+                granularIds: products.granular.map(function(p) { return p.id; }),
+            });
 
             // Temporarily swap PrebbleProducts so PrebbleRecommender uses the right pool
             var origGranular = window.PrebbleProducts.granular;
@@ -329,6 +376,10 @@
             var self = this;
             select.addEventListener('change', function(e) {
                 self.selectedDistributor = e.target.value;
+                var _nc = window.GilbaNutritionCalendar;
+                if (_nc && typeof _nc.persistSiteConfigPatch === 'function') {
+                    _nc.persistSiteConfigPatch({ nzDistributor: self.selectedDistributor });
+                }
                 var data = self.lastCalendarData;
                 if (!data) {
                     var cal = window.GilbaNutritionCalendar;

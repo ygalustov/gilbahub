@@ -2077,11 +2077,45 @@
                                 r.sampleId + ': ' + (_e && _e.message));
                         }
                     } else if (_usePrebble) {
-                        perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, {
-                            surfaceType: perSampleInputs.surfaceType,
-                            methodology: perSampleInputs.methodology,
-                            muldersFlags: {}
+                        // Mirror the on-screen distributor filter (see
+                        // NutritionNzFertiliserIntegration.generateAndRender / getProductsForDistributor).
+                        // Without this, the report always used the raw, unfiltered Prebble-only
+                        // catalogue no matter which distributor the user picked in the
+                        // "Distributor" dropdown on Plan > Nutrition, so the report's product
+                        // set could differ from what was actually shown on screen.
+                        var _nzDistributor = (_siteCfg && _siteCfg.nzDistributor) || 'all';
+                        var _origPrebbleGranular = null, _origPrebbleLiquid = null, _swappedPrebblePool = false;
+                        if (window.NutritionNzFertiliserIntegration
+                                && typeof window.NutritionNzFertiliserIntegration.getProductsForDistributor === 'function'
+                                && window.PrebbleProducts) {
+                            var _pool = window.NutritionNzFertiliserIntegration.getProductsForDistributor(_nzDistributor);
+                            _origPrebbleGranular = window.PrebbleProducts.granular;
+                            _origPrebbleLiquid = window.PrebbleProducts.liquid;
+                            window.PrebbleProducts.granular = _pool.granular;
+                            window.PrebbleProducts.liquid = _pool.liquid;
+                            _swappedPrebblePool = true;
+                        }
+                        console.log('[CombinedExport] nzdist-debug per-sample:', {
+                            sampleId: r.sampleId,
+                            siteId: r.siteId,
+                            hasSiteCfg: !!_siteCfg,
+                            resolvedDistributor: _nzDistributor,
+                            swapped: _swappedPrebblePool,
+                            granularCount: _swappedPrebblePool ? _pool.granular.length : (window.PrebbleProducts.granular || []).length,
+                            granularIds: _swappedPrebblePool ? _pool.granular.map(function(p) { return p.id; }) : null,
                         });
+                        try {
+                            perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, {
+                                surfaceType: perSampleInputs.surfaceType,
+                                methodology: perSampleInputs.methodology,
+                                muldersFlags: {}
+                            });
+                        } finally {
+                            if (_swappedPrebblePool) {
+                                window.PrebbleProducts.granular = _origPrebbleGranular;
+                                window.PrebbleProducts.liquid = _origPrebbleLiquid;
+                            }
+                        }
                     }
 
                     if (!perSampleProgram || !perSampleProgram.monthly) {
