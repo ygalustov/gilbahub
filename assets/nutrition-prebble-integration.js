@@ -349,8 +349,30 @@
             if (window.GAIP_STATE?.climate?.temperature !== undefined) {
                 return window.GAIP_STATE.climate.temperature;
             }
-            
-            // Default to moderate temp
+
+            // b35fix430: on plan.blade.php none of the live checks above ever
+            // resolve — there is no climate engine running on this lightweight
+            // page, so this always fell through to the generic 15°C default,
+            // while the report (full stack) computed a real weather-derived
+            // value via window.climateMetrics.temperature.mean. That mismatch
+            // fed a genuinely different soil temperature into the recommender's
+            // release-curve estimate, producing different product picks for the
+            // same site between the live preview and the export.
+            // hub-persistence.js's cacheAnalysisResults() snapshots that exact
+            // object into computed.climate.temperature on every full analysis
+            // run and persists it server-side (analysis_cache namespace) — read
+            // it here instead of guessing, so Plan shows the same real number
+            // the report will compute rather than a fixed placeholder.
+            var _cachedTemp = window.GAIP_DASHBOARD_DATA
+                && window.GAIP_DASHBOARD_DATA.computed
+                && window.GAIP_DASHBOARD_DATA.computed.climate
+                && window.GAIP_DASHBOARD_DATA.computed.climate.temperature;
+            if (_cachedTemp && _cachedTemp.mean != null) {
+                return _cachedTemp.mean;
+            }
+
+            // Default to moderate temp — only reached if the site has never
+            // been analysed (no cache exists yet to read a real value from).
             return 15;
         },
         

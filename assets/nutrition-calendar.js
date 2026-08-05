@@ -545,16 +545,28 @@
         // Always create a fresh local soil object to avoid frozen/replaced state issues
         var soilState = {};
         try {
-            // Carry over existing ppm values if present.
+            // Carry over existing values if present.
             // b35fix386: read from `state.inputs.soil` first (canonical store
             // path), fall back to `state.soil` for legacy compat. Pre-fix
             // this read `state.soil` only — which is always undefined on the
             // hub-store getter's synthesised view, so the carry-over branch
             // never fired. Same root cause as the writeback fix below.
+            //
+            // b35fix429: carry over the WHOLE existing soil object (methodology,
+            // bulkDensity, depth, surfaceType, CEC, EC, OM, ...), not just `.ppm`.
+            // Pre-fix this rebuilt soilState as `{ ppm: existing.ppm }` only, so
+            // every other field set by the page bridge (e.g. plan.blade.php's
+            // surfaceType: turf.subCategory||turf.turfType) was silently dropped
+            // the moment generate() ran — collectFromState()'s own surfaceType
+            // read is correct, but by the time it runs the value is already gone.
+            // Concretely: NutritionNzFertiliserIntegration.getSurfaceType() (and
+            // the calendar's own surfaceType default logic) then always fell
+            // through to 'sports', disabling the recommender's greens/carryover
+            // branch regardless of the site's real surface.
             var existing = (window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil)
                 || window.GAIP_STATE.soil;
-            if (existing && existing.ppm) {
-                soilState = { ppm: Object.assign({}, existing.ppm) };
+            if (existing) {
+                soilState = Object.assign({}, existing, { ppm: Object.assign({}, existing.ppm) });
             } else {
                 soilState = { ppm: {} };
             }
