@@ -479,15 +479,15 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-230** Implement distributor selection persistence: Added functionality to restore the last selected distributor on page load, ensuring consistent product pool visibility across sessions. Updated related logic in the nutrition integration and report generation scripts to reflect the selected distributor accurately. Enhanced site configuration handling for improved data persistence.
 **GH-231** Add soil sample selection functionality: Introduced a dropdown for selecting soil samples on the plan page, enhancing user interaction with the nutrition program. Integrated the sample picker with existing scripts to ensure seamless data handling and persistence. Updated styles for better alignment with the UI and included necessary script imports for functionality.
 **GH-232** Improve soil and nutrient data handling in integrations: Enhanced the nutrition integration scripts to ensure accurate soil data retrieval from GAIP_STATE, addressing issues with missing soil inputs on lightweight pages. Added instrumentation for better tracking of input snapshots before and after the recommender processes, improving debugging capabilities. Updated documentation to reflect changes in the backlog items related to nutrition program generation.
-
-
+**GH-233** Refactor soil data handling in nutrition calendar and integration scripts: Improved the retrieval of existing soil values to include the entire soil object, ensuring accurate data persistence. Enhanced temperature retrieval logic to utilize cached climate data, aligning live previews with report outputs. Updated documentation to reflect these changes and improve overall data handling reliability.
+**GH-234** Enhance plan UI with Pre-emergent card: Added a new KPI card for Pre-emergent status, displaying active alerts and aggregate status. Removed redundant Pre-emergent card logic to streamline the code. Updated documentation to reflect changes in the management plan page layout.
 
 
 ## Backlog
 91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
-93. word doc comments in doc. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232
++93. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232, GH-233. 
 
-Change order of KPI cards on the management plan page. 1 Pre emergment 2 PGR progress
+
 
 
 

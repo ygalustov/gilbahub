@@ -777,6 +777,20 @@
         var cards = [];
 
         // Card 1: PGR status
+        // Card 1: Pre-emergent
+        var pe = computed.preEmergent;
+        if (pe && pe.success) {
+            var peAlerts = (pe.summary && pe.summary.activeAlerts) || 0;
+            var peAggCls = pe.aggregateStatus === 'RED_EARLY' || pe.aggregateStatus === 'RED_MISSED' ? 'red'
+                : pe.aggregateStatus === 'AMBER' ? 'amber' : 'green';
+            cards.push(kpi('Pre-emergent', peAlerts > 0 ? peAlerts : '✓', peAlerts > 0 ? 'active alert'+(peAlerts>1?'s':'') : 'All clear',
+                badge(peAlerts > 0 ? peAlerts+' alert'+(peAlerts>1?'s':'') : 'All clear', peAggCls),
+                peAggCls === 'red' ? '#dc2626' : peAggCls === 'amber' ? '#d97706' : '#15803d'));
+        } else {
+            cards.push(kpi('Pre-emergent', '—', '', badge('No data', 'grey'), '#6b7280'));
+        }
+
+        // Card 2: PGR
         var pgr = computed.pgr;
         if (pgr && pgr.success && pgr.gdd) {
             // progressPct is 0-100 scale; progress is 0-1 fraction — use same logic as renderPGR
@@ -798,19 +812,6 @@
                 pgrCls === 'red' ? '#dc2626' : pgrCls === 'amber' ? '#d97706' : '#15803d'));
         } else {
             cards.push(kpi('PGR', 'No data', '', badge('Not set', 'grey'), '#6b7280'));
-        }
-
-        // Card 2: Pre-emergent
-        var pe = computed.preEmergent;
-        if (pe && pe.success) {
-            var peAlerts = (pe.summary && pe.summary.activeAlerts) || 0;
-            var peAggCls = pe.aggregateStatus === 'RED_EARLY' || pe.aggregateStatus === 'RED_MISSED' ? 'red'
-                : pe.aggregateStatus === 'AMBER' ? 'amber' : 'green';
-            cards.push(kpi('Pre-emergent', peAlerts > 0 ? peAlerts : '✓', peAlerts > 0 ? 'active alert'+(peAlerts>1?'s':'') : 'All clear',
-                badge(peAlerts > 0 ? peAlerts+' alert'+(peAlerts>1?'s':'') : 'All clear', peAggCls),
-                peAggCls === 'red' ? '#dc2626' : peAggCls === 'amber' ? '#d97706' : '#15803d'));
-        } else {
-            cards.push(kpi('Pre-emergent', '—', '', badge('No data', 'grey'), '#6b7280'));
         }
 
         // Card 3: Recovery / wear — sports fields only (traffic/wear model doesn't apply to golf/lawns)
