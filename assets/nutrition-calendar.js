@@ -212,6 +212,95 @@
         // window.GAIP_SITE_CONFIG is already available synchronously at this
         // point (server-rendered) — no need to wait for gaip:site-config-applied.
         this.restoreFromPersisted();
+
+        this.initSamplePicker();
+    };
+
+    /**
+     * Sample picker — lets the user choose which soil sample (zone) the
+     * Nutrition Program is generated for. Only present on plan.blade.php
+     * (#plan-nut-sample-picker doesn't exist elsewhere, so this is a no-op
+     * everywhere else — old hub / Analysis already have their own real
+     * sample switcher wired to the full orchestrator).
+     *
+     * Plan is deliberately a lightweight page (no sample-manager.js, no
+     * orchestrator) — see plan.blade.php's script list. Rather than pull in
+     * that whole stack just to pick a sample, this reads the same /api/samples
+     * list the Combined Report itself iterates over and writes the chosen
+     * sample's raw payload ppm straight into GAIP_STATE.inputs.soil, which
+     * collectFromState() already reads. Reuses the exact dropdown widget
+     * from Analysis > Soil & Nutrition (soil-nutrition-analysis.js) so the
+     * UI matches pixel-for-pixel.
+     */
+    NutritionCalendar.initSamplePicker = function() {
+        var mount = document.getElementById('plan-nut-sample-picker');
+        if (!mount) return;
+        if (!window.GAIP_SoilNutritionAnalysis || typeof window.GAIP_SoilNutritionAnalysis.mountSampleDropdown !== 'function') {
+            console.warn('[NutritionCalendar] Sample picker mount present but soil-nutrition-analysis.js not loaded');
+            return;
+        }
+
+        var self = this;
+        var labelEl = document.getElementById('plan-nut-sample-label');
+
+        function storageKey() {
+            var siteId = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+            return 'gilba_plan_nutrition_sample' + (siteId ? '_' + siteId : '');
+        }
+
+        // Writes this sample's raw P/K/Ca/Mg/S(+micros) ppm into the canonical
+        // GAIP_STATE.inputs.soil slot (see collectFromState() above). Sample
+        // payload keys are already canonical (P/K/Ca/...) — the same shape
+        // SampleAnalysisController::run() reads server-side — so no client-side
+        // normalisation step is needed here.
+        function applySample(sample) {
+            var pl = sample.payload || {};
+            var existingSoil = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil) || {};
+            var ppm = {
+                P: pl.P, K: pl.K, Ca: pl.Ca, Mg: pl.Mg, S: pl.S,
+                Fe: pl.Fe, Mn: pl.Mn, Zn: pl.Zn, Cu: pl.Cu,
+            };
+            var soil = Object.assign({}, ppm, {
+                ppm: ppm,
+                methodology: pl.methodology || existingSoil.methodology,
+                bulkDensity: pl.bulkDensity || existingSoil.bulkDensity,
+                depth: pl.depth || existingSoil.depth,
+                surfaceType: existingSoil.surfaceType,
+            });
+
+            if (!window.GAIP_STATE) window.GAIP_STATE = {};
+            window.GAIP_STATE.inputs = Object.assign({}, window.GAIP_STATE.inputs || {}, { soil: soil });
+
+            if (labelEl) {
+                labelEl.textContent = pl._label || sample.client_uid || 'Sample';
+            }
+        }
+
+        window.GAIP_SoilNutritionAnalysis.mountSampleDropdown(mount, {
+            sampleType: 'soil',
+            getPersistedId: function() {
+                try { return localStorage.getItem(storageKey()); } catch (e) { return null; }
+            },
+            onReady: function(samples, activeIdx) {
+                applySample(samples[activeIdx]);
+            },
+            onSelect: function(sample) {
+                try { localStorage.setItem(storageKey(), sample.id); } catch (e) {}
+                applySample(sample);
+                // Convenience: if the form is already filled in, re-generate
+                // immediately so switching samples updates the visible program
+                // without an extra click. If Annual N Target is still empty,
+                // don't auto-fire generate() — it would pop the validation
+                // alert on every sample switch, which has nothing to do with
+                // picking a sample.
+                if (self.elements.annualNInput && parseFloat(self.elements.annualNInput.value) >= 50) {
+                    self.generate();
+                }
+            },
+            onEmpty: function() {
+                if (labelEl) labelEl.textContent = 'No soil samples for this site';
+            },
+        });
     };
 
     NutritionCalendar.bindEvents = function() {

@@ -8904,10 +8904,10 @@
         var nResult = window.GAIP_N_VALIDATION_RESULT;
         if (!nResult && window.GAIP_STATE && window.GAIP_STATE.fertility && window.GAIP_STATE.fertility.monthlyN) {
             // Try to calculate it if we have the data
-            if (typeof window.gaip_validateNProgram === 'function') {
+            if (typeof window.gaip_n_validate === 'function') {
                 var effectiveSpecies = data.turf.effectiveSpecies || data.turf.species || 'Couch';
                 var gp = data.climate.growthPotential || 50;
-                nResult = window.gaip_validateNProgram(window.GAIP_STATE.fertility.monthlyN, effectiveSpecies, gp);
+                nResult = window.gaip_n_validate(window.GAIP_STATE.fertility.monthlyN, effectiveSpecies, gp);
             }
         }
         // Fallback: window.GAIP_STATE.fertility.monthlyN is only ever populated
@@ -8917,7 +8917,7 @@
         // value persisted from Plan > Nutinition (see
         // NutritionCalendar.persistSiteConfigPatch()), same pattern as the
         // annualNOverride fallback in word-export-combined.js.
-        if (!nResult && typeof window.gaip_validateNProgram === 'function') {
+        if (!nResult && typeof window.gaip_n_validate === 'function') {
             try {
                 var _nc = window.GilbaNutritionCalendar;
                 var _siteId = _nc && _nc.getActiveSiteId && _nc.getActiveSiteId();
@@ -8927,7 +8927,7 @@
                 if (_persistedMonthlyN != null && _persistedMonthlyN >= 0) {
                     var _effectiveSpecies = data.turf.effectiveSpecies || data.turf.species || 'Couch';
                     var _gp = data.climate.growthPotential || 50;
-                    nResult = window.gaip_validateNProgram(_persistedMonthlyN, _effectiveSpecies, _gp);
+                    nResult = window.gaip_n_validate(_persistedMonthlyN, _effectiveSpecies, _gp);
                     console.log('[WordExport] N Program Validation via persisted appliedMonthlyN =', _persistedMonthlyN, 'for site', _siteId);
                 }
             } catch (_e) {

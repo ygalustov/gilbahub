@@ -93,6 +93,11 @@
 
 @section('styles')
 <style>
+/* Soil Sample dropdown (soil-nutrition-analysis.js) has a hardcoded 560px cap
+   sized for Analysis's own narrower container — wider than that here, so it
+   stops short of matching its sibling fields' width. Let it fill the column. */
+#plan-nut-sample-picker .sn-drop-btn { max-width: none; }
+
 /* ── Plan page layout ─────────────────────────────────────────────────── */
 .plan-tab-body {
     padding: 16px 20px 32px;
@@ -872,6 +877,11 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
                         </div>
                         <div class="plan-form-row">
                             <div class="plan-form-group">
+                                <label class="plan-form-label">Soil Sample</label>
+                                <div id="plan-nut-sample-picker"></div>
+                                <div class="plan-form-hint">Calculating for: <strong id="plan-nut-sample-label">—</strong></div>
+                            </div>
+                            <div class="plan-form-group">
                                 <label class="plan-form-label" for="plan-nut-monthly-n">
                                     Current Monthly N Rate
                                     <span class="db-info-icon" data-info="monthly-n-rate" tabindex="0" role="button">i</span>
@@ -936,6 +946,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('pgr-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('plan-ui.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-potential-engine.js') }}"></script>
+<script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 <script src="{{ $legacyAssetUrl('prebbles-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-prebble-integration.js') }}"></script>

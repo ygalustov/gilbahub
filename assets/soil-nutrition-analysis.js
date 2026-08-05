@@ -1340,12 +1340,19 @@
     var _snSamples   = [];
     var _snActiveIdx = -1;
 
-    function buildDropdownRows(samples, activeIdx) {
+    // `masterList` resolves each row's index against — defaults to _snSamples
+    // (this page's own zone selector). `samples` may be a filtered subset (the
+    // search box), so origIdx must come from the master list, not `samples`
+    // itself, or activeIdx comparisons and index-based lookups elsewhere break.
+    // mountSampleDropdown() (below) passes its own local master list here since
+    // it has no relationship to this page's _snSamples.
+    function buildDropdownRows(samples, activeIdx, masterList) {
+        var master = masterList || _snSamples;
         if (!samples.length) {
             return '<div style="padding:14px 12px;text-align:center;color:#9ca3af;font-size:12px">No samples found</div>';
         }
         return samples.map(function(s) {
-            var origIdx = _snSamples.indexOf(s);
+            var origIdx = master.indexOf(s);
             var pl   = s.payload || {};
             var zone = esc(pl._label || s.client_uid || ('Zone ' + (origIdx + 1)));
             var ref  = esc(s.lab_ref || s.lab_name || '—');
@@ -1569,6 +1576,127 @@
         };
     }
 
-    global.GAIP_SoilNutritionAnalysis = { init: init };
+    // ─── Generic reusable mount ─────────────────────────────────────────────
+    // Same dropdown widget as the zone selector above (search box + Zone/Lab
+    // Ref/File/Date table), decoupled from GAIP_DASHBOARD_DATA.computed.
+    // soilNutrition so other pages can drive their own state with it — e.g.
+    // Plan > Nutrition uses this to let the user pick which soil sample the
+    // Nutrition Program should be generated for. Reuses buildDropdownRows(),
+    // esc(), fmtDate() and injectCSS() from above; keeps its own closured
+    // sample list/activeIdx so it never touches the analysis page's _sn*
+    // module state.
+    //
+    // opts:
+    //   siteId          — defaults to GAIP_HUB_CONFIG.activeSiteId
+    //   sampleType       — defaults to 'soil'
+    //   getPersistedId() — optional; returns a sample id to pre-select
+    //   onReady(samples, activeIdx) — called once after the first fetch
+    //   onSelect(sample, idx)       — called whenever the user picks a row
+    //   onEmpty()  / onError()
+    function mountSampleDropdown(container, opts) {
+        injectCSS();
+        opts = opts || {};
+        var siteId     = opts.siteId || (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId);
+        var sampleType = opts.sampleType || 'soil';
+        if (!container || !siteId) return;
+
+        fetch('/api/samples?site_id=' + encodeURIComponent(siteId) + '&sample_type=' + encodeURIComponent(sampleType) + '&limit=100', {
+            headers: { 'Accept': 'application/json' },
+        })
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(res) {
+            var samples = (res && res.data) || [];
+            if (!samples.length) { if (opts.onEmpty) opts.onEmpty(); return; }
+
+            samples.sort(function(a, b) {
+                var dateA = a.lab_date || a.sample_date || '';
+                var dateB = b.lab_date || b.sample_date || '';
+                if (dateB !== dateA) return dateB.localeCompare(dateA);
+                var labelA = (a.payload && a.payload._label) || a.client_uid || '';
+                var labelB = (b.payload && b.payload._label) || b.client_uid || '';
+                if (labelA !== labelB) return labelA.localeCompare(labelB, undefined, { numeric: true });
+                return (a.lab_ref || '').localeCompare(b.lab_ref || '');
+            });
+
+            var activeIdx = 0;
+            var persistedId = opts.getPersistedId ? opts.getPersistedId() : null;
+            if (persistedId) {
+                for (var j = 0; j < samples.length; j++) {
+                    if (samples[j].id === persistedId) { activeIdx = j; break; }
+                }
+            }
+
+            function labelFor(idx) {
+                var s = samples[idx];
+                return esc((s.payload && s.payload._label) || s.client_uid || ('Zone ' + (idx + 1)));
+            }
+
+            function renderList(listEl, filtered) {
+                listEl.innerHTML = buildDropdownRows(filtered, activeIdx, samples);
+                listEl.querySelectorAll('.sn-drop-row[data-sn-idx]').forEach(function(row) {
+                    row.addEventListener('click', function() {
+                        var idx = parseInt(this.dataset.snIdx, 10);
+                        var sample = samples[idx];
+                        if (!sample) return;
+                        activeIdx = idx;
+                        var wrap = container.querySelector('.sn-drop-wrap');
+                        if (wrap) wrap.classList.remove('sn-drop-open');
+                        var lbl = container.querySelector('.sn-drop-label-slot');
+                        if (lbl) lbl.innerHTML = labelFor(idx);
+                        if (opts.onSelect) opts.onSelect(sample, idx);
+                    });
+                });
+            }
+
+            var svgSearch  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;color:#9ca3af"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>';
+            var svgChevron = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto;flex-shrink:0"><path d="M6 9l6 6 6-6"/></svg>';
+
+            container.innerHTML =
+                '<div class="sn-drop-wrap">' +
+                '<button class="sn-drop-btn" type="button">' + svgSearch + '<span class="sn-drop-label-slot">' + labelFor(activeIdx) + '</span>' + svgChevron + '</button>' +
+                '<div class="sn-drop-panel">' +
+                '<input class="sn-drop-search" type="text" placeholder="Filter by zone, file or date…" autocomplete="off">' +
+                '<div class="sn-drop-header"><span>Zone</span><span>Lab Ref</span><span>File</span><span>Date</span></div>' +
+                '<div class="sn-drop-list"></div>' +
+                '</div></div>';
+
+            var wrap   = container.querySelector('.sn-drop-wrap');
+            var btn    = container.querySelector('.sn-drop-btn');
+            var search = container.querySelector('.sn-drop-search');
+            var list   = container.querySelector('.sn-drop-list');
+
+            renderList(list, samples);
+
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                wrap.classList.toggle('sn-drop-open');
+                if (wrap.classList.contains('sn-drop-open')) {
+                    search.value = '';
+                    search.focus();
+                    renderList(list, samples);
+                }
+            });
+            document.addEventListener('click', function(e) {
+                if (!wrap.contains(e.target)) wrap.classList.remove('sn-drop-open');
+            });
+            search.addEventListener('input', function() {
+                var q = this.value.toLowerCase();
+                var filtered = !q ? samples : samples.filter(function(s) {
+                    var pl = s.payload || {};
+                    return (pl._label     || '').toLowerCase().indexOf(q) >= 0 ||
+                           (s.client_uid  || '').toLowerCase().indexOf(q) >= 0 ||
+                           (s.lab_ref     || '').toLowerCase().indexOf(q) >= 0 ||
+                           (pl._source    || '').toLowerCase().indexOf(q) >= 0 ||
+                           (fmtDate(s.lab_date || s.sample_date || '') || '').toLowerCase().indexOf(q) >= 0;
+                });
+                renderList(list, filtered);
+            });
+
+            if (opts.onReady) opts.onReady(samples, activeIdx);
+        })
+        .catch(function() { if (opts.onError) opts.onError(); });
+    }
+
+    global.GAIP_SoilNutritionAnalysis = { init: init, mountSampleDropdown: mountSampleDropdown };
 
 }(window));
