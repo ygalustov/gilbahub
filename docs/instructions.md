@@ -487,8 +487,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-233** Refactor soil data handling in nutrition calendar and integration scripts: Improved the retrieval of existing soil values to include the entire soil object, ensuring accurate data persistence. Enhanced temperature retrieval logic to utilize cached climate data, aligning live previews with report outputs. Updated documentation to reflect these changes and improve overall data handling reliability.
 **GH-234** Enhance plan UI with Pre-emergent card: Added a new KPI card for Pre-emergent status, displaying active alerts and aggregate status. Removed redundant Pre-emergent card logic to streamline the code. Updated documentation to reflect changes in the management plan page layout.
 **GH-235** Add tissue sample zone matching functionality: Implemented a new method to build a zoneKey to sample mapping for tissue samples, ensuring accurate association with soil zones. Updated the site selector to clear the tissue form when no sample is present, enhancing user experience. Improved documentation to reflect these changes and clarify functionality related to tissue and soil sample interactions.
-
-
+**GH-236** Enhance disease forecasting by integrating cached species resolution and stress/climate coupling: Added new scripts for disease-stress-climate coupling and red thread model to improve forecast accuracy. Updated disease analysis and forecast logic to prioritize cached species and apply stress adjustments, ensuring Day 0 remains aligned with Active Threats. Introduced tests to validate these enhancements and ensure reliable functionality.
+**GH-237** Enhance disease forecasting by integrating red thread model: Added script inclusion for red-thread-model.js in analysis.blade.php to ensure accurate daily forecasts. Updated disease analysis logic to handle missing humidity data for Red Thread, preventing flat-lined scores. Introduced tests to validate the loading of the red thread model and its impact on forecast accuracy.
 
 
 ## Backlog

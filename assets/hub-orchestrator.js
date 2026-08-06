@@ -4123,52 +4123,109 @@
     if (global.DiseaseEngine || (global.GILBA_USE_PURE_DISEASE && global.DiseaseEnginePure)) {
       try {
         const diseaseInputs = buildDiseaseInputs();
-        // Bail if climate temperature not yet available — weather fetch still in flight.
-        // Running with null/default temps produces false positives (e.g. Fusarium at 49%).
-        const rawDiseaseResult = runDiseaseAnalysis(diseaseInputs);
 
-        // v1.1.0: Apply stress/climate coupling to reduce false positives
-        // Adjusts disease risk scores based on environmental stress state
-        // (e.g., drought suppresses moisture-dependent pathogens)
-        let coupledResult = rawDiseaseResult;
-        if (global.GAIP_DiseaseStressCoupling) {
-          const stressData = _hubState.computed.stress;
-          const climateData = getAuthoritativeClimate();
+        // Bail if climate temperature isn't available yet — weather fetch
+        // still in flight. Running with null/default temps produces false
+        // positives (e.g. Fusarium at 49%). NOTE: this checks temperature
+        // only, not humidity — most models (Fusarium, BrownPatch,
+        // Anthracnose, DrechsleraPoae) get their real moisture signal from
+        // dewData.leafWetness (dew-prediction-engine), completely
+        // independent of climate.moisture.humidity.mean, and compute
+        // legitimate results even when that scalar is temporarily null. An
+        // earlier version of this guard also gated on humidity and skipped
+        // the entire block whenever it was missing — too broad: it would
+        // have discarded valid Fusarium/BrownPatch/etc. results just
+        // because one field only Red Thread actually needs was absent. See
+        // the Red Thread-specific handling below instead.
+        const _dxClimate = diseaseInputs.climate;
+        const _dxHasTemp = !!(
+          _dxClimate &&
+          _dxClimate.temperature &&
+          (_dxClimate.temperature.mean != null || _dxClimate.temperature.current != null)
+        );
 
-          coupledResult = global.GAIP_DiseaseStressCoupling.apply(rawDiseaseResult, stressData, climateData, {
-            species: diseaseInputs.species,
-          });
-
-          if (coupledResult.coupling && coupledResult.coupling.applied) {
-            log("disease", "Stress/climate coupling applied:", {
-              modified: coupledResult.coupling.modifications.length,
-              suppressed: coupledResult.coupling.totalSuppression + "pp",
-              amplified: coupledResult.coupling.totalAmplification + "pp",
-            });
-          }
-        }
-
-        _hubState.computed.disease = wrapWithConfidence("disease", coupledResult);
-
-        // Update global GAIP_DISEASE_RESULT so UI renders correct species
-        if (_hubState.computed.disease) {
-          _hubState.computed.disease._writtenAt = Date.now(); // recency stamp for dashboard freshness check
-          // b35fix365 — writer-source tag. Two paths write GAIP_DISEASE_RESULT
-          // (this one at line ~3822 = main disease block; another at ~4530 in
-          // the cascade disease-engine case). When both fire on the same
-          // computeAll, the second silently overwrites the first. Tag lets
-          // a single production log distinguish which writer produced the
-          // result the dashboard ultimately rendered.
-          _hubState.computed.disease._writerTag = "b35fix365:writer1-mainBlock";
-          global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
-          // Confirm disease result write for dashboard debugging
+        if (!_dxHasTemp) {
           warn(
             "disease",
-            `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
+            "Skipping disease computeAll pass — climate temperature not yet available, keeping previous disease result rather than persisting a degraded read",
           );
-          document.dispatchEvent(
-            new CustomEvent("gaip:disease-updated", { detail: { result: _hubState.computed.disease } }),
-          );
+        } else {
+          const rawDiseaseResult = runDiseaseAnalysis(diseaseInputs);
+
+          // v1.1.0: Apply stress/climate coupling to reduce false positives
+          // Adjusts disease risk scores based on environmental stress state
+          // (e.g., drought suppresses moisture-dependent pathogens)
+          let coupledResult = rawDiseaseResult;
+          if (global.GAIP_DiseaseStressCoupling) {
+            const stressData = _hubState.computed.stress;
+            const climateData = getAuthoritativeClimate();
+
+            coupledResult = global.GAIP_DiseaseStressCoupling.apply(rawDiseaseResult, stressData, climateData, {
+              species: diseaseInputs.species,
+            });
+
+            if (coupledResult.coupling && coupledResult.coupling.applied) {
+              log("disease", "Stress/climate coupling applied:", {
+                modified: coupledResult.coupling.modifications.length,
+                suppressed: coupledResult.coupling.totalSuppression + "pp",
+                amplified: coupledResult.coupling.totalAmplification + "pp",
+              });
+            }
+          }
+
+          // Red Thread has no leaf-wetness-hours fallback (unlike Fusarium/
+          // BrownPatch/Anthracnose/DrechsleraPoae, which read dewData first —
+          // see getLeafWetnessHours()) — its humidityFactor is computed
+          // directly from climate.moisture.humidity.mean, with dewData only
+          // multiplying that base factor, never replacing it. When humidity
+          // is temporarily null this pass, Red Thread legitimately computes a
+          // data-starved near-zero score. Rather than let that overwrite a
+          // complete Red Thread reading from earlier this session, keep the
+          // previous reading for just this one disease — every other disease
+          // in this pass (which has a working fallback) still updates
+          // normally.
+          try {
+            const _newRT = (coupledResult?.diseases || []).find((d) => d.disease === "redThread");
+            const _rtHumidityMissing = _newRT && _newRT.drivers?.humidity?.value == null;
+            if (_rtHumidityMissing) {
+              const _prevRT = (_hubState.computed.disease?.diseases || []).find(
+                (d) => d.disease === "redThread" && d.drivers?.humidity?.value != null,
+              );
+              if (_prevRT) {
+                const _rtIdx = coupledResult.diseases.indexOf(_newRT);
+                coupledResult.diseases[_rtIdx] = _prevRT;
+                warn(
+                  "disease",
+                  `Red Thread: humidity unavailable this pass, keeping previous reading (${_prevRT.adjustedRisk}%) instead of a data-starved recompute (${_newRT.adjustedRisk}%)`,
+                );
+              }
+            }
+          } catch (rtErr) {
+            warn("disease", "Red Thread fallback-merge error (non-fatal)", rtErr);
+          }
+
+          _hubState.computed.disease = wrapWithConfidence("disease", coupledResult);
+
+          // Update global GAIP_DISEASE_RESULT so UI renders correct species
+          if (_hubState.computed.disease) {
+            _hubState.computed.disease._writtenAt = Date.now(); // recency stamp for dashboard freshness check
+            // b35fix365 — writer-source tag. Two paths write GAIP_DISEASE_RESULT
+            // (this one at line ~3822 = main disease block; another at ~4530 in
+            // the cascade disease-engine case). When both fire on the same
+            // computeAll, the second silently overwrites the first. Tag lets
+            // a single production log distinguish which writer produced the
+            // result the dashboard ultimately rendered.
+            _hubState.computed.disease._writerTag = "b35fix365:writer1-mainBlock";
+            global.GAIP_DISEASE_RESULT = _hubState.computed.disease;
+            // Confirm disease result write for dashboard debugging
+            warn(
+              "disease",
+              `[b35fix365 writer1-mainBlock] GAIP_DISEASE_RESULT written, species: "${_hubState.computed.disease.species || "none"}" diseases: ${(_hubState.computed.disease.diseases || []).length} topRisk: ${(_hubState.computed.disease.diseases || []).reduce((m, d) => Math.max(m, d.riskScore || d.adjustedRisk || 0), 0)}`,
+            );
+            document.dispatchEvent(
+              new CustomEvent("gaip:disease-updated", { detail: { result: _hubState.computed.disease } }),
+            );
+          }
         }
       } catch (e) {
         warn("disease", "Disease engine error", e);

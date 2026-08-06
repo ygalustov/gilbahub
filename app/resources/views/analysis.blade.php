@@ -132,6 +132,10 @@
 {{-- Disease engine must load before disease-forecast.js so generateForecast uses the full engine --}}
 <script src="{{ $legacyAssetUrl('disease-engine-pure.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-stress-climate-coupling.js') }}"></script>
+{{-- Without this, disease-engine-pure.js's redThread dispatcher finds window.GAIP_RedThreadModel
+     undefined and silently skips Red Thread on every day — the forecast chart then falls back to
+     flat-lining the cached Active Threats score for all 7 days instead of a real per-day recompute. --}}
+<script src="{{ $legacyAssetUrl('red-thread-model.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>

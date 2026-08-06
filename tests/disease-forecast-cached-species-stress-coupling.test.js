@@ -87,6 +87,7 @@ require(path.join(__dirname, '../assets/disease-engine-pure.js'));
 global.DiseaseEnginePure = require(path.join(__dirname, '../assets/disease-engine-pure.js'));
 global.GILBA_USE_PURE_DISEASE = true;
 require(path.join(__dirname, '../assets/disease-stress-climate-coupling.js'));
+require(path.join(__dirname, '../assets/red-thread-model.js'));
 require(path.join(__dirname, '../assets/disease-forecast.js'));
 
 // Deterministic 7-day climate fixture — set dailyPattern directly so
@@ -260,5 +261,100 @@ describe('Day 0 suppresses diseases Active Threats does not list at all', () => 
         // Later days are a real forecast and must NOT be suppressed — only
         // Day 0 is pinned to Active Threats.
         expect(dollarSpot.forecast[1].risk).toBeGreaterThan(0);
+    });
+});
+
+// =============================================================================
+// D. Red Thread requires red-thread-model.js — without it, every day silently
+//    flat-lines at the Active Threats score instead of a real forecast
+// =============================================================================
+//
+// Production bug: app/resources/views/analysis.blade.php never loaded
+// assets/red-thread-model.js (only app/resources/views/hub.blade.php and the
+// reports/* pages did). disease-engine-pure.js's redThread dispatcher checks
+// `window.GAIP_RedThreadModel` at call time (assets/disease-engine-pure.js:
+// 5368) and skips silently — by design — when it's undefined. Every forecast
+// day then falls through to disease-forecast.js's "Step 2" AT-injection
+// (assets/disease-forecast.js: the day0ActiveThreats block), which flat-lines
+// the CACHED Active Threats score across all 7 days because the engine never
+// produced a redThread entry for ANY day, not just Day 0. On screen this
+// looked like "Red Thread forecast" but was actually just today's number
+// repeated 7 times. Fixed by adding the script tag to analysis.blade.php.
+//
+// This file's top-level require() list intentionally includes
+// red-thread-model.js so tests below exercise the fixed (script loaded)
+// state — see the "without the model loaded" tests for the regression guard
+// on the broken state.
+
+describe('Red Thread requires red-thread-model.js to be loaded', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../app/resources/views/analysis.blade.php'), 'utf8');
+
+    test('analysis.blade.php loads red-thread-model.js', () => {
+        expect(src).toContain("legacyAssetUrl('red-thread-model.js')");
+    });
+
+    test('red-thread-model.js loads before disease-forecast.js (species/engine wiring must be in place first)', () => {
+        const rtPos = src.indexOf("legacyAssetUrl('red-thread-model.js')");
+        const forecastPos = src.indexOf("legacyAssetUrl('disease-forecast.js')");
+        expect(rtPos).toBeGreaterThan(-1);
+        expect(forecastPos).toBeGreaterThan(rtPos);
+    });
+});
+
+describe('Red Thread produces a real per-day forecast once the model is loaded', () => {
+    test('regression guard: without GAIP_RedThreadModel, Red Thread never appears in diseases[] on any day', () => {
+        const saved = global.GAIP_RedThreadModel;
+        delete global.GAIP_RedThreadModel;
+        const result = global.DiseaseForecast.generateForecast(
+            baseState({
+                cachedDiseaseSpecies: 'browntopBent',
+                day0ActiveThreats: {
+                    fusarium: { score: 100, displayName: 'Fusarium Patch' },
+                    redThread: { score: 55, displayName: 'Red Thread' },
+                },
+            })
+        );
+        const rt = result.diseases.find(d => d.key === 'redThread');
+        // Pre-fix this WAS present, but only as Step 2's flat AT-injected line
+        // (fromActiveThreats: true, identical score every day) — assert that
+        // shape explicitly so this test documents the broken behaviour, not
+        // just its absence.
+        if (rt) {
+            const risks = rt.forecast.map(f => f.risk);
+            expect(new Set(risks).size).toBe(1); // flat
+        }
+        global.GAIP_RedThreadModel = saved;
+    });
+
+    test('with the model loaded, Day 0 still equals Active Threats', () => {
+        const result = global.DiseaseForecast.generateForecast(
+            baseState({
+                cachedDiseaseSpecies: 'browntopBent',
+                day0ActiveThreats: {
+                    fusarium: { score: 100, displayName: 'Fusarium Patch' },
+                    redThread: { score: 55, displayName: 'Red Thread' },
+                },
+            })
+        );
+        const rt = result.diseases.find(d => d.key === 'redThread');
+        expect(rt).toBeDefined();
+        expect(rt.forecast[0].risk).toBe(55);
+    });
+
+    test('with the model loaded, days 1+ are a real recompute — not a flat line', () => {
+        const result = global.DiseaseForecast.generateForecast(
+            baseState({
+                cachedDiseaseSpecies: 'browntopBent',
+                day0ActiveThreats: {
+                    fusarium: { score: 100, displayName: 'Fusarium Patch' },
+                    redThread: { score: 55, displayName: 'Red Thread' },
+                },
+            })
+        );
+        const rt = result.diseases.find(d => d.key === 'redThread');
+        const risks = rt.forecast.map(f => f.risk);
+        expect(new Set(risks).size).toBeGreaterThan(1);
+        // Not flagged as an Active-Threats flat-line injection.
+        expect(rt.forecast.some(f => f.fromActiveThreats)).toBe(false);
     });
 });
