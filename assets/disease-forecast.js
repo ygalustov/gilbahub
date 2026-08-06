@@ -94,8 +94,8 @@ var DiseaseForecast = (function() {
     // =========================================================================
 
     var CONFIG = {
-        // Maximum diseases to show in chart (reduced from 5 to avoid clutter)
-        maxDiseases: 4,
+        // Maximum diseases to show in chart
+        maxDiseases: 5,
         
         // Minimum risk to include disease in forecast
         minRiskThreshold: 15,
