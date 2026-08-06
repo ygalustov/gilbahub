@@ -901,7 +901,17 @@ var DiseaseForecast = (function() {
             } else {
             }
         }
-        
+
+        // PRIORITY 0: species already resolved (incl. overseed) by the main hub
+        // calculation and persisted to analysis_cache. Takes precedence over the
+        // reconstruction above, which only works when SpeciesController/GAIP_STATE/
+        // DOM dropdowns are present (i.e. on /hub) — none of which exist on this
+        // page. Falls through to the chain above when no cache exists yet
+        // (brand-new site that has never run /hub).
+        if (state.cachedDiseaseSpecies) {
+            species = normalizeSpecies(state.cachedDiseaseSpecies);
+        }
+
         // b35fix101: Map shadeMetrics to the shape DollarSpotModel.calculate() expects.
         // b35fix104: Gate DLI deficit on structural obstruction — same logic as
         // buildDiseaseInputs() in hub-orchestrator.js. Without svf<0.99, facade>0,
@@ -1231,6 +1241,20 @@ var DiseaseForecast = (function() {
                     fromActiveThreats: true,
                 };
             }
+            // Step 3: suppress Day 0 for diseases the engine computed here but that
+            // Active Threats does not list at all (e.g. gated INACTIVE by a
+            // temperature/moisture threshold in writer1's authoritative climate).
+            // Day 0's own reconstructed climate (this page has no dew-prediction-
+            // engine/authoritative-climate data) can cross that same gate
+            // differently and produce a false-positive score Active Threats never
+            // showed. Active Threats is the single source of truth for "today" —
+            // absence there means absence on Day 0, not just "not overridden."
+            for (var _dn3 in diseaseMetadata) {
+                var _dkey3 = diseaseMetadata[_dn3].key;
+                if (_d0at[_dkey3] == null && diseaseRisksByDay[_dn3] && diseaseRisksByDay[_dn3].length > 0) {
+                    diseaseRisksByDay[_dn3][0].risk = 0;
+                }
+            }
         }
 
         // Build forecast structure
@@ -1276,11 +1300,37 @@ var DiseaseForecast = (function() {
         var sortedDiseases = Object.values(diseaseForecasts).sort(function(a, b) {
             return b.peakRisk - a.peakRisk;
         }).slice(0, CONFIG.maxDiseases);
-        
+
         for (var i = 0; i < sortedDiseases.length; i++) {
             sortedDiseases[i].color = CONFIG.colors[i];
         }
-        
+
+        // Apply stress/climate coupling (drought/heat suppression-amplification)
+        // per forecast day — mirrors what writer1 applies to Active Threats via
+        // GAIP_DiseaseStressCoupling.apply(), using the same current stress
+        // snapshot (it doesn't change meaningfully over a 7-day window) but this
+        // day's forecast climate. Day 0 is left untouched — it's already pinned
+        // to the Active Threats value above, which itself already has coupling
+        // applied; re-coupling it here would double-apply the modifier.
+        if (window.GAIP_DiseaseStressCoupling && state.stressAggregates && sortedDiseases.length > 0) {
+            var _day0Risks = sortedDiseases.map(function(d) {
+                return d.forecast.length > 0 ? d.forecast[0].risk : null;
+            });
+            window.GAIP_DiseaseStressCoupling.applyForecast(
+                { diseases: sortedDiseases }, state.stressAggregates, dailyClimate, species
+            );
+            for (var _sdi = 0; _sdi < sortedDiseases.length; _sdi++) {
+                var _sd = sortedDiseases[_sdi];
+                if (_sd.forecast.length > 0 && _day0Risks[_sdi] != null) {
+                    _sd.forecast[0].risk = _day0Risks[_sdi];
+                }
+                var _riskVals = _sd.forecast.map(function(f) { return f.risk; });
+                _sd.avgRisk = Math.round(_riskVals.reduce(function(s, r) { return s + r; }, 0) / _riskVals.length);
+                _sd.peakRisk = Math.max.apply(null, _riskVals);
+                _sd.peakDay = _sd.forecast.findIndex(function(f) { return f.risk === _sd.peakRisk; });
+            }
+        }
+
         var allPeaks = sortedDiseases.map(function(d) { return d.peakRisk; });
         var maxPeak = allPeaks.length > 0 ? Math.max.apply(null, allPeaks) : 0;
         

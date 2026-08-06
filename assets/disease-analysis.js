@@ -1760,6 +1760,8 @@
                         frequency: _ddTurf.mowingFrequency || 'regular',
                     },
                     siteHistory:     _ddComp.siteHistory || _ddInputs.siteHistory || null,
+                    stressAggregates: _ddComp.stress || null,
+                    cachedDiseaseSpecies: (_ddComp.disease && _ddComp.disease.species) || null,
                     region:          cfg.region
                                      || (loc && !isNaN(loc.lat) && !isNaN(loc.lon)
                                          ? (loc.lat < 0 && loc.lon > 165 && loc.lon < 180 ? 'NZ'

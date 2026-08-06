@@ -494,7 +494,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 ## Backlog
 91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
 
-94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
+
+
+06/08/2026
++94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
 
 
 
