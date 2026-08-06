@@ -155,6 +155,23 @@
             return global.GaipZoneKey.derive(sampleObj);
         }
 
+        // b35fix_greentissue: build zoneKey -> latest sample map for a data type,
+        // so a soil zone (green) only ever picks up the water/tissue sample that
+        // shares its physical zone, not merely whichever sample was inserted last.
+        function buildZoneMap(store, sampleIds) {
+            var map = {}; // zoneKey -> { sampleId, sampleObj, date }
+            for (var i = 0; i < sampleIds.length; i++) {
+                var id = sampleIds[i];
+                var obj = store[id];
+                var zkey = deriveZoneKeyLocal(obj);
+                var date = (obj && obj.date) || '';
+                if (!map[zkey] || date > map[zkey].date) {
+                    map[zkey] = { sampleId: id, sampleObj: obj, date: date };
+                }
+            }
+            return map;
+        }
+
         var siteIds = Object.keys(sites);
         for (var s = 0; s < siteIds.length; s++) {
             var siteId = siteIds[s];
@@ -217,13 +234,27 @@
                     }
                 });
 
+                // b35fix_greentissue: match tissue to a soil zone by physical zone (green),
+                // not by ID equality (soil/tissue IDs never match — that comparison always
+                // fell through to "last tissue sample on the site", attaching e.g. Green 13's
+                // tissue result to every green's soil section). Soil and tissue sample labels
+                // share the same "Green N" naming convention, so zone-key matching between
+                // them is reliable. A zone with no tissue sample of its own correctly gets none.
+                //
+                // Water is intentionally NOT zone-matched here: water sample labels follow a
+                // different convention (source type, e.g. "Bore", "Dam" — see gaip-water-source-label)
+                // rather than a green name, so comparing water zone keys against soil zone keys
+                // is unreliable and was not part of the reported issue. Water keeps the original
+                // "single site-wide source" fallback below.
+                var tissueZoneMap = hasTissue ? buildZoneMap(siteStore.tissue, tissueSamples) : {};
+
                 var zoneKeys = Object.keys(soilZones);
                 for (var zi = 0; zi < zoneKeys.length; zi++) {
                     var zKey = zoneKeys[zi];
                     var zEntry = soilZones[zKey];
                     var zSoilId = zEntry.sampleId;
-                    var zWater   = hasWater  ? ((siteStore.water  && siteStore.water[zSoilId])  ? zSoilId : waterSamples[waterSamples.length - 1])   : null;
-                    var zTissue  = hasTissue ? ((siteStore.tissue && siteStore.tissue[zSoilId]) ? zSoilId : tissueSamples[tissueSamples.length - 1]) : null;
+                    var zWater  = hasWater ? ((siteStore.water && siteStore.water[zSoilId]) ? zSoilId : waterSamples[waterSamples.length - 1]) : null;
+                    var zTissue = tissueZoneMap[zKey] ? tissueZoneMap[zKey].sampleId : null;
 
                     // b35fix310a Fix A1: persist provenance so the render layer can print a
                     // per-section footer disclosing which sample is driving recommendations
@@ -266,9 +297,14 @@
                         waterZones[wzkey] = { sampleId: wid, sampleObj: wobj, date: wdate };
                     }
                 }
+                // Note: not zone-matching tissue here (water labels use a source-type
+                // convention, not "Green N" — see comment in the soil-primary branch above).
+                // This water-only path is unrelated to the reported soil-report bug; left
+                // as the original site-wide fallback.
                 var wZoneKeys = Object.keys(waterZones);
                 for (var wzi = 0; wzi < wZoneKeys.length; wzi++) {
-                    var wEntry = waterZones[wZoneKeys[wzi]];
+                    var wKey = wZoneKeys[wzi];
+                    var wEntry = waterZones[wKey];
                     result.push({
                         siteId:        siteId,
                         siteLabel:     sites[siteId].label || siteId,
@@ -524,8 +560,18 @@
                 if (entry.waterSampleId) {
                     sm.loadSample('water', entry.waterSampleId);
                 }
+                // b35fix_greentissue: with tissue now matched per zone (green), a zone can
+                // legitimately have no tissue sample of its own even though the site does.
+                // setActiveSite() is a no-op across consecutive zones on the same site, so
+                // without an explicit clear here the form would keep showing the PREVIOUS
+                // zone's tissue data instead of correctly showing none.
                 if (entry.tissueSampleId) {
                     sm.loadSample('tissue', entry.tissueSampleId);
+                } else {
+                    var ss = global.GilbaSiteSelector;
+                    if (ss && ss.clearTissueForm) {
+                        ss.clearTissueForm();
+                    }
                 }
 
                 // Small delay for DOM to settle after load

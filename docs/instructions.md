@@ -199,6 +199,11 @@ I've also made some general improvements to the Hub.
 +92. Its Prebbles distributor on Plan>nutrition. GH-228.
 
 
+
+05/08/26
++93. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232, GH-233. 
+
+
 ## Change log
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
 **GH-2** Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
@@ -481,18 +486,19 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-232** Improve soil and nutrient data handling in integrations: Enhanced the nutrition integration scripts to ensure accurate soil data retrieval from GAIP_STATE, addressing issues with missing soil inputs on lightweight pages. Added instrumentation for better tracking of input snapshots before and after the recommender processes, improving debugging capabilities. Updated documentation to reflect changes in the backlog items related to nutrition program generation.
 **GH-233** Refactor soil data handling in nutrition calendar and integration scripts: Improved the retrieval of existing soil values to include the entire soil object, ensuring accurate data persistence. Enhanced temperature retrieval logic to utilize cached climate data, aligning live previews with report outputs. Updated documentation to reflect these changes and improve overall data handling reliability.
 **GH-234** Enhance plan UI with Pre-emergent card: Added a new KPI card for Pre-emergent status, displaying active alerts and aggregate status. Removed redundant Pre-emergent card logic to streamline the code. Updated documentation to reflect changes in the management plan page layout.
+**GH-235** Add tissue sample zone matching functionality: Implemented a new method to build a zoneKey to sample mapping for tissue samples, ensuring accurate association with soil zones. Updated the site selector to clear the tissue form when no sample is present, enhancing user experience. Improved documentation to reflect these changes and clarify functionality related to tissue and soil sample interactions.
+
+
 
 
 ## Backlog
 91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
-+93. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232, GH-233. 
+
+94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
 
 
 
-
-
-
-
+also why disease risk on the dashboard is medium but on the disease page - low
 
 
 

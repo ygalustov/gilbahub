@@ -712,6 +712,7 @@
         inject: inject,
         reloadActiveSample: reloadActiveSample,
         updateSampleSelectors: updateSampleSelectors,
+        clearTissueForm: clearTissueForm,
         version: CONFIG.version
     };
 
