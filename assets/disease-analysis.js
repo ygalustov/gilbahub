@@ -1601,268 +1601,20 @@
         // but we still fetch Open-Meteo to compute dew forecast.
         var staticChart = !document.getElementById('dr-forecast-wrap');
 
-        var cfg = global.GAIP_HUB_CONFIG || {};
-        var loc = cfg.savedLocation;
-        if (!loc || !loc.lat || !loc.lon) {
-            if (!staticChart) {
-                var wrapEl = document.getElementById('dr-forecast-wrap');
-                if (wrapEl) wrapEl.innerHTML =
-                    '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No location set — forecast unavailable.</div>';
-            }
-            return;
-        }
-
-        var url = 'https://api.open-meteo.com/v1/forecast' +
-            '?latitude='  + loc.lat +
-            '&longitude=' + loc.lon +
-            '&hourly=temperature_2m,relative_humidity_2m,precipitation' +
-            '&timezone=auto' +
-            '&forecast_days=8';
-
-        fetch(url)
-            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
-            .then(function (data) {
-                if (!data.hourly || !data.hourly.time) return;
-
-                var hourly = data.hourly;
-                // NOTE: rawWeatherData is intentionally NOT set here.
-                // The fresh OM hourly data is instead passed via state.forecastHourly (below)
-                // and consumed by buildDailyPatternFallback Try 0, which uses Math.min() of
-                // each 24-h slice to get true overnight minimums — consistent with getFidanzaE2
-                // in Active Threats. Previously Try 1 relied on window.rawWeatherData set by
-                // hub-tissue (race condition), and Try 2 fell back to climateMetrics.temperature.min
-                // (hub-tissue historical, could be 12°C NZ July) → Brown Patch 25% in forecast /
-                // 0% in Active Threats. Try 0 eliminates both problems.
-
-                var rh     = hourly.relative_humidity_2m || [];
-                var times  = hourly.time || [];
-                var hoursPerDay = 24;
-                var numForecastDays = Math.min(Math.ceil(times.length / hoursPerDay), 8);
-
-                // Build per-day humidity averages for moisture.dailyPattern
-                // (matches what the climate engine does with live hourly data)
-                var moistureDaily = [];
-                var allRhSum = 0, allRhCount = 0;
-                for (var di = 0; di < numForecastDays; di++) {
-                    var start = di * hoursPerDay;
-                    var end   = Math.min(start + hoursPerDay, rh.length);
-                    var dayRhSum = 0, dayRhCount = 0;
-                    for (var hi = start; hi < end; hi++) {
-                        if (rh[hi] != null) {
-                            dayRhSum   += rh[hi];
-                            dayRhCount++;
-                            allRhSum   += rh[hi];
-                            allRhCount++;
-                        }
-                    }
-                    moistureDaily.push({ humidity: dayRhCount > 0 ? dayRhSum / dayRhCount : null });
-                }
-                var meanHumidity = allRhCount > 0 ? allRhSum / allRhCount : null;
-
-                // Prefer getAuthoritativeClimate() — same source as Active Threats.
-                // GAIP_DASHBOARD_DATA.computed.climate can differ (e.g. humidity) from
-                // GAIP_CANONICAL_STATE because they come from different pipeline stages.
-                var storedClimate = (typeof window !== 'undefined' &&
-                                     window.GaipOrchestrator &&
-                                     typeof window.GaipOrchestrator.getAuthoritativeClimate === 'function'
-                                     ? window.GaipOrchestrator.getAuthoritativeClimate() : null)
-                                    || (global.GAIP_DASHBOARD_DATA &&
-                                        global.GAIP_DASHBOARD_DATA.computed &&
-                                        global.GAIP_DASHBOARD_DATA.computed.climate)
-                                    || {};
-
-                // Expose stored dew result for leaf-wetness-sensitive diseases.
-                if (global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed && global.GAIP_DASHBOARD_DATA.computed.dew) {
-                    global.GAIP_DEW_RESULT = global.GAIP_DEW_RESULT || global.GAIP_DASHBOARD_DATA.computed.dew;
-                }
-
-                // Shallow-copy stored climate so we can strip temperature.dailyPattern.
-                // hub-persistence.js adds dailyPattern to the saved cache (from rawWeatherData),
-                // but the old site's window.climateMetrics never has it. If dailyPattern is
-                // present, generateForecast uses it directly instead of calling
-                // buildDailyPatternFallback — which would use stale saved per-day temperatures
-                // instead of generating a pattern from climateForForecast.temperature (stored
-                // historical climate, same period as the active threats analysis).
-                var climateForForecast = Object.assign({}, storedClimate);
-                if (climateForForecast.temperature) {
-                    climateForForecast.temperature = Object.assign({}, climateForForecast.temperature);
-                    delete climateForForecast.temperature.dailyPattern;
-                }
-                // Humidity: use the period mean (from stored analysis climate) for ALL forecast
-                // days so that buildDailyClimate falls back to climateMetrics.moisture.humidity.mean.
-                // Per-day OM humidity makes Forecast "Today" diverge from Active Threats because
-                // today's 24-h average (e.g. 74%) is drier than the multi-day period mean (e.g. 85%),
-                // causing moisture-sensitive diseases (Fusarium) to show much lower scores in the
-                // "Today" column than in Active Threats.  The old hub always used period-mean humidity
-                // for all forecast days — dailyPattern: null restores that behaviour.
-                climateForForecast.moisture = Object.assign({}, climateForForecast.moisture || {}, {
-                    humidity: climateForForecast.moisture && climateForForecast.moisture.humidity
-                        ? climateForForecast.moisture.humidity
-                        : (climateForForecast.humidity || { mean: meanHumidity }),
-                    dailyPattern: null,
-                });
-
-                // Build full state mirroring buildDiseaseInputs() in hub-orchestrator.js
-                // so that generateForecast() uses complete site data (tissue, soil, shade,
-                // wear, nitrogen) — not just climate + species.
-                var _dd        = global.GAIP_DASHBOARD_DATA || {};
-                var _ddInputs  = _dd.inputs  || {};
-                var _ddComp    = _dd.computed || {};
-                var _ddTurf    = _ddInputs.turf || {};
-                var _ddTissue  = _ddComp.tissue || _ddInputs.tissue || null;
-                var _isC4      = (global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.turf && global.GAIP_CANONICAL_STATE.turf.isC4) || false;
-
-                // Nitrogen status — mirrors buildDiseaseInputs() C3/C4 thresholds
-                var _nitrogenStatus = { status: 'adequate' };
-                if (_ddTissue && _ddTissue.N != null) {
-                    var _tissueN = parseFloat(_ddTissue.N);
-                    var _nRanges = _isC4
-                        ? { deficient: 2.5, low: 3.0, optimal: 3.65, high: 4.3, excessive: 5.0 }
-                        : { deficient: 3.0, low: 3.5, optimal: 4.25, high: 5.0, excessive: 5.5 };
-                    var _nStat;
-                    if (_tissueN < _nRanges.deficient)       _nStat = 'deficient';
-                    else if (_tissueN < _nRanges.low)        _nStat = 'low';
-                    else if (_tissueN < _nRanges.optimal)    _nStat = 'adequate';
-                    else if (_tissueN <= _nRanges.high)      _nStat = 'optimal';
-                    else if (_tissueN <= _nRanges.excessive) _nStat = 'high';
-                    else                                     _nStat = 'excessive';
-                    _nitrogenStatus = { status: _nStat, value: _tissueN, thresholds: _nRanges };
-                }
-
-                // Tissue nutrient modifiers — mirrors buildDiseaseInputs() K/Ca/KN logic
-                var _tissueNutrients = null;
-                if (_ddTissue) {
-                    _tissueNutrients = { hasData: true, modifiers: {} };
-                    if (_ddTissue.K != null) {
-                        var _K = parseFloat(_ddTissue.K);
-                        if (_K < (_isC4 ? 1.6 : 2.0))
-                            _tissueNutrients.modifiers.K = { status: 'deficient', factor: 1.2, value: _K };
-                    }
-                    if (_ddTissue.Ca != null) {
-                        var _Ca = parseFloat(_ddTissue.Ca);
-                        if (_Ca < 0.3)
-                            _tissueNutrients.modifiers.Ca = { status: 'deficient', factor: 1.15, value: _Ca };
-                    }
-                    if (_ddTissue.K != null && _ddTissue.N != null) {
-                        var _KN = parseFloat(_ddTissue.K) / parseFloat(_ddTissue.N);
-                        if (_KN < 0.6)
-                            _tissueNutrients.modifiers.KN_ratio = { status: 'poor', factor: 1.15, value: _KN };
-                    }
-                }
-
-                var state = {
-                    climateMetrics:  climateForForecast,
-                    turf: {
-                        grassSpecies:    cfg.turfSpecies || _ddTurf.grassSpecies || 'perennialRyegrass',
-                        heightOfCut:     _ddTurf.heightOfCut     || null,
-                        mowingFrequency: _ddTurf.mowingFrequency || null,
-                    },
-                    tissue:          _ddTissue,
-                    nitrogenStatus:  _nitrogenStatus,
-                    tissueNutrients: _tissueNutrients,
-                    soilMetrics:     _ddInputs.soil   || null,
-                    shadeMetrics:    _ddComp.shade    || null,
-                    wearMetrics:     _ddComp.wear     || null,
-                    mowingData: {
-                        height:    _ddTurf.heightOfCut     || 25,
-                        frequency: _ddTurf.mowingFrequency || 'regular',
-                    },
-                    siteHistory:     _ddComp.siteHistory || _ddInputs.siteHistory || null,
-                    stressAggregates: _ddComp.stress || null,
-                    cachedDiseaseSpecies: (_ddComp.disease && _ddComp.disease.species) || null,
-                    region:          cfg.region
-                                     || (loc && !isNaN(loc.lat) && !isNaN(loc.lon)
-                                         ? (loc.lat < 0 && loc.lon > 165 && loc.lon < 180 ? 'NZ'
-                                           : loc.lat < 0 && loc.lon >= 113 && loc.lon <= 165 ? 'AU'
-                                           : null)
-                                         : null)
-                                     || (global.GAIP_CANONICAL_STATE && global.GAIP_CANONICAL_STATE.region)
-                                     || 'AU',
-                    forecastHourly:  { temperature_2m: hourly.temperature_2m || [] },
-                    day0ActiveThreats: (function() {
-                        var _d0 = {};
-                        var _atList = (global.GAIP_DASHBOARD_DATA &&
-                                       global.GAIP_DASHBOARD_DATA.computed &&
-                                       global.GAIP_DASHBOARD_DATA.computed.disease &&
-                                       global.GAIP_DASHBOARD_DATA.computed.disease.diseases) || [];
-                        for (var _i = 0; _i < _atList.length; _i++) {
-                            var _d = _atList[_i];
-                            if (_d && _d.disease) {
-                                var _s = _d.adjustedRisk != null ? Math.round(_d.adjustedRisk)
-                                       : _d.riskScore    != null ? Math.round(_d.riskScore) : 0;
-                                _d0[_d.disease] = { score: _s, displayName: _d.displayName || _d.name || _d.disease };
-                            }
-                        }
-                        return _d0;
-                    })(),
-                };
-
-                // ── 1. Dew forecast (always, independent of chart) ──────────────
-                // Primary: physics engine dailyForecasts.dewHours (prob >= 30%) — matches old hub.
-                // Fallback: RH >= 90% per day — matches old hub last-resort (no precipitation).
-                // Physics engine writes forecast as an object {dailyForecasts:[...]}, never an array,
-                // so the old Array.isArray guard was always true and always ignored the engine.
-                {
-                    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-                    var dewForecast = [];
-                    var totalWet = 0, totalDays = 0;
-                    var physicsDaily = (global.GAIP_DEW_RESULT &&
-                                        global.GAIP_DEW_RESULT.forecast &&
-                                        !Array.isArray(global.GAIP_DEW_RESULT.forecast) &&
-                                        Array.isArray(global.GAIP_DEW_RESULT.forecast.dailyForecasts))
-                                        ? global.GAIP_DEW_RESULT.forecast.dailyForecasts : null;
-                    for (var fd = 0; fd < Math.min(numForecastDays, 7); fd++) {
-                        var fdStart = fd * hoursPerDay;
-                        var wetHrs;
-                        if (physicsDaily && physicsDaily[fd] != null) {
-                            wetHrs = physicsDaily[fd].dewHours || 0;
-                        } else {
-                            var fdEnd = Math.min(fdStart + hoursPerDay, rh.length);
-                            wetHrs = 0;
-                            for (var fh = fdStart; fh < fdEnd; fh++) {
-                                if ((rh[fh] || 0) >= 90) wetHrs++;
-                            }
-                        }
-                        var risk = wetHrs >= 8 ? 'high' : wetHrs >= 4 ? 'moderate' : 'low';
-                        var dateTs = times[fdStart] ? new Date(times[fdStart]) : new Date(Date.now() + fd * 86400000);
-                        var dayLabel = fd === 0 ? 'Today' : fd === 1 ? 'Tomorrow' : dayNames[dateTs.getDay()];
-                        dewForecast.push({ label: dayLabel, wetHours: wetHrs, risk: risk });
-                        totalWet += wetHrs; totalDays++;
-                    }
-                    // Write forecast array for renderDewForecastBlock without discarding
-                    // leafWetness already set by the physics engine for disease modules.
-                    if (!global.GAIP_DEW_RESULT) {
-                        global.GAIP_DEW_RESULT = { applicable: true };
-                    }
-                    global.GAIP_DEW_RESULT.forecast = dewForecast;
-                    if (!global.GAIP_DEW_RESULT.leafWetness) {
-                        global.GAIP_DEW_RESULT.leafWetness = { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 };
-                    }
-                    var dewHtml = renderDewForecastBlock();
-                    if (dewHtml) {
-                        var tmp = document.createElement('div');
-                        tmp.innerHTML = dewHtml;
-                        var newNode = tmp.firstChild;
-                        var existing = document.getElementById('dr-dew-block');
-                        if (existing) {
-                            existing.replaceWith(newNode);
-                        } else {
-                            var glBody = document.querySelector('.gl-body');
-                            if (glBody) glBody.appendChild(newNode);
-                        }
-                    }
-                }
-
-                // ── 2. Disease forecast chart (only when placeholder exists) ────
-                if (staticChart) return;
-                if (typeof global.DiseaseForecast === 'undefined') return;
-                var result = global.DiseaseForecast.generateForecast(state);
-                if (result.error || !result.diseases || result.diseases.length === 0) {
-                    var fw = document.getElementById('dr-forecast-wrap');
-                    if (fw) fw.innerHTML = '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant disease risk forecast.</div>';
-                    return;
-                }
-
+        // ── A. Disease forecast chart — reads the single canonical forecast
+        // computed once in hub-orchestrator.js's Step 9 (real weather +
+        // stress-coupling) and persisted via analysis_cache, instead of
+        // recomputing it here from a second, independent live fetch. Runs
+        // synchronously, with no network dependency, so a later Open-Meteo
+        // failure (dew block below) can no longer wipe out a perfectly good,
+        // already-computed forecast.
+        if (!staticChart) {
+            var result = (global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed &&
+                          global.GAIP_DASHBOARD_DATA.computed.forecast) || null;
+            if (!result || result.error || !result.diseases || result.diseases.length === 0) {
+                var fw = document.getElementById('dr-forecast-wrap');
+                if (fw) fw.innerHTML = '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant disease risk forecast.</div>';
+            } else {
                 var series = [];
                 result.diseases.forEach(function (disease) {
                     if (!Array.isArray(disease.forecast) || disease.forecast.length < 2) return;
@@ -1879,44 +1631,128 @@
                 if (series.length === 0) {
                     var noActiveFw = document.getElementById('dr-forecast-wrap');
                     if (noActiveFw) noActiveFw.innerHTML = '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">No significant active threat forecast.</div>';
-                    return;
-                }
+                } else {
+                    var activePeak = null;
+                    series.forEach(function (s) {
+                        var peak = Math.max.apply(null, s.values);
+                        var day = s.values.indexOf(peak);
+                        if (!activePeak || peak > activePeak.peakRisk) {
+                            activePeak = {
+                                topThreat: s.name,
+                                peakRisk: peak,
+                                peakDay: day,
+                            };
+                        }
+                    });
 
-                var activePeak = null;
-                series.forEach(function (s) {
-                    var peak = Math.max.apply(null, s.values);
-                    var day = s.values.indexOf(peak);
-                    if (!activePeak || peak > activePeak.peakRisk) {
-                        activePeak = {
-                            topThreat: s.name,
-                            peakRisk: peak,
-                            peakDay: day,
-                        };
+                    var forecastArr = result.diseases[0].forecast;
+                    var labels      = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
+                    var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, activePeak);
+                    _cachedForecastHtml = chartHtml;  // cache so drSelectDisease() can restore without re-fetch
+                    var wrap = document.getElementById('dr-forecast-wrap');
+                    if (wrap) {
+                        wrap.outerHTML = chartHtml;
+                        attachForecastTooltip(renderForecastChartFromSeries._pending);
                     }
-                });
 
-                var forecastArr = result.diseases[0].forecast;
-                var labels      = forecastArr.map(function (f) { return f.day === 0 ? 'Today' : '+' + f.day + 'd'; });
-                var chartHtml   = renderForecastChartFromSeries(series, labels, result.forecastDays || forecastArr.length, activePeak);
-                _cachedForecastHtml = chartHtml;  // cache so drSelectDisease() can restore without re-fetch
-                var wrap = document.getElementById('dr-forecast-wrap');
-                if (wrap) {
-                    wrap.outerHTML = chartHtml;
-                    attachForecastTooltip(renderForecastChartFromSeries._pending);
+                    // Inject forecast peak KPI card into header grid when peak >> current risk
+                    var kpiSlot = document.getElementById('dr-forecast-kpi-slot');
+                    if (kpiSlot && activePeak) {
+                        var currentScore = (getDiseaseData() || {}).overallScore;
+                        var cardHtml = renderForecastAlertCard(activePeak, currentScore);
+                        if (cardHtml) kpiSlot.outerHTML = cardHtml;
+                    }
+                }
+            }
+        }
+
+        // ── B. Dew forecast — still needs a live Open-Meteo hourly fetch;
+        // independent of the chart above, so a fetch failure here no longer
+        // affects the already-rendered disease forecast.
+        var cfg = global.GAIP_HUB_CONFIG || {};
+        var loc = cfg.savedLocation;
+        if (!loc || !loc.lat || !loc.lon) return;
+
+        var url = 'https://api.open-meteo.com/v1/forecast' +
+            '?latitude='  + loc.lat +
+            '&longitude=' + loc.lon +
+            '&hourly=temperature_2m,relative_humidity_2m,precipitation' +
+            '&timezone=auto' +
+            '&forecast_days=8';
+
+        fetch(url)
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function (data) {
+                if (!data.hourly || !data.hourly.time) return;
+
+                var hourly = data.hourly;
+                var rh     = hourly.relative_humidity_2m || [];
+                var times  = hourly.time || [];
+                var hoursPerDay = 24;
+                var numForecastDays = Math.min(Math.ceil(times.length / hoursPerDay), 8);
+
+                // Expose stored dew result for leaf-wetness-sensitive diseases.
+                if (global.GAIP_DASHBOARD_DATA && global.GAIP_DASHBOARD_DATA.computed && global.GAIP_DASHBOARD_DATA.computed.dew) {
+                    global.GAIP_DEW_RESULT = global.GAIP_DEW_RESULT || global.GAIP_DASHBOARD_DATA.computed.dew;
                 }
 
-                // Inject forecast peak KPI card into header grid when peak >> current risk
-                var kpiSlot = document.getElementById('dr-forecast-kpi-slot');
-                if (kpiSlot && activePeak) {
-                    var currentScore = (getDiseaseData() || {}).overallScore;
-                    var cardHtml = renderForecastAlertCard(activePeak, currentScore);
-                    if (cardHtml) kpiSlot.outerHTML = cardHtml;
+                // Dew forecast — primary: physics engine dailyForecasts.dewHours
+                // (prob >= 30%) — matches old hub. Fallback: RH >= 90% per day —
+                // matches old hub last-resort (no precipitation). Physics engine
+                // writes forecast as an object {dailyForecasts:[...]}, never an
+                // array, so a naive Array.isArray guard would always ignore it.
+                var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+                var dewForecast = [];
+                var totalWet = 0, totalDays = 0;
+                var physicsDaily = (global.GAIP_DEW_RESULT &&
+                                    global.GAIP_DEW_RESULT.forecast &&
+                                    !Array.isArray(global.GAIP_DEW_RESULT.forecast) &&
+                                    Array.isArray(global.GAIP_DEW_RESULT.forecast.dailyForecasts))
+                                    ? global.GAIP_DEW_RESULT.forecast.dailyForecasts : null;
+                for (var fd = 0; fd < Math.min(numForecastDays, 7); fd++) {
+                    var fdStart = fd * hoursPerDay;
+                    var wetHrs;
+                    if (physicsDaily && physicsDaily[fd] != null) {
+                        wetHrs = physicsDaily[fd].dewHours || 0;
+                    } else {
+                        var fdEnd = Math.min(fdStart + hoursPerDay, rh.length);
+                        wetHrs = 0;
+                        for (var fh = fdStart; fh < fdEnd; fh++) {
+                            if ((rh[fh] || 0) >= 90) wetHrs++;
+                        }
+                    }
+                    var risk = wetHrs >= 8 ? 'high' : wetHrs >= 4 ? 'moderate' : 'low';
+                    var dateTs = times[fdStart] ? new Date(times[fdStart]) : new Date(Date.now() + fd * 86400000);
+                    var dayLabel = fd === 0 ? 'Today' : fd === 1 ? 'Tomorrow' : dayNames[dateTs.getDay()];
+                    dewForecast.push({ label: dayLabel, wetHours: wetHrs, risk: risk });
+                    totalWet += wetHrs; totalDays++;
+                }
+                // Write forecast array for renderDewForecastBlock without discarding
+                // leafWetness already set by the physics engine for disease modules.
+                if (!global.GAIP_DEW_RESULT) {
+                    global.GAIP_DEW_RESULT = { applicable: true };
+                }
+                global.GAIP_DEW_RESULT.forecast = dewForecast;
+                if (!global.GAIP_DEW_RESULT.leafWetness) {
+                    global.GAIP_DEW_RESULT.leafWetness = { averageWetHours: totalDays > 0 ? totalWet / totalDays : 0 };
+                }
+                var dewHtml = renderDewForecastBlock();
+                if (dewHtml) {
+                    var tmp = document.createElement('div');
+                    tmp.innerHTML = dewHtml;
+                    var newNode = tmp.firstChild;
+                    var existing = document.getElementById('dr-dew-block');
+                    if (existing) {
+                        existing.replaceWith(newNode);
+                    } else {
+                        var glBody = document.querySelector('.gl-body');
+                        if (glBody) glBody.appendChild(newNode);
+                    }
                 }
             })
             .catch(function () {
-                var wrap = document.getElementById('dr-forecast-wrap');
-                if (wrap) wrap.innerHTML =
-                    '<div class="gl-block-body" style="padding:24px;text-align:center;color:#9ca3af;font-size:13px">Forecast unavailable.</div>';
+                // Dew block only — the disease forecast chart above is independent
+                // of this fetch and was already rendered (or not) from cache.
             });
     }
 

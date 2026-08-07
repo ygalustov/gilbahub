@@ -29,6 +29,10 @@ const src = fs.readFileSync(
     path.join(__dirname, '../assets/disease-analysis.js'),
     'utf8'
 );
+const orchestratorSrc = fs.readFileSync(
+    path.join(__dirname, '../assets/hub-orchestrator.js'),
+    'utf8'
+);
 
 // Extract a named function's source by brace-counting from its declaration.
 function extractFunctionSrc(source, fnName) {
@@ -124,15 +128,21 @@ describe('initForecastChart — generateForecast gated by dr-forecast-wrap place
         );
     });
 
-    test('if (staticChart) return guard precedes DiseaseForecast.generateForecast call', () => {
-        var generateIdx = src.indexOf('DiseaseForecast.generateForecast(state)');
-        expect(generateIdx).toBeGreaterThan(-1);
+    test('if (!staticChart) guard precedes the GAIP_DASHBOARD_DATA.computed.forecast read', () => {
+        // Forecast unification (see hub-orchestrator.js Step 9): the chart no
+        // longer calls DiseaseForecast.generateForecast() itself — it reads the
+        // single canonical forecast already computed once by the orchestrator
+        // and persisted via analysis_cache. The staticChart guard now gates that
+        // read instead of a live generateForecast() call.
+        var readIdx = src.indexOf('global.GAIP_DASHBOARD_DATA.computed.forecast) || null');
+        expect(readIdx).toBeGreaterThan(-1);
+        expect(src).not.toMatch(/DiseaseForecast\.generateForecast\(state\)/);
 
-        var guardIdx = src.lastIndexOf('if (staticChart) return', generateIdx);
+        var guardIdx = src.lastIndexOf('if (!staticChart)', readIdx);
         expect(guardIdx).toBeGreaterThan(-1);
 
-        // Guard must be within 300 characters of the generateForecast call.
-        expect(generateIdx - guardIdx).toBeLessThan(300);
+        // Guard must be within 300 characters of the forecast read.
+        expect(readIdx - guardIdx).toBeLessThan(300);
     });
 
     test('rawWeatherData.forecast is NOT set from OM fetch (matches old hub behaviour)', () => {
@@ -145,14 +155,16 @@ describe('initForecastChart — generateForecast gated by dr-forecast-wrap place
         expect(src).not.toMatch(/rawWeatherData\s*=\s*\{\s*forecast\s*:/);
     });
 
-    test('forecast climate uses stored analysis temperature, not per-day OM temperature override', () => {
-        // Stored climate is the source shared with Active Threats. Cached per-day
-        // temperature.dailyPattern is stripped so DiseaseForecast regenerates from
-        // the stored period climate instead of plotting saved or fresh OM day slices.
-        expect(src).toMatch(/var\s+storedClimate\s*=/);
-        expect(src).toMatch(/delete\s+climateForForecast\.temperature\.dailyPattern/);
-        expect(src).not.toMatch(/_storedTempMin\s*==\s*null/);
-        expect(src).not.toMatch(/_omMin/);
+    test('orchestrator forecast step uses stored analysis climate, not a per-day OM temperature override', () => {
+        // This shaping logic (previously in disease-analysis.js's own generateForecast
+        // call) now lives in hub-orchestrator.js's Step 9, the single place the
+        // canonical forecast is computed. Stored climate is the same source shared
+        // with Active Threats; cached per-day temperature.dailyPattern is stripped
+        // so DiseaseForecast regenerates from the stored period climate instead of
+        // plotting saved or fresh OM day slices.
+        expect(orchestratorSrc).toMatch(/Step 9: Disease forecast/);
+        expect(orchestratorSrc).toMatch(/const\s+climateForForecast\s*=\s*Object\.assign\(\{\},\s*fcInputs\.climate\)/);
+        expect(orchestratorSrc).toMatch(/delete\s+climateForForecast\.temperature\.dailyPattern/);
     });
 
 });

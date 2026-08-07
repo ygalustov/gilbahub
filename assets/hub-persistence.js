@@ -1743,7 +1743,14 @@
             // from _fc.diseases with fusarium excluded instead of trusting
             // summary directly, so the dashboard verdict/vital-card/action-
             // queue forecast text can't surface it either.
-            const _fc = global.GAIP_DISEASE_FORECAST;
+            // Source: the single canonical forecast computed by
+            // hub-orchestrator.js's Step 9 (_hubState.computed.forecast),
+            // not the legacy window.GAIP_DISEASE_FORECAST global (which is
+            // only ever set by the old /hub-page render() path and produces
+            // different numbers — see the forecast-unification fix).
+            const _fc = global.GaipOrchestrator && typeof global.GaipOrchestrator.getState === 'function'
+                ? global.GaipOrchestrator.getState()?.computed?.forecast
+                : null;
             if (_fc && _fc.summary) {
                 const _fcAll = Array.isArray(_fc.diseases) ? _fc.diseases : [];
                 const _fcValidated = _fcAll.filter((d) => d.key !== 'fusarium');

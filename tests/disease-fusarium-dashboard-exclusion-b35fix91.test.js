@@ -58,10 +58,18 @@ describe('hub-persistence.js — dashboard forecast metrics exclude Fusarium', (
     }
 
     test('forecastPeak/forecastDisease/peakDay are recomputed from _fc.diseases with fusarium excluded, not trusted from _fc.summary directly', () => {
+        // Forecast unification: _fc now reads the single canonical forecast
+        // computed once by hub-orchestrator.js's Step 9
+        // (_hubState.computed.forecast), not the legacy window.GAIP_DISEASE_FORECAST
+        // global (only ever set by the old /hub-page render() path).
         const body = extractCollectDashboardMetrics();
-        const fcBlockStart = body.indexOf('const _fc = global.GAIP_DISEASE_FORECAST;');
+        expect(body).not.toContain('global.GAIP_DISEASE_FORECAST');
+        const forecastReadIdx = body.indexOf('?.computed?.forecast');
+        expect(forecastReadIdx).toBeGreaterThan(-1);
+        const fcBlockStart = body.lastIndexOf('const _fc =', forecastReadIdx);
         expect(fcBlockStart).toBeGreaterThan(-1);
-        const fcBlock = body.slice(fcBlockStart, fcBlockStart + 1200);
+        const fcBlock = body.slice(fcBlockStart, fcBlockStart + 1400);
+        expect(fcBlock).toContain('?.computed?.forecast');
         expect(fcBlock).toContain("d.key !== 'fusarium'");
         // Must still assign the metrics fields somewhere in this block.
         expect(fcBlock).toMatch(/metrics\.forecastPeak\s*=/);

@@ -4120,6 +4120,7 @@
     //    v1.1.0: Now applies stress/climate coupling to reduce false positives
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 6: Disease analysis");
+    let _diseaseFreshThisPass = false;
     if (global.DiseaseEngine || (global.GILBA_USE_PURE_DISEASE && global.DiseaseEnginePure)) {
       try {
         const diseaseInputs = buildDiseaseInputs();
@@ -4205,6 +4206,7 @@
           }
 
           _hubState.computed.disease = wrapWithConfidence("disease", coupledResult);
+          _diseaseFreshThisPass = true;
 
           // Update global GAIP_DISEASE_RESULT so UI renders correct species
           if (_hubState.computed.disease) {
@@ -4443,6 +4445,118 @@
       } catch (e) {
         warn("pre-emergent", "Pre-emergent engine error", e);
       }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // 9. DISEASE FORECAST (7-DAY)
+    //    Single canonical forecast computation — mirrors "diseases today"
+    //    (Step 6/buildDiseaseInputs): compute once here, persist via the
+    //    existing analysis_cache flow, both /dashboard and /analysis read
+    //    the same persisted value. Replaces the two previously-independent
+    //    forecast implementations (legacy /hub path with synthetic weather,
+    //    and disease-analysis.js's own live-fetch recompute).
+    //    Only runs when Step 6 actually produced a fresh disease result
+    //    this pass — if the temperature guard skipped Step 6, skip this
+    //    too and keep the previous computed.forecast rather than deriving
+    //    day0ActiveThreats from a stale/absent disease result.
+    // ─────────────────────────────────────────────────────────────────────
+    log("main", "Step 9: Disease forecast (7-day)");
+    if (_diseaseFreshThisPass && global.DiseaseForecast && typeof global.DiseaseForecast.generateForecast === "function") {
+      try {
+        const fcInputs = buildDiseaseInputs(); // cheap, pure — re-derive rather than
+                                                // reach into Step 6's block-scoped const
+
+        // Real hourly forecast temps, already fetched this run (hub-tissue-v3.js's
+        // gaip_fetch_weather -> climate-engine.js fetchForecastData, forecastDays
+        // defaults to 16). No new fetch needed here.
+        const _rawHourly = (global.rawWeatherData && global.rawWeatherData.forecast &&
+          global.rawWeatherData.forecast.hourly) || (global.rawWeatherData && global.rawWeatherData.hourly) || null;
+        const forecastHourly = _rawHourly ? { temperature_2m: _rawHourly.temperature_2m || [] } : null;
+
+        // Copy (never mutate — getAuthoritativeClimate() can return a shared
+        // reference) and strip the daily-pattern fields so generateForecast()'s
+        // per-day fallback always derives real per-day min/max from
+        // forecastHourly instead of a synthetic pattern.
+        const climateForForecast = Object.assign({}, fcInputs.climate);
+        if (climateForForecast.temperature) {
+          climateForForecast.temperature = Object.assign({}, climateForForecast.temperature);
+          delete climateForForecast.temperature.dailyPattern;
+        }
+
+        // Humidity fallback: this pass's climate.moisture.humidity can be
+        // transiently null (the same race Step 6 protects Red Thread's "today"
+        // reading against — see the merge-fallback above). Red Thread has no
+        // leaf-wetness fallback, so a missing humidity.mean here doesn't just
+        // degrade one day, it crashes every forecast day (period-mean humidity
+        // is reused for all days below) to a data-starved near-zero. Fall back
+        // to the mean of the real hourly RH array getAuthoritativeClimate()
+        // already attaches (climateOut.hourlyData), mirroring what the old
+        // analysis-page implementation did with its own Open-Meteo fetch.
+        const _existingHumidity = climateForForecast.moisture && climateForForecast.moisture.humidity;
+        let _fallbackHumidity = null;
+        if (!_existingHumidity || _existingHumidity.mean == null) {
+          const _rh = climateForForecast.hourlyData && climateForForecast.hourlyData.relative_humidity_2m;
+          if (Array.isArray(_rh) && _rh.length > 0) {
+            let _rhSum = 0, _rhCount = 0;
+            for (const v of _rh) {
+              if (v != null) { _rhSum += v; _rhCount++; }
+            }
+            if (_rhCount > 0) _fallbackHumidity = { mean: _rhSum / _rhCount };
+          }
+        }
+        climateForForecast.moisture = Object.assign({}, climateForForecast.moisture || {}, {
+          humidity: _existingHumidity && _existingHumidity.mean != null ? _existingHumidity : (_fallbackHumidity || _existingHumidity),
+          dailyPattern: null,
+        });
+
+        const _diseaseDiseases = (_hubState.computed.disease && _hubState.computed.disease.diseases) || [];
+        const day0ActiveThreats = {};
+        for (const d of _diseaseDiseases) {
+          if (d && d.disease) {
+            const s = d.adjustedRisk != null ? Math.round(d.adjustedRisk)
+                    : d.riskScore != null ? Math.round(d.riskScore) : 0;
+            day0ActiveThreats[d.disease] = { score: s, displayName: d.displayName || d.name || d.disease };
+          }
+        }
+
+        const forecastState = {
+          climateMetrics: climateForForecast,
+          turf: _hubState.inputs.turf || {},
+          tissue: _hubState.computed.tissue || _hubState.inputs.tissue || null,
+          nitrogenStatus: fcInputs.nitrogen,
+          tissueNutrients: fcInputs.tissueNutrients,
+          soilMetrics: fcInputs.soil,
+          shadeMetrics: _hubState.computed.shade || null, // raw shape — generateForecast
+                                                            // normalizes it internally
+          wearMetrics: _hubState.computed.wear || null,
+          varietyTraits: fcInputs.variety,
+          mowingData: fcInputs.mowing,
+          siteHistory: null, // no orchestrator-side equivalent yet; also always
+                              // null in the prior analysis-page implementation
+          stressAggregates: fcInputs.stressAggregates,
+          cachedDiseaseSpecies: (_hubState.computed.disease && _hubState.computed.disease.species) || null,
+          region: fcInputs.region,
+          forecastHourly: forecastHourly,
+          day0ActiveThreats: day0ActiveThreats,
+        };
+
+        const forecastResult = global.DiseaseForecast.generateForecast(forecastState);
+        if (forecastResult && !forecastResult.error) {
+          _hubState.computed.forecast = wrapWithConfidence("forecast", forecastResult);
+          log("forecast", "7-day disease forecast computed", {
+            topThreat: forecastResult.summary && forecastResult.summary.topThreat,
+            peakRisk: forecastResult.summary && forecastResult.summary.peakRisk,
+            peakDay: forecastResult.summary && forecastResult.summary.peakDay,
+            diseases: (forecastResult.diseases || []).length,
+          });
+        } else {
+          warn("forecast", "Disease forecast returned an error, keeping previous computed.forecast", forecastResult && forecastResult.error);
+        }
+      } catch (e) {
+        warn("forecast", "Disease forecast engine error, keeping previous computed.forecast", e);
+      }
+    } else if (!_diseaseFreshThisPass) {
+      log("forecast", "Skipped — disease result not refreshed this pass (temperature guard or engine unavailable), keeping previous computed.forecast");
     }
 
     // ─────────────────────────────────────────────────────────────────────
