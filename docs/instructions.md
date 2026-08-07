@@ -491,8 +491,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-237** Enhance disease forecasting by integrating red thread model: Added script inclusion for red-thread-model.js in analysis.blade.php to ensure accurate daily forecasts. Updated disease analysis logic to handle missing humidity data for Red Thread, preventing flat-lined scores. Introduced tests to validate the loading of the red thread model and its impact on forecast accuracy.
 **GH-238** Update maximum diseases displayed in forecast chart from 4 to 5 for improved visibility.
 **GH-239** Exclude Fusarium from dashboard metrics and disease analysis: Implemented filtering to remove Fusarium from various dashboard components, including the forecast metrics, active threats list, and companion disease surfaces. Updated relevant functions across multiple files to ensure Fusarium is not displayed while retaining its underlying data for reporting purposes. Added tests to validate the exclusion and ensure functionality aligns with client requirements.
-
-
+**GH-240** Implement unified disease forecasting: Consolidated disease forecast computation into hub-orchestrator.js, ensuring a single canonical forecast is generated and persisted. Updated disease-analysis.js to read from this unified forecast, eliminating redundant calculations and improving accuracy. Enhanced tests to validate the new forecasting logic and ensure consistent behavior across components.
+**GH-241** Refactor risk level classification in dashboard: Updated risk level thresholds to a 4-tier system (SEVERE, HIGH, MODERATE, LOW) for improved accuracy. Adjusted CSS for better label display and responsiveness, including a new long-label class for wider text. Enhanced dashboard UI elements to accommodate changes in risk level presentation.
 
 
 

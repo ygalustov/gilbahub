@@ -422,15 +422,18 @@
 
             var displayRisk = forecastDriving ? peak : risk;
             var level, cls;
-            if      (displayRisk >= 85) { level = 'SEVERE';  cls = 'critical'; }
-            else if (displayRisk >= 70) { level = 'HIGH';    cls = 'critical'; }
-            else if (displayRisk >= 50) { level = 'MEDIUM';  cls = 'warning';  }
-            else                        { level = 'LOW';     cls = '';         }
+            if      (displayRisk >= 85) { level = 'SEVERE';   cls = 'critical'; }
+            else if (displayRisk >= 70) { level = 'HIGH';     cls = 'critical'; }
+            else if (displayRisk >= 50) { level = 'MODERATE'; cls = 'warning';  }
+            else                        { level = 'LOW';      cls = '';         }
 
             var severityColor = cls === 'critical' ? '#dc2626' : (cls === 'warning' ? '#d97706' : '#16a34a');
 
             var dEl = el('db-disease-value');
-            if (dEl) { dEl.textContent = level; dEl.className = 'db-vital-main' + (cls ? ' ' + cls : ''); }
+            if (dEl) {
+                dEl.textContent = level;
+                dEl.className = 'db-vital-main' + (cls ? ' ' + cls : '') + (level.length > 6 ? ' long-label' : '');
+            }
 
             // Subtitle: trajectory "X% now → Y% forecast" when forecast drives severity, else "X% today"
             if (forecastDriving) {
@@ -576,8 +579,13 @@
         var disease = m.topDisease || 'Disease';
         // Use worst-case (current or forecast) for color/severity — same logic as vital card
         var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
-        var level = displayRisk >= 50 ? 'HIGH' : (displayRisk >= 25 ? 'MEDIUM' : 'LOW');
-        var cls   = displayRisk >= 50 ? 'critical' : (displayRisk >= 25 ? 'warning' : 'ok');
+        // 4-tier thresholds (85/70/50) matching disease-engine-pure.js's
+        // classifyRisk() and the vital-card/panel levels above — was
+        // previously a coarser 3-tier scheme (50/25) with its own "MEDIUM"
+        // wording, which mislabelled the 25-49% band as a mid-risk tier when
+        // the engine (and the old hub) call that band "low".
+        var level = displayRisk >= 85 ? 'SEVERE' : (displayRisk >= 70 ? 'HIGH' : (displayRisk >= 50 ? 'MODERATE' : 'LOW'));
+        var cls   = displayRisk >= 70 ? 'critical' : (displayRisk >= 50 ? 'warning' : 'ok');
 
         var txt;
         if (peak != null && peak > risk + 5 && m.peakDay != null) {
@@ -1279,15 +1287,15 @@
         var peak        = m && m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
         var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
         var level, cls;
-        if      (displayRisk >= 85) { level = 'SEVERE'; cls = 'critical'; }
-        else if (displayRisk >= 70) { level = 'HIGH';   cls = 'critical'; }
-        else if (displayRisk >= 50) { level = 'MEDIUM'; cls = 'warning';  }
-        else                        { level = 'LOW';    cls = 'ok';       }
+        if      (displayRisk >= 85) { level = 'SEVERE';   cls = 'critical'; }
+        else if (displayRisk >= 70) { level = 'HIGH';     cls = 'critical'; }
+        else if (displayRisk >= 50) { level = 'MODERATE'; cls = 'warning';  }
+        else                        { level = 'LOW';      cls = 'ok';       }
 
         var heroSub = (peak != null && peak > risk + 5)
             ? risk + '% now → ' + peak + '% forecast'
             : risk + '% overall risk';
-        var html = panelHero(level, cls, heroSub);
+        var html = panelHero(level, cls + (level.length > 6 ? ' long-label' : ''), heroSub);
 
         var makeRow = function (name, cur, pk, pd, tw) {
             var pct  = cur || 0;

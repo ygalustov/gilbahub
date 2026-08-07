@@ -461,14 +461,14 @@ body { margin: 0; padding: 0; }
 .db-vitals {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    gap: 12px;
+    gap: 8px;
 }
 
 .db-vital-card {
     background: #fff;
     border: 1px solid var(--gaip-border, #ccd9d2);
     border-radius: 10px;
-    padding: 14px;
+    padding: 14px 10px;
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -495,6 +495,18 @@ body { margin: 0; padding: 0; }
     color: var(--gaip-text, #1a2b23);
     word-break: break-word;
     overflow-wrap: anywhere;
+}
+/* Word-level labels (SEVERE/MODERATE/HIGH/LOW) — keep the same 32px font-size
+   as every other card (so it doesn't look smaller/less prominent). Cards were
+   also widened (reduced gap/padding above) to give "MODERATE" more natural
+   room, so only a light, near-invisible horizontal nudge is needed as a
+   safety net for narrow viewports — not the aggressive squeeze from before.
+   Height/prominence is unchanged; glyph width is only slightly affected. */
+.db-vital-main.long-label {
+    white-space: nowrap;
+    display: inline-block;
+    transform: scaleX(0.94);
+    transform-origin: left center;
 }
 .db-vital-main.critical { color: #dc2626; }
 .db-vital-main.warning  { color: #d97706; }
@@ -1149,6 +1161,15 @@ body { margin: 0; padding: 0; }
     line-height: 1;
     color: var(--gaip-text, #1a2b23);
 }
+/* Same word-level labels as .db-vital-main.long-label — same technique
+   (horizontal squeeze, not a smaller font-size), milder factor since this
+   panel is wider than the vital-card grid. */
+.db-panel-hero-value.long-label {
+    white-space: nowrap;
+    display: inline-block;
+    transform: scaleX(0.9);
+    transform-origin: left center;
+}
 .db-panel-hero-value.critical { color: #dc2626; }
 .db-panel-hero-value.warning  { color: #d97706; }
 .db-panel-hero-value.ok       { color: #16a34a; }
@@ -1454,7 +1475,7 @@ body { margin: 0; padding: 0; }
 
     /* Field Status — 2-column grid on mobile */
     .db-vitals { grid-template-columns: 1fr 1fr; gap: 8px; }
-    .db-vital-card { min-height: 110px; padding: 12px; }
+    .db-vital-card { min-height: 110px; padding: 12px 8px; }
     .db-vital-main { font-size: 26px; }
     .db-vital-footer { font-size: 10px; }
     .db-vital-sub    { font-size: 11px; }
