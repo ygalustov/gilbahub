@@ -5458,7 +5458,11 @@ function analyse(input) {
     // NaN and surfaces as `Disease Pressure: MINIMAL NaN%` to the user.
     // Coerce non-finite values to 0 here at the read point — same defensive
     // shape as the disease-stress-climate-coupling layer should have.
-    const validated = diseases.filter(d => d.validationStatus !== 'beta' && !(d.validationBadge && d.validationBadge.includes('BETA')));
+    // #91: Fusarium is tagged 'unvalidated' (not 'beta', a different tier — see
+    // the dispatcher above), so the beta filter alone doesn't catch it. Client
+    // asked specifically for Fusarium, not every unvalidated model, so this
+    // excludes by key rather than by validationStatus.
+    const validated = diseases.filter(d => d.validationStatus !== 'beta' && !(d.validationBadge && d.validationBadge.includes('BETA')) && d.disease !== 'fusarium');
     const _safeRisk = (d) => Number.isFinite(d.adjustedRisk) ? d.adjustedRisk : 0;
     const overallScore = validated.length > 0
         ? Math.max(...validated.map(_safeRisk))
@@ -5504,7 +5508,7 @@ function analyse(input) {
         // full universe.
         suppressedDiseases,
         applicableDiseaseCount: diseases.length,
-        topThreats: diseases.slice(0, 3).map(d => ({
+        topThreats: (validated.length > 0 ? validated : diseases).slice(0, 3).map(d => ({
             disease: d.displayName, risk: d.adjustedRisk, level: d.riskLevel,
             primaryDriver: d.primaryDriver || Object.keys(d.drivers || {})[0],
             regionalMultiplier: d.regionalMultiplier,

@@ -490,6 +490,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-236** Enhance disease forecasting by integrating cached species resolution and stress/climate coupling: Added new scripts for disease-stress-climate coupling and red thread model to improve forecast accuracy. Updated disease analysis and forecast logic to prioritize cached species and apply stress adjustments, ensuring Day 0 remains aligned with Active Threats. Introduced tests to validate these enhancements and ensure reliable functionality.
 **GH-237** Enhance disease forecasting by integrating red thread model: Added script inclusion for red-thread-model.js in analysis.blade.php to ensure accurate daily forecasts. Updated disease analysis logic to handle missing humidity data for Red Thread, preventing flat-lined scores. Introduced tests to validate the loading of the red thread model and its impact on forecast accuracy.
 **GH-238** Update maximum diseases displayed in forecast chart from 4 to 5 for improved visibility.
+**GH-239** Exclude Fusarium from dashboard metrics and disease analysis: Implemented filtering to remove Fusarium from various dashboard components, including the forecast metrics, active threats list, and companion disease surfaces. Updated relevant functions across multiple files to ensure Fusarium is not displayed while retaining its underlying data for reporting purposes. Added tests to validate the exclusion and ensure functionality aligns with client requirements.
+
+
+
+
 
 
 

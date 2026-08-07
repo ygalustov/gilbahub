@@ -919,9 +919,13 @@
         // undefined post-coupling, Math.max returns NaN and surfaces as
         // `Disease Pressure: MINIMAL NaN%`. Coerce non-finite values to 0 at
         // the read point — same shape as the engine's overallScore guard.
+        // #91: Fusarium is tagged 'unvalidated' (not 'beta'), so the beta
+        // filter alone doesn't catch it. Client asked specifically for
+        // Fusarium, not every unvalidated model, so this excludes by key.
         var validatedDiseases = diseaseResult.diseases.filter(function(d) {
             return d.validationStatus !== 'beta' &&
-                   !(d.validationBadge && d.validationBadge.indexOf('BETA') >= 0);
+                   !(d.validationBadge && d.validationBadge.indexOf('BETA') >= 0) &&
+                   d.disease !== 'fusarium';
         });
         var _safeAdjRisk = function(d) {
             return (typeof d.adjustedRisk === 'number' && isFinite(d.adjustedRisk)) ? d.adjustedRisk : 0;
@@ -936,7 +940,7 @@
         diseaseResult.overallRisk = classifyRisk(newOverallScore);
 
         // Recalculate top threats
-        diseaseResult.topThreats = diseaseResult.diseases.slice(0, 3).map(function(d) {
+        diseaseResult.topThreats = (validatedDiseases.length > 0 ? validatedDiseases : diseaseResult.diseases).slice(0, 3).map(function(d) {
             return {
                 disease: d.displayName,
                 risk: d.adjustedRisk,

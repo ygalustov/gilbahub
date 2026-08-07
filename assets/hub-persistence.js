@@ -1736,11 +1736,31 @@
                                 ? _dr.topThreats[0].disease
                                 : (_dr.highestRisk || null);
             // Forecast peak + disease name for dashboard alert
+            // #91: _fc.summary.topThreat/peakRisk come straight from the raw
+            // (unfiltered) forecast — disease-forecast.js's generateForecast()
+            // doesn't know about the Fusarium exclusion, only the chart-
+            // rendering layer in disease-analysis.js does. Recompute the peak
+            // from _fc.diseases with fusarium excluded instead of trusting
+            // summary directly, so the dashboard verdict/vital-card/action-
+            // queue forecast text can't surface it either.
             const _fc = global.GAIP_DISEASE_FORECAST;
             if (_fc && _fc.summary) {
-                metrics.forecastPeak    = _fc.summary.peakRisk   || null;
-                metrics.peakDay         = _fc.summary.peakDay    != null ? _fc.summary.peakDay : null;
-                metrics.forecastDisease = _fc.summary.topThreat  || null;
+                const _fcAll = Array.isArray(_fc.diseases) ? _fc.diseases : [];
+                const _fcValidated = _fcAll.filter((d) => d.key !== 'fusarium');
+                const _fcPool = _fcValidated.length > 0 ? _fcValidated : _fcAll;
+                const _fcTop = _fcPool.length > 0
+                    ? _fcPool.reduce((a, b) => (!a || b.peakRisk > a.peakRisk) ? b : a, null)
+                    : null;
+                if (_fcTop) {
+                    metrics.forecastPeak    = _fcTop.peakRisk;
+                    metrics.peakDay         = _fcTop.peakDay != null ? _fcTop.peakDay : null;
+                    metrics.forecastDisease = _fcTop.name || null;
+                } else {
+                    // No per-disease array available (older cached shape) — fall back to summary.
+                    metrics.forecastPeak    = _fc.summary.peakRisk   || null;
+                    metrics.peakDay         = _fc.summary.peakDay    != null ? _fc.summary.peakDay : null;
+                    metrics.forecastDisease = _fc.summary.topThreat  || null;
+                }
             }
         }
         
@@ -1755,7 +1775,10 @@
                 diseases: (_cd.diseases || [])
                     .filter(function(d) {
                         var r = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore != null ? d.riskScore : 0);
-                        return r > 15 || (d.treatmentWindow && d.treatmentWindow.inWindow);
+                        // #91: fusarium excluded here (raw key, before .map() below
+                        // drops it) — the mapped shape has no .disease field, so
+                        // filtering post-map wouldn't work.
+                        return (r > 15 || (d.treatmentWindow && d.treatmentWindow.inWindow)) && d.disease !== 'fusarium';
                     })
                     .sort(function(a, b) {
                         var aw = (a.treatmentWindow && a.treatmentWindow.inWindow) ? 1 : 0;

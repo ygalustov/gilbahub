@@ -1323,7 +1323,10 @@
         if (diseases && diseases.length) {
             var rows = diseases.filter(function (d) {
                 var s = d.adjustedRisk != null ? d.adjustedRisk : (d.riskScore != null ? d.riskScore : 0);
-                return s > 0;
+                // #91: Fusarium off the front — this reads the raw, unfiltered
+                // computed.disease.diseases array (unlike topDisease/diseaseRisk,
+                // which already exclude it), so it needs its own check.
+                return s > 0 && d.disease !== 'fusarium';
             }).slice(0, 5).map(function (d) {
                 var name = d.displayName || d.name || d.disease || 'Unknown';
                 var cur  = d.adjustedRisk != null ? Math.round(d.adjustedRisk) : (d.riskScore != null ? Math.round(d.riskScore) : (d.current != null ? Math.round(d.current) : null));
@@ -1350,6 +1353,8 @@
             var cdLabel = cd.speciesLabel || cd.species || 'Fairway / Tee';
             html += '<div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--gaip-text-secondary,#6b7280);padding:12px 16px 4px;border-top:1px solid var(--gaip-border,#d8e0dc);margin-top:6px">' +
                 'Fairway / Tee — ' + cdLabel + '</div>';
+            // #91: fusarium already excluded upstream in hub-persistence.js's
+            // collectDashboardMetrics() (this shape has no .disease field to filter on here).
             var cdRows = cd.diseases.slice(0, 3).map(function(d) {
                 var col = d.risk >= 70 ? '#dc2626' : (d.risk >= 40 ? '#d97706' : '#16a34a');
                 var win = d.inWindow

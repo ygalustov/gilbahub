@@ -352,7 +352,12 @@
             // inWindow alone is not enough to show a disease: require score > 0
             // to avoid showing 0% diseases (e.g. Spring Dead Spot on bentgrass)
             // that have a stale treatment window in the cache
-            return r !== 'none' && r !== '' && score > 0;
+            //
+            // #91: Fusarium excluded from the front of this page — client
+            // flagged it as an unvalidated model giving unreliable readings.
+            // Key check (not validationStatus) since this is Fusarium-specific,
+            // not a blanket unvalidated-model exclusion.
+            return r !== 'none' && r !== '' && score > 0 && d.disease !== 'fusarium';
         });
     }
 
@@ -993,7 +998,8 @@
         var dd = global.GAIP_DASHBOARD_DATA;
         var currentCompanion = (global.GAIP_SITE_CONFIG && global.GAIP_SITE_CONFIG.turf && global.GAIP_SITE_CONFIG.turf.companionSpecies) || null;
         var cd = (currentCompanion && dd && dd.metrics && dd.metrics.companionDisease) ? dd.metrics.companionDisease : null;
-        var companionDiseases = cd && cd.diseases ? cd.diseases.filter(function(d) { return d.risk > 0 || d.inWindow; }) : [];
+        // #91: Fusarium excluded from the front of the page, including the companion (fairway/tee) surface.
+        var companionDiseases = cd && cd.diseases ? cd.diseases.filter(function(d) { return (d.risk > 0 || d.inWindow) && d.disease !== 'fusarium'; }) : [];
         var companionLabel = cd ? esc(cd.speciesLabel || cd.species || 'Fairway / Tee') : '';
 
         var hasGreens    = diseases && diseases.length > 0;
@@ -1227,6 +1233,7 @@
             // GEVES format: diseaseResistance: { dollarSpot: { rating: 7.5 }, ... }
             var chips = '';
             Object.keys(diseaseResist).forEach(function (disease) {
+                if (disease === 'fusarium') return; // #91: Fusarium off the front, incl. cultivar resistance
                 var val = diseaseResist[disease];
                 var rating = typeof val === 'number' ? val : (val && val.rating);
                 if (typeof rating !== 'number') return;
@@ -1248,9 +1255,10 @@
                 grayLeafSpot: 'Gray Leaf Spot', springDeadSpot: 'Spring Dead Spot',
                 redThread: 'Red Thread', fusarium: 'Fusarium Patch', largePatch: 'Large Patch'
             };
+            // #91: fusarium excluded — Fusarium off the front of the disease page entirely.
             var diseaseList = ['dollarSpot', 'brownPatch', 'pythium', 'pythiumRootRot',
                                'anthracnose', 'grayLeafSpot', 'springDeadSpot',
-                               'redThread', 'fusarium', 'largePatch'];
+                               'redThread', 'largePatch'];
             if (typeof getDM === 'function') {
                 var chips = '';
                 diseaseList.forEach(function (disease) {
@@ -1538,7 +1546,7 @@
 
         var speciesLabel = esc(cd.speciesLabel || cd.species || 'Fairway / Tee');
         var diseases = cd.diseases
-            .filter(function (d) { return d.risk > 0 || d.inWindow; })
+            .filter(function (d) { return (d.risk > 0 || d.inWindow) && d.disease !== 'fusarium'; }) // #91
             .sort(function(a, b) { return (b.risk || 0) - (a.risk || 0); });
 
         var divider =
@@ -1572,7 +1580,7 @@
         var cd = dd && dd.metrics && dd.metrics.companionDisease;
         if (!cd || !cd.diseases) return;
         var diseases = cd.diseases
-            .filter(function (d) { return d.risk > 0 || d.inWindow; })
+            .filter(function (d) { return (d.risk > 0 || d.inWindow) && d.disease !== 'fusarium'; }) // #91
             .sort(function(a, b) { return (b.risk || 0) - (a.risk || 0); });
         var overallScore = cd.overallScore != null ? Math.round(cd.overallScore) : null;
         var overallRisk  = cd.overallRisk  || (overallScore != null ? (overallScore >= 70 ? 'high' : overallScore >= 50 ? 'moderate' : overallScore > 0 ? 'low' : 'none') : '');
