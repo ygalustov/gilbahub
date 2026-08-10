@@ -501,7 +501,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-240** Implement unified disease forecasting: Consolidated disease forecast computation into hub-orchestrator.js, ensuring a single canonical forecast is generated and persisted. Updated disease-analysis.js to read from this unified forecast, eliminating redundant calculations and improving accuracy. Enhanced tests to validate the new forecasting logic and ensure consistent behavior across components.
 **GH-241** Refactor risk level classification in dashboard: Updated risk level thresholds to a 4-tier system (SEVERE, HIGH, MODERATE, LOW) for improved accuracy. Adjusted CSS for better label display and responsiveness, including a new long-label class for wider text. Enhanced dashboard UI elements to accommodate changes in risk level presentation.
 **GH-241**: Refactor disease risk display and improve dashboard UI: Updated the disease risk calculation to clearly differentiate between current and forecasted values, enhancing clarity in the dashboard. Adjusted CSS styles for alert messages to ensure consistency with other UI elements. Added tests to validate the new risk computation logic and ensure accurate display of disease threats.
-
+**GH-242** Enhance dashboard disease risk calculations and irrigation metrics: Updated disease risk logic to filter out beta validation status and Fusarium, adjusting risk thresholds for alerts. Improved irrigation deficit handling by utilizing accurate metrics for scheduling irrigation actions. Added detailed comments for clarity on data handling and logic flow.
 
 
 ## Backlog
@@ -535,6 +535,12 @@ this is the soilscout api  https://soilscouts.fi/api/v1/?format=openapi
 
 
 # My changes:
+
+
+Phytotoxicity добавляет новый расчёт в оркестратор, но пока им никто кроме задач не пользуется. 
+
+Heat/Frost/Drought — единственное, что трогает уже используемый другими частями объект, но только путём добавления новых полей, не изменения существующих.
+
 
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)

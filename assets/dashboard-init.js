@@ -682,12 +682,22 @@
             risk = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
             topName = m.topDisease || null;
         }
-        // Try richer data from computed.disease
+        // Try richer data from computed.disease — computed.disease.diseases[] is
+        // unfiltered (unlike topThreats[], which m.topDisease is sourced from), so a
+        // hidden disease (Fusarium, or any validationStatus:'beta' one) must not be
+        // read here without re-applying the same exclusion used everywhere else
+        // (disease-analysis.js's filterDiseases / hub-orchestrator.js's topThreats
+        // recompute).
         if (dr && dr.diseases && dr.diseases.length) {
-            var top = dr.diseases[0];
-            topName = topName || top.displayName || top.name || top.disease;
-            if (!risk && (top.adjustedRisk || top.riskScore)) {
-                risk = Math.round(top.adjustedRisk || top.riskScore);
+            var validDiseases = dr.diseases.filter(function (d) {
+                return d.validationStatus !== 'beta' && d.disease !== 'fusarium';
+            });
+            var top = validDiseases[0];
+            if (top) {
+                topName = topName || top.displayName || top.name || top.disease;
+                if (!risk && (top.adjustedRisk || top.riskScore)) {
+                    risk = Math.round(top.adjustedRisk || top.riskScore);
+                }
             }
         }
         if (topName && risk > 0) {
@@ -696,15 +706,15 @@
                 var peak = m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100);
                 peakStr = ' · forecast ' + peak + '% in ' + m.peakDay + 'd';
             }
-            if (risk >= 50) {
+            if (risk >= 70) {
                 today.push(aqCard({
                     chips: [{ type: 'disease', label: 'Disease › ' + topName }],
                     title: 'Apply fungicide today',
-                    reason: 'Risk ' + risk + '% (threshold 20%)' + peakStr,
+                    reason: 'Risk ' + risk + '% (threshold 70%)' + peakStr,
                     commitLabel: 'Commit — spray today',
                     consequence: peakStr ? 'Risk rising — act before window closes' : null
                 }));
-            } else if (risk >= 25) {
+            } else if (risk >= 50) {
                 week.push(aqCard({
                     chips: [{ type: 'disease', label: 'Disease › ' + topName }],
                     title: 'Monitor — consider fungicide this week',
@@ -723,33 +733,45 @@
         }
 
         // ── PGR ──────────────────────────────────────────────────
+        // computed.pgr is the curated shape hub-persistence.js actually persists
+        // (success/applicationDate/product/gdd/effect — see its "Saved pgr to cache"
+        // block) — it has no top-level .status field, so gate on gdd.threshold
+        // (present whenever a PGR application is tracked) instead.
         var pgr = computed && computed.pgr;
-        if (pgr && pgr.status && pgr.status !== 'No application') {
+        if (pgr && pgr.gdd && pgr.gdd.threshold) {
             var gdd = pgr.gdd || {};
-            var pct = gdd.accumulated && gdd.threshold
+            var pct = gdd.accumulated != null && gdd.threshold
                 ? Math.round((gdd.accumulated / gdd.threshold) * 100) : null;
             var product = (pgr.product && typeof pgr.product === 'object'
                 ? pgr.product.name : pgr.product) || 'PGR';
+            // reapplicationStatus ('due' at 75% GDD, 'approaching' at 60% — b35fix178c,
+            // Kreuser & Soldat 2011) is the PGR engine's own canonical status, shared
+            // byte-for-byte with the old hub's copy of this module. It's never
+            // literally 'expired' — that's gdd.isOverdue (a separate boolean the
+            // engine already computes).
             var reapp = (pgr.effect && pgr.effect.reapplicationStatus) || '';
-            if (reapp === 'expired' || pct >= 100) {
+            var gddDetail = (gdd.accumulated != null && gdd.threshold != null)
+                ? gdd.accumulated + ' / ' + gdd.threshold + ' GDD' + (pct != null ? ' (' + pct + '%)' : '')
+                : '';
+            if (gdd.isOverdue || pct >= 100) {
                 today.push(aqCard({
                     chips: [{ type: 'pgr', label: 'PGR' }],
                     title: product + ' has expired — reapply',
-                    reason: pct ? gdd.accumulated + ' / ' + gdd.threshold + ' GDD (' + pct + '%)' : '',
+                    reason: gddDetail,
                     commitLabel: 'Commit — apply today'
                 }));
-            } else if (pct != null && pct >= 80) {
+            } else if (reapp === 'due') {
                 week.push(aqCard({
                     chips: [{ type: 'pgr', label: 'PGR' }],
-                    title: product + ' reapplication due (' + pct + '% of interval)',
-                    reason: gdd.accumulated + ' / ' + gdd.threshold + ' GDD',
+                    title: product + ' reapplication due' + (pct != null ? ' (' + pct + '% of interval)' : ''),
+                    reason: gddDetail,
                     commitLabel: 'Commit — schedule reapplication',
                     btnCls: 'amber'
                 }));
             } else if (pct != null) {
                 watching.push(aqCard({
                     title: product + ' · ' + pct + '% of interval',
-                    reason: gdd.accumulated + ' / ' + gdd.threshold + ' GDD',
+                    reason: gddDetail,
                     commitLabel: 'Commit to watching',
                     btnCls: 'grey'
                 }));
@@ -757,22 +779,34 @@
         }
 
         // ── Irrigation ───────────────────────────────────────────
-        var irr = (computed && computed.irrigation) || null;
-        var irrNeed = (m && m.irrigationNeed != null) ? Math.round(m.irrigationNeed) : null;
-        if (irr && irr.weeklyNeed != null) irrNeed = Math.round(irr.weeklyNeed);
-        if (irrNeed != null) {
-            if (irrNeed > 15) {
+        // Old hub triggers off the current water balance deficit, not the coming
+        // week's forecast requirement — a different metric. computed.irrigation is
+        // only ever populated by the selective-recompute path (executeEngine()),
+        // not the main computeAll() pipeline, so it's not reliably present here.
+        // metrics.irrigationDeficit already carries the real deficit (from
+        // GAIP_IrrigationResults.summary.netDeficit, hub-persistence.js — the same
+        // reliable legacy-global fallback chain metrics.irrigationNeed already uses).
+        if (m && m.irrigationDeficit != null) {
+            var depletion = Math.round(m.irrigationDeficit);
+            if (depletion > 20) {
+                today.push(aqCard({
+                    chips: [{ type: 'estimate', label: 'Irrigation' }],
+                    title: 'Irrigate — ' + depletion + 'mm deficit',
+                    reason: 'Water balance deficit exceeds threshold',
+                    commitLabel: 'Commit — irrigate today'
+                }));
+            } else if (depletion > 10) {
                 week.push(aqCard({
                     chips: [{ type: 'estimate', label: 'Irrigation' }],
-                    title: 'Schedule irrigation — ' + irrNeed + 'mm this week',
-                    reason: 'Weekly requirement',
+                    title: 'Schedule irrigation — ' + depletion + 'mm deficit',
+                    reason: 'Water balance deficit building',
                     commitLabel: 'Commit — schedule',
                     btnCls: 'amber'
                 }));
             } else {
                 watching.push(aqCard({
-                    title: 'Irrigation — ' + irrNeed + 'mm weekly requirement',
-                    reason: 'On track',
+                    title: depletion > 0 ? 'Irrigation — ' + depletion + 'mm deficit' : 'Irrigation — on track',
+                    reason: depletion > 0 ? 'Below threshold' : 'Ahead by ' + Math.abs(depletion) + 'mm',
                     commitLabel: 'Commit to watching',
                     btnCls: 'grey'
                 }));
@@ -803,6 +837,49 @@
                 commitLabel: 'Commit to watching',
                 btnCls: 'grey'
             }));
+        }
+
+        // ── Stress trajectory ────────────────────────────────────
+        // Same score already shown on the Stress Index vital card
+        // (hub-persistence.js's metrics.stressIndex reads this exact field) — surfacing
+        // it here too, at the old hub's thresholds, is expected reinforcement, not a
+        // second independent signal.
+        var traj = computed && computed.stressTrajectory;
+        var trajScore = (traj && traj.summary && traj.summary.currentScore != null)
+            ? Math.round(traj.summary.currentScore) : null;
+        if (trajScore != null) {
+            if (trajScore > 70) {
+                today.push(aqCard({
+                    chips: [{ type: 'estimate', label: 'Stress' }],
+                    title: 'Turf stress index is HIGH (' + trajScore + '%)',
+                    reason: 'Multiple stress factors converging',
+                    commitLabel: 'Commit — review mitigation'
+                }));
+            } else if (trajScore > 50) {
+                week.push(aqCard({
+                    chips: [{ type: 'estimate', label: 'Stress' }],
+                    title: 'Turf stress index is ELEVATED (' + trajScore + '%)',
+                    reason: 'Review stress trajectory and mitigation options',
+                    commitLabel: 'Commit — review',
+                    btnCls: 'amber'
+                }));
+            }
+        }
+
+        // ── Sensor staleness ─────────────────────────────────────
+        var canonical = window.GAIP_CANONICAL_STATE;
+        var sensorInfo = canonical && canonical.sensor;
+        if (sensorInfo && sensorInfo.available && sensorInfo.importDate) {
+            var daysSinceImport = Math.floor((Date.now() - new Date(sensorInfo.importDate).getTime()) / 86400000);
+            if (daysSinceImport > 7) {
+                watching.push(aqCard({
+                    title: 'Sensor data is ' + daysSinceImport + ' days old, reimport recommended',
+                    reason: 'Last import: ' + new Date(sensorInfo.importDate).toLocaleDateString() +
+                            ' (' + (sensorInfo.source || 'sensor') + ')',
+                    commitLabel: 'Commit to watching',
+                    btnCls: 'grey'
+                }));
+            }
         }
 
         var total = today.length + week.length + watching.length;
