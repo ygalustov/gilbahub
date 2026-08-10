@@ -947,6 +947,34 @@
           };
           climateSource = "api";
           log("canonical", "Temperature pinned to rawWeatherData (full forecast window): mean=" + _recoveredMean + ", min=" + _recoveredMin + ", max=" + _recoveredMax);
+
+          // Same writer race as temperature above, same fix: humidity written
+          // to global.climateMetrics.moisture.humidity by hub-tissue-v3.js /
+          // climate-engine-v2.js is subject to the identical "whichever
+          // writer ran last" non-determinism. This was the actual cause of
+          // Red Thread's "keeping previous reading" fallback (and Drechslera/
+          // Fusarium's smaller score swings) firing intermittently between
+          // otherwise-identical reruns — not humidity genuinely not having
+          // arrived yet. Recompute directly from the same immutable
+          // rawWeatherData hourly array used for temperature above.
+          var _rawHumidity = _rawHourly.relative_humidity_2m;
+          if (Array.isArray(_rawHumidity) && _rawHumidity.length >= 24) {
+            var _allHumidity = _rawHumidity.filter(function(v) { return v != null; });
+            if (_allHumidity.length >= 24) {
+              var _hSum = 0;
+              for (var _hi = 0; _hi < _allHumidity.length; _hi++) _hSum += _allHumidity[_hi];
+              var _recoveredHumidityMean = parseFloat((_hSum / _allHumidity.length).toFixed(1));
+              var _currentHumidity = _rawHumidity[_currentHour];
+              climateMetrics.moisture = Object.assign({}, climateMetrics.moisture || {}, {
+                humidity: {
+                  mean: _recoveredHumidityMean,
+                  current: (_currentHumidity != null ? _currentHumidity : _recoveredHumidityMean),
+                },
+              });
+              log("canonical", "Humidity pinned to rawWeatherData (full forecast window): mean=" + _recoveredHumidityMean);
+            }
+          }
+
           // hub-persistence.js reads global.climateMetrics.temperature when building
           // cache.computed.climate — write back so it sees the canonical value.
           global.climateMetrics = climateMetrics;
@@ -4199,6 +4227,38 @@
                   "disease",
                   `Red Thread: humidity unavailable this pass, keeping previous reading (${_prevRT.adjustedRisk}%) instead of a data-starved recompute (${_newRT.adjustedRisk}%)`,
                 );
+
+                // apply() already computed overallScore/topThreats (b35fix353b's
+                // MAX-of-validated formula) using Red Thread's fresh, data-starved
+                // value, BEFORE the swap above restored the previous reading — so
+                // if Red Thread was the actual top disease, overallScore/topThreats
+                // would silently still reflect the second-highest disease instead.
+                // Recompute both here with the exact same formula
+                // (disease-stress-climate-coupling.js's own post-coupling recompute
+                // step), now that the array reflects the restored value.
+                coupledResult.diseases.sort((a, b) => (b.adjustedRisk || 0) - (a.adjustedRisk || 0));
+                const _validated = coupledResult.diseases.filter(
+                  (d) =>
+                    d.validationStatus !== "beta" &&
+                    !(d.validationBadge && d.validationBadge.includes("BETA")) &&
+                    d.disease !== "fusarium",
+                );
+                const _safeRisk = (d) => (typeof d.adjustedRisk === "number" && isFinite(d.adjustedRisk) ? d.adjustedRisk : 0);
+                const _pool = _validated.length > 0 ? _validated : coupledResult.diseases;
+                const _newOverall = _pool.length > 0 ? Math.max(..._pool.map(_safeRisk)) : 0;
+                coupledResult.overallScore = _newOverall;
+                if (global.DiseaseEnginePure?.utils?.classifyRisk) {
+                  coupledResult.overallRisk = global.DiseaseEnginePure.utils.classifyRisk(_newOverall);
+                }
+                coupledResult.topThreats = _pool.slice(0, 3).map((d) => ({
+                  disease: d.displayName,
+                  risk: d.adjustedRisk,
+                  level: d.riskLevel,
+                  primaryDriver: d.primaryDriver || Object.keys(d.drivers || {})[0],
+                  regionalMultiplier: d.regionalMultiplier,
+                  nutrientNote: d.nutrientNote || null,
+                  couplingNote: d.couplingNote || null,
+                }));
               }
             }
           } catch (rtErr) {

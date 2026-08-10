@@ -204,6 +204,13 @@ I've also made some general improvements to the Hub.
 +93. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232, GH-233. 
 
 
+
+06/08/2026
++94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
+
+
+
+
 ## Change log
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
 **GH-2** Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
@@ -493,22 +500,20 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-239** Exclude Fusarium from dashboard metrics and disease analysis: Implemented filtering to remove Fusarium from various dashboard components, including the forecast metrics, active threats list, and companion disease surfaces. Updated relevant functions across multiple files to ensure Fusarium is not displayed while retaining its underlying data for reporting purposes. Added tests to validate the exclusion and ensure functionality aligns with client requirements.
 **GH-240** Implement unified disease forecasting: Consolidated disease forecast computation into hub-orchestrator.js, ensuring a single canonical forecast is generated and persisted. Updated disease-analysis.js to read from this unified forecast, eliminating redundant calculations and improving accuracy. Enhanced tests to validate the new forecasting logic and ensure consistent behavior across components.
 **GH-241** Refactor risk level classification in dashboard: Updated risk level thresholds to a 4-tier system (SEVERE, HIGH, MODERATE, LOW) for improved accuracy. Adjusted CSS for better label display and responsiveness, including a new long-label class for wider text. Enhanced dashboard UI elements to accommodate changes in risk level presentation.
-
-
+**GH-241**: Refactor disease risk display and improve dashboard UI: Updated the disease risk calculation to clearly differentiate between current and forecasted values, enhancing clarity in the dashboard. Adjusted CSS styles for alert messages to ensure consistency with other UI elements. Added tests to validate the new risk computation logic and ensure accurate display of disease threats.
 
 
 
 ## Backlog
-91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry
+
+
+10/08/26
++91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry. GH-236, GH-237, GH-238, GH-239, GH-240, GH-241, GH-242.
 
 
 
-06/08/2026
-+94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
 
 
-
-also why disease risk on the dashboard is medium but on the disease page - low
 
 
 

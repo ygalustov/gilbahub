@@ -130,6 +130,74 @@ describe('computeAll Step 6 — Red Thread-specific humidity fallback', () => {
     });
 });
 
+describe('computeAll Step 6 — overallScore/topThreats recompute after the Red Thread swap', () => {
+    // Bug found via live testing: apply() computes overallScore/topThreats
+    // (b35fix353b's MAX-of-validated formula) BEFORE the Red Thread merge
+    // above runs. If Red Thread's fresh, data-starved value was the reason it
+    // *wasn't* the max, restoring its real reading afterward silently left
+    // overallScore/topThreats pointing at the second-highest disease instead
+    // — e.g. dashboard showed "Overall Disease Risk 27% Low" while Red
+    // Thread sat at 59% at the top of Active Threats. Fix: recompute both,
+    // using the identical formula/shape disease-stress-climate-coupling.js's
+    // own post-coupling recompute step already uses, inside the `if
+    // (_prevRT)` branch — only when the swap actually happened.
+    const step6 = extractStep6();
+
+    function extractPrevRTBranch() {
+        const prevRTIfPos = step6.indexOf('if (_prevRT) {');
+        expect(prevRTIfPos).toBeGreaterThan(-1);
+        let depth = 0, begun = false, end = -1;
+        for (let i = prevRTIfPos; i < step6.length; i++) {
+            if (step6[i] === '{') { depth++; begun = true; }
+            if (step6[i] === '}') depth--;
+            if (begun && depth === 0) { end = i + 1; break; }
+        }
+        expect(end).toBeGreaterThan(prevRTIfPos);
+        return step6.slice(prevRTIfPos, end);
+    }
+
+    test('recompute lives inside the if (_prevRT) branch, after the swap, not unconditionally every pass', () => {
+        const branch = extractPrevRTBranch();
+        const swapPos = branch.indexOf('coupledResult.diseases[_rtIdx] = _prevRT;');
+        const recomputePos = branch.indexOf('coupledResult.overallScore = _newOverall;');
+        expect(swapPos).toBeGreaterThan(-1);
+        expect(recomputePos).toBeGreaterThan(swapPos);
+    });
+
+    test('re-sorts diseases by adjustedRisk descending before deriving topThreats (array order may be stale after the swap)', () => {
+        const branch = extractPrevRTBranch();
+        expect(branch).toMatch(/coupledResult\.diseases\.sort\(\(a,\s*b\)\s*=>\s*\(b\.adjustedRisk \|\| 0\)\s*-\s*\(a\.adjustedRisk \|\| 0\)\)/);
+    });
+
+    test('validated pool excludes beta AND fusarium (#91), matching disease-engine-pure.js / disease-stress-climate-coupling.js exactly', () => {
+        const branch = extractPrevRTBranch();
+        expect(branch).toContain("d.validationStatus !== \"beta\"");
+        expect(branch).toContain("d.disease !== \"fusarium\"");
+    });
+
+    test('overallScore is MAX of the validated pool (falls back to all diseases if none validated)', () => {
+        const branch = extractPrevRTBranch();
+        expect(branch).toMatch(/const _pool = _validated\.length > 0 \? _validated : coupledResult\.diseases;/);
+        expect(branch).toMatch(/Math\.max\(\.\.\._pool\.map\(_safeRisk\)\)/);
+    });
+
+    test('overallRisk is reclassified via DiseaseEnginePure.utils.classifyRisk, not left stale', () => {
+        const branch = extractPrevRTBranch();
+        expect(branch).toContain('global.DiseaseEnginePure?.utils?.classifyRisk');
+        expect(branch).toContain('coupledResult.overallRisk = global.DiseaseEnginePure.utils.classifyRisk(_newOverall);');
+    });
+
+    test('topThreats is rebuilt from the same (now-correct) pool, top 3, same field shape as the coupling layer', () => {
+        const branch = extractPrevRTBranch();
+        const topThreatsPos = branch.indexOf('coupledResult.topThreats = _pool.slice(0, 3).map(');
+        expect(topThreatsPos).toBeGreaterThan(-1);
+        const shapeBlock = branch.slice(topThreatsPos, topThreatsPos + 400);
+        expect(shapeBlock).toContain('disease: d.displayName');
+        expect(shapeBlock).toContain('risk: d.adjustedRisk');
+        expect(shapeBlock).toContain('level: d.riskLevel');
+    });
+});
+
 describe('RedThreadModel exposes the humidity value it used (dependency for the merge check above)', () => {
     const rtSrc = fs.readFileSync(
         path.join(__dirname, '../assets/red-thread-model.js'),

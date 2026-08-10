@@ -411,36 +411,37 @@
         }
 
         // Disease Risk
-        // Headline severity = max(current, forecast) — same logic as old hub daily-dashboard.js v1.8.0.
-        // When forecast drives severity, subtitle shows "X% now → Y% forecast" (trajectory format).
+        // Today only — mirrors the Growth Potential card's pattern (% headline,
+        // "today" sub-label). Forecast peak is intentionally NOT blended into
+        // this card's headline/colour anymore (previously showed the worst of
+        // current vs. forecast, which read as one ambiguous number spanning two
+        // different diseases). Forecast, when meaningfully higher than today,
+        // is shown as its own explicitly-labeled line below — always named,
+        // never implied by a "now → forecast" arrow. Full forecast detail still
+        // lives in the side panel (buildDiseasePanel(), opened by clicking this card).
         // Thresholds match disease-engine-pure.js: <50=Low, 50-70=Moderate, 70-85=High, >=85=Severe
         if (m.diseaseRisk != null) {
-            var risk    = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
-            var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
-            var peakDay = m.peakDay;
-            var forecastDriving = peak != null && peak > risk + 5;
+            var risk = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
 
-            var displayRisk = forecastDriving ? peak : risk;
             var level, cls;
-            if      (displayRisk >= 85) { level = 'SEVERE';   cls = 'critical'; }
-            else if (displayRisk >= 70) { level = 'HIGH';     cls = 'critical'; }
-            else if (displayRisk >= 50) { level = 'MODERATE'; cls = 'warning';  }
-            else                        { level = 'LOW';      cls = '';         }
+            if      (risk >= 85) { level = 'Severe';   cls = 'critical'; }
+            else if (risk >= 70) { level = 'High';     cls = 'critical'; }
+            else if (risk >= 50) { level = 'Moderate'; cls = 'warning';  }
+            else                 { level = 'Low';      cls = 'ok';       }
 
             var severityColor = cls === 'critical' ? '#dc2626' : (cls === 'warning' ? '#d97706' : '#16a34a');
 
+            // Main value: today's risk percentage, same style as Growth Potential's headline.
             var dEl = el('db-disease-value');
             if (dEl) {
-                dEl.textContent = level;
-                dEl.className = 'db-vital-main' + (cls ? ' ' + cls : '') + (level.length > 6 ? ' long-label' : '');
+                dEl.textContent = risk + '%';
+                dEl.className = 'db-vital-main' + (cls ? ' ' + cls : '');
             }
 
-            // Subtitle: trajectory "X% now → Y% forecast" when forecast drives severity, else "X% today"
-            if (forecastDriving) {
-                setText('db-disease-today', risk + '% now → ' + peak + '% forecast');
-            } else {
-                setText('db-disease-today', risk + '% today');
-            }
+            // Sub-label: "Today" + which disease is driving it, one line —
+            // mirrors Stress Index's "Driven by: X" pattern instead of a
+            // separate name-row below the bar.
+            setText('db-disease-today', m.topDisease ? ('Today · ' + m.topDisease) : (level + ' · Today'));
 
             // Bar: current risk width, severity color
             var dBar = el('db-disease-bar');
@@ -449,29 +450,24 @@
                 dBar.style.background = severityColor;
             }
 
-            // Disease name dot — matches severity color
+            // Name row is no longer used — driver name now lives in the sub-label above.
             var nameRowEl = el('db-disease-name-row');
-            var nameDotEl = el('db-disease-name-dot');
-            if (m.topDisease && nameRowEl) {
-                var nameEl = el('db-disease-name');
-                if (nameEl) nameEl.textContent = m.topDisease + ' ' + risk + '%';
-                // Dot reflects CURRENT risk of this disease, not forecast severity
-                var dotColor = risk >= 70 ? '#dc2626' : (risk >= 50 ? '#d97706' : '#16a34a');
-                if (nameDotEl) nameDotEl.style.color = dotColor;
-                nameRowEl.style.display = '';
-            } else if (nameRowEl) {
-                nameRowEl.style.display = 'none';
-            }
+            if (nameRowEl) nameRowEl.style.display = 'none';
 
-            // Alert row: shown when forecast disease differs from current top disease
+            // Forecast line — the only line below the bar, mirrors the footer
+            // slot other vital cards use (Growth Potential's 8-day avg,
+            // Stress Index's trend). Always names the disease driving it
+            // (whether it's the same one as above or different).
             var alertEl = el('db-disease-alert');
             if (alertEl) {
-                var fcDiffers = m.forecastDisease && m.forecastDisease !== m.topDisease;
-                if (forecastDriving && fcDiffers && peakDay != null) {
-                    var fcShort = m.forecastDisease.replace(/\s*\([^)]*\)/g, '');
-                    var dayLabel = peakDay === 0 ? 'today' : peakDay === 1 ? 'tomorrow' : 'in ' + peakDay + ' days';
-                    alertEl.textContent = '⚠ ' + fcShort + ' ' + peak + '% ' + dayLabel;
-                    alertEl.style.color = severityColor;
+                var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
+                var peakDay = m.peakDay;
+                if (peak != null && peak >= risk + 5 && peakDay != null) {
+                    var fcName    = (m.forecastDisease || m.topDisease || 'Disease').replace(/\s*\([^)]*\)/g, '');
+                    var dayLabel  = peakDay === 0 ? 'today' : peakDay === 1 ? 'tomorrow' : 'in ' + peakDay + ' days';
+                    var peakColor = peak >= 70 ? '#dc2626' : (peak >= 50 ? '#d97706' : '#16a34a');
+                    alertEl.textContent = 'Forecast: ' + fcName + ' ' + peak + '% ' + dayLabel;
+                    alertEl.style.color = peakColor;
                     alertEl.style.display = '';
                 } else {
                     alertEl.style.display = 'none';
@@ -577,8 +573,12 @@
         var risk    = m.diseaseRisk > 1 ? Math.round(m.diseaseRisk) : Math.round(m.diseaseRisk * 100);
         var peak    = m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
         var disease = m.topDisease || 'Disease';
-        // Use worst-case (current or forecast) for color/severity — same logic as vital card
-        var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
+        // Forecast counts as "meaningfully higher" at a >=5pp margin — same
+        // threshold as the vital card's forecast line (db-disease-alert),
+        // inclusive so a margin of exactly 5 doesn't fall through to a
+        // different (ungated) code path than the card uses.
+        var forecastDriving = peak != null && peak >= risk + 5;
+        var displayRisk = forecastDriving ? peak : risk;
         // 4-tier thresholds (85/70/50) matching disease-engine-pure.js's
         // classifyRisk() and the vital-card/panel levels above — was
         // previously a coarser 3-tier scheme (50/25) with its own "MEDIUM"
@@ -588,7 +588,7 @@
         var cls   = displayRisk >= 70 ? 'critical' : (displayRisk >= 50 ? 'warning' : 'ok');
 
         var txt;
-        if (peak != null && peak > risk + 5 && m.peakDay != null) {
+        if (forecastDriving && m.peakDay != null) {
             var dayLabel = m.peakDay === 1 ? '1 day' : m.peakDay + ' days';
             var fcDisease = m.forecastDisease && m.forecastDisease !== m.topDisease
                 ? m.forecastDisease.replace(/\s*\([^)]*\)/g, '')
@@ -600,10 +600,11 @@
                 txt = disease + ' — ' + risk + '% now, forecast ' + peak + '% in ' + dayLabel;
             }
         } else {
+            // Below the margin (or no forecast at all) — today only, same as
+            // the vital card in this state. No ungated forecast append here
+            // anymore: that used to show forecast text even when the >=5pp
+            // margin wasn't met, disagreeing with the card right below it.
             txt = disease + ' risk ' + level + ' (' + risk + '%)';
-            if (peak != null && m.peakDay != null) {
-                txt += ' — forecast ' + peak + '% in ' + m.peakDay + ' day' + (m.peakDay !== 1 ? 's' : '');
-            }
         }
         setText('db-verdict-text', txt);
         if (bar) { bar.className = 'db-verdict ' + cls; bar.style.display = ''; }
@@ -886,7 +887,8 @@
             needleEl.style.display = '';
         }
 
-        // Update footer message
+        // Update footer message — hidden by default (blade) when there's no
+        // sensor data; only shown once we actually have something to say.
         var msgEl = document.getElementById('db-vwc-msg');
         if (msgEl) {
             var nSensors = readings.length;
@@ -898,6 +900,7 @@
             } else {
                 msgEl.innerHTML = 'Above target — monitor drainage' + badge;
             }
+            msgEl.style.display = '';
         }
 
         // Override GP footer with live soil temp if available
@@ -1282,20 +1285,17 @@
 
     /* ── Disease Risk ── */
     function buildDiseasePanel(m, c) {
-        var diseases    = c && c.disease && c.disease.diseases ? c.disease.diseases : null;
-        var risk        = m && m.diseaseRisk  != null ? (m.diseaseRisk  > 1 ? Math.round(m.diseaseRisk)  : Math.round(m.diseaseRisk  * 100)) : 0;
-        var peak        = m && m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
-        var displayRisk = (peak != null && peak > risk + 5) ? peak : risk;
-        var level, cls;
-        if      (displayRisk >= 85) { level = 'SEVERE';   cls = 'critical'; }
-        else if (displayRisk >= 70) { level = 'HIGH';     cls = 'critical'; }
-        else if (displayRisk >= 50) { level = 'MODERATE'; cls = 'warning';  }
-        else                        { level = 'LOW';      cls = 'ok';       }
+        var diseases = c && c.disease && c.disease.diseases ? c.disease.diseases : null;
+        var risk     = m && m.diseaseRisk  != null ? (m.diseaseRisk  > 1 ? Math.round(m.diseaseRisk)  : Math.round(m.diseaseRisk  * 100)) : 0;
+        var peak     = m && m.forecastPeak != null ? (m.forecastPeak > 1 ? Math.round(m.forecastPeak) : Math.round(m.forecastPeak * 100)) : null;
 
-        var heroSub = (peak != null && peak > risk + 5)
-            ? risk + '% now → ' + peak + '% forecast'
-            : risk + '% overall risk';
-        var html = panelHero(level, cls + (level.length > 6 ? ' long-label' : ''), heroSub);
+        // Hero mirrors the vital-card: today's percentage (not a max(current,
+        // forecast) word), sub-label names today's driving disease. Forecast
+        // has its own clearly-labeled "Forecast" section below — no blended
+        // "X% now → Y% forecast" arrow here either.
+        var cls = risk >= 70 ? 'critical' : (risk >= 50 ? 'warning' : 'ok');
+        var heroSub = m && m.topDisease ? ('Today · ' + m.topDisease) : 'Today';
+        var html = panelHero(risk + '%', cls, heroSub);
 
         var makeRow = function (name, cur, pk, pd, tw) {
             var pct  = cur || 0;

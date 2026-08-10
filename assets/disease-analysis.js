@@ -341,14 +341,18 @@
         };
     }
 
+    function diseaseScore(d) {
+        // diseases[] uses adjustedRisk/riskScore; topThreats[] uses risk
+        return d.adjustedRisk != null ? d.adjustedRisk
+             : (d.riskScore   != null ? d.riskScore
+             : (d.risk        != null ? d.risk : 0));
+    }
+
     function filterDiseases(diseases) {
         return diseases.filter(function (d) {
             // diseases[] uses riskLevel; topThreats[] uses level
             var r     = ((d.riskLevel || d.level) || '').toLowerCase();
-            // diseases[] uses adjustedRisk/riskScore; topThreats[] uses risk
-            var score = d.adjustedRisk != null ? d.adjustedRisk
-                      : (d.riskScore   != null ? d.riskScore
-                      : (d.risk        != null ? d.risk : 0));
+            var score = diseaseScore(d);
             // inWindow alone is not enough to show a disease: require score > 0
             // to avoid showing 0% diseases (e.g. Spring Dead Spot on bentgrass)
             // that have a stale treatment window in the cache
@@ -359,6 +363,8 @@
             // not a blanket unvalidated-model exclusion.
             return r !== 'none' && r !== '' && score > 0 && d.disease !== 'fusarium';
         });
+        // Sort-by-risk was tried here and reverted — turned out unstable in
+        // practice (see session notes). Revisit later.
     }
 
     // ── Alert banner ──────────────────────────────────────────────────────────

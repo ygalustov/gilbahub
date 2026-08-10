@@ -524,9 +524,12 @@ body { margin: 0; padding: 0; }
 .db-vital-sub strong { color: var(--gaip-text-secondary, #3d5c4a); }
 
 .db-vital-alert {
-    font-size: 12px;
-    font-weight: 600;
+    font-size: 11px; /* matches .db-vital-footer — same footer slot on neighboring cards */
+    font-weight: 400; /* matches .db-vital-footer's normal weight; color alone signals severity */
     color: #d97706; /* fallback; overridden per-severity by JS */
+    margin-top: auto;
+    padding-top: 6px;
+    border-top: 1px solid var(--gaip-border-light, #dde7e2);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1478,6 +1481,7 @@ body { margin: 0; padding: 0; }
     .db-vital-card { min-height: 110px; padding: 12px 8px; }
     .db-vital-main { font-size: 26px; }
     .db-vital-footer { font-size: 10px; }
+    .db-vital-alert  { font-size: 10px; }
     .db-vital-sub    { font-size: 11px; }
 
     /* Data Sources — 2-column grid on mobile */

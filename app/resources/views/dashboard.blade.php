@@ -177,7 +177,7 @@
                         <div class="db-vital-sub" style="font-size:10px;color:var(--gaip-text-muted)">
                             Target: <strong style="color:var(--gaip-accent)">15–25%</strong>
                         </div>
-                        <div class="db-vital-footer" id="db-vwc-msg"></div>
+                        <div class="db-vital-footer" id="db-vwc-msg" style="display:none"></div>
                     </div>
 
                     {{-- Irrigation Plan --}}
