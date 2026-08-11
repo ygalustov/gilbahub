@@ -7406,9 +7406,21 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     // Safety fallback: if gaip:site-config-applied never fires (e.g. SampleManager
-    // unavailable, first visit with no saved config), unblock after 4.5s.
-    // site-config-persistence boots at DOMContentLoaded+500ms, inits after
-    // SampleManager check, then fires at 3000ms+450ms = ~4s. Give 500ms headroom.
+    // unavailable, first visit with no saved config), unblock after it should have.
+    //
+    // b35fix253 (site-config-persistence.js) documents a real slow path: when the
+    // site's config isn't yet cached locally, restoreDelay=3000ms + a 1600ms restore
+    // cascade = 4600ms before the real event fires. This fallback must wait longer
+    // than that, with real margin — it must NOT try to shortcut by checking a single
+    // partial signal (e.g. whether coordinates are already in the DOM). Coordinates
+    // can be left over from a *previous* site (visible during multi-site switching)
+    // and populate well before turf identity (species/turfType) is actually restored
+    // for the current site. Firing early on that false signal was tried and caused a
+    // real regression: the analysis ran with stale/default species before
+    // TurfProfileController finished restoring it, producing a wrong Growth Potential
+    // that then got "locked in" by the ClimateEngine v2 preservation shim and survived
+    // into the later, correctly-identified re-run (disease risk recalculated right,
+    // GP stuck wrong). So: no shortcuts — just wait long enough for the real event.
     document.addEventListener("DOMContentLoaded", function() {
         setTimeout(function() {
             if (!_autoRunFired) {
@@ -7418,7 +7430,7 @@ document.addEventListener("DOMContentLoaded", function() {
                 _siteSamplesReady = true;
                 triggerAutoRun();
             }
-        }, 4500);
+        }, 6000);
     });
 })();
 

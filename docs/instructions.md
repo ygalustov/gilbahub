@@ -209,6 +209,8 @@ I've also made some general improvements to the Hub.
 +94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
 
 
+11/08/26
++91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry. GH-236, GH-237, GH-238, GH-239, GH-240, GH-241, GH-242.
 
 
 ## Change log
@@ -502,13 +504,34 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-241** Refactor risk level classification in dashboard: Updated risk level thresholds to a 4-tier system (SEVERE, HIGH, MODERATE, LOW) for improved accuracy. Adjusted CSS for better label display and responsiveness, including a new long-label class for wider text. Enhanced dashboard UI elements to accommodate changes in risk level presentation.
 **GH-241**: Refactor disease risk display and improve dashboard UI: Updated the disease risk calculation to clearly differentiate between current and forecasted values, enhancing clarity in the dashboard. Adjusted CSS styles for alert messages to ensure consistency with other UI elements. Added tests to validate the new risk computation logic and ensure accurate display of disease threats.
 **GH-242** Enhance dashboard disease risk calculations and irrigation metrics: Updated disease risk logic to filter out beta validation status and Fusarium, adjusting risk thresholds for alerts. Improved irrigation deficit handling by utilizing accurate metrics for scheduling irrigation actions. Added detailed comments for clarity on data handling and logic flow.
-
+**GH-243** Update fallback timing for site configuration and enhance comments for clarity: Adjusted the timeout for unblocking site configuration from 4500ms to 6000ms to ensure proper event firing. Improved comments to detail the rationale behind the timing and prevent potential regressions related to stale data during multi-site switching.
 
 ## Backlog
 
+234. the UI species is not propagating to the threshold layer, which is keying off the lab sample-type string. Sample type is “TURF Ryegrass, Sand (S277)”; the Phytotoxicity section is explicitly rated “for Perennial Ryegrass (moderate sensitivity)”. Browntop is more salt- and B-sensitive than ryegrass, so those thresholds are too lenient.
+235. Green 13’s Ca deficit is being silently dropped. Status reads “Suppressed (dolomite covers)” for a 336 kg/ha Ca deficit, but Green 13 has no dolomite anywhere in its product summary, monthly schedule, or the purchasing summary. The Mg branch declined to fire (0.2 kg deficit, “Monitor”), so the Ca suppression is referencing a sibling recommendation that never ran.
+237. Gate all Mulder’s antagonism flags on absolute level: no antagonism call unless the numerator nutrient is at or above its own sufficiency threshold.
+238. The report projects dispersion, infiltration loss in 6-12 months, and gypsum at 2-4 t/ha. Measured soil Na is 12 ppm = 0.052 me/100g = ESP 1.3%, against your own glossary’s 6% sodic threshold. On a CEC-4 sand there is no clay to disperse. Add a gate: cross-check measured soil Na/ESP before issuing any dispersion warning, and suppress the structural narrative on sand rootzones.
+239. EC is called too high and too low in the same report. “EC 1.20 dS/m is in the marginal range” (salinity concern) and “elevated SAR with relatively low EC (1.2)” (dispersion concern). The SAR 3-6 / EC >1.2 cell is “no restriction on infiltration”.
+240. Trace values are identical across all three greens (Fe 120, Mn 23, Zn 2, Cu 0.5, B 1, S 25, Na 12, OM 4.6, EC 0.12).
+241. The Zone Comparison legend and Zone Issues Summary are written entirely in MLSN language (“below MLSN minimum”) while the body spends three pages, three times, explaining that MLSN cannot be applied to this data
+242. source the AA ranges to Hill Labs not Turner & Hummel 1992
+243. Nutrient Trend Analysis: green 18” appears inside Green 1’s block, three lines after Green 1 is declared to have no trend history. Green 18’s own block has no trend section. Zone bleed.
+244. Growth potential errors. Monthly Schedule: Jan 24%, Mar 98%, Jul 0%, Nov 98%. Monthly N Distribution: Jan 66%, Mar 94%, Jul 19%, Nov 98%. Climate box: 9% at 7.0°C. None reproduce a standard PACE C3 curve for Christchurch. At Jan mean 17.4°C, exp(−0.5((T−20)/5.5)²) gives 89%; at Jul 6.0°C, 4%; at 7.0°C, 6% (the box’s 9% implies sd = 6.0). Jan at 24% for Christchurch is a hemisphere or optimum-temperature fault.
+245. - md file
+246. pc version. why is ammos 22 (nitro 22) and Ammos 22 (Nitro 22) (Balance) two line entries? same product - docx file
+247. no trend analysis in pc version
 
-10/08/26
-+91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry. GH-236, GH-237, GH-238, GH-239, GH-240, GH-241, GH-242.
+248 IMPORTANT - 4 files
+1.⁠ ⁠Section 4.2 is the diagnostic that narrows the search. Comparing the two exports generated on 8 Aug, exactly two sample subtitles changed after the manual save, and they are exactly the two panels that were edited: the species flipped from “Browntop Bent (Greens)” to the raw enum “browntopBent”. So the save did reach the record the export reads. The species field updated and the measurements did not. That points at a partial write or a field-name mismatch between the write and read paths, not a cache. It rules out most of the obvious explanations before anyone opens a debugger.
+2.	Boron is the only measurement field that agrees, in either panel. If field mapping is the fault, boron may be the one key that maps correctly on both paths, which would identify the rule immediately. Worth checking before anything else.
+3.	Check 5.2 is the fastest disambiguation. Reload the page, reopen the form. If it shows 1.2 and 123 rather than 0.16 and 17, the write never landed and the UI was showing local state. If it shows the entered values, the write is fine and the export query is wrong. Different fault, different fix, and one page reload separates them.
+
+
+249 uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
+
+
+
 
 
 
@@ -541,7 +564,13 @@ Phytotoxicity добавляет новый расчёт в оркестрато
 
 Heat/Frost/Drought — единственное, что трогает уже используемый другими частями объект, но только путём добавления новых полей, не изменения существующих.
 
+оба только в tasks block. Но с нюансом:
 
+Phytotoxicity — чисто изолированно. Новое поле computed.phytotoxicity, которое сегодня никто не читает и после подключения будет читать только очередь задач. Ничего общего с другими карточками/расчётами.
+
+Heat/Frost/Drought — эффект тоже только в tasks block, но реализация технически трогает общий объект computed.stress — тот же самый, который читает disease-stress-climate-coupling.js для корректировки риска болезней, и откуда берутся combinedGrowthModifier/environmentalStressIndex (влияют на Growth Potential и другие карточки). Я проверяла: coupling-движок реагирует только на конкретные типы (drought/shade/waterlogging/temperature), не на heat/frost — значит, если только добавлять новые поля и не трогать существующие расчёты, побочных эффектов не будет.
+
+То есть по замыслу — да, оба только tasks block. Но у heat/frost/drought выше цена ошибки при реализации (общий объект с несколькими потребителями), поэтому в плане для него отдельно прописана проверка "до/после" на coupling — не потому что он ДОЛЖЕН что-то ещё затронуть, а чтобы гарантированно НЕ затронул.
 
 All popups - should be with new UI (like in the settings when moving to another page/tab)
 
