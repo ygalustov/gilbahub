@@ -130,7 +130,9 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         );
         // Combined-export must pass siteUniformCaption: true so the helper
         // appends the explanatory caption.
-        const callRe = /we\._buildMonthlyNDistribution\([\s\S]{0,500}?\)/;
+        // Window widened past 500 chars (Hoxton audit D02/D03 fix added
+        // climateDataUnavailable/climateNormalsSource to the opts object).
+        const callRe = /we\._buildMonthlyNDistribution\([\s\S]{0,800}?\)/;
         const m = combinedSrc.match(callRe);
         expect(m).toBeTruthy();
         expect(m[0]).toMatch(/siteUniformCaption:\s*true/);

@@ -505,6 +505,11 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-241**: Refactor disease risk display and improve dashboard UI: Updated the disease risk calculation to clearly differentiate between current and forecasted values, enhancing clarity in the dashboard. Adjusted CSS styles for alert messages to ensure consistency with other UI elements. Added tests to validate the new risk computation logic and ensure accurate display of disease threats.
 **GH-242** Enhance dashboard disease risk calculations and irrigation metrics: Updated disease risk logic to filter out beta validation status and Fusarium, adjusting risk thresholds for alerts. Improved irrigation deficit handling by utilizing accurate metrics for scheduling irrigation actions. Added detailed comments for clarity on data handling and logic flow.
 **GH-243** Update fallback timing for site configuration and enhance comments for clarity: Adjusted the timeout for unblocking site configuration from 4500ms to 6000ms to ensure proper event firing. Improved comments to detail the rationale behind the timing and prevent potential regressions related to stale data during multi-site switching.
+**GH-244** Enhance debugging output for disease-stress-climate coupling: Added detailed console logs in disease-stress-climate coupling and hub orchestrator files to track state and metrics during execution. Improved site configuration restoration logic to handle latitude and longitude more effectively, ensuring accurate location data is maintained across site switches. Updated comments for clarity on changes made.
+**GH-245** Add GilbaClimateNormalsService (NASA POWER climatology → Open-Meteo fallback → null, never a fabricated latitude-band guess) as the real source for Monthly N Distribution / Monthly Schedule / Nutrition Program, replacing two prior fallbacks that fabricated a regional profile whenever real data wasn't wired up (Hoxton audit D01-D03). Follow-up 2: pre-resolve climate normals per-site (not just the active one) before combined multi-site export. Follow-up 3: distinguish *why* climate data is unavailable in export disclaimers and logs — no coordinates configured for the site, the climate service/fetch not having resolved yet, or NASA POWER + Open-Meteo genuinely both failing — instead of one generic message for all three; also fixed combined export's Monthly Schedule using the last-active site's climate data for every sample instead of each sample's own.
+
+
+
 
 ## Backlog
 
@@ -529,9 +534,21 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 249 uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
+D01 - D03 GP. 
 
 
 
+
+
+
+
+
+
+
+
+
+
+also if I generate new report and it wasnt generated with message that data is unavailable - old data program should be removed - as it is not relevant
 
 
 why do you write comment like b35fixNEW?

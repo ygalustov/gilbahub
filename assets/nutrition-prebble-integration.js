@@ -254,6 +254,23 @@
          * Generate product program from calendar data
          */
         generateAndRender: function(calendarData) {
+            // GH-245: calendar.program is null when NutritionCalendar
+            // couldn't resolve real monthly climate normals (Hoxton audit
+            // D02/D03). Say so here rather than falling through to
+            // generateProgram()'s generic "Invalid calendar data" error with
+            // no panel message at all. Message kept non-technical.
+            if (!calendarData) {
+                const _unavailEl = document.querySelector('[data-prebble-recommendations]');
+                if (_unavailEl) {
+                    _unavailEl.style.display = '';
+                    _unavailEl.innerHTML = '<div class="gilba-nut-banner gilba-nut-banner--warning">' +
+                        '<strong>Climate data unavailable</strong> We couldn\'t load climate data for this site. ' +
+                        'Please try again in a moment.' +
+                        '</div>';
+                }
+                return;
+            }
+
             // v1.0.3: Sync soil data from DOM to GAIP_STATE first
             this.syncSoilState();
             
@@ -304,6 +321,7 @@
                 var _nc = window.GilbaNutritionCalendar;
                 program._generatedForSite = (_nc && _nc.getActiveSiteId && _nc.getActiveSiteId()) || 'unknown';
                 window.GAIP_NUTRITION_PROGRAM = program;
+                window.GAIP_NUTRITION_PROGRAM_UNAVAILABLE = false;
 
                 // Persist the generated program to the per-site server config so it
                 // survives navigation to Reports > Export, which loads a fresh page

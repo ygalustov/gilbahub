@@ -969,6 +969,33 @@
       } finally {
         this._fetchInProgress = false;
       }
+
+      // Monthly climate normals are a separate concern from the live/forecast
+      // weather above — resolved once per site (cached), not on the periodic
+      // refresh cycle. Fire-and-forget: must not block or fail the live fetch.
+      this.ensureMonthlyNormals(lat, lon).catch(err => {
+        console.error('[ClimateFetchCoordinator] ensureMonthlyNormals failed:', err);
+      });
+    },
+
+    /**
+     * GH-245 (Hoxton audit D01-D03): resolve monthly climate normals for the
+     * active site. Delegates to window.GilbaClimateNormalsService
+     * (climate-normals-service.js) —
+     * the fetch/cache/writeback logic lives there, standalone, so pages
+     * that need Monthly Schedule but don't load climate-engine-v2.js or
+     * its GilbaHub dependency (plan.blade.php is deliberately lightweight)
+     * still get real climate normals. This coordinator just triggers it
+     * at the same time it triggers the live weather fetch.
+     */
+    async ensureMonthlyNormals(lat, lon) {
+      const svc = window.GilbaClimateNormalsService;
+      if (!svc || typeof svc.ensure !== 'function') {
+        console.warn('[ClimateFetchCoordinator] GilbaClimateNormalsService not loaded — ' +
+          'add climate-normals-service.js to this page\'s script list.');
+        return;
+      }
+      return svc.ensure(lat, lon);
     },
 
     /**
@@ -1136,6 +1163,7 @@
     hub.climate = {
       engine: ClimateEngine,
       dataService: ClimateDataService,
+      normalsService: window.GilbaClimateNormalsService,
       coordinator: ClimateFetchCoordinator,
       // Expose pure functions for testing
       calcGPP,

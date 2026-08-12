@@ -208,6 +208,7 @@
 @php
     $hubScripts = [
         'gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-engine.js','climate-engine-v2.js',
+        'climate-normals-service.js', // GH-245 (Hoxton audit D01-D03)
         'gaip-utils.js','species-controller.js','identity-enforcement.js','climate-engine.js',
         'weather-resilience.js','ambient-dli-engine.js','ambient-dli-integration.js',
         'gaip-soil-temp-integration.js','regional-profiles.js','gilba-variety-traits.js',

@@ -757,6 +757,25 @@
         },
 
         generateAndRender: function(calendarData) {
+            // GH-245: calendar.program is null when NutritionCalendar
+            // couldn't resolve real monthly climate normals (Hoxton audit
+            // D02/D03). Without this guard, calendarData.program below
+            // throws on null — this integration read calendarData.program
+            // directly with no null-check, unlike the AU/NZ/Prebble
+            // siblings. Say so in the panel instead of crashing. Message
+            // kept non-technical — client-facing panel.
+            if (!calendarData) {
+                var _unavailEl = document.querySelector('[data-uk-fertiliser-recommendations]');
+                if (_unavailEl) {
+                    _unavailEl.style.display = '';
+                    _unavailEl.innerHTML = '<div class="gilba-nut-banner gilba-nut-banner--warning">' +
+                        '<strong>Climate data unavailable</strong> We couldn\'t load climate data for this site. ' +
+                        'Please try again in a moment.' +
+                        '</div>';
+                }
+                return;
+            }
+
             var context = {
                 surfaceType: this.getSurfaceType(),
                 methodology: this.getMethodology(calendarData)
@@ -826,6 +845,7 @@
                 // reads window.GAIP_NUTRITION_PROGRAM (see nutrition-au/prebble-integration.js),
                 // so the UK Nutrition Program section was silently always empty in Word exports.
                 window.GAIP_NUTRITION_PROGRAM = program;
+                window.GAIP_NUTRITION_PROGRAM_UNAVAILABLE = false;
 
                 // Persist the generated program to the per-site server config so it
                 // survives navigation to Reports > Export, which loads a fresh page

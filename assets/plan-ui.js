@@ -41,6 +41,11 @@
             title: 'Nutrition Program',
             body:  'Annual fertiliser programme distributed across 12 months. Nitrogen is weighted by monthly Growth Potential (GP) — high-GP months receive more N to match plant demand. Other nutrients (P, K, Ca, Mg, S) are calculated as ratios of the N requirement based on MLSN/SLAN targets.'
         },
+        // GH-245 (Hoxton audit D01-D03)
+        'monthly-climate-normals': {
+            title: 'Monthly Climate Normals',
+            body:  'The temperatures behind this table are long-term monthly climate normals for this site\'s coordinates, not live weather — sourced from NASA POWER climatology, or the Open-Meteo archive average if NASA POWER is unavailable. Live current conditions are shown separately on the Dashboard.'
+        },
         'annual-n-target': {
             title: 'Annual N Target',
             body:  'Total kg of nitrogen per hectare per year. Typical ranges:\n• Fine turf (greens/bowls): 80–150 kg N/ha\n• Tees / pitches: 120–180 kg N/ha\n• Sports pitches: 180–350 kg N/ha\n• Lawns: 60–120 kg N/ha'

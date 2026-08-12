@@ -732,57 +732,32 @@
     };
 
     /**
-     * Extract monthly temperatures from various sources
+     * GH-245: extract monthly temperatures from real climate normals.
+     *
+     * Real data (NASA POWER climatology, then Open-Meteo archive average as
+     * fallback — resolved by ClimateFetchCoordinator.ensureMonthlyNormals in
+     * climate-engine-v2.js) is keyed 1-12 (Jan=1). This file's internal
+     * convention is 0-11 (Jan=0) throughout calculateMonthlyGP and the
+     * calendar renderers — re-index once here so every downstream consumer
+     * keeps working unchanged.
+     *
+     * Returns null — never a latitude-guessed regional profile — when
+     * neither real source has resolved. Callers must treat null as "climate
+     * data unavailable" and show that explicitly. The previous fallback
+     * (mean temp by latitude band + cosine seasonal amplitude) produced a
+     * fabricated profile that was wrong by design for maritime sites like
+     * Auckland — see the Hoxton audit, D03.
      */
     NutritionCalendar.extractMonthlyTemps = function(climate, state) {
-        // Try climate engine monthly temps
-        if (climate.monthlyTemps && Object.keys(climate.monthlyTemps).length === 12) {
-            return climate.monthlyTemps;
-        }
-        
-        // Try state.climate
-        if (state.climate?.monthlyTemps) {
-            return state.climate.monthlyTemps;
-        }
-        
-        // Generate from latitude (fallback)
-        // DOM is authoritative — climateMetrics.latitude may be stale from prior site.
-        const _domLat = parseFloat(document.querySelector('.gaip-lat')?.value);
-        const rawLat = (!isNaN(_domLat) && _domLat !== 0 ? _domLat : null) ||
-                       climate.latitude ||
-                       null;
-        const absLat = rawLat !== null ? Math.abs(rawLat) : 20; // 20 tropical default
-        const isSouthern = rawLat !== null ? rawLat < 0 : false;
-        return this.estimateMonthlyTemps(absLat, isSouthern);
-    };
+        const real = (climate.monthlyTemps && Object.keys(climate.monthlyTemps).length === 12)
+            ? climate.monthlyTemps
+            : (state.climate?.monthlyTemps || null);
 
-    /**
-     * Estimate monthly temps from latitude
-     */
-    NutritionCalendar.estimateMonthlyTemps = function(absLat, isSouthern) {
-        // Mean annual temperature by latitude band (northern hemisphere reference)
-        // Tropics (0-15°): ~27°C mean | Subtropics (15-30°): ~22°C | Temperate (30-45°): ~15°C | Cool (45+): ~8°C
-        let meanTemp;
-        if (absLat < 15)       { meanTemp = 27; }
-        else if (absLat < 25)  { meanTemp = 24; }
-        else if (absLat < 35)  { meanTemp = 18; }
-        else if (absLat < 45)  { meanTemp = 13; }
-        else                   { meanTemp = 7; }
+        if (!real) return null;
 
-        // Seasonal amplitude: near zero at equator, ~12°C at 35°, ~18°C at 50°+
-        // amplitude = 0.5 * (max_monthly_T - min_monthly_T)
-        const amplitude = Math.max(1, Math.min(18, absLat * 0.42 - 2));
-
-        const temps = {};
-        for (let m = 0; m < 12; m++) {
-            // For northern hemisphere: peak warmth July (m=6), trough January (m=0)
-            // cos(0) = 1 at m=6 (NH summer) when monthOffset=0
-            const monthOffset = isSouthern ? 6 : 0;
-            const adjustedMonth = (m + monthOffset) % 12;
-            const factor = Math.cos((adjustedMonth - 6) * Math.PI / 6);
-            temps[m] = meanTemp + amplitude * factor;
-        }
-        return temps;
+        const reindexed = {};
+        for (let m = 0; m < 12; m++) reindexed[m] = real[m + 1];
+        return reindexed;
     };
 
     /**
@@ -899,10 +874,14 @@
      * Calculate monthly GP values
      */
     NutritionCalendar.calculateMonthlyGP = function(monthlyTemps, isC4) {
+        // GH-245: defensive — computeProgram() already guards
+        // climateDataUnavailable before reaching here, but never silently
+        // treat a missing month as 15degC (Hoxton audit D02/D03 root cause).
+        if (!monthlyTemps) return null;
         const gp = {};
         for (let m = 0; m < 12; m++) {
-            const temp = monthlyTemps[m] || 15;
-            gp[m] = this.calculateGP(temp, isC4);
+            if (typeof monthlyTemps[m] !== 'number') return null;
+            gp[m] = this.calculateGP(monthlyTemps[m], isC4);
         }
         return gp;
     };
@@ -1121,6 +1100,17 @@
             return { error: 'Annual N target required (>= 50 kg/ha)' };
         }
 
+        // GH-245: no real monthly climate normals resolved — do not compute
+        // a monthly program against a fabricated regional guess. Hoxton
+        // audit D02/D03. GH-245 follow-up 3: carry along why (site has no
+        // coordinates, the fetch hasn't resolved yet, or NASA POWER and the
+        // Open-Meteo fallback both genuinely failed) — callers that only
+        // ever set monthlyTemps default to the last of those, the original
+        // documented case.
+        if (!inputs.monthlyTemps) {
+            return { climateDataUnavailable: true, climateDataUnavailableReason: inputs.monthlyTempsUnavailableReason || 'fetch-failed' };
+        }
+
         const baseAnnualN = inputs.annualNOverride;
 
         // Traffic modifier - only applies if explicitly high/extreme
@@ -1311,6 +1301,10 @@
         }
 
         const program = this.computeProgram(inputs);
+        if (program.climateDataUnavailable) {
+            this.renderClimateUnavailableBanner();
+            return;
+        }
         if (program.error) {
             console.warn('[NutritionCalendar]', program.error);
             return;
@@ -1443,6 +1437,32 @@
         `;
     };
 
+    /**
+     * GH-245: shown instead of the monthly table when neither real
+     * climate-normals source (NASA POWER, Open-Meteo fallback) resolved for
+     * this site. No fabricated Monthly Schedule is rendered — see Hoxton
+     * audit D03. Message is deliberately non-technical (client-facing) —
+     * source/provenance detail lives in the opt-in "i" tooltip instead.
+     */
+    NutritionCalendar.renderClimateUnavailableBanner = function() {
+        const calendar = this.elements.calendar;
+        this.program = null;
+        // Read by every product recommender (AU/NZ/UK/Prebble integrations)
+        // that consumes calendar.program — they receive null and must not
+        // treat that as "just no program yet". Also read by word-export.js
+        // so the docx Nutrition Program section explains the gap instead of
+        // silently vanishing. Cleared by each recommender once it produces a
+        // real program again. See Hoxton audit D02/D03.
+        window.GAIP_NUTRITION_PROGRAM_UNAVAILABLE = true;
+        if (!calendar) return;
+        calendar.innerHTML = `
+            <div class="gilba-nut-banner gilba-nut-banner--warning">
+                <strong>Climate data unavailable</strong>
+                We couldn't load climate data for this site. Please try again in a moment.
+            </div>
+        `;
+    };
+
     NutritionCalendar.renderCalendar = function() {
         const calendar = this.elements.calendar;
         if (!calendar || !this.program) return;
@@ -1470,7 +1490,10 @@
         }).join('');
 
         calendar.innerHTML = `
-            <div class="gilba-nut-section-label">Monthly Nutrient Program (kg/ha)</div>
+            <div class="gilba-nut-section-label" style="display: flex; align-items: center; gap: 6px;">
+                Monthly Nutrient Program (kg/ha)
+                <span class="db-info-icon" data-info="monthly-climate-normals" tabindex="0" role="button" aria-label="About the monthly temperatures used here">i</span>
+            </div>
             <div class="gilba-nut-table-wrap">
                 <table class="gilba-nut-table">
                     <thead>

@@ -589,11 +589,17 @@
     function computeMonthlyGP(monthlyTemps, monthlyC3Fractions) {
         const GP = global && global.GilbaGrowthPotentialEngine;
         if (!GP || typeof GP.compute !== 'function') return null;
+        // GH-245: no real per-site monthlyTemps — do not default missing
+        // months to 15degC. That silently fabricated a flat ~66% GP profile
+        // for every site lacking climate data (Hoxton audit D02/D03 root
+        // cause). Fail to null instead; compute() surfaces this as
+        // facility.climateDataUnavailable.
+        if (!monthlyTemps) return null;
         const result = {};
         for (let month = 1; month <= 12; month++) {
-            const temp = (typeof monthlyTemps[month] === 'number') ? monthlyTemps[month] : 15;
+            if (typeof monthlyTemps[month] !== 'number') return null;
             const c3Frac = monthlyC3Fractions ? (monthlyC3Fractions[month] ?? 1.0) : 1.0;
-            const gp = GP.compute(temp, { model: 'pace', species: 'blend', c3Fraction: c3Frac });
+            const gp = GP.compute(monthlyTemps[month], { model: 'pace', species: 'blend', c3Fraction: c3Frac });
             result[month] = Math.round(gp * 100) / 100;
         }
         return result;
@@ -678,7 +684,12 @@
             ? overseedConfig
             : { isOverseed: false, baseIsC4: overseedConfig.baseIsC4 || false };
 
-        const monthlyTemps = climate.monthlyTemps || {};
+        // GH-245: no fallback to {} — an empty object here silently made
+        // every month read as 15degC downstream. null propagates instead,
+        // and callers must treat facility.climateDataUnavailable as an
+        // explicit signal, not compute against an invented series (Hoxton
+        // audit D02/D03).
+        const monthlyTemps = climate.monthlyTemps || null;
         const hemisphere = climate.hemisphere || 'south';
         const monthlyC3Fractions = calculateMonthlyC3Fractions(effectiveOverseed, hemisphere);
         const monthlyGP = computeMonthlyGP(monthlyTemps, monthlyC3Fractions);
@@ -708,7 +719,11 @@
                 monthlyGP: monthlyGP,
                 monthlyC3Fractions: monthlyC3Fractions,
                 monthlyN: monthlyN,
-                activeMonths: activeMonths
+                activeMonths: activeMonths,
+                // true when no real monthly climate normals were supplied —
+                // monthlyN above is all-zero, not a computed dormancy result.
+                // Renderers must show this explicitly, not a silent empty table.
+                climateDataUnavailable: !monthlyTemps
             },
             version: CONFIG.version
         };

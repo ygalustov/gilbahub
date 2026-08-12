@@ -816,59 +816,80 @@
         return config;
     }
 
+    // GH-245: reads the real monthly climate normals resolved by
+    // ClimateFetchCoordinator.ensureMonthlyNormals() (climate-engine-v2.js):
+    // NASA POWER climatology first, Open-Meteo archive average as fallback.
+    // Returns null — never a guessed regional profile — when neither source
+    // has resolved yet or both failed. Callers must treat null as "climate
+    // data unavailable" and surface that explicitly, not compute against a
+    // fabricated series. See Hoxton audit D02/D03.
     function extractMonthlyTemps() {
-        const temps = {};
-        
-        if (global.GilbaClimateEngine) {
-            const climateData = global.GilbaClimateEngine.getMonthlyData?.();
-            if (climateData) {
-                for (let m = 1; m <= 12; m++) {
-                    temps[m] = climateData[m]?.avgTemp || 15;
-                }
-                return temps;
-            }
+        if (global.climateMetrics?.monthlyTemps) {
+            return global.climateMetrics.monthlyTemps;
         }
-        
+
         if (global.GilbaHubOrchestrator) {
             const state = global.GilbaHubOrchestrator.getState();
             if (state?.climate?.monthlyTemps) {
                 return state.climate.monthlyTemps;
             }
         }
-        
-        const turfConfig = extractTurfConfig();
-        const lat = extractLatitude();
-        const absLat = Math.abs(lat);
-        
-        // Tropical (within tropics, |lat| < 23.5°) — warm year-round, slight seasonal variation
-        // Represents Vietnam/SE Asia (north) or tropical QLD/Darwin (south)
-        if (absLat < 23.5) {
-            if (lat >= 0) {
-                // Northern hemisphere tropical (Vietnam, SE Asia): cooler Dec-Feb, peak Apr-Oct
-                return { 1: 17, 2: 19, 3: 23, 4: 27, 5: 30, 6: 31, 7: 31, 8: 30, 9: 29, 10: 27, 11: 23, 12: 19 };
-            } else {
-                // Southern hemisphere tropical (Darwin, Cairns): peak Nov-Mar, cooler Jun-Aug
-                return { 1: 30, 2: 30, 3: 29, 4: 28, 5: 26, 6: 24, 7: 23, 8: 25, 9: 28, 10: 30, 11: 31, 12: 31 };
-            }
-        }
-        
-        // Subtropical (23.5–35°) — warm summers, mild winters
-        if (absLat < 35) {
-            if (lat >= 0) {
-                // Northern subtropical (S China, N India): cold winters, hot summers
-                return { 1: 10, 2: 12, 3: 17, 4: 22, 5: 27, 6: 30, 7: 31, 8: 30, 9: 26, 10: 21, 11: 15, 12: 11 };
-            } else {
-                // Southern subtropical (Brisbane, SE QLD): hot summers, mild winters
-                return { 1: 26, 2: 26, 3: 24, 4: 21, 5: 17, 6: 14, 7: 13, 8: 15, 9: 18, 10: 21, 11: 24, 12: 26 };
-            }
-        }
-        
-        // Temperate fallbacks (original behaviour)
-        if (turfConfig.hemisphere === 'south') {
-            return { 1: 25, 2: 25, 3: 22, 4: 18, 5: 14, 6: 11, 7: 10, 8: 12, 9: 15, 10: 18, 11: 21, 12: 24 };
-        } else {
-            return { 1: 5, 2: 7, 3: 11, 4: 15, 5: 20, 6: 24, 7: 26, 8: 25, 9: 21, 10: 15, 11: 9, 12: 5 };
-        }
+
+        return null;
+    }
+
+    // Source label for the resolved monthlyTemps ('nasa-power',
+    // 'open-meteo-fallback', or 'unavailable'), for UI/export labelling.
+    function extractMonthlyTempsSource() {
+        return global.climateMetrics?.monthlyTempsSource || 'unavailable';
+    }
+
+    // Info tooltip explaining that Monthly N Distribution uses climate
+    // normals (not live weather), and which source resolved them — matches
+    // the existing "assumptions" tooltip style used for MLSN/tissue/water.
+    function showClimateNormalsInfo(btn) {
+        document.querySelectorAll('.gaip-assumptions-tooltip').forEach(t => t.remove());
+
+        const source = extractMonthlyTempsSource();
+        const period = global.climateMetrics?.monthlyTempsPeriod || '';
+        const sourceLabel = source === 'nasa-power'
+            ? `NASA POWER climatology (${period || '2001–2020'})`
+            : source === 'open-meteo-fallback'
+            ? `Open-Meteo archive average (${period || 'recent years'}) — fallback, NASA POWER was unavailable`
+            : 'unavailable';
+
+        const tooltip = document.createElement('div');
+        tooltip.className = 'gaip-assumptions-tooltip';
+        tooltip.style.cssText = `
+            position: fixed;
+            z-index: 99999;
+            max-width: 300px;
+            background: var(--gaip-surface);
+            color: var(--gaip-text);
+            border: 1px solid var(--gaip-border);
+            padding: 12px 14px;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            font-size: 12px;
+            line-height: 1.5;
+        `;
+        tooltip.innerHTML = `
+            <div style="margin-bottom: 8px; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--gaip-border); padding-bottom: 6px;">
+                About these values
+            </div>
+            <div>These are long-term monthly climate normals for this site's coordinates, not live weather.</div>
+            <div style="margin-top: 6px;"><strong>Source:</strong> ${sourceLabel}</div>
+            <div style="margin-top: 6px;">Live current conditions are shown separately in Climate &amp; Growth Conditions.</div>
+        `;
+        document.body.appendChild(tooltip);
+
+        const rect = btn.getBoundingClientRect();
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - 316));
+        tooltip.style.top = `${rect.bottom + 6}px`;
+        tooltip.style.left = `${left}px`;
+
+        const autoHide = setTimeout(() => tooltip.remove(), 8000);
+        tooltip.addEventListener('click', () => { clearTimeout(autoHide); tooltip.remove(); });
     }
 
     // b35fix312 Fix 2: Nutrition Program panel input takes precedence.
@@ -1037,6 +1058,9 @@
                     <span style="font-size: 18px;">🌱</span>
                     <strong style="font-size: 14px; color: #166534;">Monthly N Distribution (GP-Weighted)</strong>
                     ${titleSuffix}
+                    <button class="gaip-assumptions-btn" data-climate-info="monthly-normals" title="About these values">
+                        <span class="gaip-icon-info">ⓘ</span>
+                    </button>
                 </div>
                 
                 ${strategyBadge}
@@ -1143,6 +1167,28 @@
             `;
         }
         
+        // GH-245: no fabricated regional-guess fallback exists anymore
+        // (Hoxton audit D02/D03) — if NASA POWER and the Open-Meteo fallback
+        // both failed to resolve real monthly normals for this site, say so
+        // explicitly instead of computing Monthly N Distribution against an
+        // invented temperature series. Message is deliberately non-technical
+        // (client-facing) — source/provenance detail lives in the opt-in "i"
+        // tooltip instead (showClimateNormalsInfo below).
+        if (!monthlyTemps) {
+            return `
+                <div class="gaip-nutrition-placeholder" style="
+                    margin-top: 16px; padding: 20px; background: var(--gaip-warning-bg);
+                    border: 1px solid var(--gaip-warning-border); border-radius: 8px;
+                    text-align: center; color: var(--gaip-text);
+                ">
+                    <strong>Climate data unavailable</strong>
+                    <p style="margin: 8px 0 0 0; font-size: 12px;">
+                        We couldn't load climate data for this site. Please try again in a moment.
+                    </p>
+                </div>
+            `;
+        }
+
         const overseedConfig = detectOverseedScenario();
 
         // b35fix302b: delegate pure calculation to NutritionRequirementEngine_Pure.
@@ -1435,6 +1481,7 @@
         extractSoilValues, 
         extractTurfConfig, 
         extractMonthlyTemps,
+        extractMonthlyTempsSource,
         detectOverseedScenario,
         
         renderNutritionSummary, 
@@ -1463,7 +1510,16 @@
     };
 
     global.GilbaNutritionSummary = NutritionSummary;
-    
+
+    document.addEventListener('click', function(e) {
+        const climateInfoBtn = e.target.closest('[data-climate-info="monthly-normals"]');
+        if (climateInfoBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            showClimateNormalsInfo(climateInfoBtn);
+        }
+    });
+
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

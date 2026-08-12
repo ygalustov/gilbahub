@@ -102,6 +102,7 @@
             'gilba-storage-migrate.js',
             'gilba-hub-v2.js',
             'climate-engine-v2.js',
+            'climate-normals-service.js', // GH-245 (Hoxton audit D01-D03)
             'gaip-utils.js',
             'species-controller.js',
             'regional-profiles.js',

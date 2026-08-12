@@ -5847,15 +5847,38 @@
      */
     function renderNutritionProgramSection(data) {
         var elements = [];
-        
+
         if (!data.nutritionProgram || !data.nutritionProgram.hasData) {
+            // GH-245: distinguish "no real climate normals for this site"
+            // (say so) from "no program generated for other reasons" (stay
+            // silent, as before — e.g. the user never opened the Nutrition
+            // Program tab). data.nutritionSummary.climateDataUnavailable is
+            // set per-sample by the engine call above (site-scoped, safe for
+            // combined multi-site export) — see Hoxton audit D02/D03.
+            // Message kept non-technical for the client-facing report.
+            if (data.nutritionSummary && data.nutritionSummary.climateDataUnavailable) {
+                elements.push(new Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [new TextRun({ text: 'Nutrition Program', bold: true, size: 24, color: '1F2937' })]
+                }));
+                elements.push(new Paragraph({
+                    spacing: { before: 50, after: 150 },
+                    children: [new TextRun({
+                        text: _climateUnavailableMessage(data.nutritionSummary.climateDataUnavailableReason) +
+                              ' so a fertiliser programme could not be included.',
+                        italics: true,
+                        size: 20,
+                        color: 'B45309'
+                    })]
+                }));
+            }
             return elements;
         }
-        
+
         var program = data.nutritionProgram;
         var monthly = program.monthly || [];
         var summary = program.annualSummary || {};
-        
+
         if (monthly.length === 0) {
             return elements;
         }
@@ -6770,46 +6793,55 @@
                          ? _stInputs.turf.nProgramKgHaYr : null;
         }
 
-        // Monthly temps: live climate engine wins, otherwise latitude-band fallback.
-        var _climateData = (window.GilbaClimateEngine &&
-                            typeof window.GilbaClimateEngine.getMonthlyData === 'function')
-            ? (window.GilbaClimateEngine.getMonthlyData() || {}) : {};
-        var _monthlyTemps = {};
-        var _climateIsLive = false;
-        for (var _m = 1; _m <= 12; _m++) {
-            if (_climateData[_m] && typeof _climateData[_m].temp === 'number' && !isNaN(_climateData[_m].temp)) {
-                _monthlyTemps[_m] = _climateData[_m].temp;
-                _climateIsLive = true;
-            }
-        }
-
-        // Latitude extraction — DOM input is authoritative for the current
-        // active site (site-config-persistence restores it on site-switch).
+        // Latitude/longitude extraction — DOM input is authoritative for the
+        // CURRENTLY ACTIVE site. Combined export switches active site (and
+        // this DOM value) per sample before calling this function, so this
+        // correctly reflects that sample's own site, not just "whatever site
+        // the page opened on" (see b35fix313 in _buildEngineInputs' header).
         var _latEl = document.querySelector('.gaip-lat');
+        var _lonEl = document.querySelector('.gaip-lon');
         var _lat = _latEl ? parseFloat(_latEl.value) : NaN;
+        var _lon = _lonEl ? parseFloat(_lonEl.value) : NaN;
         if (!isFinite(_lat)) {
             _lat = (_stInputs.site && _stInputs.site.latitude) ||
                    (_state.site && _state.site.latitude) ||
                    (_state.location && _state.location.lat);
             if (typeof _lat !== 'number' || isNaN(_lat)) _lat = -33;  // Sydney-ish default
         }
-
-        if (!_climateIsLive) {
-            var _absLat = Math.abs(_lat);
-            if (_absLat < 23.5) {
-                _monthlyTemps = _lat >= 0
-                    ? { 1:17,2:19,3:23,4:27,5:30,6:31,7:31,8:30,9:29,10:27,11:23,12:19 }
-                    : { 1:30,2:30,3:29,4:28,5:26,6:24,7:23,8:25,9:28,10:30,11:31,12:31 };
-            } else if (_absLat < 35) {
-                _monthlyTemps = _lat >= 0
-                    ? { 1:10,2:12,3:17,4:22,5:27,6:30,7:31,8:30,9:26,10:21,11:15,12:11 }
-                    : { 1:26,2:26,3:24,4:21,5:17,6:14,7:13,8:15,9:18,10:21,11:24,12:26 };
-            } else {
-                _monthlyTemps = _lat < 0
-                    ? { 1:25,2:25,3:22,4:18,5:14,6:11,7:10,8:12,9:15,10:18,11:21,12:24 }
-                    : { 1: 5,2: 7,3:11,4:15,5:20,6:24,7:26,8:25,9:21,10:15,11: 9,12: 5 };
-            }
+        if (!isFinite(_lon)) {
+            _lon = (_stInputs.site && _stInputs.site.longitude) ||
+                   (_state.site && _state.site.longitude) ||
+                   (_state.location && (_state.location.lon != null ? _state.location.lon : _state.location.lng));
+            if (typeof _lon !== 'number' || isNaN(_lon)) _lon = 151;  // Sydney-ish default
         }
+
+        // GH-245 follow-up 2: monthly temps keyed by THIS sample's own
+        // coordinates, not the single window.climateMetrics slot — combined
+        // export can span genuinely different sites (e.g. a Vietnam couch
+        // course + a Bowral bentgrass green + a Sydney fairway in one
+        // export), and window.climateMetrics only ever holds one site's
+        // answer. getResolvedSync() reads from GilbaClimateNormalsService's
+        // per-coordinate cache, pre-populated for every sample's site by a
+        // pre-pass before the combined-export loop (word-export-combined.js)
+        // or by exportToWord()'s ensureFromPage() await for single-export.
+        // No latitude-band guess — that fabricated a wrong regional profile
+        // for maritime sites (Hoxton audit D02/D03). null propagates to the
+        // engine, which reports facility.climateDataUnavailable instead of
+        // silently defaulting every month to 15degC.
+        var _climateResult = (window.GilbaClimateNormalsService && typeof window.GilbaClimateNormalsService.getResolvedSync === 'function')
+            ? window.GilbaClimateNormalsService.getResolvedSync(_lat, _lon)
+            : null;
+        var _monthlyTemps = _climateResult ? _climateResult.monthlyTemps : null;
+        var _monthlyTempsSource = _climateResult ? _climateResult.source : 'unavailable';
+
+        // GH-245 follow-up 3: why _climateResult is null, so callers can
+        // tell "this site has no coordinates" or "the fetch hasn't
+        // resolved yet" apart from a genuine NASA POWER + Open-Meteo
+        // failure instead of showing the same disclaimer for all three.
+        var _climateReason = _climateResult ? null :
+            ((window.GilbaClimateNormalsService && typeof window.GilbaClimateNormalsService.getReason === 'function')
+                ? window.GilbaClimateNormalsService.getReason(_lat, _lon)
+                : 'fetch-failed');
 
         var _hemisphere = (_lat < 0) ? 'south' : 'north';
 
@@ -6869,8 +6901,11 @@
             climate: {
                 monthlyTemps: _monthlyTemps,
                 hemisphere: _hemisphere,
-                isLive: _climateIsLive,
-                latitude: _lat
+                isLive: !!_monthlyTemps,
+                source: _monthlyTempsSource,
+                unavailableReason: _climateReason,
+                latitude: _lat,
+                longitude: _lon
             },
             overseedConfig: _overseedConfig
         };
@@ -7009,6 +7044,20 @@
     //
     // Returns: [Paragraph, Paragraph, Table, ...optionalCaption] or []
     // when monthlyN is empty/missing (no-op for the caller).
+    // GH-245 follow-up 3: pick a client-facing sentence that matches why
+    // climate data is unavailable, instead of always implying a NASA
+    // POWER / Open-Meteo outage even when the real cause is a site with no
+    // coordinates configured, or the fetch simply not having resolved yet.
+    function _climateUnavailableMessage(reason) {
+        if (reason === 'no-coordinates') {
+            return 'This site has no location coordinates configured, so climate data could not be looked up.';
+        }
+        if (reason === 'not-attempted') {
+            return 'Climate data had not finished loading for this site when this report was generated.';
+        }
+        return 'Climate data was unavailable for this site when this report was generated.';
+    }
+
     function _buildMonthlyNDistribution(monthlyN, totalN, activeMonths, docxRefs, opts) {
         if (!monthlyN || !Array.isArray(monthlyN) || monthlyN.length === 0) {
             return [];
@@ -7038,6 +7087,43 @@
                 size: titleSize
             })]
         }));
+
+        // GH-245: no real monthly climate normals resolved for this site
+        // (NASA POWER and the Open-Meteo fallback both failed) — monthlyN is
+        // all-zero, not a computed dormancy result. Say so and stop; do not
+        // render a 12-month table that reads as "no N needed any month" when
+        // the real answer is "unknown". See Hoxton audit D02/D03. Message
+        // kept non-technical for the client-facing report.
+        if (opts.climateDataUnavailable) {
+            nodes.push(new Paragraph({
+                spacing: { before: 50, after: 150 },
+                children: [new TextRun({
+                    text: _climateUnavailableMessage(opts.climateDataUnavailableReason) +
+                          ' so a monthly nitrogen distribution could not be included.',
+                    italics: true,
+                    size: totalsSize,
+                    color: 'B45309'
+                })]
+            }));
+            return nodes;
+        }
+
+        if (opts.climateNormalsSource) {
+            var _sourceLabel = opts.climateNormalsSource === 'nasa-power'
+                ? 'NASA POWER climatology'
+                : opts.climateNormalsSource === 'open-meteo-fallback'
+                ? 'Open-Meteo archive average (fallback)'
+                : opts.climateNormalsSource;
+            nodes.push(new Paragraph({
+                spacing: { before: 20, after: 60 },
+                children: [new TextRun({
+                    text: 'Monthly temperatures: long-term climate normals for this site’s coordinates (' + _sourceLabel + '), not live weather.',
+                    italics: true,
+                    size: totalsSize,
+                    color: '6B7280'
+                })]
+            }));
+        }
 
         // Totals line — guarded against missing fields. Combined-export's
         // `r.data.nutritionSummary` carries totalN/activeMonths from the same
@@ -9405,6 +9491,11 @@
                 data.nutritionSummary.monthlyN = _engineResult.facility.monthlyN;
                 data.nutritionSummary.totalN = _engineResult.facility.totalN;
                 data.nutritionSummary.activeMonths = _engineResult.facility.activeMonths;
+                data.nutritionSummary.climateDataUnavailable = _engineResult.facility.climateDataUnavailable;
+                data.nutritionSummary.climateNormalsSource = _inputs.climate.source;
+                // GH-245 follow-up 3: why, not just whether — see getReason() in
+                // climate-normals-service.js.
+                data.nutritionSummary.climateDataUnavailableReason = _inputs.climate.unavailableReason;
 
                 // b35fix327: expose structured per-sample ANR shape on data._anr,
                 // mirroring the combined-export `r._anr` shape produced by the
@@ -11286,7 +11377,12 @@
                     data.nutritionSummary.totalN,
                     data.nutritionSummary.activeMonths,
                     _mnDocxRefs,
-                    { siteUniformCaption: false }
+                    {
+                        siteUniformCaption: false,
+                        climateDataUnavailable: data.nutritionSummary.climateDataUnavailable,
+                        climateDataUnavailableReason: data.nutritionSummary.climateDataUnavailableReason,
+                        climateNormalsSource: data.nutritionSummary.climateNormalsSource
+                    }
                 );
                 _mnNodes.forEach(function(node) { sections.push(node); });
             }
@@ -14007,7 +14103,20 @@
         document.body.appendChild(loadingDiv);
         
         try {
-            
+
+            // GH-245: wait for real monthly climate normals to resolve before
+            // collecting data. Without this, clicking Export shortly after the
+            // page loads reads window.climateMetrics.monthlyTemps before the
+            // (fire-and-forget, page-load-triggered) NASA POWER/Open-Meteo
+            // fetch has finished, and Monthly N Distribution reports "climate
+            // data unavailable" even though it genuinely is available — it
+            // just hadn't landed yet. ensureFromPage() no-ops immediately if
+            // already resolved this page load, or if no coordinate source
+            // exists here.
+            if (window.GilbaClimateNormalsService && typeof window.GilbaClimateNormalsService.ensureFromPage === 'function') {
+                await window.GilbaClimateNormalsService.ensureFromPage();
+            }
+
             // Collect data - use GAIP_WordExport.collectData() to allow patch interception
             var data = GAIP_WordExport.collectData();
             

@@ -513,6 +513,15 @@
         var progress = createProgressUI(samples.length);
         var collectedReports = [];
 
+        // GH-245 follow-up 3: per-site reason the climate pre-pass below
+        // couldn't resolve real normals — 'no-coordinates' (site config has
+        // no lat/lon) or 'service-unavailable' (GilbaClimateNormalsService /
+        // GAIP_SiteConfig not loaded, or the pre-pass itself threw). Read
+        // back per sample right after collectData() to replace the generic
+        // "climate data unavailable" reason with the precise one, instead of
+        // it looking identical to a genuine NASA POWER + Open-Meteo outage.
+        var _climateUnavailableReasons = {};
+
         // b35fix139: capture blend result before loop — blender state gets cleared by sample switches
         var _capturedBlendWater = null;
         try {
@@ -535,6 +544,48 @@
         // Signal to word-export.js to suppress Cross-Module in per-green buildSections.
         // It is injected once at combined doc level — not per green.
         global.GAIP_COMBINED_EXPORT_ACTIVE = true;
+
+        // GH-245 follow-up 2: resolve real climate normals for every distinct
+        // site in this export BEFORE the main loop, not just the one site
+        // that happens to be active when the export button is clicked.
+        // window.climateMetrics only ever holds one site's answer, but this
+        // export can span genuinely different sites (a Vietnam couch course
+        // + a Bowral bentgrass green + a Sydney fairway, per the b35fix313
+        // rationale above) — each needs its own coordinates queried.
+        // GilbaClimateNormalsService.resolveFor() caches per-coordinate and
+        // is safe to call for every sample even when several share a site
+        // (duplicate calls just hit the cache). _buildEngineInputs() then
+        // reads the result back synchronously per sample via
+        // getResolvedSync(), keyed on that sample's own .gaip-lat/.gaip-lon
+        // once setActiveSite() below has switched to it.
+        var _siteIds = Array.from(new Set(samples.map(function(s) { return s.siteId; })));
+        try {
+            var _svc = window.GilbaClimateNormalsService;
+            var _sc = window.GAIP_SiteConfig;
+            if (_svc && typeof _svc.resolveFor === 'function' && _sc && typeof _sc.getConfig === 'function') {
+                var _coordPromises = _siteIds.map(function(siteId) {
+                    var cfg = _sc.getConfig(siteId);
+                    var loc = cfg && cfg.location;
+                    var lat = loc && parseFloat(loc.lat);
+                    var lon = loc && parseFloat(loc.lon);
+                    if (!isFinite(lat) || !isFinite(lon) || !lat || !lon) {
+                        _climateUnavailableReasons[siteId] = 'no-coordinates';
+                        return Promise.resolve();
+                    }
+                    return _svc.resolveFor(lat, lon);
+                });
+                await Promise.all(_coordPromises);
+                log('Climate normals pre-resolved for', _siteIds.length, 'site(s) in this export');
+            } else {
+                _siteIds.forEach(function(siteId) { _climateUnavailableReasons[siteId] = 'service-unavailable'; });
+                warn('GilbaClimateNormalsService or GAIP_SiteConfig not loaded — ' +
+                     'per-site climate normals pre-pass skipped, Monthly N Distribution ' +
+                     'may show unavailable for sites other than the currently active one.');
+            }
+        } catch (_climateErr) {
+            _siteIds.forEach(function(siteId) { _climateUnavailableReasons[siteId] = 'service-unavailable'; });
+            warn('Climate normals pre-pass failed:', _climateErr && _climateErr.message);
+        }
 
         try {
             for (var i = 0; i < samples.length; i++) {
@@ -596,6 +647,16 @@
 
                 // Collect data and charts using the standard export pipeline
                 var data = we.collectData();
+
+                // GH-245 follow-up 3: _buildEngineInputs()'s own getReason() can
+                // only see "not-attempted" here (the coordinate was never
+                // resolved) — the pre-pass above already knows more precisely
+                // why (no coordinates configured vs. service unavailable), so
+                // prefer that when it has an answer for this sample's site.
+                if (data.nutritionSummary && data.nutritionSummary.climateDataUnavailable &&
+                    _climateUnavailableReasons[entry.siteId]) {
+                    data.nutritionSummary.climateDataUnavailableReason = _climateUnavailableReasons[entry.siteId];
+                }
 
                 // Use entry.sampleLabel from enumerateSamples — already humanized and correct per sample.
                 // Do NOT read data.soil.sampleLabel (DOM-sourced) here: during a multi-sample loop the
@@ -728,7 +789,14 @@
                             clippingsCollected: _turfCfg ? !!_turfCfg.clippingsCollected : false,
                             trafficIntensity:   _turfCfg ? (_turfCfg.trafficIntensity || 'moderate') : 'moderate',
                             hemisphere:         _turfCfg ? (_turfCfg.hemisphere || 'south') : 'south',
-                            monthlyTemps:       _monthlyTemps || {},
+                            // GH-245: no || {} — an empty object here used to
+                            // read as "no climate data" everywhere except the
+                            // one guard that actually caught it, relying on
+                            // that being correct rather than being obviously
+                            // correct. null propagates explicitly to the
+                            // engine instead (Hoxton audit D02/D03).
+                            monthlyTemps:       _monthlyTemps,
+                            climateNormalsSource: (global.climateMetrics && global.climateMetrics.monthlyTempsSource) || 'unavailable',
                             overseedConfig:     _overseedCfg || { isOverseed: false, baseIsC4: false, summerIntent: 'transition' },
                             userN:              _userN,
                             siteId:             entry.siteId  // self-check marker
@@ -2001,6 +2069,25 @@
                     perSampleInputs.methodology = r.data.soil.methodology;
                 }
 
+                // GH-245 follow-up 3: perSampleInputs started as a copy of
+                // _facilityCalendarInputs, which was built once from
+                // window.climateMetrics — whichever site happened to be
+                // active LAST in the collection loop above, not this sample's
+                // own site. Every sample's Monthly Schedule was silently
+                // computed against one site's climate (or null, if that last
+                // site failed). r.data.engineInputs.climate was already
+                // resolved correctly per-sample in that same collection loop
+                // (via _buildEngineInputs()/collectData(), same mechanism
+                // Monthly N Distribution already relies on) — overlay it here
+                // so the calendar engine sees this sample's real climate.
+                var _sampleClimate = r.data.engineInputs && r.data.engineInputs.climate;
+                if (_sampleClimate) {
+                    perSampleInputs.monthlyTemps = _sampleClimate.monthlyTemps;
+                    perSampleInputs.hemisphere = _sampleClimate.hemisphere;
+                    perSampleInputs.latitude = _sampleClimate.latitude;
+                    perSampleInputs.monthlyTempsUnavailableReason = _sampleClimate.unavailableReason;
+                }
+
                 // b35fix382 INSTRUMENTATION — log calendar engine inputs BEFORE
                 // computeProgram fires, so we can see exactly what soilPpm,
                 // bulkDensity, soilDepth, methodology, annualNOverride and
@@ -2032,6 +2119,24 @@
                     var perSampleCalendar = window.GilbaNutritionCalendar.computeProgram(perSampleInputs);
                     if (!perSampleCalendar || perSampleCalendar.error) {
                         console.warn('[CombinedExport] computeProgram error for sample', r.sampleId, ':', perSampleCalendar && perSampleCalendar.error);
+                        _perSampleProgFail++;
+                        return;
+                    }
+                    if (perSampleCalendar.climateDataUnavailable) {
+                        // GH-245 / GH-245 follow-up 3: no real monthly climate
+                        // normals for this sample's own site — see
+                        // perSampleCalendar.climateDataUnavailableReason for
+                        // why (no coordinates configured, service not loaded,
+                        // or NASA POWER + the Open-Meteo fallback both failed).
+                        // Skip Monthly Schedule for this sample rather than
+                        // crash on the missing .program shape or fabricate one
+                        // from a latitude guess. Surfaced via
+                        // r.data.nutritionSummary.climateDataUnavailable
+                        // (set separately, from _buildEngineInputs) for the
+                        // Monthly N Distribution disclaimer. Hoxton audit D03.
+                        console.warn('[CombinedExport] climate data unavailable for sample', r.sampleId, '- skipping Monthly Schedule');
+                        r.data.nutritionProgramClimateDataUnavailable = true;
+                        r.data.nutritionProgramClimateDataUnavailableReason = perSampleCalendar.climateDataUnavailableReason;
                         _perSampleProgFail++;
                         return;
                     }
@@ -3580,7 +3685,12 @@
                     firstNutritionSummary && firstNutritionSummary.totalN,
                     firstNutritionSummary && firstNutritionSummary.activeMonths,
                     _mnDocxRefs,
-                    { siteUniformCaption: true }
+                    {
+                        siteUniformCaption: true,
+                        climateDataUnavailable: firstNutritionSummary && firstNutritionSummary.climateDataUnavailable,
+                        climateDataUnavailableReason: firstNutritionSummary && firstNutritionSummary.climateDataUnavailableReason,
+                        climateNormalsSource: firstNutritionSummary && firstNutritionSummary.climateNormalsSource
+                    }
                 );
                 _mnNodes.forEach(function(node) { allChildren.push(node); });
             }

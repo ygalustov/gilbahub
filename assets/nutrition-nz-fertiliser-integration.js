@@ -239,6 +239,22 @@
                 return;
             }
 
+            // GH-245: calendar.program is null when NutritionCalendar
+            // couldn't resolve real monthly climate normals (Hoxton audit
+            // D02/D03). Say so here rather than silently doing nothing.
+            // Message kept non-technical — client-facing panel.
+            if (!calendarData) {
+                var _unavailEl = document.querySelector('[data-nz-fertiliser-recommendations]');
+                if (_unavailEl) {
+                    _unavailEl.style.display = '';
+                    _unavailEl.innerHTML = '<div class="gilba-nut-banner gilba-nut-banner--warning">' +
+                        '<strong>Climate data unavailable</strong> We couldn\'t load climate data for this site. ' +
+                        'Please try again in a moment.' +
+                        '</div>';
+                }
+                return;
+            }
+
             this.restoreSelectedDistributor();
 
             var pi = window.NutritionPrebbleIntegration;
@@ -341,6 +357,7 @@
             var _nc = window.GilbaNutritionCalendar;
             program._generatedForSite = (_nc && _nc.getActiveSiteId && _nc.getActiveSiteId()) || 'unknown';
             window.GAIP_NUTRITION_PROGRAM = program;
+            window.GAIP_NUTRITION_PROGRAM_UNAVAILABLE = false;
             if (_nc && typeof _nc.persistSiteConfigPatch === 'function'
                     && program._generatedForSite !== 'unknown') {
                 _nc.persistSiteConfigPatch({ nutritionProgram: program });
