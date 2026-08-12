@@ -4094,6 +4094,11 @@
     // v1.9.0: Pure function path with climate integration
     // ─────────────────────────────────────────────────────────────────────
     log("main", "Step 4: Salinity penalty");
+    console.log("[b35debug-diseaseRace] salinity gate check", {
+      ecw: _hubState.inputs.water?.ecw,
+      waterKeys: _hubState.inputs.water ? Object.keys(_hubState.inputs.water) : null,
+      t: Date.now(),
+    });
     if (_hubState.inputs.water?.ecw) {
       try {
         if (global.SalinityEnginePure) {
@@ -4188,6 +4193,18 @@
           if (global.GAIP_DiseaseStressCoupling) {
             const stressData = _hubState.computed.stress;
             const climateData = getAuthoritativeClimate();
+
+            console.log("[b35debug-diseaseRace] pre-coupling state", {
+              stressData: stressData ? {
+                factorCount: stressData.factorCount,
+                factors: (stressData.factors || []).map((f) => f.type),
+                environmentalStressIndex: stressData.environmentalStressIndex,
+                combinedGrowthModifier: stressData.combinedGrowthModifier,
+              } : null,
+              windowClimateMetricsExists: typeof global.climateMetrics !== "undefined" && !!global.climateMetrics,
+              windowClimateMetricsGrowth: global.climateMetrics && global.climateMetrics.growth,
+              t: Date.now(),
+            });
 
             coupledResult = global.GAIP_DiseaseStressCoupling.apply(rawDiseaseResult, stressData, climateData, {
               species: diseaseInputs.species,

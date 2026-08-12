@@ -568,7 +568,7 @@
     // RESTORE: apply saved config to DOM
     // =========================================================================
 
-    function restoreConfig(config) {
+    function restoreConfig(config, siteId) {
         if (!config) return;
         _isRestoring = true;
 
@@ -832,14 +832,30 @@
         // climate fetch. Without this, switching from Federal Golf Club (Bowral)
         // to Shirley Golf Club (Christchurch) left Bowral coords in the DOM,
         // causing the climate engine to fetch weather for the wrong location.
-        if (location.lat) {
-            setDomVal('.gaip-lat', location.lat);
+        //
+        // b35fix506: before treating location as absent, fall back to the DB
+        // (sites.latitude/longitude, exposed as GAIP_HUB_CONFIG.savedLocation —
+        // the same source already used to render .gaip-lat/.gaip-lon on first
+        // paint), but ONLY when restoring the page's own server-rendered site.
+        // config.location comes from the separate gaip-namespace JSON config,
+        // which can lag behind sites.latitude/longitude for a site whose local
+        // cache was just seeded from the server (new/rarely-visited sites) —
+        // clearing on that empty lag was wiping correct coordinates that were
+        // already sitting in the DOM. For a different (switched-to) site,
+        // savedLocation isn't relevant, so the clear-on-absent guard still applies.
+        var dbLocation = (siteId && global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId === siteId)
+            ? (global.GAIP_HUB_CONFIG.savedLocation || {})
+            : null;
+        var effectiveLat = location.lat || (dbLocation && dbLocation.lat);
+        var effectiveLon = location.lon || (dbLocation && dbLocation.lon);
+        if (effectiveLat) {
+            setDomVal('.gaip-lat', effectiveLat);
         } else {
             // No saved location — clear to prevent bleed from previous site
             setDomVal('.gaip-lat', '');
         }
-        if (location.lon) {
-            setDomVal('.gaip-lon', location.lon);
+        if (effectiveLon) {
+            setDomVal('.gaip-lon', effectiveLon);
         } else {
             setDomVal('.gaip-lon', '');
         }
@@ -852,9 +868,9 @@
         }
         
         // Notify map picker to sync pin/view to restored coordinates
-        if (location.lat && location.lon) {
+        if (effectiveLat && effectiveLon) {
             document.dispatchEvent(new CustomEvent('gaip:location-restored', {
-                detail: { lat: location.lat, lon: location.lon, name: location.name || '' }
+                detail: { lat: effectiveLat, lon: effectiveLon, name: location.name || '' }
             }));
             // NOTE: saveLocationToServer intentionally NOT called here.
             // DB (gaip config + site model) is the source of truth for coordinates.
@@ -996,7 +1012,7 @@
 
         var config = _configs[newSiteId];
         if (config) {
-            restoreConfig(config);
+            restoreConfig(config, newSiteId);
             log('Restored config for', newSiteId);
         } else {
             // No saved config for this site — clear transient application fields so
@@ -1058,7 +1074,15 @@
             var injected = fullCfg || hubCfg.siteConfig;  // fallback to legacy subset
             var siteId   = hubCfg.activeSiteId;
             if (!injected || !injected.turf || !injected.turf.species || !siteId) return;
-            if (!_configs[siteId]) _configs[siteId] = { turf: {}, location: {} };
+            // b35fix506: don't pre-seed turf/location as {} — an empty object is
+            // truthy, so the `if (!local[key])` merge below would silently skip
+            // ever copying fullCfg.turf/fullCfg.location into local, leaving
+            // local.location = {} forever. restoreConfig() then reads that {} as
+            // "no saved location" and explicitly clears .gaip-lat/.gaip-lon
+            // (b35fix227 cross-site bleed guard) — wiping coordinates that were
+            // correctly present from the server-rendered page for a site whose
+            // gaip-namespace config just hadn't been cached locally yet.
+            if (!_configs[siteId]) _configs[siteId] = {};
             var local = _configs[siteId];
             if (local.turf && local.turf.species) return; // local already has species — don't overwrite
             if (fullCfg) {
@@ -1260,7 +1284,7 @@
                 // and setting _restoringSiteId here caused the page-load cascade
                 // to overwrite _last ~1300ms after load — after the site-switch cascade
                 // had already correctly written _last at ~700ms.
-                restoreConfig(configAtFireTime);
+                restoreConfig(configAtFireTime, currentId);
                 // Dispatch after restoreConfig's internal setTimeout cascade completes.
                 // restoreConfig now manages _isRestoring internally (~1050ms total).
                 setTimeout(function() {

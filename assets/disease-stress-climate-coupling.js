@@ -786,6 +786,15 @@
         // Build evaluation context
         var ctx = buildContext(stressAggregates, climate, climateV2, species);
 
+        console.log('[b35debug-diseaseRace] buildContext result', {
+            growthPotential: ctx.growthPotential,
+            stressFactorTypes: Object.keys(ctx.stressFactors),
+            salinityFactor: ctx.stressFactors.salinity || null,
+            environmentalStressIndex: ctx.environmentalStressIndex,
+            globalClimateMetricsGrowth: (typeof global.climateMetrics !== 'undefined' && global.climateMetrics && global.climateMetrics.growth) || null,
+            t: Date.now()
+        });
+
         if (CONFIG.debug) {
         }
 

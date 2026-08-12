@@ -6305,6 +6305,7 @@ function gaip_render_results(e, t, r, n, i, a, o, s, l, d) {
                                             er +
                                             "%)",
                                         ));
+                                    console.log("[b35debug-diseaseRace] window.climateMetrics.growth published", { weighted: window.climateMetrics.growth.weighted, c3: window.climateMetrics.growth.c3, c4: window.climateMetrics.growth.c4, t: Date.now() });
                                 } else console.warn("⚠️ Climate V2 GP sync failed - no valid GP data found in result");
                             }
                         } else(console.log("GAIP: Climate v2 returned error:", Yt?.error), renderBasicClimateInfo(Kt, t, e));
@@ -7349,11 +7350,17 @@ document.addEventListener("DOMContentLoaded", function() {
         // from the DOM (not stale/default values) on cold-start, incognito
         // loads, and loads that immediately switch to a non-default site.
         if (!_stateRestored || !_siteConfigApplied || !_siteSamplesReady) return;
+        // Latch here, not just on the click path below: from this point a run
+        // has been accounted for one way or another (either we click it, or
+        // AutoRefresh already did). Latching only after the AutoRefresh check
+        // left _autoRunFired stuck false whenever AutoRefresh was the one that
+        // actually ran it — the 6s safety fallback further down would then see
+        // "no run yet" and fire a redundant extra analysis pass on every load.
+        _autoRunFired = true;
         // Defer to AutoRefresh if it already handled the run (returning users).
         // AutoRefresh is the primary auto-run mechanism; this gate is backup for
         // first-time/incognito users where AutoRefresh's wizard check may skip.
         if (window.GilbaAutoRefresh && window.GilbaAutoRefresh.hasFired()) return;
-        _autoRunFired = true;
         var btn = document.querySelector(".gaip-run-btn");
         if (btn) {
             console.log("[GAIP] Auto-running analysis on page load...");
@@ -7458,6 +7465,17 @@ document.addEventListener("DOMContentLoaded", function() {
     // the effectiveSpecies fallback bug (species silently becoming wrong)
     // and a TIER 0 identity failure in the wear/disease engines.
     var _siteConfigApplied = false;
+    // siteId that _siteConfigApplied was actually confirmed for. gaip:site-changed
+    // fires twice on cold page load for the *same* site — once early from
+    // SampleManager boot, once again from site-selector-ui's updateUI(), which
+    // runs synchronously inside the gaip:site-config-applied handler chain itself.
+    // That second dispatch used to unconditionally reset _siteConfigApplied to
+    // false, throwing away the confirmation that had just arrived a moment
+    // earlier for this exact site - site-config-applied is a one-shot event per
+    // restore, so nothing would ever set it true again, and every page load fell
+    // through to the 3s forced-timeout rerun below. Track which site we're
+    // actually confirmed for so a same-site event doesn't discard it.
+    var _configAppliedSiteId = null;
     var _readyDebounce = null;
     var _forceReadyTimer = null;
 
@@ -7489,10 +7507,15 @@ document.addEventListener("DOMContentLoaded", function() {
         }, 100);
     });
 
-    document.addEventListener("gaip:site-changed", function() {
+    document.addEventListener("gaip:site-changed", function(e) {
+        var _siteId = e && e.detail ? e.detail.siteId : null;
         _pendingSiteRun = true;
         _siteSamplesReady = false; // a new switch invalidates any prior readiness
-        _siteConfigApplied = false; // a new switch invalidates any prior config-applied state
+        // Only invalidate _siteConfigApplied if this is actually a different site
+        // than the one it was confirmed for - see _configAppliedSiteId comment above.
+        if (_siteId === null || _siteId !== _configAppliedSiteId) {
+            _siteConfigApplied = false;
+        }
         console.log("[GAIP] Site switch queued, waiting for current analysis to finish");
         // Fallback: if analysis-complete never fires (e.g. no analysis was running),
         // run after 1s — BUT only if page-load config restore is already complete.
@@ -7541,6 +7564,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // its _autoRunFired latch means it will never fire again after the first run.
     document.addEventListener("gaip:site-config-applied", function(e) {
         _siteConfigApplied = true;
+        _configAppliedSiteId = e && e.detail ? e.detail.siteId : null;
         if (_fallbackTimer) {
             clearTimeout(_fallbackTimer);
             _fallbackTimer = null;
