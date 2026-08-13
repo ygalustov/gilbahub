@@ -3664,35 +3664,70 @@
             // siteUniformCaption:true so the helper appends the caption
             // explaining why every sample on the site shows the same
             // distribution.
-            var firstWithMonthlyN = null;
-            var firstNutritionSummary = null;
-            for (var _mi = 0; _mi < anrReports.length; _mi++) {
-                var _ns = anrReports[_mi].data && anrReports[_mi].data.nutritionSummary;
-                if (_ns && _ns.monthlyN && _ns.monthlyN.length > 0) {
-                    firstWithMonthlyN = _ns.monthlyN;
-                    firstNutritionSummary = _ns;
-                    break;
-                }
-            }
-            if (firstWithMonthlyN && we && typeof we._buildMonthlyNDistribution === 'function') {
+            //
+            // GH-247: the above was still true, but the code that picked
+            // "the" sample to render never re-scoped per site — it scanned
+            // the whole facility's anrReports (every site's samples mixed
+            // together) for the first one with monthlyN data and rendered
+            // just that one table, so a 2+ site combined export silently
+            // showed only one site's Monthly N Distribution. Grouped by
+            // siteLabel first (same pattern as the Fertiliser Purchasing
+            // Summary rollup below) so every site gets its own table — each
+            // site's annual N target/distribution strategy/climate can
+            // genuinely differ from the next.
+            if (we && typeof we._buildMonthlyNDistribution === 'function') {
                 var _mnDocxRefs = {
                     Paragraph: Paragraph, TextRun: TextRun, Table: Table,
                     TableRow: TableRow, TableCell: TableCell,
                     WidthType: WidthType, AlignmentType: AlignmentType
                 };
-                var _mnNodes = we._buildMonthlyNDistribution(
-                    firstWithMonthlyN,
-                    firstNutritionSummary && firstNutritionSummary.totalN,
-                    firstNutritionSummary && firstNutritionSummary.activeMonths,
-                    _mnDocxRefs,
-                    {
-                        siteUniformCaption: true,
-                        climateDataUnavailable: firstNutritionSummary && firstNutritionSummary.climateDataUnavailable,
-                        climateDataUnavailableReason: firstNutritionSummary && firstNutritionSummary.climateDataUnavailableReason,
-                        climateNormalsSource: firstNutritionSummary && firstNutritionSummary.climateNormalsSource
+                var _mnSiteGroups = {};
+                var _mnSiteOrder = [];
+                anrReports.forEach(function(r) {
+                    var label = r.siteLabel || 'Unknown Site';
+                    if (!_mnSiteGroups[label]) {
+                        _mnSiteGroups[label] = [];
+                        _mnSiteOrder.push(label);
                     }
-                );
-                _mnNodes.forEach(function(node) { allChildren.push(node); });
+                    _mnSiteGroups[label].push(r);
+                });
+
+                _mnSiteOrder.forEach(function(siteLabel) {
+                    var siteReports = _mnSiteGroups[siteLabel];
+                    var siteNutritionSummary = null;
+                    for (var _mi = 0; _mi < siteReports.length; _mi++) {
+                        var _ns = siteReports[_mi].data && siteReports[_mi].data.nutritionSummary;
+                        if (_ns && _ns.monthlyN && _ns.monthlyN.length > 0) {
+                            siteNutritionSummary = _ns;
+                            break;
+                        }
+                    }
+                    if (!siteNutritionSummary) return;
+
+                    // Only label which site each table belongs to when there's
+                    // more than one — keeps a single-site combined export
+                    // visually identical to before this fix.
+                    if (_mnSiteOrder.length > 1) {
+                        allChildren.push(new Paragraph({
+                            spacing: { before: 160, after: 40 },
+                            children: [new TextRun({ text: siteLabel, bold: true, size: 22, color: '374151' })]
+                        }));
+                    }
+
+                    var _mnNodes = we._buildMonthlyNDistribution(
+                        siteNutritionSummary.monthlyN,
+                        siteNutritionSummary.totalN,
+                        siteNutritionSummary.activeMonths,
+                        _mnDocxRefs,
+                        {
+                            siteUniformCaption: true,
+                            climateDataUnavailable: siteNutritionSummary.climateDataUnavailable,
+                            climateDataUnavailableReason: siteNutritionSummary.climateDataUnavailableReason,
+                            climateNormalsSource: siteNutritionSummary.climateNormalsSource
+                        }
+                    );
+                    _mnNodes.forEach(function(node) { allChildren.push(node); });
+                });
             }
             allChildren.push(new Paragraph({ children: [] }));
         }
