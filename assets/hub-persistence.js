@@ -59,9 +59,39 @@
     }
 
     if (_rerunIframe) {
+        // GH-251: cacheAnalysisResults()'s monthlyNormal field (GH-250) reads
+        // climateMetrics.monthlyTemps, resolved fire-and-forget by
+        // GilbaClimateNormalsService alongside the live weather fetch
+        // (climate-engine-v2.js ClimateFetchCoordinator) — no guarantee it has
+        // completed by the time gaip:weather-ready/orchestrator-complete fire,
+        // since those events mark the START of that fetch, not its completion.
+        // Give it a bounded chance to finish before building the cache, rather
+        // than silently omitting monthlyNormal on every Re-run. Bounded (not a
+        // bare await) because the NASA POWER/Open-Meteo fetch chain in
+        // climate-normals-service.js has no timeout of its own — an unbounded
+        // await here could stall the ENTIRE Re-run (soil/water/PGR/etc., not
+        // just this one field) on a slow or hanging network request.
+        function _withTimeout(promise, ms) {
+            return Promise.race([
+                promise,
+                new Promise(function (resolve) { setTimeout(resolve, ms); })
+            ]);
+        }
+        async function _ensureMonthlyNormalsBounded() {
+            try {
+                var svc = window.GilbaClimateNormalsService;
+                if (svc && typeof svc.ensureFromPage === 'function') {
+                    await _withTimeout(svc.ensureFromPage(), 4000);
+                }
+            } catch (e) {
+                console.warn('[GilbaRerun] ensureFromPage (monthly normals) failed, proceeding without it:', e);
+            }
+        }
+
         /* Shared: do a dedicated DB write then signal the parent. */
-        function _doRerunSync(source) {
+        async function _doRerunSync(source) {
             if (_rerunSignalSent) return;
+            await _ensureMonthlyNormalsBounded();
             var snap    = cacheAnalysisResults();
             var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
                           || (snap && snap.siteId);
@@ -974,6 +1004,34 @@
                     // day and disagreed with its own displayed temperature label. No pin
                     // needed — leave dailyPattern (all 8 days, uniformly daily-mean based)
                     // exactly as calculateGrowthMetrics() built it.
+
+                    // GH-250: current month's climate-normal GP, for the "Growth &
+                    // Temperature" panel to show alongside the live 8-day forecast
+                    // (today's actual weather vs. the 20-year seasonal baseline for
+                    // this month) — reuses calculateWeightedGrowth() (climate-engine.js),
+                    // the same function dailyPattern entries are built with, just fed
+                    // the NASA POWER monthly normal temperature instead of a forecast
+                    // day's mean. Omitted entirely (not a fabricated 0%/guess) when
+                    // monthlyTemps hasn't resolved yet or the fetch failed — same
+                    // "real data or nothing" contract as GH-245.
+                    try {
+                        var _normalMonth = new Date().getMonth() + 1; // 1-12, matches monthlyTemps keying
+                        var _normalTemp = global.climateMetrics && global.climateMetrics.monthlyTemps
+                            ? global.climateMetrics.monthlyTemps[_normalMonth] : null;
+                        if (typeof _normalTemp === 'number') {
+                            var _normalGrowth = calculateWeightedGrowth(_normalTemp, _c3f, _c4f);
+                            cache.computed.climate.growth.monthlyNormal = {
+                                month: _normalMonth,
+                                temp: Math.round(_normalTemp * 10) / 10,
+                                weighted: Math.round(100 * _normalGrowth.weighted),
+                                c3: Math.round(100 * _normalGrowth.c3),
+                                c4: Math.round(100 * _normalGrowth.c4),
+                                source: global.climateMetrics.monthlyTempsSource || null
+                            };
+                        }
+                    } catch (_normalErr) {
+                        console.warn('[GilbaPersist] monthlyNormal GP computation failed:', _normalErr);
+                    }
                     console.log('[GilbaPersist] Augmented dailyPattern, length:', _growthFull.dailyPattern.length);
                 }
                 if (_forecastFull && _forecastFull.temp) {

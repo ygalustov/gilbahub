@@ -338,6 +338,15 @@
                 weighted:     gp,
                 status:       gpStatus,
                 dailyPattern: dailyPattern,
+                // GH-252: buildClimateView() reconstructs `growth` from an
+                // explicit field list rather than spreading the source
+                // object — monthlyNormal (GH-250) was missing from this
+                // list, so it silently never reached renderGrowthBlock()
+                // even though computed.climate.growth.monthlyNormal was set
+                // correctly upstream (confirmed via hub-persistence.js
+                // diagnostic logging: monthlyTemps resolved, source
+                // 'nasa-power', but the row still never rendered).
+                monthlyNormal: growth.monthlyNormal || null,
                 gdd:          null
             },
             temperature: {
@@ -402,6 +411,10 @@
         'gl-gp-today': {
             title: 'Today\'s Growth Potential',
             body:  'Growth Potential (GP) for today, computed from today\'s forecast daily mean temperature — the average of all 24 hourly readings for the day. Per the PACE agronomy model (Gelernter & Stowell 2005), GP is a daily metric and must use the daily mean, not the current-hour temperature. Cool-season grasses (C3) grow best around 20°C; warm-season grasses (C4) peak near 31°C.'
+        },
+        'gl-gp-normal': {
+            title: 'Monthly Climate Normal',
+            body:  'The long-term average temperature for this month at this site\'s coordinates (NASA POWER climatology, or a shorter historical average when that source is unavailable), converted to Growth Potential with the same PACE model. A seasonal baseline — today\'s live reading above will often differ, since it reflects actual current/forecast weather rather than the average.'
         },
         'gl-c3c4': {
             title: 'C3 vs C4 Grass Types',
@@ -891,6 +904,41 @@
             ].join('\n');
         }
 
+        // SECTION 3: this month's climate-normal GP (long-term average — NASA
+        // POWER climatology, or a shorter historical average when that's
+        // unavailable, see climate-normals-service.js), as a reference point
+        // next to the live 8-day forecast above it — no day-tile strip here,
+        // just the summary row (GH-250).
+        var normalSectionHtml = '';
+        var monthlyNormal = growth.monthlyNormal;
+        if (monthlyNormal) {
+            // mixed stands show the C3/base value as the hero elsewhere in this
+            // function (see baseGpVal) — mirror that choice here for consistency.
+            var normalVal = grassType === 'c4' ? monthlyNormal.c4 : monthlyNormal.c3;
+            if (normalVal != null) {
+                var monthName = new Date(2000, monthlyNormal.month - 1, 1).toLocaleString('en-US', { month: 'long' });
+                var normalStatus = normalVal >= 70 ? 'High' : normalVal >= 40 ? 'Moderate' : 'Low';
+                var normalRightHtml = '<div class="gl-insight-box">' +
+                    esc('Based on the long-term average temperature for ' + monthName + ' (' +
+                        fmt(monthlyNormal.temp, 1) + '°C) at this site — a seasonal ' +
+                        'baseline to compare against today’s live reading above.') +
+                    '</div>';
+                normalSectionHtml = [
+                    '<hr class="gl-section-sep">',
+                    '<div class="gl-gp-row">',
+                    '  <div class="gl-gp-row-left">',
+                    '    <div class="gl-hero-section-label">' + esc(monthName) + '’s Normal GP ' + infoBtn('gl-gp-normal') + '</div>',
+                    '    <div style="display:flex;align-items:center;gap:10px;margin-top:4px">',
+                    '      <span class="gl-gp-big" style="color:' + gpColor(normalVal) + '">' + fmt(normalVal, 0, '—') + '%</span>',
+                    '      ' + statusBadge(esc(normalStatus), gpColor(normalVal)),
+                    '    </div>',
+                    '  </div>',
+                    '  <div class="gl-gp-row-right">' + normalRightHtml + '</div>',
+                    '</div>'
+                ].join('\n');
+            }
+        }
+
         return [
             '<div class="gl-block">',
             '  <div class="gl-block-header">',
@@ -901,6 +949,7 @@
             mixedBannerHtml,
             todaySectionHtml,
             avgSectionHtml,
+            normalSectionHtml,
             renderCompactSoilTemp(soilTemp),
             '  </div>',
             '</div>'
