@@ -1374,11 +1374,22 @@ function renderBasicClimateInfo(e, t, r) {
             }
             w /= n.length;
             var M = 0;
-            var _gpSpecies = (r.turf.grassSpecies &&
-                    (r.turf.grassSpecies.toLowerCase().indexOf("bent") >= 0 ||
-                        r.turf.grassSpecies.toLowerCase().indexOf("rye") >= 0 ||
-                        r.turf.grassSpecies.toLowerCase().indexOf("fescue") >= 0)) ?
-                    "c3" : "c4";
+            // GH-248: was a bent/rye/fescue substring check that defaulted
+            // every non-match (including Kentucky Bluegrass, Annual Bluegrass/
+            // Poa annua, and a missing species name) to C4 — the opposite
+            // default from every other classifier in this codebase, and wrong
+            // for those two real, selectable C3 species. Delegate to
+            // SpeciesController.isC4Species() (loaded before this file on
+            // every page that reaches here — see hub.blade.php/stadium.blade.php
+            // script order), keeping the old substring check only as a
+            // last-resort fallback if SpeciesController somehow isn't loaded.
+            var _gpSpecies = (window.SpeciesController && typeof window.SpeciesController.isC4Species === 'function')
+                ? (window.SpeciesController.isC4Species(r.turf.grassSpecies) ? "c4" : "c3")
+                : ((r.turf.grassSpecies &&
+                        (r.turf.grassSpecies.toLowerCase().indexOf("bent") >= 0 ||
+                            r.turf.grassSpecies.toLowerCase().indexOf("rye") >= 0 ||
+                            r.turf.grassSpecies.toLowerCase().indexOf("fescue") >= 0)) ?
+                        "c3" : "c4");
             var _gpe = window && window.GilbaGrowthPotentialEngine;
             var _gpR = _gpe ? _gpe.compute(w, { model: 'pace', species: _gpSpecies }) : null;
             M = _gpR != null ? 100 * Math.max(0, Math.min(1, _gpR)) : 0;

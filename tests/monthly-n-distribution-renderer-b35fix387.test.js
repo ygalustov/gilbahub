@@ -98,7 +98,11 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         // Confirm the no-caption opt is set explicitly. Anchor to a CALL
         // (=) rather than the function declaration (which has the same
         // identifier and would match first).
-        const callRe = /=\s*_buildMonthlyNDistribution\(([\s\S]{0,500}?)\);/;
+        // GH-245 follow-up 3 / GH-248: opts grew a climateDataUnavailableReason
+        // field, pushing the call past the original 500-char budget — widened
+        // to match the 800-char budget already used for the combined-export
+        // call site's equivalent pin below.
+        const callRe = /=\s*_buildMonthlyNDistribution\(([\s\S]{0,800}?)\);/;
         const m = exportSrc.match(callRe);
         expect(m).toBeTruthy();
         expect(m[1]).toMatch(/siteUniformCaption:\s*false/);

@@ -803,9 +803,18 @@
 
     /**
      * Check if species is C4
+     *
+     * GH-248: this list must match normalizeSpecies()'s actual output keys —
+     * SpeciesController.toNutrientKey()'s canonical→nutrient-key map produces
+     * 'zoysia' (unchanged, not remapped) and 'buffalograss' (remapped from
+     * 'buffalo'), not 'zoysiagrass'/'buffalo'. The two wrong keys previously
+     * here silently misclassified pure Zoysia and Buffalograss sites as C3
+     * (isC4Species returned false), applying the C3 GP curve (optimum 20degC)
+     * instead of C4 (optimum 31degC) to the live Monthly Nutrient Program for
+     * those two real, selectable turf species.
      */
     NutritionCalendar.isC4Species = function(species) {
-        const c4Species = ['bermuda', 'couch', 'zoysiagrass', 'kikuyu', 'buffalo', 'seashorePaspalum', 'mixedWarm'];
+        const c4Species = ['bermuda', 'couch', 'zoysia', 'kikuyu', 'buffalograss', 'seashorePaspalum', 'mixedWarm'];
         return c4Species.includes(species);
     };
 
