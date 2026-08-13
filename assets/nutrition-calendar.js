@@ -305,9 +305,9 @@
 
     NutritionCalendar.bindEvents = function() {
         if (this.elements.generateBtn) {
-            this.elements.generateBtn.addEventListener('click', (e) => {
+            this.elements.generateBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                this.generate();
+                await this.generate();
             });
         }
         if (this.elements.monthlyNInput) {
@@ -1250,16 +1250,32 @@
         };
     };
 
+    // GH-246: busy state for the Generate button while an on-demand climate
+    // fetch is in flight — same disable+label-swap pattern as the Re-run
+    // button (dashboard-ui.js), no spinner since this button is plain text.
+    NutritionCalendar._setGenerateBusy = function(isBusy) {
+        const btn = this.elements.generateBtn;
+        if (!btn) return;
+        if (isBusy) {
+            btn.dataset.origText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Fetching climate data…';
+        } else {
+            btn.disabled = false;
+            if (btn.dataset.origText) btn.textContent = btn.dataset.origText;
+        }
+    };
+
     /**
      * Thin wrapper: DOM/state → computeProgram → render + dispatch.
      *
      * Keep this function small. All programme math lives in computeProgram().
      */
-    NutritionCalendar.generate = function() {
+    NutritionCalendar.generate = async function() {
         // Sync soil data from DOM to GAIP_STATE first
         this.syncSoilFromDOM();
 
-        const inputs = this.collectFromState();
+        let inputs = this.collectFromState();
         inputs.aaTextureKey = this._collectAATexture();
 
         // Keep the original user-facing validation (alert + focus) in the wrapper.
@@ -1271,6 +1287,24 @@
                 this.elements.annualNInput.focus();
             }
             return;
+        }
+
+        // GH-246: pages that opt out of climate-normals-service.js's eager
+        // on-load fetch (Plan — see GAIP_CLIMATE_NORMALS_SKIP_AUTOTRIGGER)
+        // never have monthlyTemps in memory yet at this point. Fetch it now,
+        // on demand, the same way exportToWord() already does via
+        // ensureFromPage() — a no-op if normals already resolved this page
+        // load (in-memory per-coordinate cache in climate-normals-service.js).
+        if (!inputs.monthlyTemps && window.GilbaClimateNormalsService &&
+            typeof window.GilbaClimateNormalsService.ensureFromPage === 'function') {
+            this._setGenerateBusy(true);
+            try {
+                await window.GilbaClimateNormalsService.ensureFromPage();
+            } finally {
+                this._setGenerateBusy(false);
+            }
+            inputs = this.collectFromState();
+            inputs.aaTextureKey = this._collectAATexture();
         }
 
         // b35fix382 INSTRUMENTATION — paired with [CombinedExport b35fix382]

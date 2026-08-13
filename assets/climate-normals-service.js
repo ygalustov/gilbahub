@@ -311,7 +311,13 @@
         return null;
     }
 
+    // GH-246: pages that only ever need normals for an explicit user
+    // action (Plan's "Generate Nutrition Program" button, not anything
+    // rendered on load) can set this before this script loads to skip
+    // the eager DOMContentLoaded fetch below and call ensureFromPage()
+    // themselves at the point they actually need it.
     function autoTrigger() {
+        if (global.GAIP_CLIMATE_NORMALS_SKIP_AUTOTRIGGER) return;
         var coords = readCoords();
         if (!coords) return;
         ensure(coords.lat, coords.lon).catch(function (err) {

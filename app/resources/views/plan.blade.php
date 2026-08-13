@@ -2,6 +2,14 @@
 
 @section('head')
 <script>
+    // GH-246: Plan never needs live climate normals just to
+    // render on load (the saved calendar program and Seasonal N card both
+    // read from persisted/cached data, not window.climateMetrics) — only a
+    // "Generate Nutrition Program" click does. Skip climate-normals-service.js's
+    // eager DOMContentLoaded fetch here; nutrition-calendar.js's generate()
+    // calls GilbaClimateNormalsService.ensureFromPage() itself on click.
+    window.GAIP_CLIMATE_NORMALS_SKIP_AUTOTRIGGER = true;
+
     Object.assign(window.GAIP_HUB_CONFIG, {
         turfSpecies:     @json($turfSpecies),
         turfMethodology: @json($turfMethodology),
