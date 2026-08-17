@@ -6065,30 +6065,43 @@
             children: [new TextRun({ text: 'Monthly Schedule', bold: true, size: 24, color: '1F2937' })]
         }));
         
+        // GH-255: split into Granular / Liquid / Notes columns, matching the
+        // on-screen UI (nutrition-prebble-integration.js) instead of one
+        // combined text column — a single column made a real liquid
+        // application and its unrelated coveredBy carry-forward note (which
+        // is always about the granular side) read as if they contradicted
+        // each other, and dropped Notes (m.notes) entirely.
+        // Column widths sum to 9600 DXA, just under the 9746 DXA usable page
+        // width (A4, 1080 DXA margins each side — see the `page`/`margin`
+        // section properties below) — up from the original 7500 total, with
+        // most of the extra going to Notes, the column that wraps to the
+        // most lines (multi-sentence agronomic notes) and therefore drives
+        // how many pages this table spans.
         var monthlyRows = [
             new TableRow({
                 tableHeader: true,
                 children: [
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Month', bold: true, size: 22 })] })] }),
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GP%', bold: true, size: 22 })] })] }),
-                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product Recommendations', bold: true, size: 22 })] })] })
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 1100, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Month', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 700, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GP%', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Granular Products', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 2000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Liquid / Foliar', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: 3400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Notes', bold: true, size: 22 })] })] })
                 ]
             })
         ];
-        
+
         monthly.forEach(function(m) {
             var gpPct = Math.round((m.gp || 0) * 100);
-            var productText = '';
-            
-            // Build product text
-            var products = [];
+
+            var granularProducts = [];
             if (m.granular && m.granular.length > 0) {
                 m.granular.forEach(function(g) {
                     var rate = g.rateKgHa ? g.rateKgHa + ' kg/ha' : '';
                     var splits = g.splitCount > 1 ? ' ×' + g.splitCount : '';
-                    products.push(g.name + (rate ? ' @ ' + rate : '') + splits);
+                    granularProducts.push(g.name + (rate ? ' @ ' + rate : '') + splits);
                 });
             }
+            var liquidProducts = [];
             if (m.liquid && m.liquid.length > 0) {
                 m.liquid.forEach(function(l) {
                     // b35fix322 Bug 2b: soluble products are dosed by mass not
@@ -6097,38 +6110,45 @@
                     // which keys off form). Display unit must follow form.
                     var unit = (l.form === 'soluble') ? 'kg/ha' : 'L/ha';
                     var rate = l.rateLHa ? l.rateLHa + ' ' + unit : '';
-                    products.push(l.name + (rate ? ' @ ' + rate : ''));
+                    liquidProducts.push(l.name + (rate ? ' @ ' + rate : ''));
                 });
             }
-            
-            // GH-255: a month can carry both a coveredBy note (a slow-release
-            // granular from an earlier month is still active) AND its own
-            // new liquid/foliar application at the same time — the on-screen
-            // UI already renders both (separate Granular/Liquid columns), so
-            // this single combined column must not treat them as exclusive.
+
+            // coveredBy is always about the granular side (a slow-release
+            // granular from an earlier month still releasing, which is why
+            // this month's own granular list is empty) — same placement as
+            // nutrition-prebble-integration.js's coverageDisplay, appended
+            // under the granular cell rather than mixed into liquid/notes.
             var coveredByText = m.coveredBy ? ('Covered by ' + m.coveredBy.product + ' (' + m.coveredBy.month + ')') : '';
-            if (products.length > 0) {
-                productText = products.join(', ') + (coveredByText ? ' · ' + coveredByText : '');
+            var isPureCoveredByCell = !!m.coveredBy && granularProducts.length === 0;
+            var granularText;
+            if (granularProducts.length > 0) {
+                granularText = granularProducts.join(', ') + (coveredByText ? ' · ' + coveredByText : '');
             } else if (coveredByText) {
-                productText = coveredByText;
+                granularText = coveredByText;
             } else {
-                productText = '-';
+                granularText = '-';
             }
+            var liquidText = liquidProducts.length > 0 ? liquidProducts.join(', ') : '-';
+            var notesText = (m.notes && m.notes.length > 0) ? m.notes.join('. ') : '-';
 
             // GP color
             var gpColor = gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'CA8A04' : '6B7280';
-            var isPureCoveredByRow = !!m.coveredBy && products.length === 0;
+            var mutedGrey = '9CA3AF';
+            var normalDark = '374151';
 
             monthlyRows.push(new TableRow({
                 children: [
-                    new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 22 })] })] }),
-                    new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 22, color: gpColor })] })] }),
-                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 22, color: isPureCoveredByRow ? '6B7280' : '374151', italics: isPureCoveredByRow })] })] })
+                    new TableCell({ width: { size: 1100, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 22 })] })] }),
+                    new TableCell({ width: { size: 700, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 22, color: gpColor })] })] }),
+                    new TableCell({ width: { size: 2400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: granularText, size: 22, color: isPureCoveredByCell ? '6B7280' : normalDark, italics: isPureCoveredByCell })] })] }),
+                    new TableCell({ width: { size: 2000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: liquidText, size: 22, color: liquidProducts.length > 0 ? normalDark : mutedGrey })] })] }),
+                    new TableCell({ width: { size: 3400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: notesText, size: 22, color: mutedGrey, italics: true })] })] })
                 ]
             }));
         });
-        
-        elements.push(new Table({ width: { size: 7500, type: WidthType.DXA }, columnWidths: [1200, 800, 5500], rows: monthlyRows }));
+
+        elements.push(new Table({ width: { size: 9600, type: WidthType.DXA }, columnWidths: [1100, 700, 2400, 2000, 3400], rows: monthlyRows }));
         
         elements.push(new Paragraph({ children: [] }));
         

@@ -1107,9 +1107,18 @@
                         };
                         
                         recommendations.liquid.push(liquidProduct);
+                        // GH-256: previously a hardcoded "MESA + liquid foliar" note
+                        // regardless of what was actually selected above (could be
+                        // Ammos/Nitro, any other high-N liquid, or nothing at all —
+                        // "MESA" isn't even a candidate in this branch's selection
+                        // logic) and fired unconditionally even when `ammos` was
+                        // null, so the note could claim a foliar application that
+                        // never happened. Now names the actual selected product and
+                        // only fires when one was found.
+                        recommendations.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - winter program: ${liquidProduct.name} foliar top-up`);
+                    } else {
+                        recommendations.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - winter program: no suitable liquid nitrogen source available`);
                     }
-                    
-                    recommendations.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - winter program: MESA + liquid foliar`);
                 } else if (gp < 0.5) {
                     // Moderate GP (30-50%) - granular works fine, no need for foliar split on sportsturf
                     const nProduct = this.selectNitrogenSource(seasonGranular, monthData, context);
@@ -1479,7 +1488,12 @@
                                 deliveryMethod: 'foliar',
                                 notes: `Winter foliar: 30L container (granular coverage limited in cold soil)`,
                             });
-                            rec.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - Ammos 22 foliar supplement`);
+                            // GH-256: name the actual selected product instead of a
+                            // hardcoded "Ammos 22" — safe today (this branch's search
+                            // only ever matches Ammos/Nitro-named products) but not
+                            // future-proof against a catalogue change, same principle
+                            // as the MESA note fixed above.
+                            rec.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - ${ammos.name} foliar supplement`);
                             
                         }
                     } else {
