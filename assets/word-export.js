@@ -6101,23 +6101,29 @@
                 });
             }
             
-            // Check if covered by previous application
-            if (m.coveredBy) {
-                productText = 'Covered by ' + m.coveredBy.product + ' (' + m.coveredBy.month + ')';
-            } else if (products.length > 0) {
-                productText = products.join(', ');
+            // GH-255: a month can carry both a coveredBy note (a slow-release
+            // granular from an earlier month is still active) AND its own
+            // new liquid/foliar application at the same time — the on-screen
+            // UI already renders both (separate Granular/Liquid columns), so
+            // this single combined column must not treat them as exclusive.
+            var coveredByText = m.coveredBy ? ('Covered by ' + m.coveredBy.product + ' (' + m.coveredBy.month + ')') : '';
+            if (products.length > 0) {
+                productText = products.join(', ') + (coveredByText ? ' · ' + coveredByText : '');
+            } else if (coveredByText) {
+                productText = coveredByText;
             } else {
                 productText = '-';
             }
-            
+
             // GP color
             var gpColor = gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'CA8A04' : '6B7280';
-            
+            var isPureCoveredByRow = !!m.coveredBy && products.length === 0;
+
             monthlyRows.push(new TableRow({
                 children: [
                     new TableCell({ width: { size: 1200, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: m.month_name || m.month || '', size: 22 })] })] }),
                     new TableCell({ width: { size: 800, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 22, color: gpColor })] })] }),
-                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 22, color: m.coveredBy ? '6B7280' : '374151', italics: !!m.coveredBy })] })] })
+                    new TableCell({ width: { size: 5500, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: productText, size: 22, color: isPureCoveredByRow ? '6B7280' : '374151', italics: isPureCoveredByRow })] })] })
                 ]
             }));
         });
