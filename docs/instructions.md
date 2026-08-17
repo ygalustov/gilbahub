@@ -514,6 +514,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-250** Added a "This Month's Normal GP" reference row to the Growth & Temperature panel (`/analysis`), under "8-Day Average GP" — shows the current month's Growth Potential computed from the site's 20-year NASA POWER climate normal (GH-245), so users can see live weather (Today's GP / 8-Day Average) alongside the long-term seasonal baseline instead of the two disagreeing with no explanation (prompted by a client-facing example: 34% today vs. 6% for August's normal at a Christchurch site — both individually correct, per docs items 80a/244, but confusing shown alone). `hub-persistence.js`'s `cacheAnalysisResults()` computes it once per Re-run from `climateMetrics.monthlyTemps[currentMonth]` via the existing `calculateWeightedGrowth()` (same function `dailyPattern` entries use, not a new formula) and persists it as `computed.climate.growth.monthlyNormal`; `growth-light-analysis.js` renders it as a third `.gl-gp-row` (same visual pattern as the 8-day row, no day-tile strip), omitted entirely when the climate normal hasn't resolved yet. Added `tests/gh250-monthly-normal-gp.test.js` (15 tests).
 **GH-251** Fixed `monthlyNormal` (GH-250) coming back `undefined` on every Re-run in production — confirmed via `window.GAIP_DASHBOARD_DATA.computed.climate.growth.monthlyNormal` on `/analysis`. Root cause: `climateMetrics.monthlyTemps` is resolved fire-and-forget by `GilbaClimateNormalsService` alongside the live weather fetch, but the Re-run flow's fast-path timer fires 3s after `gaip:weather-ready`/`gaip:orchestrator-complete` — events that mark the *start* of that fetch, not its completion — so `cacheAnalysisResults()` usually ran before the NASA POWER/Open-Meteo round-trip finished. `_doRerunSync()` (`hub-persistence.js`) now awaits a bounded (4s, via `Promise.race`) `GilbaClimateNormalsService.ensureFromPage()` before building the cache. Bounded rather than a bare await because that fetch chain has no timeout of its own — an unbounded wait could stall the entire Re-run (not just this one field) on a slow/hanging request. `cacheAnalysisResults()` itself stays synchronous and unchanged; only `_doRerunSync` (fire-and-forget from setTimeout, so safe to make `async`) is affected — its two sibling callers (`GilbaPersistence.save()`'s autosave, the `gaip:sensor-upgrade-complete` re-sync) are untouched. Added `tests/gh251-rerun-waits-for-monthly-normals.test.js` (9 tests).
 **GH-252** Fixed `monthlyNormal` (GH-250) still not rendering on `/analysis` even after GH-251 confirmed the data resolves correctly (diagnostic logging added and then removed during investigation showed `climateMetrics.monthlyTemps` present with `source: 'nasa-power'` right before `cacheAnalysisResults()` ran). Real root cause: `buildClimateView()` (`growth-light-analysis.js`) rebuilds the `growth` object it hands to `renderGrowthBlock()` from an explicit field list (`c3`/`c4`/`weighted`/`status`/`dailyPattern`/`gdd`) instead of spreading the source object — `monthlyNormal` wasn't in that list, so it was silently dropped between `computed.climate.growth` (where GH-250's code correctly puts it) and the renderer, even though the sibling `dailyPattern` field survives fine because it *is* named. Added `monthlyNormal: growth.monthlyNormal || null` to the list. Added a regression test to `tests/gh250-monthly-normal-gp.test.js` pinning that this object literal includes `monthlyNormal`.
+**GH-253** Fixed the Reports > Export page (`/reports/export`) recommending products from the wrong distributor catalogue in the Word export (Hoxton audit D30, live production defect on the Prebbles NZ account) — the on-screen Nutrition Program correctly filtered to the Prebbles NZ catalogue while the Word export recommended AU-catalogue products for the same site and session. Root cause: `ReportsController::pageData()`'s `$savedLocation` (which feeds the `.gaip-lat`/`.gaip-lon` inputs that `RegionalProfiles.detectRegionFromHub()` reads to decide the NZ vs AU product catalogue in `word-export-combined.js`) preferred the `gaip` site-config namespace's `location` blob over the site's own `latitude`/`longitude` columns — the opposite precedence from `PageController` and `AnalysisController`'s `$savedLocation`, which read the site record directly. So whenever the two copies disagree — for any reason; every currently-reachable write path (the Settings location form, Settings' "Import from old portal") writes both together via `Promise.all`, so this needs either a partial failure of one of those two parallel requests or an out-of-band data change (e.g. direct DB edit) to occur, not a normal user action — Plan and Analysis would read the correct, current coordinates while Export kept resolving the stale copy, failed NZ detection, and silently fell through to the AU recommender. Changed `ReportsController::pageData()` to read `$activeSite->latitude/longitude/location_name` directly, matching the sibling controllers, so Export trusts the same source as Plan/Analysis regardless of how or why the two copies diverged. Not addressed here: `word-export-combined.js` resolves `_isNZ`/distributor once globally per export rather than per site, so a combined multi-site export spanning both NZ and AU sites would still apply one catalogue to all of them — flagged as a separate follow-up, not evidenced by the reported defect (single-site Hoxton export).
 
 
 
@@ -533,26 +534,28 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 245. - md file
 246. pc version. why is ammos 22 (nitro 22) and Ammos 22 (Nitro 22) (Balance) two line entries? same product - docx file
 247. no trend analysis in pc version
-
 248 IMPORTANT - 4 files
 1.⁠ ⁠Section 4.2 is the diagnostic that narrows the search. Comparing the two exports generated on 8 Aug, exactly two sample subtitles changed after the manual save, and they are exactly the two panels that were edited: the species flipped from “Browntop Bent (Greens)” to the raw enum “browntopBent”. So the save did reach the record the export reads. The species field updated and the measurements did not. That points at a partial write or a field-name mismatch between the write and read paths, not a cache. It rules out most of the obvious explanations before anyone opens a debugger.
 2.	Boron is the only measurement field that agrees, in either panel. If field mapping is the fault, boron may be the one key that maps correctly on both paths, which would identify the rule immediately. Worth checking before anything else.
 3.	Check 5.2 is the fastest disambiguation. Reload the page, reopen the form. If it shows 1.2 and 123 rather than 0.16 and 17, the write never landed and the UI was showing local state. If it shows the entered values, the write is fine and the export query is wrong. Different fault, different fix, and one page reload separates them.
+249. uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
 
 
 
 
 
-
-1308/26
-249 uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
-D01 - D03 GP. GH-245, GH-246.
-
+13/08/26
++249 uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
+D01 - D03 GP. GH-245 - GH-252
 
 
+17/08/26
+D30
 
 
+D01 (устаревший климатический ряд в Monthly Schedule) — это отдельный, ещё не тронутый баг с тем же корнем, но другим механизмом (кэш, а не неверный приоритет чтения). Хотите, чтобы я взялся и за него следующим? 
 
+I think after we change coordinates we need to show info on the panel - to rerun analisys
 
 
 

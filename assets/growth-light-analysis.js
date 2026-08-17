@@ -414,7 +414,7 @@
         },
         'gl-gp-normal': {
             title: 'Monthly Climate Normal',
-            body:  'The long-term average temperature for this month at this site\'s coordinates (NASA POWER climatology, or a shorter historical average when that source is unavailable), converted to Growth Potential with the same PACE model. A seasonal baseline — today\'s live reading above will often differ, since it reflects actual current/forecast weather rather than the average.'
+            body:  'The long-term average temperature for this month at this site\'s coordinates (NASA POWER climatology, or a shorter historical average when that source is unavailable), converted to Growth Potential with the same PACE model. A seasonal baseline — Today\'s Growth Potential above will often differ, since that\'s today\'s own forecast average rather than the multi-year average for the whole month.'
         },
         'gl-c3c4': {
             title: 'C3 vs C4 Grass Types',
@@ -921,7 +921,7 @@
                 var normalRightHtml = '<div class="gl-insight-box">' +
                     esc('Based on the long-term average temperature for ' + monthName + ' (' +
                         fmt(monthlyNormal.temp, 1) + '°C) at this site — a seasonal ' +
-                        'baseline to compare against today’s live reading above.') +
+                        'baseline to compare against Today’s Growth Potential above.') +
                     '</div>';
                 normalSectionHtml = [
                     '<hr class="gl-section-sep">',

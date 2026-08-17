@@ -49,10 +49,18 @@ class ReportsController extends Controller
                 $activeSite->longitude !== null ? (float) $activeSite->longitude : null,
             ));
             $locationName    = $gaipConfig['location']['name'] ?? $activeSite->location_name ?: null;
+            // GH-253: savedLocation feeds the .gaip-lat/.gaip-lon inputs that
+            // RegionalProfiles.detectRegionFromHub() reads to pick the NZ vs AU
+            // product catalogue for Word exports. It must read the site's own
+            // latitude/longitude columns first, same as PageController and
+            // AnalysisController's $savedLocation — not the gaip config
+            // namespace, which can go stale after a coordinate change that
+            // only writes to the sites table (see D30, Hoxton Prebbles export
+            // recommending AU-catalogue products for an NZ site).
             $savedLocation   = [
-                'name' => $gaipConfig['location']['name'] ?? $activeSite->location_name ?? '',
-                'lat'  => $gaipConfig['location']['lat'] ?? $activeSite->latitude ?? '',
-                'lon'  => $gaipConfig['location']['lon'] ?? $activeSite->longitude ?? '',
+                'name' => $activeSite->location_name ?? '',
+                'lat'  => $activeSite->latitude ?? '',
+                'lon'  => $activeSite->longitude ?? '',
             ];
 
             $cacheRecord = $activeSite->configs()->where('namespace', 'analysis_cache')->first();
