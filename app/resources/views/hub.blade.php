@@ -200,6 +200,7 @@
             'nutrient-trend.js',
             'jszip.min.js',
             'docx.min.js',
+            'gp-status.js',
             'word-export.js',
             'chart-annotator-hub.js',
             'export-metadata.js',

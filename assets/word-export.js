@@ -6133,7 +6133,11 @@
             var notesText = (m.notes && m.notes.length > 0) ? m.notes.join('. ') : '-';
 
             // GP color
-            var gpColor = gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'CA8A04' : '6B7280';
+            // GH-257: canonical GP colour thresholds — see gp-status.js. Was
+            // previously green/amber/grey with its own amber shade (CA8A04);
+            // now matches the dashboard/analysis palette exactly (amber
+            // D97706, red DC2626 instead of grey for the low tier).
+            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocx(gpPct) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
             var mutedGrey = '9CA3AF';
             var normalDark = '374151';
 

@@ -628,10 +628,15 @@
             breakdownLabel = `Thermal, C3: ${c3Percent}% · C4: ${c4Percent}%`;
         }
 
-        const severityClass = gpPercent >= 70 ? 'gaip-severity-low' :
-                             gpPercent >= 40 ? 'gaip-severity-moderate' : 'gaip-severity-high';
-        const barClass = gpPercent >= 70 ? 'gaip-progress-green' :
-                        gpPercent >= 40 ? 'gaip-progress-yellow' : 'gaip-progress-red';
+        // GH-257: canonical GP colour thresholds — see gp-status.js. Note this
+        // component's own class names invert the GP meaning into a "severity"
+        // (high GP = gaip-severity-low, i.e. low severity) — kept as-is, only
+        // the threshold/tier boundary now comes from the shared source.
+        const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gpPercent) : (gpPercent >= 70 ? 'high' : (gpPercent >= 40 ? 'moderate' : 'low'));
+        const severityClass = gpLevel === 'high' ? 'gaip-severity-low' :
+                             gpLevel === 'moderate' ? 'gaip-severity-moderate' : 'gaip-severity-high';
+        const barClass = gpLevel === 'high' ? 'gaip-progress-green' :
+                        gpLevel === 'moderate' ? 'gaip-progress-yellow' : 'gaip-progress-red';
 
         widget.innerHTML = `
             <div class="gaip-widget-value ${severityClass}" title="Weighted growth potential, accounts for temperature, day length and variety adjustment">${gpPercent}<span class="gaip-widget-unit">%</span></div>

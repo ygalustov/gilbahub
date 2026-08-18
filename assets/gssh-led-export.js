@@ -528,7 +528,10 @@
                 var gp = (growth.gpC4 !== null && growth.gpC4 !== undefined) ? growth.gpC4
                        : (growth.gpC3 !== null && growth.gpC3 !== undefined) ? growth.gpC3 : null;
                 if (gp !== null) {
-                    elems.push(kv('Growth Potential', Math.round(gp) + '%', gp >= 70 ? COLOURS.gilbaGreen : gp >= 40 ? COLOURS.amber : COLOURS.red));
+                    // GH-257: canonical GP colour thresholds — see gp-status.js.
+                    var gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gp) : (gp >= 70 ? 'high' : gp >= 40 ? 'moderate' : 'low');
+                    var gpColour = gpLevel === 'high' ? COLOURS.gilbaGreen : gpLevel === 'moderate' ? COLOURS.amber : COLOURS.red;
+                    elems.push(kv('Growth Potential', Math.round(gp) + '%', gpColour));
                 }
             }
         }

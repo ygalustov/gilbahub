@@ -410,6 +410,7 @@
 <script src="{{ $legacyAssetUrl('au-variety-traits.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nz-variety-traits.js') }}"></script>
 <script src="{{ $legacyAssetUrl('variety-traits-integration.js') }}"></script>
+<script src="{{ $legacyAssetUrl('gp-status.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}" defer></script>
 <script src="{{ $legacyAssetUrl('onboarding-wizard.js') }}" defer></script>
 <script>

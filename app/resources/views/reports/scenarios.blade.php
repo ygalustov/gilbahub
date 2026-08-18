@@ -132,6 +132,7 @@
         'soil-structure-engine.js','site-selector-ui.js','site-config-persistence.js',
         'site-profile-bridge.js','site-switch-cleanup.js','site-dashboard.js',
         'nutrient-trend.js','jszip.min.js','docx.min.js',
+        'gp-status.js',
         'word-export-combined.js','gaip-ical-export.js','word-export.js',
         'chart-annotator-hub.js','export-metadata.js',
         'gilba-soil-interpretation.js','gilba-water-interpretation.js',

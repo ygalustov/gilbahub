@@ -44,11 +44,13 @@
 
     function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
+    // GH-257: canonical GP colour thresholds — see gp-status.js.
     function gpColor(pct) {
-        if (pct === null || pct === undefined) return '#9ca3af';
-        if (pct >= 70) return '#16a34a';
-        if (pct >= 40) return '#d97706';
-        return '#dc2626';
+        return window.GAIP_GPStatus ? window.GAIP_GPStatus.getColor(pct) : (
+            pct === null || pct === undefined ? '#9ca3af' :
+            pct >= 70 ? '#16a34a' :
+            pct >= 40 ? '#d97706' : '#dc2626'
+        );
     }
 
     function dliColor(status) {
@@ -296,7 +298,8 @@
         if (growth.weighted === undefined && growth.weighted !== 0) return global.climateMetrics || null;
 
         var gp = growth.weighted;
-        var gpStatus = gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low';
+        // GH-257: canonical GP colour thresholds — see gp-status.js.
+        var gpStatus = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLabel(gp) : (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low');
 
         var stressFactors = Array.isArray(stressObj.factors) ? stressObj.factors : [];
         var heatFactor = null, coldFactor = null, droughtFactor = null, salinityFactor = null;
@@ -628,7 +631,8 @@
                           _hGrassType === 'c4' ? (_hDp0.c4 != null ? _hDp0.c4 : _hDp0.weighted) :
                           _hDp0.weighted)
                : (cm && cm.growth ? cm.growth.weighted : null);
-        var gpStatus  = gp != null ? (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low') : (cm && cm.growth ? cm.growth.status : null);
+        // GH-257: canonical GP colour thresholds — see gp-status.js.
+        var gpStatus  = gp != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLabel(gp) : (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low')) : (cm && cm.growth ? cm.growth.status : null);
         var dli       = getDLI(shade);
         var dliStatus = shade ? shade.effectiveStatus : null;
         var shadeShort = dliStatus ? dliStatus.split('(')[0].trim() : null;
@@ -744,7 +748,8 @@
         } else {
             gp = growth.weighted;
         }
-        var gpStatus = gp != null ? (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low') : (growth.status || 'Unknown');
+        // GH-257: canonical GP colour thresholds — see gp-status.js.
+        var gpStatus = gp != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLabel(gp) : (gp >= 70 ? 'High' : gp >= 40 ? 'Moderate' : 'Low')) : (growth.status || 'Unknown');
         var cfg = global.GAIP_HUB_CONFIG || {};
         var _specRaw = cfg.turfSpecies || cfg.species || cfg.grassSpecies || '';
         var speciesLabel = _specRaw ? capitalize(_specRaw) : (shade && shade.speciesKey ? capitalize(shade.speciesKey) : null);

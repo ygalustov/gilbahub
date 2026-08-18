@@ -949,6 +949,7 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 
 @section('scripts')
 <link rel="stylesheet" href="{{ $legacyAssetUrl('nutrition-calendar.css') }}">
+<script src="{{ $legacyAssetUrl('gp-status.js') }}"></script>
 <script src="{{ $legacyAssetUrl('dashboard-init.js') }}"></script>
 <script src="{{ $legacyAssetUrl('gilba-pgr-module-v3.js') }}"></script>
 <script src="{{ $legacyAssetUrl('pgr-forecast.js') }}"></script>

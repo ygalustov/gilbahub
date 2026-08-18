@@ -1514,7 +1514,10 @@
 
         const rows = monthly.map(m => {
             const gpPct = Math.round(m.gp * 100);
-            const gpClass = gpPct >= 50 ? 'high' : (gpPct >= 25 ? 'medium' : 'low');
+            // GH-257: canonical GP colour thresholds — see gp-status.js. Was
+            // 50/25; now 70/40 to match the dashboard/analysis/Word export.
+            const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gpPct) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
+            const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
             return `
                 <tr class="gilba-nut-row">
                     <td class="gilba-nut-cell gilba-nut-cell--month">${m.month_name}</td>

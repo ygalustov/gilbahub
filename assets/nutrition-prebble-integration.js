@@ -790,7 +790,11 @@
                     ? `<div class="prebble-notes">${m.notes.join('. ')}</div>` 
                     : '';
                 
-                const gpClass = m.gp >= 0.5 ? 'high' : (m.gp >= 0.25 ? 'medium' : 'low');
+                // GH-257: canonical GP colour thresholds — see gp-status.js.
+                // Was 50/25 (as a 0-1 fraction); now 70/40 to match the
+                // dashboard/analysis/Word export.
+                const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(m.gp) : (m.gp >= 0.7 ? 'high' : (m.gp >= 0.4 ? 'moderate' : 'low'));
+                const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
 
                 // Build requirements string - only show nutrients that are needed
                 let reqParts = [`N:${m.requirements.N.toFixed(1)}`];
@@ -1531,7 +1535,7 @@
         /* GP row accent — left border on month cell */
         .gilba-gp-high  > td:first-child { border-left: 3px solid var(--gaip-good, #16a34a); }
         .gilba-gp-medium > td:first-child { border-left: 3px solid var(--gaip-warning, #d97706); }
-        .gilba-gp-low   > td:first-child { border-left: 3px solid var(--gaip-border, #d1d5db); }
+        .gilba-gp-low   > td:first-child { border-left: 3px solid var(--gaip-critical, #dc2626); }
 
         .prebble-program-table tbody tr:hover td { background: var(--gaip-surface-muted, #f8fafc); }
 

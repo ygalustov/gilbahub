@@ -138,6 +138,7 @@
 <script src="{{ $legacyAssetUrl('red-thread-model.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-forecast.js') }}"></script>
 <script src="{{ $legacyAssetUrl('disease-analysis.js') }}"></script>
+<script src="{{ $legacyAssetUrl('gp-status.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('water-balance-analysis.js') }}"></script>

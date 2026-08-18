@@ -256,8 +256,10 @@
 }
 
 .gilba-nut-gp-badge--low {
-    background: var(--gaip-surface-muted);
-    color: var(--gaip-text-muted);
+    /* GH-257: canonical GP colour thresholds — was grey (muted), now red to
+       match the dashboard/analysis/Word export low tier. */
+    background: var(--gaip-critical-bg);
+    color: var(--gaip-critical);
 }
 
 /* ============================================================================

@@ -376,15 +376,16 @@
         if (gpRaw != null) {
             var gp = gpRaw >= 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
             setText('db-gp-value', gp + '%');
-            // GP colour: >=70 green, 40-69 amber, <40 red (same as Hub daily-dashboard)
-            var gpSev = gp >= 70 ? 'ok' : (gp >= 40 ? 'warning' : 'critical');
+            // GH-257: canonical GP colour thresholds — see gp-status.js.
+            var gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gp) : (gp >= 70 ? 'high' : (gp >= 40 ? 'moderate' : 'low'));
+            var gpSev = gpLevel === 'high' ? 'ok' : (gpLevel === 'moderate' ? 'warning' : 'critical');
             var gpEl = el('db-gp-value');
             if (gpEl) gpEl.className = 'db-vital-main ' + gpSev;
             // GP progress bar
             var gpBar = el('db-gp-bar');
             if (gpBar) {
                 gpBar.style.width = gp + '%';
-                gpBar.style.background = gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626');
+                gpBar.style.background = window.GAIP_GPStatus ? window.GAIP_GPStatus.getColor(gp) : (gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626'));
             }
 
             // GP footer: season type + 8-day avg (main number is today's GP)
@@ -1180,7 +1181,9 @@
         // Today's GP — from dailyPattern[0] (daily mean per PACE contract, not current-hour override)
         var todayRaw = todayEntry ? (todayEntry[gpField] != null ? todayEntry[gpField] : todayEntry.weighted) : null;
         var todayGP  = todayRaw != null ? (todayRaw >= 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
-        var todayCls = todayGP != null ? (todayGP >= 70 ? 'ok' : (todayGP >= 40 ? 'warning' : 'critical')) : '';
+        // GH-257: canonical GP colour thresholds — see gp-status.js.
+        var todayGPLevel = todayGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(todayGP) : (todayGP >= 70 ? 'high' : (todayGP >= 40 ? 'moderate' : 'low'))) : null;
+        var todayCls = todayGPLevel === 'high' ? 'ok' : (todayGPLevel === 'moderate' ? 'warning' : (todayGPLevel === 'low' ? 'critical' : ''));
 
         var seasonTag   = isWarm ? 'C4 warm-season grass' : 'C3 cool-season grass';
 
@@ -1237,7 +1240,9 @@
             }
         }
 
-        var avgCls = avgGP != null ? (avgGP >= 70 ? 'ok' : (avgGP >= 40 ? 'warning' : 'critical')) : '';
+        // GH-257: canonical GP colour thresholds — see gp-status.js.
+        var avgGPLevel = avgGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(avgGP) : (avgGP >= 70 ? 'high' : (avgGP >= 40 ? 'moderate' : 'low'))) : null;
+        var avgCls = avgGPLevel === 'high' ? 'ok' : (avgGPLevel === 'moderate' ? 'warning' : (avgGPLevel === 'low' ? 'critical' : ''));
         var html = '';
 
         // Species badge

@@ -195,6 +195,7 @@
 
 {{-- Assets --}}
 <script src="{{ $legacyAssetUrl('dashboard-ui.js') }}"></script>
+<script src="{{ $legacyAssetUrl('gp-status.js') }}"></script>
 <script src="{{ $legacyAssetUrl('growth-light-analysis.js') }}"></script>
 
 </body>
