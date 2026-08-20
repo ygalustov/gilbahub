@@ -854,6 +854,7 @@
 
         if (!demand || !nutrients.length) return '';
 
+        var isAA = (sn.methodology || '').toLowerCase() === 'ammonium_acetate';
         var ANNUAL_NUTS = ['P','K','Ca','Mg','S'];
         var cards = ANNUAL_NUTS.map(function(nut){
             var demandVal = demand[nut];
@@ -863,9 +864,19 @@
             var actual = nObj ? parseFloat(nObj.actual) : NaN;
             var mlsnV  = nObj ? parseFloat(nObj.mlsn)   : NaN;
 
-            // If actual ≥ target (1.5× MLSN) → soil is well above threshold, no application needed
-            var targetV = nObj ? parseFloat(nObj.targetPpm) : NaN;
-            if (isNaN(targetV) || !targetV) targetV = mlsnV > 0 ? mlsnV * 1.5 : NaN;
+            // GH-260 (D07 item 6-adjacent): for AA, the ceiling is the
+            // certificate's own range max (nObj.rangeMax, now populated by
+            // mlsnEngine's real AA branch — GH-260 item 3), not 1.5× MLSN,
+            // which is a different methodology's formula and was never a
+            // meaningful ceiling for an AA sufficiency range.
+            var targetV;
+            if (isAA) {
+                targetV = (nObj && nObj.rangeMax != null) ? parseFloat(nObj.rangeMax) : NaN;
+            } else {
+                // If actual ≥ target (1.5× MLSN) → soil is well above threshold, no application needed
+                targetV = nObj ? parseFloat(nObj.targetPpm) : NaN;
+                if (isNaN(targetV) || !targetV) targetV = mlsnV > 0 ? mlsnV * 1.5 : NaN;
+            }
             var isHigh = !isNaN(actual) && !isNaN(targetV) && actual >= targetV;
 
             var rounded     = isHigh ? 0 : Math.round(demandVal * 10) / 10;
@@ -874,7 +885,9 @@
             var badgeClr    = sc==='deficient'?'#991b1b':sc==='borderline'?'#854d0e':sc==='adequate'||sc==='sufficient'?'#166534':sc==='high'?'#1e40af':'#6b7280';
             var statusText  = isHigh ? 'High' : capitalize(nObj ? (nObj.status || sc) : sc);
             var noteText    = isHigh
-                ? 'Soil level exceeds MLSN target, no application required this season. Monitor annually.'
+                ? (isAA
+                    ? 'Soil level exceeds AA sufficiency range, no application required this season. Monitor annually.'
+                    : 'Soil level exceeds MLSN target, no application required this season. Monitor annually.')
                 : 'Application required to meet annual demand.';
             return '<div class="sn-annual-card">'+
                 '<div class="sn-annual-nutrient">'+esc(nut)+'</div>'+

@@ -1072,6 +1072,11 @@
                         var _rows   = _doc.querySelectorAll('.gaip-mlsn-table tbody tr');
                         _rows.forEach(function(row) {
                             var cells = row.querySelectorAll('td');
+                            // GH-260 (D07 item 3): AA rows carry data-range-min/max
+                            // (mlsnEngine, hub-tissue-v3.js); MLSN/SLAN rows don't set
+                            // these, so both land as undefined here — no crash either way.
+                            var _rangeMin = row.dataset ? row.dataset.rangeMin : undefined;
+                            var _rangeMax = row.dataset ? row.dataset.rangeMax : undefined;
                             if (cells.length >= 7) {
                                 _nutrients.push({
                                     nutrient:       cells[0].textContent.trim(),
@@ -1081,7 +1086,9 @@
                                     targetPpm:      cells[4].textContent.trim(),
                                     status:         cells[5].textContent.trim(),
                                     statusClass:    row.className.replace('status-', ''),
-                                    recommendation: cells[6].textContent.trim()
+                                    recommendation: cells[6].textContent.trim(),
+                                    rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
+                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined
                                 });
                             } else if (cells.length >= 5) {
                                 _nutrients.push({
@@ -1090,7 +1097,9 @@
                                     mlsn:           cells[2].textContent.trim(),
                                     status:         cells[3].textContent.trim(),
                                     statusClass:    row.className.replace('status-', ''),
-                                    recommendation: cells[4].textContent.trim()
+                                    recommendation: cells[4].textContent.trim(),
+                                    rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
+                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined
                                 });
                             }
                         });
@@ -1238,10 +1247,46 @@
                             var v = parseFloat(_smRaw[k]);
                             if (!isNaN(v)) _smPpm[clean] = v;
                         });
+                        // GH-260/262 follow-up (GH-263): methodology/soilTexture were never
+                        // read here at all (methodology always fell back to the 'mlsn' literal
+                        // below, since sample raw data never actually carries a `methodology`
+                        // field -- that's a site/turf setting -- and soilTexture wasn't read
+                        // at all). GH-262 added a DOM fallback for both, but that DOM field
+                        // (.gaip-soil-texture in particular) turned out to be a static "loam"
+                        // default in legacy-hub-markup.blade.php with no sync path of its own
+                        // -- confirmed live: a site with Settings "Soil texture" = Sand still
+                        // classified as the generic "others" AA range. The reliable source is
+                        // `_smSample.methodologySnapshot`/`.soilTextureSnapshot`, computed
+                        // server-side at sample-creation time (site.methodology_override /
+                        // soil_texture_override falling back to account-level values) and now
+                        // carried through by sample-persistence.js's sync (GH-263).
+                        //
+                        // GH-265 correction: methodology and soilTexture are NOT symmetric here.
+                        // .gaip-soil-texture is a genuinely dead, static "loam" default (GH-263
+                        // confirmed no sync path exists), so soilTextureSnapshot correctly wins
+                        // over it. .gaip-soil-methodology is different -- ammonium-acetate-
+                        // methodology.js auto-selects it live on every page load based on the
+                        // site's region ("[AmmoniumAcetate] Auto-selected for NZ region"), so it
+                        // was already correct before any of this fix chain started. methodology
+                        // Snapshot, in contrast, is frozen at sample-CREATION time and goes stale
+                        // the moment a site's methodology changes afterwards -- confirmed live: a
+                        // real sample's methodologySnapshot read "mlsn" while the site's actual,
+                        // current methodology was AA, because the sample predated the AA switch.
+                        // GH-263 wrongly let that stale snapshot override the live-correct DOM
+                        // value. Methodology now trusts DOM first; the snapshot is kept only as a
+                        // last-resort fallback behind it (mirrors soilTexture's own DOM-last
+                        // fallback position, just with the priority flipped for this field).
+                        // No 'mlsn' baked into _smMethodDom itself here (unlike _smTexDom) --
+                        // the final default belongs at the end of the full priority chain below,
+                        // otherwise a present-but-empty DOM read would win over a real snapshot.
+                        var _smMethodDom = (document.querySelector('.gaip-soil-methodology') || {}).value;
+                        var _smTexDom    = (document.querySelector('.gaip-soil-texture') || {}).value || 'loam';
                         var _smState = {
                             soil: {
                                 ppm:         _smPpm,
-                                methodology: _smRaw.methodology || 'mlsn',
+                                methodology: _smMethodDom || _smSample.methodologySnapshot || _smRaw.methodology || 'mlsn',
+                                soilTexture: _smSample.soilTextureSnapshot || _smTexDom,
+                                CEC:         parseFloat(_smRaw.CEC || _smRaw.cec) || null,
                                 depthCm:     _smRaw.depth_mm ? _smRaw.depth_mm / 10 : 10,
                                 bulkDensity: _smRaw.bulkDensity || 1.4,
                             },
@@ -1284,14 +1329,14 @@
                             var _smTurfType = (_turfState && _turfState.warmBase && ((_turfState.percentC3Cover || 0) < 50))
                                              ? 'warm-season' : 'cool-season';
                             // DOM fallback: same race condition as primary path
+                            // (_smTexDom already read above, reused here for the ECe conversion)
                             var _smPhDom   = parseFloat((document.querySelector('.gaip-soil-ph') || {}).value) || 0;
                             var _smEc15Dom = parseFloat((document.querySelector('.gaip-soil-ec') || {}).value) || 0;
-                            var _smTexDom  = (document.querySelector('.gaip-soil-texture') || {}).value || 'loam';
                             var _smEceDom  = _smEc15Dom > 0 ? _smEc15Dom * ({sand:5,loamy_sand:5.5,sandy_loam:6,loam:7,clay_loam:8,clay:10}[_smTexDom] || 7) : 0;
                             var _smNaDom   = parseFloat(((document.querySelector('[data-mlsn="Na"]') || {})).value) || 0;
                             cache.computed.soilNutrition = {
                                 verdict:     _smVerdict,
-                                methodology: _smRaw.methodology || null,
+                                methodology: _smState.soil.methodology,
                                 pH:          _smRaw.pH_Water || _smRaw.pH || _smRaw.ph || _smPhDom || null,
                                 ECe:         _smRaw.ECe || _smRaw.EC_paste || (function() {
                                                  var ec15 = parseFloat(_smRaw.EC || _smRaw.EC_1_5 || _smRaw.EC_dSm || 0);

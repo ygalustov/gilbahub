@@ -1422,6 +1422,27 @@
             _validateAreaInput(sample.zoneType, container);
         }
 
+        // GH-263 (D07): restore the sample's snapshotted soil texture into the
+        // general texture select. .gaip-soil-texture is a static "loam" default
+        // in legacy-hub-markup.blade.php (no build-time value binding) and
+        // nothing previously synced it from the site's real
+        // sites.soil_texture_override -- mlsnEngine() (and the ECe conversion
+        // next to it) read this field directly, so the site's actual Settings
+        // texture never reached the calculation regardless of what a user
+        // picked. soilTextureSnapshot is computed server-side at sample-
+        // creation time (SampleController.php, site.soil_texture_override ?:
+        // account.soil_texture) and carried through by sample-persistence.js's
+        // sync (see that file's GH-263 change) -- only set here when present,
+        // so samples saved before this snapshot field existed keep today's
+        // "loam" default rather than being forced to a guess.
+        if (dataType === 'soil' && sample.soilTextureSnapshot) {
+            var texInput = container.querySelector('.gaip-soil-texture') || document.querySelector('.gaip-soil-texture');
+            if (texInput) {
+                texInput.value = sample.soilTextureSnapshot;
+                texInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
         // b35fix367 — Apply per-sample turf profile override into GaipTurfProfile
         // and fire the cascade so SpeciesController, hub-orchestrator, and the
         // disease engines pick up the override on the active interactive run.

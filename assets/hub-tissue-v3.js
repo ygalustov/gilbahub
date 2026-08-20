@@ -2381,9 +2381,15 @@ function mlsnEngine(state, weather) {
     // Build reference thresholds based on methodology
     let referenceThresholds;
 
-    // Get Ammonium Acetate soil texture if using that methodology
-    const aaSoilTexture =
-        (state.soil && state.soil.aaSoilTexture) || document.querySelector(".gaip-aa-soil-texture")?.value || "others";
+    // GH-260 (D07 item 3): AA texture now reads the general soil-texture field
+    // (state.soil.soilTexture, sourced from sites.soil_texture_override — same
+    // field the ECe conversion above already reads), not the retired
+    // AA-specific `.gaip-aa-soil-texture` selector (GH-259 removed its last
+    // working UI; it was always decorative in the new hub, so every AA site
+    // was silently stuck on the "others" bucket regardless of its real
+    // rootzone — this is a deliberate behaviour change, see GH-259/260).
+    const generalSoilTexture = (state.soil && state.soil.soilTexture) || "";
+    const aaSoilTexture = String(generalSoilTexture).toLowerCase().indexOf("sand") !== -1 ? "sands" : "others";
 
     if (methodology === "ammonium_acetate") {
         // =========================================================================
@@ -2486,6 +2492,28 @@ function mlsnEngine(state, weather) {
                 },
             };
 
+        // GH-260 (D07 item 3): overlay certificate-backed ranges from the
+        // Hill Labs SSOT (assets/hill-labs-sample-types.js, GH-258) where a
+        // species+texture match exists. aaRanges above (texture-only,
+        // sands/others) stays as the graceful-degradation fallback for
+        // nutrients the SSOT doesn't cover (micronutrients — Fe/Mn/Cu/Zn/B
+        // aren't on any Hill Labs turf certificate) and for uncovered
+        // species/texture combinations (deriveCode() returns null; item 7
+        // will surface that explicitly instead of silently using this
+        // fallback). Does not affect SLAN/MLSN — this block only runs inside
+        // the methodology === "ammonium_acetate" branch.
+        const _hlst = (typeof window !== "undefined" && window.HillLabsSampleTypes) ||
+            (typeof globalThis !== "undefined" && globalThis.HillLabsSampleTypes) ||
+            null;
+        const aaSampleTypeCode = _hlst && _hlst.deriveCode ? _hlst.deriveCode(species, generalSoilTexture) : null;
+        if (aaSampleTypeCode && _hlst.getRangesPpm) {
+            const aaCec = safeNum(state.soil && state.soil.CEC, null);
+            ["P", "K", "Ca", "Mg", "S"].forEach((nut) => {
+                const certRange = _hlst.getRangesPpm(aaSampleTypeCode, nut, aaCec);
+                if (certRange) aaRanges[nut] = { lo: certRange.min, hi: certRange.max };
+            });
+        }
+
         referenceThresholds = {
             P: aaRanges.P.lo,
             K: aaRanges.K.lo,
@@ -2500,6 +2528,7 @@ function mlsnEngine(state, weather) {
             _ranges: aaRanges,
             _methodology: "Ammonium Acetate",
             _soilType: aaSoilTexture,
+            _sampleTypeCode: aaSampleTypeCode,
             _extractants: {
                 P: "Olsen",
                 cations: "NH₄OAc (pH 8.1)",
@@ -2672,6 +2701,7 @@ function mlsnEngine(state, weather) {
         const actualPPM = safeNum(rawValue, 0);
         const mlsnThreshold = referenceThresholds[nutrient] || 0;
         const isSLAN = referenceThresholds._methodology === "SLAN";
+        const isAA = referenceThresholds._methodology === "Ammonium Acetate";
         const ranges = referenceThresholds._ranges;
 
         let status, statusClass, recommendation;
@@ -2743,6 +2773,53 @@ function mlsnEngine(state, weather) {
                 recommendation: recommendation,
                 deficitPpm: Math.max(0, range.lo - actualPPM),
                 deficitKgHa: Math.max(0, ppmToKgHa(range.lo - actualPPM)),
+            });
+            return;
+        }
+
+        // GH-260 (D07 item 3): genuine AA range-based assessment, styled on
+        // the SLAN branch above. Previously AA had no branch here at all and
+        // fell through to the MLSN PACE-style block below, which treated
+        // this range's floor (mlsnThreshold) as if it were a single MLSN
+        // minimum and computed target = floor × 1.5 — a different number
+        // from the certificate's actual ceiling. Leaves the SLAN branch
+        // above and the generic MLSN fallthrough below untouched; this only
+        // intercepts AA sites now that `ranges` is always populated for AA
+        // (see aaRanges above — texture-only fallback when uncovered,
+        // certificate-backed when deriveCode() resolves a code).
+        if (isAA && ranges && ranges[nutrient]) {
+            const range = ranges[nutrient];
+            const rangeStr = `${Number(range.lo).toFixed(1)}-${Number(range.hi).toFixed(1)}`;
+
+            if (actualPPM < range.lo) {
+                status = "LOW";
+                statusClass = "deficient";
+                const deficit = range.lo - actualPPM;
+                recommendation = `Below AA sufficiency range. Apply to increase by ~${deficit.toFixed(0)} ppm`;
+            } else if (actualPPM <= range.hi) {
+                status = "SUFFICIENT";
+                statusClass = "adequate";
+                recommendation = "Within AA sufficiency range - maintain current program";
+            } else {
+                status = "HIGH";
+                statusClass = "high";
+                const excess = actualPPM - range.hi;
+                recommendation = `${excess.toFixed(0)} ppm above AA sufficiency range. Reduce/omit applications`;
+            }
+
+            nutrientResults.push({
+                nutrient: nutrient,
+                actual: actualPPM.toFixed(1),
+                mlsn: rangeStr,
+                uptakePpm: annualUptakePpm[nutrient]?.toFixed(1) || "-",
+                targetPpm: range.lo, // Floor, for display; ceiling (range.hi) carried separately below
+                status: status,
+                statusClass: statusClass,
+                recommendation: recommendation,
+                deficitPpm: Math.max(0, range.lo - actualPPM),
+                deficitKgHa: Math.max(0, ppmToKgHa(range.lo - actualPPM)),
+                rangeMin: range.lo,
+                rangeMax: range.hi,
             });
             return;
         }
@@ -2895,6 +2972,14 @@ function mlsnEngine(state, weather) {
     const muldersInteractionSummaryHTML = "";
 
     // Build PACE-style nutrient table with uptake column
+    // GH-260 (D07 item 3): carry rangeMin/rangeMax through the HTML round-trip
+    // (mlsnEngine → GAIP_STATE.computed.mlsn HTML string → hub-persistence.js
+    // DOMParser scrape → cache.computed.soilNutrition.nutrients[]) as data-
+    // attributes on the row. Only AA rows set r.rangeMin/rangeMax, so this is
+    // absent on MLSN/SLAN rows — no accidental leakage into those.
+    const rangeAttrs = (r) =>
+        r.rangeMin != null && r.rangeMax != null ? ` data-range-min="${r.rangeMin}" data-range-max="${r.rangeMax}"` : "";
+
     const nutrientTableHTML = hasNProgramme ?
         `
     <table class="gaip-mlsn-table">
@@ -2913,7 +2998,7 @@ function mlsnEngine(state, weather) {
             ${nutrientResults
               .map(
                 (r) => `
-            <tr class="status-${r.statusClass}">
+            <tr class="status-${r.statusClass}"${rangeAttrs(r)}>
                 <td><strong>${r.nutrient}</strong></td>
                 <td>${r.actual}</td>
                 <td>${r.mlsn}</td>
@@ -2943,7 +3028,7 @@ function mlsnEngine(state, weather) {
             ${nutrientResults
               .map(
                 (r) => `
-            <tr class="status-${r.statusClass}">
+            <tr class="status-${r.statusClass}"${rangeAttrs(r)}>
                 <td><strong>${r.nutrient}</strong></td>
                 <td>${r.actual}</td>
                 <td>${r.mlsn}</td>

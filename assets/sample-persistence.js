@@ -396,7 +396,32 @@
                     }
 
                     var sampleId = sample.client_uid || (sample.payload && (sample.payload.label || sample.payload.sampleId)) || ('sample_' + sample.id);
-                    if (serverSnap.allSites[siteId][sample.sample_type][sampleId]) return;  // already present
+                    var _existingSample263 = serverSnap.allSites[siteId][sample.sample_type][sampleId];
+                    if (_existingSample263) {
+                        // GH-263: samples synced into the client store before this fix
+                        // landed are missing methodologySnapshot/soilTextureSnapshot --
+                        // the "already present" early-return below meant they'd never
+                        // pick the new fields up on a later sync, since a sample only
+                        // gets built once. Backfill just those two fields in place
+                        // (leave label/date/notes/zoneType/values untouched -- they may
+                        // have been locally edited since the last full sync, so this
+                        // must not re-run the full object-literal below).
+                        // getAllSamples() returns a deep clone (JSON.parse(JSON.
+                        // stringify(...))), so this mutation only reaches the live store
+                        // once restoreFromPersistence(serverSnap) runs -- `restored` must
+                        // count a backfill-only pass too, or the patch never sticks.
+                        var _backfilled263 = false;
+                        if (_existingSample263.methodologySnapshot == null && sample.methodology_snapshot != null) {
+                            _existingSample263.methodologySnapshot = sample.methodology_snapshot;
+                            _backfilled263 = true;
+                        }
+                        if (_existingSample263.soilTextureSnapshot == null && sample.soil_texture_snapshot != null) {
+                            _existingSample263.soilTextureSnapshot = sample.soil_texture_snapshot;
+                            _backfilled263 = true;
+                        }
+                        if (_backfilled263) restored++;
+                        return;
+                    }
 
                     // _label/_zone: stored by sync() alongside rawData since b35fix-label-roundtrip.
                     // Falls back to legacy fields (payload.label, payload.zone) for older records.
@@ -407,7 +432,21 @@
                         date:     sample.lab_date || sample.sample_date || null,
                         notes:    sample.notes || '',
                         zoneType: pld._zone  || pld.zone  || 'other',
-                        values:   pld
+                        values:   pld,
+                        // GH-263 (D07): server computes these correctly at sample-creation
+                        // time (SampleController.php samplePayload()/store() -- site.
+                        // methodology_override/soil_texture_override falling back to
+                        // account.methodology/soil_texture) and already returns them on
+                        // every sample API response, but this sync previously discarded
+                        // both -- only `values` (the lab payload) survived. Without them,
+                        // the general soil-texture Settings field never reached mlsnEngine()
+                        // at all: .gaip-soil-texture (the DOM field mlsnEngine reads) is a
+                        // static "loam" default in legacy-hub-markup.blade.php with no sync
+                        // path of its own. sample-manager.js's loadSample() now restores
+                        // .gaip-soil-texture from soilTextureSnapshot when present (see that
+                        // file's GH-263 change).
+                        methodologySnapshot:  sample.methodology_snapshot  || null,
+                        soilTextureSnapshot:  sample.soil_texture_snapshot || null
                     };
                     restored++;
                 });

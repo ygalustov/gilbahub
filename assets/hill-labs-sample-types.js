@@ -40,8 +40,9 @@
  *
  * GH-258: this file is the JS half of a two-runtime SSOT. The identical
  * sample-type range data also lives in `resources/data/hill-labs-sample-
- * types.json`, read directly by the PHP side (`app/app/Support/
- * HillLabsSampleTypes.php`, used by `SampleAnalysisController`). There is no
+ * types.json`, read directly by the PHP side (`app/app/Services/
+ * HillLabsSampleTypesService.php`, for `SampleAnalysisController` to adopt).
+ * There is no
  * asset build step in this repo, so the two copies can't be mechanically
  * unified — when a range changes here, update the JSON file too (and vice
  * versa). This was the actual bug class GH-258 fixes (AA thresholds had
