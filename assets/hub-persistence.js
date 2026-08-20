@@ -1300,20 +1300,38 @@
                                 var _smD = _smP.parseFromString(_smHtml, 'text/html');
                                 _smD.querySelectorAll('.gaip-mlsn-table tbody tr').forEach(function(row) {
                                     var cells = row.querySelectorAll('td');
+                                    // GH-266 (D07): this is a second, independent copy of the
+                                    // GH-260 scraper (the primary one, ~line 1073, was fixed;
+                                    // this one -- inside the "empty hub form" sample fallback --
+                                    // was missed) that never read data-range-min/max at all, so
+                                    // rangeMin/rangeMax were silently absent from every nutrient
+                                    // this path produced, even though mlsnEngine()'s AA branch
+                                    // always sets them. Confirmed live: a real K row had status
+                                    // HIGH and the correct AA recommendation text, but no
+                                    // rangeMin/rangeMax, so renderAnnualRequirements()'s isHigh
+                                    // check (which needs rangeMax) silently fell through to the
+                                    // non-ceiling branch -- HIGH status shown next to a non-zero
+                                    // demand figure and the wrong note text.
+                                    var _smRangeMin = row.dataset ? row.dataset.rangeMin : undefined;
+                                    var _smRangeMax = row.dataset ? row.dataset.rangeMax : undefined;
                                     if (cells.length >= 7) {
                                         _smNutrients.push({
                                             nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
                                             mlsn: cells[2].textContent.trim(), uptakePpm: cells[3].textContent.trim(),
                                             targetPpm: cells[4].textContent.trim(), status: cells[5].textContent.trim(),
                                             statusClass: row.className.replace('status-', ''),
-                                            recommendation: cells[6].textContent.trim()
+                                            recommendation: cells[6].textContent.trim(),
+                                            rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
+                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined
                                         });
                                     } else if (cells.length >= 5) {
                                         _smNutrients.push({
                                             nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
                                             mlsn: cells[2].textContent.trim(), status: cells[3].textContent.trim(),
                                             statusClass: row.className.replace('status-', ''),
-                                            recommendation: cells[4].textContent.trim()
+                                            recommendation: cells[4].textContent.trim(),
+                                            rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
+                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined
                                         });
                                     }
                                 });

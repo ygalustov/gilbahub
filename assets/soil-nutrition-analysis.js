@@ -288,7 +288,7 @@
     global.GAIP_GLOSSARY = Object.assign(global.GAIP_GLOSSARY || {}, {
         'sn-status': {
             title: 'Soil Nutrition Status',
-            body:  'Overall assessment based on MLSN/SLAN thresholds across all measured nutrients.\n\n' +
+            body:  'Overall assessment based on MLSN/SLAN/AA thresholds across all measured nutrients.\n\n' +
                    'Acceptable — all nutrients above minimum threshold.\n' +
                    'Monitor — one or more nutrients borderline; corrective action within 2–4 weeks.\n' +
                    'Deficiency Detected — one or more nutrients below threshold; immediate action required.',
@@ -300,6 +300,19 @@
                    '≥80% — High growth, full nutrient programme required.\n' +
                    '40–79% — Moderate growth, reduced demand.\n' +
                    '<40% — Low/dormant, minimal nutrient application needed.',
+        },
+        // GH-267 (D07): separate AA copy — AA classification (LOW/SUFFICIENT/
+        // HIGH) compares soil ppm directly against fixed Hill Labs NZ
+        // sufficiency ranges (mlsnEngine()'s isAA branch); unlike MLSN, GP does
+        // not scale those thresholds. The generic 'sn-compliance' text above
+        // was showing "MLSN targets are adjusted..." on AA sites too, which is
+        // factually wrong for that methodology, not just imprecise wording.
+        'sn-compliance-aa': {
+            title: 'Growth Potential',
+            body:  'Growth potential (GP) shown for reference alongside disease and irrigation context elsewhere ' +
+                   'on this page. Unlike MLSN, Ammonium Acetate (AA) classification does not scale with GP — soil ' +
+                   'test values are compared directly against fixed Hill Labs NZ sufficiency ranges, so a nutrient’s ' +
+                   'status (Low / Sufficient / High) is the same regardless of current growth conditions.',
         },
     });
 
@@ -392,9 +405,12 @@
         var gpVal = data && data.computed && data.computed.climate &&
                     data.computed.climate.growth && data.computed.climate.growth.weighted;
         var gpPct = (gpVal != null) ? Math.round(gpVal) : null;
+        // GH-267: AA doesn't scale classification with GP (see the 'sn-compliance-aa'
+        // glossary entry) -- point the info icon at the methodology-correct text.
+        var complianceInfoKey = m === 'ammonium_acetate' ? 'sn-compliance-aa' : 'sn-compliance';
         var complianceHtml = gpPct !== null
             ? ' <span style="font-size:12px;font-weight:700;color:#374151">' + gpPct + '%</span>' +
-              ' <button class="db-info-icon" data-info="sn-compliance" tabindex="0" aria-label="Learn more">i</button>'
+              ' <button class="db-info-icon" data-info="' + complianceInfoKey + '" tabindex="0" aria-label="Learn more">i</button>'
             : '';
 
         var methBlock =
