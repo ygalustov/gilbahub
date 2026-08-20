@@ -1,0 +1,67 @@
+{
+    "_comment": "GH-258: PHP-side half of the Hill Labs sample-type SSOT. Mirrors assets/hill-labs-sample-types.js's HILL_LABS_TURF_SAMPLE_TYPES verbatim -- no build step joins the two files, so any range change here must be applied there too, and vice versa. Each entry's thresholds are reproduced from a real Hill Labs certificate; do not add or edit a code without a certificate in hand.",
+    "version": "1.1.0",
+    "sampleTypes": {
+        "S277": {
+            "code": "S277",
+            "label": "TURF Ryegrass, Sand (S277)",
+            "sourceCitation": "Hill Labs certificate 4169173, Hagley Oval, 14-Apr-2026",
+            "thresholds": {
+                "pH": { "min": 5.5, "max": 6.5, "unit": "pH", "axis": "pH" },
+                "P": { "min": 20, "max": 30, "unit": "mg/L", "axis": "absolute", "extractant": "Olsen" },
+                "K": { "min": 0.20, "max": 0.50, "unit": "me/100g", "axis": "absolute" },
+                "Ca": { "min": 2.0, "max": 4.0, "unit": "me/100g", "axis": "absolute" },
+                "Mg": { "min": 0.30, "max": 0.70, "unit": "me/100g", "axis": "absolute" },
+                "Na": { "min": 0.00, "max": 0.20, "unit": "me/100g", "axis": "absolute" },
+                "CEC": { "min": 3, "max": 6, "unit": "me/100g", "axis": "physical" },
+                "TBS": { "min": 35, "max": 80, "unit": "%", "axis": "physical" },
+                "VW": { "min": 0.60, "max": 1.20, "unit": "g/mL", "axis": "physical" },
+                "OM": { "min": 2.0, "max": 4.0, "unit": "%", "axis": "physical" },
+                "KMgRatio": { "min": 0.3, "max": 1.0, "unit": "ratio", "axis": "mass-ratio" }
+            }
+        },
+        "S279": {
+            "code": "S279",
+            "label": "TURF Browntop, Sand (S279)",
+            "sourceCitation": "Hill Labs certificate 2606324, Russley Golf Club, 13-May-2021",
+            "thresholds": {
+                "pH": { "min": 5.0, "max": 5.7, "unit": "pH", "axis": "pH" },
+                "P": { "min": 5, "max": 15, "unit": "mg/L", "axis": "absolute", "extractant": "Olsen" },
+                "K": { "min": 0.20, "max": 0.50, "unit": "me/100g", "axis": "absolute" },
+                "Ca": { "min": 2.0, "max": 4.0, "unit": "me/100g", "axis": "absolute" },
+                "Mg": { "min": 0.30, "max": 0.70, "unit": "me/100g", "axis": "absolute" },
+                "Na": { "min": 0.00, "max": 0.20, "unit": "me/100g", "axis": "absolute" },
+                "CEC": { "min": 3, "max": 6, "unit": "me/100g", "axis": "physical" },
+                "TBS": { "min": 25, "max": 60, "unit": "%", "axis": "physical" },
+                "VW": { "min": 0.60, "max": 1.20, "unit": "g/mL", "axis": "physical" },
+                "KMgRatio": { "min": 0.3, "max": 1.0, "unit": "ratio", "axis": "mass-ratio" }
+            }
+        },
+        "S81": {
+            "code": "S81",
+            "label": "TURF Fescue (S81)",
+            "sourceCitation": "Hill Labs certificate 3793159, Luke Greenlees / Mr B Lowe, 05-Mar-2025",
+            "thresholds": {
+                "pH": { "min": 5.0, "max": 7.2, "unit": "pH", "axis": "pH" },
+                "P": { "min": 8, "max": 20, "unit": "mg/L", "axis": "absolute", "extractant": "Olsen" },
+                "K": { "min": 2.0, "max": 6.0, "unit": "%BS", "axis": "proportion" },
+                "Ca": { "min": 20, "max": 75, "unit": "%BS", "axis": "proportion" },
+                "Mg": { "min": 4.0, "max": 15.0, "unit": "%BS", "axis": "proportion" },
+                "Na": { "min": 0.0, "max": 5.0, "unit": "%BS", "axis": "proportion" },
+                "CEC": { "min": 12, "max": 25, "unit": "me/100g", "axis": "physical" },
+                "TBS": { "min": 25, "max": 95, "unit": "%", "axis": "physical" },
+                "VW": { "min": 0.60, "max": 1.00, "unit": "g/mL", "axis": "physical" },
+                "S": { "min": 20, "max": 50, "unit": "mg/kg", "axis": "absolute", "extractant": "Sulphate" },
+                "OrgS": { "min": 12, "max": 20, "unit": "mg/kg", "axis": "absolute" },
+                "KMgRatio": { "min": 0.3, "max": 1.0, "unit": "ratio", "axis": "mass-ratio" }
+            }
+        },
+        "S78": {
+            "code": "S78",
+            "label": "TURF Cotula (S78)",
+            "sourceCitation": "Hill Labs certificate 4095199, New Brighton Bowling Club, 13-Feb-2026",
+            "delegatedTo": "cotula-bowling-green.js",
+            "thresholds": null
+        }
+    }
+}

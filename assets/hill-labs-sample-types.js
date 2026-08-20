@@ -33,13 +33,25 @@
  *   - 'physical': VW, OM, TBS, CEC (diagnostic, not amendment-driving)
  *   - 'pH': pH only
  *
- * v1 coverage: S277 + S81 + S78. Add new codes when client certificates
+ * v1 coverage: S277 + S279 + S81 + S78. Add new codes when client certificates
  * surface them. Each new code REQUIRES a certificate in hand to read the
  * printed Medium ranges; do NOT infer from KB3196 page 3 or other secondary
  * sources.
  *
+ * GH-258: this file is the JS half of a two-runtime SSOT. The identical
+ * sample-type range data also lives in `resources/data/hill-labs-sample-
+ * types.json`, read directly by the PHP side (`app/app/Support/
+ * HillLabsSampleTypes.php`, used by `SampleAnalysisController`). There is no
+ * asset build step in this repo, so the two copies can't be mechanically
+ * unified — when a range changes here, update the JSON file too (and vice
+ * versa). This was the actual bug class GH-258 fixes (AA thresholds had
+ * drifted into 9 independent copies before this file existed as the SSOT);
+ * keeping the count at exactly two (one per runtime, both reproduced from the
+ * same certificates), each documented at the other's location, is the
+ * deliberate stopping point given the tooling available.
+ *
  * @author Gilba Solutions
- * @version 1.0.0 (b35fix437 / C46 / C47)
+ * @version 1.1.0 (GH-258, adds S279 + deriveCode()/getRangesPpm())
  */
 
 (function(global) {
@@ -76,6 +88,30 @@
                 TBS:        { min: 35,   max: 80,   unit: '%',       axis: 'physical',  label: '35-80%' },
                 VW:         { min: 0.60, max: 1.20, unit: 'g/mL',    axis: 'physical',  label: '0.60-1.20 g/mL' },
                 OM:         { min: 2.0,  max: 4.0,  unit: '%',       axis: 'physical',  label: '2.0-4.0%' },
+                KMgRatio:   { min: 0.3,  max: 1.0,  unit: 'ratio',   axis: 'mass-ratio', label: '0.3-1.0' }
+            }
+        },
+
+        // ───────────────────────────────────────────────────────────────────
+        // S279 — TURF Browntop, Sand
+        // Source: Russley Golf Club certificate, lab 2606324, Hill Labs,
+        // 13-May-2021 (3 samples: Green 1, Green 13, Green 18, all S279)
+        // ───────────────────────────────────────────────────────────────────
+        S279: {
+            code: 'S279',
+            label: 'TURF Browntop, Sand (S279)',
+            description: 'Browntop bent on sand-rootzone construction. Same cation/CEC calibration as S277 (low-CEC sand profiles); pH, Olsen P and TBS differ by species/crop guide.',
+            sourceCitation: 'Hill Labs certificate 2606324, Russley Golf Club, 13-May-2021',
+            thresholds: {
+                pH:         { min: 5.0,  max: 5.7,  unit: 'pH',     axis: 'pH',         label: '5.0-5.7' },
+                P:          { min: 5,    max: 15,   unit: 'mg/L',   axis: 'absolute',   label: '5-15 mg/L', extractant: 'Olsen' },
+                K:          { min: 0.20, max: 0.50, unit: 'me/100g', axis: 'absolute',  label: '0.20-0.50 me/100g' },
+                Ca:         { min: 2.0,  max: 4.0,  unit: 'me/100g', axis: 'absolute',  label: '2.0-4.0 me/100g' },
+                Mg:         { min: 0.30, max: 0.70, unit: 'me/100g', axis: 'absolute',  label: '0.30-0.70 me/100g' },
+                Na:         { min: 0.00, max: 0.20, unit: 'me/100g', axis: 'absolute',  label: '0.00-0.20 me/100g' },
+                CEC:        { min: 3,    max: 6,    unit: 'me/100g', axis: 'physical',  label: '3-6 me/100g' },
+                TBS:        { min: 25,   max: 60,   unit: '%',       axis: 'physical',  label: '25-60%' },
+                VW:         { min: 0.60, max: 1.20, unit: 'g/mL',    axis: 'physical',  label: '0.60-1.20 g/mL' },
                 KMgRatio:   { min: 0.3,  max: 1.0,  unit: 'ratio',   axis: 'mass-ratio', label: '0.3-1.0' }
             }
         },
@@ -193,17 +229,108 @@
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    // SPECIES + TEXTURE → SAMPLE-TYPE CODE (GH-258)
+    // Single resolver every AA consumer should call instead of keeping its own
+    // species/texture → code mapping. See file header for the "why a new
+    // resolver" rationale (GH-258 — 9 independent AA range implementations
+    // found, this + the PHP equivalent are meant to be the only two left).
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * Map a canonical species (see SpeciesController.getSpecies()) + a general
+     * soil-texture value (see sites.soil_texture_override /
+     * accounts.soil_texture — six values: sand, loamy_sand, sandy_loam, loam,
+     * clay_loam, clay) to a Hill Labs sample-type code.
+     *
+     * "Sand-ish" bucketing matches the rule already live in
+     * SampleAnalysisController.php (stripos($soilTexture, 'sand')): any
+     * texture value containing "sand" (sand, sandy_loam, loamy_sand) counts as
+     * sand-rootzone; everything else (loam, clay_loam, clay) is native/soil.
+     *
+     * @param {string} species - Canonical species key (e.g. 'perennialRyegrass').
+     *   Accepts raw/aliased species strings too via SpeciesController's own
+     *   normalisation if available; falls back to case-sensitive canonical match.
+     * @param {string} soilTexture - Value of soil_texture_override / soil_texture.
+     * @returns {string|null} Sample-type code (S277/S279/S81/S78), or null if
+     *   there's no certificate-backed match for this species/texture pair.
+     */
+    function deriveCode(species, soilTexture) {
+        if (!species) return null;
+
+        var canonical = species;
+        if (typeof global !== 'undefined' && global.SpeciesController &&
+            typeof global.SpeciesController.normalize === 'function') {
+            canonical = global.SpeciesController.normalize(species) || species;
+        }
+
+        var texture = String(soilTexture || '').toLowerCase();
+        var isSandy = texture.indexOf('sand') !== -1;
+
+        if (canonical === 'cotula') return 'S78';
+        if (canonical === 'fineFescue' || canonical === 'tallFescue') return 'S81';
+        if (canonical === 'perennialRyegrass') return isSandy ? 'S277' : null;
+        if (canonical === 'browntopBent') return isSandy ? 'S279' : null;
+
+        // Uncovered: Bentgrass, Kentucky Bluegrass, Poa Annua, all C4 species
+        // (couch, kikuyu, zoysia, buffalo, seashore_paspalum), and Ryegrass/
+        // Browntop on non-sand rootzones — no certificate on file yet.
+        return null;
+    }
+
+    /**
+     * Get a nutrient's sufficiency range in ppm for a resolved sample-type
+     * code, converting from the certificate-native unit (me/100g or %BS) via
+     * the existing conversion helpers. Callers needing amendment/requirement
+     * math should use this instead of reading `getThreshold()`'s raw object.
+     *
+     * @param {string} code - Sample type code (e.g. "S277").
+     * @param {string} nutrient - Nutrient key (P, K, Ca, Mg, S, Na, ...).
+     * @param {number} [cec] - CEC in me/100g, required only when the matched
+     *   threshold is on the proportion (%BS) axis (S81's cations).
+     * @returns {{min:number, max:number}|null} ppm bounds, or null if the code
+     *   is unknown, the nutrient has no threshold, the code delegates
+     *   elsewhere (S78 → cotula-bowling-green.js), or a %BS threshold needs a
+     *   CEC that wasn't supplied.
+     */
+    function getRangesPpm(code, nutrient, cec) {
+        var thresh = getThreshold(code, nutrient);
+        if (!thresh) return null;
+
+        if (thresh.axis === 'absolute' && (thresh.unit === 'me/100g')) {
+            var min = meq100gToPpm(thresh.min, nutrient);
+            var max = meq100gToPpm(thresh.max, nutrient);
+            if (min == null || max == null) return null;
+            return { min: min, max: max };
+        }
+        if (thresh.axis === 'absolute') {
+            // mg/L (Olsen P) / mg/kg (sulphate) are already numerically ppm.
+            return { min: thresh.min, max: thresh.max };
+        }
+        if (thresh.axis === 'proportion' && thresh.unit === '%BS') {
+            if (cec == null) return null;
+            var pMin = pctBSToPpm(thresh.min, cec, nutrient);
+            var pMax = pctBSToPpm(thresh.max, cec, nutrient);
+            if (pMin == null || pMax == null) return null;
+            return { min: pMin, max: pMax };
+        }
+        // physical / mass-ratio / pH axes aren't nutrient sufficiency ranges.
+        return null;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     // EXPORT
     // ═══════════════════════════════════════════════════════════════════════
 
     var HillLabsSampleTypes = {
-        version: '1.0.0',
+        version: '1.1.0',
         SAMPLE_TYPES: HILL_LABS_TURF_SAMPLE_TYPES,
         getRanges: getRanges,
         getThreshold: getThreshold,
         listCodes: listCodes,
         pctBSToPpm: pctBSToPpm,
-        meq100gToPpm: meq100gToPpm
+        meq100gToPpm: meq100gToPpm,
+        deriveCode: deriveCode,
+        getRangesPpm: getRangesPpm
     };
 
     if (typeof module !== 'undefined' && module.exports) {
@@ -214,7 +341,7 @@
     }
 
     if (typeof console !== 'undefined' && console.log) {
-        console.log('✅ Hill Labs Sample Types SSOT v1.0.0 loaded,',
+        console.log('Hill Labs Sample Types SSOT v1.1.0 loaded,',
             Object.keys(HILL_LABS_TURF_SAMPLE_TYPES).length, 'codes:',
             Object.keys(HILL_LABS_TURF_SAMPLE_TYPES).join(', '));
     }

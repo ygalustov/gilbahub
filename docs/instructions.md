@@ -221,7 +221,7 @@ D01 - D03 GP. GH-245 - GH-252
 
 17/08/26
 +D30 - fixed. GH-253. 
-+D30 - additional fixes. GH-255, GH-256. 
++D30 - additional fixes. GH-255, GH-256, GH-257. 
 
 
 
@@ -531,6 +531,7 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 **GH-256** Fixed a Prebbles NZ nutrition-program note claiming a product that wasn't actually applied. `prebbles-products.js`'s low-GP winter branch (`generateProgram()`) pushed a hardcoded `'winter program: MESA + liquid foliar'` note regardless of what the branch's own selection logic picked (Ammos/Nitro if available, otherwise any liquid with N% >= 15, otherwise nothing — "MESA" was never actually a candidate), and — worse — the `notes.push()` call sat outside the `if (ammos)` block, so the note fired even when no liquid product was found at all, claiming a foliar application that never happened (screenshot evidence: May row showed "Ammos 22 (Nitro 22) @ 30 L/ha" applied while the note said "MESA + liquid foliar"). Moved the note inside `if (ammos)` and changed it to name the actual selected product (`${liquidProduct.name}`), with an honest `else` branch ("no suitable liquid nitrogen source available") when nothing was found. Audited every `.notes.push()` call in both `prebbles-products.js` (11) and `au-fertiliser-products.js` (8) for the same class of bug (hardcoded product/brand name that could diverge from what was actually selected) — found one more, lower-risk instance: a sibling low-GP branch (`generateProgram()`, covered-month path) hardcoded `'Ammos 22 foliar supplement'`, which happened to always be accurate today (that branch's search only ever matches Ammos/Nitro-named products) but wasn't future-proof against a catalogue change; changed to `${ammos.name}` to match the established safe pattern already used elsewhere in the file (e.g. the `N balance: ${ammos.name} @ ...` note). The other 17 notes across both files were already either product-name-free (generic advisory text) or already used the selected product's own name/values — no further changes needed.
 **GH-257** Unified Growth Potential (GP%) colour-coding across the hub — added `assets/gp-status.js` (`GAIP_GPStatus`, canonical 70%=high green `#16a34a` / 40%=moderate amber `#d97706` / below=low red `#dc2626`) as the single source of truth, replacing five different hardcoded threshold/palette combinations that had accumulated independently: 70/40 green-amber-red on the dashboard and `/analysis`, 70/40 green-amber-**grey** in the Word export (with its own amber shade, `CA8A04`), and 50/25 (as a 0-1 fraction) green-amber-**grey** across the three nutrition-calendar tables (`nutrition-calendar.js`, `nutrition-au-fertiliser-integration.js`, `nutrition-prebble-integration.js`) — the same GP% previously read as a different colour depending which screen or export showed it (e.g. 63% showed green on the Nutrition Calendar as "high" but amber in the Word export at the old 70/40-grey scheme). Updated 11 call sites across `dashboard-init.js` (3), `daily-dashboard.js`, `gaip-morning-briefing.js`, `growth-light-analysis.js` (4, including the shared `gpColor()` helper), `gssh-led-export.js`, `word-export.js`, and the three nutrition files, each now deriving its tier from `GAIP_GPStatus.getLevel()`/`.getColor()`/`.getColorDocx()`/`.getLabel()` with a same-behaviour inline fallback if the script somehow isn't loaded. Wired `gp-status.js` into all 8 blade views that load any of these 11 files (`dashboard.blade.php`, `plan.blade.php`, `hub.blade.php`, `reports/export.blade.php`, `reports/scenarios.blade.php`, `reports/forensic.blade.php`, `analysis.blade.php`, `analysis/growth-light.blade.php`), before their first dependent script. Also updated the low-tier CSS from grey to red to match (`nutrition-calendar.css`'s `.gilba-nut-gp-badge--low`, `nutrition-prebble-integration.js`'s injected `.gilba-gp-low` border). Deliberately excluded and left untouched, per explicit confirmation: `hub-tissue-v3.js`'s 5-state growth-conditions banner (Optimal/Good/Suboptimal/Poor/Critical at 90/70/50/30, plus temperature-based overrides for heat/frost/cold stress) and `gssh-operational-summary.js`'s 5-tier narrative sentence generator (90/70/50/25, prose not colour) — both intentionally more detailed than a 3-colour badge, not oversights to fold in. Also confirmed and left alone: `dashboard-init.js`'s fungicide-residual-% colouring and disease-risk colouring (both use similar-looking ternaries but are different metrics — disease risk in particular has inverted semantics, high% is bad, and its own 70/50 thresholds). Documented as a standing rule in the project's root `CLAUDE.md`: any future GP display must load and call `GAIP_GPStatus`, never hardcode a new threshold.
 
+**GH-258** (step 1 of the D07 AA-methodology consistency fix — data layer only, no consumers wired up yet) Investigation into D07 (Hoxton audit: "Annual K Requirement" flip-flopping between 0.0 and ~100 kg/ha for an AA-tested site) found AA (Ammonium Acetate / Hill Labs NZ) sufficiency-range data independently duplicated across **9** places in the codebase (`mlsnEngine()` in `hub-tissue-v3.js`, `ammonium-acetate-methodology.js`, `nutrition-prebble-integration.js`'s K-reconciliation floor, `word-export.js`'s SSOT usage, `SampleAnalysisController.php`'s `AA_RANGES` constant, `gaip-classification-constants.js`'s `AA_THRESHOLDS` and its inline fallback copy in `tissue-corrective-engine-pure.js`, plus `hill-labs-sample-types.js` itself as the intended-but-incompletely-adopted SSOT) — each with its own numbers, its own texture-bucketing rule, and in `mlsnEngine()`'s case no real AA branch at all (falls through to MLSN's `×1.5` formula, treating an AA range's floor as an MLSN-style single threshold). This entry adds the shared data layer the remaining steps will route through: `assets/hill-labs-sample-types.js` gains a new sample-type code `S279` (TURF Browntop, Sand — Hill Labs certificate 2606324, Russley Golf Club, 13-May-2021; K/Ca/Mg/Na me/100g identical to the existing `S277` entry, pH/Olsen P/TBS differ per the certificate) plus two new exported functions: `deriveCode(species, soilTexture)` (maps a canonical `SpeciesController` species + the site's general `soil_texture_override`/`accounts.soil_texture` value to a Hill Labs sample-type code — `perennialRyegrass`+sand-ish→`S277`, `browntopBent`+sand-ish→`S279`, `fineFescue`/`tallFescue`→`S81`, `cotula`→`S78` always, everything else→`null` for "no certificate on file"; "sand-ish" reuses the substring rule already live in `SampleAnalysisController.php`, `stripos($texture, 'sand')`, rather than requiring an exact match) and `getRangesPpm(code, nutrient, cec?)` (resolves a nutrient's certificate-native threshold — me/100g, %BS, or mg/L/mg/kg — and converts it to ppm via the module's existing `meq100gToPpm`/`pctBSToPpm` helpers, so callers never handle unit conversion themselves). Added `app/resources/data/hill-labs-sample-types.json`, a PHP-readable mirror of the same S277/S279/S81/S78 range data, and `app/app/Services/HillLabsSampleTypesService.php` (`deriveCode()`/`getRangesPpm()` PHP equivalents, reading that JSON) for `SampleAnalysisController.php` to adopt in a later step. No build step joins the JS literal and the JSON file — each carries a comment pointing at the other, and cross-runtime parity is planned as an explicit test, not just documentation, specifically because undocumented drift between copies is the bug class this fix targets. `hill-labs-sample-types.js` keeps loading as a plain synchronous `<script>` tag (no `fetch()`) so existing consumers (`word-export.js`'s current `getRanges()`/`getThreshold()` usage) see no behaviour change from this step. Verified via Node: `deriveCode('perennialRyegrass','sand')` → `S277`, `getRangesPpm('S277','K')` → `{min: 78.2, max: 195.5}` ppm, `meq100gToPpm(0.15,'K')` → `58.65` (matches the Hagley Oval K=0.15 me/100g → 58.7ppm worked example already cited in `word-export.js`'s `b35fix441` comment). Remaining steps (routing `mlsnEngine()`, `SampleAnalysisController.php`, the K-reconciliation floor, `word-export.js`'s sample-type default, `tissue-corrective-engine-pure.js`, and `nutrition-requirement-engine.js`'s AA ceiling through this data layer) are separately GH-numbered as they land.
 
 
 
@@ -554,6 +555,9 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 2.	Boron is the only measurement field that agrees, in either panel. If field mapping is the fault, boron may be the one key that maps correctly on both paths, which would identify the rule immediately. Worth checking before anything else.
 3.	Check 5.2 is the fastest disambiguation. Reload the page, reopen the form. If it shows 1.2 and 123 rather than 0.16 and 17, the write never landed and the UI was showing local state. If it shows the entered values, the write is fine and the export query is wrong. Different fault, different fix, and one page reload separates them.
 249. uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
+250. AA isn’t a standard test but unfortunately Prebbles have historically run with this :-(. This link shows the conversion from AA to MLSN if they are testing with AA but want to use the MLSN interpretation (this is supposed to be M3 extraction but you can convert it). However what we are after are sets specific to AA that Prebbles use and are independent of MLSN
+I think we are going to be best using the same sets that they currently use within Prebbles? Haguely is ryegrass
+I’ll chase up a Cotula green in the meantime
 
 
 
@@ -566,7 +570,48 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 
 
-also if I generate new report and it wasnt generated with message that data is unavailable - old data program should be removed - as it is not relevant
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
