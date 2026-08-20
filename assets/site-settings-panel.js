@@ -114,8 +114,7 @@
             summerIntent: domVal('.gaip-overseed-summer-intent'),
             yearsEstablished: domVal('.gaip-years-established'),
             thatchDepth: domVal('.gaip-thatch-depth'),
-            winterMinTemp: domVal('.gaip-winter-min-temp'),
-            aaTexture: domVal('.gaip-aa-soil-texture')
+            winterMinTemp: domVal('.gaip-winter-min-temp')
         };
     }
 
@@ -153,7 +152,6 @@
         setDomVal('.gaip-years-established', snap.yearsEstablished);
         setDomVal('.gaip-thatch-depth', snap.thatchDepth);
         setDomVal('.gaip-winter-min-temp', snap.winterMinTemp);
-        if (snap.aaTexture) setDomVal('.gaip-aa-soil-texture', snap.aaTexture);
 
         if (tp && tp.dispatchStateChange) tp.dispatchStateChange();
     }
@@ -290,15 +288,7 @@
                 // Section 4: Soil Methodology
                 buildSection('Soil Interpretation', 'methodology',
                     '<div class="gaip-sp-method-grid" id="gaip-sp-method-grid"></div>' +
-                    '<div class="gaip-sp-method-note" id="gaip-sp-method-note"></div>' +
-                    '<div class="gaip-sp-aa-texture" id="gaip-sp-aa-texture" style="display:none; margin-top: 10px;">' +
-                        '<label class="gaip-sp-label">Rootzone Type (for K/Mg ranges)</label>' +
-                        '<select class="gaip-sp-select" id="gaip-sp-aa-soil-texture">' +
-                            '<option value="native">Native soil / Soil-based</option>' +
-                            '<option value="sands">Sand-based rootzone (USGA spec)</option>' +
-                        '</select>' +
-                        '<div class="gaip-sp-hint" style="margin-top: 4px;">Sand-based rootzones have different K and Mg sufficiency thresholds</div>' +
-                    '</div>'
+                    '<div class="gaip-sp-method-note" id="gaip-sp-method-note"></div>'
                 ) +
 
                 // Section 5: Overseed (conditional)
@@ -985,30 +975,11 @@
                     }
                 }
                 updateMethodNote();
-                updateAATextureVisibility();
             });
             grid.appendChild(btn);
         });
 
-        // Sync AA soil texture from real DOM
-        var aaTexturePanel = document.getElementById('gaip-sp-aa-soil-texture');
-        var realTexture = document.querySelector('.gaip-aa-soil-texture');
-        if (aaTexturePanel && realTexture) {
-            aaTexturePanel.value = realTexture.value;
-        }
-
         updateMethodNote();
-        updateAATextureVisibility();
-    }
-
-    /**
-     * Show/hide the AA rootzone type selector based on active methodology
-     */
-    function updateAATextureVisibility() {
-        var container = document.getElementById('gaip-sp-aa-texture');
-        if (!container) return;
-        var method = domVal('.gaip-soil-methodology');
-        container.style.display = (method === 'ammonium_acetate') ? 'block' : 'none';
     }
 
     function updateMethodNote() {
@@ -1180,14 +1151,6 @@
         setDomVal('.gaip-winter-min-temp', document.getElementById('gaip-sp-winter-temp').value);
 
         // Methodology is already synced via click handler in populateMethodology
-
-        // AA soil texture — sync panel selection back to real DOM
-        var panelAATexture = document.getElementById('gaip-sp-aa-soil-texture');
-        var realAATexture = document.querySelector('.gaip-aa-soil-texture');
-        if (panelAATexture && realAATexture && panelAATexture.value !== realAATexture.value) {
-            realAATexture.value = panelAATexture.value;
-            realAATexture.dispatchEvent(new Event('change', { bubbles: true }));
-        }
 
         // Final state dispatch so all engines pick up the changes
         var tp = window.GaipTurfProfile;

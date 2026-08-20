@@ -278,6 +278,23 @@
     }
 
     /**
+     * Resolve the general soil-texture value to pass into deriveCode(),
+     * applying the same site-override-then-account-fallback chain already
+     * established at SampleController.php:374
+     * (`$site->soil_texture_override ?: $site->account->soil_texture`).
+     * GH-258 item 2: the AA-specific rootzone field (`.gaip-aa-soil-texture`)
+     * never persisted in the new hub, so every AA consumer should resolve
+     * texture through this instead — one fallback chain, not one per caller.
+     *
+     * @param {string|null} siteOverride - sites.soil_texture_override.
+     * @param {string|null} accountTexture - accounts.soil_texture.
+     * @returns {string|null}
+     */
+    function resolveSoilTexture(siteOverride, accountTexture) {
+        return siteOverride || accountTexture || null;
+    }
+
+    /**
      * Get a nutrient's sufficiency range in ppm for a resolved sample-type
      * code, converting from the certificate-native unit (me/100g or %BS) via
      * the existing conversion helpers. Callers needing amendment/requirement
@@ -330,6 +347,7 @@
         pctBSToPpm: pctBSToPpm,
         meq100gToPpm: meq100gToPpm,
         deriveCode: deriveCode,
+        resolveSoilTexture: resolveSoilTexture,
         getRangesPpm: getRangesPpm
     };
 
