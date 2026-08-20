@@ -25,26 +25,88 @@ class HillLabsSampleTypesService
     private static ?array $sampleTypes = null;
 
     /**
-     * Map a canonical species + general soil-texture value to a Hill Labs
-     * sample-type code, or null if there's no certificate-backed match.
+     * Raw species label -> canonical key, scoped to only the species
+     * deriveCode() resolves a certificate for (perennialRyegrass/
+     * browntopBent/fineFescue/tallFescue/cotula) plus their common raw
+     * labels/synonyms/Latin names. Not a full species table — that's
+     * SpeciesService/SpeciesDefinition, a different concern (dropdown
+     * population). Mirrors the relevant subset of assets/species-
+     * controller.js's SPECIES_ALIASES so deriveCode() accepts the same raw
+     * strings (e.g. turf.species from site_configs.config) on both runtimes.
+     */
+    private const SPECIES_ALIASES = [
+        'perennial ryegrass' => 'perennialRyegrass',
+        'perennialryegrass' => 'perennialRyegrass',
+        'ryegrass' => 'perennialRyegrass',
+        'prg' => 'perennialRyegrass',
+        'lolium perenne' => 'perennialRyegrass',
+        'browntop bent' => 'browntopBent',
+        'browntopbent' => 'browntopBent',
+        'browntop' => 'browntopBent',
+        'colonial bent' => 'browntopBent',
+        'colonialbent' => 'browntopBent',
+        'colonial bentgrass' => 'browntopBent',
+        'agrostis capillaris' => 'browntopBent',
+        'tall fescue' => 'tallFescue',
+        'tallfescue' => 'tallFescue',
+        'festuca arundinacea' => 'tallFescue',
+        'fescue' => 'fineFescue',
+        'fine fescue' => 'fineFescue',
+        'finefescue' => 'fineFescue',
+        'chewings fescue' => 'fineFescue',
+        'hard fescue' => 'fineFescue',
+        'sheep fescue' => 'fineFescue',
+        'creeping red fescue' => 'fineFescue',
+        'festuca rubra' => 'fineFescue',
+        'cotula' => 'cotula',
+        'leptinella' => 'cotula',
+        'leptinella dioica' => 'cotula',
+        'cotula dioica' => 'cotula',
+        'cotula maniototo' => 'cotula',
+    ];
+
+    /**
+     * Normalise a raw species string (e.g. "Perennial Ryegrass (Sports)")
+     * to its canonical key, or pass an already-canonical key straight
+     * through. Same cleaning steps as SpeciesController.normalize() (JS):
+     * lowercase, trim, strip a trailing parenthetical qualifier.
+     */
+    private static function normalizeSpecies(?string $species): ?string
+    {
+        if (!$species) {
+            return null;
+        }
+        $cleaned = trim((string) preg_replace('/\s*\([^)]*\)/', '', $species));
+        $cleaned = strtolower(trim($cleaned));
+        return self::SPECIES_ALIASES[$cleaned] ?? $species;
+    }
+
+    /**
+     * Map a species (canonical key or common raw label) + general soil-
+     * texture value to a Hill Labs sample-type code, or null if there's no
+     * certificate-backed match.
      *
      * "Sand-ish" bucketing: any texture value containing "sand" (sand,
      * sandy_loam, loamy_sand) counts as sand-rootzone; everything else
      * (loam, clay_loam, clay) is native/soil. Matches the rule this class
      * replaces in SampleAnalysisController.
      *
-     * @param string|null $species Canonical species key (e.g. 'perennialRyegrass').
+     * @param string|null $species Canonical species key (e.g. 'perennialRyegrass')
+     *   or a raw label (e.g. 'Perennial Ryegrass') — normalised internally,
+     *   mirroring hill-labs-sample-types.js's deriveCode() calling
+     *   SpeciesController.normalize().
      * @param string|null $soilTexture Value of soil_texture_override / soil_texture.
      */
     public static function deriveCode(?string $species, ?string $soilTexture): ?string
     {
-        if (!$species) {
+        $canonical = self::normalizeSpecies($species);
+        if (!$canonical) {
             return null;
         }
 
         $isSandy = stripos((string) $soilTexture, 'sand') !== false;
 
-        return match ($species) {
+        return match ($canonical) {
             'cotula' => 'S78',
             'fineFescue', 'tallFescue' => 'S81',
             'perennialRyegrass' => $isSandy ? 'S277' : null,

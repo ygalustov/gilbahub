@@ -21,8 +21,12 @@
  * the Soil page K card back to the exact GH-262 symptom ("AA: 37 ppm").
  *
  * FIX: methodology now resolves DOM first, snapshot only as a fallback
- * behind it (soilTexture's priority is unchanged — snapshot still wins
- * there, since DOM really is dead for that field).
+ * behind it. At the time this shipped, soilTexture's priority was
+ * deliberately left unchanged (snapshot still won there), since
+ * `.gaip-soil-texture` really was dead. GH-270/272 later fixed that DOM
+ * field to be genuinely live too — but this file's own texture-priority
+ * assertion (see below) wasn't updated until GH-273 flipped the real code
+ * to match, once the "DOM is dead for texture" premise stopped being true.
  */
 
 const fs = require('fs');
@@ -42,8 +46,8 @@ describe('GH-265 — methodology trusts live DOM over a stale sample snapshot', 
         expect(src).toMatch(/methodology:\s*_smMethodDom\s*\|\|\s*_smSample\.methodologySnapshot\s*\|\|\s*_smRaw\.methodology\s*\|\|\s*'mlsn'/);
     });
 
-    test('soilTexture priority is unchanged from GH-263 (snapshot still wins over DOM)', () => {
-        expect(src).toMatch(/soilTexture:\s*_smSample\.soilTextureSnapshot\s*\|\|\s*_smTexDom/);
+    test('soilTexture priority was later flipped to match methodology (GH-273) -- see gh273-texture-dom-priority.test.js', () => {
+        expect(src).toMatch(/soilTexture:\s*_smTexDom\s*\|\|\s*_smSample\.soilTextureSnapshot\s*\|\|\s*'loam'/);
     });
 
     test('the old GH-263 methodology-snapshot-first pattern is gone', () => {

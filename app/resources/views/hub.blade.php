@@ -47,6 +47,18 @@
             'lat' => $activeSite?->latitude ?? '',
             'lon' => $activeSite?->longitude ?? '',
         ];
+        // GH-269 follow-up: live soil texture for the AA-methodology rootzone
+        // select below (.gaip-soil-texture), same resolution SampleAnalysisController
+        // uses. Previously this select's initial value was always the static
+        // "Loam" default baked into the markup, with no live data behind it at
+        // all -- mlsnEngine() (which runs inside this page, triggered by the
+        // Re-run button) read whatever was pre-selected here, so every AA site's
+        // classification silently used "Loam" regardless of the site's real
+        // Settings > Soil texture value.
+        $soilTexture = \App\Services\HillLabsSampleTypesService::resolveSoilTexture(
+            $activeSite?->soil_texture_override,
+            $activeSite?->account?->soil_texture
+        );
 
         $hubScripts = [
             'gilba-hub-v2.js',
@@ -253,7 +265,7 @@
     @endphp
 
     <main class="content content-wide">
-        @include('partials.legacy-hub-markup', ['savedLocation' => $savedLocation])
+        @include('partials.legacy-hub-markup', ['savedLocation' => $savedLocation, 'soilTexture' => $soilTexture])
     </main>
 @endsection
 

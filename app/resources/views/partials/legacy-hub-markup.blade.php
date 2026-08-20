@@ -500,15 +500,25 @@
                             </div>
                         </div>
                         <div class="gaip-field-row-2" style="margin-top:8px;">
+                            @php
+                                // GH-269: initial value now reflects the site's real
+                                // soil_texture_override/account.soil_texture (passed in
+                                // by hub.blade.php / stadium.blade.php) instead of a
+                                // static "Loam" default with no live data behind it.
+                                // Unrecognised/unset values fall back to Loam, same as
+                                // the previous static default.
+                                $__validTextures = ['sand', 'loamy_sand', 'sandy_loam', 'loam', 'clay_loam', 'clay'];
+                                $__soilTexture = in_array($soilTexture ?? null, $__validTextures, true) ? $soilTexture : 'loam';
+                            @endphp
                             <div class="gaip-field">
                                 <label>Soil texture</label>
                                 <select class="gaip-soil-texture">
-                                    <option value="sand">Sand / Sand rootzone</option>
-                                    <option value="loamy_sand">Loamy Sand</option>
-                                    <option value="sandy_loam">Sandy Loam</option>
-                                    <option value="loam" selected>Loam</option>
-                                    <option value="clay_loam">Clay Loam</option>
-                                    <option value="clay">Clay</option>
+                                    <option value="sand" @selected($__soilTexture === 'sand')>Sand / Sand rootzone</option>
+                                    <option value="loamy_sand" @selected($__soilTexture === 'loamy_sand')>Loamy Sand</option>
+                                    <option value="sandy_loam" @selected($__soilTexture === 'sandy_loam')>Sandy Loam</option>
+                                    <option value="loam" @selected($__soilTexture === 'loam')>Loam</option>
+                                    <option value="clay_loam" @selected($__soilTexture === 'clay_loam')>Clay Loam</option>
+                                    <option value="clay" @selected($__soilTexture === 'clay')>Clay</option>
                                 </select>
                             </div>
                             <div class="gaip-field">

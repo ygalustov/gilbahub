@@ -87,8 +87,9 @@ describe('GH-262 — sample-store fallback reads real methodology/soilTexture', 
         });
 
         test('soilTexture is now set on _smState.soil (was entirely absent before)', () => {
-            // GH-263: sample.soilTextureSnapshot now takes priority over the DOM fallback -- see gh263-soil-texture-snapshot.test.js.
-            expect(src).toMatch(/soilTexture:\s*_smSample\.soilTextureSnapshot\s*\|\|\s*_smTexDom/);
+            // GH-273: DOM now takes priority over the sample snapshot (flipped from
+            // GH-263's original order) -- see gh273-texture-dom-priority.test.js.
+            expect(src).toMatch(/soilTexture:\s*_smTexDom\s*\|\|\s*_smSample\.soilTextureSnapshot\s*\|\|\s*'loam'/);
         });
 
         test('CEC is now set on _smState.soil (needed for AA %BS-axis conversions, e.g. S81/Fescue)', () => {

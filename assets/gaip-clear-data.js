@@ -212,7 +212,19 @@
         });
 
         // Reset selects to defaults
-        resetSelect(SELECTORS.soilTexture, 'loam');
+        // GH-275: soilTexture is a site property (sites.soil_texture_override),
+        // not a per-sample value -- unlike the numeric fields above, it's not
+        // "stale sample data" on a site switch, it's already correctly
+        // live-initialised for the NEW site (hub.blade.php/stadium.blade.php,
+        // GH-270) by the time this domOnly=true call runs. Resetting it here
+        // silently overwrote that live value with the hardcoded "loam"
+        // default on every site switch, defeating GH-270/272/274 -- same
+        // class of bug as GH-272 (a "clear stale sample data" mechanism
+        // touching a site-level setting it has no business touching).
+        // Still resets on an explicit user-clicked Clear button (domOnly
+        // false) -- that's an intentional, unrelated "start this form over"
+        // action, not a stale-data cleanup.
+        if (!domOnly) resetSelect(SELECTORS.soilTexture, 'loam');
         resetSelect(SELECTORS.samplingDepth, '');
 
         // Clear SampleManager soil store — skip on site-switch (domOnly=true)

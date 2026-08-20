@@ -95,6 +95,13 @@
             'lat' => $activeSite?->latitude ?? '',
             'lon' => $activeSite?->longitude ?? '',
         ];
+        // GH-269 follow-up: see hub.blade.php's identical block for the full
+        // rationale. Same live soil-texture resolution for this page's copy
+        // of the legacy-hub-markup partial.
+        $soilTexture = \App\Services\HillLabsSampleTypesService::resolveSoilTexture(
+            $activeSite?->soil_texture_override,
+            $activeSite?->account?->soil_texture
+        );
 
         $stadiumScripts = [
             'gilba-storage-ns.js',
@@ -131,7 +138,7 @@
     @endphp
 
     <main class="content content-wide">
-        @include('partials.legacy-hub-markup', ['savedLocation' => $savedLocation])
+        @include('partials.legacy-hub-markup', ['savedLocation' => $savedLocation, 'soilTexture' => $soilTexture])
         <div id="gssh-hub" class="gssh-hub-wrapper"></div>
     </main>
 @endsection

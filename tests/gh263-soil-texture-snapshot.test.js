@@ -56,26 +56,24 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
         });
     });
 
-    describe('sample-manager.js — loadSample() restores .gaip-soil-texture from the snapshot', () => {
+    describe('sample-manager.js — loadSample() no longer restores .gaip-soil-texture from a per-sample snapshot (GH-272)', () => {
         let src;
         beforeAll(() => {
             src = fs.readFileSync(path.join(__dirname, '../assets/sample-manager.js'), 'utf8');
         });
 
-        test('restore is gated on soil dataType and a present snapshot value (graceful degradation for old samples)', () => {
-            expect(src).toMatch(/if \(dataType === 'soil' && sample\.soilTextureSnapshot\)/);
+        // GH-272: this restore (added here in GH-263) actively regressed
+        // GH-270's fix -- it unconditionally overwrote the page's correct
+        // live-initialised .gaip-soil-texture value with whichever sample's
+        // (potentially stale, per GH-269) soilTextureSnapshot happened to
+        // auto-load. Texture is a site property, not a sample property, so
+        // restoring it per-sample was never right even before that regression.
+        test('the old per-sample texture restore is gone', () => {
+            expect(src).not.toMatch(/texInput\.value = sample\.soilTextureSnapshot/);
+            expect(src).not.toMatch(/if \(dataType === 'soil' && sample\.soilTextureSnapshot\)/);
         });
 
-        test('sets .gaip-soil-texture and fires a change event (consistent with other restored fields)', () => {
-            const start = src.indexOf("if (dataType === 'soil' && sample.soilTextureSnapshot)");
-            const end = src.indexOf('}', src.indexOf('}', start) + 1);
-            const block = src.slice(start, end);
-            expect(block).toMatch(/querySelector\(['"]\.gaip-soil-texture['"]\)/);
-            expect(block).toMatch(/texInput\.value = sample\.soilTextureSnapshot/);
-            expect(block).toMatch(/dispatchEvent\(new Event\(['"]change['"]/);
-        });
-
-        test('file has no syntax errors after the addition', () => {
+        test('file has no syntax errors after the removal', () => {
             expect(() => new Function(src)).not.toThrow();
         });
     });
@@ -157,24 +155,25 @@ describe('GH-263 — soil texture / methodology snapshot reaches mlsnEngine()', 
             return ctx.cache.computed.soilNutrition;
         }
 
-        test('GH-265: soilTexture snapshot wins over stale DOM; methodology trusts live DOM over a stale snapshot', () => {
-            // This is the real, live scenario that surfaced GH-265: a real sample's
-            // methodologySnapshot ("mlsn") was frozen at sample-creation time, before
-            // the site was switched to AA -- but .gaip-soil-methodology is auto-
-            // selected live on every load (ammonium-acetate-methodology.js, region-
-            // based), so it already correctly said "ammonium_acetate". GH-263 wrongly
-            // let the stale snapshot win for methodology; GH-265 fixes that while
-            // keeping soilTexture's snapshot-wins behaviour, since .gaip-soil-texture
-            // (unlike methodology) really is a dead static default with no live sync.
+        test('GH-265/273: both methodology and soilTexture now trust live DOM over a stale snapshot', () => {
+            // This is the real, live scenario that surfaced GH-265 (methodology) and
+            // later GH-273 (the same class of bug, for soilTexture, once GH-270/272
+            // made .gaip-soil-texture live too): a real sample's methodologySnapshot
+            // ("mlsn") and soilTextureSnapshot ("loam") were both frozen at sample-
+            // creation time, before the site was switched to AA / Sand -- but both
+            // DOM fields are correctly live now (methodology via ammonium-acetate-
+            // methodology.js's region auto-select; texture via hub.blade.php's
+            // GH-270 initial value). Both snapshots are stale here on purpose, to
+            // prove DOM wins for both fields, not just methodology.
             const sn = runFallback({
                 methodologyDomValue: 'ammonium_acetate', // live-correct
-                textureDomValue: 'loam',                 // stale, dead default
-                sampleExtra: { methodologySnapshot: 'mlsn', soilTextureSnapshot: 'sand' },
+                textureDomValue: 'sand',                 // live-correct (GH-270/272)
+                sampleExtra: { methodologySnapshot: 'mlsn', soilTextureSnapshot: 'loam' }, // both stale
                 sampleRaw: { K_ppm: 199, P_ppm: 25, Ca_ppm: 400, Mg_ppm: 60, S_ppm: 10 },
             });
             expect(sn.methodology).toBe('ammonium_acetate');
             const k = sn.nutrients.find((n) => n.nutrient === 'K');
-            expect(k.mlsn).toBe('75.0-175.0'); // "sands" bucket via snapshot texture, not "others" (stale DOM) or MLSN's literal 37
+            expect(k.mlsn).toBe('75.0-175.0'); // "sands" bucket via live DOM texture, not "others" (stale snapshot) or MLSN's literal 37
             expect(k.status).toBe('HIGH');
         });
 

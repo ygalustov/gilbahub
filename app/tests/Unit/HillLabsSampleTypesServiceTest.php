@@ -78,6 +78,38 @@ class HillLabsSampleTypesServiceTest extends TestCase
     }
 
     // -------------------------------------------------------------------------
+    // deriveCode() species normalisation (GH-268) — accepts raw labels, not
+    // just canonical keys, mirroring hill-labs-sample-types.js's deriveCode()
+    // calling SpeciesController.normalize(). SampleAnalysisController reads
+    // turf.species straight out of site_configs.config, which stores raw
+    // labels like "Perennial Ryegrass", not the canonical key.
+    // -------------------------------------------------------------------------
+
+    public function test_derive_code_accepts_raw_species_labels(): void
+    {
+        $this->assertSame('S277', HillLabsSampleTypesService::deriveCode('Perennial Ryegrass', 'sand'));
+        $this->assertSame('S277', HillLabsSampleTypesService::deriveCode('Ryegrass', 'sandy_loam'));
+        $this->assertSame('S279', HillLabsSampleTypesService::deriveCode('Browntop Bent', 'sand'));
+        $this->assertSame('S279', HillLabsSampleTypesService::deriveCode('Colonial Bent', 'sand'));
+        $this->assertSame('S81', HillLabsSampleTypesService::deriveCode('Tall Fescue', 'loam'));
+        $this->assertSame('S81', HillLabsSampleTypesService::deriveCode('Chewings Fescue', 'loam'));
+        $this->assertSame('S78', HillLabsSampleTypesService::deriveCode('Cotula', 'loam'));
+    }
+
+    public function test_derive_code_strips_parenthetical_qualifiers_and_is_case_insensitive(): void
+    {
+        $this->assertSame('S277', HillLabsSampleTypesService::deriveCode('Perennial Ryegrass (Sports)', 'sand'));
+        $this->assertSame('S277', HillLabsSampleTypesService::deriveCode('PERENNIAL RYEGRASS', 'sand'));
+        $this->assertSame('S279', HillLabsSampleTypesService::deriveCode('Browntop Bent (Greens)', 'sand'));
+    }
+
+    public function test_derive_code_unrecognised_raw_label_resolves_null_not_a_crash(): void
+    {
+        $this->assertNull(HillLabsSampleTypesService::deriveCode('Kikuyu', 'sand'));
+        $this->assertNull(HillLabsSampleTypesService::deriveCode('Some Unlisted Species', 'sand'));
+    }
+
+    // -------------------------------------------------------------------------
     // resolveSoilTexture() — parity with the JS resolver (GH-259)
     // -------------------------------------------------------------------------
 
