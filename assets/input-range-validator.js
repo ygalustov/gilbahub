@@ -157,7 +157,12 @@
         // Check typical range (unusual but possible)
         const [typLo, typHi] = range.typical;
         if (num < typLo || num > typHi) {
-            let msg = `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) is outside typical range (${typLo}–${typHi}${range.unit ? ' ' + range.unit : ''})`;
+            // GH-287: typLo/typHi can now come from a methodology-specific
+            // certificate conversion (GH-285's getMethodologyTypical(), via
+            // HillLabsSampleTypes' meq100gToPpm()) and carry floating-point
+            // noise (e.g. 85.39999999999999) -- format them the same way
+            // `num` already is, instead of interpolating the raw numbers.
+            let msg = `${range.name} (${formatNum(num)}${range.unit ? ' ' + range.unit : ''}) is outside typical range (${formatNum(typLo)}–${formatNum(typHi)}${range.unit ? ' ' + range.unit : ''})`;
             if (num > typHi && range.highWarning) {
                 msg += `, ${range.highWarning}`;
             }
@@ -171,12 +176,94 @@
         return { valid: true, level: 'ok', message: null };
     }
 
+    // GH-285: macronutrients that have a real, canonical methodology-specific
+    // sufficiency source to build a "typical" band from (AA certificate
+    // ranges, SLAN's Carrow 2004 floor/ceiling, MLSN's published floor). Kept
+    // deliberately narrow -- GilbaClassificationConstants' trace-element
+    // floors (Fe/Mn/Zn/Cu/B) are on a scale that doesn't obviously match a
+    // "typical soil ppm" band (they're an order of magnitude below the
+    // existing generic SOIL_RANGES typical bounds for the same elements) and
+    // haven't been verified for that purpose, so those nutrients -- plus pH/
+    // EC/CEC/physical properties -- keep the existing generic typical range
+    // regardless of methodology, same as before.
+    const METHOD_AWARE_KEYS = ['P', 'K', 'Ca', 'Mg', 'S'];
+
+    /**
+     * Resolve a methodology-specific [lo, hi] "typical" band for one of the
+     * METHOD_AWARE_KEYS nutrients, reusing the same canonical sources the
+     * Soil page's own classification already uses (never inventing new
+     * numbers) -- AA: HillLabsSampleTypes' certificate ranges (GH-258),
+     * falling back to AA_FALLBACK_CEILINGS below (see GH-288) when no
+     * certificate matches; SLAN: GilbaClassificationConstants.SLAN_RANGES'
+     * published floor/ceiling; MLSN (default): GilbaClassificationConstants.
+     * MLSN_THRESHOLDS' single floor, ×1.5 ceiling (the same convention
+     * already used elsewhere for MLSN's soil-page target ceiling --
+     * verified real, e.g. soil-nutrition-analysis.js:944's
+     * `targetV = mlsnV * 1.5`).
+     * Returns null (caller falls back to the generic hardcoded typical band)
+     * when nothing resolves -- same graceful-degradation pattern as the rest
+     * of the AA/MLSN/SLAN work this session.
+     *
+     * @param {string} nutrient
+     * @param {string} methodology - 'mlsn' | 'slan' | 'ammonium_acetate' | ...
+     * @param {string} [texture] - general soil texture (sites.soil_texture_override)
+     * @param {string} [species]
+     * @returns {[number, number]|null}
+     */
+    function getMethodologyTypical(nutrient, methodology, texture, species) {
+        if (METHOD_AWARE_KEYS.indexOf(nutrient) === -1) return null;
+        const GCC = global.GilbaClassificationConstants;
+        const m = (methodology || '').toLowerCase();
+
+        if (m === 'ammonium_acetate' || m === 'ammoniumacetate' || m === 'aa') {
+            const HLS = global.HillLabsSampleTypes;
+            if (HLS && typeof HLS.deriveCode === 'function' && typeof HLS.getRangesPpm === 'function') {
+                const code = HLS.deriveCode(species, texture);
+                if (code) {
+                    const r = HLS.getRangesPpm(code, nutrient);
+                    if (r && r.min != null && r.max != null) return [r.min, r.max];
+                }
+            }
+            // GH-288: was `AA_THRESHOLDS[bucket][nutrient] * 1.5` -- an
+            // unverified guess (the MLSN ×1.5 convention doesn't transfer
+            // to AA's fallback data). Corrected to the real ceilings, copied
+            // exactly from hub-tissue-v3.js's `aaRanges` fallback table
+            // (the actual source of the Nutrient Status card's own "AA:
+            // X-Y ppm" numbers for uncovered species/texture combos) --
+            // that table is a local `const`, not exported, so it's mirrored
+            // here rather than referenced; keep in sync if aaRanges changes.
+            const AA_FALLBACK_CEILINGS = {
+                sands:  { P: 28, K: 175, Ca: 750, Mg: 200, S: 60 },
+                others: { P: 28, K: 235, Ca: 750, Mg: 250, S: 60 },
+            };
+            const bucket = String(texture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
+            const floor = GCC && GCC.AA_THRESHOLDS && GCC.AA_THRESHOLDS[bucket] && GCC.AA_THRESHOLDS[bucket][nutrient];
+            const ceiling = AA_FALLBACK_CEILINGS[bucket] && AA_FALLBACK_CEILINGS[bucket][nutrient];
+            if (floor != null && ceiling != null) return [floor, ceiling];
+            return null;
+        }
+
+        if (m === 'slan') {
+            const range = GCC && GCC.SLAN_RANGES && GCC.SLAN_RANGES[nutrient];
+            if (range) return [range.floor, range.ceiling];
+            return null;
+        }
+
+        // Default / MLSN
+        const floor = GCC && GCC.MLSN_THRESHOLDS && GCC.MLSN_THRESHOLDS[nutrient];
+        if (floor != null) return [floor, floor * 1.5];
+        return null;
+    }
+
     /**
      * Validate soil data object
      * @param {object} soil - Soil data with ppm values
+     * @param {string} [methodology] - 'mlsn' | 'slan' | 'ammonium_acetate'
+     * @param {string} [texture] - general soil texture, for AA/aaThresholds bucketing
+     * @param {string} [species] - grass species, for AA certificate matching
      * @returns {object} { valid: boolean, warnings: [], errors: [] }
      */
-    function validateSoil(soil) {
+    function validateSoil(soil, methodology, texture, species) {
         if (!soil) return { valid: true, warnings: [], errors: [] };
 
         const warnings = [];
@@ -197,7 +284,12 @@
         Object.keys(SOIL_RANGES).forEach(key => {
             const value = ppm[key] !== undefined ? ppm[key] : soil[key];
             if (value !== undefined && value !== null && value !== '') {
-                const result = validateValue(value, SOIL_RANGES[key], key);
+                let range = SOIL_RANGES[key];
+                const methodTypical = getMethodologyTypical(key, methodology, texture, species);
+                if (methodTypical) {
+                    range = Object.assign({}, range, { typical: methodTypical });
+                }
+                const result = validateValue(value, range, key);
                 if (result.level === 'implausible' || result.level === 'invalid') {
                     errors.push(result.message);
                 } else if (result.level === 'unusual') {
@@ -312,7 +404,16 @@
             };
         }
 
-        const soil = validateSoil(state.soil);
+        // GH-285: same field names already established for AA resolution
+        // elsewhere (hub-tissue-v3.js's mlsnEngine() AA branch, GH-259/260) --
+        // state.soil.soilTexture (sites.soil_texture_override), state.turf.
+        // grassSpecies/warmBase. Not read for MLSN/SLAN (texture/species only
+        // matter for the AA certificate lookup).
+        const methodology = state.soil && state.soil.methodology;
+        const texture = state.soil && state.soil.soilTexture;
+        const species = state.turf && (state.turf.grassSpecies || state.turf.warmBase);
+
+        const soil = validateSoil(state.soil, methodology, texture, species);
         const water = validateWater(state.water);
         const tissue = validateTissue(state.tissue);
 

@@ -716,7 +716,12 @@
             if (classLabel) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Classification</span><span class="sn-why-val">'+esc(classLabel)+'</span></div>';
             if (classLabel && !isNaN(targetV) && targetV) whyRows += '<div style="height:1px;background:#e5e7eb;margin:4px 0"></div>';
             if (!isAA && !isNaN(targetV) && targetV) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Target level (1.5× MLSN)</span><span class="sn-why-val">'+targetV+' ppm</span></div>';
-            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+n.rangeMin+'–'+n.rangeMax+' ppm</span></div>';
+            // GH-286: rangeMin/rangeMax come from a me/100g->ppm conversion
+            // (meq100gToPpm) upstream and can carry floating-point noise
+            // (e.g. 85.39999999999999 instead of 85.4) -- round to 1dp here,
+            // same convention as the Soil reserve/Est. annual demand rows
+            // right below, which already do this.
+            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+parseFloat(n.rangeMin).toFixed(1)+'–'+parseFloat(n.rangeMax).toFixed(1)+' ppm</span></div>';
             if (reserveKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Soil reserve</span><span class="sn-why-val">'+reserveKgHa.toFixed(1)+' kg/ha</span></div>';
             if (surplusKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Reserve above threshold</span><span class="sn-why-val">'+surplusKgHa.toFixed(1)+' kg/ha</span></div>';
             if (demandKgHa!=null)  whyRows += '<div class="sn-why-row"><span class="sn-why-label">Est. annual demand</span><span class="sn-why-val">'+demandKgHa.toFixed(1)+' kg/ha</span></div>';
