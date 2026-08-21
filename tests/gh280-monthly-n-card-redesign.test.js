@@ -72,17 +72,22 @@ describe('GH-280 — Monthly N Distribution card-based redesign', () => {
         expect(html).toMatch(/class="sn-month-val inactive"/);
     });
 
-    test('current month is marked with a .current class, not a black outline style', () => {
+    test('current month is marked with a "Now" dot indicator, not a border/outline (GH-281 -- a border read as a warning, not "you are here")', () => {
         const html = renderMonthlyN(sn);
-        expect(html).toMatch(/class="sn-month-col[^"]*\bcurrent\b[^"]*"/);
         expect(html).not.toMatch(/outline:2px solid/);
+        expect(html).not.toMatch(/class="sn-month-col[^"]*\bcurrent\b/);
+        // Exactly one non-empty "Now" indicator across all 12 columns.
+        const nowMatches = html.match(/class="sn-month-now"/g) || [];
+        expect(nowMatches).toHaveLength(1);
+        const emptyMatches = html.match(/class="sn-month-now sn-month-now-empty"/g) || [];
+        expect(emptyMatches).toHaveLength(11);
     });
 
     test('the card-per-month CSS (white background, bordered, top accent) is defined', () => {
         const src = fs.readFileSync(path.join(__dirname, '../assets/soil-nutrition-analysis.js'), 'utf8');
         expect(src).toMatch(/\.sn-month-col\{[^}]*background:#fff[^}]*border:1px solid #d8e0dc[^}]*border-top-width:3px/);
         expect(src).toMatch(/\.sn-month-col\.season-summer\{border-top-color:#eab308\}/);
-        expect(src).toMatch(/\.sn-month-col\.current\{border-color:#17231f/);
+        expect(src).toMatch(/\.sn-month-now\{[^}]*color:#16a34a/);
     });
 
     test('regression — total, active count, and per-month values unaffected by the restyle', () => {

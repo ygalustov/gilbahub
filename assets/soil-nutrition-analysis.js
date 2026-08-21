@@ -163,7 +163,11 @@
             '.sn-month-col.season-winter{border-top-color:#3b82f6}',
             '.sn-month-col.season-spring{border-top-color:#22c55e}',
             '.sn-month-col.inactive{background:#f9fafb;border-top-color:#e5e7eb}',
-            '.sn-month-col.current{border-color:#17231f;border-top-color:#17231f}',
+            /* Current month: a small "Now" tag, not a border -- a border around
+               the card reads as a warning/error, not "you are here" (user feedback). */
+            '.sn-month-now{font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;justify-content:center;gap:3px;height:11px}',
+            '.sn-month-now-dot{width:5px;height:5px;border-radius:50%;background:#16a34a;flex-shrink:0}',
+            '.sn-month-now.sn-month-now-empty{visibility:hidden}',
             '.sn-month-bar-wrap{width:100%;display:flex;align-items:flex-end;height:56px}',
             '.sn-month-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}',
             '.sn-month-val{font-size:11px;font-weight:700;color:#17231f}',
@@ -1088,9 +1092,10 @@
             var season = (isSouth ? SEASON_SOUTH : SEASON_NORTH)[mon1] || 'spring';
             var isActive  = v > 0;
             var isCurrent = (i === nowMonth);
-            var colClasses = 'sn-month-col' + (isActive ? ' season-' + season : ' inactive') + (isCurrent ? ' current' : '');
+            var colClasses = 'sn-month-col' + (isActive ? ' season-' + season : ' inactive');
             var barClr = isActive ? '#22c55e' : '#e5e7eb';
             return '<div class="'+colClasses+'">'+
+                '<div class="sn-month-now'+(isCurrent?'':' sn-month-now-empty')+'"><span class="sn-month-now-dot"></span>Now</div>'+
                 '<div class="sn-month-bar-wrap">'+
                 '<div class="sn-month-bar" style="height:'+pct+'%;background:'+barClr+'"></div>'+
                 '</div>'+
