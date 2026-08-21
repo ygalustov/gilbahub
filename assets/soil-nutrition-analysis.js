@@ -339,6 +339,22 @@
                    'months here can show a higher figure than Nutrition Program’s capped monthly rate, even ' +
                    'though both add up to the same annual total. For the actual application plan, use Nutrition Program.',
         },
+        // GH-283: plain-language explainer for the Tissue Test Results block,
+        // added at the user's request alongside the GH-282 badge-colour fix.
+        'sn-tissue-results': {
+            title: 'Tissue Test Results',
+            body:  'A tissue test measures the nutrients actually inside the grass plant itself, not in the soil — ' +
+                   'a leaf sample is lab-tested to see what the plant has really taken up.\n\n' +
+                   'Value is what the lab found in the tissue. Optimal Range is the normal range for this specific ' +
+                   'grass species (different species need different amounts). Status compares the two:\n\n' +
+                   '▼ Deficient — below the optimal range.\n' +
+                   '⚠ Marginal — just below the low threshold, borderline.\n' +
+                   '✓ Sufficient — within the optimal range.\n' +
+                   '▲ High — above the optimal range.\n\n' +
+                   'A soil test can look fine while tissue shows a deficiency — that usually means the plant can’t ' +
+                   'take up what’s already in the soil (pH, compaction, roots, or antagonism with another nutrient), ' +
+                   'not that more fertiliser is needed. See Soil–Tissue Cross-Validation below for that comparison.',
+        },
     });
 
     function hexToRgb(hex) {
@@ -1169,14 +1185,33 @@
         couch: 'Couch / Bermudagrass',
     };
 
+    // GH-282: band/cls always come from ONE 4-tier scheme, matching the old
+    // hub's tissue-progressive-disclosure.js (which only ever knows Deficient/
+    // Marginal/Sufficient/High — no "Elevated") and tissue-engine.js's
+    // classify() (same lo / lo*1.10 / hi thresholds). Previously this
+    // function used its own separate 5-tier scheme (lo*0.9 / hi*1.1 /
+    // "Elevated"), which is where band and cls could come from two
+    // disagreeing calculations. bandToClass() is the single place band text
+    // maps to a badge colour class now.
+    function bandToClass(band) {
+        switch (band) {
+            case 'Deficient':  return 'deficient';
+            case 'Marginal':   return 'borderline';
+            case 'Sufficient': return 'adequate';
+            case 'High':       return 'high';
+            default:           return 'no-data';
+        }
+    }
+
     function tissueBand(nutrient, value) {
         var r = TISSUE_RANGES[nutrient];
         if (!r||value==null||isNaN(value)) return {band:'No data',cls:'no-data'};
-        if (value<r.lo*0.9) return {band:'Deficient',cls:'deficient'};
-        if (value<r.lo)     return {band:'Marginal',cls:'borderline'};
-        if (value>r.hi*1.1) return {band:'High',cls:'high'};
-        if (value>r.hi)     return {band:'Elevated',cls:'borderline'};
-        return                     {band:'Sufficient',cls:'adequate'};
+        var band;
+        if (value<r.lo)          band = 'Deficient';
+        else if (value<=r.lo*1.10) band = 'Marginal';
+        else if (value<=r.hi)      band = 'Sufficient';
+        else                       band = 'High';
+        return {band:band,cls:bandToClass(band)};
     }
 
     function renderTissue(tissue) {
@@ -1205,8 +1240,12 @@
             var val = normalized[nut];
             if (val==null) return '';
             var r   = TISSUE_RANGES[nut]||{};
+            // GH-282: cls is derived from band (bandToClass), not from a
+            // second, independent classification -- band and cls can no
+            // longer disagree the way they could when cls was sourced from
+            // tissueBand()'s old, differently-thresholded 5-tier scheme.
             var band = (statusMap[nut]&&statusMap[nut].band)||tissueBand(nut,val).band;
-            var cls  = (statusMap[nut]&&statusMap[nut].cls)||tissueBand(nut,val).cls;
+            var cls  = bandToClass(band);
             var sc   = statusClass(cls);
             var icon = STATUS_ICONS[sc]||'';
             return '<tr>'+
@@ -1316,7 +1355,9 @@
         var correctionHtml  = renderCorrectionProgram(sn);
         var annualHtml      = renderAnnualRequirements(sn);
         var monthlyHtml     = renderMonthlyN(sn);
-        var tissueHtml      = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results</div></div>'+renderTissue(sn.tissue);
+        var tissueHtml      = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results'+
+            ' <button class="db-info-icon" data-info="sn-tissue-results" tabindex="0" aria-label="Learn more">i</button>'+
+            '</div></div>'+renderTissue(sn.tissue);
         var crossValHtml    = renderCrossValidation(sn);
         var contextHtml     = renderContext(sn);
 

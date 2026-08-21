@@ -579,6 +579,10 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 **GH-281** Follow-up to GH-280: replaced the current-month border/outline (from GH-280's first pass, itself replacing the original black `outline`) with a small "● Now" tag rendered above the bar. User feedback: a border around the whole card reads as a warning/error state, not "this is today" — presented four concrete alternatives (dot+label, tinted background, bottom accent underline, bold coloured month-label text) and the user picked the dot+label. Implemented as `.sn-month-now` (green `#16a34a` dot + "Now" text, 11px-tall row) shown only on the current month's card; every other month renders an invisible (`visibility:hidden`, not `display:none`, so column heights stay aligned) placeholder in the same slot rather than omitting the row, so all 12 bars still start from the same vertical position. Updated `tests/gh280-monthly-n-card-redesign.test.js`'s current-month test accordingly (now asserts exactly one non-empty `.sn-month-now` and eleven empty placeholders, and that no `.current`/`outline` styling remains). Full suite: 969/969 Jest tests pass, no regressions.
 
+**GH-282** Fixed the Tissue Test Results badge label/colour mismatch flagged earlier this session (found while spot-checking the block, e.g. Creeping Bentgrass K at 2% against a 2.2-3.5% range showed the word "Deficient" in the amber/borderline badge style instead of red). Root cause: `renderTissue()` sourced the badge *text* (`band`) from `statusMap[nut].band` (the live, correct value — `tissue-engine.js`'s `classify()`, a 4-tier scheme: Deficient `<lo`, Marginal `lo`–`lo×1.10`, Sufficient, High `>hi`), but sourced the badge *colour* (`cls`) from this file's own separate `tissueBand()` — a 5-tier scheme (adds a `lo×0.9` pre-threshold and a `hi×1.1` "Elevated" tier) that disagrees with `classify()` for any value landing in the `lo×0.9`–`lo` gap. Confirmed against the old hub before fixing (per the project's algorithm-parity rule): `tissue-progressive-disclosure.js` (loaded in `hub.blade.php`, the real headless-compute path) only ever renders 4 statuses — Deficient/Marginal/Sufficient/High, no "Elevated" — and derives both label and CSS class from the *same* band value via one `getTissueStatus(band)` switch, so this class of mismatch structurally cannot happen there. `tissueBand()`'s 5-tier scheme was a new-hub-only invention with no old-hub equivalent, confirming the 4-tier `classify()` scheme is the legacy-correct one. Fixed by rewriting `tissueBand()` to use the same 4-tier thresholds as `classify()` (dropping "Elevated" and the grace bands), adding a `bandToClass(band)` helper as the single place band text maps to a badge colour, and changing `renderTissue()` so `cls` is always derived from `band` via that helper — never from a second, independent calculation — on both the live-data path and the no-statusMap fallback path. `renderCrossValidation()`'s existing call to `tissueBand()` automatically inherits the corrected thresholds (no separate change needed there). Added `tests/gh282-tissue-band-color-parity.test.js` (5 tests: K at 2% now gets the deficient/red badge matching its "Deficient" label, a genuine Marginal value gets the borderline/amber badge matching its own label, the no-statusMap fallback path uses the corrected 4-tier thresholds not the old 5-tier ones, "Elevated" no longer appears anywhere, clearly-sufficient/high values are unaffected). Full suite: 974/974 Jest tests pass, no regressions.
+
+**GH-283** Added an "i" info icon to the Tissue Test Results section title, at the user's request right after the GH-282 fix, explaining in plain language what a tissue test is (measures nutrients actually inside the plant, not the soil), what the table's columns mean, and what each of the four statuses (Deficient/Marginal/Sufficient/High) represents — plus a pointer to the Soil–Tissue Cross-Validation block below it for the "soil looks fine but tissue is deficient = uptake problem, not a fertiliser problem" case. Added a `sn-tissue-results` `GAIP_GLOSSARY` entry and wired it to a `.db-info-icon` button on the section title, reusing the same info-icon/popover component as the other icons on this page (`sn-status`, `sn-compliance`, `sn-monthly-n-uncapped`). Added `tests/gh283-tissue-results-info-icon.test.js` (2 structural tests: the glossary entry exists and covers all four statuses plus the cross-validation pointer, and the icon renders inside the section title wired to that key). Full suite: 976/976 Jest tests pass, no regressions.
+
 
 
 
@@ -649,6 +653,14 @@ And also soil type
 
 
 
+check this list of detections - does it depend on the methodology? Is it correct for AA? 
+Input Data Issues Detected
+×
+Water pH (115) exceeds maximum expected (10), verify this value
+Calcium (220 ppm) is outside typical range (500–3000 ppm)
+Magnesium (40.1 ppm) is outside typical range (50–500 ppm)
+Calcium (3 mg/L) is outside typical range (20–150 mg/L)
+Sodium (2 mg/L) is outside typical range (10–300 mg/L)
 
 
 
