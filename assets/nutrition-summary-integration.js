@@ -1150,7 +1150,7 @@
         const monthlyTemps = extractMonthlyTemps();
         
         const hasData = soilValues && (soilValues.P || soilValues.K || soilValues.Ca);
-        
+
         if (!hasData) {
             return `
                 <div class="gaip-nutrition-placeholder" style="
@@ -1329,7 +1329,7 @@
 
     function injectNutritionSummary() {
         const result = findTargetContainer();
-        
+
         if (!result) {
             if (moduleState.retryCount < NUTRITION_CONFIG.maxRetries) {
                 moduleState.retryCount++;
@@ -1434,6 +1434,16 @@
         document.addEventListener('gaip:soil-data-update', updateNutritionSummary);
         document.addEventListener('gaip:mlsn-calculated', updateNutritionSummary);
         document.addEventListener('gaip:turf-profile-change', updateNutritionSummary);
+        // GH-278: climateMetrics.monthlyTemps resolves asynchronously (NASA
+        // POWER/Open-Meteo, climate-normals-service.js) and is usually still
+        // null when gaip:analysis-complete fires 100ms after page load --
+        // renderNutritionSummary() bails into the "Climate data unavailable"
+        // placeholder and never sets __GAIP_MONTHLY_N__. Without this
+        // listener nothing ever retries once the normals actually arrive, so
+        // Monthly N Distribution silently falls back to soil-nutrition-
+        // analysis.js's forecast-window approximation for the rest of the
+        // page's life.
+        document.addEventListener('gaip:monthly-normals-ready', updateNutritionSummary);
         
         const observer = new MutationObserver((mutations) => {
             if (moduleState.injected) return;

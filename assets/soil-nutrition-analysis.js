@@ -314,6 +314,20 @@
                    'test values are compared directly against fixed Hill Labs NZ sufficiency ranges, so a nutrient’s ' +
                    'status (Low / Sufficient / High) is the same regardless of current growth conditions.',
         },
+        // GH-279: this chart splits the site's Annual N Program total across
+        // months by growth potential only — it does NOT apply the "Max N per
+        // month" cap that the Nutrition Program page's Monthly Nutrient
+        // Program table applies (nutrition-calendar.js's applyNCap()).
+        // Same annual total, different per-month numbers by design — flagging
+        // so a peak-GP month here isn't mistaken for the capped application
+        // rate shown on Nutrition Program.
+        'sn-monthly-n-uncapped': {
+            title: 'Monthly N Distribution',
+            body:  'Splits this site’s Annual N Program total across months by growth potential (GP) alone.\n\n' +
+                   'This does not apply the "Max N per month" cap used on the Nutrition Program page — peak-GP ' +
+                   'months here can show a higher figure than Nutrition Program’s capped monthly rate, even ' +
+                   'though both add up to the same annual total. For the actual application plan, use Nutrition Program.',
+        },
     });
 
     function hexToRgb(hex) {
@@ -1078,7 +1092,9 @@
                 '</div>';
         }).join('');
 
-        return '<div class="sn-section"><div class="sn-section-title">Monthly N Distribution (GP-Weighted)</div></div>'+
+        return '<div class="sn-section"><div class="sn-section-title">Monthly N Distribution (GP-Weighted)'+
+            ' <button class="db-info-icon" data-info="sn-monthly-n-uncapped" tabindex="0" aria-label="Learn more">i</button>'+
+            '</div></div>'+
             '<div class="sn-monthly">'+cols+'</div>'+
             '<div class="sn-monthly-meta">Total: '+Math.round(total)+' kg N/ha/yr · '+active+' active growing months</div>';
     }
