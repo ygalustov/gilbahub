@@ -1294,8 +1294,15 @@
                 findings.push({severity:'moderate',msg:'Soil '+nut+' below threshold but tissue sufficient — Recent fertiliser effect or luxury consumption. Continue soil correction program.'});
             }
         });
+        // GH-289: tissue-engine.js's detectAntagonisms() returns an array of
+        // ready-made sentences (e.g. "High P with low Zn (possible P→Zn
+        // antagonism)"), not objects -- ant.element/ant.pair never existed,
+        // so this always fell through to JSON.stringify(ant), which just
+        // quote-wraps the string. Use it directly; it already reads as a
+        // complete sentence, so the old "Antagonism: ... interaction
+        // detected in tissue." wrapper was redundant on top of being broken.
         (tissue.antagonisms||[]).forEach(function(ant){
-            findings.push({severity:'moderate',msg:'Antagonism: '+(ant.element||ant.pair||JSON.stringify(ant))+' interaction detected in tissue.'});
+            findings.push({severity:'moderate',msg:ant});
         });
         if (!findings.length) return '';
         return '<div class="sn-section"><div class="sn-section-title">Soil–Tissue Cross-Validation</div></div>'+
