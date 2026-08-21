@@ -583,6 +583,8 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 **GH-283** Added an "i" info icon to the Tissue Test Results section title, at the user's request right after the GH-282 fix, explaining in plain language what a tissue test is (measures nutrients actually inside the plant, not the soil), what the table's columns mean, and what each of the four statuses (Deficient/Marginal/Sufficient/High) represents — plus a pointer to the Soil–Tissue Cross-Validation block below it for the "soil looks fine but tissue is deficient = uptake problem, not a fertiliser problem" case. Added a `sn-tissue-results` `GAIP_GLOSSARY` entry and wired it to a `.db-info-icon` button on the section title, reusing the same info-icon/popover component as the other icons on this page (`sn-status`, `sn-compliance`, `sn-monthly-n-uncapped`). Added `tests/gh283-tissue-results-info-icon.test.js` (2 structural tests: the glossary entry exists and covers all four statuses plus the cross-validation pointer, and the icon renders inside the section title wired to that key). Full suite: 976/976 Jest tests pass, no regressions.
 
+**GH-284** Fixed the Nutrient Status cards' progress bar showing green for HIGH-status nutrients, the same colour used for Sufficient — spotted by the user comparing a Russley AA sample where P/K/Ca/Mg/S/Fe/Zn all correctly show the blue "high" card border and blue "▲ HIGH" badge (`.sn-card.high`/`.sn-badge.high`), but the bar fill inside stayed green. Root cause: `renderNutrientCards()`'s `barClr` (`soil-nutrition-analysis.js:690`) only branched on `sc==='deficient'` (red) and `sc==='borderline'` (amber) — every other status, including `'high'`, fell through to the same `'#22c55e'` green as `'adequate'`/`'sufficient'`. The card border and badge already had a distinct blue for HIGH; the bar was the one piece of the card that never got it. Fixed by adding a `sc==='high'` branch returning `'#3b82f6'`, the same blue family already used by `.sn-card.high`'s border and `.sn-badge.high`'s text colour. Added `tests/gh284-nutrient-card-high-bar-color.test.js` (2 tests: a HIGH nutrient's bar is blue not green, deficient/borderline/adequate bar colours are unaffected). Full suite: 978/978 Jest tests pass, no regressions. Pure UI-consistency fix, no data/calculation change, no client confirmation needed (same class as GH-277).
+
 
 
 
@@ -652,15 +654,6 @@ And also soil type
 
 
 
-
-check this list of detections - does it depend on the methodology? Is it correct for AA? 
-Input Data Issues Detected
-×
-Water pH (115) exceeds maximum expected (10), verify this value
-Calcium (220 ppm) is outside typical range (500–3000 ppm)
-Magnesium (40.1 ppm) is outside typical range (50–500 ppm)
-Calcium (3 mg/L) is outside typical range (20–150 mg/L)
-Sodium (2 mg/L) is outside typical range (10–300 mg/L)
 
 
 

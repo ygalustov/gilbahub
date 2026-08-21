@@ -687,7 +687,11 @@
             // Progress bar: for MLSN use 1.5×threshold as 100%; for AA use rangeMax
             var barMax = isAA ? parseFloat(n.rangeMax) : (mlsnV * 1.5);
             var barPct = (barMax > 0 && !isNaN(actual)) ? Math.min(100, actual / barMax * 100) : 0;
-            var barClr = sc==='deficient'?'#ef4444':sc==='borderline'?'#f59e0b':'#22c55e';
+            // GH-284: 'high' fell through to the same green as 'adequate'/
+            // 'sufficient' here, even though the card border/badge already
+            // use a distinct blue for HIGH (.sn-card.high, .sn-badge.high) --
+            // the bar was the one piece of this card that didn't know about it.
+            var barClr = sc==='deficient'?'#ef4444':sc==='borderline'?'#f59e0b':sc==='high'?'#3b82f6':'#22c55e';
 
             // MLSN multiplier — only for MLSN sites
             var multiplier = (!isAA && mlsnV > 0 && !isNaN(actual)) ? (actual / mlsnV) : null;
