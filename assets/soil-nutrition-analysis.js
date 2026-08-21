@@ -900,11 +900,20 @@
             var badgeBg     = sc==='deficient'?'#fee2e2':sc==='borderline'?'#fef9c3':sc==='adequate'||sc==='sufficient'?'#dcfce7':sc==='high'?'#dbeafe':'#f3f4f6';
             var badgeClr    = sc==='deficient'?'#991b1b':sc==='borderline'?'#854d0e':sc==='adequate'||sc==='sufficient'?'#166534':sc==='high'?'#1e40af':'#6b7280';
             var statusText  = isHigh ? 'High' : capitalize(nObj ? (nObj.status || sc) : sc);
+            // GH-277: a not-measured nutrient (sc === 'no-data') can never be
+            // flagged HIGH (isHigh needs a real `actual`), but the old code fell
+            // straight to the confident "Application required" line anyway --
+            // silently implying a known deficiency for a nutrient whose soil
+            // level is actually unknown (could just as easily be oversupplied,
+            // same as P was before the ceiling fix above). Applies to all three
+            // methodologies (this branch isn't AA-gated), not just AA.
             var noteText    = isHigh
                 ? (isAA
                     ? 'Soil level exceeds AA sufficiency range, no application required this season. Monitor annually.'
                     : 'Soil level exceeds MLSN target, no application required this season. Monitor annually.')
-                : 'Application required to meet annual demand.';
+                : sc === 'no-data'
+                    ? 'Not measured — annual removal estimate only, soil status unknown.'
+                    : 'Application required to meet annual demand.';
             return '<div class="sn-annual-card">'+
                 '<div class="sn-annual-nutrient">'+esc(nut)+'</div>'+
                 '<div class="sn-annual-value">'+rounded+'</div>'+

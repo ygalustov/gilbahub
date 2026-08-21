@@ -569,47 +569,16 @@ Sections: soil, tissue, water, loi — via `Sample` model. spray-log — via exi
 
 **GH-276** User asked for a full manual re-derivation of GH-275's live-confirmed numbers (P/K/Ca/Mg for Russley, S279) against the actual SSOT source — not just accepting the earlier "looks right" summary — which surfaced a genuine, if narrow, remaining disagreement between the two AA classification paths: `mlsnEngine()`'s AA branch (`hub-tissue-v3.js:2799`) classifies SUFFICIENT via `actualPPM <= range.hi` (upper bound inclusive), while `SampleAnalysisController::computeNutrients()`'s AA branch (`SampleAnalysisController.php:211`) used `$actual < $medCeil` (upper bound exclusive) — so a value landing *exactly* on a certificate's upper bound (e.g. K = 195.5ppm exactly, S277/S279's ceiling) classified as SUFFICIENT via Re-run but HIGH via sample-switch. None of Russley's actual live values happened to sit exactly on a boundary, so GH-275's live verification didn't catch this — it only surfaced from re-deriving the classification logic line-by-line from both files' source rather than re-testing the same non-boundary values again. Lower-bound comparisons already matched (both `< lowCeil` → Low) and are untouched. Fixed by changing the PHP side's upper-bound comparison to `<=`, matching the JS side exactly. Added `app/tests/Unit/SampleAnalysisControllerBoundaryTest.php` (4 tests: exactly-on-upper-bound → Sufficient, just-above-upper-bound → still High, exactly-on-lower-bound → Sufficient unchanged, just-below-lower-bound → still Low — using S277's real 78.2–195.5ppm K range as the concrete boundary values). Full PHPUnit Unit suite: 41/41 pass (99 assertions), no regressions. Same class of bug as the whole GH-268-275 chain — two independent implementations of what should be one comparison — but caught this time by deliberately re-deriving the math from source instead of re-running the same live scenario, which is a narrower verification method than it looks: re-testing identical inputs can never catch a boundary-condition bug those inputs don't happen to hit.
 
+**GH-277** Fixed `renderAnnualRequirements()` (`soil-nutrition-analysis.js:858-925`, the Soil page's own "Annual Nutrient Requirements" panel — not the separate Nutrition Program engine) showing a confident "Application required to meet annual demand" note next to a nutrient that was never measured. Root cause: `demandVal` (the displayed kg/ha/yr figure) comes from `calcAnnualDemand()`, a pure function of turf type + growth potential + N program, independent of whether the nutrient has a soil-test value — legitimate as a baseline removal-rate estimate on its own. The ceiling check (`isHigh`, added in GH-260, D07 item 6-adjacent) correctly requires a real `actual` value, so an untested nutrient can never be flagged HIGH — the right instinct, since you can't verify a ceiling without data. But the `else` branch of `noteText` unconditionally said "Application required to meet annual demand." whenever `isHigh` was false, which includes the untested case — so a "Not measured" status badge sat directly next to a confident soil-based recommendation, when the nutrient's actual level (and therefore whether it's already oversupplied, same as P was before the ceiling fix) is genuinely unknown. Confirmed live on Russley: S showed "Not measured" + "5.4 kg/ha/yr" + "Application required to meet annual demand" together. This `noteText` branch is shared across AA/MLSN/SLAN (not gated by `isAA`), so the bug affected all three methodologies equally, not just AA — confirmed via a dedicated MLSN regression test. Fixed by checking the already-computed `sc` (status class) for `'no-data'` and showing a distinct, honest note ("Not measured — annual removal estimate only, soil status unknown.") in that case only; measured nutrients (Low/Sufficient/Borderline) and the HIGH/ceiling messages are completely unchanged. Added `tests/gh277-annual-requirements-not-measured.test.js` (7 tests: not-measured shows the honest note not "Application required", the demand figure itself is unaffected, measured Sufficient/Low nutrients keep the old text unchanged, MLSN gets the same fix since the branch isn't AA-gated, HIGH/ceiling messaging untouched). Full suite: 957/957 Jest tests pass, no regressions. Unlike GH-274-276 (independent write/comparison paths), this one didn't need a "which value is correct" investigation — the bug was purely in what to *say* about data that doesn't exist, a UI-honesty fix rather than a calculation fix, so no client confirmation was needed before shipping (unlike the still-open Nutrient Ratios and pH-range findings from the same review pass, which changed threshold *values* and are queued for the client instead).
 
 
 
 
 
 
-Check if this table was calculated correctly
-Annual Nutrient Requirements (AA)
-P
-0
-kg/ha/yr
-High
-Soil level exceeds AA sufficiency range, no application required this season. Monitor annually.
-K
-36
-kg/ha/yr
-Sufficient
-Application required to meet annual demand.
-Ca
-9
-kg/ha/yr
-Low
-Application required to meet annual demand.
-Mg
-4.5
-kg/ha/yr
-Sufficient
-Application required to meet annual demand.
-S
-5.4
-kg/ha/yr
-Not measured
-Application required to meet annual demand.
 
 
 
-
-
-what about this block - Tissue Test Results
-
-did we cover it in other plan items? 
 
 
 
@@ -645,6 +614,8 @@ GH-258 -
 ---
 
 **Engineering backlog (internal, not a client comment)**
+
+- **Check whether SLAN's `targetPpm` gets misread as a ceiling in `renderAnnualRequirements()`.** Found 2026-08-21 while explaining the "Annual Nutrient Requirements" panel's methodology differences to the user, unrelated to the AA fixes in this session. `mlsnEngine()`'s SLAN branch (`hub-tissue-v3.js:2765-2770`, explicitly "unchanged" and untouched by all of GH-258-277) sets `targetPpm: range.lo` — the **floor** of the SLAN range, by design (comment: "For SLAN, target is the low end of range"). But `renderAnnualRequirements()` (`soil-nutrition-analysis.js:891-896`) reads `nObj.targetPpm` for every non-AA methodology and uses it as if it were a **ceiling**: `isHigh = actual >= targetV`, zeroing the displayed kg/ha requirement whenever `actual >= targetV`. For SLAN this means `isHigh` can trigger the moment a nutrient merely reaches the *floor* of its sufficiency range (i.e. as soon as it's SUFFICIENT, not just when it's genuinely HIGH) — the Annual Requirement would show 0 far too early for SLAN sites, unlike MLSN (whose generic PACE-style `targetPpm = mlsnThreshold + uptakePpm` or `×1.5`, `hub-tissue-v3.js:2836-2839`, is a genuine ceiling-ish value, not a floor) and unlike AA (which correctly uses `rangeMax`, GH-260). Not yet confirmed live on a real SLAN site — found by reading the three branches side by side while answering an unrelated question, not from a bug report. Before fixing: reproduce on a real SLAN site/sample (SUFFICIENT-but-not-HIGH nutrient) to confirm the panel actually shows 0 kg/ha incorrectly; if confirmed, the fix is presumably to give `renderAnnualRequirements()` a SLAN-specific ceiling source (SLAN's own `range.hi`, analogous to AA's `rangeMax`) instead of reusing the floor-shaped `targetPpm` field, mirroring the `isAA` branch's shape.
 
 - **Remove `methodology_snapshot` (`samples`/`site_summaries` columns) entirely.** Investigated during D07/GH-265: this field is computed at sample-creation time (`site.methodology_override ?: account.methodology`, `SampleController.php:373`) and returned in several API payloads, but as of GH-265, nothing in the live codebase actually reads it to make a classification decision — both the JS side (`ammonium-acetate-methodology.js`, region-based auto-select) and the PHP side (`Controller::effectiveMethodology()`, same NZ-bounds check) independently recompute the effective methodology live from site coordinates every time, ignoring this stored value. GH-263 was the only place that ever tried to use it for a live decision, and that turned out to be wrong (GH-265): the snapshot goes stale the instant a site's methodology changes after a sample is saved, while the live geography-based computation doesn't. Contrast with `soil_texture_snapshot`, which stays — `SampleAnalysisController.php:52` genuinely depends on it (no live geography-based fallback exists for rootzone texture). Before removing: grep for `methodology_snapshot`/`methodologySnapshot` across `app/` and `assets/` to confirm no other consumer appeared since this note was written, check `Sample`/`SiteSummary` model fillable lists and the initial-schema migration, and decide whether a DB migration to drop the columns is worth it or whether leaving the (now definitely write-only, never-read) columns in place is lower-risk — this is cleanup, not a bug fix, so no rush.
 
