@@ -153,16 +153,23 @@
             '.sn-annual-unit{font-size:11px;color:#5b6a65;margin-bottom:6px}',
             '.sn-annual-status{font-size:10px;font-weight:600;padding:2px 6px;border-radius:10px;display:inline-block}',
             '.sn-annual-note{font-size:10px;color:#9ca3af;margin-top:4px;line-height:1.3}',
-            /* monthly N chart */
-            '.sn-monthly{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;padding:0 0 4px;align-items:end}',
-            '.sn-month-col{display:flex;flex-direction:column;align-items:center;gap:3px}',
-            '.sn-month-bar-wrap{width:100%;display:flex;align-items:flex-end;height:60px}',
-            '.sn-month-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:opacity .2s}',
-            '.sn-month-val{font-size:10px;font-weight:700;color:#374151}',
-            '.sn-month-label{font-size:9px;color:#9ca3af;text-align:center}',
-            '.sn-month-col.current .sn-month-bar{opacity:1;outline:2px solid #17231f;outline-offset:1px}',
-            '.sn-month-col:not(.current) .sn-month-bar{opacity:.7}',
-            '.sn-monthly-meta{font-size:11px;color:#5b6a65;padding:6px 0 12px}',
+            /* monthly N chart -- card-per-month, matching .sn-card/.gl-kpi-card's
+               white-card-plus-accent-strip language elsewhere on this page,
+               not a flat pastel-season-fill block */
+            '.sn-monthly{display:grid;grid-template-columns:repeat(12,1fr);gap:6px;padding:0 0 4px;align-items:stretch}',
+            '.sn-month-col{display:flex;flex-direction:column;align-items:center;gap:4px;background:#fff;border:1px solid #d8e0dc;border-radius:8px;border-top-width:3px;padding:8px 4px 6px}',
+            '.sn-month-col.season-summer{border-top-color:#eab308}',
+            '.sn-month-col.season-autumn{border-top-color:#f97316}',
+            '.sn-month-col.season-winter{border-top-color:#3b82f6}',
+            '.sn-month-col.season-spring{border-top-color:#22c55e}',
+            '.sn-month-col.inactive{background:#f9fafb;border-top-color:#e5e7eb}',
+            '.sn-month-col.current{border-color:#17231f;border-top-color:#17231f}',
+            '.sn-month-bar-wrap{width:100%;display:flex;align-items:flex-end;height:56px}',
+            '.sn-month-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px}',
+            '.sn-month-val{font-size:11px;font-weight:700;color:#17231f}',
+            '.sn-month-val.inactive{color:#9ca3af;font-weight:400}',
+            '.sn-month-label{font-size:9px;color:#5b6a65;text-transform:uppercase;letter-spacing:.03em;text-align:center}',
+            '.sn-monthly-meta{font-size:11px;color:#5b6a65;padding:8px 0 12px}',
             /* tissue */
             '.sn-table{width:100%;border-collapse:collapse;font-size:13px}',
             '.sn-table th{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#5b6a65;border-bottom:2px solid #e5e7eb;font-weight:700}',
@@ -1071,23 +1078,23 @@
         } catch(e) {}
         var isSouth = lat === null ? true : lat < 0; // default southern hemisphere
 
-        // Season → background color (1-indexed month)
-        var SEASON_SOUTH = { 12:'Summer',1:'Summer',2:'Summer', 3:'Autumn',4:'Autumn',5:'Autumn', 6:'Winter',7:'Winter',8:'Winter', 9:'Spring',10:'Spring',11:'Spring' };
-        var SEASON_NORTH = { 12:'Winter',1:'Winter',2:'Winter', 3:'Spring',4:'Spring',5:'Spring', 6:'Summer',7:'Summer',8:'Summer', 9:'Autumn',10:'Autumn',11:'Autumn' };
-        var SEASON_BG    = { Summer:'#fef9c3', Autumn:'#ffedd5', Winter:'#eff6ff', Spring:'#f0fdf4' };
+        // Season → accent class (1-indexed month)
+        var SEASON_SOUTH = { 12:'summer',1:'summer',2:'summer', 3:'autumn',4:'autumn',5:'autumn', 6:'winter',7:'winter',8:'winter', 9:'spring',10:'spring',11:'spring' };
+        var SEASON_NORTH = { 12:'winter',1:'winter',2:'winter', 3:'spring',4:'spring',5:'spring', 6:'summer',7:'summer',8:'summer', 9:'autumn',10:'autumn',11:'autumn' };
 
         var cols = vals.map(function(v, i){
             var pct = (v / maxVal * 100).toFixed(1);
             var mon1 = i + 1; // 1-indexed
-            var season = (isSouth ? SEASON_SOUTH : SEASON_NORTH)[mon1] || 'Spring';
-            var bg     = v > 0 ? SEASON_BG[season]     : '#f9fafb';
+            var season = (isSouth ? SEASON_SOUTH : SEASON_NORTH)[mon1] || 'spring';
+            var isActive  = v > 0;
             var isCurrent = (i === nowMonth);
-            var barClr = v > 0 ? '#22c55e' : '#d1d5db';
-            return '<div class="sn-month-col'+(isCurrent?' current':'')+'" style="background:'+bg+';border-radius:6px;padding:6px 2px;opacity:'+(v>0?1:0.5)+';">'+
+            var colClasses = 'sn-month-col' + (isActive ? ' season-' + season : ' inactive') + (isCurrent ? ' current' : '');
+            var barClr = isActive ? '#22c55e' : '#e5e7eb';
+            return '<div class="'+colClasses+'">'+
                 '<div class="sn-month-bar-wrap">'+
                 '<div class="sn-month-bar" style="height:'+pct+'%;background:'+barClr+'"></div>'+
                 '</div>'+
-                '<div class="sn-month-val" style="color:'+(v>0?'#166534':'#9ca3af')+'">'+(v > 0 ? Math.round(v) : '-')+'</div>'+
+                '<div class="sn-month-val'+(isActive?'':' inactive')+'">'+(isActive ? Math.round(v) : '-')+'</div>'+
                 '<div class="sn-month-label">'+MONTH_LABELS[i]+'</div>'+
                 '</div>';
         }).join('');
