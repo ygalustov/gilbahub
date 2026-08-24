@@ -1184,73 +1184,37 @@
         };
 
         // ================================================================
-        // STEP 4: Calculate deficits and correction based on methodology
+        // STEP 4: Resolve AA sufficiency ranges once, then calculate
+        // deficits/corrections
         // ================================================================
         const deficits = {};
         const annualCorrection = {};
         const methodologyUsed = inputs.methodology || 'mlsn';
         const aaTextureKey = inputs.aaTextureKey != null ? inputs.aaTextureKey : null;
+        const isAAMethodology = (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa');
 
-        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
-            const deficit = this.calculateDeficit(
-                inputs.soilPpm[nutrient],
-                nutrient,
-                inputs.bulkDensity,
-                inputs.soilDepth,
-                methodologyUsed,
-                aaTextureKey
-            );
-            deficits[nutrient] = deficit;
-            annualCorrection[nutrient] = deficit / (CONFIG.yearsToCorrect[nutrient] || 2);
-        });
-
-        // ================================================================
-        // STEP 5: Calculate final annual requirements
-        // ================================================================
-        // Research: Kopp & Guillard (2002) - 33-50% N reduction with clipping return
-        const adjustedAnnualN = Math.round(annualN * clipMgmt.nFactor);
-
-        const annualRequirements = {
-            N: adjustedAnnualN,
-            P: Math.round(adjustedRemoval.P + annualCorrection.P),
-            K: Math.round(adjustedRemoval.K + annualCorrection.K),
-            Ca: Math.round(adjustedRemoval.Ca + annualCorrection.Ca),
-            Mg: Math.round(adjustedRemoval.Mg + annualCorrection.Mg),
-            S: Math.round(adjustedRemoval.S + annualCorrection.S),
-        };
-
-        // GH-300 (D07 item 6 follow-up): this calendar is a structurally
-        // separate implementation from nutrition-requirement-engine.js (GH-299)
-        // -- its own getThresholds()/calculateDeficit(), never routed through
-        // the shared engine -- so GH-299's fix never reached it. Confirmed
-        // live: a HIGH AA site (K=199ppm, well above the S277 certificate
-        // ceiling) still showed annualK=110 (pure removal + 0 deficit, since
-        // calculateDeficit() only ever adds a correction when BELOW the floor
-        // -- it has no ceiling concept at all) after GH-299 shipped. Add the
-        // same ceiling here: certificate-backed only (deriveCode()/
-        // getRangesPpm(), same SSOT items 3-5/GH-299 already use), gated to AA
-        // methodology, graceful-degradation to today's uncapped behaviour when
-        // no certificate matches this species/texture. Deliberately does NOT
-        // touch calculateDeficit()'s existing below-floor correction logic --
-        // that's a separate, unverified question (nutrition-requirement-
-        // engine.js's AA branch never adds deficit correction at all, this
-        // calendar always has -- a real algorithmic difference between the two
-        // implementations, out of scope for this fix, not to be changed
-        // without confirming which is correct).
-        // GH-304 (D07 item 7, "label, don't remove" -- this calendar is a
-        // 5th independent surface, found live: user asked why S still showed
-        // a non-zero "10" on this exact card with no indication that S277
-        // (this site's certificate) simply has no printed Sulphur range at
-        // all -- same rangeSource concept as hub-tissue-v3.js's aaRangeSource
-        // (GH-304), tracked here too so renderSummary() below can label it.
-        // Defaults every nutrient to 'texture-fallback'; flips to
-        // 'certificate' whenever getRangesPpm() actually resolves a range for
-        // that nutrient -- independent of whether the ceiling above fires,
-        // matching hub-tissue-v3.js's exact semantics (a certificate-backed
-        // range that simply wasn't exceeded is still 'certificate', not
-        // 'texture-fallback').
+        // GH-308 (D07 follow-up): the below-floor deficit/lift correction
+        // (this block) and the above-ceiling zeroing (formerly a separate
+        // block after STEP 5, GH-300/305) used to resolve their ranges
+        // independently -- the floor came from the old CONFIG.aaThresholds
+        // texture-only single-value table, the ceiling from deriveCode()/
+        // getRangesPpm() (certificate-first, generic fallback). Those two
+        // tables only agreed in the generic-fallback case (they happen to
+        // hold the same numbers as AmmoniumAcetateMethodology's medium-range
+        // floor); for certificate-covered sites (S277/S279/S78/S81) they
+        // could disagree substantially -- worst case Mg, where the S277/
+        // S279 certificate floor is ~37-85ppm but the old generic floor used
+        // here was 100ppm (sands) / 140ppm (others), so a certificate-
+        // 'Sufficient' Mg reading still got an unwanted lift correction while
+        // the Soil page (mlsnEngine(), GH-260) correctly showed no
+        // correction needed for the exact same sample. Resolving the range
+        // ONCE per nutrient, up front, and using its .min for the floor and
+        // .max for the ceiling means both ends can never disagree again.
+        // Non-AA methodologies (MLSN/SLAN) are untouched -- they keep calling
+        // calculateDeficit()/getThresholds() exactly as before.
+        const aaRanges = { P: null, K: null, Ca: null, Mg: null, S: null };
         const annualRangeSource = { P: 'texture-fallback', K: 'texture-fallback', Ca: 'texture-fallback', Mg: 'texture-fallback', S: 'texture-fallback' };
-        if (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa') {
+        if (isAAMethodology) {
             var _hlst = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
             // GH-305 (D07 item 6, "correction for generic numbers too" -- user
             // decision, 2026-08-24): a certificate-only ceiling meant an
@@ -1266,7 +1230,8 @@
             // use) whenever the certificate path (above) doesn't cover this
             // specific nutrient. rangeSource stays 'texture-fallback' for
             // these -- the "Generic" badge (GH-304) still applies, this only
-            // changes whether the ceiling actually fires, not the labelling.
+            // changes whether the ceiling/floor actually fire, not the
+            // labelling.
             var _aam = (typeof window !== 'undefined') ? window.AmmoniumAcetateMethodology : null;
             var _texKey = String(inputs.soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
             console.log('[GH302-DEBUG] AA ceiling check | hasHLST:', !!_hlst, '| hasAAM:', !!_aam,
@@ -1291,10 +1256,63 @@
                         // rangeSource intentionally stays 'texture-fallback' (the default).
                     }
                 }
-                console.log('[GH302-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
-                    '| source:', annualRangeSource[nutrient],
-                    '| willZero:', !!(_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max));
-                if (_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max) {
+                console.log('[GH308-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
+                    '| source:', annualRangeSource[nutrient]);
+                aaRanges[nutrient] = _range || null;
+            });
+        }
+
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
+            let deficit;
+            if (isAAMethodology && aaRanges[nutrient]) {
+                // GH-308: floor now comes from the same resolved range as the
+                // ceiling below (certificate or generic fallback), not the
+                // old CONFIG.aaThresholds table.
+                const floor = aaRanges[nutrient].min;
+                const currentPpm = inputs.soilPpm[nutrient];
+                deficit = currentPpm < floor
+                    ? (floor - currentPpm) * inputs.bulkDensity * inputs.soilDepth * 0.1
+                    : 0;
+            } else {
+                deficit = this.calculateDeficit(
+                    inputs.soilPpm[nutrient],
+                    nutrient,
+                    inputs.bulkDensity,
+                    inputs.soilDepth,
+                    methodologyUsed,
+                    aaTextureKey
+                );
+            }
+            deficits[nutrient] = deficit;
+            annualCorrection[nutrient] = deficit / (CONFIG.yearsToCorrect[nutrient] || 2);
+        });
+
+        // ================================================================
+        // STEP 5: Calculate final annual requirements
+        // ================================================================
+        // Research: Kopp & Guillard (2002) - 33-50% N reduction with clipping return
+        const adjustedAnnualN = Math.round(annualN * clipMgmt.nFactor);
+
+        const annualRequirements = {
+            N: adjustedAnnualN,
+            P: Math.round(adjustedRemoval.P + annualCorrection.P),
+            K: Math.round(adjustedRemoval.K + annualCorrection.K),
+            Ca: Math.round(adjustedRemoval.Ca + annualCorrection.Ca),
+            Mg: Math.round(adjustedRemoval.Mg + annualCorrection.Mg),
+            S: Math.round(adjustedRemoval.S + annualCorrection.S),
+        };
+
+        // GH-300/305 (D07 item 6 follow-ups): AA ceiling -- zero out any
+        // nutrient at or above its resolved range's ceiling. GH-308: uses
+        // the same aaRanges resolved in STEP 4 above (certificate-first,
+        // generic fallback per GH-305), so floor and ceiling can never
+        // disagree. Graceful degradation to today's uncapped behaviour when
+        // aaRanges[nutrient] is null (uncovered species/texture, or
+        // HillLabsSampleTypes/AmmoniumAcetateMethodology not loaded).
+        if (isAAMethodology) {
+            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+                const range = aaRanges[nutrient];
+                if (range && typeof range.max === 'number' && inputs.soilPpm[nutrient] >= range.max) {
                     annualRequirements[nutrient] = 0;
                 }
             });

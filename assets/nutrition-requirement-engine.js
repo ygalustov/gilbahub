@@ -317,7 +317,7 @@
         const removal = getRemovalRate(config.species, nutrient);
         const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
 
-        // ── AMMONIUM_ACETATE: removal-only, no modifiers, status always Adequate ──
+        // ── AMMONIUM_ACETATE ──
         // GH-299 (D07 item 6): D07's reported bug was the Annual K Requirement
         // figure never returning 0 for an AA site whose soil K is already HIGH
         // per the certificate range — this branch previously had no ceiling at
@@ -326,9 +326,29 @@
         // HillLabsSampleTypes.deriveCode()/getRangesPpm() — this engine stays a
         // pure function, no window/DOM reads) is present and currentLevel has
         // reached the certificate ceiling, mirror the MLSN tier's "above target
-        // -> 0" shape. Absent config.aaRange (uncovered species/texture, or a
-        // nutrient the matched sample-type code has no range for) keeps today's
-        // unconditional pure-removal behaviour -- the graceful-degradation path.
+        // -> 0" shape.
+        //
+        // GH-309 (D07 follow-up): the below-floor half was still missing —
+        // this branch always fell through to pure removal for a low reading,
+        // never adding a deficit/lift correction the way MLSN and SLAN
+        // (above) both do. That was checked against old-hub parity, not
+        // assumed: nutrition-calendar.js is the only AA-aware engine present
+        // since this repo's initial commit (i.e. what the old hub actually
+        // shipped), and it has always added a below-floor lift correction
+        // for AA, same shape as MLSN/SLAN (deficit / yearsToCorrect) — this
+        // engine didn't exist in the old hub at all (extracted from
+        // nutrition-summary-integration.js at b35fix302, which itself never
+        // had an AA branch), so its "no lift, ever" behaviour was a fresh
+        // SaaS-era decision, not inherited legacy behaviour. It also left
+        // this engine and nutrition-calendar.js returning different annual
+        // requirements for the same site/nutrient — a direct miss against
+        // the Hoxton audit's own regression-fixture assertion 20 ("UI and
+        // export return identical annual N, P and K requirements for the
+        // same site"). Adding the same lift shape here closes both gaps.
+        // Absent config.aaRange (uncovered species/texture, or a nutrient
+        // the matched sample-type code has no range for) keeps today's
+        // unconditional pure-removal behaviour -- the graceful-degradation
+        // path, unchanged.
         if (methodology === 'AMMONIUM_ACETATE') {
             const aaRange = config.aaRange;
             if (aaRange && typeof aaRange.max === 'number' && currentLevel >= aaRange.max) {
@@ -344,11 +364,25 @@
                     methodology: 'AMMONIUM_ACETATE'
                 };
             }
+            if (aaRange && typeof aaRange.min === 'number' && currentLevel < aaRange.min) {
+                const aaCorrection = (aaRange.min - currentLevel) / yearsToCorrect;
+                return {
+                    nutrient: nutrient,
+                    currentLevel: currentLevel,
+                    threshold: aaRange.min,
+                    target: (typeof aaRange.max === 'number') ? aaRange.max : null,
+                    removal: removal,
+                    correctionRequired: aaCorrection,
+                    annualRequirement: Math.round((removal + aaCorrection) * 10) / 10,
+                    status: 'Low',
+                    methodology: 'AMMONIUM_ACETATE'
+                };
+            }
             return {
                 nutrient: nutrient,
                 currentLevel: currentLevel,
-                threshold: null,
-                target: null,
+                threshold: (aaRange && typeof aaRange.min === 'number') ? aaRange.min : null,
+                target: (aaRange && typeof aaRange.max === 'number') ? aaRange.max : null,
                 removal: removal,
                 correctionRequired: 0,
                 annualRequirement: Math.round(removal * 10) / 10,
