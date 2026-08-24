@@ -2052,6 +2052,24 @@
                 'tee': 'tees',
                 'sports_field': 'sports',
                 'sportsfield': 'sports',
+                // GH-307: site-settings-panel.js's Sports sub-category grid
+                // (populateTurfSubGrid()) sets context.surfaceType to one of
+                // these 4 specific values, not the parent 'sports' category --
+                // none of them were mapped here, and no product in
+                // PrebbleProducts.granular/liquid's suitableFor lists (or
+                // surfaceSGN) uses anything but 'sports', so filterBySurface()
+                // matched zero granular products for every Soccer/AFL/Rugby
+                // site, every month, regardless of N required. Confirmed live:
+                // "[PrebbleRecommender] NO granular products match surface:
+                // soccer" fired for all 12 months on a real site, and most
+                // months got no N product at all (liquid fallback only fires
+                // in the winter GP<0.3 branch or for greens, neither of which
+                // applied here).
+                'soccer': 'sports',
+                'afl': 'sports',
+                'rugby_union': 'sports',
+                'rugby_league': 'sports',
+                'rugby': 'sports',
             };
             
             return aliases[normalized] || normalized;
