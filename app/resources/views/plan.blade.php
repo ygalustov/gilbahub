@@ -14,6 +14,10 @@
         turfSpecies:     @json($turfSpecies),
         turfMethodology: @json($turfMethodology),
         savedLocation:   @json($savedLocation ?? null),
+        // GH-294: Site::soil_texture_override (falling back to the account's
+        // soil_texture) -- lives on the Site model, not inside gaipConfig's
+        // JSON blob, so it needs its own pass-through from PageController.
+        soilTexture:     @json($soilTexture ?? null),
     });
     window.GAIP_SITE_CONFIG = @json($gaipConfig ?? null);
 
@@ -83,6 +87,11 @@
             bulkDensity:  soil.bulkDensity,
             depth:        soil.depth,
             surfaceType:  turf.subCategory || turf.turfType,
+            // GH-294: from Site::soil_texture_override (PageController), not
+            // gaipConfig -- the AA K-reconciliation preview's deriveCode()
+            // call (GH-291) needs this to resolve a real certificate instead
+            // of always seeing '' and falling back to the generic range.
+            soilTexture:  hub.soilTexture || undefined,
         });
         state.inputs = si;
 
@@ -959,6 +968,11 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('climate-normals-service.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
+{{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
+     so this page doesn't need to load the entire export module just for the
+     Nutrient Delivery Summary's Spot-K reconciliation preview. Must load
+     before nutrition-prebble-integration.js. --}}
+<script src="{{ $legacyAssetUrl('k-reconciliation-decision.js') }}"></script>
 <script src="{{ $legacyAssetUrl('prebbles-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-prebble-integration.js') }}"></script>
 <script src="{{ $legacyAssetUrl('au-fertiliser-products.js') }}"></script>

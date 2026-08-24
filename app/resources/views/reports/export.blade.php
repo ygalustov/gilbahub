@@ -265,6 +265,7 @@
         'jszip.min.js','docx.min.js',
         'gp-status.js',
         'word-export-combined.js','gaip-ical-export.js',
+        'k-reconciliation-decision.js', // GH-292: must load before word-export.js
         'word-export.js','chart-annotator-hub.js','export-metadata.js',
         'gssh-led-export.js',
         'gilba-soil-interpretation.js','gilba-water-interpretation.js',

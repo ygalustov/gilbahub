@@ -1065,11 +1065,16 @@
                 hemisphere: null,
             };
 
-            // Need the SSOT before doing anything else.
-            const wx = window.GAIP_WordExport;
-            if (!wx || typeof wx._synthesiseKReconDecision !== 'function') {
+            // GH-292: the decision SSOT itself lives in the lightweight
+            // k-reconciliation-decision.js (loaded on every page that needs
+            // this preview, including this one, the Plan page). word-export.js
+            // (assigned to `wx` below) is NOT loaded on the Plan page -- it's
+            // only used, optionally, for the monthly-split preview in step 6.
+            const kr = window.GAIP_KReconDecision;
+            if (!kr || typeof kr.synthesiseDecision !== 'function') {
                 return result;
             }
+            const wx = window.GAIP_WordExport;
 
             // ---- Step 1: extract soil K via canonical fallback chain ----
             // Mirrors extractSoilValues() in nutrition-summary-integration.js:557.
@@ -1170,20 +1175,32 @@
                     || ''
                 ).toLowerCase();
                 const soilType = (tx.indexOf('sand') === 0) ? 'sands' : 'others';
-                if (window.GAIP_AmmoniumAcetate
-                        && typeof window.GAIP_AmmoniumAcetate.getSufficiencyRange === 'function') {
+                // GH-291 (D07 item 5): was ammonium-acetate-methodology.js's
+                // getSufficiencyRange('K', soilType) -- generic "agricultural/
+                // horticultural" ranges that don't match what Hill Labs prints
+                // on turf certificates (same class of gap GH-260 fixed for the
+                // Soil page cards). Try the certificate-backed SSOT first via
+                // deriveCode(species, texture) -- same resolver mlsnEngine()
+                // (GH-260) and SampleAnalysisController.php (GH-268) already
+                // use -- and only fall through to the documented texture-only
+                // default below when no certificate matches (uncovered
+                // species/texture, e.g. Couch, Kikuyu, native-soil Ryegrass).
+                const _species = (window.GAIP_STATE && window.GAIP_STATE.turf
+                    && (window.GAIP_STATE.turf.grassSpecies || window.GAIP_STATE.turf.warmBase))
+                    || null;
+                if (window.HillLabsSampleTypes
+                        && typeof window.HillLabsSampleTypes.deriveCode === 'function'
+                        && typeof window.HillLabsSampleTypes.getRangesPpm === 'function') {
                     try {
-                        const rangeData = window.GAIP_AmmoniumAcetate
-                            .getSufficiencyRange('K', soilType);
-                        if (rangeData && rangeData.ranges
-                                && Array.isArray(rangeData.ranges.medium)
-                                && typeof rangeData.ranges.medium[0] === 'number') {
-                            floor = rangeData.ranges.medium[0];
+                        const _code = window.HillLabsSampleTypes.deriveCode(_species, tx);
+                        if (_code) {
+                            const _r = window.HillLabsSampleTypes.getRangesPpm(_code, 'K');
+                            if (_r && typeof _r.min === 'number') floor = _r.min;
                         }
                     } catch (e) { /* defensive */ }
                 }
                 // Documented fallback (from ammonium-acetate-methodology.js
-                // AMMONIUM_ACETATE_RANGES.K.ranges).
+                // AMMONIUM_ACETATE_RANGES.K.ranges) -- uncovered species/texture.
                 if (floor === null) {
                     floor = (soilType === 'sands') ? 75 : 100;
                 }
@@ -1244,7 +1261,7 @@
                 K: soilK,
                 thresholds: { K: { min: floor } }
             };
-            const decision = wx._synthesiseKReconDecision(synthSoil, kRequired, kDelivered);
+            const decision = kr.synthesiseDecision(synthSoil, kRequired, kDelivered);
             if (decision) {
                 result.state = 'will-apply';
                 result.decision = decision;
@@ -1256,11 +1273,15 @@
                 // monthly preview rows need the same split resolution so the
                 // user can see WHICH months will get the SOP applications.
                 //
-                // Defensive: if the helper isn't exposed (older word-export
-                // build) or throws, the will-apply state still produces the
-                // annual summary row — only the monthly inline rows are lost.
+                // Defensive: word-export.js isn't loaded on every page this
+                // preview runs on (GH-292 -- e.g. the Plan page only loads
+                // k-reconciliation-decision.js, not the full word-export.js),
+                // so `wx` itself may be undefined here, not just missing this
+                // one method. When unavailable, the will-apply state still
+                // produces the annual summary row — only the monthly inline
+                // split rows are lost.
                 result.splitEntries = [];
-                if (typeof wx._amendmentDecisionsToProducts === 'function') {
+                if (wx && typeof wx._amendmentDecisionsToProducts === 'function') {
                     try {
                         const hemisphere =
                             (typeof this.getHemisphere === 'function'

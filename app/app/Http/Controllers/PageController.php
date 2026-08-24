@@ -54,9 +54,21 @@ class PageController extends Controller
             'name' => $locationName ?? '',
         ];
 
+        // GH-294: soil_texture_override lives on the Site model (falling back
+        // to the account's soil_texture), not inside the gaip JSON config --
+        // same site-override-then-account-fallback chain established at
+        // SampleController.php:374 / HillLabsSampleTypes.resolveSoilTexture().
+        // Needed by the Plan page's GAIP_STATE bridge below so
+        // HillLabsSampleTypes.deriveCode() (AA certificate lookup, GH-291) has
+        // a real texture to work with instead of always seeing '' (which
+        // deriveCode() reads as "not sand" -> silently falls back to the
+        // generic sands/others range regardless of the site's real texture).
+        $soilTexture = $activeSite?->soil_texture_override ?: $activeSite?->account?->soil_texture;
+
         return compact(
             'activeSite', 'allSites', 'turfSpecies', 'turfMethodology',
-            'locationName', 'analysisCache', 'gaipConfig', 'savedLocation'
+            'locationName', 'analysisCache', 'gaipConfig', 'savedLocation',
+            'soilTexture'
         );
     }
 }
