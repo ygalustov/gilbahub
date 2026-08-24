@@ -1909,6 +1909,12 @@
                     soil: r.data.soil,
                     turf: _ei.turf,
                     climate: _ei.climate,
+                    // GH-299 (D07 item 6): resolved once per sample by
+                    // word-export.js's _buildEngineInputs() (same object this
+                    // whole block already reads turf/climate from) — inherits
+                    // the AA-ceiling fix rather than needing a separate
+                    // resolution here, same pattern GH-290/291 established.
+                    aaRanges: _ei.aaRanges,
                     overseedConfig: _ei.overseedConfig
                 });
                 // b35fix325: carry structured methodology fields through from

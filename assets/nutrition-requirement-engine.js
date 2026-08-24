@@ -318,7 +318,32 @@
         const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
 
         // ── AMMONIUM_ACETATE: removal-only, no modifiers, status always Adequate ──
+        // GH-299 (D07 item 6): D07's reported bug was the Annual K Requirement
+        // figure never returning 0 for an AA site whose soil K is already HIGH
+        // per the certificate range — this branch previously had no ceiling at
+        // all, always returning pure removal regardless of currentLevel. When
+        // config.aaRange ({min,max} ppm, resolved by the caller per nutrient via
+        // HillLabsSampleTypes.deriveCode()/getRangesPpm() — this engine stays a
+        // pure function, no window/DOM reads) is present and currentLevel has
+        // reached the certificate ceiling, mirror the MLSN tier's "above target
+        // -> 0" shape. Absent config.aaRange (uncovered species/texture, or a
+        // nutrient the matched sample-type code has no range for) keeps today's
+        // unconditional pure-removal behaviour -- the graceful-degradation path.
         if (methodology === 'AMMONIUM_ACETATE') {
+            const aaRange = config.aaRange;
+            if (aaRange && typeof aaRange.max === 'number' && currentLevel >= aaRange.max) {
+                return {
+                    nutrient: nutrient,
+                    currentLevel: currentLevel,
+                    threshold: (typeof aaRange.min === 'number') ? aaRange.min : null,
+                    target: aaRange.max,
+                    removal: removal,
+                    correctionRequired: 0,
+                    annualRequirement: 0,
+                    status: 'High',
+                    methodology: 'AMMONIUM_ACETATE'
+                };
+            }
             return {
                 nutrient: nutrient,
                 currentLevel: currentLevel,
@@ -513,7 +538,17 @@
         for (const nutrient of nutrients) {
             const currentLevel = soilValues[nutrient];
             if (currentLevel !== undefined && currentLevel !== null) {
-                results[nutrient] = calculateNutrientRequirement(nutrient, currentLevel, config);
+                // GH-299: config.aaRanges (a per-nutrient {P:{min,max}, K:{...}, ...}
+                // map, resolved by the caller) must be narrowed to a single
+                // config.aaRange for THIS nutrient before calling
+                // calculateNutrientRequirement() -- the SSOT's ranges differ per
+                // nutrient (e.g. S277's K range and Ca range are different
+                // me/100g bounds), so passing the same config unmodified to all
+                // five nutrients would apply the wrong ceiling to four of them.
+                const nutrientConfig = config.aaRanges
+                    ? Object.assign({}, config, { aaRange: config.aaRanges[nutrient] || null })
+                    : config;
+                results[nutrient] = calculateNutrientRequirement(nutrient, currentLevel, nutrientConfig);
             }
         }
         return results;
@@ -659,7 +694,12 @@
             species: turf.species,
             clippingsCollected: turf.clippingsCollected || false,
             trafficIntensity: turf.trafficIntensity || 'moderate',
-            methodology: soil.methodology || 'MLSN'
+            methodology: soil.methodology || 'MLSN',
+            // GH-299 (D07 item 6): optional {P:{min,max}, K:{...}, ...} ppm map,
+            // resolved by the caller via HillLabsSampleTypes.deriveCode()/
+            // getRangesPpm() only when methodology is AA -- this engine stays
+            // pure (no window/DOM/HillLabsSampleTypes reads of its own).
+            aaRanges: inputs.aaRanges || null
         };
         const perSample = calculateAllRequirements(soil, nutrientConfig);
 

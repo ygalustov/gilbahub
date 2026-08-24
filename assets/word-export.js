@@ -6730,6 +6730,34 @@
             };
         }
 
+        // GH-299 (D07 item 6): resolve a per-nutrient {P:{min,max}, K:{...}, ...}
+        // ppm map from HillLabsSampleTypes' certificate-backed SSOT, only when
+        // the site's methodology is AA — gated so MLSN/SLAN exports never even
+        // attempt this resolution. Same texture/species source GH-290's
+        // aaSampleType resolution already uses (window.GAIP_STATE.soil), so
+        // this agrees with the sample-type code the rest of the export picks.
+        // Attached to data.engineInputs (not just used locally) so both this
+        // file's own compute() call below and word-export-combined.js's
+        // per-sample loop — which reads data.engineInputs rather than
+        // duplicating this resolution — pick up the same ranges.
+        var _aaRanges = null;
+        (function () {
+            var _soilM = String((_state.soil && _state.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
+            if (_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE') return;
+            var _hlst = window.HillLabsSampleTypes;
+            if (!_hlst || typeof _hlst.deriveCode !== 'function' || typeof _hlst.getRangesPpm !== 'function') return;
+            var _code = _hlst.deriveCode(_species, (_state.soil && _state.soil.soilTexture) || null);
+            if (!_code) return;
+            var _cec = _state.soil && (_state.soil.CEC ?? _state.soil.cec);
+            var _ranges = {};
+            var _any = false;
+            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
+                var r = _hlst.getRangesPpm(_code, n, _cec != null ? _cec : undefined);
+                if (r) { _ranges[n] = r; _any = true; }
+            });
+            if (_any) _aaRanges = _ranges;
+        })();
+
         data.engineInputs = {
             turf: {
                 species: _species,
@@ -6746,6 +6774,7 @@
                 latitude: _lat,
                 longitude: _lon
             },
+            aaRanges: _aaRanges,
             overseedConfig: _overseedConfig
         };
 
@@ -9337,6 +9366,7 @@
                     soil: data.soil,
                     turf: _inputs.turf,
                     climate: _inputs.climate,
+                    aaRanges: _inputs.aaRanges,
                     overseedConfig: _inputs.overseedConfig
                 });
 

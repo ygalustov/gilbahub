@@ -724,7 +724,17 @@
                 Ca: source.Ca ?? source.ca,
                 Mg: source.Mg ?? source.mg,
                 S: source.S ?? source.s,
-                pH: soil.pH ?? soil.pH_water ?? source.pH
+                pH: soil.pH ?? soil.pH_water ?? source.pH,
+                // GH-299 (D07 item 6): carried through so renderNutritionSummary()
+                // can resolve an AA ceiling via HillLabsSampleTypes.deriveCode()/
+                // getRangesPpm() before calling the requirement engine. Previously
+                // dropped here, which meant soil.methodology never reached
+                // NutritionRequirementEngine_Pure.compute() from this call site at
+                // all -- every site was silently treated as MLSN for the Nutrition
+                // Program's annual-requirement figure, AA included.
+                methodology: soil.methodology || null,
+                soilTexture: soil.soilTexture || null,
+                CEC: soil.CEC ?? soil.cec ?? null
             };
             if (result.P || result.K || result.Ca || result.Mg || result.S) {
                 return result;
@@ -1259,6 +1269,35 @@
         return html;
     }
 
+    // GH-299 (D07 item 6): resolves a per-nutrient {P:{min,max}, K:{...}, ...}
+    // ppm map from HillLabsSampleTypes' certificate-backed SSOT, only when the
+    // site's methodology is AA -- gated so MLSN/SLAN sites never even attempt
+    // this resolution (avoids wasted work, and any risk of it accidentally
+    // influencing a non-AA computation). Returns null when methodology isn't
+    // AA, HillLabsSampleTypes isn't loaded, or deriveCode() finds no
+    // certificate match for this species/texture (uncovered combo) -- the
+    // engine's own graceful-degradation path (config.aaRanges absent) then
+    // keeps today's unconditional pure-removal behaviour for every nutrient.
+    function _resolveAARanges(soilValues, species) {
+        if (!soilValues) return null;
+        const m = String(soilValues.methodology || '').toUpperCase().replace(/[\s-]+/g, '_');
+        if (m !== 'AA' && m !== 'AMMONIUM_ACETATE') return null;
+
+        const hlst = global.HillLabsSampleTypes;
+        if (!hlst || typeof hlst.deriveCode !== 'function' || typeof hlst.getRangesPpm !== 'function') return null;
+
+        const code = hlst.deriveCode(species, soilValues.soilTexture);
+        if (!code) return null;
+
+        const ranges = {};
+        let any = false;
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
+            const r = hlst.getRangesPpm(code, n, soilValues.CEC != null ? soilValues.CEC : undefined);
+            if (r) { ranges[n] = r; any = true; }
+        });
+        return any ? ranges : null;
+    }
+
     function renderNutritionSummary() {
         const soilValues = extractSoilValues();
         const turfConfig = extractTurfConfig();
@@ -1331,6 +1370,7 @@
                     trafficIntensity: turfConfig.trafficIntensity,
                     nProgramKgHaYr: userN  // null → engine uses species default
                 },
+                aaRanges: _resolveAARanges(soilValues, turfConfig.species),
                 climate: {
                     monthlyTemps: monthlyTemps,
                     hemisphere: turfConfig.hemisphere

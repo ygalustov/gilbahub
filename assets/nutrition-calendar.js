@@ -490,6 +490,16 @@
             bulkDensity,
             soilDepth,
             methodology,
+            // GH-300 (D07 item 6 follow-up): general soil-texture value (sites.
+            // soil_texture_override, via the GH-294 Plan-page bridge into
+            // state.inputs.soil.soilTexture) — needed for deriveCode(species,
+            // soilTexture) to resolve a certificate-backed AA ceiling. Distinct
+            // from aaTextureKey (set separately by the caller via
+            // _collectAATexture(), reads the decorative/dead .gaip-aa-soil-
+            // texture DOM element per the D07 item 2 finding) — this is the
+            // real, working field.
+            soilTexture: soil.soilTexture || null,
+            CEC: soil.CEC ?? soil.cec ?? null,
             monthlyTemps,
             annualNOverride,
             maxNPerMonth,
@@ -573,6 +583,27 @@
         } catch(e) {
             soilState = { ppm: {} };
         }
+
+        // GH-302 (D07 item 6 follow-up): existing.soilTexture (carried over
+        // above from GAIP_STATE.inputs.soil) can be lost by the time
+        // generate() runs -- confirmed live: plan.blade.php's page-load
+        // bridge correctly sets it (GH-294/301), but a later soil-sample
+        // load (site-selector-ui.js's "Loaded soil sample" cascade, which
+        // rebuilds GAIP_STATE.inputs.soil from the sample's own P/K/Ca/Mg/S
+        // values) has no concept of site-level soil texture and silently
+        // drops the field when it overwrites the soil object. window.
+        // GAIP_HUB_CONFIG.soilTexture is a more stable source for the same
+        // value -- a plain top-level config object set once by the page
+        // bridge, never touched by sample-load code -- so fall back to it
+        // here rather than trying to make every sample-load call site
+        // preserve a field it doesn't know exists.
+        console.log('[GH302-DEBUG] before soilTexture fallback | soilState.soilTexture:', soilState.soilTexture,
+            '| GAIP_HUB_CONFIG exists:', !!window.GAIP_HUB_CONFIG,
+            '| GAIP_HUB_CONFIG.soilTexture:', window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture);
+        if (!soilState.soilTexture && window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture) {
+            soilState.soilTexture = window.GAIP_HUB_CONFIG.soilTexture;
+        }
+        console.log('[GH302-DEBUG] after soilTexture fallback | soilState.soilTexture:', soilState.soilTexture);
 
         // b35fix383: PRIORITY 1 — pull from SampleManager active sample
         // (authoritative lab values, present regardless of which tab the user
@@ -729,6 +760,7 @@
         } catch (e) {
             console.warn('[NutritionCalendar b35fix386] state writeback failed:', e && e.message);
         }
+        console.log('[GH302-DEBUG] syncSoilFromDOM done | soilState.soilTexture:', soilState.soilTexture, '| GAIP_STATE.inputs.soil.soilTexture:', window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.soilTexture);
     };
 
     /**
@@ -1186,6 +1218,53 @@
             Mg: Math.round(adjustedRemoval.Mg + annualCorrection.Mg),
             S: Math.round(adjustedRemoval.S + annualCorrection.S),
         };
+
+        // GH-300 (D07 item 6 follow-up): this calendar is a structurally
+        // separate implementation from nutrition-requirement-engine.js (GH-299)
+        // -- its own getThresholds()/calculateDeficit(), never routed through
+        // the shared engine -- so GH-299's fix never reached it. Confirmed
+        // live: a HIGH AA site (K=199ppm, well above the S277 certificate
+        // ceiling) still showed annualK=110 (pure removal + 0 deficit, since
+        // calculateDeficit() only ever adds a correction when BELOW the floor
+        // -- it has no ceiling concept at all) after GH-299 shipped. Add the
+        // same ceiling here: certificate-backed only (deriveCode()/
+        // getRangesPpm(), same SSOT items 3-5/GH-299 already use), gated to AA
+        // methodology, graceful-degradation to today's uncapped behaviour when
+        // no certificate matches this species/texture. Deliberately does NOT
+        // touch calculateDeficit()'s existing below-floor correction logic --
+        // that's a separate, unverified question (nutrition-requirement-
+        // engine.js's AA branch never adds deficit correction at all, this
+        // calendar always has -- a real algorithmic difference between the two
+        // implementations, out of scope for this fix, not to be changed
+        // without confirming which is correct).
+        if (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa') {
+            var _hlst = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
+            console.log('[GH302-DEBUG] AA ceiling check | hasHLST:', !!_hlst,
+                '| speciesDisplay:', inputs.speciesDisplay,
+                '| soilTexture:', inputs.soilTexture,
+                '| CEC:', inputs.CEC);
+            if (_hlst && typeof _hlst.deriveCode === 'function' && typeof _hlst.getRangesPpm === 'function') {
+                // inputs.species has already been through normalizeSpecies() ->
+                // toNutrientKey(), a different (collapsed) key space than what
+                // deriveCode() expects (it does its own SpeciesController.
+                // normalize() call internally) -- speciesDisplay is the raw
+                // human-facing string, same shape GH-291's established pattern
+                // passes (window.GAIP_STATE.turf.grassSpecies).
+                var _code = _hlst.deriveCode(inputs.speciesDisplay, inputs.soilTexture || null);
+                console.log('[GH302-DEBUG] deriveCode result:', _code);
+                if (_code) {
+                    ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+                        var _range = _hlst.getRangesPpm(_code, nutrient, inputs.CEC != null ? inputs.CEC : undefined);
+                        console.log('[GH302-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
+                            '| willZero:', !!(_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max));
+                        if (_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max) {
+                            annualRequirements[nutrient] = 0;
+                        }
+                    });
+                }
+            }
+        }
+        console.log('[GH302-DEBUG] final annualRequirements:', annualRequirements);
 
         // Calculate monthly GP
         const monthlyGP = this.calculateMonthlyGP(inputs.monthlyTemps, inputs.isC4);

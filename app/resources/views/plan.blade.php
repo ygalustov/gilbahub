@@ -97,6 +97,10 @@
 
         window.GAIP_STATE = state;
 
+        console.log('[GH302-DEBUG] plan.blade.php bridge | hub.soilTexture:', hub.soilTexture,
+            '| si.soil.soilTexture:', si.soil.soilTexture,
+            '| GAIP_STATE.inputs.soil.soilTexture:', window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil && window.GAIP_STATE.inputs.soil.soilTexture);
+
         // climateMetrics is read directly by some internal helpers
         if (clim.monthlyTemps || loc.lat) {
             var cm = window.climateMetrics || {};
@@ -967,6 +971,24 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 {{-- GH-245 (Hoxton audit D01-D03): real monthly climate normals for Monthly Schedule --}}
 <script src="{{ $legacyAssetUrl('climate-normals-service.js') }}"></script>
 <script src="{{ $legacyAssetUrl('soil-nutrition-analysis.js') }}"></script>
+{{-- GH-301: nutrition-calendar.js's AA ceiling check (GH-300) needs
+     HillLabsSampleTypes.deriveCode()/getRangesPpm() -- wasn't loaded on this
+     page at all (Plan is a deliberately lightweight page, doesn't pull in
+     the full hub.blade.php script bundle), so the ceiling silently no-opped
+     for every AA site here regardless of species/texture. Must load before
+     nutrition-calendar.js. --}}
+<script src="{{ $legacyAssetUrl('hill-labs-sample-types.js') }}"></script>
+{{-- GH-303: deriveCode() normalises the species argument via
+     SpeciesController.normalize() (e.g. "Perennial Ryegrass" -> the
+     canonical 'perennialRyegrass' key it switches on) when that global is
+     present, silently falling back to the raw, un-normalised string
+     otherwise -- which never matches deriveCode()'s canonical-key checks.
+     species-controller.js was never loaded on this page (unlike hub.blade.php
+     and the 3 reports/*.blade.php views that also load nutrition-calendar.js),
+     so deriveCode() always returned null here even with correct
+     speciesDisplay/soilTexture inputs (GH-301/302 fixed those; this was the
+     remaining gap). Must load before nutrition-calendar.js's generate(). --}}
+<script src="{{ $legacyAssetUrl('species-controller.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 {{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
      so this page doesn't need to load the entire export module just for the
