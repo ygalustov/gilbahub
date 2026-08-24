@@ -739,7 +739,7 @@
                 return extracted;
             }
         }
-        
+
         if (global.GilbaHubOrchestrator) {
             const state = global.GilbaHubOrchestrator.getState();
             if (state?.soil) {
@@ -751,12 +751,61 @@
                 if (extracted) return extracted;
             }
         }
-        
+
         if (global.GAIP_NUTRITION_SOIL_CACHE) {
             const extracted = extractFromSoilData(global.GAIP_NUTRITION_SOIL_CACHE);
             if (extracted) return extracted;
         }
-        
+
+        // GH-297: on a fresh site switch, the MLSN engine's rendered HTML table
+        // (the thing GAIP_STATE.soil / GilbaHubOrchestrator's state / the
+        // GAIP_NUTRITION_SOIL_CACHE mirror all ultimately derive from) can still
+        // be empty at the moment gaip:monthly-normals-ready/gaip:analysis-complete
+        // fire for the new site -- confirmed live: hub-persistence.js's own primary
+        // MLSN-scrape path logged "verdict: NO DATA" for this exact site switch,
+        // while its GAIP_SampleManager-based fallback (same one used here) found a
+        // real sample seconds later. Without an equivalent fallback here,
+        // renderNutritionSummary() bails on its hasData check before ever reaching
+        // the monthly-N computation -- not a climate-normals problem (monthlyTemps
+        // was already resolved at that point), a soil-data-source gap specific to
+        // the just-switched site. Mirrors hub-persistence.js's own
+        // GAIP_SampleManager fallback (site-aware getAllSamples() first, to avoid
+        // the same active-site mismatch that fallback's own comment documents).
+        if (global.GAIP_SampleManager) {
+            try {
+                const siteId = window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId;
+                let soilSamples = null;
+                if (siteId && typeof global.GAIP_SampleManager.getAllSamples === 'function') {
+                    const allS = global.GAIP_SampleManager.getAllSamples();
+                    soilSamples = (allS.allSites && allS.allSites[siteId] && allS.allSites[siteId].soil) || null;
+                }
+                if (!soilSamples && typeof global.GAIP_SampleManager.getSamples === 'function') {
+                    soilSamples = global.GAIP_SampleManager.getSamples('soil');
+                }
+                if (soilSamples) {
+                    let latestId = null, latestDate = '';
+                    Object.keys(soilSamples).forEach(sid => {
+                        const d = soilSamples[sid].date || '';
+                        if (!latestId || d > latestDate) { latestId = sid; latestDate = d; }
+                    });
+                    if (latestId) {
+                        const raw = soilSamples[latestId].rawData || soilSamples[latestId].values || {};
+                        const cleaned = {};
+                        Object.keys(raw).forEach(k => {
+                            const clean = k.replace(/_ppm$/i, '').replace(/_me$/i, '');
+                            const v = parseFloat(raw[k]);
+                            if (!isNaN(v)) cleaned[clean] = v;
+                        });
+                        const extracted = extractFromSoilData(cleaned);
+                        if (extracted) {
+                            log('Soil values from GAIP_SampleManager:', extracted);
+                            return extracted;
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
         const values = {};
         const fieldMap = {
             P: ['#soil-p', '.gaip-soil-p', '[name="soil-p"]', '[data-nutrient="P"]'],
@@ -816,6 +865,46 @@
         return config;
     }
 
+    // GH-296: same coordinate-read climate-normals-service.js's own
+    // readCoords() uses, duplicated here (not imported — that file exposes no
+    // "current site's coords" getter) so extractMonthlyTemps() below can query
+    // its per-coordinate cache directly as a race-proof fallback.
+    function _readCoordsForNormals() {
+        let lat, lon;
+        if (typeof document !== 'undefined') {
+            const latEl = document.querySelector('.gaip-lat');
+            const lonEl = document.querySelector('.gaip-lon');
+            if (latEl && lonEl) {
+                lat = parseFloat(latEl.value);
+                lon = parseFloat(lonEl.value);
+            }
+        }
+        if (!isFinite(lat) || !isFinite(lon)) {
+            const loc = global.GAIP_STATE && global.GAIP_STATE.location;
+            if (loc) {
+                lat = parseFloat(loc.lat);
+                lon = parseFloat(loc.lon != null ? loc.lon : loc.lng);
+            }
+        }
+        if (isFinite(lat) && isFinite(lon) && lat && lon) {
+            return { lat, lon };
+        }
+        return null;
+    }
+
+    // GH-296: climate-normals-service.js's own resolved-value cache
+    // (_resolvedByCoord), read synchronously via getResolvedSync() — never
+    // touched by either of the two wipes below, so it's the one source that
+    // survives every Re-run.
+    function _resolvedNormals() {
+        if (!global.GilbaClimateNormalsService || typeof global.GilbaClimateNormalsService.getResolvedSync !== 'function') {
+            return null;
+        }
+        const coords = _readCoordsForNormals();
+        if (!coords) return null;
+        return global.GilbaClimateNormalsService.getResolvedSync(coords.lat, coords.lon);
+    }
+
     // GH-245: reads the real monthly climate normals resolved by
     // ClimateFetchCoordinator.ensureMonthlyNormals() (climate-engine-v2.js):
     // NASA POWER climatology first, Open-Meteo archive average as fallback.
@@ -823,6 +912,23 @@
     // has resolved yet or both failed. Callers must treat null as "climate
     // data unavailable" and surface that explicitly, not compute against a
     // fabricated series. See Hoxton audit D02/D03.
+    //
+    // GH-296: the first two reads below are NOT stable across a Re-run.
+    // hub-tissue-v3.js's validateClimateMetrics() rebuilds window.climateMetrics
+    // from a strict whitelist (temperature/stress/growth/moisture only) on every
+    // weather fetch, and hub-orchestrator.js's canonical-state rebuild
+    // (GAIP_CANONICAL_STATE.climate = {...}) does the same to
+    // GilbaHubOrchestrator's state.climate — neither preserves monthlyTemps,
+    // which climate-normals-service.js's applyResult() only ever writes once
+    // (its one-time page-load fetch, never re-triggered by Re-run). Net effect,
+    // confirmed live: whether either read below still has monthlyTemps after a
+    // given Re-run depends purely on whether that one-time fetch happened to
+    // resolve before or after that Re-run's climate rebuild — a genuine,
+    // non-deterministic race, reproducing "correct, then wrong, then correct
+    // again" across consecutive Re-runs of the same site. _resolvedNormals()
+    // (third tier) reads climate-normals-service.js's own untouched cache
+    // directly and is not subject to either wipe — always correct once the
+    // one-time fetch has resolved at all, regardless of Re-run timing.
     function extractMonthlyTemps() {
         if (global.climateMetrics?.monthlyTemps) {
             return global.climateMetrics.monthlyTemps;
@@ -835,13 +941,22 @@
             }
         }
 
+        const resolved = _resolvedNormals();
+        if (resolved?.monthlyTemps) {
+            return resolved.monthlyTemps;
+        }
+
         return null;
     }
 
     // Source label for the resolved monthlyTemps ('nasa-power',
     // 'open-meteo-fallback', or 'unavailable'), for UI/export labelling.
     function extractMonthlyTempsSource() {
-        return global.climateMetrics?.monthlyTempsSource || 'unavailable';
+        if (global.climateMetrics?.monthlyTempsSource) {
+            return global.climateMetrics.monthlyTempsSource;
+        }
+        const resolved = _resolvedNormals();
+        return resolved?.source || 'unavailable';
     }
 
     // Info tooltip explaining that Monthly N Distribution uses climate
@@ -851,7 +966,7 @@
         document.querySelectorAll('.gaip-assumptions-tooltip').forEach(t => t.remove());
 
         const source = extractMonthlyTempsSource();
-        const period = global.climateMetrics?.monthlyTempsPeriod || '';
+        const period = global.climateMetrics?.monthlyTempsPeriod || _resolvedNormals()?.period || '';
         const sourceLabel = source === 'nasa-power'
             ? `NASA POWER climatology (${period || '2001–2020'})`
             : source === 'open-meteo-fallback'

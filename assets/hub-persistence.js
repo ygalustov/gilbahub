@@ -92,6 +92,34 @@
         async function _doRerunSync(source) {
             if (_rerunSignalSent) return;
             await _ensureMonthlyNormalsBounded();
+            // GH-298: cacheAnalysisResults() below only picks up whatever
+            // window.__GAIP_MONTHLY_N__ happens to already contain -- set by
+            // nutrition-summary-integration.js's renderNutritionSummary(), which
+            // itself only runs reactively, on a fixed list of events
+            // (gaip:soil-data-update / gaip:mlsn-calculated / gaip:turf-profile-
+            // change / gaip:monthly-normals-ready / ~100ms after gaip:analysis-
+            // complete). GH-295/296/297 each fixed a real, live-confirmed gap in
+            // that reactive chain (persistence not re-triggered, climate-normals
+            // wiped by Re-run, soil data not yet synced on site switch) -- but
+            // each fix only closed the specific gap that reproduction exposed,
+            // and a fresh site switch (new coordinates, new sample) kept finding
+            // a new one. Rather than keep chasing individual event-ordering
+            // gaps, force a direct, synchronous render call here -- the one
+            // place that actually matters, immediately before the one save that
+            // actually persists to the DB (_doRerunSync is the real,
+            // POST-triggering path; the debounced gaipEvents-driven
+            // scheduleSave() elsewhere only writes to localStorage). Whatever
+            // soil/climate state is available at this exact moment -- the latest
+            // possible point before persisting -- gets one last, guaranteed
+            // computation attempt, independent of which reactive listener did or
+            // didn't fire in time.
+            try {
+                if (window.GilbaNutritionSummary && typeof window.GilbaNutritionSummary.renderNutritionSummary === 'function') {
+                    window.GilbaNutritionSummary.renderNutritionSummary();
+                }
+            } catch (e) {
+                console.warn('[GilbaRerun] renderNutritionSummary (monthly N) failed, proceeding without it:', e);
+            }
             var snap    = cacheAnalysisResults();
             var siteId  = (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.activeSiteId)
                           || (snap && snap.siteId);
@@ -2047,6 +2075,18 @@
                 'gaip:analysis-complete',
                 'gaip:orchestrator-complete', // fires after computeAll — captures irrigation, PGR, etc.
                 'gaip:weather-ready',         // weather-ready may trigger a second computeAll with full data
+                // GH-295: climate-normals-service.js's monthly-temps fetch is async and
+                // frequently resolves after the 1s saveDebounce window that the events
+                // above already triggered has fired and saved. nutrition-summary-
+                // integration.js's GH-278 fix re-renders the Monthly N Distribution
+                // correctly once this fires, but without this line nothing told
+                // hub-persistence.js to re-save — so the persisted cache.computed.
+                // soilNutrition.monthlyN stayed missing/stale (whatever the earlier save
+                // captured), and soil-nutrition-analysis.js's renderMonthlyN() fell back
+                // to climate.growth.dailyPattern (an 8-day forecast window), reproducing
+                // the exact pre-GH-278 "all N crammed into one month" symptom on any
+                // reload/Re-run where the fetch lost the race.
+                'gaip:monthly-normals-ready',
                 'gaip:site-added',
                 'gaip:site-removed',
                 'gaip:site-renamed',
