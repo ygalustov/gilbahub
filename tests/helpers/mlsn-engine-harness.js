@@ -97,6 +97,7 @@ function run(ctx, opts) {
             const attrs = m[2];
             const rMin = attrs.match(/data-range-min="([\d.]+)"/);
             const rMax = attrs.match(/data-range-max="([\d.]+)"/);
+            const rSrc = attrs.match(/data-range-source="([a-z-]+)"/);
             return {
                 statusClass: m[1],
                 actual: m[3],
@@ -104,6 +105,7 @@ function run(ctx, opts) {
                 status: m[5],
                 rangeMin: rMin ? parseFloat(rMin[1]) : undefined,
                 rangeMax: rMax ? parseFloat(rMax[1]) : undefined,
+                rangeSource: rSrc ? rSrc[1] : undefined,
                 hasRangeAttrs: /data-range-min/.test(attrs),
             };
         },

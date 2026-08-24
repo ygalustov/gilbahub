@@ -1103,8 +1103,12 @@
                             // GH-260 (D07 item 3): AA rows carry data-range-min/max
                             // (mlsnEngine, hub-tissue-v3.js); MLSN/SLAN rows don't set
                             // these, so both land as undefined here — no crash either way.
+                            // GH-304 (D07 item 7): data-range-source distinguishes a
+                            // certificate-backed range from the texture-only fallback,
+                            // same undefined-on-MLSN/SLAN-rows behaviour as rangeMin/Max.
                             var _rangeMin = row.dataset ? row.dataset.rangeMin : undefined;
                             var _rangeMax = row.dataset ? row.dataset.rangeMax : undefined;
+                            var _rangeSource = row.dataset ? row.dataset.rangeSource : undefined;
                             if (cells.length >= 7) {
                                 _nutrients.push({
                                     nutrient:       cells[0].textContent.trim(),
@@ -1116,7 +1120,8 @@
                                     statusClass:    row.className.replace('status-', ''),
                                     recommendation: cells[6].textContent.trim(),
                                     rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
-                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined
+                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined,
+                                    rangeSource:    _rangeSource || undefined
                                 });
                             } else if (cells.length >= 5) {
                                 _nutrients.push({
@@ -1127,7 +1132,8 @@
                                     statusClass:    row.className.replace('status-', ''),
                                     recommendation: cells[4].textContent.trim(),
                                     rangeMin:       _rangeMin != null ? parseFloat(_rangeMin) : undefined,
-                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined
+                                    rangeMax:       _rangeMax != null ? parseFloat(_rangeMax) : undefined,
+                                    rangeSource:    _rangeSource || undefined
                                 });
                             }
                         });
@@ -1332,8 +1338,14 @@
                                     // check (which needs rangeMax) silently fell through to the
                                     // non-ceiling branch -- HIGH status shown next to a non-zero
                                     // demand figure and the wrong note text.
+                                    // GH-304 (D07 item 7): rangeSource follows the same
+                                    // "was it missed here too" precedent as GH-266 above --
+                                    // read it alongside rangeMin/rangeMax so this path can't
+                                    // silently disagree with the primary scraper on whether a
+                                    // nutrient's range is certificate-backed.
                                     var _smRangeMin = row.dataset ? row.dataset.rangeMin : undefined;
                                     var _smRangeMax = row.dataset ? row.dataset.rangeMax : undefined;
+                                    var _smRangeSource = row.dataset ? row.dataset.rangeSource : undefined;
                                     if (cells.length >= 7) {
                                         _smNutrients.push({
                                             nutrient: cells[0].textContent.trim(), actual: cells[1].textContent.trim(),
@@ -1342,7 +1354,8 @@
                                             statusClass: row.className.replace('status-', ''),
                                             recommendation: cells[6].textContent.trim(),
                                             rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
-                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined
+                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined,
+                                            rangeSource: _smRangeSource || undefined
                                         });
                                     } else if (cells.length >= 5) {
                                         _smNutrients.push({
@@ -1351,7 +1364,8 @@
                                             statusClass: row.className.replace('status-', ''),
                                             recommendation: cells[4].textContent.trim(),
                                             rangeMin: _smRangeMin != null ? parseFloat(_smRangeMin) : undefined,
-                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined
+                                            rangeMax: _smRangeMax != null ? parseFloat(_smRangeMax) : undefined,
+                                            rangeSource: _smRangeSource || undefined
                                         });
                                     }
                                 });

@@ -2506,11 +2506,25 @@ function mlsnEngine(state, weather) {
             (typeof globalThis !== "undefined" && globalThis.HillLabsSampleTypes) ||
             null;
         const aaSampleTypeCode = _hlst && _hlst.deriveCode ? _hlst.deriveCode(species, generalSoilTexture) : null;
+        // GH-304 (D07 item 7): track, per nutrient, whether its range came
+        // from a real certificate match or stayed on the texture-only
+        // fallback -- defaults to 'texture-fallback' for every nutrient
+        // (including P/K/Ca/Mg/S when no code resolves, and always for the
+        // micronutrients, which no Hill Labs certificate covers), flipped to
+        // 'certificate' only when getRangesPpm() actually returns a range
+        // for that specific nutrient on the matched code (e.g. S277 has no
+        // printed Sulphur range, so S stays 'texture-fallback' even on an
+        // otherwise-matched S277 site).
+        const aaRangeSource = {};
+        Object.keys(aaRanges).forEach((nut) => { aaRangeSource[nut] = "texture-fallback"; });
         if (aaSampleTypeCode && _hlst.getRangesPpm) {
             const aaCec = safeNum(state.soil && state.soil.CEC, null);
             ["P", "K", "Ca", "Mg", "S"].forEach((nut) => {
                 const certRange = _hlst.getRangesPpm(aaSampleTypeCode, nut, aaCec);
-                if (certRange) aaRanges[nut] = { lo: certRange.min, hi: certRange.max };
+                if (certRange) {
+                    aaRanges[nut] = { lo: certRange.min, hi: certRange.max };
+                    aaRangeSource[nut] = "certificate";
+                }
             });
         }
 
@@ -2526,6 +2540,7 @@ function mlsnEngine(state, weather) {
             Cu: aaRanges.Cu.lo,
             B: aaRanges.B.lo,
             _ranges: aaRanges,
+            _rangeSource: aaRangeSource,
             _methodology: "Ammonium Acetate",
             _soilType: aaSoilTexture,
             _sampleTypeCode: aaSampleTypeCode,
@@ -2790,6 +2805,7 @@ function mlsnEngine(state, weather) {
         if (isAA && ranges && ranges[nutrient]) {
             const range = ranges[nutrient];
             const rangeStr = `${Number(range.lo).toFixed(1)}-${Number(range.hi).toFixed(1)}`;
+            const rangeSource = (referenceThresholds._rangeSource && referenceThresholds._rangeSource[nutrient]) || "texture-fallback";
 
             if (actualPPM < range.lo) {
                 status = "LOW";
@@ -2820,6 +2836,7 @@ function mlsnEngine(state, weather) {
                 deficitKgHa: Math.max(0, ppmToKgHa(range.lo - actualPPM)),
                 rangeMin: range.lo,
                 rangeMax: range.hi,
+                rangeSource: rangeSource,
             });
             return;
         }
@@ -2978,7 +2995,9 @@ function mlsnEngine(state, weather) {
     // attributes on the row. Only AA rows set r.rangeMin/rangeMax, so this is
     // absent on MLSN/SLAN rows — no accidental leakage into those.
     const rangeAttrs = (r) =>
-        r.rangeMin != null && r.rangeMax != null ? ` data-range-min="${r.rangeMin}" data-range-max="${r.rangeMax}"` : "";
+        r.rangeMin != null && r.rangeMax != null ?
+        ` data-range-min="${r.rangeMin}" data-range-max="${r.rangeMax}"${r.rangeSource ? ` data-range-source="${r.rangeSource}"` : ""}` :
+        "";
 
     const nutrientTableHTML = hasNProgramme ?
         `

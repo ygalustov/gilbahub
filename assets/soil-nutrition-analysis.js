@@ -114,6 +114,15 @@
             '.sn-badge.adequate,.sn-badge.sufficient,.sn-badge.good{background:#dcfce7;color:#166534}',
             '.sn-badge.high,.sn-badge.info{background:#dbeafe;color:#1e40af}',
             '.sn-badge.no-data{background:#f3f4f6;color:#6b7280}',
+            /* GH-304 (D07 item 7): generic-range label, distinct from status
+               badges -- flags an AA range that came from the texture-only
+               fallback (no Hill Labs certificate for this nutrient), not a
+               status/severity, so it deliberately doesn't reuse .sn-badge's
+               colour palette. No cursor here by default -- a "?" cursor with
+               nothing to click on was confusing (confirmed live); the
+               nutrient-card instance adds cursor:pointer inline only where
+               it genuinely opens the Why? panel on click. */
+            '.sn-generic-badge{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;margin-left:6px;border-radius:10px;font-size:9px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;background:#f3f4f6;color:#6b7280;border:1px solid #e5e7eb}',
             /* card progress bar */
             '.sn-card-bar{height:5px;border-radius:3px;background:#e5e7eb;margin:8px 0;overflow:hidden}',
             '.sn-card-bar-fill{height:100%;border-radius:3px;background:#22c55e}',
@@ -721,7 +730,16 @@
             // (e.g. 85.39999999999999 instead of 85.4) -- round to 1dp here,
             // same convention as the Soil reserve/Est. annual demand rows
             // right below, which already do this.
-            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+parseFloat(n.rangeMin).toFixed(1)+'–'+parseFloat(n.rangeMax).toFixed(1)+' ppm</span></div>';
+            // GH-304 (D07 item 7): isGenericRange flags when that range came
+            // from the texture-only sands/others fallback rather than a real
+            // Hill Labs certificate match (rangeSource, set by mlsnEngine()'s
+            // isAA branch) -- e.g. S277 resolves for K/Ca/Mg/P but has no
+            // printed Sulphur range, so S stays 'texture-fallback' even on an
+            // otherwise-matched site. Label, don't hide, per the user's
+            // 2026-08-24 decision: the number stays, a badge just makes clear
+            // it's an estimate, not the printed certificate value.
+            var isGenericRange = isAA && n.rangeSource === 'texture-fallback';
+            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+parseFloat(n.rangeMin).toFixed(1)+'–'+parseFloat(n.rangeMax).toFixed(1)+' ppm'+(isGenericRange ? ' (generic)' : '')+'</span></div>';
             if (reserveKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Soil reserve</span><span class="sn-why-val">'+reserveKgHa.toFixed(1)+' kg/ha</span></div>';
             if (surplusKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Reserve above threshold</span><span class="sn-why-val">'+surplusKgHa.toFixed(1)+' kg/ha</span></div>';
             if (demandKgHa!=null)  whyRows += '<div class="sn-why-row"><span class="sn-why-label">Est. annual demand</span><span class="sn-why-val">'+demandKgHa.toFixed(1)+' kg/ha</span></div>';
@@ -730,20 +748,39 @@
             var noteText = NUTRIENT_NOTES[n.nutrient] || '';
             var noteHtml = noteText ? '<div class="sn-why-note">'+esc(noteText)+'</div>' : '';
             var sourceHtml = isAA
-                ? '<div class="sn-why-source">Source: NH₄OAc (pH&nbsp;8.1) &amp; Olsen P extractants &middot; Hill Labs NZ sufficiency ranges (RJ Hill Laboratories Ltd, Hamilton NZ)</div>'
+                ? '<div class="sn-why-source">Source: NH₄OAc (pH&nbsp;8.1) &amp; Olsen P extractants &middot; Hill Labs NZ sufficiency ranges (RJ Hill Laboratories Ltd, Hamilton NZ)'+
+                  (isGenericRange ? ' &middot; <strong>this nutrient\'s range is a generic soil-texture estimate, not printed on the matched certificate</strong>' : '')+
+                  '</div>'
                 : '<div class="sn-why-source">'+
                   'Source: MLSN thresholds from Pace Turf research (Woods &amp; Stowell) &middot; '+
                   'Assumptions: '+depth+'&thinsp;cm depth &middot; '+bd+'&thinsp;g/cm&sup3; bulk density &middot; '+
                   'Apply fertiliser only when below the MLSN minimum &middot; '+
                   'Validated primarily on golf putting greens'+
                   '</div>';
-            var whyHtml = (whyRows || actionHtml || noteText)
-                ? '<button class="sn-why-btn" onclick="(function(b){var d=document.getElementById(\''+whyId+'\');var open=d.style.display===\'block\';d.style.display=open?\'none\':\'block\';b.textContent=open?\'Why? ▼\':\'▲ Hide\'})(this)">Why? ▼</button>'+
+            var whyBtnId = 'sn-whybtn-'+idx;
+            var hasWhyPanel = !!(whyRows || actionHtml || noteText);
+            var whyHtml = hasWhyPanel
+                ? '<button id="'+whyBtnId+'" class="sn-why-btn" onclick="(function(b){var d=document.getElementById(\''+whyId+'\');var open=d.style.display===\'block\';d.style.display=open?\'none\':\'block\';b.textContent=open?\'Why? ▼\':\'▲ Hide\'})(this)">Why? ▼</button>'+
                   '<div id="'+whyId+'" class="sn-why" style="display:none">'+whyRows+actionHtml+noteHtml+sourceHtml+'</div>'
                 : '';
 
+            // GH-304 follow-up: the badge originally only had a hover title
+            // (cursor:help implied clickability it didn't have -- confirmed
+            // confusing live: "question mark but when i click on it nothing
+            // happens"). When a Why? panel exists (it does whenever
+            // rangeMin/rangeMax are set, which is required for isGenericRange
+            // to be meaningful), clicking the badge now opens it via the same
+            // toggle the Why? button itself uses, so the badge and button
+            // never disagree about panel state. Falls back to a plain,
+            // non-interactive hover label (no pointer cursor promised) on the
+            // rare chance the panel isn't present.
+            var genericBadge = isGenericRange
+                ? ' <span class="sn-generic-badge"'+(hasWhyPanel ? ' style="cursor:pointer" onclick="document.getElementById(\''+whyBtnId+'\').click()"' : '')+
+                  ' title="No Hill Labs certificate range for this nutrient on this sample type -- showing a generic soil-texture estimate instead. '+(hasWhyPanel ? 'Click for details.' : '')+'">Generic</span>'
+                : '';
+
             var thresholdHtml = isAA
-                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm</div>'
+                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm'+genericBadge+'</div>'
                 : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm</div>';
 
             return '<div class="sn-card '+sc+'">'+
@@ -964,8 +1001,20 @@
                 : sc === 'no-data'
                     ? 'Not measured — annual removal estimate only, soil status unknown.'
                     : 'Application required to meet annual demand.';
+            // GH-304 (D07 item 7): nObj.rangeSource === 'texture-fallback' means
+            // this nutrient's ceiling (and thus whether isHigh could even fire)
+            // used the generic soil-texture range, not a printed certificate
+            // value -- e.g. S on an S277/S279 site never gets a ceiling at all
+            // (no cert range → targetV stays NaN → isHigh can never be true),
+            // so the demand figure above is a plain removal estimate, same as
+            // an uncovered species. Label so this isn't confused with a real
+            // certificate-backed ceiling that simply wasn't hit.
+            var isGenericAnnualRange = isAA && nObj && nObj.rangeSource === 'texture-fallback';
+            var genericAnnualBadge = isGenericAnnualRange
+                ? ' <span class="sn-generic-badge" title="No Hill Labs certificate range for this nutrient on this sample type -- ceiling/estimate uses a generic soil-texture range instead.">Generic</span>'
+                : '';
             return '<div class="sn-annual-card">'+
-                '<div class="sn-annual-nutrient">'+esc(nut)+'</div>'+
+                '<div class="sn-annual-nutrient">'+esc(nut)+genericAnnualBadge+'</div>'+
                 '<div class="sn-annual-value">'+rounded+'</div>'+
                 '<div class="sn-annual-unit">kg/ha/yr</div>'+
                 '<span class="sn-annual-status" style="background:'+badgeBg+';color:'+badgeClr+'">'+esc(statusText)+'</span>'+

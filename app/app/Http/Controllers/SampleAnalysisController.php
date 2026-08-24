@@ -194,6 +194,13 @@ class SampleAnalysisController extends Controller
                 if ($isAA && isset(self::AA_RANGES[$nut])) {
                     [$lowCeil, $medCeil] = self::AA_RANGES[$nut][$texKey];
                     $rangeLabel = $lowCeil.'-'.$medCeil; // "12-28" format, matches old hub
+                    // GH-304 (D07 item 7): mirrors hub-tissue-v3.js's aaRangeSource
+                    // tagging (GH-260) -- defaults to the texture-only fallback,
+                    // flips to 'certificate' only when getRangesPpm() actually
+                    // resolves a range for this specific nutrient on the matched
+                    // code (e.g. S277 has no printed Sulphur range, so S stays
+                    // 'texture-fallback' even when $sampleTypeCode resolves).
+                    $rangeSource = 'texture-fallback';
 
                     if ($sampleTypeCode) {
                         $certRange = HillLabsSampleTypesService::getRangesPpm($sampleTypeCode, $nut, $cec);
@@ -204,6 +211,7 @@ class SampleAnalysisController extends Controller
                             // certificate-backed ranges; the texture-only fallback
                             // above keeps its existing whole-number format unchanged.
                             $rangeLabel = number_format($lowCeil, 1).'-'.number_format($medCeil, 1);
+                            $rangeSource = 'certificate';
                         }
                     }
 
@@ -223,6 +231,7 @@ class SampleAnalysisController extends Controller
                         'mlsn'        => $rangeLabel,
                         'rangeMin'    => $lowCeil,
                         'rangeMax'    => $medCeil,
+                        'rangeSource' => $rangeSource,
                     ]);
                 }
 

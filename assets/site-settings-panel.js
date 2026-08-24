@@ -999,6 +999,29 @@
             noteEl.textContent = 'MLSN was validated primarily for putting greens. ' +
                 'For fairways and tees on native soil, SLAN may be more appropriate.';
             noteEl.style.display = 'block';
+        } else if (method === 'ammonium_acetate') {
+            // GH-304 (D07 item 7): warn before the user ever looks at a result
+            // page that this species/rootzone combination has no Hill Labs
+            // certificate on file -- reads the same live DOM fields
+            // (.gaip-species, .gaip-soil-texture) this whole panel already
+            // uses elsewhere, and the same deriveCode() resolver every other
+            // AA consumer in the hub calls (hill-labs-sample-types.js,
+            // loaded on this page already). Certificate-covered combos show
+            // no note at all -- this only fires for the uncovered case.
+            var hlst = window.HillLabsSampleTypes;
+            var aaSpecies = domVal('.gaip-species');
+            var aaSoilTexture = domVal('.gaip-soil-texture');
+            var aaCode = (hlst && typeof hlst.deriveCode === 'function')
+                ? hlst.deriveCode(aaSpecies, aaSoilTexture)
+                : null;
+            if (!aaCode) {
+                noteEl.textContent = 'No Hill Labs certificate reference range for this grass/rootzone ' +
+                    'combination yet. Nutrient ranges on the Soil page and Nutrition Program will use a ' +
+                    'generic soil-texture estimate, not a certificate-specific value.';
+                noteEl.style.display = 'block';
+            } else {
+                noteEl.style.display = 'none';
+            }
         } else {
             noteEl.style.display = 'none';
         }
@@ -1429,6 +1452,11 @@
                         }
                     }
                     checkOverseedVisibility();
+                    // GH-304 (D07 item 7): species drives deriveCode() coverage
+                    // just as much as methodology does -- re-check the AA note
+                    // whenever species changes, not just when the AA button
+                    // itself is clicked (updateMethodNote() there already).
+                    updateMethodNote();
                 }, 100);
             });
         }
