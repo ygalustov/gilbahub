@@ -709,9 +709,27 @@
                 const required = nutrientRequired[nutrient];
                 const delivered = nutrientTotals[nutrient];
                 const diff = delivered - required;
-                const pct = required > 0 ? Math.round((delivered / required) * 100) : 0;
-                const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                const statusLabel = pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit';
+                // GH-306: required === 0 is a real, legitimate case now that
+                // the AA ceiling (GH-299/300/303/305) can correctly zero
+                // Annual Requirement when soil is already at/above the
+                // sufficiency ceiling -- nothing is needed, so there is no
+                // deficit to measure. The old `pct = required > 0 ? ... : 0`
+                // fallback forced this straight into the "Deficit" bucket
+                // (0% < 70%) regardless of delivered, which read as "you're
+                // short" on a nutrient the program correctly decided needs no
+                // more fertiliser at all. Only reachable pre-GH-299/300 via
+                // MLSN/SLAN sites already at/above target, so this bug
+                // predates the AA work but was effectively invisible until
+                // AA's Required could also legitimately be exactly 0.
+                let statusClass, statusLabel;
+                if (required === 0) {
+                    statusClass = 'sufficient';
+                    statusLabel = 'Met';
+                } else {
+                    const pct = Math.round((delivered / required) * 100);
+                    statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
+                    statusLabel = pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit';
+                }
                 return `
                     <tr class="nutrient-${statusClass}">
                         <td class="prebble-cell prebble-cell--left"><strong>${nutrient}</strong></td>

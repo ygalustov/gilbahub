@@ -954,15 +954,31 @@
                 var required = nutrientRequired[nutrient];
                 var delivered = nutrientTotals[nutrient];
                 var diff = delivered - required;
-                var pct = required > 0 ? Math.round((delivered / required) * 100) : 0;
-                var statusCls = pct >= 90 ? 'uk-fert-positive' : pct >= 70 ? 'uk-fert-warning' : 'uk-fert-negative';
-                var statusIcon = pct >= 90 ? '\u2713' : pct >= 70 ? '\u26A0' : '\u2717';
+                // GH-306: required === 0 is a real, legitimate case now that
+                // the AA ceiling (GH-299/300/303/305) can correctly zero
+                // Annual Requirement when soil is already at/above the
+                // sufficiency ceiling -- nothing is needed, so there is no
+                // deficit to measure. The old `pct = required > 0 ? ... : 0`
+                // fallback forced this straight to a "0%" negative/\u2717 status
+                // regardless of delivered. Same fix as
+                // nutrition-prebble-integration.js/nutrition-au-fertiliser-
+                // integration.js, adapted to this file's icon+% display.
+                var statusCls, statusText;
+                if (required === 0) {
+                    statusCls = 'uk-fert-positive';
+                    statusText = '\u2713 Met';
+                } else {
+                    var pct = Math.round((delivered / required) * 100);
+                    statusCls = pct >= 90 ? 'uk-fert-positive' : pct >= 70 ? 'uk-fert-warning' : 'uk-fert-negative';
+                    var statusIcon = pct >= 90 ? '\u2713' : pct >= 70 ? '\u26A0' : '\u2717';
+                    statusText = statusIcon + ' ' + pct + '%';
+                }
                 return '<tr>' +
                     '<td class="uk-fert-cell uk-fert-cell--left"><strong>' + nutrient + '</strong></td>' +
                     '<td class="uk-fert-cell uk-fert-cell--num">' + required + '</td>' +
                     '<td class="uk-fert-cell uk-fert-cell--num">' + delivered + '</td>' +
                     '<td class="uk-fert-cell uk-fert-cell--num ' + (diff >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '</td>' +
-                    '<td class="uk-fert-cell uk-fert-cell--num ' + statusCls + '">' + statusIcon + ' ' + pct + '%</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num ' + statusCls + '">' + statusText + '</td>' +
                 '</tr>';
             }).join('');
 
