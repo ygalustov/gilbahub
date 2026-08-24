@@ -6745,14 +6745,34 @@
             var _soilM = String((_state.soil && _state.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
             if (_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE') return;
             var _hlst = window.HillLabsSampleTypes;
-            if (!_hlst || typeof _hlst.deriveCode !== 'function' || typeof _hlst.getRangesPpm !== 'function') return;
-            var _code = _hlst.deriveCode(_species, (_state.soil && _state.soil.soilTexture) || null);
-            if (!_code) return;
+            var _code = (_hlst && typeof _hlst.deriveCode === 'function')
+                ? _hlst.deriveCode(_species, (_state.soil && _state.soil.soilTexture) || null)
+                : null;
+            // GH-305 (D07 item 6, "correction for generic numbers too" -- user
+            // decision, 2026-08-24): fall back to AmmoniumAcetateMethodology.
+            // getSufficiencyRange() (same generic sands/others SSOT used
+            // elsewhere -- hub-tissue-v3.js, nutrition-calendar.js,
+            // SampleAnalysisController.php) whenever the certificate path
+            // doesn't cover a specific nutrient, so an uncertified-but-clearly-
+            // high value (e.g. Sulphur on an S277 site, whose certificate
+            // prints no Sulphur range at all) still gets a ceiling instead of
+            // recommending fertiliser it doesn't need.
+            var _aam = window.AmmoniumAcetateMethodology;
+            var _texKey = String((_state.soil && _state.soil.soilTexture) || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
             var _cec = _state.soil && (_state.soil.CEC ?? _state.soil.cec);
             var _ranges = {};
             var _any = false;
             ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
-                var r = _hlst.getRangesPpm(_code, n, _cec != null ? _cec : undefined);
+                var r = (_code && _hlst && typeof _hlst.getRangesPpm === 'function')
+                    ? _hlst.getRangesPpm(_code, n, _cec != null ? _cec : undefined)
+                    : null;
+                if (!r && _aam && typeof _aam.getSufficiencyRange === 'function') {
+                    var _generic = _aam.getSufficiencyRange(n, _texKey);
+                    if (_generic && _generic.ranges && Array.isArray(_generic.ranges.medium) &&
+                        typeof _generic.ranges.medium[1] === 'number' && isFinite(_generic.ranges.medium[1])) {
+                        r = { min: _generic.ranges.medium[0], max: _generic.ranges.medium[1] };
+                    }
+                }
                 if (r) { _ranges[n] = r; _any = true; }
             });
             if (_any) _aaRanges = _ranges;

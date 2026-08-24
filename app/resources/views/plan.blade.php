@@ -989,6 +989,16 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
      speciesDisplay/soilTexture inputs (GH-301/302 fixed those; this was the
      remaining gap). Must load before nutrition-calendar.js's generate(). --}}
 <script src="{{ $legacyAssetUrl('species-controller.js') }}"></script>
+{{-- GH-305 (D07 item 6, "correction for generic numbers too" -- user decision,
+     2026-08-24): computeProgram()'s AA ceiling now also fires on the
+     texture-only generic range (AmmoniumAcetateMethodology.getSufficiencyRange())
+     when no Hill Labs certificate covers a nutrient -- previously an
+     uncovered/uncertified nutrient could never be zeroed even when clearly
+     oversupplied (e.g. Sulphur on an S277 site, whose certificate prints no
+     Sulphur range at all). Wasn't loaded on this page at all (same
+     deliberately-lightweight-page gap as GH-301/303). Must load before
+     nutrition-calendar.js. --}}
+<script src="{{ $legacyAssetUrl('ammonium-acetate-methodology.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 {{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
      so this page doesn't need to load the entire export module just for the

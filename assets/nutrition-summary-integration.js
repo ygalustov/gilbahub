@@ -1284,15 +1284,36 @@
         if (m !== 'AA' && m !== 'AMMONIUM_ACETATE') return null;
 
         const hlst = global.HillLabsSampleTypes;
-        if (!hlst || typeof hlst.deriveCode !== 'function' || typeof hlst.getRangesPpm !== 'function') return null;
+        const code = (hlst && typeof hlst.deriveCode === 'function')
+            ? hlst.deriveCode(species, soilValues.soilTexture)
+            : null;
 
-        const code = hlst.deriveCode(species, soilValues.soilTexture);
-        if (!code) return null;
+        // GH-305 (D07 item 6, "correction for generic numbers too" -- user
+        // decision, 2026-08-24): certificate-only ranges meant an uncertified
+        // nutrient (uncovered species/texture, or a covered code whose
+        // certificate prints no range for this one nutrient -- e.g. Sulphur
+        // on S277) could never trigger the ceiling, even when clearly high --
+        // "it will be incorrect to recommend adding fertilizers if we have
+        // already high numbers". Falls back to AmmoniumAcetateMethodology.
+        // getSufficiencyRange() (the same generic sands/others SSOT
+        // hub-tissue-v3.js/nutrition-calendar.js/SampleAnalysisController.php
+        // already use) for any nutrient the certificate path didn't cover.
+        const aam = global.AmmoniumAcetateMethodology;
+        const texKey = String(soilValues.soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
 
         const ranges = {};
         let any = false;
         ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
-            const r = hlst.getRangesPpm(code, n, soilValues.CEC != null ? soilValues.CEC : undefined);
+            let r = (code && hlst && typeof hlst.getRangesPpm === 'function')
+                ? hlst.getRangesPpm(code, n, soilValues.CEC != null ? soilValues.CEC : undefined)
+                : null;
+            if (!r && aam && typeof aam.getSufficiencyRange === 'function') {
+                const generic = aam.getSufficiencyRange(n, texKey);
+                if (generic && generic.ranges && Array.isArray(generic.ranges.medium) &&
+                    typeof generic.ranges.medium[1] === 'number' && isFinite(generic.ranges.medium[1])) {
+                    r = { min: generic.ranges.medium[0], max: generic.ranges.medium[1] };
+                }
+            }
             if (r) { ranges[n] = r; any = true; }
         });
         return any ? ranges : null;

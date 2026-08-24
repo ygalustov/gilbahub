@@ -135,7 +135,10 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     test('_buildEngineInputs() resolves _aaRanges gated on AA methodology before touching HillLabsSampleTypes', () => {
         const idx = src.indexOf('var _aaRanges = null;');
         expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 900);
+        // GH-305 widened this block with a generic-range fallback (comments +
+        // extra logic) between the deriveCode() call and the getRangesPpm()
+        // call this test pins on -- widened the window accordingly.
+        const body = src.slice(idx, idx + 1900);
         expect(body).toMatch(/if \(_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE'\) return;/);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code,/);

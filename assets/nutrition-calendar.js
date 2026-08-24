@@ -1237,32 +1237,67 @@
         // calendar always has -- a real algorithmic difference between the two
         // implementations, out of scope for this fix, not to be changed
         // without confirming which is correct).
+        // GH-304 (D07 item 7, "label, don't remove" -- this calendar is a
+        // 5th independent surface, found live: user asked why S still showed
+        // a non-zero "10" on this exact card with no indication that S277
+        // (this site's certificate) simply has no printed Sulphur range at
+        // all -- same rangeSource concept as hub-tissue-v3.js's aaRangeSource
+        // (GH-304), tracked here too so renderSummary() below can label it.
+        // Defaults every nutrient to 'texture-fallback'; flips to
+        // 'certificate' whenever getRangesPpm() actually resolves a range for
+        // that nutrient -- independent of whether the ceiling above fires,
+        // matching hub-tissue-v3.js's exact semantics (a certificate-backed
+        // range that simply wasn't exceeded is still 'certificate', not
+        // 'texture-fallback').
+        const annualRangeSource = { P: 'texture-fallback', K: 'texture-fallback', Ca: 'texture-fallback', Mg: 'texture-fallback', S: 'texture-fallback' };
         if (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa') {
             var _hlst = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
-            console.log('[GH302-DEBUG] AA ceiling check | hasHLST:', !!_hlst,
+            // GH-305 (D07 item 6, "correction for generic numbers too" -- user
+            // decision, 2026-08-24): a certificate-only ceiling meant an
+            // uncertified nutrient (uncovered species/texture, OR a covered
+            // code whose certificate simply doesn't print a range for this
+            // one nutrient -- e.g. Sulphur on S277) could NEVER be zeroed,
+            // even when clearly high per the generic texture-only band --
+            // user's words: "it will be incorrect to recommend adding
+            // fertilizers if we have already high numbers". Falls back to
+            // AmmoniumAcetateMethodology.getSufficiencyRange() (the same
+            // generic sands/others SSOT hub-tissue-v3.js's texture-only
+            // aaRanges and SampleAnalysisController.php's AA_RANGES already
+            // use) whenever the certificate path (above) doesn't cover this
+            // specific nutrient. rangeSource stays 'texture-fallback' for
+            // these -- the "Generic" badge (GH-304) still applies, this only
+            // changes whether the ceiling actually fires, not the labelling.
+            var _aam = (typeof window !== 'undefined') ? window.AmmoniumAcetateMethodology : null;
+            var _texKey = String(inputs.soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
+            console.log('[GH302-DEBUG] AA ceiling check | hasHLST:', !!_hlst, '| hasAAM:', !!_aam,
                 '| speciesDisplay:', inputs.speciesDisplay,
                 '| soilTexture:', inputs.soilTexture,
                 '| CEC:', inputs.CEC);
-            if (_hlst && typeof _hlst.deriveCode === 'function' && typeof _hlst.getRangesPpm === 'function') {
-                // inputs.species has already been through normalizeSpecies() ->
-                // toNutrientKey(), a different (collapsed) key space than what
-                // deriveCode() expects (it does its own SpeciesController.
-                // normalize() call internally) -- speciesDisplay is the raw
-                // human-facing string, same shape GH-291's established pattern
-                // passes (window.GAIP_STATE.turf.grassSpecies).
-                var _code = _hlst.deriveCode(inputs.speciesDisplay, inputs.soilTexture || null);
-                console.log('[GH302-DEBUG] deriveCode result:', _code);
-                if (_code) {
-                    ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-                        var _range = _hlst.getRangesPpm(_code, nutrient, inputs.CEC != null ? inputs.CEC : undefined);
-                        console.log('[GH302-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
-                            '| willZero:', !!(_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max));
-                        if (_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max) {
-                            annualRequirements[nutrient] = 0;
-                        }
-                    });
+            var _code = (_hlst && typeof _hlst.deriveCode === 'function')
+                ? _hlst.deriveCode(inputs.speciesDisplay, inputs.soilTexture || null)
+                : null;
+            console.log('[GH302-DEBUG] deriveCode result:', _code);
+            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+                var _range = (_code && _hlst && typeof _hlst.getRangesPpm === 'function')
+                    ? _hlst.getRangesPpm(_code, nutrient, inputs.CEC != null ? inputs.CEC : undefined)
+                    : null;
+                if (_range) {
+                    annualRangeSource[nutrient] = 'certificate';
+                } else if (_aam && typeof _aam.getSufficiencyRange === 'function') {
+                    var _generic = _aam.getSufficiencyRange(nutrient, _texKey);
+                    if (_generic && _generic.ranges && Array.isArray(_generic.ranges.medium) &&
+                        typeof _generic.ranges.medium[1] === 'number' && isFinite(_generic.ranges.medium[1])) {
+                        _range = { min: _generic.ranges.medium[0], max: _generic.ranges.medium[1] };
+                        // rangeSource intentionally stays 'texture-fallback' (the default).
+                    }
                 }
-            }
+                console.log('[GH302-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
+                    '| source:', annualRangeSource[nutrient],
+                    '| willZero:', !!(_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max));
+                if (_range && typeof _range.max === 'number' && inputs.soilPpm[nutrient] >= _range.max) {
+                    annualRequirements[nutrient] = 0;
+                }
+            });
         }
         console.log('[GH302-DEBUG] final annualRequirements:', annualRequirements);
 
@@ -1319,6 +1354,12 @@
                 methodology: inputs.methodology,
             },
             annual_totals: annualRequirements,
+            // GH-304: 'certificate' | 'texture-fallback' per P/K/Ca/Mg/S nutrient
+            // (N excluded -- it has no AA sufficiency-range concept at all).
+            // Only meaningful under AA; stays all-'texture-fallback' for MLSN/SLAN
+            // sites too, but renderSummary() only reads this when isAA, so it's
+            // inert there.
+            annual_totals_range_source: annualRangeSource,
             adjustments: {
                 n_cap_applied: nCapResult.capApplied,
                 original_n_total: nCapResult.originalTotal,
@@ -1534,13 +1575,28 @@
 
                 <div class="gilba-nut-section-label">Annual Requirements (kg/ha)</div>
                 <div class="gilba-nut-totals-row">
-                    ${['N','P','K','Ca','Mg','S'].map(el => `
+                    ${['N','P','K','Ca','Mg','S'].map(el => {
+                        // GH-304: same rangeSource concept as the Soil page's
+                        // .sn-generic-badge (hub-tissue-v3.js/soil-nutrition-
+                        // analysis.js) -- label, don't hide, when this
+                        // nutrient's ceiling used the texture-only generic
+                        // range instead of a printed certificate value (e.g.
+                        // S on an S277/S279 site, which prints no Sulphur
+                        // range at all). N has no AA range concept, never
+                        // gets the badge.
+                        const isAA = (meta.methodology || '').toUpperCase() === 'AMMONIUM_ACETATE';
+                        const rangeSource = p.annual_totals_range_source || {};
+                        const isGeneric = isAA && el !== 'N' && rangeSource[el] === 'texture-fallback';
+                        const genericBadge = isGeneric
+                            ? `<span class="gilba-nut-generic-badge" title="No Hill Labs certificate range for this nutrient on this sample type -- this figure uses a generic soil-texture estimate instead.">Generic</span>`
+                            : '';
+                        return `
                         <div class="gilba-nut-total${el === 'N' ? ' gilba-nut-total--n' : ''}">
                             <div class="gilba-nut-total-val">${totals[el]}</div>
-                            <div class="gilba-nut-total-name">${el}</div>
+                            <div class="gilba-nut-total-name">${el}${genericBadge}</div>
                             <div class="gilba-nut-total-unit">kg/ha/yr</div>
                         </div>
-                    `).join('')}
+                    `;}).join('')}
                 </div>
 
                 ${p.adjustments.n_cap_applied ? (

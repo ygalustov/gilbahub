@@ -151,6 +151,26 @@
     margin-top: 2px;
 }
 
+/* GH-304 (D07 item 7): flags a P/K/Ca/Mg/S figure whose AA ceiling used the
+   texture-only generic range, not a printed Hill Labs certificate value
+   (e.g. Sulphur on an S277/S279 site, which prints no Sulphur range at
+   all). Neutral grey, deliberately distinct from any status colour --
+   this isn't a severity indicator. */
+.gilba-nut-generic-badge {
+    display: inline-block;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    margin-left: 3px;
+    border-radius: var(--gaip-radius-pill);
+    background: var(--gaip-surface-muted);
+    color: var(--gaip-text-muted);
+    border: 1px solid var(--gaip-border-light);
+    vertical-align: middle;
+}
+
 .gilba-nut-total-unit {
     font-size: 9px;
     color: var(--gaip-text-muted);
