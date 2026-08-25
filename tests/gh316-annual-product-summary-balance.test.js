@@ -29,7 +29,11 @@ describe('GH-316 — nutrition-prebble-integration.js (NZ) Annual Product Summar
     test('Balance row uses statusClass for colour and .diff for the value, not the old naive subtraction', () => {
         expect(src).toMatch(/nBal\.statusClass === 'sufficient' \? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'/);
         expect(src).toMatch(/\$\{nBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(nBal\.diff\)\}/);
-        expect(src).toMatch(/\$\{pBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(pBal\.diff \* 10\) \/ 10\}/);
+        // GH-318: P rounded to a whole number here too (was *10/10, 1dp) --
+        // user asked to round this compact summary table uniformly, unlike
+        // the detailed Nutrient Delivery Summary table above it which keeps
+        // 1dp precision throughout.
+        expect(src).toMatch(/\$\{pBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(pBal\.diff\)\}/);
         expect(src).toMatch(/\$\{kBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(kBal\.diff\)\}/);
     });
 

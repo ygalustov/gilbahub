@@ -954,7 +954,7 @@
                         <td class="prebble-cell prebble-cell--num">${data.applications}</td>
                         <td class="prebble-cell prebble-cell--num">${rateValue} ${unit}</td>
                         <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.N)}</td>
-                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.P * 10) / 10}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.P)}</td>
                         <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.K)}</td>
                     </tr>
                 `;
@@ -1072,19 +1072,19 @@
                                 <tr class="prebble-totals-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Total Delivered</strong></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.N)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.P * 10) / 10}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.P)}</strong></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.K)}</strong></td>
                                 </tr>
                                 <tr class="prebble-required-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P)}</em></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                                 </tr>
                                 <tr class="${nBal.statusClass === 'sufficient' ? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'}">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Balance</strong></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono ${nBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${nBal.diff >= 0 ? '+' : ''}${Math.round(nBal.diff)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${pBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff * 10) / 10}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${pBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff)}</strong></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono ${kBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${kBal.diff >= 0 ? '+' : ''}${Math.round(kBal.diff)}</strong></td>
                                 </tr>
                             </tfoot>

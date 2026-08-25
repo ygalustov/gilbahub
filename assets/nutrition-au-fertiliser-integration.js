@@ -997,7 +997,7 @@
                         <td class="au-fert-cell au-fert-cell--num">${p.applications}</td>
                         <td class="au-fert-cell au-fert-cell--num">${rateStr}</td>
                         <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nDelivered)}</td>
-                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(pDelivered * 10) / 10}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(pDelivered)}</td>
                         <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(kDelivered)}</td>
                     </tr>
                 `;
@@ -1031,19 +1031,19 @@
                     <td class="au-fert-cell au-fert-cell--num">${totalApps}</td>
                     <td class="au-fert-cell au-fert-cell--num">${totalRateStr}</td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.N)}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.P * 10) / 10}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.P)}</td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.K)}</td>
                 </tr>
                 <tr class="au-fert-required-row">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.P)}</em></td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                 </tr>
                 <tr class="${nBal.statusClass === 'sufficient' ? 'au-fert-balance-row--positive' : 'au-fert-balance-row--negative'}">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><strong>Balance</strong></td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${nBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${nBal.diff >= 0 ? '+' : ''}${Math.round(nBal.diff)}</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${pBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff * 10) / 10}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${pBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff)}</strong></td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${kBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${kBal.diff >= 0 ? '+' : ''}${Math.round(kBal.diff)}</strong></td>
                 </tr>
             `;

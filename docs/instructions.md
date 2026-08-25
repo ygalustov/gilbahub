@@ -667,6 +667,12 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-315 follow-up ("do for all")** Extended the same treatment to the `!isAA` branch's single-threshold line: `mlsnKgHa` was already computed a few lines above (feeds the existing "Soil reserve"/"Reserve above threshold" Why-panel rows) but was never used on the main `MLSN: {value} ppm` line itself — now it is: `MLSN: 37 ppm (51.8 kg/ha)`. No new data or conversion logic needed, purely wiring an already-computed value into one more place. Expanded `tests/gh315-aa-range-kgha-soil-page.test.js` to 6 tests (added: MLSN threshold now shows the kg/ha suffix; a null/non-numeric `mlsn` value renders `MLSN: — ppm` with no suffix and no crash). Full suite: 1197/1197 Jest tests pass.
 
+**GH-316** "Annual Product Summary"'s own Balance row (a third, independent implementation on the same page as "Nutrient Delivery Summary") still used the naive `Delivered − Required` formula GH-311/312 already fixed elsewhere on the same page — P/K showed the full delivered amount in green as pure surplus even where it was actually Excess. Reused the `classifyBalance()` helper already declared in `buildRecommendationsHTML()` for N/P/K here too, in both `nutrition-prebble-integration.js` (NZ) and `nutrition-au-fertiliser-integration.js` (AU). Added `tests/gh316-annual-product-summary-balance.test.js`.
+
+**GH-317** The Balance cell in "Nutrient Delivery Summary" showed green even when Status said "Excess" — its colour class used the raw sign (`diff >= 0`) instead of `statusClass`. Fixed in both files: colour now follows `statusClass === 'sufficient'`, same signal the Status badge already uses. Added `tests/gh317-balance-cell-color-matches-status.test.js`.
+
+**GH-318** Rounded P to whole numbers in "Annual Product Summary" (product rows + tfoot: Total Delivered/Required/Balance), matching N/K's existing whole-number formatting in that table — was `Math.round(x*10)/10` (1dp), now `Math.round(x)`. The more detailed "Nutrient Delivery Summary" table keeps 1dp precision throughout, unaffected. Fixed in both `nutrition-prebble-integration.js` and `nutrition-au-fertiliser-integration.js`. Added `tests/gh318-annual-product-summary-p-rounding.test.js`. Full suite: 1207/1207 Jest tests pass.
+
 
 
 
