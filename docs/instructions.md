@@ -677,10 +677,14 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-320** The Soil page card's threshold/range line already showed a kg/ha equivalent alongside ppm (GH-315), but the card's main measured value (the large number at the top) did not, even though its kg/ha equivalent (`reserveKgHa`) was already computed for the hidden "Why?" panel's "Soil reserve" row. Appended the same kg/ha equivalent to the main visible value line in `soil-nutrition-analysis.js`, for both AA and MLSN/SLAN cards (not gated to `isAA`, since `reserveKgHa` is computed generically). Added `tests/gh320-soil-card-value-kgha.test.js` (3 tests). Full suite: 1220/1220 Jest tests pass.
 
+**GH-321** On page reload/navigation, `NutritionCalendar.restoreFromPersisted()` restores the saved calendar program and calls `this.renderResults()`, but never dispatches `gaip:nutrition-calendar-generated` — so the regional recommendations panels, which only render on that live event, stayed empty after a reload unless the user clicked "Generate" again. `nutrition-nz-fertiliser-integration.js`'s `init()` already had a "late-render" catch-up block for this (checks `window.GilbaNutritionCalendar.program` directly and self-triggers `generateAndRender()` if the live event was missed); `nutrition-au-fertiliser-integration.js` and `nutrition-uk-fertiliser-integration.js` never had it. Reachable for any methodology — reproduced live on an AU/MLSN site and confirmed absent on an NZ/AA site, but the root cause was the region (missing block), not the methodology. Added the same block to both files, mirroring NZ's existing pattern exactly. Added `tests/gh321-au-uk-late-render-catchup.test.js` (3 tests, including a regression pin confirming NZ's original block is unchanged). Full suite: 1223/1223 Jest tests pass.
 
 
 
-Why program doesnt save for SLAN / MLSN when i move to other pages but it works for AA
+
+
+Why for the current month N need in the KPI card is 0 but in the program table it is 7.9 in august
+
 
 Also think how we can add auto tests to check real numbers? Maybe add this to the end of the plan
 

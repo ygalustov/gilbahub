@@ -63,7 +63,20 @@
                 this.lastCalendarData = e.detail.program;
                 this.generateAndRender(e.detail.program);
             });
-            
+
+            // GH-321: "late-render" catch-up -- if the calendar's program
+            // was already restored (NutritionCalendar.restoreFromPersisted(),
+            // e.g. on page reload/navigation) before this script finished
+            // initialising, the live 'gaip:nutrition-calendar-generated'
+            // event above never fires and this region's recommendations
+            // panel silently stays empty. Same fix as
+            // nutrition-nz-fertiliser-integration.js's init() already has
+            // (present there from the start; this file never had it).
+            const _existingCalendar = window.GilbaNutritionCalendar;
+            if (_existingCalendar && _existingCalendar.program && this.isAustralia()) {
+                this.lastCalendarData = _existingCalendar.program;
+                setTimeout(() => this.generateAndRender(_existingCalendar.program), 200);
+            }
         },
         
         /**

@@ -653,7 +653,20 @@
                 self.generateAndRender(e.detail.program);
             });
 
-            console.log('[NutritionUkFertiliserIntegration] Initialised. Products:', 
+            // GH-321: "late-render" catch-up -- if the calendar's program
+            // was already restored (NutritionCalendar.restoreFromPersisted(),
+            // e.g. on page reload/navigation) before this script finished
+            // initialising, the live 'gaip:nutrition-calendar-generated'
+            // event above never fires and this region's recommendations
+            // panel silently stays empty. Same fix as
+            // nutrition-nz-fertiliser-integration.js's init() already has.
+            var _existingCalendar = window.GilbaNutritionCalendar;
+            if (_existingCalendar && _existingCalendar.program && self.isUK()) {
+                self.lastCalendarData = _existingCalendar.program;
+                setTimeout(function() { self.generateAndRender(_existingCalendar.program); }, 200);
+            }
+
+            console.log('[NutritionUkFertiliserIntegration] Initialised. Products:',
                 (window.GAIP_UK_FERTILISER.products.granular || []).length, 'granular,',
                 (window.GAIP_UK_FERTILISER.products.liquid || []).length, 'liquid');
         },
