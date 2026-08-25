@@ -13,6 +13,11 @@
  * is undefined there (no legacy percentage to restore). UK module
  * (nutrition-uk-fertiliser-integration.js) already showed the percentage
  * (icon+% format) and needed no change.
+ *
+ * GH-312 UPDATE: this pct-based branch (with its percentage suffix) is now
+ * the graceful-degradation fallback inside classifyBalance(), used when
+ * soil/range/removal data isn't available. Retargeted the extraction window
+ * accordingly -- see gh306-...test.js's GH-312 update note for why.
  */
 
 'use strict';
@@ -28,29 +33,29 @@ function extractBlock(src, startMarker, maxLen) {
 
 describe('GH-310 — nutrition-prebble-integration.js (NZ) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
 
     test('required > 0 branch appends the percentage to the label', () => {
         expect(block).toMatch(/statusLabel = \(pct >= 90 \? 'On Track' : pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{pct\}%\)`;/);
     });
 
     test('required === 0 (Met) branch is untouched -- no percentage appended', () => {
-        expect(block).toMatch(/statusLabel = 'Met';/);
-        expect(block).not.toMatch(/statusLabel = 'Met' \+/);
+        expect(block).toMatch(/statusClass: 'sufficient', statusLabel: 'On Track'/);
+        expect(block).not.toMatch(/statusLabel: 'On Track' \+/);
     });
 });
 
 describe('GH-310 — nutrition-au-fertiliser-integration.js (AU) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
 
     test('required > 0 branch appends the percentage to the label', () => {
         expect(block).toMatch(/statusLabel = \(pct >= 90 \? 'On Track' : pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{pct\}%\)`;/);
     });
 
     test('required === 0 (Met) branch is untouched -- no percentage appended', () => {
-        expect(block).toMatch(/statusLabel = 'Met';/);
-        expect(block).not.toMatch(/statusLabel = 'Met' \+/);
+        expect(block).toMatch(/statusClass: 'sufficient', statusLabel: 'On Track'/);
+        expect(block).not.toMatch(/statusLabel: 'On Track' \+/);
     });
 });
 

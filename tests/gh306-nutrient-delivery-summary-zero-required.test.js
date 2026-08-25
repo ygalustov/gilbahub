@@ -18,12 +18,16 @@
  * regardless of delivered. The percentage-based classification for
  * required > 0 is completely unchanged.
  *
- * Duplicated (byte-identical structure) across 3 independent regional
- * modules -- nutrition-prebble-integration.js (NZ, also used by
- * nutrition-nz-fertiliser-integration.js, which delegates rendering to it),
- * nutrition-au-fertiliser-integration.js (AU), nutrition-uk-fertiliser-
- * integration.js (UK, different display format: icon+% instead of a text
- * label) -- all three needed the same fix.
+ * GH-312 UPDATE: in nutrition-prebble-integration.js and
+ * nutrition-au-fertiliser-integration.js, this required===0/pct-based logic
+ * was moved into a classifyBalance() helper function as the graceful-
+ * degradation fallback (used when soil/range/removal data isn't available --
+ * MLSN/SLAN sites, or uncovered AA species/texture). The primary path for
+ * AA sites with resolvable data now uses a different, unified Low/Met/Excess
+ * model (see gh312-unified-nutrient-balance-status.test.js) -- but this
+ * fallback branch is verified here to still behave exactly as GH-306 fixed
+ * it. nutrition-uk-fertiliser-integration.js is untouched by GH-311/312
+ * (different display format, no Current/Removal/Lift columns).
  *
  * Structural pins only (regex against the source), matching this repo's
  * established convention for large DOM-generating files that can't easily be
@@ -44,14 +48,14 @@ function extractBlock(src, startMarker, maxLen) {
 
 describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-    // GH-310 widened this window (1600->2200): appending the percentage to
-    // the status label added an explanatory comment ahead of the branch.
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
+    // GH-312 retargeted this window to classifyBalance() -- the required===0/
+    // pct-based logic GH-306 fixed now lives in that function's fallback
+    // branch, not inline in the row-map callback.
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
-        expect(block).toMatch(/statusClass = 'sufficient';/);
-        expect(block).toMatch(/statusLabel = 'Met';/);
+        expect(block).toMatch(/statusClass: 'sufficient', statusLabel: 'On Track'/);
     });
 
     test('the old unconditional "pct = required > 0 ? ... : 0" fallback pattern is gone', () => {
@@ -67,13 +71,11 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
 
 describe('GH-306 — nutrition-au-fertiliser-integration.js (AU)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    // GH-310 widened this window (1600->2200), same reason as the NZ block above.
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
-        expect(block).toMatch(/statusClass = 'sufficient';/);
-        expect(block).toMatch(/statusLabel = 'Met';/);
+        expect(block).toMatch(/statusClass: 'sufficient', statusLabel: 'On Track'/);
     });
 
     test('the old unconditional "pct = required > 0 ? ... : 0" fallback pattern is gone', () => {

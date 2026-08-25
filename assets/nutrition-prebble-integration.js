@@ -309,12 +309,22 @@
             
             try {
                 const program = window.PrebbleRecommender.generateProgram(calendarData, context);
-                
+
                 if (program.error) {
                     console.error('[NutritionPrebbleIntegration]', program.error);
                     return;
                 }
-                
+
+                // GH-311: carry through from calendarData (nutrition-calendar.js's
+                // computeProgram() output) so buildRecommendationsHTML() can
+                // compute the "excess delivery" check (Current + Delivered vs
+                // ceiling) without re-resolving soil state independently.
+                program.soil = calendarData.soil;
+                program.annual_totals_range = calendarData.annual_totals_range;
+                // GH-312: Removal/Lift, needed for the unified Balance/Status model.
+                program.annual_removal = calendarData.annual_removal;
+                program.annual_lift = calendarData.annual_lift;
+
                 this.lastProgram = program;
                 
                 // v10.3.38: Store program globally for Word export, tagged with site
@@ -704,50 +714,114 @@
                 nutrientRequired[k] = Math.round(nutrientRequired[k] * 10) / 10;
             });
             
+            // GH-311/312: soil ppm + bulkDensity/soilDepth + resolved AA
+            // range + Removal/Lift, carried through from calendarData via
+            // computeProgram()'s output (see the program.soil/
+            // program.annual_totals_range/program.annual_removal/
+            // program.annual_lift assignment in generateAndRender()).
+            const soilInfo = program.soil || {};
+            const soilBulkDensity = soilInfo.bulkDensity;
+            const soilDepthCm = soilInfo.soilDepth;
+            const soilPpmMap = soilInfo.ppm || {};
+            const rangeMap = program.annual_totals_range || {};
+            const removalMap = program.annual_removal || {};
+            const liftMap = program.annual_lift || {};
+
+            // GH-312: unified Balance/Status model, replacing both the old
+            // required===0 ceiling-only check (GH-311) and the required>0
+            // percentage-threshold check (GH-306/310, 90%/70% -- no
+            // scientific source found anywhere for those cut-offs) with one
+            // rule applied identically to every row: Balance = Current +
+            // Delivered - Removal (NOT Required -- Required already bakes
+            // Current into itself via the Lift term for below-floor
+            // nutrients, so subtracting Required would double-count Current;
+            // Removal is the physical, research-backed uptake figure that's
+            // unconditionally true regardless of floor/ceiling status).
+            // Sourced from two methods already cited elsewhere in this
+            // codebase: Woods (2013), "A Method for Estimating Turfgrass
+            // Nutrient Requirements" -- his F = target + Harvest - Soiltest
+            // is the same mass-balance model, algebraically inverted here to
+            // predict the season-end soil level instead of the fertiliser
+            // amount needed to reach a target; and Carrow et al. (2004) SLAN
+            // (already cited in nutrition-requirement-engine.js) for the
+            // two-sided floor/ceiling sufficiency-range concept (Woods'
+            // MLSN uses a single guideline, not a range). Falls back to the
+            // pre-GH-312 behaviour (required===0 -> 'Met', required>0 ->
+            // 90%/70% pct bands) when soil/range/removal data isn't
+            // available -- MLSN/SLAN sites (this engine has no ceiling
+            // concept for them) and uncovered AA species/texture.
+            function classifyBalance(nutrient, required, delivered) {
+                const range = rangeMap[nutrient];
+                const currentPpm = soilPpmMap[nutrient];
+                const removal = removalMap[nutrient];
+                const canCompute = range && typeof range.max === 'number' && typeof range.min === 'number'
+                    && typeof currentPpm === 'number' && typeof removal === 'number'
+                    && typeof soilBulkDensity === 'number' && typeof soilDepthCm === 'number';
+                if (!canCompute) {
+                    // Pre-GH-312 fallback. GH-314: label renamed 'Met' ->
+                    // 'On Track' to match the pct-based branch just below,
+                    // same reasoning as the canCompute branch's rename.
+                    if (required === 0) {
+                        return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track' };
+                    }
+                    const pct = Math.round((delivered / required) * 100);
+                    const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
+                    const statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel };
+                }
+                const unit = soilBulkDensity * soilDepthCm * 0.1;
+                const currentKgHa = currentPpm * unit;
+                const floorKgHa = range.min * unit;
+                const ceilingKgHa = range.max * unit;
+                const balanceKgHa = currentKgHa + delivered - removal;
+                const currentDisplay = (Math.round(currentKgHa * 10) / 10).toString();
+                // GH-313: shows what Balance is actually being compared against
+                // -- previously the Status % implied a floor/ceiling without
+                // ever printing it, so there was no way to verify the
+                // classification without reading the source.
+                const rangeDisplay = `${Math.round(floorKgHa * 10) / 10}–${Math.round(ceilingKgHa * 10) / 10}`;
+                if (ceilingKgHa > 0 && balanceKgHa > ceilingKgHa) {
+                    const pct = Math.round((balanceKgHa / ceilingKgHa) * 100);
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Excess (${pct}%)` };
+                }
+                if (balanceKgHa < floorKgHa) {
+                    const pct = floorKgHa > 0 ? Math.round((balanceKgHa / floorKgHa) * 100) : 0;
+                    // GH-314: 'Low' renamed to 'Deficit' to share the same
+                    // vocabulary as the pct-based fallback branch above
+                    // (On Track / Monitor / Deficit) instead of introducing
+                    // a second, new set of words for the same idea.
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (${pct}%)` };
+                }
+                // GH-314: 'Met' renamed to 'On Track', same reasoning --
+                // shares the fallback branch's "everything's fine" word
+                // instead of a second synonym. No percentage here (unlike
+                // the fallback's "On Track (100%)") -- there's no single
+                // well-defined ratio to show for the in-range case (Required
+                // can be 0 here via the ceiling, so delivered/required isn't
+                // meaningful), and inventing one would reintroduce the kind
+                // of uncited number this whole redesign was trying to avoid.
+                return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track' };
+            }
+
             // Build nutrient summary rows
             const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {
                 const required = nutrientRequired[nutrient];
                 const delivered = nutrientTotals[nutrient];
-                const diff = delivered - required;
-                // GH-306: required === 0 is a real, legitimate case now that
-                // the AA ceiling (GH-299/300/303/305) can correctly zero
-                // Annual Requirement when soil is already at/above the
-                // sufficiency ceiling -- nothing is needed, so there is no
-                // deficit to measure. The old `pct = required > 0 ? ... : 0`
-                // fallback forced this straight into the "Deficit" bucket
-                // (0% < 70%) regardless of delivered, which read as "you're
-                // short" on a nutrient the program correctly decided needs no
-                // more fertiliser at all. Only reachable pre-GH-299/300 via
-                // MLSN/SLAN sites already at/above target, so this bug
-                // predates the AA work but was effectively invisible until
-                // AA's Required could also legitimately be exactly 0.
-                // GH-310: old hub (pre-GH-306, `pct = required > 0 ? ... : 0`)
-                // rendered the raw percentage next to the icon (`✓ 117%`),
-                // so an over-delivery's magnitude was visible. The GH-306
-                // text-label rewrite ('On Track'/'Monitor'/'Deficit') dropped
-                // that number — 91% and 2000% both just read "On Track".
-                // Appending the percentage restores that visibility without
-                // reintroducing the old emoji icons (project rule: no
-                // emoji, text/SVG only). Not shown on the required===0
-                // branch — delivered/required is undefined at required=0,
-                // there's no legacy percentage to restore there (the old
-                // hub's "0%" for this case was itself GH-306's bug, not a
-                // real number).
-                let statusClass, statusLabel;
-                if (required === 0) {
-                    statusClass = 'sufficient';
-                    statusLabel = 'Met';
-                } else {
-                    const pct = Math.round((delivered / required) * 100);
-                    statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
-                }
+                const removal = removalMap[nutrient];
+                const lift = liftMap[nutrient];
+                const removalDisplay = (typeof removal === 'number') ? removal.toString() : '—';
+                const liftDisplay = (typeof lift === 'number') ? (Math.round(lift * 10) / 10).toString() : '—';
+                const { currentDisplay, rangeDisplay, diff, statusClass, statusLabel } = classifyBalance(nutrient, required, delivered);
                 return `
                     <tr class="nutrient-${statusClass}">
                         <td class="prebble-cell prebble-cell--left"><strong>${nutrient}</strong></td>
+                        <td class="prebble-cell prebble-cell--num">${currentDisplay}</td>
+                        <td class="prebble-cell prebble-cell--num">${removalDisplay}</td>
+                        <td class="prebble-cell prebble-cell--num">${liftDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${required}</td>
                         <td class="prebble-cell prebble-cell--num">${delivered}</td>
                         <td class="prebble-cell prebble-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="prebble-cell prebble-cell--num">${rangeDisplay}</td>
                         <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
                 `;
@@ -938,14 +1012,18 @@
                     </div>
 
                     <div class="prebble-section-card">
-                        <h4>Nutrient Delivery Summary</h4>
+                        <h4>Nutrient Delivery Summary <button class="db-info-icon" data-info="prebble-nutrient-delivery-summary" tabindex="0" aria-label="Learn more">i</button></h4>
                         <table class="gilba-int-table prebble-nutrient-summary">
                             <thead>
                                 <tr>
                                     <th class="prebble-th prebble-th--left">Nutrient</th>
+                                    <th class="prebble-th">Current (kg/ha)</th>
+                                    <th class="prebble-th">Removal (kg/ha)</th>
+                                    <th class="prebble-th">Lift (kg/ha)</th>
                                     <th class="prebble-th">Required (kg/ha)</th>
                                     <th class="prebble-th">Delivered (kg/ha)</th>
                                     <th class="prebble-th">Balance</th>
+                                    <th class="prebble-th">Range (kg/ha)</th>
                                     <th class="prebble-th">Status</th>
                                 </tr>
                             </thead>
@@ -1735,6 +1813,24 @@
     const styleEl = document.createElement('style');
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
+
+    // GH-312: info popover for the Nutrient Delivery Summary table. Reuses
+    // the existing .db-info-icon / GAIP_GLOSSARY / #db-info-popover
+    // mechanism already active on this page (dashboard-init.js's
+    // initInfoPopovers(), loaded by plan.blade.php) -- same component
+    // soil-nutrition-analysis.js uses, no new popover infrastructure needed.
+    window.GAIP_GLOSSARY = Object.assign(window.GAIP_GLOSSARY || {}, {
+        'prebble-nutrient-delivery-summary': {
+            title: 'Nutrient Delivery Summary',
+            body: 'Current — soil reserve now (ppm→kg/ha).\n' +
+                'Removal — turf uptake this year (research-based).\n' +
+                'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
+                'Required — Removal + Lift; 0 once soil ≥ ceiling.\n' +
+                'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
+                'Range — the floor–ceiling Balance is checked against.\n' +
+                'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',
+        },
+    });
 
     // ========================================================================
     // INITIALIZATION

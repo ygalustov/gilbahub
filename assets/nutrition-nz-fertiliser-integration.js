@@ -323,6 +323,23 @@
                 window.PrebbleProducts.liquid   = origLiquid;
             }
 
+            // GH-311 follow-up: this is a SECOND, independent generateProgram()
+            // call (nutrition-prebble-integration.js's own generateAndRender has
+            // its own copy of this same merge) -- confirmed live via
+            // [GH311-DEBUG] that THIS path is the one that actually renders on
+            // screen once a distributor is selected (see the comment below,
+            // "the distributor-aware program the user actually sees on
+            // screen"), so it needs the same carry-through or the "Current
+            // (kg/ha)" column and excess check silently degrade to empty/Met
+            // even when soil/range data is available.
+            if (program && !program.error) {
+                program.soil = calendarData.soil;
+                program.annual_totals_range = calendarData.annual_totals_range;
+                // GH-312: Removal/Lift, needed for the unified Balance/Status model.
+                program.annual_removal = calendarData.annual_removal;
+                program.annual_lift = calendarData.annual_lift;
+            }
+
             if (!program || program.error) {
                 console.error('[NutritionNzFertiliserIntegration] Program error:', program && program.error);
                 return;

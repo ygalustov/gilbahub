@@ -1370,6 +1370,8 @@
                 ppm: inputs.soilPpm,
                 deficits: deficits,
                 methodology: inputs.methodology,
+                bulkDensity: inputs.bulkDensity,
+                soilDepth: inputs.soilDepth,
             },
             annual_totals: annualRequirements,
             // GH-304: 'certificate' | 'texture-fallback' per P/K/Ca/Mg/S nutrient
@@ -1378,6 +1380,31 @@
             // sites too, but renderSummary() only reads this when isAA, so it's
             // inert there.
             annual_totals_range_source: annualRangeSource,
+            // GH-311: the resolved {min,max} ppm range per P/K/Ca/Mg/S nutrient
+            // (certificate-first, generic fallback -- same object STEP 4 uses
+            // for the floor/ceiling above), exposed so downstream consumers
+            // (nutrition-prebble-integration.js's "excess delivery" check)
+            // can convert the ceiling to kg/ha without re-resolving it
+            // independently. null per nutrient under MLSN/SLAN or when
+            // uncovered -- same graceful-degradation shape as aaRanges itself.
+            annual_totals_range: aaRanges,
+            // GH-312: Removal and Lift exposed separately (previously only
+            // their sum, annual_totals/"Required", was returned). Required
+            // conflates three different things depending on branch (pure
+            // removal / removal+lift / forced 0 above ceiling), which made
+            // the "Nutrient Delivery Summary" table's Balance calculation
+            // ambiguous -- see the GH-311 follow-up discussion. Removal
+            // (research-backed baseline uptake, Kopp & Guillard 2002 etc.,
+            // CONFIG.nutrientRatiosToN) is a physical quantity that happens
+            // regardless of methodology/ceiling/floor status; Lift (deficit
+            // correction spread over yearsToCorrect, "Gilba practice
+            // consistent with Carrow et al. 2001") is 0 whenever current >=
+            // floor. annual_totals ("Required") stays exactly as before --
+            // Removal + Lift, except forced to 0 above the AA ceiling -- so
+            // downstream consumers (K-recon floor, PrebbleRecommender's
+            // product-selection scoring) are unaffected by this addition.
+            annual_removal: adjustedRemoval,
+            annual_lift: annualCorrection,
             adjustments: {
                 n_cap_applied: nCapResult.capApplied,
                 original_n_total: nCapResult.originalTotal,

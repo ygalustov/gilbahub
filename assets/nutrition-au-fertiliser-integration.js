@@ -586,6 +586,16 @@
                     balance: program.balance,
                     deficits: calendarData.soil?.deficits || {},
                     muldersFlags: context.muldersFlags || {}, // b35fix276: surface flags for UI rendering
+                    // GH-311: carried through from calendarData (nutrition-
+                    // calendar.js's computeProgram() output) so
+                    // buildRecommendationsHTML() can compute the "excess
+                    // delivery" check (Current + Delivered vs ceiling) without
+                    // re-resolving soil state independently.
+                    soil: calendarData.soil,
+                    annual_totals_range: calendarData.annual_totals_range,
+                    // GH-312: Removal/Lift, needed for the unified Balance/Status model.
+                    annual_removal: calendarData.annual_removal,
+                    annual_lift: calendarData.annual_lift,
                 };
             }
             
@@ -817,41 +827,83 @@
                 nutrientRequired[k] = Math.round(nutrientRequired[k] * 10) / 10;
             });
             
+            // GH-311/312: soil ppm + bulkDensity/soilDepth + resolved AA
+            // range + Removal/Lift, carried through from calendarData via
+            // this file's own generateProgram(). Same fix as
+            // nutrition-prebble-integration.js (this file's byte-identical
+            // twin) -- see that file for the full GH-312 rationale (Woods
+            // 2013 mass-balance + Carrow 2004 SLAN floor/ceiling).
+            const soilInfo = program.soil || {};
+            const soilBulkDensity = soilInfo.bulkDensity;
+            const soilDepthCm = soilInfo.soilDepth;
+            const soilPpmMap = soilInfo.ppm || {};
+            const rangeMap = program.annual_totals_range || {};
+            const removalMap = program.annual_removal || {};
+            const liftMap = program.annual_lift || {};
+
+            // GH-312: unified Balance/Status model -- see
+            // nutrition-prebble-integration.js's classifyBalance() for the
+            // full rationale (same fix, byte-identical twin).
+            function classifyBalance(nutrient, required, delivered) {
+                const range = rangeMap[nutrient];
+                const currentPpm = soilPpmMap[nutrient];
+                const removal = removalMap[nutrient];
+                const canCompute = range && typeof range.max === 'number' && typeof range.min === 'number'
+                    && typeof currentPpm === 'number' && typeof removal === 'number'
+                    && typeof soilBulkDensity === 'number' && typeof soilDepthCm === 'number';
+                if (!canCompute) {
+                    // GH-314: label renamed 'Met' -> 'On Track' to match the
+                    // pct-based branch just below, same as
+                    // nutrition-prebble-integration.js.
+                    if (required === 0) {
+                        return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track' };
+                    }
+                    const pct = Math.round((delivered / required) * 100);
+                    const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
+                    const statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel };
+                }
+                const unit = soilBulkDensity * soilDepthCm * 0.1;
+                const currentKgHa = currentPpm * unit;
+                const floorKgHa = range.min * unit;
+                const ceilingKgHa = range.max * unit;
+                const balanceKgHa = currentKgHa + delivered - removal;
+                const currentDisplay = (Math.round(currentKgHa * 10) / 10).toString();
+                // GH-313: shows what Balance is actually being compared against.
+                const rangeDisplay = `${Math.round(floorKgHa * 10) / 10}–${Math.round(ceilingKgHa * 10) / 10}`;
+                if (ceilingKgHa > 0 && balanceKgHa > ceilingKgHa) {
+                    const pct = Math.round((balanceKgHa / ceilingKgHa) * 100);
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Excess (${pct}%)` };
+                }
+                if (balanceKgHa < floorKgHa) {
+                    const pct = floorKgHa > 0 ? Math.round((balanceKgHa / floorKgHa) * 100) : 0;
+                    // GH-314: 'Low' -> 'Deficit', same vocabulary as the
+                    // fallback branch above.
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (${pct}%)` };
+                }
+                // GH-314: 'Met' -> 'On Track', same reasoning.
+                return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track' };
+            }
+
             // Build nutrient summary rows
             const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {
                 const required = nutrientRequired[nutrient];
                 const delivered = nutrientTotals[nutrient];
-                const diff = delivered - required;
-                // GH-306: required === 0 is a real, legitimate case now that
-                // the AA ceiling (GH-299/300/303/305) can correctly zero
-                // Annual Requirement when soil is already at/above the
-                // sufficiency ceiling -- nothing is needed, so there is no
-                // deficit to measure. The old `pct = required > 0 ? ... : 0`
-                // fallback forced this straight into the "Deficit" bucket
-                // (0% < 70%) regardless of delivered. Same fix as
-                // nutrition-prebble-integration.js (this file's byte-identical
-                // twin for the AU market).
-                // GH-310: same fix as nutrition-prebble-integration.js
-                // (this file's byte-identical twin) — append the percentage
-                // to the status label, restoring the old hub's visible
-                // over-delivery magnitude (pre-GH-306: `✓ 117%`) without
-                // bringing back its emoji icons. Not shown on required===0
-                // (Met) — delivered/required is undefined there.
-                let statusClass, statusLabel;
-                if (required === 0) {
-                    statusClass = 'sufficient';
-                    statusLabel = 'Met';
-                } else {
-                    const pct = Math.round((delivered / required) * 100);
-                    statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
-                }
+                const removal = removalMap[nutrient];
+                const lift = liftMap[nutrient];
+                const removalDisplay = (typeof removal === 'number') ? removal.toString() : '—';
+                const liftDisplay = (typeof lift === 'number') ? (Math.round(lift * 10) / 10).toString() : '—';
+                const { currentDisplay, rangeDisplay, diff, statusClass, statusLabel } = classifyBalance(nutrient, required, delivered);
                 return `
                     <tr class="nutrient-${statusClass}">
                         <td class="au-fert-cell au-fert-cell--left"><strong>${nutrient}</strong></td>
+                        <td class="au-fert-cell au-fert-cell--num">${currentDisplay}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${removalDisplay}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${liftDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num">${required}</td>
                         <td class="au-fert-cell au-fert-cell--num">${delivered}</td>
                         <td class="au-fert-cell au-fert-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${rangeDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
                 `;
@@ -1107,14 +1159,18 @@
 
                     ${productEntries.length > 0 ? `
                         <div class="prebble-section-card">
-                        <h4>Nutrient Delivery Summary</h4>
+                        <h4>Nutrient Delivery Summary <button class="db-info-icon" data-info="prebble-nutrient-delivery-summary" tabindex="0" aria-label="Learn more">i</button></h4>
                         <table class="gilba-int-table au-fert-nutrient-summary">
                             <thead>
                                 <tr>
                                     <th class="au-fert-th au-fert-th--left">Nutrient</th>
+                                    <th class="au-fert-th">Current (kg/ha)</th>
+                                    <th class="au-fert-th">Removal (kg/ha)</th>
+                                    <th class="au-fert-th">Lift (kg/ha)</th>
                                     <th class="au-fert-th">Required (kg/ha)</th>
                                     <th class="au-fert-th">Delivered (kg/ha)</th>
                                     <th class="au-fert-th">Balance</th>
+                                    <th class="au-fert-th">Range (kg/ha)</th>
                                     <th class="au-fert-th">Status</th>
                                 </tr>
                             </thead>
@@ -1396,6 +1452,23 @@
     const styleEl = document.createElement('style');
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
+
+    // GH-312: same glossary key as nutrition-prebble-integration.js (this
+    // file's byte-identical twin) -- Object.assign merge is idempotent, so
+    // whichever of the two files loads first registers it, harmless if both
+    // do (both always load together per plan.blade.php/hub.blade.php).
+    window.GAIP_GLOSSARY = Object.assign(window.GAIP_GLOSSARY || {}, {
+        'prebble-nutrient-delivery-summary': {
+            title: 'Nutrient Delivery Summary',
+            body: 'Current — soil reserve now (ppm→kg/ha).\n' +
+                'Removal — turf uptake this year (research-based).\n' +
+                'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
+                'Required — Removal + Lift; 0 once soil ≥ ceiling.\n' +
+                'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
+                'Range — the floor–ceiling Balance is checked against.\n' +
+                'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',
+        },
+    });
 
     // ========================================================================
     // INITIALIZATION
