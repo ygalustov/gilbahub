@@ -51,7 +51,7 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
     // GH-312 retargeted this window to classifyBalance() -- the required===0/
     // pct-based logic GH-306 fixed now lives in that function's fallback
     // branch, not inline in the row-map callback.
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
@@ -62,16 +62,19 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
         expect(block).not.toMatch(/const pct = required > 0 \? Math\.round/);
     });
 
-    test('regression: percentage-based classification for required > 0 is unchanged', () => {
+    test('regression: percentage-based classification for required > 0 is unchanged (statusClass tiers; label wording moved under GH-333)', () => {
         expect(block).toMatch(/const pct = Math\.round\(\(delivered \/ required\) \* 100\);/);
         expect(block).toMatch(/pct >= 90 \? 'sufficient' : pct >= 70 \? 'marginal' : 'deficit'/);
-        expect(block).toMatch(/pct >= 90 \? 'On Track' : pct >= 70 \? 'Monitor' : 'Deficit'/);
+        // GH-333 follow-up: statusLabel wording is now `pct >= 90 ? 'On Track' : (pct >= 70 ? 'Monitor' : 'Deficit') + ...`
+        expect(block).toMatch(/const statusLabel = pct >= 90/);
+        expect(block).toMatch(/\? 'On Track'/);
+        expect(block).toMatch(/: \(pct >= 70 \? 'Monitor' : 'Deficit'\)/);
     });
 });
 
 describe('GH-306 — nutrition-au-fertiliser-integration.js (AU)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);

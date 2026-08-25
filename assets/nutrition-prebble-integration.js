@@ -90,6 +90,9 @@
                 .prebble-nutrient-summary .nutrient-diff.negative {
                     color: #dc2626;
                 }
+                .prebble-nutrient-summary .nutrient-diff.warning {
+                    color: #d97706;
+                }
                 .prebble-nutrient-summary tr.nutrient-sufficient td:last-child {
                     color: #059669;
                     font-weight: 600;
@@ -98,7 +101,14 @@
                     color: #d97706;
                     font-weight: 600;
                 }
+                /* GH-333: deficit is a planned, gradual correction (Lift over
+                   several years) -- amber, not red; excess (genuinely
+                   over-supplied, uncorrected) gets the red instead. */
                 .prebble-nutrient-summary tr.nutrient-deficit td:last-child {
+                    color: #d97706;
+                    font-weight: 600;
+                }
+                .prebble-nutrient-summary tr.nutrient-excess td:last-child {
                     color: #dc2626;
                     font-weight: 600;
                 }
@@ -725,7 +735,6 @@
             const soilPpmMap = soilInfo.ppm || {};
             const rangeMap = program.annual_totals_range || {};
             const removalMap = program.annual_removal || {};
-            const liftMap = program.annual_lift || {};
 
             // GH-312: unified Balance/Status model, replacing both the old
             // required===0 ceiling-only check (GH-311) and the required>0
@@ -766,7 +775,17 @@
                     }
                     const pct = Math.round((delivered / required) * 100);
                     const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    const statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
+                    // GH-333 follow-up: was `(${pct}%)` on every tier
+                    // including On Track -- a completion ratio (100% = fully
+                    // delivered) inconsistent with the range-based branch
+                    // below. Confirmed with the user: the number only
+                    // matters for Monitor/Deficit (how far off target); On
+                    // Track stays a plain label, no number, same as the
+                    // range-based branch's On Track.
+                    const deltaPct = pct - 100;
+                    const statusLabel = pct >= 90
+                        ? 'On Track'
+                        : (pct >= 70 ? 'Monitor' : 'Deficit') + ` (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
                     return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel };
                 }
                 const unit = soilBulkDensity * soilDepthCm * 0.1;
@@ -781,26 +800,57 @@
                 // classification without reading the source.
                 const rangeDisplay = `${Math.round(floorKgHa * 10) / 10}–${Math.round(ceilingKgHa * 10) / 10}`;
                 if (ceilingKgHa > 0 && balanceKgHa > ceilingKgHa) {
-                    const pct = Math.round((balanceKgHa / ceilingKgHa) * 100);
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Excess (${pct}%)` };
+                    // GH-333: was statusClass: 'deficit' -- Excess and Deficit
+                    // shared one class, so both painted the same alarming red,
+                    // even though Excess (soil already above ceiling, nothing
+                    // being added) and Deficit (intentionally corrected over
+                    // several years via Lift, see GH-308/309) are not the same
+                    // kind of "problem". Split into its own class so it can be
+                    // coloured distinctly.
+                    //
+                    // GH-333 follow-up: was a (${pct}%) suffix computed as
+                    // Balance/ceiling*100 (e.g. "266%") -- looked far more
+                    // alarming than the real overshoot, since it expressed
+                    // the whole Balance as a fraction of the ceiling rather
+                    // than just the excess itself. Now expresses only the
+                    // overage (balanceKgHa - ceilingKgHa) as a % of the
+                    // ceiling.
+                    const over = Math.round((balanceKgHa - ceilingKgHa) * 10) / 10;
+                    const overPct = Math.round((over / ceilingKgHa) * 100);
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'excess', statusLabel: `Excess (+${overPct}%)` };
                 }
                 if (balanceKgHa < floorKgHa) {
-                    const pct = floorKgHa > 0 ? Math.round((balanceKgHa / floorKgHa) * 100) : 0;
                     // GH-314: 'Low' renamed to 'Deficit' to share the same
                     // vocabulary as the pct-based fallback branch above
                     // (On Track / Monitor / Deficit) instead of introducing
-                    // a second, new set of words for the same idea.
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (${pct}%)` };
+                    // a second, new set of words for the same idea. GH-333
+                    // follow-up: same change as the Excess branch above --
+                    // expresses only the shortfall (floorKgHa - balanceKgHa)
+                    // as a % of the floor, not the whole Balance as a % of
+                    // the floor.
+                    const short = Math.round((floorKgHa - balanceKgHa) * 10) / 10;
+                    const shortPct = floorKgHa > 0 ? Math.round((short / floorKgHa) * 100) : 0;
+                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (-${shortPct}%)` };
                 }
                 // GH-314: 'Met' renamed to 'On Track', same reasoning --
                 // shares the fallback branch's "everything's fine" word
-                // instead of a second synonym. No percentage here (unlike
-                // the fallback's "On Track (100%)") -- there's no single
-                // well-defined ratio to show for the in-range case (Required
-                // can be 0 here via the ceiling, so delivered/required isn't
-                // meaningful), and inventing one would reintroduce the kind
-                // of uncited number this whole redesign was trying to avoid.
+                // instead of a second synonym. GH-333 follow-up: briefly
+                // tried a "distance from nearer edge" number here too, but
+                // confirmed with the user that On Track should just stay a
+                // plain label -- the number only matters once something is
+                // actually Deficit or Excess.
                 return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track' };
+            }
+
+            // GH-333: 'sufficient' -> green, 'excess' -> red (genuinely
+            // over-supplied, nothing corrects it automatically), everything
+            // else ('deficit', fallback's 'marginal') -> amber -- a planned,
+            // gradual correction (Lift spread over yearsToCorrect) isn't the
+            // same urgency as a true excess and shouldn't share its red.
+            function statusVisualClass(statusClass) {
+                if (statusClass === 'sufficient') return 'positive';
+                if (statusClass === 'excess') return 'negative';
+                return 'warning';
             }
 
             // Build nutrient summary rows
@@ -808,20 +858,17 @@
                 const required = nutrientRequired[nutrient];
                 const delivered = nutrientTotals[nutrient];
                 const removal = removalMap[nutrient];
-                const lift = liftMap[nutrient];
                 const removalDisplay = (typeof removal === 'number') ? removal.toString() : '—';
-                const liftDisplay = (typeof lift === 'number') ? (Math.round(lift * 10) / 10).toString() : '—';
                 const { currentDisplay, rangeDisplay, diff, statusClass, statusLabel } = classifyBalance(nutrient, required, delivered);
                 return `
                     <tr class="nutrient-${statusClass}">
                         <td class="prebble-cell prebble-cell--left"><strong>${nutrient}</strong></td>
                         <td class="prebble-cell prebble-cell--num">${currentDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${removalDisplay}</td>
-                        <td class="prebble-cell prebble-cell--num">${liftDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${required}</td>
                         <td class="prebble-cell prebble-cell--num">${delivered}</td>
-                        <td class="prebble-cell prebble-cell--num nutrient-diff ${statusClass === 'sufficient' ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
                         <td class="prebble-cell prebble-cell--num">${rangeDisplay}</td>
+                        <td class="prebble-cell prebble-cell--num nutrient-diff ${statusVisualClass(statusClass)}">${diff.toFixed(1)}</td>
                         <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
                 `;
@@ -1031,11 +1078,10 @@
                                     <th class="prebble-th prebble-th--left">Nutrient</th>
                                     <th class="prebble-th">Current (kg/ha)</th>
                                     <th class="prebble-th">Removal (kg/ha)</th>
-                                    <th class="prebble-th">Lift (kg/ha)</th>
                                     <th class="prebble-th">Required (kg/ha)</th>
                                     <th class="prebble-th">Delivered (kg/ha)</th>
-                                    <th class="prebble-th">Balance</th>
                                     <th class="prebble-th">Range (kg/ha)</th>
+                                    <th class="prebble-th">Balance</th>
                                     <th class="prebble-th">Status</th>
                                 </tr>
                             </thead>
@@ -1081,11 +1127,11 @@
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P)}</em></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                                 </tr>
-                                <tr class="${nBal.statusClass === 'sufficient' ? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'}">
+                                <tr class="prebble-balance-row--${statusVisualClass(nBal.statusClass)}">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Balance</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${nBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${nBal.diff >= 0 ? '+' : ''}${Math.round(nBal.diff)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${pBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${kBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${kBal.diff >= 0 ? '+' : ''}${Math.round(kBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(nBal.statusClass)}"><strong>${Math.round(nBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(pBal.statusClass)}"><strong>${Math.round(pBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(kBal.statusClass)}"><strong>${Math.round(kBal.diff)}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1779,11 +1825,13 @@
 
         .prebble-positive { color: var(--gaip-good, #16a34a); font-weight: 600; }
         .prebble-negative { color: var(--gaip-critical, #dc2626); font-weight: 600; }
+        .prebble-warning { color: var(--gaip-warning, #d97706); font-weight: 600; }
 
         /* ── Nutrient delivery summary ──────────────────────────────────────── */
         .prebble-nutrient-summary .nutrient-diff { font-weight: 600; }
         .prebble-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good, #16a34a); }
         .prebble-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical, #dc2626); }
+        .prebble-nutrient-summary .nutrient-diff.warning { color: var(--gaip-warning, #d97706); }
         .prebble-npk-delivered { font-size: 12px; font-variant-numeric: tabular-nums; }
 
         /* Status badges in nutrient summary */
@@ -1797,12 +1845,18 @@
         }
         .nutrient-status-sufficient { background: var(--gaip-good-bg, #f0fdf4); color: var(--gaip-good, #16a34a); border: 1px solid var(--gaip-good-border, #bbf7d0); }
         .nutrient-status-marginal   { background: var(--gaip-warning-bg, #fffbeb); color: var(--gaip-warning, #d97706); border: 1px solid #fde68a; }
-        .nutrient-status-deficit    { background: #fef2f2; color: var(--gaip-critical, #dc2626); border: 1px solid #fecaca; }
+        /* GH-333: deficit is a planned, gradual correction (Lift spread over
+           yearsToCorrect, GH-308/309) -- amber like marginal, not red;
+           excess (genuinely over-supplied, nothing correcting it) gets the
+           red that deficit used to share with it. */
+        .nutrient-status-deficit    { background: var(--gaip-warning-bg, #fffbeb); color: var(--gaip-warning, #d97706); border: 1px solid #fde68a; }
+        .nutrient-status-excess     { background: #fef2f2; color: var(--gaip-critical, #dc2626); border: 1px solid #fecaca; }
 
         .prebble-totals-row td { background: var(--gaip-good-bg, #f0fdf4); font-weight: 700; border-top: 2px solid var(--gaip-border, #e2e8f0); padding: 10px 12px; }
         .prebble-required-row td { background: var(--gaip-surface-muted, #f8fafc); color: var(--gaip-text-muted, #6b7280); padding: 9px 12px; }
         .prebble-balance-row--positive td { background: var(--gaip-good-bg, #f0fdf4); }
         .prebble-balance-row--negative td { background: #fef2f2; }
+        .prebble-balance-row--warning td { background: var(--gaip-warning-bg, #fffbeb); }
 
         /* ── Summary table ─────────────────────────────────────────────────── */
         .prebble-summary-table { width: 100%; }

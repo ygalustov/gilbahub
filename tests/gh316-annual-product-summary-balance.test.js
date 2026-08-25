@@ -26,15 +26,19 @@ describe('GH-316 — nutrition-prebble-integration.js (NZ) Annual Product Summar
         expect(src).toMatch(/const kBal = classifyBalance\('K', nutrientRequired\.K, nutrientTotals\.K\);/);
     });
 
-    test('Balance row uses statusClass for colour and .diff for the value, not the old naive subtraction', () => {
-        expect(src).toMatch(/nBal\.statusClass === 'sufficient' \? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'/);
-        expect(src).toMatch(/\$\{nBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(nBal\.diff\)\}/);
+    test('Balance row uses statusVisualClass(statusClass) for colour and .diff for the value, not the old naive subtraction', () => {
+        // GH-333: statusClass is now 3-way (sufficient/deficit/excess), so
+        // colouring goes through statusVisualClass() instead of a binary
+        // === 'sufficient' ternary; the '+' prefix was also dropped (GH-333
+        // follow-up -- Balance is a projected level, not a delta).
+        expect(src).toMatch(/prebble-balance-row--\$\{statusVisualClass\(nBal\.statusClass\)\}/);
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(nBal\.statusClass\)\}"><strong>\$\{Math\.round\(nBal\.diff\)\}/);
         // GH-318: P rounded to a whole number here too (was *10/10, 1dp) --
         // user asked to round this compact summary table uniformly, unlike
         // the detailed Nutrient Delivery Summary table above it which keeps
         // 1dp precision throughout.
-        expect(src).toMatch(/\$\{pBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(pBal\.diff\)\}/);
-        expect(src).toMatch(/\$\{kBal\.diff >= 0 \? '\+' : ''\}\$\{Math\.round\(kBal\.diff\)\}/);
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(pBal\.statusClass\)\}"><strong>\$\{Math\.round\(pBal\.diff\)\}/);
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(kBal\.statusClass\)\}"><strong>\$\{Math\.round\(kBal\.diff\)\}/);
     });
 
     test('the old naive (nutrientTotals.X - nutrientRequired.X) pattern is gone from the tfoot', () => {
@@ -51,8 +55,8 @@ describe('GH-316 — nutrition-au-fertiliser-integration.js (AU) Annual Product 
         expect(src).toMatch(/const kBal = classifyBalance\('K', nutrientRequired\.K, nutrientTotals\.K\);/);
     });
 
-    test('Balance row uses statusClass for colour and .diff for the value', () => {
-        expect(src).toMatch(/nBal\.statusClass === 'sufficient' \? 'au-fert-balance-row--positive' : 'au-fert-balance-row--negative'/);
+    test('Balance row uses statusVisualClass(statusClass) for colour and .diff for the value', () => {
+        expect(src).toMatch(/au-fert-balance-row--\$\{statusVisualClass\(nBal\.statusClass\)\}/);
     });
 
     test('the old naive balanceN/balanceP/balanceK subtraction is gone', () => {

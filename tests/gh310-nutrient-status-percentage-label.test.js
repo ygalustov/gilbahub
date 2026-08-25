@@ -33,10 +33,16 @@ function extractBlock(src, startMarker, maxLen) {
 
 describe('GH-310 — nutrition-prebble-integration.js (NZ) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
-    test('required > 0 branch appends the percentage to the label', () => {
-        expect(block).toMatch(/statusLabel = \(pct >= 90 \? 'On Track' : pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{pct\}%\)`;/);
+    test('Monitor/Deficit tiers append a delta-from-target percentage; On Track stays a plain label', () => {
+        // GH-333 follow-up: was `(${pct}%)` on every tier including On Track
+        // (a completion ratio, e.g. "100%" for exactly-delivered N) --
+        // confirmed with the user the number only matters for Monitor/
+        // Deficit (how far off target, "+X%/-X%"); On Track goes back to a
+        // plain label with no number, same as the range-based branch below.
+        expect(block).toMatch(/const deltaPct = pct - 100;/);
+        expect(block).toMatch(/const statusLabel = pct >= 90\s*\n\s*\? 'On Track'\s*\n\s*: \(pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{deltaPct >= 0 \? '\+' : ''\}\$\{deltaPct\}%\)`;/);
     });
 
     test('required === 0 (Met) branch is untouched -- no percentage appended', () => {
@@ -47,10 +53,16 @@ describe('GH-310 — nutrition-prebble-integration.js (NZ) status label includes
 
 describe('GH-310 — nutrition-au-fertiliser-integration.js (AU) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
-    test('required > 0 branch appends the percentage to the label', () => {
-        expect(block).toMatch(/statusLabel = \(pct >= 90 \? 'On Track' : pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{pct\}%\)`;/);
+    test('Monitor/Deficit tiers append a delta-from-target percentage; On Track stays a plain label', () => {
+        // GH-333 follow-up: was `(${pct}%)` on every tier including On Track
+        // (a completion ratio, e.g. "100%" for exactly-delivered N) --
+        // confirmed with the user the number only matters for Monitor/
+        // Deficit (how far off target, "+X%/-X%"); On Track goes back to a
+        // plain label with no number, same as the range-based branch below.
+        expect(block).toMatch(/const deltaPct = pct - 100;/);
+        expect(block).toMatch(/const statusLabel = pct >= 90\s*\n\s*\? 'On Track'\s*\n\s*: \(pct >= 70 \? 'Monitor' : 'Deficit'\) \+ ` \(\$\{deltaPct >= 0 \? '\+' : ''\}\$\{deltaPct\}%\)`;/);
     });
 
     test('required === 0 (Met) branch is untouched -- no percentage appended', () => {

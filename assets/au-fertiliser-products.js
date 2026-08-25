@@ -4751,6 +4751,13 @@
         selectNitrogenSource: function(products, monthData, context) {
             const nRequired = monthData.N || 0;
             const kRequired = monthData.K || 0;
+            // GH-327: P was never passed into this function at all -- only
+            // penalized via soilPSufficient (a boolean, magnitude-blind) in
+            // SCORE 4 below. Following GH-326's diagnosis: unlike K, P had no
+            // positive score rewarding a product for actually matching a real
+            // deficit, so a genuine Required P (e.g. 14 kg/ha, confirmed live)
+            // never pulled selection toward a P-containing product.
+            const pRequired = monthData.P || 0;
             const surfaceType = context.surfaceType || 'sports';
             const isGreens = context.isGreens || ['greens', 'golf_greens', 'bowling_greens'].includes(surfaceType);
             
@@ -4761,8 +4768,8 @@
             // 2. Are NOT pre-emergent herbicides (useCase !== 'pre_emergent*')
             // 3. Have label rates for this surface type
             // 4. Can deliver required N within their label rate range
-            const viableProducts = [];
-            
+            let viableProducts = [];
+
             products.forEach(product => {
                 const nPct = (product.analysis?.N || 0) / 100;
                 if (nPct < 0.10) return; // Need at least 10% N
@@ -4837,10 +4844,39 @@
             const season = context.season || '';
             const monthNum = context.monthNum || 0;
             const soilPSufficient = context.soilPSufficient !== false; // Default true (MLSN approach - don't add P unless deficient)
-            const isAutumn = ['Autumn', 'autumn'].includes(season) || 
+            const isAutumn = ['Autumn', 'autumn'].includes(season) ||
                             (context.hemisphere === 'south' && [3, 4, 5].includes(monthNum)) ||
                             (context.hemisphere !== 'south' && [9, 10, 11].includes(monthNum));
-            
+
+            // GH-329: hard-exclude P/K when not needed and a clean (low-P/K)
+            // alternative exists among viable N-delivery candidates -- same
+            // "exclude entirely" pattern as the herbicide/N-content filter
+            // above, instead of leaving this as one more soft score term.
+            // Confirmed live: a dilute product (6% N, e.g. Ezyreno 6-2.5-3.7)
+            // needs a large total mass to hit N targets, so even a modest
+            // 2.5%/3.7% P/K content compounds into a large absolute delivery
+            // -- its resulting excellent N-match score kept winning over a
+            // concentrated, P/K-free alternative (46-0-0 urea) despite
+            // Required P/K = 0; GH-327/328's pScore/kScore penalty alone
+            // wasn't reliably enough to displace it. Falls back to keeping
+            // the P/K-containing candidates when NO clean alternative exists
+            // this month, so a genuine N need is never left unmet.
+            const CLEAN_NUTRIENT_KGHA = 2; // same "minimal" cutoff pScore/kScore's own "not needed" bands already use
+            const effectiveMonthlyOf = (entry, key) => {
+                const pct = (entry.product.analysis?.[key] || 0) / 100;
+                const actualRate = Math.max(entry.rateNeeded, entry.labelRates.min);
+                return (actualRate * pct) / entry.monthsCovered;
+            };
+            if (soilPSufficient) {
+                const cleanP = viableProducts.filter(e => effectiveMonthlyOf(e, 'P') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanP.length > 0) viableProducts = cleanP;
+            }
+            if (kRequired <= 0) {
+                const cleanK = viableProducts.filter(e => effectiveMonthlyOf(e, 'K') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanK.length > 0) viableProducts = cleanK;
+            }
+
+
             // Score viable products
             let bestMatch = null;
             let bestScore = -Infinity;
@@ -4853,9 +4889,11 @@
                 const actualRate = Math.max(rateNeeded, labelRates.min);
                 const nAtRate = actualRate * nPct;
                 const kAtRate = actualRate * kPct;
-                
+                const pAtRate = actualRate * pPct;
+
                 // For slow-release, calculate effective monthly delivery
                 const effectiveMonthlyK = kAtRate / monthsCovered;
+                const effectiveMonthlyP = pAtRate / monthsCovered;
                 const effectiveMonthlyNActual = nAtRate / monthsCovered;
                 
                 // SCORE 1: K Delivery Accuracy (0-100 points) - REVISED
@@ -4925,34 +4963,67 @@
                     nScore = -10; // Under-delivering - moderate penalty
                 }
                 
-                // SCORE 4: P-conscious penalty (0 to -50 points)
-                // When soil P is sufficient, penalize products containing P
-                // Extra penalty on greens where P management is critical
-                let pPenalty = 0;
-                if (soilPSufficient && pPct > 0) {
-                    const pAtRate = actualRate * pPct;
-                    if (isGreens) {
-                        // Greens: stricter P control - even small amounts add up with frequent apps
-                        if (pAtRate > 2) pPenalty = -50;       // Heavy P on greens - very strong penalty
-                        else if (pAtRate > 1) pPenalty = -35;  // Moderate P on greens
-                        else if (pAtRate > 0.3) pPenalty = -20; // Light P on greens
+                // SCORE 4: P Delivery Accuracy (GH-327)
+                // Was a magnitude-blind penalty-only check (soilPSufficient,
+                // a boolean) -- replaced with the same delivery-ratio-banded
+                // structure as SCORE 1's kScore, so a genuine P deficit now
+                // pulls selection toward a P-containing product the same way
+                // K already does, instead of only ever discouraging P.
+                // soilPSufficient (pRequired <= 0, see generateAnnualProgram)
+                // still drives the "not needed" branch below.
+                let pScore = 50; // Default neutral
+                if (pRequired > 0 && pPct > 0) {
+                    const pDeliveryRatio = effectiveMonthlyP / pRequired;
+                    if (pDeliveryRatio >= 0.7 && pDeliveryRatio <= 1.3) {
+                        pScore = 100; // Perfect P delivery
+                    } else if (pDeliveryRatio >= 0.5 && pDeliveryRatio <= 1.5) {
+                        pScore = 70; // Good P delivery
+                    } else if (pDeliveryRatio < 0.5) {
+                        pScore = 40; // Under-delivering P - not ideal but acceptable
+                    } else if (pDeliveryRatio <= 2.0) {
+                        pScore = 30; // Moderate P overshoot
+                    } else if (pDeliveryRatio <= 3.0) {
+                        pScore = 10; // Heavy P overshoot
                     } else {
-                        // Sports/fairways: standard P control
-                        if (pAtRate > 3) pPenalty = -40;      // Heavy P (>3 kg/ha) - strong penalty
-                        else if (pAtRate > 1.5) pPenalty = -25; // Moderate P - moderate penalty
-                        else if (pAtRate > 0.5) pPenalty = -10; // Light P - light penalty
+                        pScore = -20; // Severe P overshoot - penalize
                     }
+                } else if (soilPSufficient && pPct > 0) {
+                    // No P needed but product contains P - penalize based on
+                    // effective monthly P. Same thresholds as kScore's
+                    // equivalent branch (kg/ha effective-monthly bands), not
+                    // the old pPenalty's separate greens/sports split -- kept
+                    // this a literal mirror of kScore rather than a hybrid of
+                    // the two prior approaches.
+                    if (effectiveMonthlyP > 10) pScore = -30;      // Heavy P when none needed
+                    else if (effectiveMonthlyP > 5) pScore = -15;  // Moderate P when none needed
+                    else if (effectiveMonthlyP > 2) pScore = 0;    // Some P when none needed
+                    else pScore = 30;                              // Minimal P
+                } else if (pRequired > 0 && pPct === 0) {
+                    // P needed but product has none - penalize more heavily,
+                    // need to rely on other products
+                    pScore = -10;
+                } else {
+                    // No P needed, product has no P - good
+                    pScore = 80;
                 }
                 
                 // SCORE 5: Autumn K boost for winter hardening
                 // In autumn, prefer products with K for winter hardiness
                 // This is CRITICAL - K builds cell wall strength, improves cold tolerance
                 // Reference: Christians et al. (2016) - K enhances winter hardiness
-                // 
-                // v3.17.0: Enhanced to encourage K even when soil K is sufficient
-                // Autumn K applications are about PLANT hardening, not just soil replacement
+                //
+                // GH-326: was unconditional on kRequired (only checked isAutumn
+                // and kPct > 0) -- the sibling liquid-product scoring function
+                // below already gates its own autumn K bonus on kRequired > 0;
+                // this one didn't, so a soil already far above its K ceiling
+                // (nutrition-calendar.js zeroes Required to 0 in that case)
+                // could still get pushed a high-K granular product every
+                // autumn, confirmed live: soil K at 356% of ceiling still
+                // received a K-containing recommendation. Gating on
+                // kRequired > 0 here too means the hardening bonus only
+                // applies when the soil genuinely still needs K this year.
                 let autumnKBonus = 0;
-                if (isAutumn) {
+                if (isAutumn && kRequired > 0) {
                     if (kPct > 0) {
                         const kContent = product.analysis?.K || 0;
                         // In autumn, high-K products get strong bonus regardless of soil K status
@@ -4960,13 +5031,11 @@
                         else if (kContent >= 10) autumnKBonus = 30; // Good K (10-15%)
                         else if (kContent >= 5) autumnKBonus = 20;  // Moderate K (5-10%)
                         else autumnKBonus = 10;                     // Some K better than none
-                        
+
                         // Extra bonus if K delivery ratio is good (not excessive)
-                        if (kRequired > 0) {
-                            const kDeliveryRatio = effectiveMonthlyK / kRequired;
-                            if (kDeliveryRatio >= 0.8 && kDeliveryRatio <= 2.0) {
-                                autumnKBonus += 15; // Sweet spot for K delivery
-                            }
+                        const kDeliveryRatio = effectiveMonthlyK / kRequired;
+                        if (kDeliveryRatio >= 0.8 && kDeliveryRatio <= 2.0) {
+                            autumnKBonus += 15; // Sweet spot for K delivery
                         }
                     } else {
                         // No K in product during autumn - significant penalty
@@ -5035,8 +5104,11 @@
                     if (_pPct2 > 3) muldersModifier -= 20 * _severityMult(_mFlags, 'Zn');
                 }
 
-                const totalScore = kScore * 0.35 + releaseScore * 0.20 + nScore * 0.25 + 
-                                   pPenalty + autumnKBonus + greensPenalty + muldersModifier;
+                // GH-327: pScore weighted the same as kScore (0.35) -- P now
+                // carries the same relative importance K already had, instead
+                // of the old unweighted pPenalty (which only ever subtracted).
+                const totalScore = kScore * 0.35 + releaseScore * 0.20 + nScore * 0.25 + pScore * 0.35 +
+                                   autumnKBonus + greensPenalty + muldersModifier;
                 
                 if (totalScore > bestScore) {
                     bestScore = totalScore;
@@ -5119,6 +5191,11 @@
             const gp = monthData.gp || 0.5;
             const nRequired = monthData.N || 0;
             const kRequired = monthData.K || 0;
+            // GH-328: monthData is built as `{ ...month, N: remainingN, K: netK, gp }`
+            // at the call site, so month.P already comes through via the
+            // spread -- unlike selectNitrogenSource() (granular), which had
+            // to have P added explicitly (GH-327).
+            const pRequired = monthData.P || 0;
             const isGreens = context.isGreens || false;
             
             if (nRequired <= 0) return null;
@@ -5205,11 +5282,34 @@
                 console.warn(`[AuFertiliserRecommender] No suitable liquid/soluble N products found`);
                 return null;
             }
-            
+
+            // GH-329: same hard exclusion as selectNitrogenSource() (granular)
+            // -- when P/K isn't needed, drop candidates that would deliver a
+            // non-trivial amount of it, provided a clean alternative remains.
+            // See that function's GH-329 comment for the full rationale.
+            const soilPSufficient = context.soilPSufficient !== false;
+            const CLEAN_NUTRIENT_KGHA = 2;
+            const effectiveDeliveryOf = (product, key) => {
+                const pct = (product.analysis?.[key] || 0) / 100;
+                const nPctLocal = (product.analysis?.N || 0) / 100;
+                if (pct <= 0 || nPctLocal <= 0) return 0;
+                const maxRateLocal = product.maxRateLHa || product.rates?.maxLHa || product.greensMaxRateKgHa || 30;
+                const estimatedRateLocal = Math.min(nRequired / nPctLocal, maxRateLocal * 2);
+                return estimatedRateLocal * pct;
+            };
+            if (soilPSufficient) {
+                const cleanP = candidates.filter(p => effectiveDeliveryOf(p, 'P') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanP.length > 0) candidates = cleanP;
+            }
+            if (kRequired <= 0) {
+                const cleanK = candidates.filter(p => effectiveDeliveryOf(p, 'K') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanK.length > 0) candidates = cleanK;
+            }
+
             // ================================================================
             // SCORE CANDIDATES
             // ================================================================
-            
+
             let bestProduct = null;
             let bestScore = -Infinity;
             
@@ -5305,26 +5405,42 @@
                 // SCORE 6: Position bonus (prefer earlier in sorted candidates)
                 const positionScore = Math.max(0, 10 - idx);
                 
-                // SCORE 7: P-conscious penalty (0 to -40 points)
-                // When soil P is sufficient, penalize products containing P
-                // Extra penalty on greens
+                // SCORE 7: P Delivery Accuracy (GH-328)
+                // Was a magnitude-blind penalty-only check (soilPSufficient,
+                // a boolean) -- mirrors this function's own SCORE 1 kScore
+                // structure instead, so a genuine P deficit pulls selection
+                // toward a P-containing liquid the same way K already does.
+                // Same fix as GH-327 (granular), applied here for consistency.
                 const pPct = (product.analysis?.P || 0) / 100;
-                let pPenalty = 0;
-                const soilPSufficient = context.soilPSufficient !== false;
-                if (soilPSufficient && pPct > 0) {
-                    const estimatedRate = Math.min(rateForN, maxRate * 2); // Assume up to 2 applications
-                    const pAtRate = estimatedRate * pPct;
-                    if (isGreens) {
-                        // Greens: stricter P control
-                        if (pAtRate > 1.5) pPenalty = -40;      // Heavy P on greens
-                        else if (pAtRate > 0.8) pPenalty = -25; // Moderate P on greens
-                        else if (pAtRate > 0.2) pPenalty = -12; // Light P on greens
+                const pAtRate = estimatedRate * pPct;
+                // soilPSufficient hoisted above (GH-329), used by the hard filter too
+                let pScore = 50; // Default neutral
+                if (pRequired > 0 && pPct > 0) {
+                    const pDeliveryRatio = pAtRate / pRequired;
+                    if (pDeliveryRatio >= 0.7 && pDeliveryRatio <= 1.3) {
+                        pScore = 100; // Perfect P delivery
+                    } else if (pDeliveryRatio >= 0.5 && pDeliveryRatio <= 1.5) {
+                        pScore = 70; // Good P delivery
+                    } else if (pDeliveryRatio < 0.5) {
+                        pScore = 40; // Under-delivering P
+                    } else if (pDeliveryRatio <= 2.0) {
+                        pScore = 25; // Moderate P overshoot
+                    } else if (pDeliveryRatio <= 3.0) {
+                        pScore = 0; // Heavy P overshoot
                     } else {
-                        // Sports/fairways: standard P control
-                        if (pAtRate > 2) pPenalty = -30;       // Heavy P - strong penalty
-                        else if (pAtRate > 1) pPenalty = -20;  // Moderate P
-                        else if (pAtRate > 0.3) pPenalty = -10; // Light P
+                        pScore = -25; // Severe P overshoot
                     }
+                } else if (soilPSufficient && pPct > 0) {
+                    // No P needed but product contains P - penalize
+                    if (pAtRate > 10) pScore = -20;
+                    else if (pAtRate > 5) pScore = 0;
+                    else pScore = 30;
+                } else if (pRequired > 0 && pPct === 0) {
+                    // P needed but product has none
+                    pScore = 25;
+                } else {
+                    // No P needed, product has no P
+                    pScore = 80;
                 }
                 
                 // SCORE 8: Autumn K boost (0-20 points)
@@ -5377,13 +5493,15 @@
                 }
 
                 // TOTAL SCORE
-                const totalScore = (kScore * 0.25) + 
-                                   (releaseScore * 0.18) + 
-                                   (greensScore * 0.12) + 
-                                   (pureNScore * 0.12) + 
-                                   (rateScore * 0.10) + 
+                // GH-328: pScore weighted the same as kScore (×0.25), replacing
+                // the old unweighted pPenalty (which only ever subtracted).
+                const totalScore = (kScore * 0.25) +
+                                   (releaseScore * 0.18) +
+                                   (greensScore * 0.12) +
+                                   (pureNScore * 0.12) +
+                                   (rateScore * 0.10) +
                                    (positionScore * 0.03) +
-                                   pPenalty +
+                                   (pScore * 0.25) +
                                    autumnKBonus +
                                    greensKPenalty +
                                    _mModifier;
@@ -5519,6 +5637,75 @@
                     P: Math.round(rateKgHa * (product.analysis.P || 0) / 100 * 10) / 10,
                     K: Math.round(rateKgHa * (product.analysis.K || 0) / 100 * 10) / 10,
                 },
+            };
+        },
+
+        /**
+         * Select P source for supplementation (GH-331).
+         *
+         * selectNitrogenSource()/selectFoliarNitrogen() only ever deliver P
+         * as an accidental byproduct of whichever product wins the
+         * N-delivery competition -- a genuine P-correction product (e.g.
+         * SOL-MAP, deliberately rate-capped low, 12-22-0) can never win that
+         * competition on N-delivery grounds, so a real P deficit was never
+         * corrected at all. Confirmed live on a golf_greens/MLSN site:
+         * Required P=14 kg/ha every month, zero delivered all year, because
+         * both selected N products (Sportsmaster WSF 20-0-0, Ammonium
+         * Sulphate 21-0-0) carry no P.
+         *
+         * Mirrors prebbles-products.js's selectPhosphorusSource() (NZ) --
+         * same tiered P% preference (dedicated P source >=20%, then
+         * moderate 2-15%, then any with P), MAP preferred by name -- adapted
+         * to this file's product shape (maxRateKgHa/greensMaxRateKgHa/
+         * maxRateLHa fields directly on the product, not a `rates`
+         * sub-object like getProductRatesForSurface() expects).
+         */
+        selectPhosphorusSource: function(granular, liquidAndSoluble, pRequired, isGreens) {
+            if (!pRequired || pRequired <= 0) return null;
+
+            const allProducts = [...granular, ...liquidAndSoluble];
+
+            let pSources = allProducts.filter(p => (p.analysis?.P || 0) >= 20);
+            if (pSources.length === 0) {
+                pSources = allProducts.filter(p => {
+                    const pPct = p.analysis?.P || 0;
+                    return pPct >= 2 && pPct <= 15;
+                });
+            }
+            if (pSources.length === 0) {
+                pSources = allProducts.filter(p => (p.analysis?.P || 0) >= 1);
+            }
+            if (pSources.length === 0) return null;
+
+            pSources.sort((a, b) => (b.analysis?.P || 0) - (a.analysis?.P || 0));
+            const bestProduct = pSources.find(p => (p.id || '').toUpperCase().includes('MAP')) || pSources[0];
+
+            const pPct = bestProduct.analysis.P / 100;
+            const isLiquidForm = bestProduct.form === 'liquid';
+            const maxRate = isGreens
+                ? (bestProduct.greensMaxRateKgHa || bestProduct.maxRateLHa || bestProduct.maxRateKgHa || 15)
+                : (bestProduct.maxRateKgHa || bestProduct.maxRateLHa || 350);
+
+            let rateKgHa = Math.round(pRequired / pPct);
+            let notes = bestProduct.notes || 'P supplementation';
+            if (rateKgHa > maxRate) {
+                rateKgHa = maxRate;
+                notes = `Capped at ${maxRate} ${isLiquidForm ? 'L/ha' : 'kg/ha'} - partial P delivery`;
+            }
+
+            return {
+                id: bestProduct.id,
+                name: bestProduct.name,
+                brand: bestProduct.brand,
+                npk: `${bestProduct.analysis.N || 0}-${bestProduct.analysis.P || 0}-${bestProduct.analysis.K || 0}`,
+                analysis: bestProduct.analysis,
+                form: bestProduct.form || 'granular',
+                rateKgHa: rateKgHa,
+                rateGM2: (rateKgHa / 10).toFixed(1),
+                pDelivered: Math.round(rateKgHa * pPct * 10) / 10,
+                nDelivered: Math.round(rateKgHa * ((bestProduct.analysis.N || 0) / 100) * 10) / 10,
+                kDelivered: Math.round(rateKgHa * ((bestProduct.analysis.K || 0) / 100) * 10) / 10,
+                notes: notes,
             };
         },
         
@@ -5733,18 +5920,36 @@
                 annualTargets.K += m.K || 0;
             });
             
-            // Determine if soil P is sufficient (MLSN approach)
-            // If annual P requirement is low (<15 kg/ha), soil P is likely sufficient
-            // In this case, we should avoid adding unnecessary P
-            const soilPSufficient = annualTargets.P < 15;
-            if (soilPSufficient) {
-            }
-            
-            
+            // GH-326: was `annualTargets.P < 15` -- an arbitrary, uncited cutoff
+            // on the annual REQUIREMENT figure, not on real soil P status. A
+            // genuine deficit whose Required just happened to land under 15
+            // (e.g. 14 kg/ha, a confirmed live case) got misclassified as
+            // "sufficient" and penalized instead of recommended. Required is
+            // already 0 exactly when nutrition-calendar.js's own ceiling check
+            // (GH-300/305/319) finds soil P at or above the methodology's
+            // ceiling -- that's the real, already-computed "soil P is
+            // sufficient, don't add more" signal; anything above 0 means
+            // Removal-only or Removal+Lift is genuinely still needed.
+            const soilPSufficient = annualTargets.P <= 0;
+
+
             const program = [];
             const delivered = { N: 0, P: 0, K: 0 };
             const activeNutrients = []; // Track slow-release carry-over
-            
+
+            // GH-331: same strategic-month P-application approach already
+            // proven in prebbles-products.js (NZ) -- pick ONE agronomically
+            // sensible month up front (first spring month with GP >= 0.4,
+            // same threshold/season logic NZ already uses) and deliver the
+            // full remaining annual P there in one application. AU's version
+            // gates on annualTargets.P (a magnitude, already computed above)
+            // rather than NZ's separately-computed boolean context.pDeficient.
+            const springMonths = hemisphere === 'south' ? [8, 9, 10] : [2, 3, 4];
+            let pApplicationMonth = null;
+            if (annualTargets.P > 5) {
+                pApplicationMonth = springMonths.find(idx => monthlyData[idx] && monthlyData[idx].gp >= 0.4) ?? springMonths[0];
+            }
+
             monthlyData.forEach((month, idx) => {
                 const gp = month.gp || 0;
                 
@@ -5820,7 +6025,11 @@
                 if (useGranular && !skipGranularDueToSlowRelease && netN >= 3 && granular.length > 0) {
                     // selectNitrogenSource now returns product WITH calculated rate
                     // Pass additional context for P-conscious and autumn K scoring
-                    const granularRec = this.selectNitrogenSource(granular, { N: netN, K: netK }, { 
+                    // GH-327: P is not tracked for slow-release carry-over
+                    // (activeN/activeK are; there's no activeP), so this
+                    // passes the raw monthly P requirement rather than a
+                    // "net" figure -- there's nothing to net it against.
+                    const granularRec = this.selectNitrogenSource(granular, { N: netN, K: netK, P: month.P || 0 }, {
                         isGreens, 
                         surfaceType,
                         season: month.season,
@@ -5978,7 +6187,53 @@
                         }
                     }
                 }
-                
+
+                // ================================================================
+                // P SUPPLEMENTATION (GH-331 -- strategic month, repeats if capped)
+                // ================================================================
+                // See selectPhosphorusSource()'s doc comment for the P-vs-N
+                // competition rationale, and this function's GH-331 comment
+                // above the month loop for the strategic-month timing.
+                //
+                // GH-331 follow-up 3: a single application at pApplicationMonth
+                // isn't always enough to close the annual gap -- confirmed
+                // live on golf_greens: SOL-MAP capped at its 15 kg/ha greens
+                // rate limit (agronomically correct, prevents burn) delivers
+                // at most 3.3 kg P per visit, far short of a 14 kg/ha annual
+                // deficit. A single "dump the whole year's P in one visit"
+                // application physically can't work when the safe per-visit
+                // rate is this restrictive. Instead of a one-shot check at
+                // exactly pApplicationMonth, keep applying (capped each time
+                // by selectPhosphorusSource()'s own rate limit) in every
+                // month from pApplicationMonth onward until the annual
+                // target is met or the season runs out -- same spirit as a
+                // real spoon-feeding programme.
+                if (pApplicationMonth !== null && idx >= pApplicationMonth) {
+                    const annualPRemaining = Math.max(0, annualTargets.P - delivered.P);
+                    if (annualPRemaining > 2) {
+                        const pProduct = this.selectPhosphorusSource(granular, all, annualPRemaining, isGreens);
+                        if (pProduct) {
+                            delivered.P += pProduct.pDelivered;
+                            const pushTarget = (pProduct.form === 'granular') ? monthResult.granular : monthResult.liquid;
+                            pushTarget.push({
+                                id: pProduct.id,
+                                name: pProduct.name,
+                                brand: pProduct.brand,
+                                npk: pProduct.npk,
+                                analysis: pProduct.analysis || {},
+                                rateKgHa: pProduct.rateKgHa,
+                                rateGM2: pProduct.rateGM2,
+                                form: pProduct.form,
+                                delivers: { N: pProduct.nDelivered, P: pProduct.pDelivered, K: pProduct.kDelivered },
+                                notes: `Strategic P application: ${pProduct.notes}`,
+                            });
+                            monthResult.notes.push(`Strategic P application: ${pProduct.pDelivered.toFixed(1)} kg/ha (annual requirement)`);
+                        } else {
+                            monthResult.notes.push(`P deficit: ${annualPRemaining.toFixed(1)} kg/ha - no suitable P source found`);
+                        }
+                    }
+                }
+
                 // ================================================================
                 // K SUPPLEMENTATION — REMOVED b35fix330
                 // ================================================================

@@ -43,7 +43,7 @@ describe('GH-313 — nutrition-prebble-integration.js (NZ)', () => {
         expect(src).toMatch(/<th class="prebble-th">Range \(kg\/ha\)<\/th>/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('rangeDisplay is computed as floor–ceiling in kg/ha and returned from every branch', () => {
         expect(block).toMatch(/const rangeDisplay = `\$\{Math\.round\(floorKgHa \* 10\) \/ 10\}–\$\{Math\.round\(ceilingKgHa \* 10\) \/ 10\}`;/);
@@ -70,7 +70,7 @@ describe('GH-313 — nutrition-au-fertiliser-integration.js (AU)', () => {
         expect(src).toMatch(/<th class="au-fert-th">Range \(kg\/ha\)<\/th>/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('rangeDisplay is computed as floor–ceiling in kg/ha and returned from every branch', () => {
         expect(block).toMatch(/const rangeDisplay = `\$\{Math\.round\(floorKgHa \* 10\) \/ 10\}–\$\{Math\.round\(ceilingKgHa \* 10\) \/ 10\}`;/);

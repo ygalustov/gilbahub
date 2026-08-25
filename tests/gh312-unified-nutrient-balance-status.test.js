@@ -143,9 +143,11 @@ describe('GH-312 — nutrition-prebble-integration.js (NZ) implementation', () =
         expect(src).toMatch(/program\.annual_lift = calendarData\.annual_lift;/);
     });
 
-    test('table header includes Removal and Lift columns', () => {
+    test('table header includes Removal again (GH-333, Lift stays hidden GH-325)', () => {
+        // GH-333: Removal came back -- without it, Balance (Current +
+        // Delivered - Removal) can't be verified from the table alone.
         expect(src).toMatch(/<th class="prebble-th">Removal \(kg\/ha\)<\/th>/);
-        expect(src).toMatch(/<th class="prebble-th">Lift \(kg\/ha\)<\/th>/);
+        expect(src).not.toMatch(/<th class="prebble-th">Lift \(kg\/ha\)<\/th>/);
     });
 
     test('info icon present on the table title, wired to the glossary entry', () => {
@@ -153,25 +155,26 @@ describe('GH-312 — nutrition-prebble-integration.js (NZ) implementation', () =
         expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('Balance formula is current + delivered - removal (not required)', () => {
         expect(block).toMatch(/const balanceKgHa = currentKgHa \+ delivered - removal;/);
     });
 
-    test('unified Low/Met/Excess classification against floor and ceiling', () => {
+    test('unified Deficit/On Track/Excess classification against floor and ceiling', () => {
+        // GH-333: labels no longer carry a %-of-floor/-ceiling suffix (it
+        // exaggerated the real magnitude, e.g. "266%") -- now show the
+        // actual kg/ha amount short of the floor / over the ceiling instead.
         expect(block).toMatch(/if \(ceilingKgHa > 0 && balanceKgHa > ceilingKgHa\) \{/);
-        expect(block).toMatch(/statusLabel: `Excess \(\$\{pct\}%\)`/);
+        expect(block).toMatch(/statusLabel: `Excess \(\+\$\{overPct\}%\)`/);
         expect(block).toMatch(/if \(balanceKgHa < floorKgHa\) \{/);
-        expect(block).toMatch(/statusLabel: `Deficit \(\$\{pct\}%\)`/);
+        expect(block).toMatch(/statusLabel: `Deficit \(-\$\{shortPct\}%\)`/);
     });
 
-    test('row template includes Removal and Lift cells', () => {
+    test('row template includes Removal cells again (GH-333), Lift stays hidden', () => {
         const rowBlock = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 1700);
-        expect(rowBlock).toMatch(/const removalDisplay = \(typeof removal === 'number'\) \? removal\.toString\(\) : '—';/);
-        expect(rowBlock).toMatch(/const liftDisplay = \(typeof lift === 'number'\) \? \(Math\.round\(lift \* 10\) \/ 10\)\.toString\(\) : '—';/);
-        expect(rowBlock).toMatch(/\$\{removalDisplay\}/);
-        expect(rowBlock).toMatch(/\$\{liftDisplay\}/);
+        expect(rowBlock).toMatch(/removalDisplay/);
+        expect(rowBlock).not.toMatch(/liftDisplay/);
     });
 });
 
@@ -183,9 +186,9 @@ describe('GH-312 — nutrition-au-fertiliser-integration.js (AU) implementation'
         expect(src).toMatch(/annual_lift:\s*calendarData\.annual_lift,/);
     });
 
-    test('table header includes Removal and Lift columns', () => {
+    test('table header includes Removal again (GH-333, Lift stays hidden GH-325)', () => {
         expect(src).toMatch(/<th class="au-fert-th">Removal \(kg\/ha\)<\/th>/);
-        expect(src).toMatch(/<th class="au-fert-th">Lift \(kg\/ha\)<\/th>/);
+        expect(src).not.toMatch(/<th class="au-fert-th">Lift \(kg\/ha\)<\/th>/);
     });
 
     test('info icon present on the table title, wired to the glossary entry', () => {
@@ -193,17 +196,17 @@ describe('GH-312 — nutrition-au-fertiliser-integration.js (AU) implementation'
         expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 4200);
+    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
 
     test('Balance formula is current + delivered - removal (not required)', () => {
         expect(block).toMatch(/const balanceKgHa = currentKgHa \+ delivered - removal;/);
     });
 
-    test('unified Low/Met/Excess classification against floor and ceiling', () => {
+    test('unified Deficit/On Track/Excess classification against floor and ceiling', () => {
         expect(block).toMatch(/if \(ceilingKgHa > 0 && balanceKgHa > ceilingKgHa\) \{/);
-        expect(block).toMatch(/statusLabel: `Excess \(\$\{pct\}%\)`/);
+        expect(block).toMatch(/statusLabel: `Excess \(\+\$\{overPct\}%\)`/);
         expect(block).toMatch(/if \(balanceKgHa < floorKgHa\) \{/);
-        expect(block).toMatch(/statusLabel: `Deficit \(\$\{pct\}%\)`/);
+        expect(block).toMatch(/statusLabel: `Deficit \(-\$\{shortPct\}%\)`/);
     });
 });
 

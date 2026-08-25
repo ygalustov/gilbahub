@@ -2189,9 +2189,18 @@
             
             const nRequired = monthData.N || 0;
             const kRequired = monthData.K || 0;
-            
+            // GH-330: mirrors GH-329's fix in au-fertiliser-products.js.
+            // The starter-product filter above only excludes high-P% (>8%)
+            // products, so a low-%-P product like Ezyreno (2.5% P) passes
+            // straight through; K's only defense in the scoring below is a
+            // token `80 - kPct` ratioScore penalty. Neither was strong
+            // enough to reliably outweigh a strong N-match/release/tech-
+            // efficiency score -- confirmed live: Ezyreno kept winning 3 of
+            // 4 granular months on an AA site with Required P=0, K=0.
+            const pRequired = monthData.P || 0;
+
             if (nRequired <= 0) return null;
-            
+
             // ============================================================
             // ANNUAL PLANNING: K deficit detection
             // ============================================================
@@ -2200,24 +2209,47 @@
             const annualKDelivered = context.annualKDelivered || 0;
             const kRunningBehind = annualKRequired > 0 && (annualKDelivered / annualKRequired) < 0.7;
             const kDeficitPct = annualKRequired > 0 ? (1 - annualKDelivered / annualKRequired) * 100 : 0;
-            
+
             if (kRunningBehind) {
             }
-            
+
             // Calculate required N:K ratio (handle K=0 case)
             const requiredRatio = kRequired > 0 ? nRequired / kRequired : Infinity;
-            
+
             // Get release preference based on soil CEC and irrigation
             const releasePreference = this.getReleasePreference(context);
-            
+
             // Get soil temperature for release tech efficiency calculation
             const soilTemp = context.soilTemp || context.soilTemperature || monthData.temp || 15;
-            
+
+            // GH-330: hard-exclude candidates that would deliver a non-trivial
+            // amount of P or K when neither is required this month, provided
+            // a clean (≤2 kg/ha at the rate needed for N) alternative remains
+            // -- same "exclude entirely, not just score down" pattern as
+            // au-fertiliser-products.js's GH-329. Falls back to keeping the
+            // P/K-containing candidates when no clean alternative exists, so
+            // a genuine N need is never left unmet.
+            const CLEAN_NUTRIENT_KGHA = 2;
+            const effectiveDeliveryOf = (product, key) => {
+                const pct = (product.analysis?.[key] || 0) / 100;
+                const nPctLocal = (product.analysis?.N || 0) / 100;
+                if (pct <= 0 || nPctLocal <= 0) return 0;
+                return (nRequired / nPctLocal) * pct;
+            };
+            if (pRequired <= 0) {
+                const cleanP = nProducts.filter(p => effectiveDeliveryOf(p, 'P') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanP.length > 0) nProducts = cleanP;
+            }
+            if (kRequired <= 0) {
+                const cleanK = nProducts.filter(p => effectiveDeliveryOf(p, 'K') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanK.length > 0) nProducts = cleanK;
+            }
+
             // Score products
             let bestProduct = null;
             let bestScore = -Infinity;
             let bestTechEfficiency = 0;
-            
+
             nProducts.forEach(product => {
                 const nPct = product.analysis.N;
                 const kPct = product.analysis.K || 0;
@@ -2764,16 +2796,35 @@
             
             const nRequired = monthData.N || 0;
             const kRequired = monthData.K || 0;
-            
+            const pRequired = monthData.P || 0; // GH-330, same rationale as selectNitrogenSource()
+
             if (nRequired <= 0) return null;
-            
+
             // Calculate required N:K ratio
             const requiredRatio = kRequired > 0 ? nRequired / kRequired : Infinity;
-            
+
+            // GH-330: same hard exclusion as selectNitrogenSource() -- see
+            // that function's GH-330 comment for the full rationale.
+            const CLEAN_NUTRIENT_KGHA = 2;
+            const effectiveDeliveryOf = (product, key) => {
+                const pct = (product.analysis?.[key] || 0) / 100;
+                const nPctLocal = (product.analysis?.N || 0) / 100;
+                if (pct <= 0 || nPctLocal <= 0) return 0;
+                return (nRequired / nPctLocal) * pct;
+            };
+            if (pRequired <= 0) {
+                const cleanP = nLiquids.filter(p => effectiveDeliveryOf(p, 'P') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanP.length > 0) nLiquids = cleanP;
+            }
+            if (kRequired <= 0) {
+                const cleanK = nLiquids.filter(p => effectiveDeliveryOf(p, 'K') <= CLEAN_NUTRIENT_KGHA);
+                if (cleanK.length > 0) nLiquids = cleanK;
+            }
+
             // Score products - N:K ratio match is primary criterion
             let bestProduct = null;
             let bestScore = -Infinity;
-            
+
             nLiquids.forEach(product => {
                 const nPct = product.analysis.N;
                 const kPct = product.analysis.K || 0;
