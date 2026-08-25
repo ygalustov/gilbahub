@@ -739,7 +739,20 @@
             // 2026-08-24 decision: the number stays, a badge just makes clear
             // it's an estimate, not the printed certificate value.
             var isGenericRange = isAA && n.rangeSource === 'texture-fallback';
-            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+parseFloat(n.rangeMin).toFixed(1)+'–'+parseFloat(n.rangeMax).toFixed(1)+' ppm'+(isGenericRange ? ' (generic)' : '')+'</span></div>';
+            // GH-315: kg/ha equivalent of the ppm sufficiency range, so this
+            // can be cross-checked directly against the Nutrition Program's
+            // "Nutrient Delivery Summary" table (kg/ha-only, GH-312/313) --
+            // found live: user was comparing "AA: 78.2-195.5 ppm" here
+            // against "109.5-273.7" there and the two looked like a
+            // mismatch until the unit difference was pointed out. Same
+            // depthFactor conversion already used for Soil reserve/Est.
+            // annual demand below.
+            var rangeMinKgHa = (isAA && n.rangeMin != null && depthFactor) ? (parseFloat(n.rangeMin) * depthFactor) : null;
+            var rangeMaxKgHa = (isAA && n.rangeMax != null && depthFactor) ? (parseFloat(n.rangeMax) * depthFactor) : null;
+            var rangeKgHaText = (rangeMinKgHa != null && rangeMaxKgHa != null)
+                ? ' ('+rangeMinKgHa.toFixed(1)+'–'+rangeMaxKgHa.toFixed(1)+' kg/ha)'
+                : '';
+            if (isAA && n.rangeMin != null && n.rangeMax != null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Sufficiency range</span><span class="sn-why-val">'+parseFloat(n.rangeMin).toFixed(1)+'–'+parseFloat(n.rangeMax).toFixed(1)+' ppm'+rangeKgHaText+(isGenericRange ? ' (generic)' : '')+'</span></div>';
             if (reserveKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Soil reserve</span><span class="sn-why-val">'+reserveKgHa.toFixed(1)+' kg/ha</span></div>';
             if (surplusKgHa!=null) whyRows += '<div class="sn-why-row"><span class="sn-why-label">Reserve above threshold</span><span class="sn-why-val">'+surplusKgHa.toFixed(1)+' kg/ha</span></div>';
             if (demandKgHa!=null)  whyRows += '<div class="sn-why-row"><span class="sn-why-label">Est. annual demand</span><span class="sn-why-val">'+demandKgHa.toFixed(1)+' kg/ha</span></div>';
@@ -779,9 +792,18 @@
                   ' title="No Hill Labs certificate range for this nutrient on this sample type -- showing a generic soil-texture estimate instead. '+(hasWhyPanel ? 'Click for details.' : '')+'">Generic</span>'
                 : '';
 
+            // GH-315 follow-up: same kg/ha cross-check for MLSN/SLAN's single
+            // threshold value (mlsnKgHa, already computed above for the
+            // Why-panel's Soil-reserve/surplus rows) -- simple part of "do
+            // for all", separate from the larger MLSN/SLAN ceiling work
+            // (nutrition-calendar.js has no MLSN/SLAN Range column yet, so
+            // there's nothing on the Nutrition Program side to cross-check
+            // against yet, but the Soil page card itself can show its own
+            // number in both units regardless).
+            var mlsnKgHaText = (mlsnKgHa != null) ? ' ('+mlsnKgHa.toFixed(1)+' kg/ha)' : '';
             var thresholdHtml = isAA
-                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm'+genericBadge+'</div>'
-                : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm</div>';
+                ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm'+esc(rangeKgHaText)+genericBadge+'</div>'
+                : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm'+esc(mlsnKgHaText)+'</div>';
 
             return '<div class="sn-card '+sc+'">'+
                 '<div class="sn-card-nutrient"><span style="text-transform:none">'+esc(n.nutrient)+'</span> — '+esc(name)+'</div>'+
