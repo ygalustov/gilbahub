@@ -44,7 +44,9 @@ function extractBlock(src, startMarker, maxLen) {
 
 describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 1600);
+    // GH-310 widened this window (1600->2200): appending the percentage to
+    // the status label added an explanatory comment ahead of the branch.
+    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
@@ -65,7 +67,8 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
 
 describe('GH-306 — nutrition-au-fertiliser-integration.js (AU)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 1600);
+    // GH-310 widened this window (1600->2200), same reason as the NZ block above.
+    const block = extractBlock(src, "const nutrientSummaryRows = ['N', 'P', 'K'].map(nutrient => {", 2700);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);

@@ -721,6 +721,18 @@
                 // MLSN/SLAN sites already at/above target, so this bug
                 // predates the AA work but was effectively invisible until
                 // AA's Required could also legitimately be exactly 0.
+                // GH-310: old hub (pre-GH-306, `pct = required > 0 ? ... : 0`)
+                // rendered the raw percentage next to the icon (`✓ 117%`),
+                // so an over-delivery's magnitude was visible. The GH-306
+                // text-label rewrite ('On Track'/'Monitor'/'Deficit') dropped
+                // that number — 91% and 2000% both just read "On Track".
+                // Appending the percentage restores that visibility without
+                // reintroducing the old emoji icons (project rule: no
+                // emoji, text/SVG only). Not shown on the required===0
+                // branch — delivered/required is undefined at required=0,
+                // there's no legacy percentage to restore there (the old
+                // hub's "0%" for this case was itself GH-306's bug, not a
+                // real number).
                 let statusClass, statusLabel;
                 if (required === 0) {
                     statusClass = 'sufficient';
@@ -728,7 +740,7 @@
                 } else {
                     const pct = Math.round((delivered / required) * 100);
                     statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    statusLabel = pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit';
+                    statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
                 }
                 return `
                     <tr class="nutrient-${statusClass}">

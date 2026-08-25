@@ -831,6 +831,12 @@
                 // (0% < 70%) regardless of delivered. Same fix as
                 // nutrition-prebble-integration.js (this file's byte-identical
                 // twin for the AU market).
+                // GH-310: same fix as nutrition-prebble-integration.js
+                // (this file's byte-identical twin) — append the percentage
+                // to the status label, restoring the old hub's visible
+                // over-delivery magnitude (pre-GH-306: `✓ 117%`) without
+                // bringing back its emoji icons. Not shown on required===0
+                // (Met) — delivered/required is undefined there.
                 let statusClass, statusLabel;
                 if (required === 0) {
                     statusClass = 'sufficient';
@@ -838,7 +844,7 @@
                 } else {
                     const pct = Math.round((delivered / required) * 100);
                     statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    statusLabel = pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit';
+                    statusLabel = (pct >= 90 ? 'On Track' : pct >= 70 ? 'Monitor' : 'Deficit') + ` (${pct}%)`;
                 }
                 return `
                     <tr class="nutrient-${statusClass}">
