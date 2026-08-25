@@ -805,9 +805,16 @@
                 ? '<div class="sn-card-threshold">AA: '+esc(n.mlsn||'—')+' ppm'+esc(rangeKgHaText)+genericBadge+'</div>'
                 : '<div class="sn-card-threshold">MLSN: '+esc(n.mlsn||'—')+' ppm'+esc(mlsnKgHaText)+'</div>';
 
+            // GH-320: same "show both units so the two pages can be
+            // cross-checked without a mental conversion" reasoning as
+            // GH-315's threshold-line fix, applied to the measured value
+            // itself. reserveKgHa was already computed above (feeds the
+            // Why-panel's "Soil reserve" row) but was never shown on the
+            // main visible card value -- only behind the Why? toggle.
+            var reserveKgHaText = (reserveKgHa != null) ? ' <span>('+reserveKgHa.toFixed(1)+' kg/ha)</span>' : '';
             return '<div class="sn-card '+sc+'">'+
                 '<div class="sn-card-nutrient"><span style="text-transform:none">'+esc(n.nutrient)+'</span> — '+esc(name)+'</div>'+
-                '<div class="sn-card-value">'+esc(n.actual)+' <span>ppm</span></div>'+
+                '<div class="sn-card-value">'+esc(n.actual)+' <span>ppm</span>'+reserveKgHaText+'</div>'+
                 thresholdHtml+
                 '<div class="sn-card-bar"><div style="width:'+barPct.toFixed(1)+'%;background:'+barClr+'" class="sn-card-bar-fill"></div></div>'+
                 '<div><span class="sn-badge '+sc+'">'+icon+' '+esc(n.status||sc)+'</span></div>'+

@@ -142,15 +142,18 @@ describe('GH-305 — computeProgram() AA ceiling also fires on the generic textu
         expect(program.annual_totals.S).toBe(0); // 75 >= 60
     });
 
-    test('regression: MLSN methodology never touches AmmoniumAcetateMethodology, no ceiling applied', function () {
+    test('regression: MLSN methodology never touches AmmoniumAcetateMethodology (the AA generic-fallback path); it gets its own MLSN ceiling instead (GH-319)', function () {
         var aamCalled = false;
         global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes();
         global.window.AmmoniumAcetateMethodology = {
             getSufficiencyRange: function () { aamCalled = true; return { ranges: { medium: [1, 2] } }; },
         };
+        // K=199ppm (baseInputs default) is above the MLSN ceiling (37 x 1.5
+        // = 55.5ppm), so GH-319's own MLSN branch zeroes it -- via a
+        // completely different code path from the AA one this test guards.
         var program = NutritionCalendar.computeProgram(baseInputs({ methodology: 'mlsn' }));
         expect(aamCalled).toBe(false);
-        expect(program.annual_totals.K).toBeGreaterThan(0);
+        expect(program.annual_totals.K).toBe(0);
     });
 
     test('graceful degradation: neither HillLabsSampleTypes nor AmmoniumAcetateMethodology loaded -> unchanged uncapped behaviour, no throw', function () {

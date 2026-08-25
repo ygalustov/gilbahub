@@ -1212,6 +1212,9 @@
         // .max for the ceiling means both ends can never disagree again.
         // Non-AA methodologies (MLSN/SLAN) are untouched -- they keep calling
         // calculateDeficit()/getThresholds() exactly as before.
+        const isSLANMethodology = (methodologyUsed || '').toLowerCase() === 'slan';
+        const isMLSNMethodology = !isAAMethodology && !isSLANMethodology;
+
         const aaRanges = { P: null, K: null, Ca: null, Mg: null, S: null };
         const annualRangeSource = { P: 'texture-fallback', K: 'texture-fallback', Ca: 'texture-fallback', Mg: 'texture-fallback', S: 'texture-fallback' };
         if (isAAMethodology) {
@@ -1260,14 +1263,67 @@
                     '| source:', annualRangeSource[nutrient]);
                 aaRanges[nutrient] = _range || null;
             });
+        } else if (isSLANMethodology) {
+            // GH-319 ("do for all"): SLAN already has a real, published,
+            // two-sided floor/ceiling range -- Carrow, R.N., Stowell, L.,
+            // Gelernter, W., Davis, S., Duncan, R.R., Skorulski, J. (2004).
+            // "Clarifying soil testing: III. SLAN sufficiency ranges and
+            // recommendations." Golf Course Management 72(1):194-198 --
+            // already exported as GilbaClassificationConstants.SLAN_RANGES
+            // and already used by nutrition-requirement-engine.js for the
+            // exact same purpose. This calendar previously only read the
+            // single-value floor (SLAN_THRESHOLDS, itself derived from
+            // SLAN_RANGES.floor) and had no ceiling concept for SLAN at
+            // all -- the same missing-ceiling gap D07 found for AA, just
+            // never extended here. Local fallback mirrors
+            // nutrition-requirement-engine.js's SLAN_RANGES_FALLBACK so
+            // this still works if the constants module isn't loaded.
+            var _gcc = (typeof window !== 'undefined' && window.GilbaClassificationConstants) || null;
+            var _slanRanges = (_gcc && _gcc.SLAN_RANGES) || {
+                P:  { floor: 27,  ceiling: 54 },
+                K:  { floor: 75,  ceiling: 176 },
+                Ca: { floor: 500, ceiling: 750 },
+                Mg: { floor: 70,  ceiling: 140 },
+                S:  { floor: 15,  ceiling: 40 },
+            };
+            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+                var r = _slanRanges[nutrient];
+                if (r && typeof r.floor === 'number' && typeof r.ceiling === 'number') {
+                    aaRanges[nutrient] = { min: r.floor, max: r.ceiling };
+                    // Not a "generic estimate vs certificate" axis the way AA
+                    // has one (no per-site lab certificate for SLAN) -- this
+                    // is simply the one published range. Tagging
+                    // 'certificate' here only so the existing "Generic"
+                    // badge (AA-gated elsewhere) never mistakenly fires;
+                    // this value plays no other role for non-AA sites.
+                    annualRangeSource[nutrient] = 'certificate';
+                }
+            });
+        } else if (isMLSNMethodology) {
+            // GH-319 ("do for all"): MLSN (Woods, Stowell & Gelernter 2016)
+            // publishes a floor only -- no MLSN ceiling exists in the
+            // literature. This hub already has an established convention
+            // for one: nutrition-requirement-engine.js's MLSN branch uses
+            // target = threshold x 1.5 (TARGET_MULTIPLIER) as its ceiling
+            // hub-wide (Soil page/export "above target -> 0", High/
+            // Excessive status bands). Reusing that exact multiplier here
+            // rather than inventing a separate number for this table.
+            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+                var floor = CONFIG.mlsnThresholds[nutrient];
+                if (typeof floor === 'number') {
+                    aaRanges[nutrient] = { min: floor, max: floor * 1.5 };
+                    annualRangeSource[nutrient] = 'certificate';
+                }
+            });
         }
 
         ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
             let deficit;
-            if (isAAMethodology && aaRanges[nutrient]) {
-                // GH-308: floor now comes from the same resolved range as the
-                // ceiling below (certificate or generic fallback), not the
-                // old CONFIG.aaThresholds table.
+            if (aaRanges[nutrient]) {
+                // GH-308/319: floor now comes from the same resolved range
+                // as the ceiling below (AA certificate/generic fallback,
+                // SLAN Carrow 2004, or MLSN floor x1.5), not the old
+                // per-methodology single-value CONFIG threshold tables.
                 const floor = aaRanges[nutrient].min;
                 const currentPpm = inputs.soilPpm[nutrient];
                 deficit = currentPpm < floor
@@ -1302,21 +1358,21 @@
             S: Math.round(adjustedRemoval.S + annualCorrection.S),
         };
 
-        // GH-300/305 (D07 item 6 follow-ups): AA ceiling -- zero out any
-        // nutrient at or above its resolved range's ceiling. GH-308: uses
-        // the same aaRanges resolved in STEP 4 above (certificate-first,
-        // generic fallback per GH-305), so floor and ceiling can never
-        // disagree. Graceful degradation to today's uncapped behaviour when
-        // aaRanges[nutrient] is null (uncovered species/texture, or
-        // HillLabsSampleTypes/AmmoniumAcetateMethodology not loaded).
-        if (isAAMethodology) {
-            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-                const range = aaRanges[nutrient];
-                if (range && typeof range.max === 'number' && inputs.soilPpm[nutrient] >= range.max) {
-                    annualRequirements[nutrient] = 0;
-                }
-            });
-        }
+        // GH-300/305/319: ceiling -- zero out any nutrient at or above its
+        // resolved range's ceiling, for any methodology (AA certificate/
+        // generic, SLAN Carrow 2004, or MLSN floor x1.5). GH-308: uses the
+        // same aaRanges resolved in STEP 4 above, so floor and ceiling can
+        // never disagree. Graceful degradation to today's uncapped
+        // behaviour when aaRanges[nutrient] is null (AA: uncovered species/
+        // texture, or HillLabsSampleTypes/AmmoniumAcetateMethodology not
+        // loaded; MLSN/SLAN: GilbaClassificationConstants not loaded and no
+        // local fallback matched, which shouldn't normally happen).
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
+            const range = aaRanges[nutrient];
+            if (range && typeof range.max === 'number' && inputs.soilPpm[nutrient] >= range.max) {
+                annualRequirements[nutrient] = 0;
+            }
+        });
         console.log('[GH302-DEBUG] final annualRequirements:', annualRequirements);
 
         // Calculate monthly GP

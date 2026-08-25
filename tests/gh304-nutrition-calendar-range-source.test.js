@@ -111,10 +111,11 @@ describe('GH-304 — computeProgram() tags annual_totals_range_source', function
         });
     });
 
-    test('MLSN methodology: range_source object still present (all texture-fallback) but never consulted for a ceiling', function () {
+    test('MLSN methodology (GH-319): range_source tagged \'certificate\' for its own published floor x1.5 ceiling (not an AA/generic-estimate concept, but reuses the label so the AA-gated "Generic" badge never misfires)', function () {
         var program = NutritionCalendar.computeProgram(baseInputs({ methodology: 'mlsn' }));
-        expect(program.annual_totals_range_source.K).toBe('texture-fallback');
-        expect(program.annual_totals.K).toBeGreaterThan(0);
+        expect(program.annual_totals_range_source.K).toBe('certificate');
+        // K=199ppm (baseInputs default) is above the MLSN ceiling (55.5ppm) -> zeroed.
+        expect(program.annual_totals.K).toBe(0);
     });
 
     test('HillLabsSampleTypes not loaded at all: graceful degradation, all texture-fallback, no throw', function () {

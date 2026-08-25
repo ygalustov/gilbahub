@@ -90,15 +90,23 @@ describe('GH-300 — computeProgram() AA ceiling', function () {
         expect(program.annual_totals.Ca).toBeGreaterThan(0);
     });
 
-    test('MLSN methodology is completely unaffected (no HillLabsSampleTypes call, no ceiling logic reached)', function () {
+    test('MLSN methodology never touches the AA certificate path (deriveCode/getRangesPpm), but gets its own MLSN ceiling (GH-319: floor x1.5) at this K level', function () {
         var deriveCodeCalled = false;
         global.window.HillLabsSampleTypes = {
             deriveCode: function () { deriveCodeCalled = true; return 'S277'; },
             getRangesPpm: function () { return { min: 1, max: 2 }; },
         };
+        // K=199ppm is well above the MLSN ceiling (37 x 1.5 = 55.5ppm), so
+        // GH-319's own MLSN branch (not the AA certificate path) zeroes it.
         var program = NutritionCalendar.computeProgram(baseInputs({ methodology: 'mlsn', soilPpm: { P: 40, K: 199, Ca: 803, Mg: 129, S: 75 } }));
         expect(program.error).toBeUndefined();
         expect(deriveCodeCalled).toBe(false);
+        expect(program.annual_totals.K).toBe(0);
+    });
+
+    test('MLSN methodology: a K level within the floor..ceiling band (37-55.5ppm) gets removal only, not zeroed', function () {
+        var program = NutritionCalendar.computeProgram(baseInputs({ methodology: 'mlsn', soilPpm: { P: 40, K: 45, Ca: 803, Mg: 129, S: 75 } }));
+        expect(program.error).toBeUndefined();
         expect(program.annual_totals.K).toBeGreaterThan(0);
     });
 
