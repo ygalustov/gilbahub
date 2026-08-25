@@ -902,7 +902,7 @@
                         <td class="au-fert-cell au-fert-cell--num">${liftDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num">${required}</td>
                         <td class="au-fert-cell au-fert-cell--num">${delivered}</td>
-                        <td class="au-fert-cell au-fert-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="au-fert-cell au-fert-cell--num nutrient-diff ${statusClass === 'sufficient' ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
                         <td class="au-fert-cell au-fert-cell--num">${rangeDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
@@ -1016,10 +1016,15 @@
                 totalRateStr += (totalRateStr ? ' + ' : '') + `${Math.round(totalLHa)} L/ha`;
             }
             
-            const balanceN = nutrientTotals.N - nutrientRequired.N;
-            const balanceP = nutrientTotals.P - nutrientRequired.P;
-            const balanceK = nutrientTotals.K - nutrientRequired.K;
-            
+            // GH-316: this row used the naive Delivered-Required formula
+            // GH-311/312 already fixed in the Nutrient Delivery Summary
+            // table above -- same page, same fix as
+            // nutrition-prebble-integration.js (this file's byte-identical
+            // twin). Reuse classifyBalance() so both tables agree.
+            const nBal = classifyBalance('N', nutrientRequired.N, nutrientTotals.N);
+            const pBal = classifyBalance('P', nutrientRequired.P, nutrientTotals.P);
+            const kBal = classifyBalance('K', nutrientRequired.K, nutrientTotals.K);
+
             const totalRow = `
                 <tr class="au-fert-totals-row">
                     <td class="au-fert-cell au-fert-cell--left">Total Delivered</td>
@@ -1035,11 +1040,11 @@
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
                     <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                 </tr>
-                <tr class="${balanceN >= 0 ? 'au-fert-balance-row--positive' : 'au-fert-balance-row--negative'}">
+                <tr class="${nBal.statusClass === 'sufficient' ? 'au-fert-balance-row--positive' : 'au-fert-balance-row--negative'}">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><strong>Balance</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceN >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceN >= 0 ? '+' : ''}${Math.round(balanceN)}</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceP >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceP >= 0 ? '+' : ''}${Math.round(balanceP * 10) / 10}</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${balanceK >= 0 ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${balanceK >= 0 ? '+' : ''}${Math.round(balanceK)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${nBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${nBal.diff >= 0 ? '+' : ''}${Math.round(nBal.diff)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${pBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff * 10) / 10}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono ${kBal.statusClass === 'sufficient' ? 'au-fert-positive' : 'au-fert-negative'}"><strong>${kBal.diff >= 0 ? '+' : ''}${Math.round(kBal.diff)}</strong></td>
                 </tr>
             `;
             

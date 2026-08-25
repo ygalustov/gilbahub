@@ -820,7 +820,7 @@
                         <td class="prebble-cell prebble-cell--num">${liftDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${required}</td>
                         <td class="prebble-cell prebble-cell--num">${delivered}</td>
-                        <td class="prebble-cell prebble-cell--num nutrient-diff ${diff >= 0 ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
+                        <td class="prebble-cell prebble-cell--num nutrient-diff ${statusClass === 'sufficient' ? 'positive' : 'negative'}">${diff >= 0 ? '+' : ''}${diff.toFixed(1)}</td>
                         <td class="prebble-cell prebble-cell--num">${rangeDisplay}</td>
                         <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
                     </tr>
@@ -959,7 +959,19 @@
                     </tr>
                 `;
             }).join('');
-            
+
+            // GH-316: "Annual Product Summary"'s own Balance row (tfoot,
+            // below) used the same naive Delivered-Required formula
+            // GH-311/312 already fixed in the Nutrient Delivery Summary
+            // table above -- same page, same underlying nutrients,
+            // disagreeing on what "Balance" means (P/K showed the full
+            // delivered amount in green as pure surplus, even when
+            // Balance = Current + Delivered - Removal would actually be
+            // Excess). Reuse classifyBalance() so both tables always agree.
+            const nBal = classifyBalance('N', nutrientRequired.N, nutrientTotals.N);
+            const pBal = classifyBalance('P', nutrientRequired.P, nutrientTotals.P);
+            const kBal = classifyBalance('K', nutrientRequired.K, nutrientTotals.K);
+
             return `
                 <div class="gilba-panel gilba-prebble-panel">
                     <div class="gilba-int-header">
@@ -1069,11 +1081,11 @@
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P * 10) / 10}</em></td>
                                     <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
                                 </tr>
-                                <tr class="${(nutrientTotals.N - nutrientRequired.N) >= 0 ? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'}">
+                                <tr class="${nBal.statusClass === 'sufficient' ? 'prebble-balance-row--positive' : 'prebble-balance-row--negative'}">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Balance</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.N - nutrientRequired.N) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.N - nutrientRequired.N) >= 0 ? '+' : ''}${Math.round(nutrientTotals.N - nutrientRequired.N)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.P - nutrientRequired.P) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.P - nutrientRequired.P) >= 0 ? '+' : ''}${Math.round((nutrientTotals.P - nutrientRequired.P) * 10) / 10}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${(nutrientTotals.K - nutrientRequired.K) >= 0 ? 'prebble-positive' : 'prebble-negative'}"><strong>${(nutrientTotals.K - nutrientRequired.K) >= 0 ? '+' : ''}${Math.round(nutrientTotals.K - nutrientRequired.K)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${nBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${nBal.diff >= 0 ? '+' : ''}${Math.round(nBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${pBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${pBal.diff >= 0 ? '+' : ''}${Math.round(pBal.diff * 10) / 10}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono ${kBal.statusClass === 'sufficient' ? 'prebble-positive' : 'prebble-negative'}"><strong>${kBal.diff >= 0 ? '+' : ''}${Math.round(kBal.diff)}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
