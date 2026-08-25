@@ -835,16 +835,31 @@
             }
         }
 
-        // Card 4: Seasonal N this quarter
-        var soilN = computed.soilNutrition;
-        if (soilN && soilN.annualDemand) {
-            var monthlyN = safeNum(soilN.annualDemand.n, 0) / 12;
-            var nCls = monthlyN > 20 ? 'red' : monthlyN > 10 ? 'amber' : 'green';
-            cards.push(kpi('Monthly N Need', Math.round(monthlyN)+'', 'kg N/ha this month',
-                badge(monthlyN > 20 ? 'High demand' : monthlyN > 10 ? 'Moderate' : 'Low', nCls),
+        // Card 4: Current month N need. GH-322: sourced directly from the
+        // generated Nutrition Program's own monthly (GP-weighted) array
+        // instead of independently recomputing annualDemand.N / 12. Two
+        // bugs fixed at once: (a) this previously read annualDemand.n
+        // (lowercase) but calculateAnnualDemand() only ever sets
+        // annualDemand.N (uppercase) -- .n was always undefined, so the
+        // card showed 0 unconditionally, for every site, every month; (b)
+        // even with the casing fixed, annual/12 is a flat average, not the
+        // real current month -- it would still disagree with the Monthly
+        // Nutrient Program table, whose GP-weighted split correctly gives
+        // winter months (e.g. August on a cool-season site) much less than
+        // annual/12. Reading straight from the same monthly array the table
+        // itself renders from means this card can never disagree with it.
+        var _calendar = window.GilbaNutritionCalendar;
+        var _genProgram = _calendar && _calendar.program;
+        var _monthlyArr = _genProgram && _genProgram.program && _genProgram.program.monthly;
+        var _curMonthEntry = _monthlyArr && _monthlyArr[nowMonth()];
+        var _curMonthN = _curMonthEntry ? safeNum(_curMonthEntry.N, null) : null;
+        if (_curMonthN != null) {
+            var nCls = _curMonthN > 20 ? 'red' : _curMonthN > 10 ? 'amber' : 'green';
+            cards.push(kpi('Monthly N Need', (Math.round(_curMonthN * 10) / 10)+'', 'kg N/ha in ' + (_curMonthEntry.month_name || 'this month'),
+                badge(_curMonthN > 20 ? 'High demand' : _curMonthN > 10 ? 'Moderate' : 'Low', nCls),
                 nCls === 'red' ? '#dc2626' : nCls === 'amber' ? '#d97706' : '#15803d'));
         } else {
-            cards.push(kpi('Nutrition', '—', 'Run analysis for N demand', badge('No soil data', 'grey'), '#6b7280'));
+            cards.push(kpi('Nutrition', '—', 'Generate a Nutrition Program for N demand', badge('No programme', 'grey'), '#6b7280'));
         }
 
         el.innerHTML = [
@@ -865,7 +880,39 @@
         var computed   = data.computed  || {};
         var siteConfig = global.GAIP_SITE_CONFIG || {};
 
+        console.log('[GH322-DEBUG] init() running | GilbaNutritionCalendar present?',
+            !!global.GilbaNutritionCalendar, '| .program present?',
+            !!(global.GilbaNutritionCalendar && global.GilbaNutritionCalendar.program));
+
         renderPlanHeader(computed, siteConfig);
+
+        // GH-322 follow-up: the "Monthly N Need" KPI card (inside
+        // renderPlanHeader) reads window.GilbaNutritionCalendar.program,
+        // but that's populated asynchronously -- by NutritionCalendar's own
+        // generate() (live "Generate" click) or restoreFromPersisted()
+        // (page load/reload), neither of which has necessarily happened yet
+        // by the time this synchronous init() runs at DOMContentLoaded, so
+        // the very first render is often the "no programme" empty state
+        // even when a program was already saved. Originally this also
+        // listened for 'gaip:site-config-applied' with a 200ms delay
+        // (matching nutrition-nz/au/uk-fertiliser-integration.js's
+        // "late-render catch-up" pattern) -- confirmed live via
+        // [GH322-DEBUG] that this was a dead end on plan.blade.php
+        // specifically: that page never loads site-config-persistence.js,
+        // so 'gaip:site-config-applied' never fires there at all;
+        // NutritionCalendar.restoreFromPersisted() is called directly from
+        // its own init() instead (see the comment there). Fixed at the
+        // source instead: restoreFromPersisted() now also dispatches
+        // 'gaip:nutrition-calendar-generated' (same event generate() always
+        // used) once this.program is set, so this single listener covers
+        // both the live-generate and the restore path, on every page,
+        // regardless of which internal mechanism populated the program.
+        document.addEventListener('gaip:nutrition-calendar-generated', function () {
+            var freshData = global.GAIP_DASHBOARD_DATA || {};
+            console.log('[GH322-DEBUG] gaip:nutrition-calendar-generated received, re-rendering plan header | program present?',
+                !!(global.GilbaNutritionCalendar && global.GilbaNutritionCalendar.program));
+            renderPlanHeader(freshData.computed || {}, global.GAIP_SITE_CONFIG || {});
+        });
 
         // ── Tab routing (mirrors analysis-router.js pattern) ──────────────
         var TABS = ['pre-emergent', 'pgr', 'recovery', 'nutrition'];

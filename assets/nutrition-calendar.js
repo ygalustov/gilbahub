@@ -2044,6 +2044,25 @@
 
         this.renderResults();
         this.showResults();
+
+        // GH-322 follow-up: restoreFromPersisted() never dispatched this
+        // event, only generate() did -- so any consumer relying on it to
+        // know "a program is now available" (plan-ui.js's Monthly N Need
+        // KPI card) never fired on the restore path. Confirmed live via
+        // [GH322-DEBUG]: on plan.blade.php specifically, restoreFromPersisted()
+        // is called directly from init() (line ~214, no
+        // 'gaip:site-config-applied' event exists on this page at all --
+        // see the comment there), so listening for that event was a dead
+        // end; this dispatch is the one signal every consumer can rely on
+        // regardless of which path (live generate vs restore) populated
+        // this.program. Safe for the regional integrations (NZ/AU/UK),
+        // which already have their own independent "late-render catch-up"
+        // self-check at their own init() time -- they render at most once
+        // either way, whichever mechanism reaches them first.
+        console.log('[GH322-DEBUG] restoreFromPersisted() dispatching gaip:nutrition-calendar-generated');
+        document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated', {
+            detail: { program: this.program }
+        }));
     };
 
     // ========================================================================
