@@ -350,6 +350,25 @@
         },
         // GH-283: plain-language explainer for the Tissue Test Results block,
         // added at the user's request alongside the GH-282 badge-colour fix.
+        // GH-324: explains what "Correction Program" actually computes — a
+        // one-time dose to close the gap to the MLSN floor today, a
+        // different corrective philosophy from the Nutrition Program page's
+        // multi-year Lift (deficit spread over yearsToCorrect). The two can
+        // show numbers for the same nutrient that look inconsistent if this
+        // distinction isn't made explicit.
+        'sn-correction-program': {
+            title: 'Correction Program',
+            body:  'A one-time dose to bring a deficient nutrient up to its MLSN threshold today — not a year-round ' +
+                   'programme.\n\n' +
+                   'Deficit (ppm) = MLSN threshold − current soil level, converted to kg/ha, then divided by the ' +
+                   'correction product\'s nutrient content to get an application rate.\n\n' +
+                   'This is a different, faster-acting approach from the Nutrition Program page\'s "Lift", which ' +
+                   'spreads the same deficit gradually across 2–3 years alongside normal fertiliser applications. ' +
+                   'Correction Program does not know about Lift already scheduled there, does not account for ' +
+                   'nutrient removal by the turf, and always uses one fixed reference product per nutrient — the ' +
+                   'real programme may already use a different source. Use Nutrition Program for the actual ' +
+                   'application plan; use this panel to see how large a one-off correction would be.',
+        },
         'sn-tissue-results': {
             title: 'Tissue Test Results',
             body:  'A tissue test measures the nutrients actually inside the grass plant itself, not in the soil — ' +
@@ -1122,7 +1141,9 @@
 
         if (!rows) return '';
 
-        return '<div class="sn-section"><div class="sn-section-title">Correction Program</div>' +
+        return '<div class="sn-section"><div class="sn-section-title">Correction Program' +
+            ' <button class="db-info-icon" data-info="sn-correction-program" tabindex="0" aria-label="Learn more">i</button>' +
+            '</div>' +
             '<div style="font-size:12px;color:#5b6a65;margin-top:4px;margin-bottom:12px">Deficient nutrients only · Doses calculated to reach MLSN threshold from current levels</div></div>' +
             rows;
     }
