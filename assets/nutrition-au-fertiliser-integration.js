@@ -960,7 +960,7 @@
                         <td class="au-fert-cell au-fert-cell--num">${currentDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num">${removalDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num">${required}</td>
-                        <td class="au-fert-cell au-fert-cell--num">${delivered}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--delivered">${delivered}</td>
                         <td class="au-fert-cell au-fert-cell--num">${rangeDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num nutrient-diff ${statusVisualClass(statusClass)}">${diff.toFixed(1)}</td>
                         <td class="au-fert-cell au-fert-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
@@ -1484,6 +1484,10 @@
 
         .au-fert-cell--left { text-align: left; }
         .au-fert-cell--num { text-align: right; }
+        /* GH-334: bold Delivered, matching Balance's weight, no colour --
+           the one figure a user needs to act on at a glance among the
+           surrounding calculated context, without implying a status. */
+        .au-fert-cell--delivered { font-weight: 700; }
         .au-fert-cell--month { text-align: left; font-weight: 700; white-space: nowrap; font-size: 13px; }
         .au-fert-cell--season { text-align: left; color: var(--gaip-text-muted, #6b7280); white-space: nowrap; font-size: 12px; }
         .au-fert-cell--mono { font-variant-numeric: tabular-nums; }

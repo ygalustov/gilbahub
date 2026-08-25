@@ -866,7 +866,7 @@
                         <td class="prebble-cell prebble-cell--num">${currentDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${removalDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${required}</td>
-                        <td class="prebble-cell prebble-cell--num">${delivered}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--delivered">${delivered}</td>
                         <td class="prebble-cell prebble-cell--num">${rangeDisplay}</td>
                         <td class="prebble-cell prebble-cell--num nutrient-diff ${statusVisualClass(statusClass)}">${diff.toFixed(1)}</td>
                         <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
@@ -1818,6 +1818,10 @@
         }
         .prebble-cell--left { text-align: left; }
         .prebble-cell--num { text-align: left; }
+        /* GH-334: bold Delivered, matching Balance's weight, no colour --
+           the one figure a user needs to act on at a glance among the
+           surrounding calculated context, without implying a status. */
+        .prebble-cell--delivered { font-weight: 700; }
         .prebble-cell--mono { font-variant-numeric: tabular-nums; }
         .prebble-cell--month { font-weight: 700; white-space: nowrap; font-size: 13px; }
         .prebble-cell--season { color: var(--gaip-text-muted, #6b7280); white-space: nowrap; font-size: 12px; }
