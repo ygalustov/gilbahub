@@ -1447,8 +1447,15 @@
         var phHtml          = (sn.pH || sn.CEC)
             ? '<div class="sn-section"><div class="sn-section-title">pH &amp; CEC</div></div>'+renderPhCec(sn) : '';
         var correctionHtml  = renderCorrectionProgram(sn);
-        var annualHtml      = renderAnnualRequirements(sn);
-        var monthlyHtml     = renderMonthlyN(sn);
+        // GH-323: "Annual Nutrient Requirements" and "Monthly N Distribution
+        // (GP-Weighted)" duplicated the Nutrition Program page's Required/
+        // Monthly Nutrient Program figures with a cruder, disconnected-from-
+        // real-soil-ppm estimate (flat N-ratio removal only, no lift/
+        // deficit term, no ceiling zeroing tied to the actual methodology
+        // range) -- the two pages could show contradictory numbers for the
+        // same site. Hidden here rather than deleted: renderAnnualRequirements()
+        // and renderMonthlyN() are still exercised directly by existing
+        // gh277/gh279/gh280/gh299/gh304 etc. tests.
         var tissueHtml      = '<div class="sn-section"><div class="sn-section-title">Tissue Test Results'+
             ' <button class="db-info-icon" data-info="sn-tissue-results" tabindex="0" aria-label="Learn more">i</button>'+
             '</div></div>'+renderTissue(sn.tissue);
@@ -1468,8 +1475,6 @@
             '<div id="sn-ratios-wrap">'+ratiosHtml+'</div>'+
             '<div id="sn-ph-wrap">'+phHtml+'</div>'+
             '<div id="sn-correction-wrap">'+correctionHtml+'</div>'+
-            '<div id="sn-annual-wrap">'+annualHtml+'</div>'+
-            monthlyHtml+
             tissueHtml+
             '<div id="sn-crossval-wrap">'+crossValHtml+'</div>'+
             contextHtml+
