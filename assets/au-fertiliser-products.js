@@ -5119,14 +5119,45 @@
             if (!bestMatch) return null;
             
             const { product, labelRates, nPct } = bestMatch;
-            
+
+            // v3.18.2: Liquids have shorter duration - controlled/slow/stabilised=4wk, quick=2wk
+            const isLiquid = product.form === 'liquid';
+            let defaultWeeks;
+            if (isLiquid) {
+                defaultWeeks = (product.release === 'quick') ? 2 : 4;
+            } else {
+                defaultWeeks = product.release === 'controlled' ? 12
+                    : (product.release === 'slow' || product.release === 'stabilised') ? 8
+                    : 4;
+            }
+            const releaseWeeks = product.weeks || defaultWeeks;
+            const monthsCovered = Math.max(1, Math.ceil(releaseWeeks / 4));
+
             // ================================================================
             // CALCULATE RATE WITHIN LABEL LIMITS
             // ================================================================
-            let rateKgHa = Math.round(nRequired / nPct);
+            // GH-337: nRequired (netN) is only ONE month's share of what a
+            // multi-month-release batch needs to deliver in total -- the
+            // batch releases evenly across monthsCovered months (see
+            // activeNutrients tracking in generateAnnualProgram(), which
+            // credits nDelivered/monthsCovered to each subsequent month).
+            // Sizing the batch for nRequired alone (the old behaviour) meant
+            // the same finite dose got credited as satisfying the full
+            // requirement THIS month AND a further monthsCovered-1 months via
+            // carryover -- e.g. a 35.3kg-N batch (sized for January's 35.3kg
+            // requirement alone, 2-month release) also carried 17.65kg into
+            // February, crediting 52.95kg of satisfied requirement from a
+            // batch that only contains 35.3kg of actual N. Confirmed live:
+            // Canberra golf_greens site, Required N=200, Delivered=159.3.
+            // Scale the target by monthsCovered (1 for quick/standard release
+            // -- no change there) so each month's actual share
+            // (nDelivered / monthsCovered) matches nRequired, not the whole
+            // batch.
+            const nTarget = nRequired * monthsCovered;
+            let rateKgHa = Math.round(nTarget / nPct);
             let notes = '';
-            let actualNDelivered = nRequired;
-            
+            let actualNDelivered = nTarget;
+
             if (rateKgHa < labelRates.min) {
                 // Below min - use min rate (will over-deliver)
                 rateKgHa = labelRates.min;
@@ -5136,28 +5167,16 @@
                 // Above max - cap at max (shortfall)
                 rateKgHa = labelRates.max;
                 actualNDelivered = rateKgHa * nPct;
-                const shortfall = nRequired - actualNDelivered;
-                notes = `Label max rate: ${rateKgHa} kg/ha (delivers ${actualNDelivered.toFixed(1)} of ${nRequired.toFixed(1)} kg N)`;
+                const shortfall = nTarget - actualNDelivered;
+                notes = `Label max rate: ${rateKgHa} kg/ha (delivers ${actualNDelivered.toFixed(1)} of ${nTarget.toFixed(1)} kg N)`;
                 if (shortfall > 2) {
                     notes += ` - ${shortfall.toFixed(1)} kg shortfall`;
                 }
             }
-            
+
             const kDelivered = rateKgHa * ((product.analysis?.K || 0) / 100);
             const pDelivered = rateKgHa * ((product.analysis?.P || 0) / 100);
-            // v3.18.2: Liquids have shorter duration - controlled/slow/stabilised=4wk, quick=2wk
-            const isLiquid = product.form === 'liquid';
-            let defaultWeeks;
-            if (isLiquid) {
-                defaultWeeks = (product.release === 'quick') ? 2 : 4;
-            } else {
-                defaultWeeks = product.release === 'controlled' ? 12 
-                    : (product.release === 'slow' || product.release === 'stabilised') ? 8 
-                    : 4;
-            }
-            const releaseWeeks = product.weeks || defaultWeeks;
-            
-            
+
             return {
                 id: product.id,
                 name: product.name,
@@ -5964,7 +5983,14 @@
                 
                 const netN = Math.max(0, (month.N || 0) - activeN);
                 const netK = Math.max(0, (month.K || 0) - activeK);
-                
+
+                // GH-336-DEBUG: per-month N accounting -- added to trace a
+                // live report of annual N under-delivery (Required=200,
+                // Delivered=159.3) where the rendered Monthly Program table's
+                // per-month rates, hand-reconciled, didn't obviously explain
+                // the gap. Kept until confirmed fixed per project convention.
+                console.log('[GH336-DEBUG] month start', month.month_name, '| month.N (required):', month.N, '| activeN (carried):', activeN, '| netN (target for new applications):', netN, '| gp:', gp, '| delivered.N so far:', delivered.N);
+
                 const monthResult = {
                     month_name: month.month_name,
                     season: month.season,
@@ -6080,6 +6106,11 @@
                         }
                     }
                     
+                    // GH-336-DEBUG: log whether granular was accepted or
+                    // rejected (and why), and what it would have delivered
+                    // either way, so a rejected month's lost N is visible.
+                    console.log('[GH336-DEBUG] granular decision', month.month_name, '| picked:', granularRec ? granularRec.name : null, '| would deliver N:', granularRec ? granularRec.nDelivered : null, '| kDelivered:', granularRec ? granularRec.kDelivered : null, '| useThisGranular:', useThisGranular);
+
                     if (useThisGranular && granularRec) {
                         delivered.N += granularRec.nDelivered;
                         delivered.P += granularRec.pDelivered;
@@ -6131,11 +6162,14 @@
                 
                 const granularNDelivered = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.N || 0), 0);
                 const remainingN = netN - granularNDelivered;
-                
+
                 const useLiquid = (gp < 0.3) || isGreens || (remainingN > 3);
-                
+
                 // b35fix281: lower threshold for greens — small monthly remainders accumulate to annual shortfall
                 const liquidThreshold = isGreens ? 0.5 : 2;
+                // GH-336-DEBUG: is liquid even attempted this month, and with
+                // how much N still owed after granular?
+                console.log('[GH336-DEBUG] liquid gate', month.month_name, '| granularNDelivered:', granularNDelivered, '| remainingN:', remainingN, '| useLiquid:', useLiquid, '| liquidThreshold:', liquidThreshold, '| will attempt liquid:', useLiquid && remainingN > liquidThreshold && all.length > 0);
                 if (useLiquid && remainingN > liquidThreshold && all.length > 0) {
                     // selectFoliarNitrogen now returns product WITH calculated rate
                     const liquidRec = this.selectFoliarNitrogen(all, { ...month, N: remainingN, K: netK, gp }, { 
@@ -6148,7 +6182,11 @@
                         soilPSufficient: soilPSufficient,
                         muldersFlags: muldersFlags,
                     });
-                    
+
+                    // GH-336-DEBUG: what liquid picked and would deliver,
+                    // vs. remainingN it was asked to cover.
+                    console.log('[GH336-DEBUG] liquid decision', month.month_name, '| picked:', liquidRec ? liquidRec.name : null, '| asked to cover (remainingN):', remainingN, '| would deliver N:', liquidRec ? liquidRec.nDelivered : null);
+
                     if (liquidRec && liquidRec.nDelivered > 0) {
                         delivered.N += liquidRec.nDelivered;
                         delivered.K += liquidRec.kDelivered;
@@ -6284,7 +6322,12 @@
                 } else if (gp < 0.3) {
                     monthResult.notes.push(`Low GP (${(gp * 100).toFixed(0)}%) - foliar preferred`);
                 }
-                
+
+                // GH-336-DEBUG: month-end running total, so it's clear
+                // exactly how much N this month contributed and where the
+                // annual total (delivered.N) stands after it.
+                console.log('[GH336-DEBUG] month end', month.month_name, '| running delivered.N total:', delivered.N, '| running delivered.K total:', delivered.K);
+
                 program.push(monthResult);
             });
             
