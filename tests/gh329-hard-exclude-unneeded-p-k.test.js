@@ -83,7 +83,7 @@ describe('GH-329 — hard-exclude P/K when not needed, in both scoring functions
     });
 
     test('pScore/kScore soft penalties remain in place as secondary tie-breakers (not removed by the hard filter)', () => {
-        expect(src).toMatch(/\/\/ SCORE 4: P Delivery Accuracy \(GH-327\)/);
-        expect(src).toMatch(/\/\/ SCORE 7: P Delivery Accuracy \(GH-328\)/);
+        expect(src).toMatch(/\/\/ SCORE 4: P Delivery Accuracy/);
+        expect(src).toMatch(/\/\/ SCORE 7: P Delivery Accuracy/);
     });
 });

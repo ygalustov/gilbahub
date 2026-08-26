@@ -24,12 +24,12 @@ describe('GH-328 — P Delivery Accuracy score in selectFoliarNitrogen() (liquid
         expect(block).toMatch(/const pRequired = monthData\.P \|\| 0;/);
     });
 
-    test('the call site does not need an explicit P key -- monthData already spreads month.P through', () => {
-        expect(src).toMatch(/this\.selectFoliarNitrogen\(all, \{ \.\.\.month, N: remainingN, K: netK, gp \}, \{/);
+    test('the call site passes P: remainingP (GH-342 -- netted against carry-over and this month\'s own granular pick)', () => {
+        expect(src).toMatch(/this\.selectFoliarNitrogen\(all, \{ \.\.\.month, N: remainingN, K: netK, P: remainingP, gp \}, \{/);
     });
 
     test('pScore mirrors this function\'s own kScore bands for the "needed" case', () => {
-        const idx = src.indexOf('// SCORE 7: P Delivery Accuracy (GH-328)');
+        const idx = src.indexOf('// SCORE 7: P Delivery Accuracy');
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 2000);
         expect(block).toMatch(/if \(pRequired > 0 && pPct > 0\) \{/);
@@ -37,10 +37,10 @@ describe('GH-328 — P Delivery Accuracy score in selectFoliarNitrogen() (liquid
         expect(block).toMatch(/pScore = -25; \/\/ Severe P overshoot/);
     });
 
-    test('pScore still penalizes P when genuinely not needed', () => {
-        const idx = src.indexOf('// SCORE 7: P Delivery Accuracy (GH-328)');
+    test('pScore still penalizes P when genuinely not needed (GH-342: gated on pRequired <= 0, not the annual soilPSufficient flag)', () => {
+        const idx = src.indexOf('// SCORE 7: P Delivery Accuracy');
         const block = src.slice(idx, idx + 2000);
-        expect(block).toMatch(/\} else if \(soilPSufficient && pPct > 0\) \{/);
+        expect(block).toMatch(/\} else if \(pRequired <= 0 && pPct > 0\) \{/);
         expect(block).toMatch(/if \(pAtRate > 10\) pScore = -20;/);
     });
 

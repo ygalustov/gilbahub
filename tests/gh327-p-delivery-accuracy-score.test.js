@@ -34,12 +34,12 @@ describe('GH-327 — P Delivery Accuracy score in au-fertiliser-products.js', ()
         expect(block).toMatch(/const pRequired = monthData\.P \|\| 0;/);
     });
 
-    test('the granular call site passes P into monthData', () => {
-        expect(src).toMatch(/this\.selectNitrogenSource\(granular, \{ N: netN, K: netK, P: month\.P \|\| 0 \}, \{/);
+    test('the granular call site passes P: netP into monthData (GH-342: netted against carry-over)', () => {
+        expect(src).toMatch(/this\.selectNitrogenSource\(granular, \{ N: netN, K: netK, P: netP \}, \{/);
     });
 
     test('pScore mirrors kScore\'s delivery-ratio bands for the "needed" case', () => {
-        const idx = src.indexOf('// SCORE 4: P Delivery Accuracy (GH-327)');
+        const idx = src.indexOf('// SCORE 4: P Delivery Accuracy');
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 2200);
         expect(block).toMatch(/if \(pRequired > 0 && pPct > 0\) \{/);
@@ -47,10 +47,10 @@ describe('GH-327 — P Delivery Accuracy score in au-fertiliser-products.js', ()
         expect(block).toMatch(/pScore = -20; \/\/ Severe P overshoot - penalize/);
     });
 
-    test('pScore still penalizes P when genuinely not needed (soilPSufficient branch)', () => {
-        const idx = src.indexOf('// SCORE 4: P Delivery Accuracy (GH-327)');
+    test('pScore still penalizes P when genuinely not needed (GH-342: gated on pRequired <= 0, not the annual soilPSufficient flag)', () => {
+        const idx = src.indexOf('// SCORE 4: P Delivery Accuracy');
         const block = src.slice(idx, idx + 2200);
-        expect(block).toMatch(/\} else if \(soilPSufficient && pPct > 0\) \{/);
+        expect(block).toMatch(/\} else if \(pRequired <= 0 && pPct > 0\) \{/);
         expect(block).toMatch(/pScore = -30;\s*\/\/ Heavy P when none needed/);
     });
 

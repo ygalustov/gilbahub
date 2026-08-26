@@ -225,6 +225,14 @@ D01 - D03 GP. GH-245 - GH-252
 
 
 
+
+25/08/26
++249 D07. AA isn’t a standard test but unfortunately Prebbles have historically run with this :-(. This link shows the conversion from AA to MLSN if they are testing with AA but want to use the MLSN interpretation (this is supposed to be M3 extraction but you can convert it). However what we are after are sets specific to AA that Prebbles use and are independent of MLSN
+I think we are going to be best using the same sets that they currently use within Prebbles? Haguely is ryegrass
+GH-258 - GH-324. 
+
+
+
 ## Change log
 **GH-1** Add dashboard view and related assets, including new CSS styles and routing
 **GH-2** Implement AnalysisCacheController and DashboardController for analysis result storage and dashboard data retrieval; update routes and enhance dashboard UI with new features and styles.
@@ -721,7 +729,9 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-340** User flagged K over-delivery on an NZ site (Required=110.1kg, Delivered=144.7kg, +31%) — same symptom family as GH-339 but the NZ engine (`prebbles-products.js`, `PrebbleRecommender`) has no `pScore` equivalent, so the AU root cause didn't apply. Traced instead to `selectNitrogenSource()`'s K-catch-up bonus (`kDeficitBonus`, up to 50 unweighted points for K≥15% products) at [prebbles-products.js:2416-2419](prebbles-products.js#L2416-L2419): `kRunningBehind` compared K delivered-so-far against the FULL annual K requirement (`annualKRequired`), which is trivially true in January (`0 / 110.1 < 0.7`) before any month has had a chance to deliver anything — "behind" by definition, not by an actual missed schedule. Confirmed live: this fired the bonus in both January and February on a Browntop Bent greens site, both months picking Sierraform GT Anti-Stress (K=21.6%) at 200kg/ha (43.2kg K each) — 86.4kg (78% of the annual 110.1kg target) delivered in the first 2 of 12 months, before later months (CC MD Greens STD 16-0-6.7 in Mar/Dec, CC MD IV Greens in Apr/Nov) added more on top, landing at 144.7kg. Fixed by computing `annualKRequiredToDate` (pro-rata sum of `monthData.K` for the months processed so far, inclusive) in `generateProgram()`'s month loop and comparing `annualKDelivered` against that instead of the full-year total — "behind" now means behind the actual elapsed-year schedule. January still triggers the bonus on its own (nothing has been delivered before the year's first month, which is expected), but the bonus no longer perpetuates itself into February once January's application already covers Feb's pro-rata share. Added `tests/gh340-nz-k-catchup-pacing.test.js`. Full suite: 1322/1322 Jest tests pass (before adding the new GH-340 test file).
 
-**GH-341** Follow-up to GH-340: user asked why K over-delivery (Russley, Delivered=124.2kg of 110.1kg required, +12.7%) wasn't fully resolved. Added `[GH341-DEBUG]` score-breakdown logging to `selectNitrogenSource()` (clean-filter context, P/K clean-filter pass/fail, per-candidate score, winner) to investigate. Live log showed February onward now selects correctly (`kRunningBehind: false`, best-`ratioScore` candidate wins cleanly) — GH-340's pacing fix works. But January (where `kRunningBehind` is unavoidably true — nothing has been delivered before the year's first month) still picked Sierraform GT Anti-Stress (`ratioScore: 38.2`, `effectiveTechScore: 4.4` — a poor N:K match AND poorly suited to January soil temperature) over CC MD Greens STD 16-0-6.7 (`ratioScore: 76.1`, `effectiveTechScore: 100` — both a better ratio match and perfectly suited), purely because `kDeficitBonus` (up to 50 points, added unweighted) is large enough to override a 30-point deficit on the weighted core score. Sierraform alone delivered 43.2kg K against January's own 21.9kg need — nearly the entire annual overshoot traced back to this single month's product pick. Root cause: `kDeficitBonus` rewarded raw K% with no regard for how well-suited the candidate was otherwise. Fixed by scaling `kDeficitBonus` by `ratioScore/100` ([prebbles-products.js:2509-2524](prebbles-products.js#L2509-L2524)) — a well-matched candidate (high `ratioScore`) still gets close to the full bonus, while a poorly-matched one gets proportionally discounted instead of being able to override a better fit outright. Re-run against the live Russley January numbers by hand: Sierraform's total drops from 83.2 to 56.5 (39.99 baseline + 43.2×0.382), while CC MD Greens STD 16-0-6.7 (no bonus, K=6.7% is below the ≥15% gate) stays at 69.7 and now wins. Added `tests/gh341-nz-k-deficit-bonus-ratio-scaling.test.js`. Full suite: 1327/1327 Jest tests pass (before adding the new GH-341 test file).
+**GH-341** `kDeficitBonus` (NZ K catch-up bonus) rewarded raw K% with no regard for how well-suited the candidate otherwise was, letting a badly N:K-matched, poorly-suited-to-soil-temp product win purely on the bonus in January (still-unavoidable `kRunningBehind: true`). Fixed by scaling `kDeficitBonus` by `ratioScore/100`, so a poor match gets proportionally discounted instead of overriding a better fit. Added `tests/gh341-nz-k-deficit-bonus-ratio-scaling.test.js`.
+
+**GH-342** P had no annual tracking in `au-fertiliser-products.js`, so each month's `pScore` compared against the raw monthly P slice with no memory of P already delivered — non-overlapping granular picks across the year could each independently deliver P, compounding well past the annual target. Added `activeP`/`netP` (release-window carry-over, mirroring N/K), then capped `netP` further against the remaining annual P budget (`annualTargets.P - delivered.P`) so later months see the true remaining need. Also fixed the P "not needed" scoring branch to gate on `pRequired <= 0` instead of the annual `soilPSufficient` flag. Added `tests/gh342-au-p-carryover-tracking.test.js`.
 
 
 
@@ -731,7 +741,31 @@ Explain this - 5	«Догоняющий» бонус по K	Отсутствуе
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+----
+
+
+
 Also think how we can add auto tests to check real numbers? Maybe add this to the end of the plan
+
+
+
 
 Hi [Client],
 
@@ -777,15 +811,7 @@ Kate
 
 
 
-Check where methodology AA was missed
 
-
-
-
-20/08/26
-249 D07. AA isn’t a standard test but unfortunately Prebbles have historically run with this :-(. This link shows the conversion from AA to MLSN if they are testing with AA but want to use the MLSN interpretation (this is supposed to be M3 extraction but you can convert it). However what we are after are sets specific to AA that Prebbles use and are independent of MLSN
-I think we are going to be best using the same sets that they currently use within Prebbles? Haguely is ryegrass
-GH-258 - 
 
 
 

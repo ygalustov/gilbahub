@@ -4963,14 +4963,16 @@
                     nScore = -10; // Under-delivering - moderate penalty
                 }
                 
-                // SCORE 4: P Delivery Accuracy (GH-327)
-                // Was a magnitude-blind penalty-only check (soilPSufficient,
-                // a boolean) -- replaced with the same delivery-ratio-banded
-                // structure as SCORE 1's kScore, so a genuine P deficit now
-                // pulls selection toward a P-containing product the same way
-                // K already does, instead of only ever discouraging P.
-                // soilPSufficient (pRequired <= 0, see generateAnnualProgram)
-                // still drives the "not needed" branch below.
+                // SCORE 4: P Delivery Accuracy (GH-327, GH-342)
+                // GH-342: "not needed" branch now gates on pRequired <= 0
+                // (mirrors kScore exactly) instead of the annual-level
+                // soilPSufficient flag, since pRequired is netted against
+                // carry-over now -- a month can have pRequired=0 (already
+                // covered) while soilPSufficient is still false (real
+                // annual deficit exists elsewhere in the year). The old
+                // soilPSufficient gate missed that case, defaulting such a
+                // candidate to the "no P needed, none contains P" branch
+                // (pScore=80) even when pPct > 0.
                 let pScore = 50; // Default neutral
                 if (pRequired > 0 && pPct > 0) {
                     const pDeliveryRatio = effectiveMonthlyP / pRequired;
@@ -4987,13 +4989,10 @@
                     } else {
                         pScore = -20; // Severe P overshoot - penalize
                     }
-                } else if (soilPSufficient && pPct > 0) {
-                    // No P needed but product contains P - penalize based on
-                    // effective monthly P. Same thresholds as kScore's
-                    // equivalent branch (kg/ha effective-monthly bands), not
-                    // the old pPenalty's separate greens/sports split -- kept
-                    // this a literal mirror of kScore rather than a hybrid of
-                    // the two prior approaches.
+                } else if (pRequired <= 0 && pPct > 0) {
+                    // No P needed (net of carry-over, this month) but product
+                    // contains P - penalize based on effective monthly P.
+                    // Same thresholds as kScore's equivalent branch.
                     if (effectiveMonthlyP > 10) pScore = -30;      // Heavy P when none needed
                     else if (effectiveMonthlyP > 5) pScore = -15;  // Moderate P when none needed
                     else if (effectiveMonthlyP > 2) pScore = 0;    // Some P when none needed
@@ -5453,15 +5452,13 @@
                 // SCORE 6: Position bonus (prefer earlier in sorted candidates)
                 const positionScore = Math.max(0, 10 - idx);
                 
-                // SCORE 7: P Delivery Accuracy (GH-328)
-                // Was a magnitude-blind penalty-only check (soilPSufficient,
-                // a boolean) -- mirrors this function's own SCORE 1 kScore
-                // structure instead, so a genuine P deficit pulls selection
-                // toward a P-containing liquid the same way K already does.
-                // Same fix as GH-327 (granular), applied here for consistency.
+                // SCORE 7: P Delivery Accuracy (GH-328, GH-342)
+                // GH-342: "not needed" branch gates on pRequired <= 0 (mirrors
+                // kScore) instead of the annual-level soilPSufficient flag --
+                // see SCORE 4's GH-342 comment in selectNitrogenSource() for
+                // why (pRequired is now netted against carry-over per month).
                 const pPct = (product.analysis?.P || 0) / 100;
                 const pAtRate = estimatedRate * pPct;
-                // soilPSufficient hoisted above (GH-329), used by the hard filter too
                 let pScore = 50; // Default neutral
                 if (pRequired > 0 && pPct > 0) {
                     const pDeliveryRatio = pAtRate / pRequired;
@@ -5478,8 +5475,9 @@
                     } else {
                         pScore = -25; // Severe P overshoot
                     }
-                } else if (soilPSufficient && pPct > 0) {
-                    // No P needed but product contains P - penalize
+                } else if (pRequired <= 0 && pPct > 0) {
+                    // No P needed (net of carry-over, this month) but product
+                    // contains P - penalize
                     if (pAtRate > 10) pScore = -20;
                     else if (pAtRate > 5) pScore = 0;
                     else pScore = 30;
@@ -6015,16 +6013,34 @@
                 const gp = month.gp || 0;
                 
                 // Calculate active nutrients from previous slow-release
-                let activeN = 0, activeK = 0;
+                // GH-342: activeP/netP added alongside the existing N/K
+                // carry-over -- see the P SUPPLEMENTATION comment further
+                // down and selectNitrogenSource()'s pScore for why P used to
+                // have no equivalent (GH-327's comment: "there's nothing to
+                // net it against").
+                let activeN = 0, activeK = 0, activeP = 0;
                 activeNutrients.forEach(a => {
                     if (a.endsIdx > idx) {
                         activeN += a.monthlyN || 0;
                         activeK += a.monthlyK || 0;
+                        activeP += a.monthlyP || 0;
                     }
                 });
-                
+
                 const netN = Math.max(0, (month.N || 0) - activeN);
                 const netK = Math.max(0, (month.K || 0) - activeK);
+                // GH-342 follow-up: netP also caps at whatever's left of the
+                // ANNUAL P budget (annualTargets.P - delivered.P so far), not
+                // just release-window carry-over (activeP) -- confirmed live
+                // on Canberra: three separate granular N-carrier picks
+                // (Jan/Mar/Oct) each scored P against their own raw monthly
+                // slice with non-overlapping release windows, so activeP
+                // never saw the earlier deliveries and P landed at 33.7kg
+                // against a 19.9kg annual target.
+                const netP = Math.min(
+                    Math.max(0, (month.P || 0) - activeP),
+                    Math.max(0, annualTargets.P - delivered.P)
+                );
 
                 // GH-336-DEBUG: per-month N accounting -- added to trace a
                 // live report of annual N under-delivery (Required=200,
@@ -6038,8 +6054,8 @@
                     season: month.season,
                     gp: gp,
                     requirements: { N: month.N || 0, P: month.P || 0, K: month.K || 0 },
-                    netRequirements: { N: netN, K: netK },
-                    activeFromPrevious: { N: Math.round(activeN * 10) / 10, K: Math.round(activeK * 10) / 10 },
+                    netRequirements: { N: netN, P: netP, K: netK },
+                    activeFromPrevious: { N: Math.round(activeN * 10) / 10, P: Math.round(activeP * 10) / 10, K: Math.round(activeK * 10) / 10 },
                     granular: [],
                     liquid: [],
                     notes: [],
@@ -6093,11 +6109,15 @@
                 if (useGranular && !skipGranularDueToSlowRelease && netN >= 3 && granular.length > 0) {
                     // selectNitrogenSource now returns product WITH calculated rate
                     // Pass additional context for P-conscious and autumn K scoring
-                    // GH-327: P is not tracked for slow-release carry-over
-                    // (activeN/activeK are; there's no activeP), so this
-                    // passes the raw monthly P requirement rather than a
-                    // "net" figure -- there's nothing to net it against.
-                    const granularRec = this.selectNitrogenSource(granular, { N: netN, K: netK, P: month.P || 0 }, {
+                    // GH-342: P now nets against activeP the same way N/K do
+                    // (was: GH-327 passed the raw monthly P requirement since
+                    // there was nothing to net it against -- confirmed live
+                    // on Canberra, a repeated P-rich granular pick (Country
+                    // Club IV 18-9-18, P=9%) delivered P=33.7kg against a
+                    // 19.9kg annual removal-only requirement, +69%, because
+                    // each month scored P as if no prior month had ever
+                    // delivered any).
+                    const granularRec = this.selectNitrogenSource(granular, { N: netN, K: netK, P: netP }, {
                         isGreens, 
                         surfaceType,
                         season: month.season,
@@ -6165,6 +6185,7 @@
                                 endsIdx: idx + monthsCovered,
                                 monthlyN: granularRec.nDelivered / monthsCovered,
                                 monthlyK: granularRec.kDelivered / monthsCovered,
+                                monthlyP: granularRec.pDelivered / monthsCovered,
                             });
                         }
                         
@@ -6204,6 +6225,11 @@
                 
                 const granularNDelivered = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.N || 0), 0);
                 const remainingN = netN - granularNDelivered;
+                // GH-342: same netting as remainingN, so selectFoliarNitrogen()
+                // sees what's actually still owed after carry-over AND this
+                // month's own granular pick, not the raw monthly P figure.
+                const granularPDelivered = monthResult.granular.reduce((sum, g) => sum + (g.delivers?.P || 0), 0);
+                const remainingP = Math.max(0, netP - granularPDelivered);
 
                 const useLiquid = (gp < 0.3) || isGreens || (remainingN > 3);
 
@@ -6214,7 +6240,7 @@
                 console.log('[GH336-DEBUG] liquid gate', month.month_name, '| granularNDelivered:', granularNDelivered, '| remainingN:', remainingN, '| useLiquid:', useLiquid, '| liquidThreshold:', liquidThreshold, '| will attempt liquid:', useLiquid && remainingN > liquidThreshold && all.length > 0);
                 if (useLiquid && remainingN > liquidThreshold && all.length > 0) {
                     // selectFoliarNitrogen now returns product WITH calculated rate
-                    const liquidRec = this.selectFoliarNitrogen(all, { ...month, N: remainingN, K: netK, gp }, { 
+                    const liquidRec = this.selectFoliarNitrogen(all, { ...month, N: remainingN, K: netK, P: remainingP, gp }, {
                         gp, 
                         isGreens, 
                         surfaceType,
