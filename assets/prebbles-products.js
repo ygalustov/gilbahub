@@ -587,6 +587,199 @@
                 notes: 'Natural magnesium sulphate mineral. Best applied after hollow tine aeration on greens.',
                 useCase: 'Mg deficiency correction. Soil Mg building. Post-aeration application.',
             },
+            // ============================================================
+            // ICL SIERRABLEN / SIERRAFORM GT -- CONTROLLED RELEASE (GH-335)
+            // Confirmed against ICL's AU catalogue (elemental->oxide match)
+            // ============================================================
+            {
+                id: 'SIERRA24FE',
+                name: 'Sierrablen Sportsturf +2% Fe',
+                brand: 'Sierrablen',
+                npk: '24-2.2-8.3',
+                analysis: { N: 24, P: 2.2, K: 8.3, Fe: 2 },
+                sgn: 200, // Not published by ICL -- typical sports/fairway granule
+                release: 'slow',
+                releaseTech: 'pcscu', // Poly-S: polymer-coated sulphur-coated urea
+                releaseWeeks: 18, // Label: 4-5 months controlled release
+                packSize: 25,
+                maxRateKgHa: 450, // Label: 30-45 g/m2 (avg 37.5 g/m2)
+                suitableFor: ['fairways', 'sports', 'tees'],
+                notes: 'ICL Poly-S coated granule. N split: nitrate 1.3%, ammoniacal 2.6%, urea 20.1%. Matches ICL AU Sierrablen 24-5-10+2Fe (oxide).',
+                useCase: 'Sports field/fairway N-K maintenance with Fe. Controlled release over a full season.',
+            },
+            {
+                id: 'SIERRAGT22M',
+                name: 'Sierraform GT Momentum',
+                brand: 'Sierraform GT',
+                npk: '22-2.2-9.1',
+                analysis: { N: 22, P: 2.2, K: 9.1, Mg: 1.2, S: 5.1, Fe: 0.5, Mn: 0.1, Cu: 0.02, Zn: 0.02 },
+                sgn: 100, // Micro-granular -- exact SGN not published
+                release: 'slow',
+                releaseTech: 'mu', // MU2 microfine methylene-urea, microbial breakdown
+                releaseWeeks: 7, // Label: 6-8 weeks
+                packSize: 20,
+                maxRateKgHa: 350, // Label: 15-35 g/m2
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets', 'tees', 'fairways', 'sports'],
+                notes: 'ICL MU2 + SilK coating. 52% of total N as ureaformaldehyde. Matches ICL AU Sierraform GT Momentum 22-5-11+2MgO (oxide).',
+                useCase: 'All fine turf, spring/summer feeding with balanced trace package.',
+            },
+            {
+                id: 'SIERRAGT15A',
+                name: 'Sierraform GT Anti-Stress',
+                brand: 'Sierraform GT',
+                npk: '15-0-21.6',
+                analysis: { N: 15, P: 0, K: 21.6, Fe: 1, S: 8.6 },
+                sgn: 100, // Micro-granular -- exact SGN not published
+                release: 'slow',
+                releaseTech: 'mu', // MU2 methylene urea
+                releaseWeeks: 7, // Label: 6-8 weeks
+                packSize: 20,
+                maxRateKgHa: 350, // Label: 15-35 g/m2
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets', 'tees', 'fairways', 'sports'],
+                notes: 'ICL MU2. Zero-P, very high K, contains silicon. Matches ICL AU Sierraform GT Anti-Stress 15-0-26+Fe1 (oxide).',
+                useCase: 'Abiotic stress hardening, late-season/pre-winter K build. Not for P-deficient sites.',
+            },
+            // ============================================================
+            // COUNTRY CLUB MD GREENS -- ADDITIONAL GRADES (GH-335)
+            // ============================================================
+            {
+                id: 'CCMDG12',
+                name: 'CC MD Greens 12-0-20',
+                brand: 'Country Club MD',
+                npk: '12-0-20',
+                analysis: { N: 12, P: 0, K: 20, Fe: 1.6, Mg: 0.5, Mn: 0.5 },
+                sgn: 80,
+                release: 'slow',
+                releaseTech: 'mu', // Meth-Ex methylene urea, 65% of N
+                releaseWeeks: 8, // Not published for this grade -- matches sibling CCMDG18
+                packSize: 18.14,
+                maxRateKgHa: 200, // Not published for this grade -- matches sibling CCMDG18 label range
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets'],
+                notes: 'K from SOP (chloride-free). Potassium humate and kelp meal inside the granule. Matches Country Club MD 12-0-24 (oxide) 65% Meth-Ex.',
+                useCase: 'High-K greens grade. K maintenance/correction without heavy N.',
+            },
+            {
+                id: 'CCMDG22',
+                name: 'CC MD Greens 22-0-13',
+                brand: 'Country Club MD',
+                npk: '22-0-13',
+                analysis: { N: 22, P: 0, K: 13, Fe: 1.6, Mg: 0.7, Mn: 0.8 },
+                sgn: 80,
+                release: 'slow',
+                releaseTech: 'mu', // Meth-Ex methylene urea, 64% of N
+                releaseWeeks: 8, // Not published for this grade -- matches sibling CCMDG18
+                packSize: 18.14,
+                maxRateKgHa: 200, // Not published for this grade -- matches sibling CCMDG18 label range
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets'],
+                notes: 'Highest-N grade in the MD range. K from SOP. LebanonTurf publishes SRN 80% but this exceeds the 64% Meth-Ex fraction -- treat as unconfirmed, use the Meth-Ex fraction for release modelling.',
+                useCase: 'Greens maintenance where a higher N rate is wanted.',
+            },
+            // ============================================================
+            // COMMODITY / HOUSE-BRAND STRAIGHTS (GH-335)
+            // ============================================================
+            {
+                id: 'DAP1820',
+                name: 'D.A.P.',
+                brand: 'Commodity',
+                npk: '18-20-0',
+                analysis: { N: 18, P: 20, K: 0 },
+                sgn: 200, // Not published -- same category treatment as MAPGRAN
+                release: 'standard',
+                releaseTech: 'standard', // 100% ammoniacal, immediately available
+                releaseWeeks: 2,
+                packSize: 20,
+                maxRateKgHa: 200, // Not published -- same category treatment as MAPGRAN
+                suitableFor: ['fairways', 'sports', 'landscaping', 'tees'],
+                notes: 'Di-ammonium phosphate, 100% soluble. Alkaline in the immediate granule zone, then acidifying as ammonium nitrifies.',
+                useCase: 'Establishment phosphate. Quick P correction.',
+            },
+            {
+                id: 'SPFERTNO3',
+                name: 'Sports Fert NO3 +TE',
+                brand: 'Prebbles house brand',
+                npk: '14-3-7',
+                analysis: { N: 14, P: 3, K: 7 },
+                sgn: 200, // Not published -- typical sports grade
+                release: 'standard',
+                releaseTech: 'standard', // Nitrate N, immediately plant-available
+                releaseWeeks: 2, // No published duration -- fast, non-residual
+                packSize: 20,
+                maxRateKgHa: 250, // Not published -- matches sibling quick-release NPK CCLEB16
+                suitableFor: ['fairways', 'sports', 'landscaping'],
+                notes: 'Nitrate-based N -- immediately available, high leaching risk on sand, no residual. Individual trace elements (+TE) not published by Prebbles.',
+                useCase: 'Fast-response sports field feeding.',
+            },
+            // ============================================================
+            // SOIL AMENDMENTS -- EZYSPREAD (GH-335)
+            // No nutrient analysis published by Prebbles or manufacturer;
+            // request the NZ label/lime requirement calc before quoting a rate.
+            // ============================================================
+            {
+                id: 'EZYLIME',
+                name: 'EzySpread Lime',
+                brand: 'EzySpread',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                sgn: 250, // Not published -- standard agricultural lime granule
+                release: 'slow',
+                releaseTech: 'standard',
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets', 'tees', 'fairways', 'sports', 'landscaping'],
+                notes: 'Calcium carbonate. Neutralising value, particle size and application rate not published -- confirm against a soil test/lime requirement calc before quoting a rate.',
+                useCase: 'Soil pH correction (multi-month reaction).',
+            },
+            {
+                id: 'EZYDOLO',
+                name: 'EzySpread Dolomite',
+                brand: 'EzySpread',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                sgn: 250, // Not published -- standard agricultural lime granule
+                release: 'slow',
+                releaseTech: 'standard',
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets', 'tees', 'fairways', 'sports', 'landscaping'],
+                notes: 'Calcium magnesium carbonate. Analysis and application rate not published -- slower to react than straight lime (Mg carbonate fraction less soluble).',
+                useCase: 'Soil pH correction plus Mg supply.',
+            },
+            {
+                id: 'EZYGYPF',
+                name: 'EzySpread Fairway Grade Gypsum',
+                brand: 'EzySpread',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                sgn: 250, // Not published -- fairway/coarse grade per product name
+                release: 'standard',
+                releaseTech: 'standard',
+                suitableFor: ['fairways', 'sports', 'landscaping'],
+                notes: 'Calcium sulphate dihydrate. Analysis and application rate not published. Does not change pH; displaces sodium on the exchange complex.',
+                useCase: 'Ca/S supply, sodium displacement on sodic or effluent-irrigated sites.',
+            },
+            {
+                id: 'EZYGYPG',
+                name: 'EzySpread Greens Grade Gypsum',
+                brand: 'EzySpread',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                sgn: 100, // Not published -- finer greens grade per product name
+                release: 'standard',
+                releaseTech: 'standard',
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets'],
+                notes: 'Calcium sulphate dihydrate, finer particle for even low-rate spreading. Analysis and application rate not published.',
+                useCase: 'Greens Ca/S supply, sodium displacement.',
+            },
+            {
+                id: 'BIOSEAWFL',
+                name: 'Biopower Seaweed Flakes',
+                brand: 'Biopower',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                sgn: 250, // Not published -- dried flake, treated as standard granule
+                release: 'slow',
+                releaseTech: 'standard',
+                packSize: 1,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'cricket_wickets', 'tees', 'fairways', 'sports'],
+                notes: 'Dried kelp -- slow biological breakdown releasing trace elements and alginates. No analysis or application rate published.',
+                useCase: 'Soil biostimulant / amendment.',
+            },
         ],
 
         /**
@@ -931,6 +1124,21 @@
                 suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
                 notes: 'Foliar Mn source. Dissolve fully before application.',
                 useCase: 'Mn deficiency correction. Enzyme activation. Take-all suppression.',
+            },
+            // ============================================================
+            // BIOSTIMULANTS -- OTHER BRANDS (GH-335)
+            // ============================================================
+            {
+                id: 'VITALPK',
+                name: 'Vital Polykelp',
+                brand: 'Vital',
+                npk: '0-0-0',
+                analysis: { N: 0, P: 0, K: 0 },
+                form: 'liquid',
+                packSize: 20,
+                suitableFor: ['greens', 'golf_greens', 'bowling_greens', 'tees', 'fairways', 'sports'],
+                notes: 'Kelp extract biostimulant. No analysis or application rate published.',
+                useCase: 'Biostimulant. Tank mix additive.',
             },
         ],
     };
