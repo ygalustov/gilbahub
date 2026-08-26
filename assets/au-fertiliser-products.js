@@ -6028,11 +6028,22 @@
                 });
 
                 const netN = Math.max(0, (month.N || 0) - activeN);
-                const netK = Math.max(0, (month.K || 0) - activeK);
-                // GH-342 follow-up: netP also caps at whatever's left of the
-                // ANNUAL P budget (annualTargets.P - delivered.P so far), not
-                // just release-window carry-over (activeP) -- confirmed live
-                // on Canberra: three separate granular N-carrier picks
+                // GH-343: netK also caps at whatever's left of the ANNUAL K
+                // budget (annualTargets.K - delivered.K so far), same fix as
+                // GH-342 for P -- confirmed live on Canberra: three separate
+                // granular N-carrier picks (Jan/Mar/Oct), each K-rich
+                // (Country Club IV 18-9-18 twice, Sierraform GT All Seasons
+                // once), non-overlapping release windows, so activeK alone
+                // never saw the earlier deliveries and K landed at 131.2kg
+                // against a 110kg annual target.
+                const netK = Math.min(
+                    Math.max(0, (month.K || 0) - activeK),
+                    Math.max(0, annualTargets.K - delivered.K)
+                );
+                // GH-342: netP also caps at whatever's left of the ANNUAL P
+                // budget (annualTargets.P - delivered.P so far), not just
+                // release-window carry-over (activeP) -- confirmed live on
+                // Canberra: three separate granular N-carrier picks
                 // (Jan/Mar/Oct) each scored P against their own raw monthly
                 // slice with non-overlapping release windows, so activeP
                 // never saw the earlier deliveries and P landed at 33.7kg

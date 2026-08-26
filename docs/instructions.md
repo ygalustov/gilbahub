@@ -733,6 +733,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-342** P had no annual tracking in `au-fertiliser-products.js`, so each month's `pScore` compared against the raw monthly P slice with no memory of P already delivered — non-overlapping granular picks across the year could each independently deliver P, compounding well past the annual target. Added `activeP`/`netP` (release-window carry-over, mirroring N/K), then capped `netP` further against the remaining annual P budget (`annualTargets.P - delivered.P`) so later months see the true remaining need. Also fixed the P "not needed" scoring branch to gate on `pRequired <= 0` instead of the annual `soilPSufficient` flag. Added `tests/gh342-au-p-carryover-tracking.test.js`.
 
+**GH-343** Same fix as GH-342, applied to K: `netK` only capped against release-window carry-over (`activeK`), not the annual K budget, so non-overlapping granular picks (Canberra: Country Club IV 18-9-18 twice, Sierraform GT All Seasons once) each delivered K independently, landing at 131.2kg against a 110kg annual target. `netK` now also caps against `annualTargets.K - delivered.K`. Added `tests/gh343-au-k-annual-budget-cap.test.js`.
+
 
 
 
