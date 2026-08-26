@@ -775,17 +775,14 @@ Also think how we can add auto tests to check real numbers? Maybe add this to th
 
 Hi [Client],
 
-Good news — this is fixed. A few changes:
+Hi Jerry, could you please check new fixes:
+- P and K now get delivered much closer to what's actually needed (fixed how the system picks fertiliser products).
+- Removed the Lift column — it was confusing without adding value.
+- Kept the Removal column, so you can see how Balance is calculated (Current + Delivered − Removal).
+- Percentages now only show for Deficit/Excess, and they show the gap (how far off), not an inflated ratio — so clients won't see big numbers like "266%" anymore, and hopefully won't panic :)
+- Deficit is now shown in amber, not red — red is reserved for genuine excess only.
 
-P and K now get delivered much closer to what's actually needed (fixed how the system picks fertiliser products).
-Removed the Lift column — it was confusing without adding value.
-Kept the Removal column, so you can see how Balance is calculated (Current + Delivered − Removal).
-Percentages now only show for Deficit/Excess, and they show the gap (how far off), not an inflated ratio — so clients won't see big numbers like "266%" anymore, and hopefully won't panic :)
-Deficit is now shown in amber, not red — red is reserved for genuine excess only.
-Fixed a nitrogen under-delivery issue on slow-release programmes (a dosing calculation wasn't accounting for multi-month release properly, so annual N could land noticeably short of target).
 Let me know how it looks on your end. If all good, I'll start work on the report.
-
-Kate
 
 
 ## Backlog
