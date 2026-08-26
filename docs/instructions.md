@@ -735,6 +735,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-343** Same fix as GH-342, applied to K: `netK` only capped against release-window carry-over (`activeK`), not the annual K budget, so non-overlapping granular picks (Canberra: Country Club IV 18-9-18 twice, Sierraform GT All Seasons once) each delivered K independently, landing at 131.2kg against a 110kg annual target. `netK` now also caps against `annualTargets.K - delivered.K`. Added `tests/gh343-au-k-annual-budget-cap.test.js`.
 
+**GH-344** (NZ) The low-GP (<0.3) winter branch in `getMonthlyRecommendation()` bypasses `selectNitrogenSource()` entirely and picked the highest-K% candidate unconditionally, regardless of whether K was needed that month — confirmed live on a soccer site with K already excess: July picked a K=16% product over a K=4.2% one despite `monthData.K=0`. Scoring is now two-sided: prefer high K only when `monthData.K > 0` (winter hardening intent preserved), prefer low/no K otherwise. Added `tests/gh344-nz-winter-branch-k-preference.test.js`.
+
 
 
 

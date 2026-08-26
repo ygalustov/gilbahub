@@ -1250,13 +1250,35 @@
                         const winterCandidates = mesaProducts.length > 0 ? mesaProducts
                             : seasonGranular.filter(p => p.release === 'slow' && (p.analysis?.N || 0) >= 10);
 
+                        // GH-344: this low-GP winter branch bypasses
+                        // selectNitrogenSource() entirely (no clean-K/P
+                        // filter, no ratioScore) and picked the highest-K%
+                        // candidate unconditionally, regardless of whether K
+                        // was actually needed that month -- confirmed live on
+                        // Test5 (soccer, K already excess): July picked MESA
+                        // Country Club 100% (K=16%) over MESA Proscape 51%
+                        // (K=4.2%) despite monthData.K=0. The "prefer high K"
+                        // intent (winter hardening) is legitimate when K is
+                        // actually needed, so it's now two-sided: prefer high
+                        // K when monthData.K > 0, prefer LOW/no K otherwise.
                         if (winterCandidates.length > 0) {
                             const isMesa = mesaProducts.length > 0;
                             const bestMesa = winterCandidates.reduce((best, p) => {
                                 const kPct = p.analysis?.K || 0;
-                                const score = kPct >= 10 ? 20 : kPct > 0 ? 10 : 0;
+                                const score = monthData.K > 0
+                                    ? (kPct >= 10 ? 20 : kPct > 0 ? 10 : 0)      // K needed -- prefer high K (hardening)
+                                    : (kPct === 0 ? 20 : kPct <= 5 ? 10 : 0);    // K not needed -- prefer low/no K
                                 return !best || score > best.score ? { product: p, score } : best;
                             }, null)?.product;
+
+                            // GH-344-DEBUG: kept until confirmed fixed in UI
+                            // per project convention -- shows the winter
+                            // branch's winner and its K%, so a live check can
+                            // confirm it no longer favours high-K when K
+                            // isn't needed.
+                            console.log('[GH344-DEBUG] winter branch WINNER', monthData.month_name, '|', bestMesa ? bestMesa.name : null, '| K%:', bestMesa ? (bestMesa.analysis?.K || 0) : null, '| monthData.K:', monthData.K);
+
+                            console.log('[GH344-DEBUG] winter branch WINNER', monthData.month_name, '|', bestMesa ? bestMesa.name : null, '| K%:', bestMesa ? (bestMesa.analysis?.K || 0) : null, '| kRequired (this call):', context.kRequired, '| monthData.K:', monthData.K);
 
                             if (bestMesa) {
                                 const nPct = bestMesa.analysis.N / 100;
