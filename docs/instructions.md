@@ -739,6 +739,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-345** (NZ) The `isCovered` branch in `generateProgram()` double-counted a slow-release batch's N/K: the full batch was credited to `delivered.N/K` at its application month, then a decayed share was added again at each subsequent covered month. Inflated the running pacing tally (`kRunningBehind`, strategic P's `annualPRemaining`) without affecting the final Delivered column. Removed the re-credit; covered months now only add genuinely new liquid top-ups. Added `tests/gh345-nz-covered-month-no-double-count.test.js`.
 
+**GH-346** Monthly Nutrient Program table: GP=1% rendered green ("high") instead of red ("low"). `gp-status.js`'s `toPct()` treats any value ≤1 as a 0-1 fraction and multiplies by 100; `nutrition-calendar.js` had already converted to a percentage before calling `getLevel()`, so `gpPct=1` collided with that heuristic and got re-multiplied to 100. Fixed by passing the raw fraction (`m.gp`) instead, matching the convention already used by the AU/NZ integration files. Added `tests/gh346-nutrition-calendar-gp-color-collision.test.js`.
+
 
 
 
@@ -770,19 +772,6 @@ Explain this - 5	«Догоняющий» бонус по K	Отсутствуе
 
 Also think how we can add auto tests to check real numbers? Maybe add this to the end of the plan
 
-
-
-
-Hi [Client],
-
-Hi Jerry, could you please check new fixes:
-- P and K now get delivered much closer to what's actually needed (fixed how the system picks fertiliser products).
-- Removed the Lift column — it was confusing without adding value.
-- Kept the Removal column, so you can see how Balance is calculated (Current + Delivered − Removal).
-- Percentages now only show for Deficit/Excess, and they show the gap (how far off), not an inflated ratio — so clients won't see big numbers like "266%" anymore, and hopefully won't panic :)
-- Deficit is now shown in amber, not red — red is reserved for genuine excess only.
-
-Let me know how it looks on your end. If all good, I'll start work on the report.
 
 
 ## Backlog

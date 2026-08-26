@@ -1789,7 +1789,19 @@
             const gpPct = Math.round(m.gp * 100);
             // GH-257: canonical GP colour thresholds — see gp-status.js. Was
             // 50/25; now 70/40 to match the dashboard/analysis/Word export.
-            const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gpPct) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
+            // GH-346: pass the raw fraction (m.gp), not the pre-rounded
+            // gpPct -- gp-status.js's toPct() treats any value <= 1 as a
+            // fraction and multiplies by 100 to normalise it. gpPct=1 (a
+            // genuine 1%) collided with that heuristic and got re-multiplied
+            // to 100 -> "high"/green, the opposite of correct (confirmed
+            // live: three winter months at GP=1% rendered green while
+            // GP=3-4% correctly rendered red). m.gp is never in the [0,1]
+            // ambiguous integer zone except at true 0/100%, where both
+            // interpretations agree, so passing it directly sidesteps the
+            // collision without touching the shared helper (other callers
+            // of GAIP_GPStatus already pass the raw fraction the same way,
+            // e.g. nutrition-au-fertiliser-integration.js, nutrition-prebble-integration.js).
+            const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(m.gp) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
             const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
             return `
                 <tr class="gilba-nut-row">
