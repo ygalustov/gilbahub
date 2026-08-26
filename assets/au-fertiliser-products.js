@@ -5375,7 +5375,36 @@
                     // No K needed, product has no K
                     kScore = 80;
                 }
-                
+
+                // SCORE 1.5: N Delivery Accuracy (GH-339)
+                // selectFoliarNitrogen() exists to close a real N shortfall
+                // (nRequired), but nothing here scored how well a candidate's
+                // own N% and label-rate ceiling could actually fill it --
+                // unlike selectNitrogenSource()'s granular path, which has
+                // this exact check ("THE MOST IMPORTANT SCORE"). Without it,
+                // a low-N%/off-purpose liquid (e.g. Hi Start Turf, N=10%,
+                // P=13%) could out-score a purpose-built high-N liquid
+                // (Greenmaster Liquid High N, N=25%) on pScore/kScore alone,
+                // then only deliver a fraction of the month's N need even
+                // after 4 applications (confirmed live: Feb remainingN=16.7kg,
+                // Hi Start Turf capped at 8.0kg after 4x20L/ha).
+                const nAtRate = estimatedRate * (nPct / 100);
+                const nDeliveryRatio = nRequired > 0 ? nAtRate / nRequired : 1;
+                let nScore = 0;
+                if (nDeliveryRatio >= 0.85 && nDeliveryRatio <= 1.15) {
+                    nScore = 50; // Excellent N delivery
+                } else if (nDeliveryRatio >= 0.7 && nDeliveryRatio <= 1.3) {
+                    nScore = 35; // Good N delivery
+                } else if (nDeliveryRatio >= 0.5 && nDeliveryRatio <= 1.5) {
+                    nScore = 20; // Acceptable N delivery
+                } else if (nDeliveryRatio > 1.5) {
+                    nScore = -20; // Overshoot
+                } else if (nDeliveryRatio >= 0.3) {
+                    nScore = -10; // Under-delivering
+                } else {
+                    nScore = -40; // Structurally can't fill this month's N gap
+                }
+
                 // SCORE 2: GP-appropriate release type (0-50 points)
                 let releaseScore = 25;
                 if (gp < 0.3) {
@@ -5514,6 +5543,8 @@
                 // TOTAL SCORE
                 // GH-328: pScore weighted the same as kScore (×0.25), replacing
                 // the old unweighted pPenalty (which only ever subtracted).
+                // GH-339: nScore added at the same weight (×0.25) -- see
+                // SCORE 1.5 above for why this was missing.
                 const totalScore = (kScore * 0.25) +
                                    (releaseScore * 0.18) +
                                    (greensScore * 0.12) +
@@ -5521,10 +5552,17 @@
                                    (rateScore * 0.10) +
                                    (positionScore * 0.03) +
                                    (pScore * 0.25) +
+                                   (nScore * 0.25) +
                                    autumnKBonus +
                                    greensKPenalty +
                                    _mModifier;
-                
+
+                // GH-336-DEBUG: score breakdown per liquid candidate, so a
+                // surprising winner (e.g. a low-N%/off-purpose product beating
+                // a purpose-built high-N maintenance liquid) can be traced to
+                // the exact score component responsible.
+                console.log('[GH336-DEBUG] liquid candidate score', monthData.month_name, '|', product.name, '| total:', Math.round(totalScore * 10) / 10, '| kScore:', kScore, '| releaseScore:', releaseScore, '| greensScore:', greensScore, '| pureNScore:', pureNScore, '| rateScore:', rateScore, '| positionScore:', positionScore, '| pScore:', pScore, '| nScore:', nScore, '| nDeliveryRatio:', Math.round(nDeliveryRatio * 100) / 100, '| autumnKBonus:', autumnKBonus, '| greensKPenalty:', greensKPenalty, '| muldersModifier:', _mModifier, '| nPct:', nPct, '| kPct:', kPct);
+
                 if (totalScore > bestScore) {
                     bestScore = totalScore;
                     bestProduct = product;
@@ -5534,7 +5572,11 @@
             if (!bestProduct) {
                 return null;
             }
-            
+
+            // GH-336-DEBUG: which candidate actually won this month.
+            console.log('[GH336-DEBUG] liquid candidate WINNER', monthData.month_name, '|', bestProduct.name, '| score:', Math.round(bestScore * 10) / 10);
+
+
             // ================================================================
             // CALCULATE RATE TO DELIVER REQUIRED N - RESPECT LABEL RATES
             // ================================================================
@@ -6185,7 +6227,7 @@
 
                     // GH-336-DEBUG: what liquid picked and would deliver,
                     // vs. remainingN it was asked to cover.
-                    console.log('[GH336-DEBUG] liquid decision', month.month_name, '| picked:', liquidRec ? liquidRec.name : null, '| asked to cover (remainingN):', remainingN, '| would deliver N:', liquidRec ? liquidRec.nDelivered : null);
+                    console.log('[GH336-DEBUG] liquid decision', month.month_name, '| picked:', liquidRec ? liquidRec.name : null, '| asked to cover (remainingN):', remainingN, '| would deliver N:', liquidRec ? liquidRec.nDelivered : null, '| applications:', liquidRec ? liquidRec.applications : null, '| notes:', liquidRec ? liquidRec.notes : null);
 
                     if (liquidRec && liquidRec.nDelivered > 0) {
                         delivered.N += liquidRec.nDelivered;

@@ -1631,6 +1631,13 @@
                     context.soilTemp
                 );
                 
+                // GH-340: pro-rata K requirement for the months processed so
+                // far (this month included), not the full annual total -- see
+                // annualKRequiredToDate below for why.
+                const kRequiredToDate = monthlyData
+                    .slice(0, index + 1)
+                    .reduce((sum, m) => sum + (m.K || 0), 0);
+
                 // Build month context
                 const monthContext = {
                     ...context,
@@ -1641,6 +1648,7 @@
                     annualPDelivered: delivered.P,
                     annualKRequired: annualK,
                     annualKDelivered: delivered.K,
+                    annualKRequiredToDate: kRequiredToDate,
                     excludeStarters: soilPDeficient && index !== pApplicationMonth,
                     // APPLICATION WINDOW FLAGS
                     skipGranular: isCovered,
@@ -2412,10 +2420,23 @@
             // ============================================================
             // ANNUAL PLANNING: K deficit detection
             // ============================================================
-            // Check if K is running behind annually - if so, boost high-K products
+            // Check if K is running behind schedule - if so, boost high-K products
+            // GH-340: was compared against the FULL annual K requirement, so
+            // in January (annualKDelivered=0) the ratio was always 0 -- "behind"
+            // by definition before any month had a chance to deliver anything.
+            // That fired the catch-up bonus in the first 1-2 months of the year,
+            // front-loading high-K products (e.g. Sierraform GT Anti-Stress,
+            // K=21.6%) well past what the year's pace called for, then more K
+            // kept arriving from later months on top -- confirmed live: a site
+            // with annual K required=110.1kg delivered 144.7kg (+31%) after
+            // Sierraform won both Jan and Feb on this bonus alone. Now compares
+            // against annualKRequiredToDate (the pro-rata requirement for the
+            // months processed so far), so "behind" means behind the actual
+            // schedule, not "it isn't December yet".
             const annualKRequired = context.annualKRequired || 0;
             const annualKDelivered = context.annualKDelivered || 0;
-            const kRunningBehind = annualKRequired > 0 && (annualKDelivered / annualKRequired) < 0.7;
+            const annualKRequiredToDate = context.annualKRequiredToDate || 0;
+            const kRunningBehind = annualKRequiredToDate > 0 && (annualKDelivered / annualKRequiredToDate) < 0.7;
             const kDeficitPct = annualKRequired > 0 ? (1 - annualKDelivered / annualKRequired) * 100 : 0;
 
             if (kRunningBehind) {
@@ -2444,12 +2465,23 @@
                 if (pct <= 0 || nPctLocal <= 0) return 0;
                 return (nRequired / nPctLocal) * pct;
             };
+            // GH-341-DEBUG: the 2kg/ha "clean" threshold is checked against
+            // nRequired as passed into THIS call -- which for non-greens
+            // surfaces is already a multi-month WINDOW total (see
+            // generateProgram()'s windowN), not a flat per-month or
+            // per-year figure. There is no annual running cap at all, so
+            // the same 2kg allowance can effectively repeat every time a
+            // new batch is sized.
+            console.log('[GH341-DEBUG] clean-filter context', monthData.month_name, '| nRequired (this call, windowed if non-greens):', nRequired, '| pRequired:', pRequired, '| kRequired:', kRequired, '| kRunningBehind:', kRunningBehind, '| candidates before filter:', nProducts.length);
+
             if (pRequired <= 0) {
                 const cleanP = nProducts.filter(p => effectiveDeliveryOf(p, 'P') <= CLEAN_NUTRIENT_KGHA);
+                console.log('[GH341-DEBUG] P clean filter', monthData.month_name, '| clean candidates:', cleanP.length, '/', nProducts.length, cleanP.length === 0 ? '(NO clean alternative -- falling back to all candidates)' : '');
                 if (cleanP.length > 0) nProducts = cleanP;
             }
             if (kRequired <= 0) {
                 const cleanK = nProducts.filter(p => effectiveDeliveryOf(p, 'K') <= CLEAN_NUTRIENT_KGHA);
+                console.log('[GH341-DEBUG] K clean filter', monthData.month_name, '| clean candidates:', cleanK.length, '/', nProducts.length, cleanK.length === 0 ? '(NO clean alternative -- falling back to all candidates)' : '');
                 if (cleanK.length > 0) nProducts = cleanK;
             }
 
@@ -2488,7 +2520,20 @@
                 let kDeficitBonus = 0;
                 if (kRunningBehind && kPct >= 15) {
                     // High-K products (15%+ K) get a significant bonus
-                    kDeficitBonus = Math.min(50, kPct * 2); // Up to 50 points
+                    const baseKDeficitBonus = Math.min(50, kPct * 2); // Up to 50 points
+                    // GH-341: scale by ratioScore so the bonus can no longer
+                    // single-handedly override a badly-suited candidate on K%
+                    // alone. Confirmed live on Russley (Jan): Sierraform GT
+                    // Anti-Stress (ratioScore=38.2, effectiveTechScore=4.4 --
+                    // a poor fit for January soil temp) beat CC MD Greens STD
+                    // 16-0-6.7 (ratioScore=76.1, effectiveTechScore=100) on a
+                    // flat +43.2 bonus alone, front-loading 43.2kg K in
+                    // January against a 21.9kg January need -- most of the
+                    // site's whole-year K overshoot traced back to this one
+                    // month. A well-matched candidate (high ratioScore) still
+                    // gets close to the full bonus; a poorly-matched one gets
+                    // heavily discounted instead of overriding a better fit.
+                    kDeficitBonus = baseKDeficitBonus * (ratioScore / 100);
                 }
                 
                 // ============================================================
@@ -2581,20 +2626,32 @@
                 // Weighting: Ratio 35%, Release 25%, TechEfficiency 30%, Rate 10%
                 // Plus K deficit bonus (up to 50 extra points when K is running behind)
                 // ============================================================
-                const totalScore = (ratioScore * 0.35) + 
-                                   (releaseScore * 0.25) + 
-                                   (effectiveTechScore * 0.30) + 
+                const totalScore = (ratioScore * 0.35) +
+                                   (releaseScore * 0.25) +
+                                   (effectiveTechScore * 0.30) +
                                    (rateScore * 0.10) +
                                    kDeficitBonus;
-                
+
+                // GH-341-DEBUG: score breakdown per granular candidate, plus
+                // the P/K this candidate would deliver at the rate needed
+                // for N -- so a candidate that "won" while carrying
+                // unwanted P/K (when pRequired/kRequired <= 0) can be traced
+                // to the exact score component responsible.
+                const _pAtN = effectiveDeliveryOf(product, 'P');
+                const _kAtN = effectiveDeliveryOf(product, 'K');
+                console.log('[GH341-DEBUG] granular candidate score', monthData.month_name, '|', product.name, '| total:', Math.round(totalScore * 10) / 10, '| ratioScore:', Math.round(ratioScore * 10) / 10, '| kDeficitBonus:', kDeficitBonus, '| releaseScore:', releaseScore, '| effectiveTechScore:', Math.round(effectiveTechScore * 10) / 10, '| rateScore:', rateScore, '| nPct:', nPct, '| kPct:', kPct, '| pAtN (kg P at rate for N):', Math.round(_pAtN * 100) / 100, '| kAtN (kg K at rate for N):', Math.round(_kAtN * 100) / 100);
+
                 if (totalScore > bestScore) {
                     bestScore = totalScore;
                     bestProduct = product;
                     bestTechEfficiency = techEfficiency;
                 }
             });
-            
+
             if (!bestProduct) return null;
+
+            // GH-341-DEBUG: which candidate actually won this month/window.
+            console.log('[GH341-DEBUG] granular candidate WINNER', monthData.month_name, '|', bestProduct.name, '| score:', Math.round(bestScore * 10) / 10);
             
             // Calculate rate based on N requirement
             const nPct = bestProduct.analysis.N / 100;
