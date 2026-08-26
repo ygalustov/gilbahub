@@ -737,6 +737,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-344** (NZ) The low-GP (<0.3) winter branch in `getMonthlyRecommendation()` bypasses `selectNitrogenSource()` entirely and picked the highest-K% candidate unconditionally, regardless of whether K was needed that month — confirmed live on a soccer site with K already excess: July picked a K=16% product over a K=4.2% one despite `monthData.K=0`. Scoring is now two-sided: prefer high K only when `monthData.K > 0` (winter hardening intent preserved), prefer low/no K otherwise. Added `tests/gh344-nz-winter-branch-k-preference.test.js`.
 
+**GH-345** (NZ) The `isCovered` branch in `generateProgram()` double-counted a slow-release batch's N/K: the full batch was credited to `delivered.N/K` at its application month, then a decayed share was added again at each subsequent covered month. Inflated the running pacing tally (`kRunningBehind`, strategic P's `annualPRemaining`) without affecting the final Delivered column. Removed the re-credit; covered months now only add genuinely new liquid top-ups. Added `tests/gh345-nz-covered-month-no-double-count.test.js`.
+
 
 
 

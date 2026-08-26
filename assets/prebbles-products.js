@@ -1751,11 +1751,25 @@
                     }
                     
                     program.monthly.push(rec);
-                    
-                    // Update cumulative delivery from coverage + any liquid added
-                    delivered.N += Math.min(coverage.remainingN, monthData.N);
-                    delivered.K += Math.min(coverage.remainingK, monthData.K);
-                    
+
+                    // GH-345: this used to also do
+                    // `delivered.N += Math.min(coverage.remainingN, monthData.N)`
+                    // (and the K equivalent) here -- double-counting the same
+                    // physical batch's N/K content, which was already
+                    // credited in full at its application month (the
+                    // "NOT COVERED" branch below). That inflated the running
+                    // delivered.N/K/P tally used for pacing decisions
+                    // (annualKRequiredToDate/annualKDelivered -> kRunningBehind,
+                    // GH-340/341; annualPRequired/annualPDelivered -> the
+                    // strategic P application's annualPRemaining), making the
+                    // program look further ahead of schedule than it really
+                    // was. The final Delivered column was never affected (it's
+                    // recomputed from program.annualSummary.products at the
+                    // end), only the mid-generation pacing signal. Removed --
+                    // a covered month contributes nothing new to delivered.N/K
+                    // on its own; only genuinely new applications (the liquid
+                    // top-up below) should.
+
                     // Add liquid delivery to cumulative AND track in annual summary
                     rec.liquid.forEach(liq => {
                         const splitCount = liq.splitCount || 1;
