@@ -515,15 +515,25 @@
      * Extract ppm value handling nested structure
      */
     NutritionCalendar.extractPpm = function(soil, nutrient) {
-        // Try direct ppm object
-        if (soil.ppm && soil.ppm[nutrient] !== undefined) {
-            return parseFloat(soil.ppm[nutrient]) || 0;
+        // GH-338: was `|| 0` on every branch, including "field doesn't exist
+        // at all" -- that collapsed "no soil sample" into "measured 0 ppm",
+        // and 0 ppm reads as maximally deficient against every floor,
+        // silently triggering the largest possible Lift correction for a
+        // site that was never actually tested. Return null when the field is
+        // genuinely absent so computeProgram() can tell "no data" apart from
+        // a real (if unlikely) 0 reading and skip deficit/lift for that
+        // nutrient instead of assuming the worst case. Matches
+        // nutrition-requirement-engine.js's calculateAllRequirements(),
+        // which already omits a nutrient entirely rather than defaulting it.
+        if (soil.ppm && soil.ppm[nutrient] !== undefined && soil.ppm[nutrient] !== null && soil.ppm[nutrient] !== '') {
+            const v = parseFloat(soil.ppm[nutrient]);
+            return isNaN(v) ? null : v;
         }
-        // Try direct property
-        if (soil[nutrient] !== undefined) {
-            return parseFloat(soil[nutrient]) || 0;
+        if (soil[nutrient] !== undefined && soil[nutrient] !== null && soil[nutrient] !== '') {
+            const v = parseFloat(soil[nutrient]);
+            return isNaN(v) ? null : v;
         }
-        return 0;
+        return null;
     };
 
     /**
@@ -939,9 +949,14 @@
     NutritionCalendar.calculateDeficit = function(currentPpm, nutrient, bulkDensity, soilDepth, methodology = 'mlsn', aaTextureKey = null) {
         // Select threshold based on methodology
         const thresholds = this.getThresholds(methodology, aaTextureKey);
-        
+
         const threshold = thresholds[nutrient];
-        if (!threshold || currentPpm >= threshold) return 0;
+        // GH-338: currentPpm can be null (no soil sample, see extractPpm()) --
+        // `null >= threshold` is false for any positive threshold, which used
+        // to fall through to `threshold - null` (null coerces to 0) and
+        // return the FULL threshold as a fabricated maximal deficit. Treat
+        // "no reading" as "can't say", not "assume worst case".
+        if (!threshold || typeof currentPpm !== 'number' || currentPpm >= threshold) return 0;
         
         const deficit = threshold - currentPpm;
         // Convert ppm deficit to kg/ha: ppm × bulk density × depth × 0.1
@@ -1189,6 +1204,12 @@
         // ================================================================
         const deficits = {};
         const annualCorrection = {};
+        // GH-338: which P/K/Ca/Mg/S nutrients have no real soil ppm reading
+        // at all (see extractPpm()) -- deficit/lift is never computed for
+        // these (treated as "unknown", not "0 ppm"/maximally deficient), and
+        // consumers (Soil page, Nutrient Delivery Summary) should show "No
+        // soil data" rather than a confident-looking Required figure.
+        const missingSoilData = {};
         const methodologyUsed = inputs.methodology || 'mlsn';
         const aaTextureKey = inputs.aaTextureKey != null ? inputs.aaTextureKey : null;
         const isAAMethodology = (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa');
@@ -1319,19 +1340,29 @@
 
         ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
             let deficit;
-            if (aaRanges[nutrient]) {
+            const currentPpm = inputs.soilPpm[nutrient];
+            // GH-338: no real soil ppm for this nutrient (extractPpm()
+            // returns null, not 0, when the field is genuinely absent) --
+            // don't compute a deficit/lift at all. Removal-only still
+            // applies below (it depends on Annual N, not soil status), but
+            // this nutrient is flagged so the UI can show "No soil data"
+            // instead of implying the Required figure reflects a real
+            // reading.
+            if (typeof currentPpm !== 'number') {
+                missingSoilData[nutrient] = true;
+                deficit = 0;
+            } else if (aaRanges[nutrient]) {
                 // GH-308/319: floor now comes from the same resolved range
                 // as the ceiling below (AA certificate/generic fallback,
                 // SLAN Carrow 2004, or MLSN floor x1.5), not the old
                 // per-methodology single-value CONFIG threshold tables.
                 const floor = aaRanges[nutrient].min;
-                const currentPpm = inputs.soilPpm[nutrient];
                 deficit = currentPpm < floor
                     ? (floor - currentPpm) * inputs.bulkDensity * inputs.soilDepth * 0.1
                     : 0;
             } else {
                 deficit = this.calculateDeficit(
-                    inputs.soilPpm[nutrient],
+                    currentPpm,
                     nutrient,
                     inputs.bulkDensity,
                     inputs.soilDepth,
@@ -1429,6 +1460,12 @@
                 bulkDensity: inputs.bulkDensity,
                 soilDepth: inputs.soilDepth,
             },
+            // GH-338: { P: true, K: true, ... } for nutrients with no real
+            // soil ppm reading -- Required for these is removal-only (no
+            // deficit/lift, since neither is computable without a sample),
+            // not a confirmed "soil is sufficient" number. Consumers should
+            // show "No soil data" rather than presenting it as measured.
+            missing_soil_data: missingSoilData,
             annual_totals: annualRequirements,
             // GH-304: 'certificate' | 'texture-fallback' per P/K/Ca/Mg/S nutrient
             // (N excluded -- it has no AA sufficiency-range concept at all).

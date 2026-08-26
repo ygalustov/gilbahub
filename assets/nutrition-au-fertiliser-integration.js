@@ -609,6 +609,10 @@
                     // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                     annual_removal: calendarData.annual_removal,
                     annual_lift: calendarData.annual_lift,
+                    // GH-338: which nutrients have no real soil sample at all
+                    // -- Required for these is removal-only, not a confirmed
+                    // reading, so the table should say so explicitly.
+                    missing_soil_data: calendarData.missing_soil_data || {},
                 };
             }
             
@@ -852,11 +856,20 @@
             const soilPpmMap = soilInfo.ppm || {};
             const rangeMap = program.annual_totals_range || {};
             const removalMap = program.annual_removal || {};
+            const missingSoilDataMap = program.missing_soil_data || {};
 
             // GH-312: unified Balance/Status model -- see
             // nutrition-prebble-integration.js's classifyBalance() for the
             // full rationale (same fix, byte-identical twin).
             function classifyBalance(nutrient, required, delivered) {
+                // GH-338: no real soil sample for this nutrient at all --
+                // Required is removal-only (no deficit/lift was computable),
+                // not a confirmed reading. Say so plainly rather than letting
+                // it fall into the pct-based fallback below and look like a
+                // real Deficit/On Track verdict.
+                if (missingSoilDataMap[nutrient]) {
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data' };
+                }
                 const range = rangeMap[nutrient];
                 const currentPpm = soilPpmMap[nutrient];
                 const removal = removalMap[nutrient];
@@ -936,9 +949,12 @@
             // else ('deficit', fallback's 'marginal') -> amber -- a planned,
             // gradual correction (Lift spread over yearsToCorrect) isn't the
             // same urgency as a true excess and shouldn't share its red.
+            // GH-338: 'no-data' -> neutral grey -- genuinely unknown, not a
+            // verdict of any kind, shouldn't share Deficit's amber either.
             function statusVisualClass(statusClass) {
                 if (statusClass === 'sufficient') return 'positive';
                 if (statusClass === 'excess') return 'negative';
+                if (statusClass === 'no-data') return 'neutral';
                 return 'warning';
             }
 
@@ -1432,6 +1448,7 @@
         .au-fert-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good, #16a34a); }
         .au-fert-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical, #dc2626); }
         .au-fert-nutrient-summary .nutrient-diff.warning { color: var(--gaip-warning, #d97706); }
+        .au-fert-nutrient-summary .nutrient-diff.neutral { color: var(--gaip-text-muted, #6b7280); }
 
         .gilba-table-scroll { overflow-x: auto; }
 
@@ -1496,12 +1513,14 @@
         .au-fert-positive { color: var(--gaip-good, #16a34a); font-weight: 600; }
         .au-fert-negative { color: var(--gaip-critical, #dc2626); font-weight: 600; }
         .au-fert-warning { color: var(--gaip-warning, #d97706); font-weight: 600; }
+        .au-fert-neutral { color: var(--gaip-text-muted, #6b7280); font-weight: 600; }
 
         .au-fert-totals-row td { background: var(--gaip-good-bg, #f0fdf4); font-weight: 700; border-top: 2px solid var(--gaip-border, #e2e8f0); padding: 10px 12px; }
         .au-fert-required-row td { background: var(--gaip-surface-muted, #f8fafc); color: var(--gaip-text-muted, #6b7280); padding: 9px 12px; }
         .au-fert-balance-row--positive td { background: var(--gaip-good-bg, #f0fdf4); }
         .au-fert-balance-row--negative td { background: #fef2f2; }
         .au-fert-balance-row--warning td { background: var(--gaip-warning-bg, #fffbeb); }
+        .au-fert-balance-row--neutral td { background: var(--gaip-surface-muted, #f8fafc); }
 
         .prebble-section-card tbody tr:last-child .au-fert-cell { border-bottom: none; }
 

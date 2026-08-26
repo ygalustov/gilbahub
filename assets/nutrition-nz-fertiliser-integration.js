@@ -338,6 +338,10 @@
                 // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                 program.annual_removal = calendarData.annual_removal;
                 program.annual_lift = calendarData.annual_lift;
+                // GH-338: which nutrients have no real soil sample at all --
+                // Required for these is removal-only, not a confirmed
+                // reading, so the table should say so explicitly.
+                program.missing_soil_data = calendarData.missing_soil_data || {};
             }
 
             if (!program || program.error) {

@@ -93,6 +93,9 @@
                 .prebble-nutrient-summary .nutrient-diff.warning {
                     color: #d97706;
                 }
+                .prebble-nutrient-summary .nutrient-diff.neutral {
+                    color: #6b7280;
+                }
                 .prebble-nutrient-summary tr.nutrient-sufficient td:last-child {
                     color: #059669;
                     font-weight: 600;
@@ -110,6 +113,11 @@
                 }
                 .prebble-nutrient-summary tr.nutrient-excess td:last-child {
                     color: #dc2626;
+                    font-weight: 600;
+                }
+                /* GH-338: no soil sample -- neutral grey, not a verdict. */
+                .prebble-nutrient-summary tr.nutrient-no-data td:last-child {
+                    color: #6b7280;
                     font-weight: 600;
                 }
                 /* Product Summary Totals */
@@ -334,6 +342,10 @@
                 // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                 program.annual_removal = calendarData.annual_removal;
                 program.annual_lift = calendarData.annual_lift;
+                // GH-338: which nutrients have no real soil sample at all --
+                // Required for these is removal-only, not a confirmed
+                // reading, so the table should say so explicitly.
+                program.missing_soil_data = calendarData.missing_soil_data || {};
 
                 this.lastProgram = program;
                 
@@ -735,6 +747,7 @@
             const soilPpmMap = soilInfo.ppm || {};
             const rangeMap = program.annual_totals_range || {};
             const removalMap = program.annual_removal || {};
+            const missingSoilDataMap = program.missing_soil_data || {};
 
             // GH-312: unified Balance/Status model, replacing both the old
             // required===0 ceiling-only check (GH-311) and the required>0
@@ -760,6 +773,14 @@
             // available -- MLSN/SLAN sites (this engine has no ceiling
             // concept for them) and uncovered AA species/texture.
             function classifyBalance(nutrient, required, delivered) {
+                // GH-338: no real soil sample for this nutrient at all --
+                // Required is removal-only (no deficit/lift was computable),
+                // not a confirmed reading. Say so plainly rather than letting
+                // it fall into the pct-based fallback below and look like a
+                // real Deficit/On Track verdict.
+                if (missingSoilDataMap[nutrient]) {
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data' };
+                }
                 const range = rangeMap[nutrient];
                 const currentPpm = soilPpmMap[nutrient];
                 const removal = removalMap[nutrient];
@@ -850,6 +871,9 @@
             function statusVisualClass(statusClass) {
                 if (statusClass === 'sufficient') return 'positive';
                 if (statusClass === 'excess') return 'negative';
+                // GH-338: 'no-data' -> neutral grey -- genuinely unknown, not
+                // a verdict, shouldn't share Deficit's amber either.
+                if (statusClass === 'no-data') return 'neutral';
                 return 'warning';
             }
 
@@ -1830,12 +1854,14 @@
         .prebble-positive { color: var(--gaip-good, #16a34a); font-weight: 600; }
         .prebble-negative { color: var(--gaip-critical, #dc2626); font-weight: 600; }
         .prebble-warning { color: var(--gaip-warning, #d97706); font-weight: 600; }
+        .prebble-neutral { color: var(--gaip-text-muted, #6b7280); font-weight: 600; }
 
         /* ── Nutrient delivery summary ──────────────────────────────────────── */
         .prebble-nutrient-summary .nutrient-diff { font-weight: 600; }
         .prebble-nutrient-summary .nutrient-diff.positive { color: var(--gaip-good, #16a34a); }
         .prebble-nutrient-summary .nutrient-diff.negative { color: var(--gaip-critical, #dc2626); }
         .prebble-nutrient-summary .nutrient-diff.warning { color: var(--gaip-warning, #d97706); }
+        .prebble-nutrient-summary .nutrient-diff.neutral { color: var(--gaip-text-muted, #6b7280); }
         .prebble-npk-delivered { font-size: 12px; font-variant-numeric: tabular-nums; }
 
         /* Status badges in nutrient summary */
@@ -1855,12 +1881,16 @@
            red that deficit used to share with it. */
         .nutrient-status-deficit    { background: var(--gaip-warning-bg, #fffbeb); color: var(--gaip-warning, #d97706); border: 1px solid #fde68a; }
         .nutrient-status-excess     { background: #fef2f2; color: var(--gaip-critical, #dc2626); border: 1px solid #fecaca; }
+        /* GH-338: no soil sample for this nutrient -- neutral grey, not a
+           verdict of any kind. */
+        .nutrient-status-no-data    { background: var(--gaip-surface-muted, #f8fafc); color: var(--gaip-text-muted, #6b7280); border: 1px solid var(--gaip-border, #e2e8f0); }
 
         .prebble-totals-row td { background: var(--gaip-good-bg, #f0fdf4); font-weight: 700; border-top: 2px solid var(--gaip-border, #e2e8f0); padding: 10px 12px; }
         .prebble-required-row td { background: var(--gaip-surface-muted, #f8fafc); color: var(--gaip-text-muted, #6b7280); padding: 9px 12px; }
         .prebble-balance-row--positive td { background: var(--gaip-good-bg, #f0fdf4); }
         .prebble-balance-row--negative td { background: #fef2f2; }
         .prebble-balance-row--warning td { background: var(--gaip-warning-bg, #fffbeb); }
+        .prebble-balance-row--neutral td { background: var(--gaip-surface-muted, #f8fafc); }
 
         /* ── Summary table ─────────────────────────────────────────────────── */
         .prebble-summary-table { width: 100%; }

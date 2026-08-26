@@ -62,12 +62,13 @@ describe.each([
         expect(block).toMatch(/if \(balanceKgHa < floorKgHa\) \{[\s\S]*?statusClass: 'deficit'/);
     });
 
-    test('statusVisualClass() maps sufficient/excess/deficit to positive/negative/warning', () => {
+    test('statusVisualClass() maps sufficient/excess/deficit/no-data to positive/negative/warning/neutral', () => {
         const idx = src.indexOf('function statusVisualClass(statusClass) {');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 300);
+        const block = src.slice(idx, idx + 500);
         expect(block).toMatch(/if \(statusClass === 'sufficient'\) return 'positive';/);
         expect(block).toMatch(/if \(statusClass === 'excess'\) return 'negative';/);
+        expect(block).toMatch(/if \(statusClass === 'no-data'\) return 'neutral';/);
         expect(block).toMatch(/return 'warning';/);
     });
 

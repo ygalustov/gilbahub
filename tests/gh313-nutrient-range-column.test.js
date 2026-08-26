@@ -78,9 +78,9 @@ describe('GH-313 — nutrition-au-fertiliser-integration.js (AU)', () => {
         expect(rangeDisplayReturns).toBeGreaterThanOrEqual(5);
     });
 
-    test('graceful degradation: rangeDisplay is "—" when the model cannot compute (both required===0 and required>0 fallback returns)', () => {
+    test('graceful degradation: rangeDisplay is "—" when the model cannot compute (required===0 fallback, required>0 fallback, and GH-338 no-soil-data)', () => {
         const occurrences = (block.match(/rangeDisplay: '—'/g) || []).length;
-        expect(occurrences).toBe(2);
+        expect(occurrences).toBe(3);
     });
 
     test('row template renders rangeDisplay in its own cell', () => {
