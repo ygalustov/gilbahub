@@ -2751,6 +2751,18 @@
                         notes = `Split into ${splitCount} applications of ${rateKgHa} kg/ha (label max: ${maxRate} kg/ha)`;
                     } else {
                         // Too many splits - cap at max rate with warning
+                        // GH-347: only ONE application actually happens here
+                        // (rateKgHa=maxRate, actualNDelivered computed without
+                        // a splitCount multiplier -- the note even says
+                        // "Supplement with foliar" for the rest). But
+                        // splitCount was already set to Math.ceil(...) above
+                        // (e.g. 3) and never reset, so kDelivered below
+                        // (rateKgHa * splitCount * kPct) counted K as if 3
+                        // full-rate applications had happened instead of 1 --
+                        // confirmed live: January capped N at 200kg/ha (32kg K
+                        // for one real application) but kDelivered came out to
+                        // 96kg (200 * 3 * 16%), a 3x overstatement.
+                        splitCount = 1;
                         rateKgHa = maxRate;
                         actualNDelivered = rateKgHa * nPct;
                         notes = `⚠️ Capped at label max (${maxRate} kg/ha). Delivers ${actualNDelivered.toFixed(1)} kg N/ha of ${monthData.N} required. Supplement with foliar.`;
@@ -3302,7 +3314,19 @@
                         }
                     } else {
                         // No better alternative - cap and warn
+                        // GH-347: same bug as selectNitrogenSource() -- only
+                        // ONE application actually happens here (rateLHa=
+                        // maxRate, "Supplement with additional applications"
+                        // in the note), but splitCount was set to
+                        // Math.ceil(...) above (>3, since that's why we're in
+                        // this branch) and never reset. The unconditional
+                        // recalculation below (`actualNDelivered = rateLHa *
+                        // splitCount * nPct`, after container rounding) and
+                        // kDelivered both then multiply by that stale
+                        // splitCount, overstating N and K as if several
+                        // full-rate applications happened instead of 1.
                         capped = true;
+                        splitCount = 1;
                         rateLHa = maxRate;
                         actualNDelivered = rateLHa * nPct;
                         notes = `⚠️ Capped at label max (${maxRate} L/ha). Delivers ${actualNDelivered.toFixed(1)} kg N/ha. Supplement with additional applications.`;

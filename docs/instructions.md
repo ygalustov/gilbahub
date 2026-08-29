@@ -154,7 +154,6 @@ Do you want me to switch it to match PACE?
 +88. GP reconciliation (file). GH-183, GH-184. 
 Does my doing it this way help? - Yes, very helpful - it gives more context. 
 
-
 17/07/26
 +44.⁠ ⁠Analysis>water balance irrigation balance the same for every site currently. - I see different numbers - ex Burns GC and Russley GC. If you are not sure in the calculations - let me know which location to check. 
 +47.⁠ ⁠When upload json file with soil tests into twin creeks data> soil says no data added but you can see it in analysis > soil and nutrition. - Could you please send me through the file which you are using. 
@@ -178,58 +177,51 @@ Could you please check #87-89 and see if you need more info in the UI.
 
 +63.⁠ ⁠Entered PGR application of amigo 175 at 4L to both. it doesnt show up on the hydrosight. - I added PGR application to Russley GC and rerun analisys - attached screenshot with results. Are you expecting different data or you look somethere else?
 
-
-
 27/07/26
 +54.⁠ ⁠Where is soil water integration? GH-203, GH-204, GH-205, GH-206, GH-207,GH-208
 +66.⁠ when add manual data for water ther e is no way to add carbonate, phosphate or nitrate. GH-203
 +67.⁠ ⁠when add water chemistry where are the results? analysis>water balance> nothing there and there needs to be. grpah and/or way of seeing which result relates to what sample. GH-204, GH-205, GH-206, GH-207, GH-208
 +90. the soil tests look good but I think they have got their wires crossed. Russley GC in Anzac is ammonium acetate but it’s using the MLSN set. Also MLSN for P isnt 6. Sulfur is Sulphur. MG is Mg. CA is Ca etc. GH-209, GH-211, GH-212
 
-
-
 28/07/26
 +79. when print word report for Russley says perennial ryegrass and sportsturf not colonial bent and golf greens. Also on mobile can’t read any tables. GH-175, GH-176, GH-177, GH-225 - I've made a few improvements to the report. 
 I've also made some general improvements to the Hub. 
 
-
-
-
 04/08/26
 +92. Its Prebbles distributor on Plan>nutrition. GH-228.
-
-
 
 05/08/26
 +93. it doesnt print the program in plan>nutrition if you select the annual N target generate nutrition program. GH-229, GH-230, GH-231, GH-232, GH-233. 
 
-
-
 06/08/2026
 +94. Shows the tissue test result for green 13 after every soil test result. page 11 what green is this? Im assuming no 1?the tissue test should just correspond to the green it tests
 
-
 11/08/26
 +91. I think we should remove the fusarium results off the front as well as the model isn’t validated and it’s giving crappy readings. It’s not fusarium weather currently in Christchurch as it’s cold and dry. GH-236, GH-237, GH-238, GH-239, GH-240, GH-241, GH-242.
-
-
 
 13/08/26
 +249 uploaded a football ground Hoxton in Auckland (it’s made up) and added soil water and tissue test results. 1 file
 D01 - D03 GP. GH-245 - GH-252
 
-
 17/08/26
 +D30 - fixed. GH-253. 
 +D30 - additional fixes. GH-255, GH-256, GH-257. 
-
-
-
 
 25/08/26
 +249 D07. AA isn’t a standard test but unfortunately Prebbles have historically run with this :-(. This link shows the conversion from AA to MLSN if they are testing with AA but want to use the MLSN interpretation (this is supposed to be M3 extraction but you can convert it). However what we are after are sets specific to AA that Prebbles use and are independent of MLSN
 I think we are going to be best using the same sets that they currently use within Prebbles? Haguely is ryegrass
 GH-258 - GH-324. 
+
+26/08/26
++249. D07. this looks good kate. the only issue is that the K and P figures are way out when we get teh N pretty close to exact. is there any way we can get the K and P to get closer to what is needed? if anyone sees that much red and figures over 200% out they are going to panic. Do we really need the Lift column?
+Hi Jerry, could you please check new fixes:
+-P and K now get delivered much closer to what's actually needed (fixed how the system picks fertiliser products).
+-Removed the Lift column.
+-Kept the Removal column, so you can see how Balance is calculated (Current + Delivered - Removal).
+-Percentages now only show for Deficit/Excess, and they show the gap (how far off) - so clients won't see big numbers anymore and hopefully won't panic :)
+-Deficit is now shown in amber, not red - red is for excess only.
+Let me know how it looks on your end. If all good, I'll start to work on the report.
+
 
 
 
@@ -741,32 +733,9 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-346** Monthly Nutrient Program table: GP=1% rendered green ("high") instead of red ("low"). `gp-status.js`'s `toPct()` treats any value ≤1 as a 0-1 fraction and multiplies by 100; `nutrition-calendar.js` had already converted to a percentage before calling `getLevel()`, so `gpPct=1` collided with that heuristic and got re-multiplied to 100. Fixed by passing the raw fraction (`m.gp`) instead, matching the convention already used by the AU/NZ integration files. Added `tests/gh346-nutrition-calendar-gp-color-collision.test.js`.
 
+**GH-347** (NZ) In `prebbles-products.js`'s rate-capping branches (granular `selectNitrogenSource()` and liquid `selectFoliarNitrogen()`), `splitCount` was computed to decide if splitting was reasonable, then never reset to 1 when it wasn't (capped to a single application instead). `kDelivered` (and, in the liquid path, a post-rounding N recalculation) multiplied by that stale `splitCount`, overstating delivery as if several full-rate applications had happened instead of one — confirmed live: a single capped 200kg/ha application (32kg K) was counted as 96kg K (stale `splitCount=3`). Fixed by resetting `splitCount = 1` in both branches. Added `tests/gh347-nz-stale-splitcount-overstate.test.js`.
 
 
-
-
-Explain this - 5	«Догоняющий» бонус по K	Отсутствует	Есть (kDeficitBonus)	Архитектурное отличие — источник GH-340
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-----
 
 
 
@@ -811,7 +780,6 @@ Also think how we can add auto tests to check real numbers? Maybe add this to th
 
 
 
-
 ---
 
 **Engineering backlog (internal, not a client comment)**
@@ -832,7 +800,7 @@ And also soil type
 
 
 
-
+Kate this looks a lot better. So working on K as an example current soil levels are high for Hoxton at 199ppm. Over the season levels will drop but continue to remain within the acceptable range. I tried dropping the tissue levels to 1.05% K and soil K to 40ppm which are below the acceptable range. The nutrient calculator doesn't then make up for the deficiency in K.
 
 
 
