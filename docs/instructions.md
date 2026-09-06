@@ -739,6 +739,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-350** Word export audit found two report-only bugs. (1) Monthly Schedule GP colour passed an already-converted percentage into `GAIP_GPStatus.getColorDocx()`, hitting the same `toPct()` double-conversion ambiguity GH-346 fixed elsewhere — a month at exactly 0%/1% GP would render green instead of red; fixed by passing the raw fraction. (2) The GH-349 herbicide warning rendered mixed into the regular notes with no visual distinction; now split into its own bold paragraph, matching the live UI. Added `tests/gh350-word-export-gp-color-and-herbicide-note.test.js`.
 
+**GH-351** `nutrition-requirement-engine.js`'s AMMONIUM_ACETATE branch never set an `intent` field (unlike the SLAN branch), so the Word report's K Reconciliation table couldn't tell "soil already sufficient, programme mining reserves" apart from "genuinely deficient" — every AA sample with a negative K balance rendered as a red "Advisory, review N programme" instead of the correct amber "Trend". Confirmed live: K=276ppm (sufficient) showed K req=100.0 correctly but was flagged Advisory anyway. Fixed by setting `intent` on all three AA branches (`suppress-above-ceiling` / `lift-to-floor` / `removal-only`), matching SLAN's pattern. Added `tests/gh351-aa-intent-field-missing.test.js`.
+
 
 
 

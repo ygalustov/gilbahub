@@ -360,6 +360,7 @@
                     removal: removal,
                     correctionRequired: 0,
                     annualRequirement: 0,
+                    intent: 'suppress-above-ceiling',
                     status: 'High',
                     methodology: 'AMMONIUM_ACETATE'
                 };
@@ -374,6 +375,7 @@
                     removal: removal,
                     correctionRequired: aaCorrection,
                     annualRequirement: Math.round((removal + aaCorrection) * 10) / 10,
+                    intent: 'lift-to-floor',
                     status: 'Low',
                     methodology: 'AMMONIUM_ACETATE'
                 };
@@ -386,6 +388,20 @@
                 removal: removal,
                 correctionRequired: 0,
                 annualRequirement: Math.round(removal * 10) / 10,
+                // GH-351: within-range AA soil is semantically identical to
+                // SLAN's 'removal-only' intent (sufficient soil, this figure
+                // is pure clipping-removal replacement, not a deficit) -- but
+                // this branch never set `intent` at all, so
+                // _classifyKReconState() (word-export.js) could never tell
+                // "sufficient soil, programme is mining reserves" (state
+                // 'trend', amber) apart from "deficient soil, spot-K gate
+                // should have fired" (state 'advisory', red). Confirmed live:
+                // an AA sample with K=276ppm (well above the AA sufficiency
+                // ceiling context) showed K req=100 (pure removal, correct)
+                // but the K Reconciliation table's negative balance rendered
+                // as a red "Advisory (~94 kg/ha), review N programme" instead
+                // of the correct amber "Trend ... soil sufficient" state.
+                intent: 'removal-only',
                 status: 'Adequate',
                 methodology: 'AMMONIUM_ACETATE'
             };
