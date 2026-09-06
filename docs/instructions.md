@@ -735,6 +735,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-347** (NZ) In `prebbles-products.js`'s rate-capping branches (granular `selectNitrogenSource()` and liquid `selectFoliarNitrogen()`), `splitCount` was computed to decide if splitting was reasonable, then never reset to 1 when it wasn't (capped to a single application instead). `kDelivered` (and, in the liquid path, a post-rounding N recalculation) multiplied by that stale `splitCount`, overstating delivery as if several full-rate applications had happened instead of one — confirmed live: a single capped 200kg/ha application (32kg K) was counted as 96kg K (stale `splitCount=3`). Fixed by resetting `splitCount = 1` in both branches. Added `tests/gh347-nz-stale-splitcount-overstate.test.js`.
 
+**GH-349** (NZ) Andersons Pendi Pro 22-0-5 (PGG Wrightson) contains a pre-emergent herbicide but had no seeding/winter safety rules. Added a `preEmergentHerbicide` flag on the product, excluded it from the low-GP winter branch on sports fields once GP drops below 20%, and added a static warning note ("verify no seeding/overseeding... within the next 12 weeks") whenever it's recommended on sports fields. Added `tests/gh349-nz-preemergent-herbicide-rules.test.js`.
+
 
 
 
@@ -768,9 +770,11 @@ Also think how we can add auto tests to check real numbers? Maybe add this to th
 
 
 
+04/09/26
+kate just had a look a this again as if i was wanting to use PGG. pendi-pro contains a pre emergent herbicide. at this stage i think we need to be careful recommending this. the reason is if we recommend it and some seeds the seed will not grow. this means we need two rules. one do not use if seeding 12 weeks before seeding and do not apply in the middle of winter (too cold for weeds to germinate)
 
 
-
+even when i put in low K levels there isnt a K fertiliser recommendation? am i misreading this?
 
 
 
@@ -799,8 +803,6 @@ And also soil type
 
 
 
-
-Kate this looks a lot better. So working on K as an example current soil levels are high for Hoxton at 199ppm. Over the season levels will drop but continue to remain within the acceptable range. I tried dropping the tissue levels to 1.05% K and soil K to 40ppm which are below the acceptable range. The nutrient calculator doesn't then make up for the deficiency in K.
 
 
 

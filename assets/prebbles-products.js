@@ -1148,7 +1148,14 @@
     // ========================================================================
 
     const PrebbleRecommender = {
-        
+
+        // GH-349: client-approved static warning text (Rule 2) shown
+        // whenever a `preEmergentHerbicide`-flagged product is actually
+        // recommended on sports fields. Deliberately NOT tied to any real
+        // seeding-date check -- the system has no reliable seeding-date data
+        // source (see GH-349 changelog entry) -- onus is on the end user.
+        HERBICIDE_WARNING_NOTE: 'Contains pre-emergent herbicide (pendimethalin). Please verify no seeding/overseeding has occurred or is planned within the next 12 weeks before applying.',
+
         /**
          * Get product recommendations for monthly nutrient requirements
          * 
@@ -1247,8 +1254,24 @@
                         );
                         
                         // Prefer MESA, fall back to any slow-release granular when MESA not in pool
-                        const winterCandidates = mesaProducts.length > 0 ? mesaProducts
+                        let winterCandidates = mesaProducts.length > 0 ? mesaProducts
                             : seasonGranular.filter(p => p.release === 'slow' && (p.analysis?.N || 0) >= 10);
+
+                        // GH-349: client-confirmed Rule 1 -- don't recommend a
+                        // pre-emergent-herbicide product (flagged
+                        // `preEmergentHerbicide`, e.g. Andersons Pendi Pro) on
+                        // sports fields once GP drops below 20%. This branch
+                        // (gp < 0.3) is the ONLY place such a product can be
+                        // selected in a low-GP month -- the outer if/else
+                        // chain in getMonthlyRecommendation() always routes
+                        // any GP<0.3 month here, never to selectNitrogenSource().
+                        // Below 20% it's agronomically too cold for the target
+                        // weeds to germinate anyway (product's own useCase
+                        // says "late-winter/early-spring"), so applying now
+                        // is wasted product.
+                        if (surfaceType === 'sports' && monthData.gp < 0.20) {
+                            winterCandidates = winterCandidates.filter(p => !p.preEmergentHerbicide);
+                        }
 
                         // GH-344: this low-GP winter branch bypasses
                         // selectNitrogenSource() entirely (no clean-K/P
@@ -1309,6 +1332,16 @@
                                 };
 
                                 recommendations.granular.push(granularProduct);
+
+                                // GH-349: client-confirmed Rule 2 -- static
+                                // warning text (not calendar/date automation)
+                                // whenever a pre-emergent-herbicide product is
+                                // actually recommended on sports fields. Onus
+                                // is on the end user to check their own
+                                // seeding/overseeding schedule.
+                                if (bestMesa.preEmergentHerbicide && surfaceType === 'sports') {
+                                    recommendations.notes.push(this.HERBICIDE_WARNING_NOTE);
+                                }
                             }
                         }
                     }
@@ -1354,6 +1387,10 @@
                     const nProduct = this.selectNitrogenSource(seasonGranular, monthData, context);
                     if (nProduct) {
                         recommendations.granular.push(nProduct);
+                        // GH-349 Rule 2: see winter branch above for full comment.
+                        if (nProduct.preEmergentHerbicide && surfaceType === 'sports') {
+                            recommendations.notes.push(this.HERBICIDE_WARNING_NOTE);
+                        }
                     } else {
                         // Greens: N requirement too low for min granular rate - use liquid
                         const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(context.surfaceType);
@@ -1379,6 +1416,10 @@
                     const nProduct = this.selectNitrogenSource(seasonGranular, monthData, context);
                     if (nProduct) {
                         recommendations.granular.push(nProduct);
+                        // GH-349 Rule 2: see winter branch above for full comment.
+                        if (nProduct.preEmergentHerbicide && surfaceType === 'sports') {
+                            recommendations.notes.push(this.HERBICIDE_WARNING_NOTE);
+                        }
                     } else {
                         // Greens: N requirement too low for min granular rate - use liquid
                         const isGreens = ['greens', 'golf_greens', 'bowling_greens'].includes(context.surfaceType);
@@ -2107,28 +2148,36 @@
             // Threshold: 5 kg/ha for all surfaces (tighter than before)
             const nDeficit = annualN - actualNDelivered;
             const nSurplus = actualNDelivered - annualN;
-            
+
+            // GH-348-DEBUG: the "Still N kg/ha short after balancing" warning
+            // gives no visibility into WHY it stayed short -- how many
+            // balancing months were actually available/used, and what each
+            // one delivered. Logging to trace the exact cap that bites.
+            console.log('[GH348-DEBUG] N balancing start', '| annualN:', annualN, '| actualNDelivered (before balancing):', Math.round(actualNDelivered * 10) / 10, '| nDeficit:', Math.round(nDeficit * 10) / 10);
+
             if (nDeficit > 5) {
-                
+
                 // Find best months for N application (high GP, not already overloaded)
                 const balancingMonths = monthlyData
                     .map((m, idx) => ({ ...m, idx }))
                     .filter(m => m.gp >= 0.4) // Reasonable growth
                     .sort((a, b) => b.gp - a.gp);
-                
+
                 // Choose product based on deficit size and surface
                 const ammos = PrebbleProducts.liquid.find(p => p.name.includes('Ammos') || p.name.includes('Nitro'));
                 const solAS = PrebbleProducts.soluble?.find(p => p.id === 'SOL-AS');
-                
+
                 let remainingNDeficit = nDeficit;
-                
+
                 // Spread across 1-3 months depending on deficit size
                 const monthsToUse = Math.min(
                     Math.ceil(nDeficit / (isGreens ? 8 : 20)), // 8kg/app greens, 20kg/app sports
                     balancingMonths.length,
                     3
                 );
-                
+
+                console.log('[GH348-DEBUG] N balancing plan', '| isGreens:', isGreens, '| balancingMonths available (gp>=0.4):', balancingMonths.length, '| monthsToUse (capped at 3):', monthsToUse, '| ammos found:', !!ammos, '| per-app cap:', isGreens ? 8 : 20);
+
                 for (let i = 0; i < monthsToUse && remainingNDeficit > 2; i++) {
                     const month = balancingMonths[i];
                     if (!month) break;
@@ -2186,10 +2235,11 @@
                         
                         actualNDelivered += nDelivered;
                         remainingNDeficit -= nDelivered;
-                        
+
+                        console.log('[GH348-DEBUG] N balancing application', i, '|', month.month_name, '| nForThisApp (wanted):', Math.round(nForThisApp * 10) / 10, '| rateLHa (after 5L round + 5-50 cap):', rateLHa, '| nDelivered (actual):', Math.round(nDelivered * 10) / 10, '| remainingNDeficit after:', Math.round(remainingNDeficit * 10) / 10);
                     }
                 }
-                
+
                 if (remainingNDeficit > 5) {
                     console.warn(`[PrebbleRecommender] Still ${remainingNDeficit.toFixed(0)} kg N/ha short after balancing`);
                 }
@@ -2788,6 +2838,10 @@
                 name: bestProduct.name,
                 npk: bestProduct.npk,
                 analysis: bestProduct.analysis, // CRITICAL: needed for nutrient tracking
+                // GH-349: passthrough so callers (getMonthlyRecommendation's
+                // Rule 2 warning) can detect a herbicide-flagged product
+                // without re-looking it up in the catalog.
+                preEmergentHerbicide: bestProduct.preEmergentHerbicide || false,
                 release: bestProduct.release || 'standard',
                 releaseTech: bestProduct.releaseTech || 'standard',
                 releaseWeeks: bestProduct.releaseWeeks || 4, // CRITICAL: needed for active tracking

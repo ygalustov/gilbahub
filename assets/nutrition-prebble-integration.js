@@ -977,6 +977,17 @@
                 if (m.requirements.P > 0) reqParts.push(`P:${m.requirements.P.toFixed(1)}`);
                 const reqString = reqParts.join(' ');
 
+                // GH-349: the herbicide safety warning is high-stakes enough
+                // that it shouldn't blend into the regular · -joined note
+                // string -- render it on its own line below the rest.
+                const herbicideNoteText = window.PrebbleRecommender && window.PrebbleRecommender.HERBICIDE_WARNING_NOTE;
+                const regularMonthNotes = (m.notes || []).filter(n => n !== herbicideNoteText);
+                const hasHerbicideNote = herbicideNoteText && (m.notes || []).includes(herbicideNoteText);
+                const notesCellHtml = [
+                    regularMonthNotes.length ? `<span class="prebble-inline-note">${regularMonthNotes.join(' · ')}</span>` : '',
+                    hasHerbicideNote ? `<div class="prebble-herbicide-note">${herbicideNoteText}</div>` : '',
+                ].filter(Boolean).join('');
+
                 return `
                     <tr class="gilba-gp-${gpClass}">
                         <td class="prebble-cell prebble-cell--month">${m.month}</td>
@@ -984,7 +995,7 @@
                         <td class="prebble-cell prebble-req">${reqString}</td>
                         <td class="prebble-cell prebble-granular">${granularList}${coverageDisplay}${activeDisplay}</td>
                         <td class="prebble-cell prebble-liquid">${liquidListWithKRecon}</td>
-                        <td class="prebble-cell prebble-cell--notes">${m.notes && m.notes.length ? `<span class="prebble-inline-note">${m.notes.join(' · ')}</span>` : ''}</td>
+                        <td class="prebble-cell prebble-cell--notes">${notesCellHtml}</td>
                     </tr>
                 `;
             }).join('');
@@ -1788,6 +1799,17 @@
             display: block;
             font-size: 12px;
             color: var(--gaip-text, #111827);
+            line-height: 1.4;
+        }
+
+        /* GH-349: herbicide safety warning -- own line, visually distinct
+           from the regular · -joined notes above it. */
+        .prebble-herbicide-note {
+            display: block;
+            margin-top: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #854d0e;
             line-height: 1.4;
         }
 

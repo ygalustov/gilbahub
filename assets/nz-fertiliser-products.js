@@ -461,6 +461,11 @@ const NzFertiliserProducts = {
                 "sports",
                 "landscaping"
             ],
+            // GH-349: structured flag (not text-parsed) so PrebbleRecommender
+            // can reliably gate this product's selection/warnings without
+            // matching against notes/useCase free text. Any future product
+            // containing a herbicide active ingredient must set this too.
+            "preEmergentHerbicide": true,
             "notes": "FERTILISER + HERBICIDE COMBO. 7.5 g/kg pendimethalin pre-emergent (summergrass, crowsfoot, Poa annua). 40% PCSCU. Sulphur included.",
             "useCase": "Late-winter/early-spring pre-emergent program. Annual grass weed prevention + N feeding. Avoid newly-seeded areas.",
             "nForm": "mixed",
