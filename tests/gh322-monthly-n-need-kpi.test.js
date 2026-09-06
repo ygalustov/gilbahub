@@ -44,6 +44,15 @@ function loadAndRun(dashboardData, siteConfig, calendarProgram, elementRegistry,
         localStorage: { getItem: () => null, setItem: () => {} },
         // synchronous for test determinism -- real code uses a 200ms delay
         setTimeout: (fn) => fn(),
+        // vm.createContext() creates its own isolated realm with its own
+        // built-in Date -- a test's `global.Date = class extends realDate...`
+        // mock in the OUTER Node process never reaches code run via
+        // vm.runInContext() unless explicitly passed through here. Without
+        // this, plan-ui.js's `new Date().getMonth()` always saw the REAL
+        // current month, so these tests only passed by coincidence when run
+        // in August (array index 7) and failed every other month (e.g. a
+        // September run computed index 8, "Mon8"/20, not "Mon7"/7.9).
+        Date: global.Date,
     };
     sandbox.window.GAIP_DASHBOARD_DATA = { computed: dashboardData };
     sandbox.window.GAIP_SITE_CONFIG = siteConfig || {};
