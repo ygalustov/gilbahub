@@ -737,6 +737,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-349** (NZ) Andersons Pendi Pro 22-0-5 (PGG Wrightson) contains a pre-emergent herbicide but had no seeding/winter safety rules. Added a `preEmergentHerbicide` flag on the product, excluded it from the low-GP winter branch on sports fields once GP drops below 20%, and added a static warning note ("verify no seeding/overseeding... within the next 12 weeks") whenever it's recommended on sports fields. Added `tests/gh349-nz-preemergent-herbicide-rules.test.js`.
 
+**GH-350** Word export audit found two report-only bugs. (1) Monthly Schedule GP colour passed an already-converted percentage into `GAIP_GPStatus.getColorDocx()`, hitting the same `toPct()` double-conversion ambiguity GH-346 fixed elsewhere — a month at exactly 0%/1% GP would render green instead of red; fixed by passing the raw fraction. (2) The GH-349 herbicide warning rendered mixed into the regular notes with no visual distinction; now split into its own bold paragraph, matching the live UI. Added `tests/gh350-word-export-gp-color-and-herbicide-note.test.js`.
+
 
 
 

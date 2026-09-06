@@ -5939,16 +5939,35 @@
                 granularText = '-';
             }
             var liquidText = liquidProducts.length > 0 ? liquidProducts.join(', ') : '-';
-            var notesText = (m.notes && m.notes.length > 0) ? m.notes.join('. ') : '-';
+
+            // GH-349: split the herbicide safety warning out of the regular
+            // ·-joined notes so it can render as its own bold paragraph below
+            // them, same visual separation as nutrition-prebble-integration.js.
+            var herbicideNoteText = window.PrebbleRecommender && window.PrebbleRecommender.HERBICIDE_WARNING_NOTE;
+            var regularMonthNotesArr = (m.notes || []).filter(function(n) { return n !== herbicideNoteText; });
+            var hasHerbicideNoteExport = !!herbicideNoteText && (m.notes || []).indexOf(herbicideNoteText) !== -1;
+            // '-' placeholder only when there's truly nothing to show -- with
+            // a herbicide note present, an empty regular-notes list should
+            // just omit the first paragraph rather than show a stray "-".
+            var notesText = regularMonthNotesArr.length > 0 ? regularMonthNotesArr.join('. ') : (hasHerbicideNoteExport ? '' : '-');
 
             // GP color
             // GH-257: canonical GP colour thresholds — see gp-status.js. Was
             // previously green/amber/grey with its own amber shade (CA8A04);
             // now matches the dashboard/analysis palette exactly (amber
             // D97706, red DC2626 instead of grey for the low tier).
-            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocx(gpPct) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
+            // GH-349-BUG: was passing gpPct (already 0-100) into
+            // getColorDocx(), which internally does `gp <= 1 ? gp*100 : gp`
+            // to accept either a raw fraction or a percentage -- for a month
+            // at exactly 0% or 1% GP that ambiguity re-multiplies it as if it
+            // were a fraction (1 -> 100), the same root cause as GH-346's
+            // nutrition-calendar.js bug, just in the Word export instead.
+            // Fixed by passing the raw fraction (m.gp) like every other
+            // correct caller does.
+            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocx(m.gp) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
             var mutedGrey = '9CA3AF';
             var normalDark = '374151';
+            var herbicideAmber = '854D0E';
 
             monthlyRows.push(new TableRow({
                 children: [
@@ -5956,7 +5975,19 @@
                     new TableCell({ width: { size: 700, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: gpPct + '%', size: 22, color: gpColor })] })] }),
                     new TableCell({ width: { size: 2400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: granularText, size: 22, color: isPureCoveredByCell ? '6B7280' : normalDark, italics: isPureCoveredByCell })] })] }),
                     new TableCell({ width: { size: 2000, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: liquidText, size: 22, color: liquidProducts.length > 0 ? normalDark : mutedGrey })] })] }),
-                    new TableCell({ width: { size: 3400, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: notesText, size: 22, color: mutedGrey, italics: true })] })] })
+                    new TableCell({
+                        width: { size: 3400, type: WidthType.DXA },
+                        children: (function() {
+                            var cellParas = [];
+                            if (notesText) {
+                                cellParas.push(new Paragraph({ children: [new TextRun({ text: notesText, size: 22, color: mutedGrey, italics: true })] }));
+                            }
+                            if (hasHerbicideNoteExport) {
+                                cellParas.push(new Paragraph({ spacing: { before: cellParas.length ? 40 : 0 }, children: [new TextRun({ text: herbicideNoteText, size: 22, color: herbicideAmber, bold: true })] }));
+                            }
+                            return cellParas;
+                        })()
+                    })
                 ]
             }));
         });
