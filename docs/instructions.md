@@ -743,6 +743,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-352** Word report's Annual Nutrient Requirements showed non-zero P/K/S for AA sites even when the live calendar correctly zeroed them (e.g. K=276ppm showing K req=100 instead of 0). Root cause: `word-export.js`'s `_aaRanges` resolution read `window.GAIP_STATE.soil` for methodology/texture/CEC, which doesn't exist yet at that point in `collectData()` — confirmed live via debug log (`_state.soil exists: false`) — so the certificate range lookup silently never ran and every AA nutrient fell to the "no range available" graceful-degradation path (pure removal, no ceiling ever applied), regardless of actual soil level. Fixed by reading `data.soil` instead (the same per-sample object the engine call itself already correctly uses).
 
+**GH-353** Follow-up to GH-352: `data.soil` never carries a `soilTexture`/`texture` field, so `HillLabsSampleTypes.deriveCode()` couldn't match the site's actual certificate code and silently fell back to the generic sands/others range instead of the real S277 band — confirmed live (`derived code: null`, `soilTexture: null` on a real sand-profile S277 site). Fixed by falling back to `window.GAIP_HUB_CONFIG.soilTexture`, the same page-level PHP-injected global `nutrition-calendar.js` already uses for this exact gap (stable per page load, unlike GAIP_STATE.soil). Added `tests/gh353-word-export-soiltexture-hub-config-fallback.test.js`.
+
 
 
 

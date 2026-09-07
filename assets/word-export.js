@@ -6796,7 +6796,20 @@
             var _soilM = String((data.soil && data.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
             if (_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE') return;
             var _hlst = window.HillLabsSampleTypes;
-            var _soilTexture = (data.soil && (data.soil.soilTexture || data.soil.texture)) || null;
+            // GH-353: data.soil never carries a soilTexture/texture field at all
+            // (confirmed live -- GH-352's fix log showed soilTexture: null even
+            // though this really is a sand-profile S277 site), so deriveCode()
+            // always missed the certificate and fell back to the generic
+            // sands/others band instead of the site's actual S277 range.
+            // window.GAIP_HUB_CONFIG.soilTexture is the same page-level,
+            // PHP-injected fallback nutrition-calendar.js already uses for this
+            // exact gap (see its own soilTexture fallback) -- unlike
+            // GAIP_STATE.soil (GH-352's bug), this is a stable global set once
+            // per page load, not a live JS state object that can be unpopulated
+            // when this code runs.
+            var _soilTexture = (data.soil && (data.soil.soilTexture || data.soil.texture))
+                || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
+                || null;
             var _code = (_hlst && typeof _hlst.deriveCode === 'function')
                 ? _hlst.deriveCode(_species, _soilTexture)
                 : null;

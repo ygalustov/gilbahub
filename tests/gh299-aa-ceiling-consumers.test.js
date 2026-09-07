@@ -140,7 +140,7 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
         // call this test pins on -- widened the window accordingly. GH-352
         // added a pre-guard debug log right after the block's start, pushing
         // everything further out again.
-        const body = src.slice(idx, idx + 3800);
+        const body = src.slice(idx, idx + 5200);
         expect(body).toMatch(/if \(_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE'\) return;/);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code,/);
