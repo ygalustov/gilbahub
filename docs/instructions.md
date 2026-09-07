@@ -741,6 +741,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-351** `nutrition-requirement-engine.js`'s AMMONIUM_ACETATE branch never set an `intent` field (unlike the SLAN branch), so the Word report's K Reconciliation table couldn't tell "soil already sufficient, programme mining reserves" apart from "genuinely deficient" — every AA sample with a negative K balance rendered as a red "Advisory, review N programme" instead of the correct amber "Trend". Confirmed live: K=276ppm (sufficient) showed K req=100.0 correctly but was flagged Advisory anyway. Fixed by setting `intent` on all three AA branches (`suppress-above-ceiling` / `lift-to-floor` / `removal-only`), matching SLAN's pattern. Added `tests/gh351-aa-intent-field-missing.test.js`.
 
+**GH-352** Word report's Annual Nutrient Requirements showed non-zero P/K/S for AA sites even when the live calendar correctly zeroed them (e.g. K=276ppm showing K req=100 instead of 0). Root cause: `word-export.js`'s `_aaRanges` resolution read `window.GAIP_STATE.soil` for methodology/texture/CEC, which doesn't exist yet at that point in `collectData()` — confirmed live via debug log (`_state.soil exists: false`) — so the certificate range lookup silently never ran and every AA nutrient fell to the "no range available" graceful-degradation path (pure removal, no ceiling ever applied), regardless of actual soil level. Fixed by reading `data.soil` instead (the same per-sample object the engine call itself already correctly uses).
+
 
 
 

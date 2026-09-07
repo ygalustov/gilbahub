@@ -137,8 +137,10 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
         expect(idx).toBeGreaterThan(-1);
         // GH-305 widened this block with a generic-range fallback (comments +
         // extra logic) between the deriveCode() call and the getRangesPpm()
-        // call this test pins on -- widened the window accordingly.
-        const body = src.slice(idx, idx + 1900);
+        // call this test pins on -- widened the window accordingly. GH-352
+        // added a pre-guard debug log right after the block's start, pushing
+        // everything further out again.
+        const body = src.slice(idx, idx + 3800);
         expect(body).toMatch(/if \(_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE'\) return;/);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code,/);

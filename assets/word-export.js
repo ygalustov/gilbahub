@@ -6773,11 +6773,32 @@
         // duplicating this resolution — pick up the same ranges.
         var _aaRanges = null;
         (function () {
-            var _soilM = String((_state.soil && _state.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
+            // GH-352: this IIFE used to read window.GAIP_STATE.soil (_state.soil)
+            // for methodology/soilTexture/CEC. Confirmed live (2026-09-07 test
+            // server, debug log) that _state.soil does not exist at all at this
+            // point in collectData() -- same class of gotcha as b35fix399b found
+            // in a different file (a live global that isn't populated yet when
+            // this code runs). The methodology guard below silently returned
+            // early every time, so _aaRanges was NEVER resolved for ANY AA site
+            // going through this export path -- every P/K/S annual requirement
+            // fell through to the "no aaRange available" graceful-degradation
+            // branch in nutrition-requirement-engine.js (pure removal, no
+            // ceiling/floor ever applied), regardless of actual soil level.
+            // Confirmed: same test showed P=18/K=100/S=10 here vs the live
+            // calendar's correctly-ceilinged P=0/K=0 for the identical sample.
+            //
+            // Fixed by reading data.soil instead -- the same per-sample object
+            // this very function (_buildEngineInputs(data)) already receives,
+            // confirmed live to correctly hold methodology ('AMMONIUM_ACETATE')
+            // at this exact point, and the same object the engine.compute()
+            // call below (and code elsewhere in this file) already relies on
+            // for real soil values.
+            var _soilM = String((data.soil && data.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
             if (_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE') return;
             var _hlst = window.HillLabsSampleTypes;
+            var _soilTexture = (data.soil && (data.soil.soilTexture || data.soil.texture)) || null;
             var _code = (_hlst && typeof _hlst.deriveCode === 'function')
-                ? _hlst.deriveCode(_species, (_state.soil && _state.soil.soilTexture) || null)
+                ? _hlst.deriveCode(_species, _soilTexture)
                 : null;
             // GH-305 (D07 item 6, "correction for generic numbers too" -- user
             // decision, 2026-08-24): fall back to AmmoniumAcetateMethodology.
@@ -6789,8 +6810,8 @@
             // prints no Sulphur range at all) still gets a ceiling instead of
             // recommending fertiliser it doesn't need.
             var _aam = window.AmmoniumAcetateMethodology;
-            var _texKey = String((_state.soil && _state.soil.soilTexture) || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
-            var _cec = _state.soil && (_state.soil.CEC ?? _state.soil.cec);
+            var _texKey = String(_soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
+            var _cec = data.soil && (data.soil.CEC ?? data.soil.cec);
             var _ranges = {};
             var _any = false;
             ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
@@ -6807,6 +6828,16 @@
                 if (r) { _ranges[n] = r; _any = true; }
             });
             if (_any) _aaRanges = _ranges;
+            // GH-352-DEBUG: kept until confirmed matching nutrition-calendar.js's
+            // [GH308-DEBUG] range/ceiling for the same site. If _soilTexture is
+            // null here (data.soil has no soilTexture/texture field either),
+            // deriveCode() falls back to its own default (S277) -- worth
+            // checking this line still resolves the SAME sample-type code the
+            // live calendar uses for this site.
+            console.log('[GH352-DEBUG] report aaRanges resolution (post-fix, reading data.soil)', '| species:', _species,
+                '| soilTexture:', _soilTexture, '| CEC:', _cec, '| derived code:', _code,
+                '| P range:', _ranges.P || null, '| K range:', _ranges.K || null, '| S range:', _ranges.S || null,
+                '| soilPpm.P:', data.soil && data.soil.P, '| soilPpm.K:', data.soil && data.soil.K, '| soilPpm.S:', data.soil && data.soil.S);
         })();
 
         data.engineInputs = {

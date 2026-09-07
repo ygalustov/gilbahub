@@ -136,7 +136,9 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
     test('structural: falls back to AmmoniumAcetateMethodology.getSufficiencyRange() when the certificate path has no range', () => {
         const idx = src.indexOf('var _aaRanges = null;');
         expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 2000);
+        // GH-352 added a pre-guard debug log right after this block's start,
+        // pushing everything further out -- window widened accordingly.
+        const body = src.slice(idx, idx + 3800);
         expect(body).toMatch(/window\.AmmoniumAcetateMethodology/);
         expect(body).toMatch(/_aam\.getSufficiencyRange\(n, _texKey\)/);
         expect(body).toMatch(/if \(!r && _aam/);
@@ -144,7 +146,9 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
 
     test('regression: certificate path (_hlst.deriveCode/getRangesPpm) is still attempted first, unchanged', () => {
         const idx = src.indexOf('var _aaRanges = null;');
-        const body = src.slice(idx, idx + 2000);
+        // GH-352 added a pre-guard debug log right after this block's start,
+        // pushing everything further out -- window widened accordingly.
+        const body = src.slice(idx, idx + 3800);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code, n,/);
         const deriveIdx = body.indexOf('_hlst.deriveCode(');
