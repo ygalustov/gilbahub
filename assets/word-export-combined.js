@@ -2712,7 +2712,11 @@
 
                     _perSampleProgOk++;
                 } catch (e) {
-                    console.warn('[CombinedExport] per-sample programme failed for', r.sampleId, ':', e.message);
+                    // GH-354-DEBUG: e.message alone ("Cannot read properties of
+                    // null (reading '0')") doesn't say WHERE in this ~500-line
+                    // try block it threw. Logging e.stack too until the exact
+                    // line is confirmed live.
+                    console.warn('[CombinedExport] per-sample programme failed for', r.sampleId, ':', e.message, '\n', e.stack);
                     _perSampleProgFail++;
                 }
             });

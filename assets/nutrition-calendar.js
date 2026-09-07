@@ -1163,7 +1163,21 @@
         // Open-Meteo fallback both genuinely failed) — callers that only
         // ever set monthlyTemps default to the last of those, the original
         // documented case.
-        if (!inputs.monthlyTemps) {
+        //
+        // GH-354: this only checked `inputs.monthlyTemps` was truthy, not
+        // that all 12 months actually had a numeric value. calculateMonthlyGP()
+        // does the real per-month check and returns null on the first missing/
+        // non-numeric month -- that null then reached distributeByGP()
+        // unchecked (`monthlyGP[m]` on null), crashing with "Cannot read
+        // properties of null (reading '0')" deep inside the per-sample loop,
+        // instead of surfacing here as the intended climateDataUnavailable
+        // result. Confirmed live: combined export per-sample recompute for a
+        // real site threw exactly this error. Now validates completeness the
+        // same way calculateMonthlyGP() does, so an incomplete monthlyTemps
+        // object is caught here instead of crashing three calls deeper.
+        const _monthlyTempsComplete = inputs.monthlyTemps &&
+            [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].every(m => typeof inputs.monthlyTemps[m] === 'number');
+        if (!_monthlyTempsComplete) {
             return { climateDataUnavailable: true, climateDataUnavailableReason: inputs.monthlyTempsUnavailableReason || 'fetch-failed' };
         }
 

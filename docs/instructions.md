@@ -745,6 +745,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-353** Follow-up to GH-352: `data.soil` never carries a `soilTexture`/`texture` field, so `HillLabsSampleTypes.deriveCode()` couldn't match the site's actual certificate code and silently fell back to the generic sands/others range instead of the real S277 band — confirmed live (`derived code: null`, `soilTexture: null` on a real sand-profile S277 site). Fixed by falling back to `window.GAIP_HUB_CONFIG.soilTexture`, the same page-level PHP-injected global `nutrition-calendar.js` already uses for this exact gap (stable per page load, unlike GAIP_STATE.soil). Added `tests/gh353-word-export-soiltexture-hub-config-fallback.test.js`.
 
+**GH-354** Combined-export per-sample programme recompute silently failed for every AA site tested (`Cannot read properties of null (reading '0')`, caught and swallowed by a try/catch). Root cause, found via full stack trace: `nutrition-calendar.js`'s `computeProgram()` only checked that `inputs.monthlyTemps` was truthy, not that all 12 months held a real number — `calculateMonthlyGP()` does that per-month check and returns `null` on the first gap, and that `null` then reached `distributeByGP()` unchecked (`monthlyGP[m]` on `null`), crashing deep inside the per-sample loop instead of surfacing as the intended `climateDataUnavailable` result. Fixed by validating completeness in `computeProgram()`'s existing GH-245 guard, matching `calculateMonthlyGP()`'s own check. Added `tests/gh354-incomplete-monthlytemps-crash.test.js`.
+
 
 
 
