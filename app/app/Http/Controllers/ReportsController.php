@@ -73,10 +73,20 @@ class ReportsController extends Controller
             }
         }
 
+        // GH-357: same site-override-then-account-fallback chain PageController
+        // already exposes to the Plan page (GH-294) -- this export page never
+        // had it at all, so word-export.js's _aaRanges resolution (GH-352/353/
+        // 355) had no window.GAIP_HUB_CONFIG.soilTexture to fall back to here,
+        // even though that fallback has worked correctly on Plan since GH-294.
+        // Without a real texture, HillLabsSampleTypes.deriveCode() always saw
+        // '' (reads as "not sand") and silently used the generic sands/others
+        // range instead of the site's real certificate range.
+        $soilTexture = $activeSite?->soil_texture_override ?: $activeSite?->account?->soil_texture;
+
         return compact(
             'activeSite', 'allSites',
             'turfSpecies', 'turfMethodology', 'locationName',
-            'analysisCache', 'savedLocation', 'tab',
+            'analysisCache', 'savedLocation', 'soilTexture', 'tab',
         );
     }
 }

@@ -751,6 +751,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-356** Added a real-data regression test convention (`tests/fixtures/`) — snapshots of an actual verified site/sample (pulled via direct DB read, cross-checked against the live UI and a real Combined Word export) with the exact confirmed-correct outputs, so future changes to AA/SLAN/MLSN logic get checked against real recorded numbers, not just hand-picked ones. First example: `tests/fixtures/test5-soccer-sample141.json` + `tests/real-data-test5-soccer.test.js` (Test5 - NZ, sample 141, real P/K/Ca/Mg/S values against the real Hill Labs S277 ranges).
 
+**GH-357** Root cause of GH-353/355's texture gap: `/reports/export` never had the Plan page's GH-294 soil-texture pass-through at all — `ReportsController::pageData()` never computed it and `export.blade.php` never threaded it into `GAIP_HUB_CONFIG`, so `window.GAIP_HUB_CONFIG.soilTexture` (the fallback GH-353 added) was always empty on this specific page even though the same fallback already worked correctly on Plan. Fixed by mirroring GH-294's exact pattern (site override → account fallback) in `ReportsController` and `export.blade.php`. Confirmed live end-to-end (DB + UI + a real Combined Word export): `derived code` now correctly resolves to `S277` with the real certificate ranges (P 20–30, K 78.2–195.5), not the generic fallback. Added `tests/Feature/ReportsExportSoilTextureTest.php` (mirrors `PlanPageSoilTextureTest.php`).
+
 
 
 

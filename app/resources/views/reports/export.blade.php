@@ -5,6 +5,19 @@
 @endphp
 @extends('layouts.db-shell', ['title' => 'Export', 'currentPage' => 'reports'])
 
+@section('head')
+<script>
+    // GH-357: pass through the site's real soil texture, same as plan.blade.php
+    // (GH-294) already does. word-export.js's _aaRanges IIFE (GH-352/353/355)
+    // falls back to window.GAIP_HUB_CONFIG.soilTexture when nothing else
+    // resolved it -- that fallback was correct in principle, this page just
+    // never populated the field it reads.
+    Object.assign(window.GAIP_HUB_CONFIG, {
+        soilTexture: @json($soilTexture ?? null),
+    });
+</script>
+@endsection
+
 @section('styles')
 <link rel="stylesheet" href="{{ $legacyAssetUrl('bulk-area-modal.css') }}">
 <style>

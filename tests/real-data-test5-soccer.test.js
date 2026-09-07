@@ -19,13 +19,15 @@
  *
  * Scope note: this tests nutrition-requirement-engine.js's core AA-ceiling
  * calculation directly with the range HillLabsSampleTypes/SpeciesController
- * OUGHT to resolve for this species+texture (confirmed by calling those
- * modules directly below) -- not word-export.js's own resolution of that
- * range, which (per GH-355) doesn't yet reliably reach SpeciesController /
- * the real texture at the point it runs. That wiring gap is covered
- * separately by the GH-352/353/355 structural tests; this file is about the
- * calculation being correct once fed the right numbers, using numbers that
- * are real rather than invented.
+ * resolve for this species+texture (confirmed by calling those modules
+ * directly below) -- not word-export.js's own resolution of that range.
+ * GH-357 (found after this file was written) fixed the last piece of that
+ * wiring (reports/export.blade.php never threaded the site's real texture
+ * into GAIP_HUB_CONFIG at all), so as of GH-357 the live export path
+ * resolves the exact same S277 certificate range this fixture encodes,
+ * confirmed live end-to-end -- this file's "resolve it correctly" numbers
+ * are no longer just the intended target, they're what production actually
+ * does now.
  */
 
 'use strict';
