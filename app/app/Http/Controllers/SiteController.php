@@ -18,7 +18,14 @@ class SiteController extends Controller
 
         $sites = $user->is_admin
             ? Site::query()->with('configs')->orderBy('name')->get()
-            : $user->sites()->wherePivot('status', 'active')->with('configs')->orderBy('name')->get();
+            // GH-359: site_user has no 'status' column (never existed in any
+            // migration, confirmed against both the real MySQL schema and
+            // SQLite test DB) -- this wherePivot was added alongside GH-66's
+            // removal of the suspended-user feature but references a column
+            // that was never actually created, so this call 500'd for every
+            // non-admin user. Only ever masked because manual testing used
+            // an admin account, which takes the other branch above.
+            : $user->sites()->with('configs')->orderBy('name')->get();
 
         return response()->json([
             'active_site_id' => $user->last_active_site_id,

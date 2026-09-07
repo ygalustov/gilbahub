@@ -13,9 +13,14 @@ class ExampleTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_root_redirects_to_hub(): void
+    public function test_root_redirects_to_dashboard(): void
     {
-        $this->get('/')->assertRedirect('/hub');
+        // GH-359: routes/web.php redirects '/' to '/dashboard', not '/hub' --
+        // the new db-shell hub is the site's home page now (legacy /hub
+        // still exists and still works, see the tests below, it's just no
+        // longer where '/' sends visitors). This assertion predates that
+        // and was never updated.
+        $this->get('/')->assertRedirect('/dashboard');
     }
 
     public function test_authenticated_user_can_open_hub_page(): void

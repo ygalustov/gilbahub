@@ -28,7 +28,17 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            // GH-357 follow-up: the stock Laravel factory still wrote
+            // 'password' -- database/migrations/2026_06_04_000000_add_rbac_
+            // and_auth_tables.php renamed that column to 'password_hash'
+            // (Magic Link auth, User::getAuthPassword() reads password_hash)
+            // and the factory was never updated. Confirmed live: any test
+            // using User::factory() failed with "table users has no column
+            // named password" the moment migrations actually ran clean
+            // (i.e. once the predictions migration's SQLite portability was
+            // fixed) -- this was masked before because that earlier failure
+            // aborted the whole migration run first.
+            'password_hash' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
         ];
     }

@@ -38,6 +38,7 @@ class ReportsExportSoilTextureTest extends TestCase
     private function createAccountForUser(User $user, array $overrides = []): Account
     {
         return Account::query()->create(array_merge([
+            'owner_user_id' => $user->id,
             'display_name' => $user->name,
             'created_by_user_id' => $user->id,
             'modified_by_user_id' => $user->id,
@@ -46,9 +47,16 @@ class ReportsExportSoilTextureTest extends TestCase
 
     private function createSiteForUser(User $user, array $overrides = []): Site
     {
-        $account = $this->createAccountForUser($user, [
-            'soil_texture' => $overrides['_account_soil_texture'] ?? null,
-        ]);
+        // Only pass soil_texture through when an override is actually given --
+        // accounts.soil_texture is NOT NULL with a schema default ('loam');
+        // that default only applies when the column is omitted from the
+        // insert, not when explicitly set to null.
+        $account = $this->createAccountForUser(
+            $user,
+            array_key_exists('_account_soil_texture', $overrides)
+                ? ['soil_texture' => $overrides['_account_soil_texture']]
+                : []
+        );
         unset($overrides['_account_soil_texture']);
 
         $site = Site::query()->create(array_merge([
@@ -95,7 +103,15 @@ class ReportsExportSoilTextureTest extends TestCase
     public function test_export_view_soil_texture_is_null_when_neither_site_nor_account_has_it(): void
     {
         $user = User::factory()->create();
-        $site = $this->createSiteForUser($user, ['soil_texture_override' => null]);
+        // accounts.soil_texture is NOT NULL with a schema default of 'loam' --
+        // there's no way for the account side to be a real null, so this
+        // mirrors "no real texture set" the same way the schema allows: an
+        // empty string, which the controller's `?:` chain treats as falsy
+        // just like null.
+        $site = $this->createSiteForUser($user, [
+            'soil_texture_override' => null,
+            '_account_soil_texture' => '',
+        ]);
         $user->forceFill(['last_active_site_id' => $site->id])->save();
 
         $this->actingAs($user)

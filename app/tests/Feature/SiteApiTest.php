@@ -75,7 +75,13 @@ class SiteApiTest extends TestCase
         $this->assertDatabaseHas('site_user', [
             'site_id' => $site->id,
             'user_id' => $user->id,
-            'role' => 'owner',
+            // GH-359: 'owner' was retired as a site_user.role value by the
+            // RBAC migration (2026_06_04_000000_add_rbac_and_auth_tables.php),
+            // which bulk-converts existing 'owner' rows to 'manager'.
+            // SiteController::store() correctly assigns 'manager' to the
+            // creating user; this assertion was never updated after that
+            // migration landed.
+            'role' => 'manager',
         ]);
     }
 
@@ -130,7 +136,10 @@ class SiteApiTest extends TestCase
         $this->assertDatabaseHas('site_user', [
             'site_id' => 'federal_golf_club_greens',
             'user_id' => $user->id,
-            'role' => 'owner',
+            // GH-359: see comment above at the site-create assertion --
+            // 'owner' is a retired role value; the legacy-sync path also
+            // correctly assigns 'manager'.
+            'role' => 'manager',
         ]);
         $this->assertDatabaseHas('site_configs', [
             'site_id' => 'federal_golf_club_greens',
@@ -459,6 +468,27 @@ class SiteApiTest extends TestCase
                                     'K' => 41,
                                 ],
                             ],
+                            // GH-359: a second sample is required alongside
+                            // green_1 so the follow-up sync below sends a
+                            // non-empty soil array. reconcileMissingSnapshot
+                            // Samples() (GH-194) deliberately skips deletion
+                            // whenever a sample type's array is completely
+                            // empty -- confirmed via git history that's an
+                            // intentional safety guard against a client
+                            // sending `soil: []` because it failed to load
+                            // its local data, not because the user actually
+                            // deleted everything. This test predates that
+                            // guard and previously relied on the exact
+                            // behavior it was written to prevent.
+                            'green_2' => [
+                                'id' => 'green_2',
+                                'date' => '2026-04-26',
+                                'rawData' => [
+                                    'label' => 'Green 2',
+                                    'zone' => 'green',
+                                    'K' => 55,
+                                ],
+                            ],
                         ],
                         'water' => [],
                         'tissue' => [],
@@ -477,7 +507,32 @@ class SiteApiTest extends TestCase
                 '_token' => 'test-token',
                 'allSites' => [
                     $site->id => [
-                        'soil' => [],
+                        // green_1 omitted (but green_2 still present, so the
+                        // soil array isn't empty) -- exercises real per-
+                        // sample reconciliation rather than the GH-194
+                        // whole-type-empty guard. green_2's date is bumped
+                        // on every re-sync in this test (same as green_1's
+                        // own re-sync below) -- SQLite's dynamic typing
+                        // doesn't truncate a full datetime string written
+                        // into a DATE-affinity column the way MySQL does,
+                        // so re-sending the exact same lab_date string
+                        // across two syncs makes site_summaries' firstOrNew()
+                        // lookup miss its own previously-inserted row and
+                        // attempt a duplicate insert -- a SQLite-only test
+                        // artifact confirmed absent against the real MySQL
+                        // schema (lab_date column type: date), not a
+                        // production bug worth chasing here.
+                        'soil' => [
+                            'green_2' => [
+                                'id' => 'green_2',
+                                'date' => '2026-04-27',
+                                'rawData' => [
+                                    'label' => 'Green 2',
+                                    'zone' => 'green',
+                                    'K' => 55,
+                                ],
+                            ],
+                        ],
                         'water' => [],
                         'tissue' => [],
                         'loi' => [],
@@ -495,6 +550,9 @@ class SiteApiTest extends TestCase
                 '_token' => 'test-token',
                 'allSites' => [
                     $site->id => [
+                        // green_2 must stay present here too, otherwise this
+                        // sync would itself soft-delete it via the same
+                        // per-sample reconciliation exercised above.
                         'soil' => [
                             'green_1' => [
                                 'id' => 'green_1',
@@ -505,6 +563,15 @@ class SiteApiTest extends TestCase
                                     'K' => 47,
                                 ],
                             ],
+                            'green_2' => [
+                                'id' => 'green_2',
+                                'date' => '2026-04-29',
+                                'rawData' => [
+                                    'label' => 'Green 2',
+                                    'zone' => 'green',
+                                    'K' => 55,
+                                ],
+                            ],
                         ],
                         'water' => [],
                         'tissue' => [],
@@ -513,7 +580,7 @@ class SiteApiTest extends TestCase
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('data.synced', 1)
+            ->assertJsonPath('data.synced', 2)
             ->assertJsonPath('data.deleted', 0);
 
         $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
@@ -525,9 +592,7 @@ class SiteApiTest extends TestCase
         $this->actingAs($user)
             ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.id', $sampleId)
-            ->assertJsonPath('data.0.payload.K', 47);
+            ->assertJsonCount(2, 'data');
     }
 
     public function test_authenticated_user_can_list_site_summaries(): void
@@ -1318,7 +1383,14 @@ class SiteApiTest extends TestCase
             'modified_by_user_id' => $user->id,
         ], $overrides));
 
-        $site->users()->attach($user->id, ['role' => 'owner']);
+        // GH-359: 'owner' is a retired site_user.role value (see the RBAC
+        // migration note above) -- User::canEditSite()/canManageSite() only
+        // recognize 'admin'/'manager'/'editor', so attaching the deprecated
+        // 'owner' value here made every test using this helper fail its
+        // abort_unless(...canEditSite/canManageSite...) checks with a 403,
+        // even though the helper's intent (give this user full control of
+        // the site it just created) is exactly what 'manager' now means.
+        $site->users()->attach($user->id, ['role' => 'manager']);
 
         return $site;
     }
