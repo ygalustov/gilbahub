@@ -749,11 +749,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-355** Follow-up to GH-353: `window.GAIP_HUB_CONFIG.soilTexture` also came back empty on a real live site (confirmed via direct DB read of `samples.soil_texture_snapshot = 'sand'` plus a full automated export re-run) — the P/K/S req numbers still matched the live calendar only because the generic sands/others band happened to agree with the real S277 range at those ppm levels; the derived certificate code stayed `null`. Added a third, tried-first texture source: `window.GAIP_STATE.turf.construction` (`'sand_profile'` → `'sand'`), confirmed reliably populated this early (species resolution already depends on the same object) and the same site-config field `hub-tissue-v3.js`'s own AA texture bucketing already keys off. Added coverage to `tests/gh353-word-export-soiltexture-hub-config-fallback.test.js`.
 
+**GH-356** Added a real-data regression test convention (`tests/fixtures/`) — snapshots of an actual verified site/sample (pulled via direct DB read, cross-checked against the live UI and a real Combined Word export) with the exact confirmed-correct outputs, so future changes to AA/SLAN/MLSN logic get checked against real recorded numbers, not just hand-picked ones. First example: `tests/fixtures/test5-soccer-sample141.json` + `tests/real-data-test5-soccer.test.js` (Test5 - NZ, sample 141, real P/K/Ca/Mg/S values against the real Hill Labs S277 ranges).
 
-
-
-
-Also think how we can add auto tests to check real numbers? Maybe add this to the end of the plan
 
 
 
