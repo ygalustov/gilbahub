@@ -138,7 +138,7 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
         expect(idx).toBeGreaterThan(-1);
         // GH-352 added a pre-guard debug log right after this block's start,
         // pushing everything further out -- window widened accordingly.
-        const body = src.slice(idx, idx + 5200);
+        const body = src.slice(idx, idx + 6800);
         expect(body).toMatch(/window\.AmmoniumAcetateMethodology/);
         expect(body).toMatch(/_aam\.getSufficiencyRange\(n, _texKey\)/);
         expect(body).toMatch(/if \(!r && _aam/);
@@ -148,7 +148,7 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
         const idx = src.indexOf('var _aaRanges = null;');
         // GH-352 added a pre-guard debug log right after this block's start,
         // pushing everything further out -- window widened accordingly.
-        const body = src.slice(idx, idx + 5200);
+        const body = src.slice(idx, idx + 6800);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code, n,/);
         const deriveIdx = body.indexOf('_hlst.deriveCode(');

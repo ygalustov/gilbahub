@@ -747,6 +747,8 @@ Implementation: `nutrition-calendar.js`'s `computeProgram()` now also returns `a
 
 **GH-354** Combined-export per-sample programme recompute silently failed for every AA site tested (`Cannot read properties of null (reading '0')`, caught and swallowed by a try/catch). Root cause, found via full stack trace: `nutrition-calendar.js`'s `computeProgram()` only checked that `inputs.monthlyTemps` was truthy, not that all 12 months held a real number — `calculateMonthlyGP()` does that per-month check and returns `null` on the first gap, and that `null` then reached `distributeByGP()` unchecked (`monthlyGP[m]` on `null`), crashing deep inside the per-sample loop instead of surfacing as the intended `climateDataUnavailable` result. Fixed by validating completeness in `computeProgram()`'s existing GH-245 guard, matching `calculateMonthlyGP()`'s own check. Added `tests/gh354-incomplete-monthlytemps-crash.test.js`.
 
+**GH-355** Follow-up to GH-353: `window.GAIP_HUB_CONFIG.soilTexture` also came back empty on a real live site (confirmed via direct DB read of `samples.soil_texture_snapshot = 'sand'` plus a full automated export re-run) — the P/K/S req numbers still matched the live calendar only because the generic sands/others band happened to agree with the real S277 range at those ppm levels; the derived certificate code stayed `null`. Added a third, tried-first texture source: `window.GAIP_STATE.turf.construction` (`'sand_profile'` → `'sand'`), confirmed reliably populated this early (species resolution already depends on the same object) and the same site-config field `hub-tissue-v3.js`'s own AA texture bucketing already keys off. Added coverage to `tests/gh353-word-export-soiltexture-hub-config-fallback.test.js`.
+
 
 
 

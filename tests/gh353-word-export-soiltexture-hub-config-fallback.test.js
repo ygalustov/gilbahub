@@ -14,6 +14,17 @@
  * exact gap (see its own "before soilTexture fallback" debug log). Unlike
  * GAIP_STATE.soil (GH-352's bug), this is set once per page load and isn't a
  * live JS state object that can be unpopulated when collectData() runs.
+ *
+ * GH-355 follow-up: confirmed live (DB read of samples.soil_texture_snapshot
+ * = 'sand', plus a full automated export re-run) that GAIP_HUB_CONFIG.soilTexture
+ * ALSO comes back empty on a real site -- the numbers still matched the live
+ * calendar (0/0/0) only because the generic band happened to agree with the
+ * real S277 range at those ppm levels; derived code stayed null. Added a
+ * THIRD, tried-first source: window.GAIP_STATE.turf.construction
+ * ('sand_profile' -> 'sand'), confirmed reliably populated this early (species
+ * resolution a few lines up already depends on the same _stTurf object) and
+ * the same site-config field hub-tissue-v3.js's own AA texture bucketing
+ * already keys off.
  */
 
 'use strict';
@@ -21,49 +32,68 @@
 const fs = require('fs');
 const path = require('path');
 
-describe('GH-353 — word-export.js: soilTexture falls back to GAIP_HUB_CONFIG', () => {
+describe('GH-353/355 — word-export.js: soilTexture falls back through construction -> data.soil -> GAIP_HUB_CONFIG', () => {
     let src;
     beforeAll(() => {
         src = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
     });
 
-    test('_soilTexture resolution checks data.soil first, then window.GAIP_HUB_CONFIG.soilTexture', () => {
-        const idx = src.indexOf('var _soilTexture = (data.soil &&');
+    test('_constructionTexture maps GAIP_STATE.turf.construction sand_profile -> sand, matching hub-tissue-v3.js\'s own bucketing', () => {
+        const idx = src.indexOf('var _constructionTexture =');
+        expect(idx).toBeGreaterThan(-1);
+        const block = src.slice(idx, idx + 200);
+        expect(block).toMatch(/_stTurf\.construction === 'sand_profile' \|\| _stTurf\.construction === 'sand profile'/);
+        expect(block).toMatch(/\? 'sand' : null;/);
+    });
+
+    test('_soilTexture tries construction first, then data.soil, then GAIP_HUB_CONFIG.soilTexture, in that order', () => {
+        const idx = src.indexOf('var _soilTexture = _constructionTexture');
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 300);
         expect(block).toMatch(/data\.soil && \(data\.soil\.soilTexture \|\| data\.soil\.texture\)/);
         expect(block).toMatch(/window\.GAIP_HUB_CONFIG && window\.GAIP_HUB_CONFIG\.soilTexture/);
-        // data.soil must be checked BEFORE the GAIP_HUB_CONFIG fallback.
+        const constructionIdx = block.indexOf('_constructionTexture');
         const dataSoilIdx = block.indexOf('data.soil &&');
         const hubConfigIdx = block.indexOf('window.GAIP_HUB_CONFIG');
+        expect(constructionIdx).toBeLessThan(dataSoilIdx);
         expect(dataSoilIdx).toBeLessThan(hubConfigIdx);
     });
 
     test('_code (deriveCode) and _texKey both use the same _soilTexture variable, not a separate re-read', () => {
-        const idx = src.indexOf('var _soilTexture = (data.soil &&');
-        const block = src.slice(idx, idx + 1600);
+        const idx = src.indexOf('var _soilTexture = _constructionTexture');
+        const block = src.slice(idx, idx + 1900);
         expect(block).toMatch(/_hlst\.deriveCode\(_species, _soilTexture\)/);
         expect(block).toMatch(/_texKey = String\(_soilTexture \|\| ''\)/);
     });
 });
 
-describe('GH-353 — standalone reimplementation: fallback chain behaviour', () => {
-    function resolveSoilTexture(dataSoil, hubConfig) {
-        return (dataSoil && (dataSoil.soilTexture || dataSoil.texture))
+describe('GH-353/355 — standalone reimplementation: full fallback chain behaviour', () => {
+    function resolveSoilTexture(construction, dataSoil, hubConfig) {
+        const constructionTexture = (construction === 'sand_profile' || construction === 'sand profile') ? 'sand' : null;
+        return constructionTexture
+            || (dataSoil && (dataSoil.soilTexture || dataSoil.texture))
             || (hubConfig && hubConfig.soilTexture)
             || null;
     }
 
-    test('data.soil.soilTexture present -> used directly, GAIP_HUB_CONFIG ignored', () => {
-        expect(resolveSoilTexture({ soilTexture: 'clay' }, { soilTexture: 'sand' })).toBe('clay');
+    test('GAIP_STATE.turf.construction = sand_profile wins over everything else (confirmed reliable at this point live)', () => {
+        expect(resolveSoilTexture('sand_profile', { soilTexture: 'loam' }, { soilTexture: 'clay' })).toBe('sand');
     });
 
-    test('data.soil has no texture field at all (the confirmed live bug) -> falls back to GAIP_HUB_CONFIG.soilTexture', () => {
-        expect(resolveSoilTexture({ methodology: 'AMMONIUM_ACETATE' }, { soilTexture: 'sand' })).toBe('sand');
+    test('non-sand construction + no data.soil texture -> falls to GAIP_HUB_CONFIG', () => {
+        expect(resolveSoilTexture('push_up', null, { soilTexture: 'loam' })).toBe('loam');
     });
 
-    test('neither source has a texture -> null (deriveCode() then falls to its own default, unchanged)', () => {
-        expect(resolveSoilTexture({}, {})).toBeNull();
-        expect(resolveSoilTexture(null, null)).toBeNull();
+    test('data.soil.soilTexture present, construction absent -> used directly', () => {
+        expect(resolveSoilTexture(null, { soilTexture: 'clay' }, { soilTexture: 'sand' })).toBe('clay');
+    });
+
+    test('nothing resolves anywhere -> null (deriveCode() then falls to its own default, unchanged)', () => {
+        expect(resolveSoilTexture(null, {}, {})).toBeNull();
+        expect(resolveSoilTexture(undefined, null, null)).toBeNull();
+    });
+
+    test('the exact live GH-355 case: construction unknown/missing, data.soil and GAIP_HUB_CONFIG both empty -> null (matches confirmed live log before this fix)', () => {
+        expect(resolveSoilTexture(undefined, { methodology: 'AMMONIUM_ACETATE' }, {})).toBeNull();
     });
 });

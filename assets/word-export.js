@@ -6801,15 +6801,37 @@
             // though this really is a sand-profile S277 site), so deriveCode()
             // always missed the certificate and fell back to the generic
             // sands/others band instead of the site's actual S277 range.
-            // window.GAIP_HUB_CONFIG.soilTexture is the same page-level,
-            // PHP-injected fallback nutrition-calendar.js already uses for this
-            // exact gap (see its own soilTexture fallback) -- unlike
-            // GAIP_STATE.soil (GH-352's bug), this is a stable global set once
-            // per page load, not a live JS state object that can be unpopulated
-            // when this code runs.
-            var _soilTexture = (data.soil && (data.soil.soilTexture || data.soil.texture))
+            //
+            // GH-355 follow-up: window.GAIP_HUB_CONFIG.soilTexture (the first
+            // fallback tried below) ALSO came back empty for this exact live
+            // site -- confirmed via a real DB read (samples.soil_texture_snapshot
+            // = 'sand' for this sample) plus a full automated export re-run:
+            // the resulting P/K/S req numbers were still correct (0/0/0,
+            // matching the live calendar), but only because the generic
+            // sands/others band happened to agree with the real S277 range at
+            // these ppm levels -- derived code stayed null, so a borderline
+            // value could silently disagree with the live UI. _stTurf (=
+            // window.GAIP_STATE.turf, defined at the top of this function) IS
+            // reliably populated this early -- _species a few lines up already
+            // depends on it -- and turf.construction ('sand_profile' vs other)
+            // is the same site-config field hub-tissue-v3.js's own AA texture
+            // bucketing already keys off (getThresholds()-equivalent: only
+            // 'sand_profile' -> sand, everything else -> generic/others), so
+            // this reuses an established mapping rather than inventing one.
+            // Tried first since it's the most site-specific of the three.
+            var _constructionTexture = (_stTurf.construction === 'sand_profile' || _stTurf.construction === 'sand profile')
+                ? 'sand' : null;
+            var _soilTexture = _constructionTexture
+                || (data.soil && (data.soil.soilTexture || data.soil.texture))
                 || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
                 || null;
+            console.log('[GH355-DEBUG] texture sources', '| _stTurf.construction:', _stTurf.construction,
+                '| _canonTurf.construction:', _canonTurf.construction,
+                '| _stInputs.turf.construction:', _stInputs.turf && _stInputs.turf.construction,
+                '| data.soil.soilTexture:', data.soil && data.soil.soilTexture,
+                '| GAIP_HUB_CONFIG.soilTexture:', window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture,
+                '| resolved _soilTexture:', _soilTexture,
+                '| _species (for reference):', _species);
             var _code = (_hlst && typeof _hlst.deriveCode === 'function')
                 ? _hlst.deriveCode(_species, _soilTexture)
                 : null;
