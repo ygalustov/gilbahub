@@ -135,12 +135,12 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     test('_buildEngineInputs() resolves _aaRanges gated on AA methodology before touching HillLabsSampleTypes', () => {
         const idx = src.indexOf('var _aaRanges = null;');
         expect(idx).toBeGreaterThan(-1);
-        // GH-305 widened this block with a generic-range fallback (comments +
-        // extra logic) between the deriveCode() call and the getRangesPpm()
-        // call this test pins on -- widened the window accordingly. GH-352
-        // added a pre-guard debug log right after the block's start, pushing
-        // everything further out again.
-        const body = src.slice(idx, idx + 6000);
+        // GH-364: this window was a fixed character count that three separate
+        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
+        // again the moment a comment was added inside the block. Sliced to the
+        // statement that follows the IIFE instead, so the assertions below
+        // cover the whole block regardless of how it grows.
+        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
         expect(body).toMatch(/if \(_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE'\) return;/);
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code,/);
@@ -152,7 +152,10 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     test('data.engineInputs carries aaRanges (so word-export-combined.js can inherit it)', () => {
         const idx = src.indexOf('data.engineInputs = {');
         expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 700);
+        // GH-367: sliced to the end of the object literal rather than a fixed
+        // character count -- adding a field to `climate` above used to push
+        // `aaRanges` out of the window and fail this test spuriously.
+        const body = src.slice(idx, src.indexOf('\n        };', idx));
         expect(body).toMatch(/aaRanges:\s*_aaRanges/);
     });
 

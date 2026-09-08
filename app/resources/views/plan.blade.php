@@ -18,6 +18,12 @@
         // soil_texture) -- lives on the Site model, not inside gaipConfig's
         // JSON blob, so it needs its own pass-through from PageController.
         soilTexture:     @json($soilTexture ?? null),
+        // GH-366: the site's latest tissue analysis (N/P/K %), for
+        // computeProgram()'s GH-361 tissue gate. Same reason as soilTexture
+        // above: it lives in the samples table, not in gaipConfig, and
+        // GAIP_SampleManager (which the export path reads it from) is not
+        // loaded on this page.
+        tissuePercent:   @json($tissuePercent ?? null),
     });
     window.GAIP_SITE_CONFIG = @json($gaipConfig ?? null);
 
@@ -93,6 +99,25 @@
             // of always seeing '' and falling back to the generic range.
             soilTexture:  hub.soilTexture || undefined,
         });
+        // GH-366: tissue percentages for computeProgram()'s GH-361 P/K removal
+        // ratio gate. collectFromState() reads state.inputs.tissue first (then
+        // state.tissue, then GAIP_SampleManager) -- none of the three existed
+        // on this page before, so the gate never fired here while the export
+        // path applied it, and the two surfaces disagreed on P/K.
+        // Only set when the site actually has a tissue sample; a missing or
+        // partial reading must stay absent rather than arrive as zeros, which
+        // the gate would read as a real measurement.
+        var tis = hub.tissuePercent || null;
+        if (tis && (tis.N != null || tis.P != null || tis.K != null)) {
+            si.tissue = Object.assign({}, si.tissue || {}, {
+                N: tis.N,
+                P: tis.P,
+                K: tis.K,
+                sampleId: tis.sampleId,
+                sampleDate: tis.sampleDate,
+            });
+        }
+
         state.inputs = si;
 
         window.GAIP_STATE = state;

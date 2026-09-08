@@ -46,10 +46,21 @@ describe('GH-349 — prebbles-products.js: Rule 1 (GP<20% exclusion) + Rule 2 (s
     });
 
     test('winter branch excludes preEmergentHerbicide candidates below GP 20% on sports fields', () => {
-        const idx = src.indexOf("let winterCandidates = mesaProducts.length > 0 ? mesaProducts");
+        const idx = src.indexOf('const _herbicideBlocked =');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 1600);
-        expect(block).toMatch(/if \(surfaceType === 'sports' && monthData\.gp < 0\.20\) \{\s*\n\s*winterCandidates = winterCandidates\.filter\(p => !p\.preEmergentHerbicide\);/);
+        const block = src.slice(idx, src.indexOf('// GH-344:', idx));
+        expect(block).toMatch(/surfaceType === 'sports' && monthData\.gp < 0\.20/);
+        expect(block).toMatch(/seasonGranular\.filter\(p => !p\.preEmergentHerbicide\)/);
+    });
+
+    test('GH-365: the exclusion runs BEFORE the MESA-vs-slow-release choice, so a blocked MESA product falls through to the fallback instead of emptying the month', () => {
+        const idx = src.indexOf('const _herbicideBlocked =');
+        const block = src.slice(idx, src.indexOf('// GH-344:', idx));
+        // Both arms of the pool choice must read the already-filtered list.
+        expect(block).toMatch(/mesaProducts = _eligible\.filter\(/);
+        expect(block).toMatch(/: _eligible\.filter\(p => p\.release === 'slow'/);
+        // And the post-hoc filter that caused the bug must be gone.
+        expect(block).not.toMatch(/winterCandidates = winterCandidates\.filter/);
     });
 
     test('winter branch pushes the warning note when the herbicide product IS selected on sports fields', () => {

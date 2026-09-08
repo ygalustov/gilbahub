@@ -1915,6 +1915,24 @@
                     // the AA-ceiling fix rather than needing a separate
                     // resolution here, same pattern GH-290/291 established.
                     aaRanges: _ei.aaRanges,
+                    // GH-369: this ANR compute() call — the one that resolves
+                    // r._anr.K.val, i.e. the exact number the K Reconciliation
+                    // table's "K req" column and Balance arithmetic are built
+                    // from — never received tissuePercent at all. GH-368
+                    // threaded tissue into the single-export ANR call
+                    // (word-export.js) and into this same file's separate
+                    // per-sample nutrition-PROGRAMME computation (the
+                    // perSampleInputs.tissuePercent overlay a few hundred
+                    // lines below, feeding the Monthly Schedule) but missed
+                    // this one — so the Combined export's K Reconciliation
+                    // row could never actually be tissue-ratio-informed,
+                    // which would have made the GH-369 row-level tissue-status
+                    // note below permanently a no-op on this export path.
+                    // Same source, same helper as the other two call sites.
+                    tissuePercent: (window.GAIP_WordExport &&
+                                   window.GAIP_WordExport._tissuePercentFromData)
+                        ? window.GAIP_WordExport._tissuePercentFromData(r.data)
+                        : null,
                     overseedConfig: _ei.overseedConfig
                 });
                 // b35fix325: carry structured methodology fields through from
@@ -1939,7 +1957,15 @@
                         correctionRequired: perSampleNut.correctionRequired != null
                                           ? perSampleNut.correctionRequired : 0,
                         currentLevel: perSampleNut.currentLevel != null
-                                    ? perSampleNut.currentLevel : null
+                                    ? perSampleNut.currentLevel : null,
+                        // GH-369: whether `annual`/`val` above was derived from
+                        // this sample's measured tissue ratio rather than the
+                        // generic textbook constant — see
+                        // NutritionRequirementEngine_Pure.getRemovalRate()'s
+                        // own comment. Consumed by the K Reconciliation
+                        // renderer to decide whether to attach the tissue
+                        // plant-status note to this row.
+                        tissueInformed: !!perSampleNut.tissueInformed
                     };
                 }
                 r._anr = {
@@ -1997,17 +2023,45 @@
         var _perSampleProgOk = 0, _perSampleProgFail = 0, _perSampleProgSkip = 0;
 
         if (_perSampleProgGen && anrReports.length > 0) {
-            // b35fix305 region-based branch selection (preserved here).
-            var _isNZ = !!(window.NutritionPrebbleIntegration
-                && typeof window.NutritionPrebbleIntegration.isNewZealand === 'function'
-                && window.NutritionPrebbleIntegration.isNewZealand());
-            var _usePrebble = _isNZ && !!(window.PrebbleRecommender && window.PrebbleRecommender.generateProgram);
-            var _useAU = !_usePrebble && !!(window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram);
+            // GH-362 (Hoxton audit D30 root cause; supersedes GH-360's guard).
+            //
+            // b35fix305 resolved the recommender branch ONCE here, for the whole
+            // document, from NutritionPrebbleIntegration.isNewZealand() -->
+            // regional-profiles.js detectRegionFromHub(), which reads the single
+            // global .gaip-lat/.gaip-lon DOM inputs. Two consequences, both of
+            // them the audit's D30 symptom (an NZ/Prebbles site's export carrying
+            // AU-catalogue products):
+            //
+            //   1. The collection loop above switches the active site per entry,
+            //      so by the time this ran those inputs held whichever site was
+            //      collected LAST. In a multi-site combined export every sample
+            //      got that one site's catalogue.
+            //   2. When those inputs are empty or non-numeric (a site with no
+            //      coordinates), detectRegionFromHub() returns its 'uk_ireland'
+            //      default, isNewZealand() accepts that and returns false, and an
+            //      NZ site falls through to the AU branch.
+            //
+            // Same class of bug as GH-245 follow-up 3 below, which fixed the
+            // climate binding per-sample and left this one global. The branch is
+            // now resolved per sample, from that sample's own coordinates
+            // (r.data.engineInputs.climate, already resolved per-sample in the
+            // collection loop).
+            var _prebbleAvailable = !!(window.PrebbleRecommender && window.PrebbleRecommender.generateProgram);
+            var _auAvailable = !!(window.AuFertiliserRecommender && window.AuFertiliserRecommender.generateAnnualProgram);
 
-            if (_isNZ && !_usePrebble) {
-                console.warn('[CombinedExport] b35fix305: NZ site detected but PrebbleRecommender unavailable, falling back to AU recommender.');
-            }
-            console.log('[CombinedExport] b35fix305 recommender branch: isNZ=' + _isNZ + ' usePrebble=' + _usePrebble + ' useAU=' + _useAU);
+            // Same NZ bounding box NutritionPrebbleIntegration.isNewZealand()
+            // uses for its own coordinate check. Returns null (not false) when
+            // the coordinates are unusable, so the caller can tell "this sample
+            // is not in NZ" apart from "we do not know where this sample is" --
+            // conflating those two is root cause 2 above.
+            var _nzFromCoords = function (lat, lon) {
+                lat = parseFloat(lat);
+                lon = parseFloat(lon);
+                if (isNaN(lat) || isNaN(lon) || (lat === 0 && lon === 0)) return null;
+                return (lon >= 166 && lon <= 179 && lat >= -47 && lat <= -34);
+            };
+            console.log('[CombinedExport] GH-362 recommender availability: prebble=' + _prebbleAvailable +
+                ' au=' + _auAvailable + ' (branch now resolved per sample, see per-sample logs below)');
 
             anrReports.forEach(function(r) {
                 if (!r.data || !r.data.soil || !r.data.soil.hasData) { _perSampleProgSkip++; return; }
@@ -2021,9 +2075,22 @@
                 // its default for ALL of annualNOverride, maxNPerMonth, distribution,
                 // and clippingManagement, not just the N target.
                 var _siteCfg = null;
+                // GH-367: "the lookup ran and this site has no saved config" and
+                // "the lookup could not run at all" are different answers and
+                // must not both arrive as null. The distributor binding below
+                // treats the first as a real "operator never picked one"
+                // (default 'all', matching the dropdown) and the second as
+                // unresolved -- which the audit's D30 fix shape says must be a
+                // loud failure, not a fall-through to a default catalogue.
+                var _siteCfgLookupOk = false;
                 try {
-                    _siteCfg = (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function')
-                        ? window.GAIP_SiteConfig.getConfig(r.siteId) : null;
+                    if (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function') {
+                        _siteCfg = window.GAIP_SiteConfig.getConfig(r.siteId);
+                        _siteCfgLookupOk = true;
+                    } else {
+                        console.warn('[CombinedExport] GH-367: GAIP_SiteConfig.getConfig unavailable — ' +
+                            'site config could not be read for', r.siteId);
+                    }
                 } catch (_e) {
                     console.warn('[CombinedExport] persist-debug: site config lookup failed for', r.siteId, _e && _e.message);
                 }
@@ -2075,6 +2142,42 @@
                     perSampleInputs.methodology = r.data.soil.methodology;
                 }
 
+                // GH-361 (Hoxton audit D07a): same "this sample's own data,
+                // not the facility default" overlay as soilPpm above, so
+                // computeProgram()'s tissue gate sees this sample's real
+                // tissue percentages when a tissue result exists for it —
+                // r.data.tissue is populated per-sample by the same
+                // collectData()/_buildEngineInputs() pipeline soil comes
+                // from (word-export.js), matched to this sample's zone.
+                //
+                // GH-369 follow-up (independent review): this used to parse
+                // r.data.tissue inline and OVERWRITE perSampleInputs.tissuePercent
+                // unconditionally, including with an all-null object when
+                // r.data.tissue had nothing. Two problems: (1) it duplicated
+                // _tissuePercentFromData()'s parse instead of sharing it; (2)
+                // perSampleInputs starts as a copy of _facilityCalendarInputs,
+                // which nutrition-calendar.js's own collectFromState() may
+                // already have populated with a MORE complete resolution (its
+                // SampleManager fallback + {tissue:{...}} wrapper-unwrap,
+                // neither of which this per-sample overlay re-implements) —
+                // clobbering that with an all-null object whenever this
+                // sample's r.data.tissue came up empty threw away a real
+                // value the facility-level resolution had already found,
+                // silently losing the tissue gate in the export while the
+                // Plan page (which reads collectFromState() directly) kept
+                // it — the exact UI-vs-export divergence class GH-362 exists
+                // to close. Now only overlays when this sample's own tissue
+                // data actually resolved to something.
+                var _resolvedSampleTissue = (window.GAIP_WordExport && window.GAIP_WordExport._tissuePercentFromData)
+                    ? window.GAIP_WordExport._tissuePercentFromData(r.data)
+                    : null;
+                if (_resolvedSampleTissue) {
+                    perSampleInputs.tissuePercent = _resolvedSampleTissue;
+                }
+                // else: leave whatever _facilityCalendarInputs already carried
+                // (collectFromState()'s own resolution) rather than clobbering
+                // it with nulls.
+
                 // GH-245 follow-up 3: perSampleInputs started as a copy of
                 // _facilityCalendarInputs, which was built once from
                 // window.climateMetrics — whichever site happened to be
@@ -2088,10 +2191,106 @@
                 // so the calendar engine sees this sample's real climate.
                 var _sampleClimate = r.data.engineInputs && r.data.engineInputs.climate;
                 if (_sampleClimate) {
-                    perSampleInputs.monthlyTemps = _sampleClimate.monthlyTemps;
+                    // GH-363: month-key convention mismatch, and the real cause
+                    // of what GH-354 only guarded against. GilbaClimateNormals
+                    // Service keys monthlyTemps 1-12 (climate-normals-service.js),
+                    // which is what nutrition-requirement-engine.js consumes and
+                    // what engineInputs.climate carries. GilbaNutritionCalendar
+                    // works in 0-11 and has extractMonthlyTemps() to reindex
+                    // exactly once on the way in — this overlay bypassed it and
+                    // handed computeProgram() the raw 1-12 object, whose key 0 is
+                    // always undefined. Confirmed live on a site with fully
+                    // resolved NASA POWER normals: every sample returned
+                    // climateDataUnavailable ('fetch-failed', though the fetch
+                    // had succeeded), per-sample programmes came out ok=0
+                    // failed=1, and the report silently fell back to the cached
+                    // site-level window.GAIP_NUTRITION_PROGRAM instead of the
+                    // per-sample recompute b35fix307/GH-245 introduced.
+                    // Reindexed through the calendar's own helper so the
+                    // convention has one implementation, not two.
+                    var _reindexed = (window.GilbaNutritionCalendar &&
+                        typeof window.GilbaNutritionCalendar.extractMonthlyTemps === 'function')
+                        ? window.GilbaNutritionCalendar.extractMonthlyTemps(
+                            { monthlyTemps: _sampleClimate.monthlyTemps }, {})
+                        : _sampleClimate.monthlyTemps;
+                    perSampleInputs.monthlyTemps = _reindexed;
                     perSampleInputs.hemisphere = _sampleClimate.hemisphere;
                     perSampleInputs.latitude = _sampleClimate.latitude;
                     perSampleInputs.monthlyTempsUnavailableReason = _sampleClimate.unavailableReason;
+                }
+
+                // GH-362: resolve THIS sample's product catalogue from THIS
+                // sample's coordinates — see the block comment above the loop
+                // for why the previous once-per-document resolution was wrong.
+                // GH-367: placeholder coordinates are NOT an answer. _build
+                // EngineInputs() substitutes a Sydney-ish -33/151 when a site
+                // has none saved, which reads here as a valid Australian
+                // location -- so an NZ site with no coordinates resolved to the
+                // AU catalogue and this branch's "unknown" path (below) could
+                // never be reached. Treat the placeholder as unknown so the
+                // site-config and global-detection fallbacks actually run.
+                var _sampleNZ = (_sampleClimate && _sampleClimate.coordinatesDefaulted)
+                    ? null
+                    : _nzFromCoords(
+                        _sampleClimate && _sampleClimate.latitude,
+                        _sampleClimate && _sampleClimate.longitude
+                    );
+                var _nzSource = (_sampleClimate && _sampleClimate.coordinatesDefaulted)
+                    ? 'placeholder-coordinates-ignored'
+                    : 'sample-coordinates';
+                if (_sampleNZ === null) {
+                    // No usable coordinates for this sample. An nzDistributor on
+                    // this site's own persisted config means the NZ-only
+                    // distributor panel was used for it (that dropdown renders
+                    // only for NZ sites), which is still site-specific evidence.
+                    // The global detection is the last resort and only preserves
+                    // pre-GH-362 behaviour rather than regressing every
+                    // coordinate-less site to "not NZ".
+                    if (_siteCfg && _siteCfg.nzDistributor) {
+                        _sampleNZ = true;
+                        _nzSource = 'site-config-nzDistributor';
+                    } else {
+                        _sampleNZ = !!(window.NutritionPrebbleIntegration
+                            && typeof window.NutritionPrebbleIntegration.isNewZealand === 'function'
+                            && window.NutritionPrebbleIntegration.isNewZealand());
+                        _nzSource = 'global-detection-fallback';
+                    }
+                }
+                var _usePrebble = _sampleNZ && _prebbleAvailable;
+                var _useAU = !_sampleNZ && _auAvailable;
+                console.log('[CombinedExport] GH-362 branch for sample', r.sampleId, 'site', r.siteId,
+                    ': isNZ=' + _sampleNZ + ' (via ' + _nzSource + ')' +
+                    ' lat=' + (_sampleClimate && _sampleClimate.latitude) +
+                    ' lon=' + (_sampleClimate && _sampleClimate.longitude) +
+                    ' usePrebble=' + _usePrebble + ' useAU=' + _useAU);
+
+                // GH-362: an NZ sample with no Prebble catalogue loaded used to
+                // fall through to the AU recommender behind a console.warn
+                // (b35fix305). The audit's D30 fix shape is explicit that a
+                // silent fallback to a default catalogue must become a loud
+                // failure. r.data.nutritionProgram is cleared as well as skipped
+                // because collectData() may already have populated it from the
+                // on-screen window.GAIP_NUTRITION_PROGRAM cache (word-export.js
+                // "v10.3.38"), which is exactly the wrong-catalogue programme we
+                // must not print — skipping the recompute alone would leave it
+                // standing.
+                if (_sampleNZ && !_prebbleAvailable) {
+                    console.warn('[CombinedExport] GH-362: sample', r.sampleId, 'site', r.siteId,
+                        'resolves to NZ but PrebbleRecommender is unavailable — omitting the fertiliser ' +
+                        'programme rather than substituting the AU catalogue.');
+                    r.data.nutritionProgram = { hasData: false };
+                    r.data.nutritionProgramCatalogueUnavailable = true;
+                    r.data.nutritionProgramCatalogueUnavailableRegion = 'New Zealand';
+                    _perSampleProgFail++;
+                    return;
+                }
+                if (!_usePrebble && !_useAU) {
+                    console.warn('[CombinedExport] GH-362: sample', r.sampleId, 'site', r.siteId,
+                        'has no product catalogue available for its region — omitting the fertiliser programme.');
+                    r.data.nutritionProgram = { hasData: false };
+                    r.data.nutritionProgramCatalogueUnavailable = true;
+                    _perSampleProgFail++;
+                    return;
                 }
 
                 // b35fix382 INSTRUMENTATION — log calendar engine inputs BEFORE
@@ -2143,6 +2342,20 @@
                         console.warn('[CombinedExport] climate data unavailable for sample', r.sampleId, '- skipping Monthly Schedule');
                         r.data.nutritionProgramClimateDataUnavailable = true;
                         r.data.nutritionProgramClimateDataUnavailableReason = perSampleCalendar.climateDataUnavailableReason;
+                        // GH-363: skipping the recompute is not enough. collectData()
+                        // may already have filled r.data.nutritionProgram from the
+                        // on-screen window.GAIP_NUTRITION_PROGRAM cache
+                        // (word-export.js "v10.3.38"), so leaving it standing prints a
+                        // site-level programme in place of the per-sample one that was
+                        // just declared uncomputable — the silent substitution this
+                        // branch exists to prevent. Clear it and let the renderer say
+                        // why (the flag below is what re-opens the section; see
+                        // word-export.js renderNutritionProgramSection).
+                        r.data.nutritionProgram = { hasData: false };
+                        if (!r.data.nutritionSummary) r.data.nutritionSummary = {};
+                        r.data.nutritionSummary.climateDataUnavailable = true;
+                        r.data.nutritionSummary.climateDataUnavailableReason =
+                            perSampleCalendar.climateDataUnavailableReason;
                         _perSampleProgFail++;
                         return;
                     }
@@ -2166,6 +2379,11 @@
                         console.warn('[CombinedExport b35fix382] POST-compute log failed:', _e && _e.message);
                     }
 
+                    // GH-362 superseded GH-360's guard here: the branch is now
+                    // resolved per sample before this point (see the
+                    // "GH-362 branch for sample" block above), so a wrong-region
+                    // catalogue can no longer reach this line to be guarded
+                    // against.
                     var perSampleProgram;
                     if (_useAU) {
                         // b35fix381 INSTRUMENTATION — paired with
@@ -2240,6 +2458,40 @@
                         // catalogue no matter which distributor the user picked in the
                         // "Distributor" dropdown on Plan > Nutrition, so the report's product
                         // set could differ from what was actually shown on screen.
+                        // GH-367 (Hoxton audit D30, second half). The line below
+                        // used to be `(_siteCfg && _siteCfg.nzDistributor) || 'all'`,
+                        // which collapsed three different situations into the
+                        // same silent default:
+                        //
+                        //   1. the site config was read and carries no
+                        //      nzDistributor -- the operator never touched the
+                        //      dropdown, whose own default IS 'all'. Legitimate.
+                        //   2. the site config could NOT be read (module absent,
+                        //      lookup threw). We do not know what the operator
+                        //      chose, and 'all' silently widens the catalogue.
+                        //   3. the filter machinery itself is unavailable, so
+                        //      whatever was chosen cannot be applied -- the raw
+                        //      window.PrebbleProducts pool is Prebble-only, so a
+                        //      PGG Wrightson customer gets a purchasing table of
+                        //      Prebble products.
+                        //
+                        // 2 and 3 are exactly the audit's question ("does the
+                        // export path receive the distributor at all, or receive
+                        // it and ignore it?") and its fix shape is explicit: an
+                        // unresolved binding must be a loud failure, not a
+                        // fall-through to a default catalogue. They now skip the
+                        // sample the same way an unresolvable region does.
+                        if (!_siteCfgLookupOk) {
+                            console.warn('[CombinedExport] GH-367: sample', r.sampleId, 'site', r.siteId,
+                                '— the site config could not be read, so the distributor selection is unknown. ' +
+                                'Omitting the fertiliser programme rather than defaulting to the full catalogue.');
+                            r.data.nutritionProgram = { hasData: false };
+                            r.data.nutritionProgramCatalogueUnavailable = true;
+                            r.data.nutritionProgramCatalogueUnavailableReason = 'distributor-unresolved';
+                            _perSampleProgFail++;
+                            return;
+                        }
+
                         var _nzDistributor = (_siteCfg && _siteCfg.nzDistributor) || 'all';
                         var _origPrebbleGranular = null, _origPrebbleLiquid = null, _swappedPrebblePool = false;
                         if (window.NutritionNzFertiliserIntegration
@@ -2251,6 +2503,23 @@
                             window.PrebbleProducts.granular = _pool.granular;
                             window.PrebbleProducts.liquid = _pool.liquid;
                             _swappedPrebblePool = true;
+                        }
+
+                        // Case 3. The raw pool happens to equal the 'prebble'
+                        // selection, so that one alone is still honoured; every
+                        // other selection would silently ship the wrong
+                        // catalogue.
+                        if (!_swappedPrebblePool && _nzDistributor !== 'prebble') {
+                            console.warn('[CombinedExport] GH-367: sample', r.sampleId, 'site', r.siteId,
+                                '— distributor "' + _nzDistributor + '" is selected but the product-filter ' +
+                                'machinery (NutritionNzFertiliserIntegration/PrebbleProducts) is unavailable, so ' +
+                                'the filter cannot be applied. Omitting the fertiliser programme rather than ' +
+                                'shipping an unfiltered catalogue.');
+                            r.data.nutritionProgram = { hasData: false };
+                            r.data.nutritionProgramCatalogueUnavailable = true;
+                            r.data.nutritionProgramCatalogueUnavailableReason = 'distributor-filter-unavailable';
+                            _perSampleProgFail++;
+                            return;
                         }
                         console.log('[CombinedExport] nzdist-debug per-sample:', {
                             sampleId: r.sampleId,
@@ -3183,6 +3452,38 @@
                 ? ' Rows marked † have K req above programme delivery but soil K is in sufficiency range (programme is drawing on soil reserves; see K Reconciliation table for application decision).'
                 : '';
 
+            // GH-369 follow-up (independent review): the Tissue K status
+            // column + explanation in the K Reconciliation table below only
+            // renders when `if (_facilityKDelivered != null)` — but THIS
+            // table (the Annual Nutrient Requirements table) always renders,
+            // including on the branches GH-362/363/367 deliberately null the
+            // programme out on (catalogue-unavailable, distributor-unresolved,
+            // climate-unavailable) — exactly the cases most likely to leave a
+            // tissue-lowered P/K req with no K Reconciliation table to explain
+            // it. Marking ‡ on THIS table's own P/K req cells, unconditionally,
+            // closes that gap: the explanation is now reachable wherever the
+            // tissue-informed figure itself renders, not only behind the
+            // narrower K-Reconciliation-table condition.
+            // GH-369 follow-up: routed through the shared
+            // _isTissueContradictionRow() SSOT (word-export.js) instead of
+            // its own inline critical/intent check, so this table and the
+            // K Reconciliation table below apply the identical rule.
+            var _wxTissueForAnr = (typeof window !== 'undefined' && window.GAIP_WordExport) || null;
+            function _isTissueMarked(nut, r) {
+                var anrResult = r._anr && r._anr[nut];
+                if (!anrResult || !_wxTissueForAnr || !_wxTissueForAnr._isTissueContradictionRow) return false;
+                return _wxTissueForAnr._isTissueContradictionRow(nut, anrResult.tissueInformed, anrResult.intent, r.data);
+            }
+            var _hasTissueMarkedRows = anrReports.some(function(r) {
+                return _isTissueMarked('P', r) || _isTissueMarked('K', r);
+            });
+            var _tissueMarkNote = _hasTissueMarkedRows
+                ? ' Rows marked ‡ show a P or K req figure derived from this sample\'s own measured tissue ' +
+                  'ratio; the same tissue reading is independently below sufficiency for that nutrient, a ' +
+                  'separate plant-status signal (see Tissue Analysis) — the req figure is a replacement-dose ' +
+                  'estimate, not a statement that no action is needed.'
+                : '';
+
             var subtitleText;
             if (methodStr === 'MLSN') {
                 subtitleText = 'MLSN methodology (Woods et al. 2016): K/P/S req figures are removal-rate ' +
@@ -3190,7 +3491,7 @@
                                'correction; at or above the floor, req = removal only, soil reserves ' +
                                'are agronomically sufficient, the figure indicates the rate at which ' +
                                'clippings are removing the nutrient, not a per-year application target.' +
-                               _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
+                               _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
             } else if (methodStr === 'SLAN') {
                 subtitleText = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
                                'K/P/S req figures are removal-rate (replacement target), with P pH-adjusted ' +
@@ -3198,7 +3499,7 @@
                                '(soil reserves cover the agronomic requirement); below floor, req = removal ' +
                                '+ lift correction over years-to-correct; above ceiling, req = 0. ' +
                                'Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001).' +
-                               _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
+                               _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
             } else if (methodStr === 'AA') {
                 // ────────────────────────────────────────────────────────
                 // b35fix441b / C47: AA caption reanchor (combined-export
@@ -3251,7 +3552,7 @@
                                'me/100g to ppm for amendment-math comparison; cation deficit-correction ' +
                                'recommendations appear in the Soil Amendment table above. The figures ' +
                                'below are annual removal-replacement estimates (clipping uptake), not ' +
-                               'deficit-closure rates.' + _reconSuffix + _trendNote + ' All rates kg/ha/yr.';
+                               'deficit-closure rates.' + _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
             } else if (methodStr === 'S78') {
                 subtitleText = 'Hill Labs S78, Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
             } else {
@@ -3301,6 +3602,34 @@
                         alignment: AlignmentType.CENTER,
                         children: [new TextRun({ text: text, bold: true, size: 20, color: HEADER_TEXT })]
                     })]
+                });
+            }
+
+            // GH-369: a cell that can hold more than one paragraph — the
+            // Tissue K status column needs a short status line plus, when
+            // applicable, the independence explanation in the same cell
+            // (same row/unit as the K req figure), not a separate note
+            // elsewhere in the document. `lines` is an array of
+            // {text, bold, italics, size, color}.
+            function _mkMultiLineCell(lines, opts) {
+                opts = opts || {};
+                return new TableCell({
+                    borders: noBorders,
+                    shading: { fill: opts.fill || 'FFFFFF', type: ShadingType.CLEAR },
+                    width: opts.width ? { size: opts.width, type: WidthType.DXA } : undefined,
+                    children: lines.map(function(line, idx) {
+                        return new Paragraph({
+                            alignment: opts.align || AlignmentType.LEFT,
+                            spacing: idx > 0 ? { before: 40 } : undefined,
+                            children: [new TextRun({
+                                text: line.text,
+                                bold: !!line.bold,
+                                italics: !!line.italics,
+                                size: line.size || 15,
+                                color: line.color || '111827'
+                            })]
+                        });
+                    })
                 });
             }
 
@@ -3466,6 +3795,16 @@
                             reqVal = reqVal + ' †';
                         }
 
+                        // GH-369 follow-up: ‡ on a P or K req cell derived
+                        // from this sample's own tissue ratio while the same
+                        // tissue reading is independently below sufficiency —
+                        // see _tissueMarkNote above (unconditional on this
+                        // always-rendered table, unlike the K Reconciliation
+                        // table's own explanation).
+                        if ((nut === 'P' || nut === 'K') && _isTissueMarked(nut, r) && reqVal !== '-') {
+                            reqVal = reqVal + ' ‡';
+                        }
+
                         var statusColor = _anrColor(anrResult);
 
                         cells.push(_mkCell(ppmVal, {
@@ -3544,13 +3883,24 @@
                         })]
                     }));
 
+                    // GH-369: added the "Tissue K status" column and narrowed
+                    // the existing five to keep the table under the page's
+                    // usable width (9746 DXA, per GH-255) — see that entry's
+                    // own note on the same page-width constant.
                     var reconRows = [new TableRow({ children: [
-                        _mkHdr('Sample',        2200),
-                        _mkHdr('K req',         1200),
-                        _mkHdr('K delivered',   1400),
-                        _mkHdr('K balance',     1400),
-                        _mkHdr('Spot K?',       2600)
+                        _mkHdr('Sample',           1800),
+                        _mkHdr('K req',            1000),
+                        _mkHdr('K delivered',      1200),
+                        _mkHdr('K balance',        1200),
+                        _mkHdr('Spot K?',          2200),
+                        _mkHdr('Tissue K status',  2200)
                     ]})];
+                    // GH-369 follow-up: only print the explanatory caption
+                    // below the table when at least one row actually has
+                    // tissue data — otherwise a fully tissue-free export
+                    // prints a caption pointing at a "tissue analysis
+                    // section" that doesn't exist on that report.
+                    var _anyTissueDataInReconTable = false;
 
                     anrReports.forEach(function(r, ri) {
                         var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
@@ -3619,29 +3969,114 @@
                         var rec      = _state.text;
                         var recColor = _state.color;
 
+                        // GH-369: tissue plant-status check for this row's K,
+                        // shared with the single-export ANR section and
+                        // Priority Actions (see word-export.js
+                        // _tissueSufficiencyState()'s own comment for why this
+                        // is deliberately a different question from the
+                        // tissue-RATIO gate that may have shaped `req` above).
+                        var _wxTissue = (typeof window !== 'undefined' && window.GAIP_WordExport) || null;
+                        var _kTissueState = (_wxTissue && _wxTissue._tissueSufficiencyState)
+                            ? _wxTissue._tissueSufficiencyState('K', r.data) : null;
+                        var _noDoseNote = (_wxTissue && _wxTissue.TISSUE_K_CRITICAL_ADVISORY_NO_DOSE) ||
+                            'no generic foliar-K rate is verified in this system — apply the selected ' +
+                            'foliar-K product at its own label rate';
+                        var _tissueLines;
+                        if (!_kTissueState) {
+                            _tissueLines = [{ text: '-', color: '9CA3AF' }];
+                        } else if (_kTissueState.critical) {
+                            _anyTissueDataInReconTable = true;
+                            _tissueLines = [
+                                { text: 'Critically low (' + _kTissueState.value + '%)', bold: true, color: 'DC2626' }
+                            ];
+                            // Only spell out the independence explanation when
+                            // this row's K req figure is ITSELF tissue-ratio
+                            // derived — that's the specific juxtaposition this
+                            // fix exists for (a lowered, tissue-informed dose
+                            // sitting next to a critical plant-status flag,
+                            // with nothing explaining the two are not the same
+                            // measurement). When req is generic-ratio-derived,
+                            // the critical flag still matters but isn't sitting
+                            // next to a number it could be misread against.
+                            //
+                            // GH-369 follow-up: routed through the shared
+                            // _isTissueContradictionRow() SSOT (word-export.js)
+                            // so this row and the ANR table's own ‡ marker
+                            // apply the identical rule -- tissueInformed alone
+                            // is not enough, since it describes the REMOVAL
+                            // component, not the printed req: the AA
+                            // suppress-above-ceiling branch forces req to 0
+                            // while still reporting tissueInformed=true
+                            // (removal was tissue-derived, the printed 0 was
+                            // not, it came from the soil ceiling). Without
+                            // this guard the sentence would claim the
+                            // ceiling-suppressed 0.0 is itself tissue-derived,
+                            // which is false.
+                            if (anrK && _wxTissue && _wxTissue._isTissueContradictionRow &&
+                                _wxTissue._isTissueContradictionRow('K', anrK.tissueInformed, anrK.intent, r.data)) {
+                                _tissueLines.push({
+                                    text: 'K req (left) is this sample\'s measured K/N ratio, a ' +
+                                        'replacement-dose estimate — not a statement that no action ' +
+                                        'is needed. Apply foliar potassium promptly; ' + _noDoseNote + '.',
+                                    italics: true, size: 13, color: 'DC2626'
+                                });
+                            } else {
+                                _tissueLines.push({
+                                    text: 'Apply foliar potassium promptly; ' + _noDoseNote + '.',
+                                    italics: true, size: 13, color: 'DC2626'
+                                });
+                            }
+                        } else if (_kTissueState.low) {
+                            _anyTissueDataInReconTable = true;
+                            _tissueLines = [{ text: 'Below sufficiency (' + _kTissueState.value + '%)', color: 'D97706' }];
+                        } else {
+                            _anyTissueDataInReconTable = true;
+                            _tissueLines = [{ text: 'Adequate (' + _kTissueState.value + '%)', color: '6B7280' }];
+                        }
+
                         reconRows.push(new TableRow({ children: [
                             _mkCell(r.sampleLabel || r.sampleId, {
-                                fill: rowFill, bold: true, size: 20, width: 2200
+                                fill: rowFill, bold: true, size: 20, width: 1800
                             }),
                             _mkCell(req != null ? req.toFixed(1) : '-', {
-                                fill: rowFill, size: 20, align: AlignmentType.CENTER, width: 1200
+                                fill: rowFill, size: 20, align: AlignmentType.CENTER, width: 1000
                             }),
                             _mkCell(String(kDel), {
                                 fill: rowFill, size: 20, color: '6B7280', italics: true,
-                                align: AlignmentType.CENTER, width: 1400
+                                align: AlignmentType.CENTER, width: 1200
                             }),
                             _mkCell(balText, {
                                 fill: rowFill, bold: true, size: 17, color: balColor,
-                                align: AlignmentType.CENTER, width: 1400
+                                align: AlignmentType.CENTER, width: 1200
                             }),
                             _mkCell(rec, {
                                 fill: rowFill, size: 15, color: recColor, italics: true,
-                                align: AlignmentType.CENTER, width: 2600
-                            })
+                                align: AlignmentType.CENTER, width: 2200
+                            }),
+                            _mkMultiLineCell(_tissueLines, { fill: rowFill, width: 2200 })
                         ]}));
                     });
 
-                    allChildren.push(new Table({ width: { size: 8800, type: WidthType.DXA }, columnWidths: [2200, 1200, 1400, 1400, 2600], rows: reconRows }));
+                    allChildren.push(new Table({ width: { size: 9600, type: WidthType.DXA }, columnWidths: [1800, 1000, 1200, 1200, 2200, 2200], rows: reconRows }));
+                    // GH-369 follow-up: only when at least one row actually
+                    // had tissue data (_anyTissueDataInReconTable) — a fully
+                    // tissue-free export would otherwise print a caption
+                    // pointing at a tissue analysis section that isn't in
+                    // this report and a column of nothing but "-".
+                    if (_anyTissueDataInReconTable) {
+                        allChildren.push(new Paragraph({
+                            spacing: { before: 60, after: 100 },
+                            children: [new TextRun({
+                                text: 'Tissue K status is a separate, independently-measured plant-status ' +
+                                    'signal (published sufficiency range) from K req’s removal/replacement ' +
+                                    'estimate — the two are not reconciled into one number because a low ' +
+                                    'tissue reading with sufficient soil K usually indicates an uptake ' +
+                                    'restriction (e.g. cation antagonism), which more soil-applied K does not ' +
+                                    'correct. See the tissue analysis section for the full reading.',
+                                size: 15, italics: true, color: '6B7280'
+                            })]
+                        }));
+                    }
                 }
             } // end if hasCotula / else standard
 

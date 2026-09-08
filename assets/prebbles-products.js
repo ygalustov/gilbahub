@@ -1248,15 +1248,6 @@
                         // For greens: liquid foliar only, no granular in winter
                         // Granular at low GP risks burn and poor uptake
                     } else {
-                        // Find MESA products - prefer CC 100% for K content
-                        const mesaProducts = seasonGranular.filter(p => 
-                            p.releaseTech === 'mesa' && (p.analysis?.N || 0) >= 15
-                        );
-                        
-                        // Prefer MESA, fall back to any slow-release granular when MESA not in pool
-                        let winterCandidates = mesaProducts.length > 0 ? mesaProducts
-                            : seasonGranular.filter(p => p.release === 'slow' && (p.analysis?.N || 0) >= 10);
-
                         // GH-349: client-confirmed Rule 1 -- don't recommend a
                         // pre-emergent-herbicide product (flagged
                         // `preEmergentHerbicide`, e.g. Andersons Pendi Pro) on
@@ -1269,9 +1260,31 @@
                         // weeds to germinate anyway (product's own useCase
                         // says "late-winter/early-spring"), so applying now
                         // is wasted product.
-                        if (surfaceType === 'sports' && monthData.gp < 0.20) {
-                            winterCandidates = winterCandidates.filter(p => !p.preEmergentHerbicide);
-                        }
+                        //
+                        // GH-365: the filter now runs BEFORE the MESA-vs-
+                        // slow-release choice, not after it. Applied after, a
+                        // pool whose only MESA product carried the herbicide
+                        // flag was chosen first and then emptied, leaving the
+                        // month with no granular N at all -- even though the
+                        // non-herbicide slow-release fallback it should have
+                        // dropped to was sitting in seasonGranular. Not
+                        // reachable with today's catalogue (Pendi Pro is
+                        // releaseTech 'pcscu', so it never enters mesaProducts)
+                        // but the comment above tells the next person to flag
+                        // any future herbicide product, which would trip it.
+                        const _herbicideBlocked = (surfaceType === 'sports' && monthData.gp < 0.20);
+                        const _eligible = _herbicideBlocked
+                            ? seasonGranular.filter(p => !p.preEmergentHerbicide)
+                            : seasonGranular;
+
+                        // Find MESA products - prefer CC 100% for K content
+                        const mesaProducts = _eligible.filter(p =>
+                            p.releaseTech === 'mesa' && (p.analysis?.N || 0) >= 15
+                        );
+
+                        // Prefer MESA, fall back to any slow-release granular when MESA not in pool
+                        let winterCandidates = mesaProducts.length > 0 ? mesaProducts
+                            : _eligible.filter(p => p.release === 'slow' && (p.analysis?.N || 0) >= 10);
 
                         // GH-344: this low-GP winter branch bypasses
                         // selectNitrogenSource() entirely (no clean-K/P

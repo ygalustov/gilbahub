@@ -167,16 +167,96 @@
         return isC4Species(species) ? 'mixedWarm' : 'mixedCool';
     }
 
-    function getRemovalRate(species, nutrient) {
+    // GH-368: same plausibility band nutrition-calendar.js applies to a
+    // tissue-derived ratio. Tissue macros can be entered in mg/kg as well as
+    // %, and a mixed-unit sample yields a ratio orders of magnitude too large.
+    const TISSUE_RATIO_BANDS = { P: { min: 0.03, max: 0.30 }, K: { min: 0.15, max: 1.50 } };
+
+    /**
+     * GH-369 follow-up (independent review) — resolve the tissue-ratio gate
+     * ONCE per sample, using nutrition-calendar.js's own all-or-nothing
+     * eligibility rule, not a separate per-nutrient check.
+     *
+     * Pre-fix, this engine decided P and K's eligibility INDEPENDENTLY of
+     * each other (each nutrient checked only its own ratio against its own
+     * band), while nutrition-calendar.js requires ALL of N/P/K present AND
+     * BOTH P/N and K/N in-band before either ratio governs — a single
+     * implausible reading (e.g. P entered in mg/kg) disables the WHOLE gate
+     * there, not just P's half of it. That divergence is live-reachable: a
+     * tissue sample with P/N implausible and K/N plausible would have this
+     * engine report K as tissue-informed while nutrition-calendar.js (and
+     * the Monthly Schedule it drives) fell back to the generic ratio for
+     * the exact same site — the ANR table and the Monthly Schedule
+     * disagreeing on whether tissue governs at all, in the same document,
+     * which is precisely the UI-vs-export divergence class GH-362 exists to
+     * close. Resolving eligibility once, by the same rule, makes the two
+     * engines agree on WHETHER tissue governs (what ratio it produces was
+     * already identical, per GH-368).
+     *
+     * Returns { eligible, pRatio, kRatio }. pRatio/kRatio are only
+     * meaningful when eligible is true.
+     */
+    function resolveTissueGate(tissuePercent) {
+        const tp = tissuePercent || {};
+        const measured = typeof tp.N === 'number' && tp.N > 0 &&
+                          typeof tp.P === 'number' && tp.P > 0 &&
+                          typeof tp.K === 'number' && tp.K > 0;
+        if (!measured) return { eligible: false, pRatio: null, kRatio: null };
+
+        const pRatio = tp.P / tp.N;
+        const kRatio = tp.K / tp.N;
+        const pBand = TISSUE_RATIO_BANDS.P, kBand = TISSUE_RATIO_BANDS.K;
+        const plausible = pRatio >= pBand.min && pRatio <= pBand.max &&
+                           kRatio >= kBand.min && kRatio <= kBand.max;
+        if (!plausible) {
+            console.warn('[NutritionRequirementEngine] GH-369: tissue P/N=' + pRatio.toFixed(3) +
+                ' K/N=' + kRatio.toFixed(3) + ' is outside the plausibility band (P ' + pBand.min + '-' +
+                pBand.max + ', K ' + kBand.min + '-' + kBand.max + ') — most likely mixed units on the ' +
+                'tissue sample. Using the generic ratio for both P and K, matching ' +
+                'nutrition-calendar.js\'s all-or-nothing rule.');
+        }
+        return { eligible: plausible, pRatio: pRatio, kRatio: kRatio };
+    }
+
+    function getRemovalRate(species, nutrient, tissueGate) {
         const normalized = normalizeSpecies(species);
-        return REMOVAL_RATES[normalized]?.[nutrient] ||
-               REMOVAL_RATES.mixedCool[nutrient];
+        const table = REMOVAL_RATES[normalized] || REMOVAL_RATES.mixedCool;
+        const generic = table[nutrient] || REMOVAL_RATES.mixedCool[nutrient];
+
+        // GH-368 (Hoxton audit D07a, second engine): REMOVAL_RATES encodes a
+        // generic tissue composition -- perennialRyegrass P 18 / K 100 against
+        // N 180 is P/N 0.10 and K/N 0.556, the same textbook assumption
+        // nutrition-calendar.js's CONFIG.nutrientRatiosToN carries, and the
+        // literal figures the audit quotes from E3 ("K req 100.0", "P 18.0").
+        // GH-361 replaced that assumption with the site's own tissue analysis
+        // in the calendar engine but not here, so this engine -- the one
+        // feeding the Annual Nutrient Requirements table the client complained
+        // about -- still answered with the generic figure, and the two engines
+        // diverged further than before the fix. Same rule, same scope (P and K
+        // only, per D07a); eligibility itself now comes from resolveTissueGate()
+        // above so both engines agree on WHETHER tissue governs, not just what
+        // ratio it produces.
+        if ((nutrient === 'P' || nutrient === 'K') && tissueGate && tissueGate.eligible) {
+            const ratio = (nutrient === 'P') ? tissueGate.pRatio : tissueGate.kRatio;
+            // Scale against this table's own N basis, exactly as the
+            // calendar scales against the user's annual N target.
+            return { value: Math.round(table.N * ratio * 10) / 10, tissueInformed: true };
+        }
+
+        return { value: generic, tissueInformed: false };
     }
 
     // Years to correct a deficit. Mobile nutrients (P, K, S) correct in 2 yr;
     // immobile cations (Ca, Mg) in 3 yr. Source: Gilba practice, consistent
     // with Carrow et al. (2001) chapter on base saturation correction rates.
     const YEARS_TO_CORRECT = { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 };
+
+    // GH-370: same defaults nutrition-calendar.js's CONFIG.defaultBulkDensity/
+    // defaultSoilDepth use, so a caller that hasn't threaded a real per-sample
+    // reading through gets the identical fallback assumption the sibling
+    // engine already makes -- not a second, independently-invented default.
+    const DEFAULT_BULK_DENSITY_G_CM3 = 1.4;
+    const DEFAULT_SOIL_DEPTH_CM = 10;
 
     // Clippings-collected amplifier — clippings removed from site take
     // nutrients with them; 2.5× accounts for the full removal not replaced
@@ -314,8 +394,43 @@
      */
     function calculateNutrientRequirement(nutrient, currentLevel, config) {
         const methodology = normaliseMethodology(config.methodology);
-        const removal = getRemovalRate(config.species, nutrient);
+        // GH-369: getRemovalRate() now returns { value, tissueInformed } (see
+        // its own comment) -- unpack once here so every return site below can
+        // report whether ITS annualRequirement was tissue-ratio-derived,
+        // without re-deriving the ratio/plausibility check.
+        // config.tissueGate is the pre-resolved gate calculateAllRequirements()
+        // computes once per sample (see resolveTissueGate()'s own comment).
+        // Fall back to resolving it here for callers that invoke this
+        // function directly with only config.tissuePercent set (e.g. a
+        // single-nutrient check) -- resolveTissueGate() itself is cheap and
+        // still requires all of N/P/K, so this can't reintroduce the
+        // per-nutrient-independent bug the pre-resolved path exists to avoid.
+        const _tissueGate = config.tissueGate || resolveTissueGate(config.tissuePercent);
+        const _removalInfo = getRemovalRate(config.species, nutrient, _tissueGate);
+        const removal = _removalInfo.value;
+        const removalTissueInformed = _removalInfo.tissueInformed;
         const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
+
+        // GH-370: every below-floor/below-threshold correction term below is
+        // a ppm DEFICIT (soil-test units: mg nutrient per kg soil) — it is
+        // not already a kg/ha quantity, and treating it as one silently
+        // skips the conversion nutrition-calendar.js's calculateDeficit()
+        // performs correctly (`deficit_ppm * bulkDensity * soilDepth * 0.1`,
+        // a real unit conversion via the known mass of soil under one
+        // hectare to the sample depth, not an empirical multiplier). Missed
+        // here in all three methodology branches since this engine was
+        // extracted from nutrition-summary-integration.js (b35fix302),
+        // which never had this conversion either — confirmed by grep: zero
+        // occurrences of `bulkDensity` or `* 0.1` anywhere in this file
+        // before this fix. Doesn't bite on the Hoxton fixture because its
+        // P/K/Ca/Mg/S all sit above ceiling (correction term = 0 either
+        // way) -- live-wrong by roughly the missing bulkDensity x depth x
+        // 0.1 factor (order of magnitude 2-3x for a typical sand profile at
+        // 15cm) the first time a real site is genuinely below floor on this
+        // engine's path, per the D31 verification that found this.
+        const _ppmToKgHaFactor =
+            (config.bulkDensity || DEFAULT_BULK_DENSITY_G_CM3) *
+            (config.soilDepth || DEFAULT_SOIL_DEPTH_CM) * 0.1;
 
         // ── AMMONIUM_ACETATE ──
         // GH-299 (D07 item 6): D07's reported bug was the Annual K Requirement
@@ -362,11 +477,14 @@
                     annualRequirement: 0,
                     intent: 'suppress-above-ceiling',
                     status: 'High',
-                    methodology: 'AMMONIUM_ACETATE'
+                    methodology: 'AMMONIUM_ACETATE',
+                    tissueInformed: removalTissueInformed
                 };
             }
             if (aaRange && typeof aaRange.min === 'number' && currentLevel < aaRange.min) {
-                const aaCorrection = (aaRange.min - currentLevel) / yearsToCorrect;
+                // GH-370: ppm deficit converted to kg/ha before the yearly
+                // spread — see this function's own comment on _ppmToKgHaFactor.
+                const aaCorrection = (aaRange.min - currentLevel) * _ppmToKgHaFactor / yearsToCorrect;
                 return {
                     nutrient: nutrient,
                     currentLevel: currentLevel,
@@ -377,7 +495,8 @@
                     annualRequirement: Math.round((removal + aaCorrection) * 10) / 10,
                     intent: 'lift-to-floor',
                     status: 'Low',
-                    methodology: 'AMMONIUM_ACETATE'
+                    methodology: 'AMMONIUM_ACETATE',
+                    tissueInformed: removalTissueInformed
                 };
             }
             return {
@@ -401,9 +520,25 @@
                 // but the K Reconciliation table's negative balance rendered
                 // as a red "Advisory (~94 kg/ha), review N programme" instead
                 // of the correct amber "Trend ... soil sufficient" state.
-                intent: 'removal-only',
+                // GH-365: only claim sufficiency when a range was actually
+                // resolved. This branch is reached in two semantically
+                // different cases -- soil sits inside a real aaRange
+                // (genuinely 'removal-only'), or no aaRange resolved at all
+                // (uncovered species/texture, deriveCode() returned null, the
+                // methodology modules not loaded). Labelling the second case
+                // 'removal-only'/'Adequate' makes _classifyKReconState()
+                // print "soil sufficient, programme replenishment
+                // recommended" to the client on a soil level that was never
+                // compared to anything. 'removal-only-unverified' keeps the
+                // same arithmetic (removal, no correction -- there is nothing
+                // to correct against) while letting consumers tell the two
+                // apart; status stays 'Adequate' so existing readers that
+                // only branch on status are unaffected.
+                intent: aaRange ? 'removal-only' : 'removal-only-unverified',
+                rangeResolved: !!aaRange,
                 status: 'Adequate',
-                methodology: 'AMMONIUM_ACETATE'
+                methodology: 'AMMONIUM_ACETATE',
+                tissueInformed: removalTissueInformed
             };
         }
 
@@ -501,7 +636,8 @@
                         intent: 'removal-only',
                         status: 'Sufficient',
                         methodology: 'SLAN-Carrow-2004-range',
-                        citation: 'Carrow et al. (2004). GCM 72(1):194-198.'
+                        citation: 'Carrow et al. (2004). GCM 72(1):194-198.',
+                        tissueInformed: removalTissueInformed
                     };
                 }
                 rangeFloor   = r.floor;
@@ -525,7 +661,9 @@
                 slanStatus     = 'Sufficient';
             } else {
                 // Below floor: deficit. Lift to floor over yearsToCorrect.
-                slanCorrection = (rangeFloor - currentLevel) / yearsToCorrect;
+                // GH-370: ppm deficit converted to kg/ha first — see
+                // calculateNutrientRequirement()'s own comment on _ppmToKgHaFactor.
+                slanCorrection = (rangeFloor - currentLevel) * _ppmToKgHaFactor / yearsToCorrect;
                 slanAnnual     = Math.max(0, removal + slanCorrection);
                 slanIntent     = 'lift-to-floor';
                 slanStatus     = 'Deficient';
@@ -544,7 +682,8 @@
                 intent: slanIntent,
                 status: slanStatus,
                 methodology: methodLabel,
-                citation: citation
+                citation: citation,
+                tissueInformed: removalTissueInformed
             };
         }
 
@@ -554,7 +693,11 @@
         const clippingFactor = config.clippingsCollected ? CLIPPING_COLLECTION_FACTOR : 1;
         const trafficMod = TRAFFIC_MODIFIERS[config.trafficIntensity] || 1;
         const adjustedRemoval = removal * clippingFactor * trafficMod;
-        const correctionRequired = currentLevel < threshold ? (target - currentLevel) / yearsToCorrect : 0;
+        // GH-370: ppm deficit converted to kg/ha before the yearly spread —
+        // see calculateNutrientRequirement()'s own comment on _ppmToKgHaFactor.
+        const correctionRequired = currentLevel < threshold
+            ? (target - currentLevel) * _ppmToKgHaFactor / yearsToCorrect
+            : 0;
 
         let annualRequirement;
         if (currentLevel > target) {
@@ -577,14 +720,33 @@
             removal: adjustedRemoval,
             correctionRequired: correctionRequired,
             annualRequirement: Math.round(annualRequirement * 10) / 10,
+            // GH-365: MLSN returned no `intent` at all, so every MLSN site hit
+            // _classifyKReconState()'s "unknown intent" fall-through and a
+            // sufficient soil with a negative programme balance rendered as a
+            // red "Advisory (~N kg/ha), review N programme". GH-351 fixed
+            // exactly this for the AA branches and left the DEFAULT
+            // methodology (getThresholds() falls through to MLSN) with the
+            // original bug. Mapped from the same numbers this branch already
+            // computes: above target -> requirement suppressed; below the
+            // threshold -> a real lift; in between -> removal replacement on
+            // sufficient soil.
+            intent: (currentLevel > target)
+                ? 'suppress-above-ceiling'
+                : (currentLevel < threshold ? 'lift-to-floor' : 'removal-only'),
             status: status,
-            methodology: 'MLSN'
+            methodology: 'MLSN',
+            tissueInformed: removalTissueInformed
         };
     }
 
     function calculateAllRequirements(soilValues, config) {
         const nutrients = ['P', 'K', 'Ca', 'Mg', 'S'];
         const results = {};
+        // GH-369 follow-up: resolve the tissue gate ONCE for this sample
+        // (see resolveTissueGate()'s own comment for why this must not be
+        // decided per-nutrient) and hand the SAME resolved gate to every
+        // nutrient's config below.
+        const tissueGate = resolveTissueGate(config.tissuePercent);
         for (const nutrient of nutrients) {
             const currentLevel = soilValues[nutrient];
             if (currentLevel !== undefined && currentLevel !== null) {
@@ -595,9 +757,10 @@
                 // nutrient (e.g. S277's K range and Ca range are different
                 // me/100g bounds), so passing the same config unmodified to all
                 // five nutrients would apply the wrong ceiling to four of them.
-                const nutrientConfig = config.aaRanges
-                    ? Object.assign({}, config, { aaRange: config.aaRanges[nutrient] || null })
-                    : config;
+                const nutrientConfig = Object.assign({}, config, {
+                    aaRange: config.aaRanges ? (config.aaRanges[nutrient] || null) : undefined,
+                    tissueGate: tissueGate
+                });
                 results[nutrient] = calculateNutrientRequirement(nutrient, currentLevel, nutrientConfig);
             }
         }
@@ -749,7 +912,21 @@
             // resolved by the caller via HillLabsSampleTypes.deriveCode()/
             // getRangesPpm() only when methodology is AA -- this engine stays
             // pure (no window/DOM/HillLabsSampleTypes reads of its own).
-            aaRanges: inputs.aaRanges || null
+            aaRanges: inputs.aaRanges || null,
+            // GH-368: {N,P,K} tissue percentages when the site has a tissue
+            // sample, so the P/K removal rate comes from this plant's own
+            // composition instead of REMOVAL_RATES' generic one (D07a). Engine
+            // stays pure -- the caller resolves the sample.
+            tissuePercent: inputs.tissuePercent || null,
+            // GH-370: soil bulk density (g/cm3) and sample depth (cm), needed
+            // to convert a ppm deficit into kg/ha (see
+            // calculateNutrientRequirement()'s own comment on this). Engine
+            // stays pure -- defaults to nutrition-calendar.js's own
+            // CONFIG.defaultBulkDensity/defaultSoilDepth (1.4, 10) when the
+            // caller doesn't have a real per-sample reading, exactly as that
+            // engine already does, rather than inventing a different default.
+            bulkDensity: (typeof soil.bulkDensity === 'number' && soil.bulkDensity > 0) ? soil.bulkDensity : null,
+            soilDepth: (typeof soil.depth === 'number' && soil.depth > 0) ? soil.depth : null
         };
         const perSample = calculateAllRequirements(soil, nutrientConfig);
 
@@ -826,6 +1003,7 @@
         _normalizeSpecies: normalizeSpecies,
         _isC4Species: isC4Species,
         _getRemovalRate: getRemovalRate,
+        _resolveTissueGate: resolveTissueGate,
         _calculateNutrientRequirement: calculateNutrientRequirement,
         _calculateAllRequirements: calculateAllRequirements,
         _normaliseMethodology: normaliseMethodology,

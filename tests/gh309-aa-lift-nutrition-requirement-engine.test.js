@@ -39,7 +39,12 @@ describe('GH-309 — AMMONIUM_ACETATE below-floor lift in calculateNutrientRequi
             aaRange: { min: 36.6, max: 85.4 }
         });
         expect(result.status).toBe('Low');
-        expect(result.correctionRequired).toBeCloseTo((36.6 - 20) / 3, 5); // Mg yearsToCorrect = 3
+        // GH-370: the ppm deficit is converted to kg/ha (bulkDensity x
+        // soilDepth x 0.1, defaulting to nutrition-calendar.js's own 1.4
+        // g/cm3 x 10cm when the caller doesn't supply a real reading)
+        // before the yearly spread -- see nutrition-requirement-engine.js's
+        // own comment on _ppmToKgHaFactor.
+        expect(result.correctionRequired).toBeCloseTo((36.6 - 20) * 1.4 * 10 * 0.1 / 3, 5); // Mg yearsToCorrect = 3
         expect(result.annualRequirement).toBeCloseTo(result.removal + result.correctionRequired, 1);
         expect(result.threshold).toBe(36.6);
         expect(result.target).toBe(85.4);
@@ -71,7 +76,8 @@ describe('GH-309 — AMMONIUM_ACETATE below-floor lift in calculateNutrientRequi
             aaRange: { min: 58.7, max: 195.7 }
         });
         expect(result.status).toBe('Low');
-        expect(result.correctionRequired).toBeCloseTo((58.7 - 40) / 2, 5); // K yearsToCorrect = 2
+        // GH-370: see the ppm->kg/ha conversion note above.
+        expect(result.correctionRequired).toBeCloseTo((58.7 - 40) * 1.4 * 10 * 0.1 / 2, 5); // K yearsToCorrect = 2
     });
 
     test('config.aaRange absent -> unchanged unconditional pure-removal behaviour, no lift ever fires (graceful degradation)', function () {

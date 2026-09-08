@@ -32,7 +32,7 @@ describe('GH-350 — word-export.js: Monthly Schedule GP colour no longer double
     });
 
     test('getColorDocx() is called with the raw fraction (m.gp), not the pre-converted percentage', () => {
-        expect(src).toMatch(/GAIP_GPStatus\.getColorDocx\(m\.gp\)/);
+        expect(src).toMatch(/GAIP_GPStatus\.getColorDocxFrac\(m\.gp\)/);
     });
 
     test('regression: no longer passes the already-converted gpPct into getColorDocx()', () => {

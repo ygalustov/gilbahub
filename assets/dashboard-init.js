@@ -377,7 +377,7 @@
             var gp = gpRaw >= 1 ? Math.round(gpRaw) : Math.round(gpRaw * 100);
             setText('db-gp-value', gp + '%');
             // GH-257: canonical GP colour thresholds — see gp-status.js.
-            var gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gp) : (gp >= 70 ? 'high' : (gp >= 40 ? 'moderate' : 'low'));
+            var gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelPct(gp) : (gp >= 70 ? 'high' : (gp >= 40 ? 'moderate' : 'low'));
             var gpSev = gpLevel === 'high' ? 'ok' : (gpLevel === 'moderate' ? 'warning' : 'critical');
             var gpEl = el('db-gp-value');
             if (gpEl) gpEl.className = 'db-vital-main ' + gpSev;
@@ -385,7 +385,7 @@
             var gpBar = el('db-gp-bar');
             if (gpBar) {
                 gpBar.style.width = gp + '%';
-                gpBar.style.background = window.GAIP_GPStatus ? window.GAIP_GPStatus.getColor(gp) : (gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626'));
+                gpBar.style.background = window.GAIP_GPStatus ? window.GAIP_GPStatus.getColorPct(gp) : (gp >= 70 ? '#16a34a' : (gp >= 40 ? '#d97706' : '#dc2626'));
             }
 
             // GP footer: season type + 8-day avg (main number is today's GP)
@@ -1182,7 +1182,7 @@
         var todayRaw = todayEntry ? (todayEntry[gpField] != null ? todayEntry[gpField] : todayEntry.weighted) : null;
         var todayGP  = todayRaw != null ? (todayRaw >= 1 ? Math.round(todayRaw) : Math.round(todayRaw * 100)) : null;
         // GH-257: canonical GP colour thresholds — see gp-status.js.
-        var todayGPLevel = todayGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(todayGP) : (todayGP >= 70 ? 'high' : (todayGP >= 40 ? 'moderate' : 'low'))) : null;
+        var todayGPLevel = todayGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelPct(todayGP) : (todayGP >= 70 ? 'high' : (todayGP >= 40 ? 'moderate' : 'low'))) : null;
         var todayCls = todayGPLevel === 'high' ? 'ok' : (todayGPLevel === 'moderate' ? 'warning' : (todayGPLevel === 'low' ? 'critical' : ''));
 
         var seasonTag   = isWarm ? 'C4 warm-season grass' : 'C3 cool-season grass';
@@ -1241,7 +1241,7 @@
         }
 
         // GH-257: canonical GP colour thresholds — see gp-status.js.
-        var avgGPLevel = avgGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(avgGP) : (avgGP >= 70 ? 'high' : (avgGP >= 40 ? 'moderate' : 'low'))) : null;
+        var avgGPLevel = avgGP != null ? (window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelPct(avgGP) : (avgGP >= 70 ? 'high' : (avgGP >= 40 ? 'moderate' : 'low'))) : null;
         var avgCls = avgGPLevel === 'high' ? 'ok' : (avgGPLevel === 'moderate' ? 'warning' : (avgGPLevel === 'low' ? 'critical' : ''));
         var html = '';
 

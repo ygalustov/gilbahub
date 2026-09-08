@@ -65,10 +65,49 @@ class PageController extends Controller
         // generic sands/others range regardless of the site's real texture).
         $soilTexture = $activeSite?->soil_texture_override ?: $activeSite?->account?->soil_texture;
 
+        // GH-366: the site's most recent tissue analysis, as N/P/K percentages.
+        //
+        // GH-361 made computeProgram() derive the P/K removal ratio from a real
+        // tissue sample where one exists (Hoxton audit D07a) and reads it from
+        // GAIP_STATE. That worked in the Word export, which builds its state
+        // per sample, but never fired on this page: the Plan bridge populates
+        // turf/climate/location/inputs.soil and nothing else, GAIP_SampleManager
+        // isn't loaded here, so GAIP_STATE.tissue was simply absent and the
+        // calendar silently fell back to the generic textbook ratio. Screen and
+        // export therefore disagreed on P/K -- the same UI-vs-export divergence
+        // the audit raises at D31. Same server-side pass-through shape as
+        // GH-294/GH-357 used for soil texture.
+        $tissuePercent = null;
+        if ($activeSite) {
+            $latestTissue = $activeSite->samples()
+                ->where('sample_type', 'tissue')
+                ->orderByRaw('COALESCE(lab_date, sample_date) DESC')
+                ->orderByDesc('id')
+                ->first();
+
+            if ($latestTissue) {
+                $payload = is_array($latestTissue->payload) ? $latestTissue->payload : [];
+                $numeric = static function ($value) {
+                    // Lab payloads store these as strings ("4.57"); anything
+                    // non-numeric or absent stays null so the JS side can tell
+                    // "not measured" from a real reading rather than reading a
+                    // fabricated 0 as a ratio.
+                    return is_numeric($value) ? (float) $value : null;
+                };
+                $tissuePercent = [
+                    'N' => $numeric($payload['N'] ?? null),
+                    'P' => $numeric($payload['P'] ?? null),
+                    'K' => $numeric($payload['K'] ?? null),
+                    'sampleId' => $latestTissue->id,
+                    'sampleDate' => ($latestTissue->lab_date ?? $latestTissue->sample_date)?->toDateString(),
+                ];
+            }
+        }
+
         return compact(
             'activeSite', 'allSites', 'turfSpecies', 'turfMethodology',
             'locationName', 'analysisCache', 'gaipConfig', 'savedLocation',
-            'soilTexture'
+            'soilTexture', 'tissuePercent'
         );
     }
 }

@@ -24,7 +24,7 @@ describe('GH-346 — nutrition-calendar.js passes the raw GP fraction to GAIP_GP
     });
 
     test('getLevel() is called with m.gp, not the pre-rounded gpPct', () => {
-        expect(src).toMatch(/const gpLevel = window\.GAIP_GPStatus \? window\.GAIP_GPStatus\.getLevel\(m\.gp\) : /);
+        expect(src).toMatch(/const gpLevel = window\.GAIP_GPStatus \? window\.GAIP_GPStatus\.getLevelFrac\(m\.gp\) : /);
         expect(src).not.toMatch(/window\.GAIP_GPStatus\.getLevel\(gpPct\)/);
     });
 

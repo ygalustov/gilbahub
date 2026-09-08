@@ -1,5 +1,18 @@
 @extends('layouts.db-shell', ['title' => 'Scenarios', 'currentPage' => 'reports'])
 
+@section('head')
+<script>
+    // GH-364: same soil-texture pass-through GH-357 added to export.blade.php.
+    // ReportsController::pageData() already computes $soilTexture for every
+    // Reports tab, but only the Export tab consumed it -- and this page loads
+    // word-export.js/word-export-combined.js too, so its _aaRanges resolution
+    // hit exactly the gap GH-357 declared closed.
+    Object.assign(window.GAIP_HUB_CONFIG, {
+        soilTexture: @json($soilTexture ?? null),
+    });
+</script>
+@endsection
+
 @section('styles')
 <style>
 .rp-page { padding: 0; display: flex; flex-direction: column; flex: 1; min-height: 0; overflow-y: auto; }

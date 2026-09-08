@@ -136,9 +136,12 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
     test('structural: falls back to AmmoniumAcetateMethodology.getSufficiencyRange() when the certificate path has no range', () => {
         const idx = src.indexOf('var _aaRanges = null;');
         expect(idx).toBeGreaterThan(-1);
-        // GH-352 added a pre-guard debug log right after this block's start,
-        // pushing everything further out -- window widened accordingly.
-        const body = src.slice(idx, idx + 6800);
+        // GH-364: this window was a fixed character count that three separate
+        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
+        // again the moment a comment was added inside the block. Sliced to the
+        // statement that follows the IIFE instead, so the assertions below
+        // cover the whole block regardless of how it grows.
+        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
         expect(body).toMatch(/window\.AmmoniumAcetateMethodology/);
         expect(body).toMatch(/_aam\.getSufficiencyRange\(n, _texKey\)/);
         expect(body).toMatch(/if \(!r && _aam/);
@@ -146,9 +149,12 @@ describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic ran
 
     test('regression: certificate path (_hlst.deriveCode/getRangesPpm) is still attempted first, unchanged', () => {
         const idx = src.indexOf('var _aaRanges = null;');
-        // GH-352 added a pre-guard debug log right after this block's start,
-        // pushing everything further out -- window widened accordingly.
-        const body = src.slice(idx, idx + 6800);
+        // GH-364: this window was a fixed character count that three separate
+        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
+        // again the moment a comment was added inside the block. Sliced to the
+        // statement that follows the IIFE instead, so the assertions below
+        // cover the whole block regardless of how it grows.
+        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
         expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
         expect(body).toMatch(/_hlst\.getRangesPpm\(_code, n,/);
         const deriveIdx = body.indexOf('_hlst.deriveCode(');

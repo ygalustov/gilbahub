@@ -68,7 +68,12 @@ class DatabaseSeeder extends Seeder
         );
 
         $site->users()->syncWithoutDetaching([
-            $user->id => ['role' => 'owner'],
+            // GH-365: 'owner' was retired as a site_user.role value by the RBAC
+            // migration (2026_06_04_000000_add_rbac_and_auth_tables.php, which
+            // bulk-converts existing 'owner' rows to 'manager'); User::canEdit
+            // Site()/canManageSite() do not recognise it, so a seeded non-admin
+            // user would silently 403 on their own site.
+            $user->id => ['role' => 'manager'],
         ]);
 
         $user->forceFill(['last_active_site_id' => $site->id])->save();

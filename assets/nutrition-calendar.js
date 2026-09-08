@@ -420,7 +420,52 @@
             Zn: this.extractPpm(soil, 'Zn'),
             Cu: this.extractPpm(soil, 'Cu'),
         };
-        
+
+        // GH-361 (Hoxton audit D07a): tissue percentages, when a tissue
+        // sample exists, so computeProgram() can derive the K/P removal
+        // ratio from what this plant actually contains instead of always
+        // falling back to CONFIG.nutrientRatiosToN's generic textbook
+        // composition.
+        //
+        // GH-362: reading `state.tissue` alone was not enough. Confirmed live
+        // on the Plan page (Test5-NZ, a site that HAS a tissue sample on file):
+        // GAIP_STATE carries turf/climate/location/inputs only, inputs holds
+        // `soil` and nothing else, so `state.tissue` was undefined and the gate
+        // never fired there — the export half applied it and the on-screen half
+        // did not, which is precisely the UI-vs-export divergence the audit
+        // raises at D31. Tissue is sourced the same way soil is (see
+        // syncSoilFromDOM's PRIORITY 1 block, b35fix383): the active sample in
+        // SampleManager is the real store; the state slots are checked first
+        // in case a page bridge did populate them. Both legacy wrappers seen
+        // in the wild are unwrapped — tissue-ui.js writes `{ tissue: {...},
+        // units: {...} }` (word-export.js:8372 unwraps the same way) and the
+        // hub store defaults `inputs.tissue` to `{ sampleDate, nutrients: {} }`.
+        const _tissueSlot = (state.inputs && state.inputs.tissue) || state.tissue || {};
+        const _tissueUnwrapped = _tissueSlot.tissue || _tissueSlot.nutrients || _tissueSlot;
+        const tissuePercent = {
+            N: this.extractPpm(_tissueUnwrapped, 'N'),
+            P: this.extractPpm(_tissueUnwrapped, 'P'),
+            K: this.extractPpm(_tissueUnwrapped, 'K'),
+        };
+        if (tissuePercent.N == null || tissuePercent.P == null || tissuePercent.K == null) {
+            try {
+                const SM = window.GAIP_SampleManager;
+                const activeTissue = (SM && typeof SM.getActiveSample === 'function')
+                    ? SM.getActiveSample('tissue') : null;
+                if (activeTissue) {
+                    const tSrc = activeTissue.normalized || activeTissue.rawData || {};
+                    ['N', 'P', 'K'].forEach(function (nut) {
+                        if (tissuePercent[nut] == null) {
+                            const v = parseFloat(tSrc[nut]);
+                            if (!isNaN(v) && v > 0) tissuePercent[nut] = v;
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn('[NutritionCalendar] GH-362: SampleManager tissue read failed:', e && e.message);
+            }
+        }
+
         // Soil parameters
         const bulkDensity = parseFloat(soil.bulkDensity) || CONFIG.defaultBulkDensity;
         const soilDepth = parseFloat(soil.depth) || CONFIG.defaultSoilDepth;
@@ -487,6 +532,7 @@
             speciesDisplay,
             isC4,
             soilPpm,
+            tissuePercent,
             bulkDensity,
             soilDepth,
             methodology,
@@ -1131,7 +1177,38 @@
     NutritionCalendar._collectAATexture = function() {
         if (typeof document === 'undefined') return null;
         const textureEl = document.querySelector('.gaip-aa-soil-texture');
-        return (textureEl?.value || 'sands').toLowerCase();
+        if (textureEl?.value) return String(textureEl.value).toLowerCase();
+
+        // GH-365: `.gaip-aa-soil-texture` only exists in the legacy hub markup
+        // (partials/legacy-hub-markup.blade.php). On /plan and /reports/export
+        // it is absent, so this returned the literal 'sands' default for every
+        // site -- getThresholds('ammonium_acetate', 'sands') then applied sand
+        // thresholds to clay sites silently, which is the same fabricated-input
+        // failure the GH-352..357 texture chain was about, in the one place
+        // none of those fixes touched. Resolve from the site's real texture
+        // instead, using the same substring bucketing deriveCode() and
+        // word-export.js use ('sand' anywhere -> sands).
+        //
+        // When nothing resolves this returns null and warns. Note that
+        // getThresholds() still collapses a null key to 'sands' (its own line
+        // `key = (key === 'others') ? 'others' : 'sands'`), so the effective
+        // output for a genuinely unknown texture is unchanged by this fix --
+        // deliberately, to avoid silently moving existing sites' numbers. What
+        // changes is that sites which DO have a texture now get the right
+        // bucket instead of always sand, and the unknown case is now visible
+        // in the console instead of indistinguishable from a real sand site.
+        const _state = (typeof window !== 'undefined' && window.GAIP_STATE) || {};
+        const _soil = (_state.inputs && _state.inputs.soil) || _state.soil || {};
+        const _resolved = _soil.soilTexture
+            || (typeof window !== 'undefined' && window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
+            || null;
+        if (!_resolved) {
+            console.warn('[NutritionCalendar] GH-365: no soil texture resolved for the AA threshold key ' +
+                '(no .gaip-aa-soil-texture element on this page, and no site texture in state/hub config). ' +
+                'getThresholds() will fall back to the sands band — that fallback is now visible rather than silent.');
+            return null;
+        }
+        return String(_resolved).toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
     };
 
     /**
@@ -1190,10 +1267,55 @@
         // ================================================================
         // STEP 2: Calculate base nutrient removal (N-driven ratios)
         // ================================================================
+        // GH-361 (Hoxton audit D07a): CONFIG.nutrientRatiosToN.P/K (0.10/0.55)
+        // is a generic textbook tissue composition, not this plant's own. Where
+        // a real tissue sample is on file, its measured P/N and K/N ratios
+        // govern instead — same "tissue governs where it exists" principle
+        // already applied to soil-derived antagonism narratives (D15,
+        // hub-tissue-v3.js). The audit's Hoxton capture reads tissue P/N 0.136
+        // and K/N 0.667 against the generic 0.10/0.55, i.e. under-read removal
+        // there; the direction is per-nutrient and per-sample, not a fixed
+        // uplift (this repo's own Test5-NZ tissue has K/N 0.23, so the gate
+        // lowers K removal on that sample). Ca/Mg/S stay on the generic ratio —
+        // D07a explicitly scopes the tissue gate to P and K only, they are
+        // not in this chain via tissue at all.
+        //
+        // GH-362: the derived ratio is clamped to a plausibility band before
+        // use. Tissue macros can be entered in mg/kg as well as % (see
+        // tissue-ui.js's per-nutrient unit select), and a MIXED-unit sample
+        // (N in %, P in mg/kg) yields a ratio three to four orders of
+        // magnitude too large — P/N 6200/4.57 = 1357 would turn a 200 kg N/ha
+        // programme into 271,000 kg P/ha. A ratio outside the band means the
+        // reading cannot be trusted as a ratio at all, so fall back to the
+        // generic constant and say so rather than shipping the number.
+        const tp = inputs.tissuePercent || {};
+        const RATIO_BANDS = { P: { min: 0.03, max: 0.30 }, K: { min: 0.15, max: 1.50 } };
+        const _tissueMeasured = typeof tp.N === 'number' && tp.N > 0 &&
+            typeof tp.P === 'number' && tp.P > 0 && typeof tp.K === 'number' && tp.K > 0;
+        const _rawPRatio = _tissueMeasured ? (tp.P / tp.N) : null;
+        const _rawKRatio = _tissueMeasured ? (tp.K / tp.N) : null;
+        const _ratiosPlausible = _tissueMeasured &&
+            _rawPRatio >= RATIO_BANDS.P.min && _rawPRatio <= RATIO_BANDS.P.max &&
+            _rawKRatio >= RATIO_BANDS.K.min && _rawKRatio <= RATIO_BANDS.K.max;
+        const _tissueGateEligible = _tissueMeasured && _ratiosPlausible;
+        const _pRatio = _tissueGateEligible ? _rawPRatio : CONFIG.nutrientRatiosToN.P;
+        const _kRatio = _tissueGateEligible ? _rawKRatio : CONFIG.nutrientRatiosToN.K;
+        if (_tissueGateEligible) {
+            console.log('[NutritionCalendar] GH-361 tissue gate applied: P/N=' + _pRatio.toFixed(3) +
+                ' K/N=' + _kRatio.toFixed(3) + ' (generic would have been P/N=' +
+                CONFIG.nutrientRatiosToN.P + ' K/N=' + CONFIG.nutrientRatiosToN.K + ')');
+        } else if (_tissueMeasured) {
+            console.warn('[NutritionCalendar] GH-362: tissue P/N=' + _rawPRatio.toFixed(3) +
+                ' K/N=' + _rawKRatio.toFixed(3) + ' is outside the plausibility band ' +
+                '(P ' + RATIO_BANDS.P.min + '-' + RATIO_BANDS.P.max + ', K ' + RATIO_BANDS.K.min + '-' +
+                RATIO_BANDS.K.max + ') — most likely mixed units on the tissue sample ' +
+                '(N ' + tp.N + ', P ' + tp.P + ', K ' + tp.K + '). Using the generic ratio instead.');
+        }
+
         const baseRemoval = {
             N: annualN,
-            P: Math.round(annualN * CONFIG.nutrientRatiosToN.P),
-            K: Math.round(annualN * CONFIG.nutrientRatiosToN.K),
+            P: Math.round(annualN * _pRatio),
+            K: Math.round(annualN * _kRatio),
             Ca: Math.round(annualN * CONFIG.nutrientRatiosToN.Ca),
             Mg: Math.round(annualN * CONFIG.nutrientRatiosToN.Mg),
             S: Math.round(annualN * CONFIG.nutrientRatiosToN.S),
@@ -1481,6 +1603,11 @@
             // show "No soil data" rather than presenting it as measured.
             missing_soil_data: missingSoilData,
             annual_totals: annualRequirements,
+            // GH-361: true when the P/K removal ratio came from this site's
+            // own tissue sample rather than the generic textbook constant —
+            // consumers (export disclosure, debugging) can tell the two
+            // apart without re-deriving it.
+            tissue_gate_applied: _tissueGateEligible,
             // GH-304: 'certificate' | 'texture-fallback' per P/K/Ca/Mg/S nutrient
             // (N excluded -- it has no AA sufficiency-range concept at all).
             // Only meaningful under AA; stays all-'texture-fallback' for MLSN/SLAN
@@ -1815,7 +1942,7 @@
             // collision without touching the shared helper (other callers
             // of GAIP_GPStatus already pass the raw fraction the same way,
             // e.g. nutrition-au-fertiliser-integration.js, nutrition-prebble-integration.js).
-            const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(m.gp) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
+            const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelFrac(m.gp) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
             const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
             return `
                 <tr class="gilba-nut-row">

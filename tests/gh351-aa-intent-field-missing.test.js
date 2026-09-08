@@ -65,13 +65,64 @@ describe('GH-351 — AMMONIUM_ACETATE branch now sets intent (matches SLAN patte
         expect(result.intent).toBe('lift-to-floor');
     });
 
-    test('no aaRange available -> still "removal-only" (graceful-degradation path unchanged in shape, now also carries intent)', function () {
+    test('within a resolved range -> "removal-only", the verified sufficiency claim', function () {
+        var result = Engine._calculateNutrientRequirement('K', 100, {
+            methodology: 'AMMONIUM_ACETATE',
+            species: 'perennialRyegrass',
+            aaRange: { min: 58.7, max: 195.7 }
+        });
+        expect(result.status).toBe('Adequate');
+        expect(result.intent).toBe('removal-only');
+        expect(result.rangeResolved).toBe(true);
+    });
+
+    // GH-365: this case used to return plain 'removal-only' as well, which made
+    // _classifyKReconState() print "soil sufficient, programme replenishment
+    // recommended" to the client for a soil level that was never compared to
+    // any range (uncovered species/texture, deriveCode() null, methodology
+    // modules not loaded). The arithmetic is unchanged -- removal, no
+    // correction, because there is nothing to correct against -- but the claim
+    // is now distinguishable.
+    test('GH-365: no aaRange available -> "removal-only-unverified", same arithmetic, no sufficiency claim', function () {
         var result = Engine._calculateNutrientRequirement('K', 100, {
             methodology: 'AMMONIUM_ACETATE',
             species: 'perennialRyegrass'
         });
         expect(result.status).toBe('Adequate');
-        expect(result.intent).toBe('removal-only');
+        expect(result.intent).toBe('removal-only-unverified');
+        expect(result.rangeResolved).toBe(false);
+        expect(result.correctionRequired).toBe(0);
+    });
+});
+
+describe('GH-365 — MLSN branch carries intent too (it is the default methodology)', function () {
+    // Pre-GH-365 the MLSN return had no `intent` at all, so every MLSN site
+    // fell through _classifyKReconState()'s "unknown intent" case and a
+    // sufficient soil with a negative programme balance rendered red
+    // "Advisory (~N kg/ha), review N programme". GH-351 fixed this for the AA
+    // branches only.
+    function mlsn(level) {
+        return Engine._calculateNutrientRequirement('K', level, {
+            methodology: 'MLSN',
+            species: 'perennialRyegrass'
+        });
+    }
+
+    test('a level inside the band -> "removal-only"', function () {
+        var r = mlsn(45);
+        expect(r.methodology).toBe('MLSN');
+        expect(r.intent).toBe('removal-only');
+    });
+
+    test('a level below the threshold -> "lift-to-floor"', function () {
+        var r = mlsn(5);
+        expect(r.intent).toBe('lift-to-floor');
+    });
+
+    test('a level above target -> "suppress-above-ceiling", matching its own zeroed requirement', function () {
+        var r = mlsn(500);
+        expect(r.intent).toBe('suppress-above-ceiling');
+        expect(r.annualRequirement).toBe(0);
     });
 });
 

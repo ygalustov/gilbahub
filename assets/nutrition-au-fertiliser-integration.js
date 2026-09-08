@@ -1020,7 +1020,7 @@
                 // GH-257: canonical GP colour thresholds — see gp-status.js.
                 // Was 50/25 (as a 0-1 fraction); now 70/40 to match the
                 // dashboard/analysis/Word export.
-                const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(m.gp) : (m.gp >= 0.7 ? 'high' : (m.gp >= 0.4 ? 'moderate' : 'low'));
+                const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelFrac(m.gp) : (m.gp >= 0.7 ? 'high' : (m.gp >= 0.4 ? 'moderate' : 'low'));
                 const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
                 
                 return `

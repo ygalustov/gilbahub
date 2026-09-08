@@ -167,11 +167,28 @@
          */
         isNewZealand: function() {
             // Method 1: Check RegionalProfiles detection
+            //
+            // GH-362 (Hoxton audit D30 root cause): detectRegionFromHub()
+            // (regional-profiles.js) reads the global .gaip-lat/.gaip-lon DOM
+            // inputs and returns its 'uk_ireland' DEFAULT when they are missing
+            // or non-numeric — it cannot signal "I don't know". Accepting that
+            // answer unconditionally meant a real NZ site whose coordinate
+            // inputs weren't populated resolved as not-NZ and never reached
+            // Methods 2 and 3 below, which would have answered correctly from
+            // GAIP_STATE / GAIP_HUB_CONFIG. Downstream that put an NZ site's
+            // Word export on the AU product catalogue. Only trust Method 1 when
+            // the inputs it reads actually hold usable coordinates.
             if (window.GAIP_RegionalProfiles?.detectRegionFromHub) {
-                const region = window.GAIP_RegionalProfiles.detectRegionFromHub();
-                return region === 'new_zealand';
+                const _latEl = document.querySelector('.gaip-lat');
+                const _lonEl = document.querySelector('.gaip-lon');
+                const _domLat = _latEl ? parseFloat(_latEl.value) : NaN;
+                const _domLon = _lonEl ? parseFloat(_lonEl.value) : NaN;
+                if (!isNaN(_domLat) && !isNaN(_domLon) && !(_domLat === 0 && _domLon === 0)) {
+                    const region = window.GAIP_RegionalProfiles.detectRegionFromHub();
+                    return region === 'new_zealand';
+                }
             }
-            
+
             // Method 2: Check GAIP_STATE for region
             if (window.GAIP_STATE?.location?.region) {
                 return window.GAIP_STATE.location.region === 'new_zealand';
@@ -968,7 +985,7 @@
                 // GH-257: canonical GP colour thresholds — see gp-status.js.
                 // Was 50/25 (as a 0-1 fraction); now 70/40 to match the
                 // dashboard/analysis/Word export.
-                const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(m.gp) : (m.gp >= 0.7 ? 'high' : (m.gp >= 0.4 ? 'moderate' : 'low'));
+                const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelFrac(m.gp) : (m.gp >= 0.7 ? 'high' : (m.gp >= 0.4 ? 'moderate' : 'low'));
                 const gpClass = gpLevel === 'moderate' ? 'medium' : gpLevel;
 
                 // Build requirements string - only show nutrients that are needed

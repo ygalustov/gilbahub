@@ -60,7 +60,12 @@ const HillLabsSampleTypes = global.window.HillLabsSampleTypes || global.HillLabs
 const AmmoniumAcetateMethodology = global.window.AmmoniumAcetateMethodology || global.AmmoniumAcetateMethodology;
 
 describe('Real data — Test5/Soccer (sample 141): certificate code + ranges resolve as confirmed live', () => {
-    const code = HillLabsSampleTypes.deriveCode(fixture.inputs.species, fixture.inputs.construction === 'sand_profile' ? 'sand' : fixture.inputs.construction);
+    // GH-365: was `construction === 'sand_profile' ? 'sand' : construction`,
+    // i.e. the test reimplemented GH-355's mapping instead of using data. The
+    // fixture now carries the sample's own recorded texture
+    // (samples.soil_texture_snapshot = 'sand' for id 141), which is the value
+    // production resolves first after GH-364.
+    const code = HillLabsSampleTypes.deriveCode(fixture.inputs.species, fixture.inputs.soilTexture);
 
     test('deriveCode() resolves the real certificate code for this species+texture', () => {
         expect(code).toBe(fixture.expected.certificateCode);
@@ -84,8 +89,15 @@ describe('Real data — Test5/Soccer (sample 141): certificate code + ranges res
 });
 
 describe('Real data — Test5/Soccer (sample 141): nutrition-requirement-engine.js reproduces the confirmed-live P/K/Ca/Mg/S results', () => {
+    // GH-365: these used to read the range out of fixture.expected, which fed
+    // the engine an already-correct input and so only tested arithmetic. The
+    // range is now resolved through the same production chain the first
+    // describe block pins (deriveCode -> getRangesPpm), so a regression in
+    // range resolution fails here too.
+    const code = HillLabsSampleTypes.deriveCode(fixture.inputs.species, fixture.inputs.soilTexture);
+
     test.each(['P', 'K', 'Ca', 'Mg'])('%s: real ppm value against the real certificate range -> confirmed status/intent/req', (nutrient) => {
-        const range = fixture.expected.ranges[nutrient];
+        const range = HillLabsSampleTypes.getRangesPpm(code, nutrient, fixture.inputs.CEC);
         const result = Engine._calculateNutrientRequirement(nutrient, fixture.inputs.soilPpm[nutrient], {
             methodology: 'AMMONIUM_ACETATE',
             species: 'perennialRyegrass',
@@ -98,7 +110,11 @@ describe('Real data — Test5/Soccer (sample 141): nutrition-requirement-engine.
     });
 
     test('S: real ppm value against the generic sands band -> confirmed status/intent/req', () => {
-        const range = fixture.expected.ranges.S;
+        // S277 carries no S range, so production falls through to the generic
+        // band -- resolved here the same way rather than read from `expected`.
+        expect(HillLabsSampleTypes.getRangesPpm(code, 'S', fixture.inputs.CEC)).toBeNull();
+        const _generic = AmmoniumAcetateMethodology.getSufficiencyRange('S', 'sands');
+        const range = { min: _generic.ranges.medium[0], max: _generic.ranges.medium[1] };
         const result = Engine._calculateNutrientRequirement('S', fixture.inputs.soilPpm.S, {
             methodology: 'AMMONIUM_ACETATE',
             species: 'perennialRyegrass',
@@ -112,18 +128,55 @@ describe('Real data — Test5/Soccer (sample 141): nutrition-requirement-engine.
 });
 
 describe('Real data — Test5/Soccer (sample 141): K reconciliation classification matches the confirmed-live Word export', () => {
-    test('K req=0 (from above) + K delivered=6 (real programme output) -> "no-need" state, matching the exact confirmed live text', () => {
-        // Mirrors word-export.js's _classifyKReconState() decision path --
-        // see that function's own doc comment for the full state machine.
-        // Confirmed live: this exact combination rendered as
-        // "No (soil K above sufficiency ceiling)" in the downloaded .docx.
-        const kReq = fixture.expected.nutrientRequirement.K.annualRequirement;
-        const intent = fixture.expected.nutrientRequirement.K.intent;
-        expect(kReq).toBe(0);
-        expect(intent).toBe('suppress-above-ceiling');
-        // kReq === 0 with intent 'suppress-above-ceiling' is exactly the
-        // branch that produces this text -- see word-export.js's
-        // _classifyKReconState(), branch 3.
-        expect(fixture.expected.kReconciliation.spotKText).toBe('No (soil K above sufficiency ceiling)');
+    // GH-365: this block used to assert fixture.expected against a string
+    // literal without calling anything -- it could not fail on a regression in
+    // the classifier it was named after. word-export.js bails at load time
+    // unless a `docx` global exists, but _classifyKReconState() itself is pure,
+    // so a minimal stub is enough to reach the real function.
+    let classify;
+    beforeAll(() => {
+        global.docx = new Proxy({}, { get: () => function () {} });
+        // The module runs initLogoUpload() at load, which touches DOM and
+        // storage APIs the shim above doesn't provide -- extend it rather than
+        // widening the shared stub every other describe block relies on.
+        global.document.getElementById = function () { return null; };
+        global.localStorage = global.localStorage ||
+            { getItem: function () { return null; }, setItem: function () {}, removeItem: function () {} };
+        jest.resetModules();
+        global.window = global.window || {};
+        require('../assets/word-export.js');
+        const WE = global.window.GilbaWordExport || global.window.WordExport ||
+            global.window.GAIP_WordExport || null;
+        classify = WE && WE._classifyKReconState;
+    });
+
+    test('the real _classifyKReconState() is reachable (guards against this block silently testing nothing again)', () => {
+        expect(typeof classify).toBe('function');
+    });
+
+    test('K req=0 + intent suppress-above-ceiling -> the exact "no-need" state and text seen in the downloaded .docx', () => {
+        const k = fixture.expected.nutrientRequirement.K;
+        const recon = fixture.expected.kReconciliation;
+        const result = classify({
+            anrK: { intent: k.intent, annualRequirement: k.annualRequirement },
+            kRequired: k.annualRequirement,
+            balance: recon.kDelivered - k.annualRequirement,
+            kReconApplied: false,
+            kReconDecision: null,
+        });
+        expect(result.state).toBe(recon.spotKState);
+        expect(result.text).toBe(recon.spotKText);
+    });
+
+    test('the same balance with a deficient soil classifies differently — proves the assertion above is load-bearing', () => {
+        const recon = fixture.expected.kReconciliation;
+        const result = classify({
+            anrK: { intent: 'lift-to-floor', annualRequirement: 100 },
+            kRequired: 100,
+            balance: recon.kDelivered - 100,
+            kReconApplied: false,
+            kReconDecision: null,
+        });
+        expect(result.state).not.toBe('no-need');
     });
 });

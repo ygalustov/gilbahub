@@ -68,7 +68,11 @@ class ReportsExportSoilTextureTest extends TestCase
             'modified_by_user_id' => $user->id,
         ], $overrides));
 
-        $site->users()->attach($user->id, ['role' => 'owner']);
+        // GH-365: 'owner' was retired as a site_user.role value by the RBAC
+        // migration (see GH-359); User::canEditSite()/canManageSite() do not
+        // recognise it, so a helper attaching it makes any permission-gated
+        // route in this test 403 for the site's own user.
+        $site->users()->attach($user->id, ['role' => 'manager']);
 
         return $site;
     }

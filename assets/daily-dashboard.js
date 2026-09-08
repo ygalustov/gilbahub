@@ -632,7 +632,7 @@
         // component's own class names invert the GP meaning into a "severity"
         // (high GP = gaip-severity-low, i.e. low severity) — kept as-is, only
         // the threshold/tier boundary now comes from the shared source.
-        const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gpPercent) : (gpPercent >= 70 ? 'high' : (gpPercent >= 40 ? 'moderate' : 'low'));
+        const gpLevel = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelPct(gpPercent) : (gpPercent >= 70 ? 'high' : (gpPercent >= 40 ? 'moderate' : 'low'));
         const severityClass = gpLevel === 'high' ? 'gaip-severity-low' :
                              gpLevel === 'moderate' ? 'gaip-severity-moderate' : 'gaip-severity-high';
         const barClass = gpLevel === 'high' ? 'gaip-progress-green' :

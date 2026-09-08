@@ -442,7 +442,7 @@
 
             if (gpPct !== null) {
                 // GH-257: canonical GP colour thresholds — see gp-status.js.
-                var gpTier = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevel(gpPct) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
+                var gpTier = window.GAIP_GPStatus ? window.GAIP_GPStatus.getLevelPct(gpPct) : (gpPct >= 70 ? 'high' : (gpPct >= 40 ? 'moderate' : 'low'));
                 var gpLevel = gpTier === 'high' ? 'good' : gpTier === 'moderate' ? 'moderate' : 'poor';
                 pillsHTML += metricPillHTML('GP', gpPct, '%', gpLevel);
             }

@@ -1,12 +1,25 @@
 {
   "_source": "docker exec gilba_mysql mysql -- samples.id=141, site_configs.site_id=019e96f3-9294-72be-a13c-7fa7427afd5a, pulled 2026-09-07",
-  "_verifiedVia": ["db", "ui-data-page-screenshot", "live-combined-export-docx"],
-  "site": { "id": "019e96f3-9294-72be-a13c-7fa7427afd5a", "name": "Test5 - NZ" },
-  "sample": { "id": 141, "label": "Soccer", "sampleType": "soil", "sampleDate": "2026-08-17" },
+  "_verifiedVia": [
+    "db",
+    "ui-data-page-screenshot",
+    "live-combined-export-docx"
+  ],
+  "site": {
+    "id": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+    "name": "Test5 - NZ"
+  },
+  "sample": {
+    "id": 141,
+    "label": "Soccer",
+    "sampleType": "soil",
+    "sampleDate": "2026-08-17"
+  },
   "inputs": {
     "methodology": "ammonium_acetate",
     "species": "Perennial Ryegrass",
     "construction": "sand_profile",
+    "soilTexture": "sand",
     "annualNOverride": 200,
     "soilPpm": {
       "P": 40,
@@ -28,18 +41,58 @@
     "_note": "S277 has no certificate S range (confirmed: HillLabsSampleTypes.getRangesPpm('S277','S',5.9) === null) -- S falls through to AmmoniumAcetateMethodology's generic 'sands' band by design, not a bug. All five ceilings below are the REAL numbers Hill Labs prints for this species+texture (P/K/Ca/Mg) or the generic sands fallback (S) -- confirmed live against the exact server-side calc, independent of the still-unresolved GH-355 wiring gap (word-export.js can't always derive S277 itself yet; this fixture tests the underlying engine with the range it OUGHT to resolve to).",
     "certificateCode": "S277",
     "ranges": {
-      "P":  { "min": 20,   "max": 30,    "source": "certificate" },
-      "K":  { "min": 78.2, "max": 195.5, "source": "certificate" },
-      "Ca": { "min": 400,  "max": 800,   "source": "certificate" },
-      "Mg": { "min": 36.6, "max": 85.4,  "source": "certificate" },
-      "S":  { "min": 30,   "max": 60,    "source": "generic-sands-fallback" }
+      "P": {
+        "min": 20,
+        "max": 30,
+        "source": "certificate"
+      },
+      "K": {
+        "min": 78.2,
+        "max": 195.5,
+        "source": "certificate"
+      },
+      "Ca": {
+        "min": 400,
+        "max": 800,
+        "source": "certificate"
+      },
+      "Mg": {
+        "min": 36.6,
+        "max": 85.4,
+        "source": "certificate"
+      },
+      "S": {
+        "min": 30,
+        "max": 60,
+        "source": "generic-sands-fallback"
+      }
     },
     "nutrientRequirement": {
-      "P":  { "status": "High", "intent": "suppress-above-ceiling", "annualRequirement": 0 },
-      "K":  { "status": "High", "intent": "suppress-above-ceiling", "annualRequirement": 0 },
-      "Ca": { "status": "High", "intent": "suppress-above-ceiling", "annualRequirement": 0 },
-      "Mg": { "status": "High", "intent": "suppress-above-ceiling", "annualRequirement": 0 },
-      "S":  { "status": "High", "intent": "suppress-above-ceiling", "annualRequirement": 0 }
+      "P": {
+        "status": "High",
+        "intent": "suppress-above-ceiling",
+        "annualRequirement": 0
+      },
+      "K": {
+        "status": "High",
+        "intent": "suppress-above-ceiling",
+        "annualRequirement": 0
+      },
+      "Ca": {
+        "status": "High",
+        "intent": "suppress-above-ceiling",
+        "annualRequirement": 0
+      },
+      "Mg": {
+        "status": "High",
+        "intent": "suppress-above-ceiling",
+        "annualRequirement": 0
+      },
+      "S": {
+        "status": "High",
+        "intent": "suppress-above-ceiling",
+        "annualRequirement": 0
+      }
     },
     "kReconciliation": {
       "kReq": 0,

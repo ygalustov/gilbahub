@@ -2869,6 +2869,22 @@
             };
         }
 
+        // 5b. GH-365: the engine returned removal-only arithmetic but no
+        //     sufficiency range ever resolved for this sample type, so neither
+        //     "soil sufficient" (5) nor "deficient, gate should have fired" (6)
+        //     is a claim we can make. Say what is actually known — the shortfall
+        //     is real, the soil verdict behind it is not established — rather
+        //     than picking one of the two verdicts by default.
+        if (intent === 'removal-only-unverified') {
+            return {
+                state: 'unverified',
+                text: 'Programme is ~' + shortfallKg + ' kg/ha short of removal; ' +
+                      'soil sufficiency could not be verified for this sample type ' +
+                      '(no reference range resolved)',
+                color: 'F59E0B'  // amber — flag for review, not a red deficit claim
+            };
+        }
+
         // 6. intent='lift-to-floor' (or unknown intent) + neg balance + spot-K
         //    not applied. Something blocked the gate. Render advisory red so
         //    user investigates.
@@ -2878,6 +2894,131 @@
             color: 'DC2626'  // red
         };
     }
+
+    /**
+     * GH-369 — Parse a collectData()-shaped `data.tissue` object into the
+     * {N,P,K} percentage shape NutritionRequirementEngine_Pure.compute() and
+     * GilbaNutritionCalendar.computeProgram() both expect for their tissue
+     * gate (GH-361/362/368).
+     *
+     * Extracted from the single-export ANR call site (previously an inline
+     * IIFE at the compute() call) so the combined export's own ANR/K-recon
+     * computation can pass the same tissue reading instead of omitting it —
+     * see the GH-369 changelog entry for why that omission mattered.
+     *
+     * Returns null when none of N/P/K parse as numbers (matches the engine's
+     * own "no tissue sample" contract — a null tissuePercent, not an object
+     * of NaNs, is what tells both engines to fall back to the generic ratio).
+     */
+    function _tissuePercentFromData(data) {
+        var t = (data && data.tissue) || {};
+        var n = parseFloat(t.N), p = parseFloat(t.P), k = parseFloat(t.K);
+        if (isNaN(n) && isNaN(p) && isNaN(k)) return null;
+        return {
+            N: isNaN(n) ? null : n,
+            P: isNaN(p) ? null : p,
+            K: isNaN(k) ? null : k
+        };
+    }
+
+    /**
+     * GH-369 — Tissue plant-status check for one nutrient (K/N/P), extracted
+     * from generatePriorityActions()'s inline checks so the K Reconciliation
+     * renderer (word-export-combined.js) can attach the same signal to the
+     * row that shows a tissue-RATIO-informed removal figure, instead of the
+     * two only meeting several pages apart with nothing explaining they
+     * answer different questions.
+     *
+     * This is deliberately a DIFFERENT question from the tissue-ratio gate
+     * (GH-361/362/368, nutrition-calendar.js / nutrition-requirement-engine.js):
+     * the ratio gate asks "how much of this nutrient does the plant remove
+     * per unit of N cycled" (a replacement-DOSE question, answered by
+     * comparing measured K/N or P/N against a generic textbook ratio); this
+     * asks "is the plant's tissue level adequate right now" (a plant-STATUS
+     * question, answered by comparing the raw measured % against a published
+     * sufficiency band). A site can legitimately have BOTH a lowered,
+     * tissue-ratio-informed removal figure (because measured K/N sits well
+     * under the generic 0.55/0.556) AND a critical tissue-status flag
+     * (because the same measured % sits below the absolute sufficiency
+     * floor) — that is not a contradiction to resolve numerically (see the
+     * GH-369 changelog entry: forcing the two to agree would mean adding
+     * more soil-broadcast product for what the codebase's own antagonism
+     * narrative (word-export.js generatePerformanceImpactAnalysis, "uptake
+     * restriction... cation antagonism") may recognise as an UPTAKE
+     * problem, not a supply one — reintroducing the over-application risk
+     * this project's fixes have repeatedly guarded against (D06/D07)). The
+     * two signals stay independent; this helper exists so both can be
+     * surfaced together, in one place, rather than being explained (or not)
+     * in prose the reader has to go find.
+     *
+     * Only K currently has a defined critical threshold (0.8x the
+     * sufficiency floor, matching the pre-existing immediate-action
+     * threshold in generatePriorityActions) — N/P use the plain floor.
+     * Returns null when no tissue reading or range exists for this nutrient.
+     */
+    function _tissueSufficiencyState(nutrient, data) {
+        if (!data || !data.tissue || !data.tissue.ranges) return null;
+        // GH-369 follow-up: coerce with parseFloat, matching
+        // _tissuePercentFromData()'s coercion -- a tissue value arriving as a
+        // string (a DOM/JSON payload didn't get parsed upstream) previously
+        // failed this function's stricter `typeof value !== 'number'` check
+        // while _tissuePercentFromData() would have accepted the same value,
+        // so the two shared helpers could disagree on whether tissue data
+        // existed at all for the same sample.
+        var value = parseFloat(data.tissue[nutrient]);
+        var range = data.tissue.ranges[nutrient];
+        if (isNaN(value) || !range || typeof range.lo !== 'number') return null;
+        var rangeSource = data.tissue.rangeSpecies || null;
+        var criticalFloor = (nutrient === 'K') ? range.lo * 0.8 : range.lo;
+        return {
+            nutrient: nutrient,
+            value: value,
+            floor: range.lo,
+            low: value < range.lo,
+            critical: value < criticalFloor,
+            rangeSource: rangeSource
+        };
+    }
+
+    /**
+     * GH-369 follow-up (independent review) — the single decision "does this
+     * nutrient's requirement row need the tissue-ratio-vs-plant-status
+     * independence explanation" was implemented twice with drifting logic
+     * (word-export.js's single-export ANR row, word-export-combined.js's
+     * ANR-table marker and K Reconciliation row). Extracted to one place so
+     * both files call the same rule and the tissueInformed/intent guard
+     * fixed here (#1: a suppress-above-ceiling intent means the PRINTED
+     * figure is not tissue-derived even when the underlying removal
+     * component was) can't drift back out of step a second time.
+     *
+     * True only when ALL of:
+     *   - tissueInformed is true (this figure's removal component came from
+     *     the measured ratio, not the generic constant)
+     *   - intent is not 'suppress-above-ceiling' (the printed figure itself
+     *     reflects that removal component, not a ceiling override forcing 0)
+     *   - the same tissue reading is independently critical/below-sufficiency
+     *     on plant status (_tissueSufficiencyState)
+     */
+    function _isTissueContradictionRow(nutrient, tissueInformed, intent, data) {
+        if (!tissueInformed || intent === 'suppress-above-ceiling') return false;
+        var ts = _tissueSufficiencyState(nutrient, data);
+        return !!(ts && ts.critical);
+    }
+
+    // GH-369: no generic foliar-K application rate is cited anywhere in this
+    // codebase (checked citation-registry.js, every *-fertiliser-products.js
+    // catalogue, and docs/instructions.md's Change log — none carries a
+    // foliar-K label rate; the existing "20-40 kg K/ha elemental" line above
+    // is itself an uncited legacy figure, and it is a SOIL-broadcast rate in
+    // any case, not a foliar one, so it isn't a valid source to borrow from
+    // even if it were cited). Per this project's rule against inventing
+    // agronomic numbers, this advisory says that plainly instead of guessing
+    // a dose — it points to whatever foliar-K product is actually in the
+    // site's own programme and its own label rate, rather than a fabricated
+    // generic kg/ha figure.
+    var TISSUE_K_CRITICAL_ADVISORY_NO_DOSE =
+        'no generic foliar-K rate is verified in this system — apply the ' +
+        'selected foliar-K product at its own label rate';
 
     /**
      * b35fix322 — Convert amendment decisions to nutrition-program product entries.
@@ -4554,16 +4695,38 @@
         
         // Soil deficiencies
         if (data.soil && data.soil.thresholds) {
+            // GH-369 follow-up: this "20-40 kg K/ha elemental, equiv. 48-96 kg
+            // product/ha" figure had no citation anywhere in this codebase
+            // (checked citation-registry.js and every product catalogue, same
+            // check that found no source for the tissue-side foliar-K rate a
+            // few lines below) -- it predates this project's rule against
+            // printing an agronomic number without a verifiable source. Having
+            // the tissue-side advisory say "no verified rate" right next to a
+            // soil-side advisory that prints an uncited one would be
+            // inconsistent (a reader can't tell which number to trust), so
+            // this one is now held to the same standard rather than being
+            // left as the one unflagged exception.
             if (data.soil.K && data.soil.thresholds.K && data.soil.K < data.soil.thresholds.K.min * 0.5) {
-                immediate.push('Severe K deficiency - apply potassium sulphate immediately (20-40 kg K/ha elemental, equiv. 48-96 kg product/ha).');
+                immediate.push('Severe K deficiency - apply potassium sulphate promptly; no generic ' +
+                    'soil-applied K correction rate is verified in this system — size the application ' +
+                    'from the soil K deficit against this site\'s own bulk density and sample depth, or ' +
+                    'per the selected product\'s label rate.');
             }
         }
         
         // Tissue deficiencies - uses ranges which should already be species-appropriate
         if (data.tissue && data.tissue.ranges) {
             var rangeSource = data.tissue.rangeSpecies || effectiveSpecies;
-            if (data.tissue.K && data.tissue.ranges.K && data.tissue.K < data.tissue.ranges.K.lo * 0.8) {
-                immediate.push('Tissue K critically low (' + data.tissue.K + '%) for ' + rangeSource + ' - apply foliar potassium immediately.');
+            // GH-369: routed through the shared _tissueSufficiencyState()
+            // helper (same check word-export-combined.js's K Reconciliation
+            // row now uses) instead of an inline threshold, and the dose
+            // clause is now explicit about there being no verified generic
+            // foliar-K rate rather than silently carrying none at all — see
+            // that function's own comment for why no number is invented here.
+            var _kTissueState = _tissueSufficiencyState('K', data);
+            if (_kTissueState && _kTissueState.critical) {
+                immediate.push('Tissue K critically low (' + _kTissueState.value + '%) for ' + rangeSource +
+                    ' - apply foliar potassium promptly; ' + TISSUE_K_CRITICAL_ADVISORY_NO_DOSE + '.');
             }
             if (data.tissue.N && data.tissue.ranges.N && data.tissue.N < data.tissue.ranges.N.lo) {
                 shortTerm.push('Tissue N below ' + rangeSource + ' sufficiency (' + data.tissue.N + '%) - increase N program or apply foliar N.');
@@ -5658,6 +5821,56 @@
         var elements = [];
 
         if (!data.nutritionProgram || !data.nutritionProgram.hasData) {
+            // GH-362 (Hoxton audit D30/D03): the sample's region resolved but no
+            // product catalogue for that region was loaded, so the programme was
+            // deliberately omitted rather than filled from another country's
+            // catalogue (word-export-combined.js, "GH-362 branch for sample").
+            // Say so — an omitted section that says nothing reads as "this site
+            // has no programme", which is a different and wrong message.
+            if (data.nutritionProgramCatalogueUnavailable) {
+                elements.push(new Paragraph({
+                    spacing: { before: 200, after: 100 },
+                    children: [new TextRun({ text: 'Nutrition Program', bold: true, size: 24, color: '1F2937' })]
+                }));
+                // GH-367: name which binding failed. "Catalogue unavailable" is
+                // three different situations to whoever has to act on it — the
+                // region did not resolve, the distributor selection could not be
+                // read, or the filter could not be applied — and the reader can
+                // only fix the one that actually happened.
+                var _catReason = data.nutritionProgramCatalogueUnavailableReason;
+                var _catText;
+                if (_catReason === 'distributor-unresolved') {
+                    _catText = 'This site\'s distributor selection could not be read, so no fertiliser ' +
+                               'programme has been included. A programme is deliberately not produced from ' +
+                               'the unfiltered catalogue, because it would list products this site\'s ' +
+                               'supplier may not carry. Please reopen the site and regenerate this report.';
+                } else if (_catReason === 'distributor-filter-unavailable') {
+                    _catText = 'This site\'s distributor filter could not be applied, so no fertiliser ' +
+                               'programme has been included. A programme is deliberately not produced from ' +
+                               'the unfiltered catalogue, because it would list products this site\'s ' +
+                               'supplier may not carry. Please regenerate this report; contact support if ' +
+                               'the message persists.';
+                } else {
+                    _catText = 'The product catalogue for this site\'s region' +
+                               (data.nutritionProgramCatalogueUnavailableRegion
+                                   ? ' (' + data.nutritionProgramCatalogueUnavailableRegion + ')'
+                                   : '') +
+                               ' could not be loaded, so no fertiliser programme has been included. ' +
+                               'Products from another region\'s catalogue are deliberately not substituted. ' +
+                               'Please regenerate this report; contact support if the message persists.';
+                }
+                elements.push(new Paragraph({
+                    spacing: { before: 50, after: 150 },
+                    children: [new TextRun({
+                        text: _catText,
+                        italics: true,
+                        size: 20,
+                        color: 'B45309'
+                    })]
+                }));
+                return elements;
+            }
+
             // GH-245: distinguish "no real climate normals for this site"
             // (say so) from "no program generated for other reasons" (stay
             // silent, as before — e.g. the user never opened the Nutrition
@@ -5964,7 +6177,7 @@
             // nutrition-calendar.js bug, just in the Word export instead.
             // Fixed by passing the raw fraction (m.gp) like every other
             // correct caller does.
-            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocx(m.gp) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
+            var gpColor = (typeof GAIP_GPStatus !== 'undefined') ? GAIP_GPStatus.getColorDocxFrac(m.gp) : (gpPct >= 70 ? '16A34A' : gpPct >= 40 ? 'D97706' : 'DC2626');
             var mutedGrey = '9CA3AF';
             var normalDark = '374151';
             var herbicideAmber = '854D0E';
@@ -6672,17 +6885,27 @@
         var _lonEl = document.querySelector('.gaip-lon');
         var _lat = _latEl ? parseFloat(_latEl.value) : NaN;
         var _lon = _lonEl ? parseFloat(_lonEl.value) : NaN;
+        // GH-367: track whether these are the site's real coordinates or the
+        // Sydney-ish placeholder below. Consumers cannot tell the two apart
+        // from the numbers alone, and at least one already needs to: the
+        // combined export picks the product catalogue from a sample's
+        // coordinates (GH-362), and a placeholder at -33/151 reads as a
+        // perfectly valid Australian site -- so an NZ site with no coordinates
+        // saved resolved to the AU catalogue with no signal at all, which is
+        // the audit's D30 symptom and the exact case GH-362's "coordinates
+        // unknown" branch was written for but could never reach.
+        var _coordsDefaulted = false;
         if (!isFinite(_lat)) {
             _lat = (_stInputs.site && _stInputs.site.latitude) ||
                    (_state.site && _state.site.latitude) ||
                    (_state.location && _state.location.lat);
-            if (typeof _lat !== 'number' || isNaN(_lat)) _lat = -33;  // Sydney-ish default
+            if (typeof _lat !== 'number' || isNaN(_lat)) { _lat = -33; _coordsDefaulted = true; }  // Sydney-ish default
         }
         if (!isFinite(_lon)) {
             _lon = (_stInputs.site && _stInputs.site.longitude) ||
                    (_state.site && _state.site.longitude) ||
                    (_state.location && (_state.location.lon != null ? _state.location.lon : _state.location.lng));
-            if (typeof _lon !== 'number' || isNaN(_lon)) _lon = 151;  // Sydney-ish default
+            if (typeof _lon !== 'number' || isNaN(_lon)) { _lon = 151; _coordsDefaulted = true; }  // Sydney-ish default
         }
 
         // GH-245 follow-up 2: monthly temps keyed by THIS sample's own
@@ -6818,12 +7041,49 @@
             // bucketing already keys off (getThresholds()-equivalent: only
             // 'sand_profile' -> sand, everything else -> generic/others), so
             // this reuses an established mapping rather than inventing one.
-            // Tried first since it's the most site-specific of the three.
+            // GH-364: construction is now the LAST resort, not the first.
+            // GH-355 ranked it first because at the time the other two sources
+            // were both empty on this page -- GH-357 then found and fixed the
+            // real reason (ReportsController/export.blade.php never passed
+            // soilTexture through at all) and left this ordering behind it.
+            // construction is a two-way bucket ('sand_profile' -> sand, else
+            // nothing); GAIP_HUB_CONFIG.soilTexture is the site's real
+            // sites.soil_texture_override / accounts.soil_texture, one of six
+            // values. Ranking the guess above the measured value means a
+            // hybrid site (construction 'sand_profile', texture 'clay_loam')
+            // resolves S277 here while the live Plan page -- which reads only
+            // GAIP_HUB_CONFIG.soilTexture (nutrition-calendar.js has no
+            // concept of turf.construction) -- resolves the generic band, so
+            // UI and export disagree on P/K/Ca/Mg requirements. That is the
+            // parity the whole GH-352..357 chain existed to restore, and the
+            // audit asserts it explicitly (assertion 20).
             var _constructionTexture = (_stTurf.construction === 'sand_profile' || _stTurf.construction === 'sand profile')
                 ? 'sand' : null;
-            var _soilTexture = _constructionTexture
+            // GH-364: this sample's OWN recorded texture first. GH-357 made
+            // GAIP_HUB_CONFIG.soilTexture work, but that global is the ACTIVE
+            // site's value, resolved once per page load -- and a combined
+            // export deliberately spans several sites (see the GH-245 follow-up
+            // 2 comment above, which resolves climate per-coordinate for that
+            // exact reason). Every sample of every site would otherwise be
+            // ranged against whichever site happened to be active when the page
+            // loaded. samples.soil_texture_snapshot is the per-sample value
+            // (GH-263/264), surfaced by sample-persistence.js as
+            // soilTextureSnapshot, and _buildEngineInputs() runs once per
+            // sample with that sample loaded — so reading it here is per-sample
+            // by construction, the same way methodology already is.
+            var _sampleTexture = null;
+            try {
+                var _smForTex = window.GAIP_SampleManager;
+                var _activeSoilSample = (_smForTex && typeof _smForTex.getActiveSample === 'function')
+                    ? _smForTex.getActiveSample('soil') : null;
+                _sampleTexture = (_activeSoilSample && _activeSoilSample.soilTextureSnapshot) || null;
+            } catch (_texErr) {
+                console.warn('[WordExport] GH-364: per-sample soil texture read failed:', _texErr && _texErr.message);
+            }
+            var _soilTexture = _sampleTexture
                 || (data.soil && (data.soil.soilTexture || data.soil.texture))
                 || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
+                || _constructionTexture
                 || null;
             console.log('[GH355-DEBUG] texture sources', '| _stTurf.construction:', _stTurf.construction,
                 '| _canonTurf.construction:', _canonTurf.construction,
@@ -6889,7 +7149,10 @@
                 source: _monthlyTempsSource,
                 unavailableReason: _climateReason,
                 latitude: _lat,
-                longitude: _lon
+                longitude: _lon,
+                // GH-367: true when latitude/longitude above are the Sydney-ish
+                // placeholder rather than this site's saved coordinates.
+                coordinatesDefaulted: _coordsDefaulted
             },
             aaRanges: _aaRanges,
             overseedConfig: _overseedConfig
@@ -7840,6 +8103,25 @@
                             : null;
                     if (_om != null && !isNaN(_om)) data.soil.OM = _om;
 
+                    // GH-370: soil bulk density (g/cm3) and sample depth (cm),
+                    // needed by NutritionRequirementEngine_Pure to convert a
+                    // ppm deficit into kg/ha (nutrition-requirement-engine.js's
+                    // _ppmToKgHaFactor). Both compute() call sites (this
+                    // file's single-export ANR block and word-export-combined.js's
+                    // ANR pass) already pass `soil: data.soil`/`soil: r.data.soil`
+                    // directly, so populating these two fields here is all that's
+                    // needed to reach both — no separate threading required, unlike
+                    // GH-369's tissuePercent (which isn't part of the soil object).
+                    // Same canonical field names hub-persistence.js already reads
+                    // from the same rawData shape for its own bulk-density/depth
+                    // use (`_smRaw.bulkDensity`, `_si.depthCm`).
+                    var _bd = _raw.bulkDensity != null ? parseFloat(_raw.bulkDensity) : null;
+                    if (_bd != null && !isNaN(_bd) && _bd > 0) data.soil.bulkDensity = _bd;
+                    var _sd = _raw.depthCm != null ? parseFloat(_raw.depthCm)
+                            : _raw.depth != null ? parseFloat(_raw.depth)
+                            : null;
+                    if (_sd != null && !isNaN(_sd) && _sd > 0) data.soil.depth = _sd;
+
                     // b35fix427 (C34): measured ESP read from rawData if the
                     // lab returned one. Estimation from Na+CEC happens AFTER
                     // both DOM-fallback and canonical-state paths have run
@@ -7881,6 +8163,28 @@
                     if (_omEl && _omEl.value) {
                         var _od = parseFloat(_omEl.value);
                         if (!isNaN(_od)) data.soil.OM = _od;
+                    }
+                }
+
+                // GH-370: no dedicated DOM input exists for bulk density/depth
+                // (there's no `.gaip-bulk-density`/`.gaip-soil-depth` field on
+                // this page), so the fallback here is GAIP_STATE.inputs.soil —
+                // the same object nutrition-calendar.js's own live-page path
+                // (collectFromState()) reads `soil.bulkDensity`/`soil.depth`
+                // from. Absent even there, NutritionRequirementEngine_Pure
+                // falls back to the same 1.4 g/cm3 / 10cm default
+                // nutrition-calendar.js itself uses (see this engine's
+                // DEFAULT_BULK_DENSITY_G_CM3/DEFAULT_SOIL_DEPTH_CM) — never
+                // silently missing the conversion the way it did pre-GH-370.
+                if (data.soil.bulkDensity == null || data.soil.depth == null) {
+                    var _stateSoil = (window.GAIP_STATE && window.GAIP_STATE.inputs && window.GAIP_STATE.inputs.soil) || {};
+                    if (data.soil.bulkDensity == null) {
+                        var _stBd = parseFloat(_stateSoil.bulkDensity);
+                        if (!isNaN(_stBd) && _stBd > 0) data.soil.bulkDensity = _stBd;
+                    }
+                    if (data.soil.depth == null) {
+                        var _stSd = parseFloat(_stateSoil.depthCm != null ? _stateSoil.depthCm : _stateSoil.depth);
+                        if (!isNaN(_stSd) && _stSd > 0) data.soil.depth = _stSd;
                     }
                 }
 
@@ -9484,12 +9788,39 @@
                     turf: _inputs.turf,
                     climate: _inputs.climate,
                     aaRanges: _inputs.aaRanges,
+                    // GH-368 (Hoxton audit D07a): this sample's own tissue
+                    // analysis, so the engine's P/K removal rate comes from
+                    // this plant's composition rather than REMOVAL_RATES'
+                    // generic one. data.tissue is populated per sample by
+                    // collectData() above (matched to this sample's zone), the
+                    // same source the calendar engine's overlay uses in
+                    // word-export-combined.js -- both engines now answer from
+                    // the same measurement instead of diverging.
+                    // GH-369: extracted to _tissuePercentFromData() so the
+                    // combined export's own ANR compute() call (previously
+                    // missing this entirely) can share the exact same parse.
+                    tissuePercent: _tissuePercentFromData(data),
                     overseedConfig: _inputs.overseedConfig
                 });
 
                 data.nutritionSummary.hasData = true;
                 data.nutritionSummary.annualP = (_engineResult.perSample.P && _engineResult.perSample.P.annualRequirement) ?? null;
                 data.nutritionSummary.annualK = (_engineResult.perSample.K && _engineResult.perSample.K.annualRequirement) ?? null;
+                // GH-369: carried through so the ANR section below can attach
+                // the tissue-status/independence note to the same K row when
+                // this figure was derived from the measured K/N ratio.
+                data.nutritionSummary.kTissueInformed = !!(_engineResult.perSample.K && _engineResult.perSample.K.tissueInformed);
+                data.nutritionSummary.pTissueInformed = !!(_engineResult.perSample.P && _engineResult.perSample.P.tissueInformed);
+                // GH-369 follow-up: tissueInformed alone is not enough to know
+                // whether the PRINTED figure reflects the tissue ratio -- the
+                // AA suppress-above-ceiling branch forces annualRequirement to
+                // 0 while still reporting tissueInformed=true (the underlying
+                // removal component was tissue-derived even though the final
+                // number wasn't). Carrying intent through lets the renderer
+                // gate the "this figure is tissue-derived" explanation on the
+                // case where that claim is actually true of the printed number.
+                data.nutritionSummary.kIntent = (_engineResult.perSample.K && _engineResult.perSample.K.intent) || null;
+                data.nutritionSummary.pIntent = (_engineResult.perSample.P && _engineResult.perSample.P.intent) || null;
                 data.nutritionSummary.annualS = (_engineResult.perSample.S && _engineResult.perSample.S.annualRequirement) ?? null;
                 data.nutritionSummary.pStatus = (_engineResult.perSample.P && _engineResult.perSample.P.status) || 'Unknown';
                 data.nutritionSummary.kStatus = (_engineResult.perSample.K && _engineResult.perSample.K.status) || 'Unknown';
@@ -11350,20 +11681,90 @@
             }));
             
             // Create nutrient requirement rows
+            //
+            // GH-369 follow-up (independent review): building the K row
+            // extracted into a shared local helper so P gets the identical
+            // treatment -- pre-fix, data.nutritionSummary.pTissueInformed
+            // was computed but never read anywhere (P's own tissue-ratio
+            // gate and tissue-sufficiency check produce the exact same
+            // unexplained-juxtaposition risk GH-369 fixed for K, and D07a
+            // scopes the tissue-ratio gate to P and K equally). Also fixes
+            // two bugs found in the same review pass: (1) `if
+            // (data.nutritionSummary.annualK)` is falsy for a req of
+            // exactly 0 -- the audit's own headline "K req 0.0" case --
+            // which skipped the row (and any note) entirely; now checks
+            // `!= null`. (2) the tissue-derived explanation no longer fires
+            // when intent is 'suppress-above-ceiling': tissueInformed
+            // describes the REMOVAL component, not the printed
+            // annualRequirement, and the ceiling branch forces that to 0
+            // regardless of the tissue ratio -- claiming "this figure is
+            // tissue-derived" next to a ceiling-suppressed 0.0 would itself
+            // be a false statement.
+            function _nutRowWithTissueNote(label, nutrient, annualValue, statusColor, tissueInformed, intent) {
+                var note = null;
+                // GH-369 follow-up: routed through the shared
+                // _isTissueContradictionRow() SSOT (see its own comment) so
+                // this row and word-export-combined.js's ANR-table marker /
+                // K Reconciliation row all apply the identical rule.
+                if (_isTissueContradictionRow(nutrient, tissueInformed, intent, data)) {
+                    var ts = _tissueSufficiencyState(nutrient, data);
+                    if (ts) {
+                        var doseClause = (nutrient === 'K')
+                            ? ('apply foliar potassium promptly (' + TISSUE_K_CRITICAL_ADVISORY_NO_DOSE + ').')
+                            : ('apply phosphorus fertiliser or foliar MAP/MKP promptly; no generic ' +
+                               'foliar-P rate is verified in this system — apply the selected product ' +
+                               'at its own label rate.');
+                        note = 'Tissue-informed (measured ' + nutrient + '/N ratio); tissue ' + nutrient + ' ' +
+                            ts.value + '% is independently ' + (nutrient === 'K' ? 'critically low' : 'below sufficiency') +
+                            ' for ' + (ts.rangeSource || 'this species') +
+                            ' — this figure is a replacement-dose estimate, not a statement that no ' +
+                            'action is needed. See Priority Actions: ' + doseClause;
+                    }
+                }
+                if (!note) {
+                    return createKeyValueRow(label, annualValue.toFixed(1) + ' kg/ha/yr', statusColor);
+                }
+                var border = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
+                var borders = { top: border, bottom: border, left: border, right: border };
+                return new TableRow({
+                    cantSplit: false,
+                    children: [
+                        new TableCell({
+                            borders: borders, width: { size: 3500, type: WidthType.DXA },
+                            shading: { fill: 'F9FAFB', type: ShadingType.CLEAR },
+                            children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, size: 22 })] })]
+                        }),
+                        new TableCell({
+                            borders: borders, width: { size: 5860, type: WidthType.DXA },
+                            children: [
+                                new Paragraph({ children: [new TextRun({
+                                    text: annualValue.toFixed(1) + ' kg/ha/yr', size: 22, color: statusColor
+                                })] }),
+                                new Paragraph({ spacing: { before: 40 }, children: [new TextRun({
+                                    text: note, size: 16, italics: true, color: 'DC2626'
+                                })] })
+                            ]
+                        })
+                    ]
+                });
+            }
+
             var nutRows = [];
-            if (data.nutritionSummary.annualP) {
+            if (data.nutritionSummary.annualP != null) {
                 var pColor = data.nutritionSummary.pStatus === 'Low' ? 'DC2626' : '16A34A';
-                nutRows.push(createKeyValueRow('Phosphorus (P)', data.nutritionSummary.annualP.toFixed(1) + ' kg/ha/yr', pColor));
+                nutRows.push(_nutRowWithTissueNote('Phosphorus (P)', 'P', data.nutritionSummary.annualP, pColor,
+                    data.nutritionSummary.pTissueInformed, data.nutritionSummary.pIntent));
             }
-            if (data.nutritionSummary.annualK) {
+            if (data.nutritionSummary.annualK != null) {
                 var kColor = data.nutritionSummary.kStatus === 'Low' ? 'DC2626' : '16A34A';
-                nutRows.push(createKeyValueRow('Potassium (K)', data.nutritionSummary.annualK.toFixed(1) + ' kg/ha/yr', kColor));
+                nutRows.push(_nutRowWithTissueNote('Potassium (K)', 'K', data.nutritionSummary.annualK, kColor,
+                    data.nutritionSummary.kTissueInformed, data.nutritionSummary.kIntent));
             }
-            if (data.nutritionSummary.annualS) {
+            if (data.nutritionSummary.annualS != null) {
                 var sColor = data.nutritionSummary.sStatus === 'Low' ? 'DC2626' : '16A34A';
                 nutRows.push(createKeyValueRow('Sulphur (S)', data.nutritionSummary.annualS.toFixed(1) + ' kg/ha/yr', sColor));
             }
-            
+
             if (nutRows.length > 0) {
                 sections.push(createTable(nutRows));
             }
@@ -13586,7 +13987,17 @@
         }
         
         // v10.3.38: Nutrition Program section - page break before for clean separation
-        if (data.nutritionProgram && data.nutritionProgram.hasData) {
+        //
+        // GH-362: this gate used to be `hasData` alone, which made
+        // renderNutritionProgramSection()'s own "no programme, and here is why"
+        // branch unreachable — including GH-245's climate-unavailable message,
+        // which has therefore never actually printed. Both reasons now open the
+        // section so the report states why a programme is absent instead of
+        // silently omitting it (Hoxton audit D03: no silent substitution, and no
+        // silent omission either).
+        if ((data.nutritionProgram && data.nutritionProgram.hasData) ||
+            data.nutritionProgramCatalogueUnavailable ||
+            (data.nutritionSummary && data.nutritionSummary.climateDataUnavailable)) {
             sections.push(new Paragraph({ children: [new PageBreak()] }));
             
             var nutritionElements = renderNutritionProgramSection(data);
@@ -14433,6 +14844,21 @@
         _synthesiseKReconDecision: _synthesiseKReconDecision,
         _computeProgrammeKDelivered: _computeProgrammeKDelivered,
         _classifyKReconState: _classifyKReconState,
+
+        // GH-369: shared tissue helpers — see their own comments. Exposed so
+        // word-export-combined.js's K Reconciliation renderer can (1) thread
+        // the sample's tissue reading into its own ANR compute() call (which
+        // previously omitted it entirely, see the GH-369 changelog entry),
+        // and (2) attach the same plant-status check the single-export ANR
+        // section and Priority Actions use, to the same row.
+        _tissuePercentFromData: _tissuePercentFromData,
+        _tissueSufficiencyState: _tissueSufficiencyState,
+        _isTissueContradictionRow: _isTissueContradictionRow,
+        TISSUE_K_CRITICAL_ADVISORY_NO_DOSE: TISSUE_K_CRITICAL_ADVISORY_NO_DOSE,
+
+        // GH-369: exposed for direct testing of the tissue-critical advisory
+        // wording (no invented dose) alongside the other priority-actions text.
+        generatePriorityActions: generatePriorityActions,
 
         // b35fix400: region-aware K display label helpers. Exposed so
         // live-preview integrations (Prebbles, AU, UK) can render the same
