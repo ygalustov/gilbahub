@@ -31,12 +31,20 @@
  *
  *   npm install                       # playwright is a pinned devDependency
  *   npx playwright install chromium   # once per machine (~150 MB)
- *   GILBA_E2E_EMAIL=you@example.com GILBA_E2E_PASSWORD='...' npm run test:e2e
+ *   cp tests/e2e/.e2e-credentials.example.json tests/e2e/.e2e-credentials.json
+ *                                     # then put a real dev login in it
+ *   npm run test:e2e
  *
- * Optional: GILBA_E2E_URL (default http://127.0.0.1:8080),
+ * The credentials file is git-ignored and holds {"email", "password"} plus an
+ * optional "url". Keeping them out of the command line is deliberate — see
+ * the GH-390 comment at CREDENTIALS_PATH below.
+ *
+ * Optional: GILBA_E2E_CREDENTIALS (another credentials JSON),
+ *           GILBA_E2E_URL (default http://127.0.0.1:8080),
  *           GILBA_E2E_FIXTURE (another fixture JSON of the same shape as
  *           tests/fixtures/e2e-parity-test5-soccer.json),
  *           GILBA_E2E_KEEP=1 to keep the generated .docx and print its path.
+ *           GILBA_E2E_EMAIL / GILBA_E2E_PASSWORD still override the file.
  *
  * `npx jest` alone still skips this file (one stdout line says so): it needs
  * a live stack and real credentials, and the normal suite must stay offline
@@ -76,10 +84,32 @@ const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
+// GH-390: credentials come from a local, git-ignored file by default, so the
+// run command is the constant `npm run test:e2e` with nothing in front of it.
+// Two reasons, both practical rather than cosmetic. A command carrying inline
+// `GILBA_E2E_EMAIL=... GILBA_E2E_PASSWORD=...` assignments is a different
+// string every time it is quoted or reordered, so a permission allowlist can
+// never match it and every run asks again. And a password on the command line
+// ends up in shell history, in process listings, and in every transcript and
+// allowlist rule that quotes the command — this file is read by a real login
+// against the dev stack, so that is a real secret spread across places nobody
+// remembers to clean. Environment variables still win when present (CI, or a
+// one-off run as a different user); the file is only the fallback.
+const CREDENTIALS_PATH = process.env.GILBA_E2E_CREDENTIALS
+    || path.join(__dirname, '.e2e-credentials.json');
+let fileCredentials = {};
+try {
+    fileCredentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, 'utf8'));
+} catch (e) {
+    // Absent or unreadable is not an error here — env vars may supply
+    // everything. The blockers list below reports it if they don't.
+    fileCredentials = {};
+}
+
 const ENABLED = process.env.GILBA_E2E === '1';
-const BASE_URL = process.env.GILBA_E2E_URL || 'http://127.0.0.1:8080';
-const EMAIL = process.env.GILBA_E2E_EMAIL;
-const PASSWORD = process.env.GILBA_E2E_PASSWORD;
+const BASE_URL = process.env.GILBA_E2E_URL || fileCredentials.url || 'http://127.0.0.1:8080';
+const EMAIL = process.env.GILBA_E2E_EMAIL || fileCredentials.email;
+const PASSWORD = process.env.GILBA_E2E_PASSWORD || fileCredentials.password;
 const FIXTURE_PATH = process.env.GILBA_E2E_FIXTURE
     || path.join(__dirname, '../fixtures/e2e-parity-test5-soccer.json');
 
@@ -103,7 +133,11 @@ if (ENABLED) {
         blockers.push('playwright does not resolve from the repo (' +
             (playwrightError && playwrightError.message) + ') — run `npm install`');
     }
-    if (!EMAIL || !PASSWORD) blockers.push('GILBA_E2E_EMAIL / GILBA_E2E_PASSWORD are not set');
+    if (!EMAIL || !PASSWORD) {
+        blockers.push('no login credentials — create ' + CREDENTIALS_PATH +
+            ' as {"email": "...", "password": "..."} (git-ignored), or set ' +
+            'GILBA_E2E_EMAIL / GILBA_E2E_PASSWORD');
+    }
     if (!fs.existsSync(FIXTURE_PATH)) blockers.push('fixture JSON not found: ' + FIXTURE_PATH);
     try {
         execFileSync('unzip', ['-v'], { stdio: 'ignore' });

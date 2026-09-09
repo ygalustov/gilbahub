@@ -1,3 +1,7 @@
 .DS_Store
 old/
 node_modules/
+
+# GH-390: real dev-stack login for the E2E parity harness. The .example.json
+# next to it IS tracked and shows the shape; this one holds a real password.
+tests/e2e/.e2e-credentials.json

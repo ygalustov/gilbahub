@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "scripts": {
     "test": "jest",
-    "test:e2e": "GILBA_E2E=1 jest tests/e2e --runInBand --testTimeout=240000"
+    "test:e2e": "GILBA_E2E=1 jest tests/e2e --runInBand --testTimeout=240000",
+    "test:e2e:burns": "GILBA_E2E_FIXTURE=tests/fixtures/e2e-parity-burns-12th-fairway-mlsn.json npm run test:e2e",
+    "test:e2e:slan": "GILBA_E2E_FIXTURE=tests/fixtures/e2e-parity-new-test-location-slan.json npm run test:e2e"
   },
   "dependencies": {
     "docx": "^9.6.1",
