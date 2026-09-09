@@ -218,32 +218,50 @@
         return { eligible: plausible, pRatio: pRatio, kRatio: kRatio };
     }
 
-    function getRemovalRate(species, nutrient, tissueGate) {
+    function getRemovalRate(species, nutrient, tissueGate, annualN) {
         const normalized = normalizeSpecies(species);
         const table = REMOVAL_RATES[normalized] || REMOVAL_RATES.mixedCool;
-        const generic = table[nutrient] || REMOVAL_RATES.mixedCool[nutrient];
 
-        // GH-368 (Hoxton audit D07a, second engine): REMOVAL_RATES encodes a
-        // generic tissue composition -- perennialRyegrass P 18 / K 100 against
-        // N 180 is P/N 0.10 and K/N 0.556, the same textbook assumption
-        // nutrition-calendar.js's CONFIG.nutrientRatiosToN carries, and the
-        // literal figures the audit quotes from E3 ("K req 100.0", "P 18.0").
-        // GH-361 replaced that assumption with the site's own tissue analysis
-        // in the calendar engine but not here, so this engine -- the one
-        // feeding the Annual Nutrient Requirements table the client complained
-        // about -- still answered with the generic figure, and the two engines
-        // diverged further than before the fix. Same rule, same scope (P and K
-        // only, per D07a); eligibility itself now comes from resolveTissueGate()
-        // above so both engines agree on WHETHER tissue governs, not just what
-        // ratio it produces.
+        // GH-381 (D31, Hoxton audit's own headline finding: "two requirement
+        // engines, one product", assertion 20). REMOVAL_RATES' two absolute
+        // numbers per species (e.g. perennialRyegrass P 18 / K 100 against
+        // N 180) always meant a ratio -- P/N 0.10, K/N 0.556, matching
+        // nutrition-calendar.js's CONFIG.nutrientRatiosToN (0.10 / 0.55)
+        // almost exactly -- but this function returned the table's raw
+        // absolute number, pinned to ITS OWN N=180 basis, instead of scaling
+        // that ratio against the site's real annual N target the way the
+        // calendar always does (`baseRemoval[nutrient] = annualN * ratio`,
+        // unconditionally, tissue-informed or not -- see
+        // nutrition-calendar.js's computeProgram()). A site whose real N
+        // target differs from the table's basis (Hoxton: 200 vs 180; this
+        // repo's Test5-NZ fixture: 250 vs 180) therefore disagreed with the
+        // UI even before GH-368 threaded tissue data in -- GH-368 fixed
+        // WHICH ratio the tissue-informed branch uses, but scaled it
+        // against the same wrong (table) basis, so the two engines still
+        // diverged by the table-N/real-N factor on every tissue-informed
+        // site. This was the engine's own internal inconsistency, not a
+        // different engineering choice from nutrition-calendar.js's: the
+        // facility half of this same file already resolves and uses the
+        // real annualN (see compute()); the per-sample half simply never
+        // received it. Fixed by threading it through and scaling both
+        // branches the same way the calendar always has.
+        //
+        // Eligibility for the tissue-informed branch comes from
+        // resolveTissueGate() above so both engines agree on WHETHER tissue
+        // governs, not just what ratio it produces (also GH-368).
+        let ratio;
         if ((nutrient === 'P' || nutrient === 'K') && tissueGate && tissueGate.eligible) {
-            const ratio = (nutrient === 'P') ? tissueGate.pRatio : tissueGate.kRatio;
-            // Scale against this table's own N basis, exactly as the
-            // calendar scales against the user's annual N target.
-            return { value: Math.round(table.N * ratio * 10) / 10, tissueInformed: true };
+            ratio = (nutrient === 'P') ? tissueGate.pRatio : tissueGate.kRatio;
+        } else {
+            const genericTableRatio = table[nutrient] / table.N;
+            ratio = isFinite(genericTableRatio) ? genericTableRatio
+                : (REMOVAL_RATES.mixedCool[nutrient] / REMOVAL_RATES.mixedCool.N);
         }
-
-        return { value: generic, tissueInformed: false };
+        const basis = (typeof annualN === 'number' && annualN > 0) ? annualN : table.N;
+        return {
+            value: Math.round(basis * ratio * 10) / 10,
+            tissueInformed: !!((nutrient === 'P' || nutrient === 'K') && tissueGate && tissueGate.eligible),
+        };
     }
 
     // Years to correct a deficit. Mobile nutrients (P, K, S) correct in 2 yr;
@@ -406,7 +424,7 @@
         // still requires all of N/P/K, so this can't reintroduce the
         // per-nutrient-independent bug the pre-resolved path exists to avoid.
         const _tissueGate = config.tissueGate || resolveTissueGate(config.tissuePercent);
-        const _removalInfo = getRemovalRate(config.species, nutrient, _tissueGate);
+        const _removalInfo = getRemovalRate(config.species, nutrient, _tissueGate, config.annualN);
         const removal = _removalInfo.value;
         const removalTissueInformed = _removalInfo.tissueInformed;
         const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
@@ -892,6 +910,17 @@
         const overseedConfig = inputs.overseedConfig ||
             { isOverseed: false, baseIsC4: false, summerIntent: 'transition' };
 
+        // GH-381 (D31, N-basis divergence): resolved ONCE, before the
+        // per-sample config is built, so removal (below) and the facility
+        // N target (further down) can never see two different values for
+        // "this site's annual N". Same three-tier resolution as before
+        // (explicit override -> species default -> mixedCool fallback),
+        // just moved earlier and no longer duplicated.
+        const normalizedSpecies = normalizeSpecies(turf.species);
+        const annualN = (turf.nProgramKgHaYr != null)
+            ? turf.nProgramKgHaYr
+            : (REMOVAL_RATES[normalizedSpecies]?.N || REMOVAL_RATES.mixedCool.N);
+
         // Per-sample: P/K/S/Ca/Mg based on THIS sample's soil chemistry.
         // Different per green/sportsground — drives the fix for Jerry's
         // reported bug where every green got identical fert recs.
@@ -918,6 +947,11 @@
             // composition instead of REMOVAL_RATES' generic one (D07a). Engine
             // stays pure -- the caller resolves the sample.
             tissuePercent: inputs.tissuePercent || null,
+            // GH-381 (D31): the site's real annual N target (same value
+            // facility.annualN below reports), threaded into removal-rate
+            // scaling. See getRemovalRate()'s own comment for what this
+            // replaces and why.
+            annualN: annualN,
             // GH-370: soil bulk density (g/cm3) and sample depth (cm), needed
             // to convert a ppm deficit into kg/ha (see
             // calculateNutrientRequirement()'s own comment on this). Engine
@@ -930,19 +964,9 @@
         };
         const perSample = calculateAllRequirements(soil, nutrientConfig);
 
-        // Facility: annual N + monthly distribution. Same across all samples
-        // on the same site (climate + species + overseed config are site-wide).
-        //
-        // annualN resolution (matches source extractAnnualNRate three-tier logic,
-        // but the engine is pure — orchestrator/DOM lookups happen in the
-        // integration layer which passes the result in as turf.nProgramKgHaYr):
-        //   1. turf.nProgramKgHaYr (explicit override — e.g. client-specific programme)
-        //   2. REMOVAL_RATES[species].N (species default)
-        //   3. mixedCool.N (final fallback = 160)
-        const normalizedSpecies = normalizeSpecies(turf.species);
-        const annualN = (turf.nProgramKgHaYr != null)
-            ? turf.nProgramKgHaYr
-            : (REMOVAL_RATES[normalizedSpecies]?.N || REMOVAL_RATES.mixedCool.N);
+        // Facility: monthly distribution of the same annualN resolved above
+        // (GH-381) — annualN itself is not re-derived here, so this and the
+        // per-sample removal calculation can never disagree about it.
 
         // C3-on-C3 misconfiguration guard: if isOverseed=true but baseIsC4=false,
         // the "overseed" is a C3 grass on a C3 base — no seasonal C3/C4 split

@@ -590,6 +590,15 @@
             // real, working field.
             soilTexture: soil.soilTexture || null,
             CEC: soil.CEC ?? soil.cec ?? null,
+            // GH-382 (D31 divergence item 2): pH_water preferred over a
+            // generic .pH, matching word-export.js's own established
+            // _pHForSlanP resolution order (word-export.js:8398-8400) — this
+            // is the same field, read the same way, not a new convention.
+            // Feeds getThresholds()'s SLAN pH-adjusted P floor (Spencer
+            // scaled-ladder) below; null when no reading exists, which
+            // getThresholds() treats as "use the pH-independent baseline",
+            // never as "assume a pH".
+            pH: soil.pH_water ?? soil.pH ?? null,
             monthlyTemps,
             annualNOverride,
             maxNPerMonth,
@@ -1721,7 +1730,31 @@
             ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
                 var r = _slanRanges[nutrient];
                 if (r && typeof r.floor === 'number' && typeof r.ceiling === 'number') {
-                    aaRanges[nutrient] = { min: r.floor, max: r.ceiling };
+                    var floor = r.floor;
+                    // GH-382 (D31 divergence item 2): P's floor isn't flat --
+                    // it shifts with pH (P availability minimum at 6.0-7.5;
+                    // Fe/Al fixation acidic, Ca fixation alkaline).
+                    // nutrition-requirement-engine.js (and the GH-376 shared
+                    // core) have carried this "Spencer scaled-ladder" pH
+                    // adjustment for years, cited to Carrow et al. (2004) GCM
+                    // 72(1):194-198 for the 27ppm floor and Carrow,
+                    // Waddington & Rieke (2001) for the pH ratios -- this
+                    // file never received it, so a Plan-page SLAN site away
+                    // from neutral pH silently used the pH-independent
+                    // baseline while the export used the correct ladder,
+                    // part of the audit's own D31 finding. Call the engine's
+                    // own exported, already-cited function (word-export.js:
+                    // 8397-8404 already does exactly this, same reason)
+                    // rather than copying the ladder a third time -- degrades
+                    // to the flat floor already resolved above if the engine
+                    // script isn't loaded or pH isn't a usable number, never
+                    // guesses a pH.
+                    if (nutrient === 'P' && inputs.pH != null && !isNaN(inputs.pH) &&
+                        typeof window !== 'undefined' && window.NutritionRequirementEngine_Pure &&
+                        typeof window.NutritionRequirementEngine_Pure._getSlanTargetP === 'function') {
+                        floor = window.NutritionRequirementEngine_Pure._getSlanTargetP(inputs.pH);
+                    }
+                    aaRanges[nutrient] = { min: floor, max: r.ceiling };
                     // Not a "generic estimate vs certificate" axis the way AA
                     // has one (no per-site lab certificate for SLAN) -- this
                     // is simply the one published range. Tagging

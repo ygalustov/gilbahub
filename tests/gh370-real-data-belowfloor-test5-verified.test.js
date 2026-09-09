@@ -11,21 +11,33 @@
  * restored. See tests/fixtures/test5-soccer-sample141-belowfloor-gh370.json
  * for the DB mutation, the rendered figures, and how each was confirmed.
  *
- * What the live numbers proved:
- *   - Export (nutrition-requirement-engine.js): K req 68.1 = 41.4 + 26.74,
- *     P req 31.4 = 24.4 + 7.0. The pre-GH-370 unconverted term would have
- *     printed 60.5 / 29.4. The rendered figure follows the CONVERTED formula.
- *   - Plan (nutrition-calendar.js): K 84 (= 57.44 + 26.74), P 41 (= 33.92 +
- *     7.0); persisted deficits 53.48 / 14 kg/ha = 38.2 / 10 ppm x 1.4.
- *   - The correction term is byte-identical across engine, calendar and the
- *     GH-376 shared core. The residual UI-vs-export gap (K 84 vs 68.1,
- *     P 41 vs 31.4) is the removal N-basis (real annualN 250 vs table N 180),
- *     i.e. GH-376 divergence item 1 — larger here (250/180) than the audit's
- *     own 200/180 example. That gap is the audit's D31 defect and it is STILL
- *     OPEN: it is not expected behaviour and this file no longer pins it as
- *     such (GH-380). The honest parity assertion sits at the bottom as a
- *     `test.failing` that flips when D31 stage 2 lands; the live gate is
- *     tests/e2e/ui-vs-export-parity.test.js.
+ * What the live numbers originally proved (pre-GH-381): the correction term
+ * is byte-identical across engine, calendar and the GH-376 shared core; the
+ * residual UI-vs-export gap (K 84 vs 68.1, P 41 vs 31.4) was the removal
+ * N-basis (real annualN 250 vs the species table's own N 180) -- GH-376
+ * divergence item 1, larger here (250/180) than the audit's own 200/180
+ * example. That WAS the audit's D31 defect (assertion 20: "UI and export
+ * return identical annual N, P and K requirements for the same site").
+ *
+ * GH-381 closed it: nutrition-requirement-engine.js's getRemovalRate()
+ * scaled removal (both branches) against the species table's own N instead
+ * of the site's real annualN, which this same file's facility-level
+ * calculation already resolved correctly -- an internal inconsistency
+ * within one engine, not a different engineering choice from the calendar.
+ * Fixed by threading the already-resolved annualN into the per-sample
+ * config, matching nutrition-calendar.js's `annualN * ratio` exactly. Post-
+ * fix the engine lands on K 84.1 / P 40.9 -- the same figures the GH-376
+ * shared core already computed (see sharedCore below), and close to the
+ * calendar's rounded 84/41 (the residual is generic-ratio precision,
+ * 100/180=0.5556 vs the calendar's 0.55 constant, not a basis mismatch).
+ * See the fixture's own `_gh381Note` for the original pre-fix live numbers.
+ *
+ * The parity assertion that used to sit here as `test.failing` now passes
+ * and is promoted to a plain `test`, per its own instruction to do exactly
+ * that "the moment the engines agree". Two GH-376 divergence items are
+ * untouched by this fix and not exercised by this fixture (AA methodology
+ * skips both): the pH-corrected P floor ladder only the engine has, and the
+ * two engines' uncited, differing traffic modifiers.
  *
  * Runs the REAL modules (not re-implementations), with the same
  * HillLabsSampleTypes / AmmoniumAcetateMethodology / SpeciesController the
@@ -103,7 +115,7 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
         expect(aaRanges.K.max).toBeCloseTo(EX.ceilings.K, 6);
     });
 
-    test('Combined export path (nutrition-requirement-engine.js): rendered K req 68.1 / P req 31.4 follow the CONVERTED correction, not the pre-GH-370 raw-ppm one', () => {
+    test('Combined export path (nutrition-requirement-engine.js): K req 84.1 / P req 40.9 follow the CONVERTED correction and the real-annualN removal basis (GH-370 + GH-381)', () => {
         const r = Engine.compute({
             soil: Object.assign({ methodology: 'AMMONIUM_ACETATE', pH: IN.pH, CEC: IN.CEC }, IN.soilPpm),
             turf: { species: IN.speciesKey, clippingsCollected: true, trafficIntensity: 'moderate', nProgramKgHaYr: IN.annualN },
@@ -210,19 +222,20 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
     });
 
     // D31 / Hoxton audit assertion 20 -- "UI and export return identical
-    // annual N, P and K requirements for the same site". On these live inputs
-    // the two engines still disagree on the REMOVAL component: the export's
-    // nutrition-requirement-engine.js scales the (shared, GH-368) tissue ratio
-    // against the species table's N (180 for perennial ryegrass), the Plan
-    // page's nutrition-calendar.js against the site's real annual N (250).
-    // That is a real, open defect, not expected behaviour, so it is written as
-    // the parity assertion it should be. Until D31 stage 2 (the GH-376 shared
-    // core cutover) lands it FAILS, and it is declared so with `test.failing`:
-    // jest passes it only while the body throws and reports "expected failure
-    // passed" the moment the engines agree -- at which point promote it to a
-    // plain `test`. Do NOT widen the tolerance to make it pass; the live gate
-    // is tests/e2e/ui-vs-export-parity.test.js against the running stack.
-    test.failing('D31 parity, expected to fail until stage 2: the export engine\'s K/P removal and annual requirement equal the Plan calendar\'s on the same inputs', () => {
+    // annual N, P and K requirements for the same site". This used to be a
+    // `test.failing`, declared "expected to fail until D31 stage 2" (the
+    // GH-376 shared-core cutover). GH-381 closed the actual live gap first --
+    // it turned out to be a one-engine internal inconsistency (removal scaled
+    // against the wrong N basis), not something that needed the full engine
+    // unification to fix. Per the `test.failing` comment's own instruction
+    // ("promote it to a plain test... the moment the engines agree"), this is
+    // now that plain test. It does NOT mean D31 is fully closed: the pH-
+    // corrected P floor ladder and the two engines' traffic modifiers are
+    // still open divergences (see the file header) -- this fixture's AA
+    // methodology just doesn't exercise either, so this assertion passing
+    // here is real but partial. The live gate remains
+    // tests/e2e/ui-vs-export-parity.test.js against the running stack.
+    test('D31 parity (removal N-basis, GH-381): the export engine\'s K/P removal and annual requirement equal the Plan calendar\'s on the same inputs', () => {
         const { e, p } = threeWay();
         ['K', 'P'].forEach((n) => {
             expect(e[n].removal).toBeCloseTo(p.annual_removal[n], 0);

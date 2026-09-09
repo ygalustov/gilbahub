@@ -61,17 +61,27 @@
         "P": 5.0
       }
     },
+    "_gh381Note": "GH-381 fixed the N-basis divergence this fixture originally documented: nutrition-requirement-engine.js's getRemovalRate() scaled removal against the species table's own N (180 for perennial ryegrass) instead of the site's real annualN (250), for BOTH the tissue-informed and generic branches. The combinedExport block below is the RECOMPUTED post-fix figure (direct Engine.compute() call, same inputs, verified against tests/fixtures/test5-soccer-sample141-belowfloor-gh370.json's own inputs) -- not re-captured live in the browser in this pass, unlike the original GH-370 numbers. It now matches sharedCore exactly (both scale from the real annualN) and planPage closely (84.1 vs 84, 40.9 vs 41 -- the small residual is generic-ratio precision, 100/180=0.5556 vs the calendar's 0.55 constant, not a basis mismatch). The ORIGINAL pre-fix live numbers (K req 68.1, P req 31.4, removal 41.4/24.4) are preserved in _preGh381LiveRender for history; do not use them as current expectations.",
     "combinedExport": {
-      "_surface": "word-export-combined.js ANR pass -> NutritionRequirementEngine_Pure.compute(); removal is tissue-ratio-governed and scaled against the species table N=180 (GH-376 divergence item 1), correction is the converted term above",
+      "_surface": "word-export-combined.js ANR pass -> NutritionRequirementEngine_Pure.compute(); removal is tissue-ratio-governed, scaled against the site's real annualN=250 as of GH-381 (previously the species table N=180 -- GH-376 divergence item 1, now closed), correction is the converted term above",
       "annualNutrientRequirementsRow": {
         "N": 250,
         "P_ppm": 10,
-        "P_req": 31.4,
+        "P_req": 40.9,
         "K_ppm": 40,
-        "K_req": 68.1,
+        "K_req": 84.1,
         "S_ppm": 75,
         "S_req": 0.0
       },
+      "engineDecomposition": {
+        "K": { "removal": 57.4, "correctionRequired": 26.74, "annualRequirement": 84.1, "intent": "lift-to-floor" },
+        "P": { "removal": 33.9, "correctionRequired": 7.0, "annualRequirement": 40.9, "intent": "lift-to-floor" }
+      },
+      "_ifUnconverted": { "K_req": 76.5, "P_req": 38.9 }
+    },
+    "_preGh381LiveRender": {
+      "_note": "The actual live-rendered .docx figures from the original GH-370 verification pass, before GH-381's N-basis fix. Kept for history only.",
+      "annualNutrientRequirementsRow": { "N": 250, "P_req": 31.4, "K_req": 68.1 },
       "engineDecomposition": {
         "K": { "removal": 41.4, "correctionRequired": 26.74, "annualRequirement": 68.1, "intent": "lift-to-floor" },
         "P": { "removal": 24.4, "correctionRequired": 7.0, "annualRequirement": 31.4, "intent": "lift-to-floor" }
