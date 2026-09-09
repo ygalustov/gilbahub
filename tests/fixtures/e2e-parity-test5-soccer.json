@@ -1,0 +1,45 @@
+{
+  "_purpose": "Identity of the site + samples that tests/e2e/ui-vs-export-parity.test.js drives on the live dev stack (GH-380). The harness switches the login user's active site to this site, generates the programme on /plan, exports exactly this soil sample from /reports/export, and asserts the two surfaces agree. It does NOT pin output numbers -- those come from the running code and must agree between surfaces, whatever they are.",
+  "_whyThisSample": "Soil K sits BELOW the S277 floor (78.2 ppm), so the below-floor branch runs on every engine. Above the ceiling every engine returns 0 and a UI-vs-export divergence is structurally invisible -- the harness's one earlier 'successful' run (2026-09-07) was made at K=276 ppm and proved nothing about parity. The harness refuses to pass its precondition test unless every nutrient in mustBeBelowFloor is below the floor the Plan page resolved.",
+  "_source": "docker exec gilba_mysql mysql -ugilba -pgilba_secret gilba: sites.id / samples.id=141 (soil, payload K 40 / P 40, edited 2026-09-08 22:38 UTC through the UI) / samples.id=144 (tissue, payload K 2 / P 0.62 / N 4.57, edited 2026-09-08 22:40 UTC through the UI) / site_configs(gaip).turf + nzDistributor, read 2026-09-09. If someone edits these samples again, update currentInputs here -- the harness fails its precondition test with the drift, not a fake parity failure.",
+  "site": {
+    "id": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+    "name": "Test5 - NZ"
+  },
+  "soilSample": {
+    "dbId": 141,
+    "clientId": "sample_141",
+    "_clientIdNote": "sample-persistence.js: client_uid || payload.label || payload.sampleId || 'sample_' + id. Sample 141 has client_uid NULL and its payload carries only _label, so the client store keys it 'sample_141' and the export picker's checkbox is input[data-sample-uid='<siteId>::sample_141'].",
+    "label": "Soccer",
+    "zone": "Other",
+    "sampleDate": "2026-08-17"
+  },
+  "tissueSample": {
+    "dbId": 144,
+    "sampleDate": "2026-08-08"
+  },
+  "currentInputs": {
+    "methodology": "ammonium_acetate",
+    "species": "Perennial Ryegrass",
+    "speciesKey": "perennialRyegrass",
+    "soilTexture": "sand",
+    "construction": "sand_profile",
+    "annualN": 250,
+    "nzDistributor": "prebble",
+    "soilPpm": {
+      "P": 40,
+      "K": 40,
+      "Ca": 803,
+      "Mg": 129,
+      "S": 75
+    },
+    "pH": 6,
+    "CEC": 5.9,
+    "tissuePercent": {
+      "N": 4.57,
+      "P": 0.62,
+      "K": 2
+    }
+  },
+  "mustBeBelowFloor": ["K"]
+}

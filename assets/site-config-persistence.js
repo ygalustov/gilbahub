@@ -339,7 +339,26 @@
                     return;
                 }
 
-                var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'grassSpecies', 'companionSpecies'];
+                // GH-377 (review fix): `methodology` and the overseed/base-species
+                // fields were missing here, while the five programme keys below are
+                // ALWAYS taken from the server. That asymmetry produced a false
+                // "Site configuration changed" refusal on every hub page (export /
+                // scenarios / forensic / hub) for a browser whose local cache
+                // predates a Settings change: the operator changes the methodology
+                // in Settings and regenerates on Plan (Plan's PUT bumps savedAt),
+                // this pull then copies the NEW programme (meta.methodology stamped
+                // with the new value) next to the OLD local turf.methodology, and
+                // restoreConfig()'s same-blob comparison (GH-377) reads that as a
+                // stale programme -- reproduced live on /reports/export (the site's
+                // programme refused, the docx recomputed under the stale DOM
+                // methodology). Every field collectProgramInputCandidates() reads
+                // from turf must stay as current as the programme it is compared
+                // against, under the same "server is newer" rule species already
+                // uses. Settings' same-browser localStorage mirror
+                // (settings-init.js, gilba_hub_site_configs) already merges the
+                // whole turf block, so this only changes the cross-device case.
+                var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'grassSpecies', 'companionSpecies',
+                    'methodology', 'overseedSpecies', 'coolOverseed', 'warmBase'];
                 var merged = 0;
                 Object.keys(serverConfigs).forEach(function(siteId) {
                     var serverCfg = serverConfigs[siteId];
@@ -545,9 +564,97 @@
             var siteId = SM_pass && typeof SM_pass.getActiveSiteId === 'function'
                 ? SM_pass.getActiveSiteId() : null;
             var existing = siteId ? _configs[siteId] : null;
+
+            // GH-371 (D01): a coordinate write invalidates the cached
+            // nutrition programmes. `location` above was just built fresh
+            // from the DOM for THIS snapshot; `existing.nutritionProgramCoords`
+            // (stamped by mergeConfig() when nutritionCalendarProgram was
+            // last persisted, see its own comment) records what the CACHED
+            // programmes were computed against. On a real drift, drop both
+            // programmes here instead of blindly carrying them forward onto
+            // a site record whose coordinates have moved — this is the exact
+            // mechanism the Hoxton audit's D01 finding traced: a coordinate
+            // write reaching one producer (Monthly N Distribution) but not
+            // the persisted copy this carry-forward step kept alive
+            // unconditionally. 0.01 degree tolerance absorbs floating-point/
+            // display rounding noise, not a real site relocation — same
+            // tolerance nutrition-calendar.js's restoreFromPersisted() uses,
+            // kept in step deliberately.
+            var _staleOnCoordChange = false;
+            if (existing && existing.nutritionProgramCoords &&
+                typeof existing.nutritionProgramCoords.lat === 'number' &&
+                typeof existing.nutritionProgramCoords.lon === 'number' &&
+                typeof location.lat === 'number' && typeof location.lon === 'number') {
+                var _latDrift = Math.abs(existing.nutritionProgramCoords.lat - location.lat);
+                var _lonDrift = Math.abs(existing.nutritionProgramCoords.lon - location.lon);
+                if (_latDrift > 0.01 || _lonDrift > 0.01) {
+                    _staleOnCoordChange = true;
+                    log('GH-371 (D01): coordinates changed for site', siteId, '(' +
+                        existing.nutritionProgramCoords.lat + ',' + existing.nutritionProgramCoords.lon +
+                        ' -> ' + location.lat + ',' + location.lon +
+                        ') — dropping cached nutrition programmes instead of carrying them forward stale.');
+                }
+            }
+
+            // GH-377: the same drop for the programme's own computation
+            // inputs (species / methodology, stamped in
+            // existing.nutritionCalendarProgram.meta by computeProgram()).
+            // Rules and tolerances are nutrition-calendar.js's (shared with
+            // restoreConfig(), restoreFromPersisted() and word-export.js).
+            // Two deliberate differences from the coordinate drop above,
+            // both against over-invalidation at THIS point specifically:
+            //   - Skipped while a restore cascade is in flight: the DOM
+            //     species select is set ~300ms into restoreConfig()'s
+            //     cascade and, per b35fix504, can transiently show another
+            //     site's species (TurfProfile's own cascade still finishing
+            //     a previous site) — a snapshot in that window must not
+            //     throw away a valid programme. .gaip-lat/.gaip-lon, which
+            //     the coordinate drop reads, are set synchronously at the
+            //     end of restoreConfig(), so it has no such window.
+            //   - The current species/methodology is the UNION of the
+            //     fresh DOM read (`turf`, what this snapshot will save) and
+            //     the previously saved identity (`existing.turf`): a stamp
+            //     matching either is kept. A DOM-only disagreement is left
+            //     to the read side (restoreConfig()'s same-blob check refuses
+            //     the copy on the next restore) rather than deleted here,
+            //     because the 1600ms page-load finaliser overrides the DOM
+            //     identity with the saved one anyway; once the saved
+            //     identity itself disagrees with the stamp, the copy is
+            //     already known-stale and is dropped like a coordinate move.
+            var _staleOnInputChange = false;
+            var _NC377 = global.GilbaNutritionCalendar;
+            if (!_staleOnCoordChange && !_isRestoring && existing &&
+                existing.nutritionCalendarProgram && existing.nutritionCalendarProgram.meta &&
+                _NC377 && typeof _NC377.programInputsDrift === 'function' &&
+                typeof _NC377.collectProgramInputCandidates === 'function') {
+                try {
+                    var _snapDrift = _NC377.programInputsDrift(
+                        existing.nutritionCalendarProgram.meta,
+                        _NC377.collectProgramInputCandidates({
+                            turfs: [turf, existing.turf],
+                            lat: location.lat,
+                            lon: location.lon
+                        })
+                    );
+                    if (_snapDrift.length) {
+                        _staleOnInputChange = true;
+                        log('GH-377: species/methodology changed for site', siteId, '(' +
+                            _snapDrift.map(function (d) { return d.field + ': ' + d.was + ' -> ' + d.now; }).join('; ') +
+                            ') — dropping cached nutrition programmes instead of carrying them forward stale.');
+                    }
+                } catch (_gh377SnapErr) {
+                    log('GH-377: input staleness check failed, carrying programmes forward as-is:', _gh377SnapErr && _gh377SnapErr.message);
+                }
+            }
+            var _dropPrograms = _staleOnCoordChange || _staleOnInputChange;
+
             ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor'].forEach(function (key) {
-                result[key] = existing ? existing[key] : undefined;
+                var isProgram = (key === 'nutritionProgram' || key === 'nutritionCalendarProgram');
+                result[key] = (existing && !(isProgram && _dropPrograms)) ? existing[key] : undefined;
             });
+            // The coordinate stamp itself carries forward the same way,
+            // except when we just dropped the programmes it describes.
+            result.nutritionProgramCoords = (existing && !_dropPrograms) ? existing.nutritionProgramCoords : undefined;
         })();
 
         result.savedAt = new Date().toISOString();
@@ -580,18 +687,97 @@
             'hasNutritionProgram=', !!config.nutritionProgram,
             'hasNutritionCalendarProgram=', !!config.nutritionCalendarProgram);
 
+        // GH-371 (D01): both fields come from this same restored `config`
+        // blob — no race between two separate reads, unlike the live-page
+        // checks elsewhere. nutritionProgramCoords is the stamp
+        // mergeConfig() wrote from computeProgram()'s own meta.lat/lon at
+        // the moment the cached programmes were last generated (see that
+        // function's comment); location is this SAME config's current
+        // coordinates. A real mismatch here means the site's coordinates
+        // were changed after this config was saved (client-side write that
+        // predates this fix, or a server-side edit that didn't go through
+        // the client's own carry-forward check) — restoring the cached
+        // programmes onto a mismatched location is exactly the D01 bug.
+        // Absent nutritionProgramCoords (data saved before this fix
+        // deployed) is treated as "unknown, trust it" — this is a forward-
+        // looking guard for newly-generated programmes, not a retroactive
+        // validation of every already-cached blob.
+        var _coordsMismatch = false;
+        if (config.nutritionProgramCoords &&
+            typeof config.nutritionProgramCoords.lat === 'number' &&
+            typeof config.nutritionProgramCoords.lon === 'number' &&
+            typeof location.lat === 'number' && typeof location.lon === 'number') {
+            var _restoreLatDrift = Math.abs(config.nutritionProgramCoords.lat - location.lat);
+            var _restoreLonDrift = Math.abs(config.nutritionProgramCoords.lon - location.lon);
+            if (_restoreLatDrift > 0.01 || _restoreLonDrift > 0.01) {
+                _coordsMismatch = true;
+                console.warn('[SiteConfig] GH-371 (D01): cached nutrition programmes were computed for (' +
+                    config.nutritionProgramCoords.lat + ',' + config.nutritionProgramCoords.lon +
+                    ') but this site\'s saved coordinates are now (' + location.lat + ',' + location.lon +
+                    ') — not restoring the stale programmes. Plan page will show "please regenerate".');
+            }
+        }
+
+        // GH-377: the same same-blob comparison for the programme's own
+        // computation inputs. `turf` above is this SAME config's current
+        // species/methodology; config.nutritionCalendarProgram.meta records
+        // what the cached programmes were computed against (species = the
+        // nutrient-engine key, methodology = upper-cased). A real mismatch
+        // means the site's turf was changed after the programmes were
+        // generated without going through a regenerate — concretely, any
+        // config/gaip PUT that carries a new `turf` but no fresh stamp
+        // (Settings' turf form, the import-bundle flow in settings-init.js's
+        // applySiteConfig()), which the server-side resolveGaipConfigWrite()
+        // deliberately answers by carrying the existing DB programme forward
+        // (GH-371 follow-up) — so the cached copy arrives here alongside the
+        // new turf, and this is the point that must refuse it. Comparison
+        // rules, tolerances and the forward-looking "absent means trust"
+        // policy all live in nutrition-calendar.js (programInputsDrift and
+        // the GH-377 block above it) — shared with restoreFromPersisted()
+        // and word-export.js, not re-implemented here. When that module is
+        // not on this page the check is simply unavailable and the cached
+        // programme is restored as before (unknown, trust it).
+        var _inputsMismatch = false;
+        var _NC377 = global.GilbaNutritionCalendar;
+        if (!_coordsMismatch && config.nutritionCalendarProgram && config.nutritionCalendarProgram.meta &&
+            _NC377 && typeof _NC377.programInputsDrift === 'function' &&
+            typeof _NC377.collectProgramInputCandidates === 'function') {
+            try {
+                var _gh377DbLoc = (siteId && global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId === siteId)
+                    ? (global.GAIP_HUB_CONFIG.savedLocation || {}) : {};
+                var _restoreDrift = _NC377.programInputsDrift(
+                    config.nutritionCalendarProgram.meta,
+                    _NC377.collectProgramInputCandidates({
+                        turfs: turf,
+                        lat: location.lat || _gh377DbLoc.lat,
+                        lon: location.lon || _gh377DbLoc.lon
+                    })
+                );
+                if (_restoreDrift.length) {
+                    _inputsMismatch = true;
+                    console.warn('[SiteConfig] GH-377: cached nutrition programmes were computed for ' +
+                        _restoreDrift.map(function (d) { return d.field + '=' + d.was; }).join(', ') +
+                        ' but this site\'s saved config now says ' +
+                        _restoreDrift.map(function (d) { return d.field + '=' + d.now; }).join(', ') +
+                        ' — not restoring the stale programmes. Plan page will show "please regenerate".');
+                }
+            } catch (_gh377Err) {
+                console.warn('[SiteConfig] GH-377: input staleness check failed, restoring as-is:', _gh377Err && _gh377Err.message);
+            }
+        }
+
         // Restore the last-generated Nutrition Program (if any) so Reports > Export —
         // a fresh page load with no in-memory GAIP_NUTRITION_PROGRAM of its own — can
         // still find and print it. Written by GAIP_SiteConfig.mergeConfig() from
         // nutrition-*-integration.js when the user clicks "Generate Nutrition Program".
-        if (config.nutritionProgram) {
+        if (config.nutritionProgram && !_coordsMismatch && !_inputsMismatch) {
             global.GAIP_NUTRITION_PROGRAM = config.nutritionProgram;
         }
         // Base N/P/K/Ca/Mg/S calendar (nutrition-calendar.js computeProgram() output) —
         // different shape/consumer than nutritionProgram above. Picked up by
         // NutritionCalendar.restoreFromPersisted() to redisplay the Plan > Nutrition
         // results panel after reload without requiring the user to regenerate.
-        if (config.nutritionCalendarProgram) {
+        if (config.nutritionCalendarProgram && !_coordsMismatch && !_inputsMismatch) {
             global.GAIP_NUTRITION_CALENDAR_PROGRAM = config.nutritionCalendarProgram;
             console.log('[SiteConfig] persist-debug: set GAIP_NUTRITION_CALENDAR_PROGRAM');
         }
@@ -1557,6 +1743,21 @@
                     next[key] = value;
                 }
             });
+
+            // GH-371 (D01): the nutritionProgramCoords stamp (coordinates the
+            // cached nutritionCalendarProgram/nutritionProgram were actually
+            // computed against) is computed once, upstream, in
+            // NutritionCalendar.persistSiteConfigPatch() — the one place
+            // genuinely common to every caller of THIS function (both the
+            // hub-page path that reaches here and Plan's own direct-PUT
+            // fallback that never loads this file at all — see that
+            // function's own comment for why stamping only here would have
+            // missed Plan entirely). By the time a patch arrives here it
+            // already carries nutritionProgramCoords as a plain key when
+            // relevant, so the generic per-key merge loop above handles it
+            // with no special-casing needed. Read by snapshotConfig()'s
+            // carry-forward step and restoreConfig() below, and by
+            // word-export.js's stale-cache check.
 
             next.savedAt = new Date().toISOString();
             _configs[siteId] = next;

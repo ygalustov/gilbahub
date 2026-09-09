@@ -332,12 +332,36 @@
         const climate = window.climateMetrics || state.climate || {};
         
         // Location — DOM is always authoritative for current site lat.
-        // state.location is never populated; climateMetrics.latitude may be stale
-        // (still holding the previous site's weather data before the climate engine re-runs).
+        // climateMetrics.latitude may be stale (still holding the previous
+        // site's weather data before the climate engine re-runs).
+        //
+        // GH-371 (D01): "state.location is never populated" was true of the
+        // legacy hub this comment originally described, but plan.blade.php's
+        // own GAIP_STATE bridge (GH-366-era) now sets state.location.{lat,lon}
+        // from $activeSite->latitude/longitude every page load — the one
+        // reliably fresh, server-authoritative source on a page (like Plan)
+        // that has no .gaip-lat/.gaip-lon DOM inputs at all. Added as a
+        // fallback tier here, not a replacement for the DOM-first priority.
         const domLat = parseFloat(document.querySelector('.gaip-lat')?.value);
+        const domLon = parseFloat(document.querySelector('.gaip-lon')?.value);
         const lat = (!isNaN(domLat) && domLat !== 0 ? domLat : null) ||
                     (state.inputs?.site?.latitude != null ? state.inputs?.site?.latitude : null) ||
+                    (state.location?.lat != null ? state.location.lat : null) ||
+                    (state.location?.latitude != null ? state.location.latitude : null) ||
                     climate.latitude ||
+                    null;
+        // GH-371 (D01): longitude was never resolved here at all before this
+        // fix — nothing in this function needed it (hemisphere only needs
+        // latitude's sign) until computeProgram() started stamping the
+        // coordinates a programme was computed against, to detect a stale
+        // cached copy surviving a site-record coordinate write. Same
+        // priority chain as latitude, mirrored.
+        const lon = (!isNaN(domLon) && domLon !== 0 ? domLon : null) ||
+                    (state.inputs?.site?.longitude != null ? state.inputs?.site?.longitude : null) ||
+                    (state.location?.lon != null ? state.location.lon : null) ||
+                    (state.location?.lng != null ? state.location.lng : null) ||
+                    (state.location?.longitude != null ? state.location.longitude : null) ||
+                    climate.longitude ||
                     null;
         // Only treat as southern if we have a real negative lat — never assume hemisphere.
         const hemisphere = (lat !== null && lat < 0) ? 'south' : 'north';
@@ -475,6 +499,17 @@
         // The HubStore initialises inputs.soil.methodology as 'mlsn' and it may not
         // be updated by the time the calendar runs. Read from DOM select directly
         // as the reliable source for NZ sites with AA auto-selected.
+        // GH-377: track whether ANY real source actually supplied the
+        // methodology, or whether the 'mlsn' below is purely the default this
+        // chain lands on when nothing did. The resolution order and every
+        // resolved value are unchanged — this only adds the flag. A bare
+        // soil.methodology of 'mlsn' is deliberately NOT counted as resolved:
+        // the hub store initialises inputs.soil.methodology to 'mlsn' before
+        // anything real is loaded (see the comment above), so on its own it is
+        // indistinguishable from "not loaded yet". The stale-cache check in
+        // restoreFromPersisted() must treat an unresolved methodology as
+        // "unknown, trust the cached programme", never as "changed to MLSN".
+        let _methodologyResolved = !!(soil.methodology && String(soil.methodology).toLowerCase() !== 'mlsn');
         let methodology = (soil.methodology || 'mlsn').toLowerCase();
         // Map cotula_s78 to ammonium_acetate
         if (methodology === 'cotula_s78' || methodology === 'cotula') {
@@ -486,17 +521,23 @@
             const _gt  = window.GAIP_STATE?.turf || {};
             if (_tpc.turfType === 'bowls' || _gt.turfType === 'bowls' || _gt.cotula === true) {
                 methodology = 'ammonium_acetate';
+                _methodologyResolved = true;
             } else {
                 // Also read DOM select as fallback — most reliable for AA auto-select
                 const _ms = document.querySelector('.gaip-soil-methodology');
                 if (_ms && _ms.value && _ms.value !== 'mlsn') {
                     methodology = _ms.value;
+                    _methodologyResolved = true;
                 } else {
+                    // GH-377: an explicit 'mlsn' chosen in the DOM select is a
+                    // real answer, unlike the hub store's placeholder default.
+                    if (_ms && _ms.value === 'mlsn') _methodologyResolved = true;
                     // New hub: read from GAIP_HUB_CONFIG (set by PHP controller) or
                     // GAIP_DASHBOARD_DATA.computed.soilNutrition (from analysis cache)
                     const _cfgMeth = (window.GAIP_HUB_CONFIG?.turfMethodology || '').toLowerCase();
                     const _snMeth  = (window.GAIP_DASHBOARD_DATA?.computed?.soilNutrition?.methodology || '').toLowerCase();
                     const _newHubMeth = _cfgMeth || _snMeth;
+                    if (_newHubMeth) _methodologyResolved = true;
                     if (_newHubMeth && _newHubMeth !== 'mlsn') {
                         methodology = _newHubMeth;
                     }
@@ -528,6 +569,9 @@
         return {
             hemisphere,
             latitude: lat,
+            // GH-371 (D01): threaded through to computeProgram() so it can
+            // stamp the coordinates that actually drove this computation.
+            longitude: lon,
             species,
             speciesDisplay,
             isC4,
@@ -554,6 +598,10 @@
             surfaceType,
             clippingManagement,
             _speciesDefaulted: _speciesFallbackUsed,  // b35fix309 item 5: true when silent creepingBentgrass fallback fired
+            // GH-377: true when no real source supplied a methodology and the
+            // 'mlsn' above is only the chain's default — see the comment at the
+            // top of the methodology block. Consumed by the stale-cache check.
+            _methodologyDefaulted: !_methodologyResolved,
         };
     };
 
@@ -904,6 +952,222 @@
     NutritionCalendar.isC4Species = function(species) {
         const c4Species = ['bermuda', 'couch', 'zoysia', 'kikuyu', 'buffalograss', 'seashorePaspalum', 'mixedWarm'];
         return c4Species.includes(species);
+    };
+
+    // ========================================================================
+    // GH-377 — cached-programme input staleness (species / methodology)
+    // ========================================================================
+    //
+    // GH-371 (D01) stamps the coordinates a programme was computed against
+    // (meta.lat/lon) and refuses a cached copy whose stamp no longer matches
+    // the site. Coordinates are not the only input computeProgram() depends
+    // on: `species` drives the C3/C4 growth-potential curve (two different
+    // temperature optima — switching inverts the whole annual N shape), and
+    // `methodology` selects which threshold/ceiling family (MLSN / SLAN /
+    // AA certificate ranges) every deficit and sufficiency ceiling is judged
+    // against. Both are already recorded in meta by computeProgram()
+    // (meta.species = the nutrient-engine key collectFromState() resolved,
+    // meta.methodology = the same inputs.methodology, upper-cased), so this
+    // is a second comparison next to the coordinate one, reading fields that
+    // were already there — not a new mechanism.
+    //
+    // What is deliberately NOT compared, and why:
+    //   - meta.surfaceType: computeProgram() does not consume it (it is only
+    //     echoed into meta/summary); and it resolves differently per page
+    //     (`soil.surfaceType || turf.subCategory || 'sports'`), so comparing
+    //     it would nag on every load for sites like Westview (subCategory
+    //     null, surfaceType 'lawns' on Plan) without any real staleness.
+    //   - meta.distribution / meta.clippingManagement: Plan-form inputs that
+    //     restoreFromPersisted() itself sets INTO the form FROM meta after
+    //     the check — at check time the selects still hold their defaults,
+    //     so comparing them would flag every non-default choice as stale.
+    //   - meta.hemisphere: derived from latitude's sign; fully covered by the
+    //     coordinate check (any hemisphere flip is far more than 0.01°).
+    //   - meta.speciesDisplay: the human label; the key is what computes.
+    //     deriveCode() (Hill Labs certificate ranges) normalises the label
+    //     through SpeciesController too, so a label change that maps to the
+    //     same key changes nothing the engine sees.
+    //
+    // Forward-looking, not retroactive (same rule as GH-371): a meta with no
+    // `species` / `methodology` field, or a current state that could not
+    // positively resolve one (collectFromState()'s _speciesDefaulted /
+    // _methodologyDefaulted, or an empty site-config field), means "unknown,
+    // trust the cached programme" — never "invalidate". Checked against the
+    // real dev DB before choosing this: all 10 cached programmes already
+    // carry species/speciesDisplay/methodology in meta (only 3 carry the
+    // GH-371 lat/lon stamp), so the comparison is live for existing data
+    // without any migration, and the absent-field rule costs nothing today.
+    //
+    // Over-invalidation guards (the main risk — a check that is too eager
+    // shows "please regenerate" on every load for a normal site):
+    //   1. Species is compared as the nutrient-engine KEY, with the current
+    //      side normalised through the same normalizeSpecies() chain that
+    //      produced the stamp (SpeciesController.normalize → toNutrientKey).
+    //      The stamped key itself is NOT re-normalised: toNutrientKey() is
+    //      not idempotent (browntop → 'creepingBentgrass', but feeding
+    //      'creepingBentgrass' back in yields 'bentgrass'), so re-normalising
+    //      the stamp would flag every browntop site (Russley in the dev DB).
+    //   2. The current species is a SET of acceptable keys, not one value:
+    //      the resolved effective species plus the site config's base and
+    //      overseed species. On hub pages hub-tissue-v3.js writes the
+    //      overseed species into GAIP_STATE.turf.effectiveSpecies for an
+    //      overseed-dominant C4 site (and SpeciesController.getEffective
+    //      Species() has the same semantics), while plan.blade.php's bridge
+    //      always feeds the base species — so the same site can legitimately
+    //      stamp either key depending on which page generated. Only a stamp
+    //      matching NONE of the site's current species is stale.
+    //   3. Methodology is compared case-insensitively with the aliases
+    //      collectFromState()/computeProgram() already accept folded to one
+    //      key (cotula_s78/cotula/aa → ammonium_acetate), and a site-config
+    //      value of empty/'mlsn' on an NZ site resolves to ammonium_acetate,
+    //      the identical rule plan.blade.php's bridge and ammonium-acetate-
+    //      methodology.js's auto-select both apply before generation.
+
+    /**
+     * GH-377: fold every spelling of a methodology this engine accepts to one
+     * comparison key. '' when nothing usable was supplied.
+     */
+    NutritionCalendar.normalizeMethodology = function(methodology) {
+        if (methodology === null || methodology === undefined) return '';
+        let key = String(methodology).trim().toLowerCase();
+        if (!key) return '';
+        key = key.replace(/[\s-]+/g, '_');
+        if (key === 'aa' || key === 'ammoniumacetate' || key === 'ammonium_acetate' ||
+            key === 'cotula_s78' || key === 'cotula') {
+            return 'ammonium_acetate';
+        }
+        return key;
+    };
+
+    /**
+     * GH-377: the NZ bounding box plan.blade.php's GAIP_STATE bridge and
+     * ammonium-acetate-methodology.js's isNewZealand() both use to auto-
+     * select AA. Kept numerically identical to those two on purpose.
+     */
+    NutritionCalendar.isNZCoordinates = function(lat, lon) {
+        const la = parseFloat(lat);
+        const lo = parseFloat(lon);
+        if (isNaN(la) || isNaN(lo)) return false;
+        return (lo >= 166 && lo <= 179 && la >= -47 && la <= -34);
+    };
+
+    /**
+     * GH-377: what a site config's turf.methodology means once the page-side
+     * NZ rule is applied — empty or 'mlsn' on an NZ site becomes
+     * ammonium_acetate, exactly as the Plan bridge does before generating.
+     * '' when the site config carries no usable value (unknown).
+     */
+    NutritionCalendar.resolveSiteMethodology = function(turfMethodology, lat, lon) {
+        const key = this.normalizeMethodology(turfMethodology);
+        if ((!key || key === 'mlsn') && this.isNZCoordinates(lat, lon)) return 'ammonium_acetate';
+        return key;
+    };
+
+    /**
+     * GH-377: the site-config turf block for the active site, from whichever
+     * store this page has: window.GAIP_SITE_CONFIG (server-rendered on Plan)
+     * or GAIP_SiteConfig's in-memory config (hub pages). null when neither.
+     */
+    NutritionCalendar.getSiteConfigTurf = function() {
+        try {
+            const direct = window.GAIP_SITE_CONFIG;
+            if (direct && direct.turf && typeof direct.turf === 'object' && !Array.isArray(direct.turf)) {
+                return direct.turf;
+            }
+            const siteId = this.getActiveSiteId();
+            if (siteId && window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function') {
+                const cfg = window.GAIP_SiteConfig.getConfig(siteId);
+                if (cfg && cfg.turf && typeof cfg.turf === 'object' && !Array.isArray(cfg.turf)) {
+                    return cfg.turf;
+                }
+            }
+        } catch (e) { /* unavailable — caller treats as unknown */ }
+        return null;
+    };
+
+    /**
+     * GH-377: build the set of species keys / methodology keys the site is
+     * CURRENTLY configured with, for programInputsDrift(). Every source is
+     * optional; an empty resulting array means "unknown" for that field.
+     *
+     * @param {object} opts
+     *   fresh  - collectFromState() output (its resolved species/methodology
+     *            are added unless the corresponding _xDefaulted flag says
+     *            the value is only a fallback).
+     *   turfs  - one site-config turf object, or an array of them (base
+     *            species + overseed species + methodology are read from each;
+     *            raw labels are normalised through normalizeSpecies()).
+     *   lat/lon - site coordinates, for the NZ methodology rule.
+     * @returns {{ speciesKeys: string[], methodologies: string[] }}
+     */
+    NutritionCalendar.collectProgramInputCandidates = function(opts) {
+        opts = opts || {};
+        const speciesKeys = [];
+        const methodologies = [];
+        const addSpecies = (key) => {
+            if (typeof key === 'string' && key && speciesKeys.indexOf(key) === -1) speciesKeys.push(key);
+        };
+        const addMethodology = (m) => {
+            const key = this.normalizeMethodology(m);
+            if (key && methodologies.indexOf(key) === -1) methodologies.push(key);
+        };
+
+        const fresh = opts.fresh;
+        if (fresh && typeof fresh === 'object') {
+            if (!fresh._speciesDefaulted && typeof fresh.species === 'string') addSpecies(fresh.species);
+            if (!fresh._methodologyDefaulted) addMethodology(fresh.methodology);
+        }
+
+        const turfs = Array.isArray(opts.turfs) ? opts.turfs : (opts.turfs ? [opts.turfs] : []);
+        turfs.forEach((turf) => {
+            if (!turf || typeof turf !== 'object') return;
+            // Base species, then the overseed species under both key spellings
+            // in use (overseedSpecies = hub key, coolOverseed = settings-form
+            // key — see site-config-persistence.js restoreConfig()), then the
+            // warm-season base a cool overseed sits on. All acceptable: see
+            // guard 2 in the block comment above.
+            [turf.species, turf.overseedSpecies, turf.coolOverseed, turf.warmBase].forEach((raw) => {
+                if (typeof raw === 'string' && raw.trim()) addSpecies(this.normalizeSpecies(raw.trim()));
+            });
+            addMethodology(this.resolveSiteMethodology(turf.methodology, opts.lat, opts.lon));
+        });
+
+        return { speciesKeys: speciesKeys, methodologies: methodologies };
+    };
+
+    /**
+     * GH-377: which of a cached programme's own computation inputs no longer
+     * match what the site is configured with now.
+     *
+     * @param {object} meta - program.meta as stamped by computeProgram()
+     *   (species = nutrient-engine key, methodology = upper-cased key).
+     *   A missing/empty field is "unknown" and never reported as drift.
+     * @param {{speciesKeys: string[], methodologies: string[]}} candidates -
+     *   from collectProgramInputCandidates(); an empty array is "unknown"
+     *   and never reported as drift.
+     * @returns {Array<{field: string, was: string, now: string}>} empty when
+     *   nothing comparable has drifted.
+     */
+    NutritionCalendar.programInputsDrift = function(meta, candidates) {
+        const drift = [];
+        if (!meta || typeof meta !== 'object' || !candidates || typeof candidates !== 'object') return drift;
+
+        const stampedSpecies = (typeof meta.species === 'string') ? meta.species.trim() : '';
+        const speciesKeys = Array.isArray(candidates.speciesKeys)
+            ? candidates.speciesKeys.filter((k) => typeof k === 'string' && k) : [];
+        if (stampedSpecies && speciesKeys.length && speciesKeys.indexOf(stampedSpecies) === -1) {
+            drift.push({ field: 'species', was: stampedSpecies, now: speciesKeys[0] });
+        }
+
+        const stampedMethodology = this.normalizeMethodology(meta.methodology);
+        const methodologies = (Array.isArray(candidates.methodologies) ? candidates.methodologies : [])
+            .map((m) => this.normalizeMethodology(m))
+            .filter(Boolean);
+        if (stampedMethodology && methodologies.length && methodologies.indexOf(stampedMethodology) === -1) {
+            drift.push({ field: 'methodology', was: stampedMethodology, now: methodologies[0] });
+        }
+
+        return drift;
     };
 
     /**
@@ -1346,9 +1610,20 @@
         // consumers (Soil page, Nutrient Delivery Summary) should show "No
         // soil data" rather than a confident-looking Required figure.
         const missingSoilData = {};
-        const methodologyUsed = inputs.methodology || 'mlsn';
+        // GH-379: resolve the methodology ONCE through the same normaliser
+        // getThresholds()/programInputsDrift() already use, and branch only
+        // on the folded key. This used to compare inputs.methodology raw
+        // against 'ammonium_acetate', while word-export.js stamps
+        // data.soil.methodology UPPER-CASED and word-export-combined.js
+        // handed that straight in as perSampleInputs.methodology -- so the
+        // Combined export's per-sample calendar silently fell through to
+        // the MLSN branch on an AA / Hill Labs S277 site (K floor 37 instead
+        // of 78.2, no lift, a different monthly K series into the product
+        // recommender) while every other section of the same document was
+        // computed on the AA basis. No caller's spelling may route this.
+        const methodologyUsed = this.normalizeMethodology(inputs.methodology) || 'mlsn';
         const aaTextureKey = inputs.aaTextureKey != null ? inputs.aaTextureKey : null;
-        const isAAMethodology = (methodologyUsed === 'ammonium_acetate' || methodologyUsed === 'ammoniumacetate' || methodologyUsed === 'aa');
+        const isAAMethodology = (methodologyUsed === 'ammonium_acetate');
 
         // GH-308 (D07 follow-up): the below-floor deficit/lift correction
         // (this block) and the above-ceiling zeroing (formerly a separate
@@ -1369,7 +1644,7 @@
         // .max for the ceiling means both ends can never disagree again.
         // Non-AA methodologies (MLSN/SLAN) are untouched -- they keep calling
         // calculateDeficit()/getThresholds() exactly as before.
-        const isSLANMethodology = (methodologyUsed || '').toLowerCase() === 'slan';
+        const isSLANMethodology = (methodologyUsed === 'slan');
         const isMLSNMethodology = !isAAMethodology && !isSLANMethodology;
 
         const aaRanges = { P: null, K: null, Ca: null, Mg: null, S: null };
@@ -1581,18 +1856,35 @@
             meta: {
                 generated: new Date().toISOString(),
                 version: CONFIG.version,
-                methodology: (inputs.methodology || 'mlsn').toUpperCase(),
+                // GH-379: the folded key that actually drove this computation
+                // (upper-cased, this stamp's existing convention), never the
+                // caller's raw spelling.
+                methodology: methodologyUsed.toUpperCase(),
                 species: inputs.species,
                 speciesDisplay: inputs.speciesDisplay || null,
                 surfaceType: inputs.surfaceType,
                 hemisphere: inputs.hemisphere,
                 distribution: inputs.distribution,
                 clippingManagement: inputs.clippingManagement,
+                // GH-371 (D01): the coordinates that actually drove THIS
+                // computation — i.e. inputs.latitude/longitude, which
+                // collectFromState() resolved from the DOM/state.location at
+                // the moment generate() ran, the same values that determined
+                // which climate normals resolved inputs.monthlyTemps. Not a
+                // separately re-read "current" value — this is a record of
+                // what was actually used, so a later coordinate change can be
+                // detected by comparing against it, not by re-deriving
+                // "current" a second time and hoping the two reads agree.
+                // null (not omitted) when the caller couldn't resolve real
+                // coordinates, so a stale-check consumer can tell "unknown"
+                // apart from "0,0" rather than silently skipping the check.
+                lat: typeof inputs.latitude === 'number' ? inputs.latitude : null,
+                lon: typeof inputs.longitude === 'number' ? inputs.longitude : null,
             },
             soil: {
                 ppm: inputs.soilPpm,
                 deficits: deficits,
-                methodology: inputs.methodology,
+                methodology: methodologyUsed, // GH-379: folded key, see meta.methodology
                 bulkDensity: inputs.bulkDensity,
                 soilDepth: inputs.soilDepth,
             },
@@ -1863,7 +2155,7 @@
                         // S on an S277/S279 site, which prints no Sulphur
                         // range at all). N has no AA range concept, never
                         // gets the badge.
-                        const isAA = (meta.methodology || '').toUpperCase() === 'AMMONIUM_ACETATE';
+                        const isAA = this.normalizeMethodology(meta.methodology) === 'ammonium_acetate'; // GH-379
                         const rangeSource = p.annual_totals_range_source || {};
                         const isGeneric = isAA && el !== 'N' && rangeSource[el] === 'texture-fallback';
                         const genericBadge = isGeneric
@@ -1916,6 +2208,86 @@
             <div class="gilba-nut-banner gilba-nut-banner--warning">
                 <strong>Climate data unavailable</strong>
                 We couldn't load climate data for this site. Please try again in a moment.
+            </div>
+        `;
+    };
+
+    /**
+     * GH-371 (D01) — a persisted nutrition programme's stamped coordinates
+     * no longer match this site's current coordinates (restoreFromPersisted()
+     * checked and found the drift). Tell the user why the panel is empty and
+     * what to do, the same honest-gap shape as renderClimateUnavailableBanner()
+     * rather than silently rendering nothing or, worse, the stale numbers.
+     */
+    NutritionCalendar.renderStaleOnCoordinateChangeBanner = function() {
+        this._renderStaleProgramBanner(
+            'Site coordinates changed',
+            'This site\'s location was updated since the last nutrition programme was generated. ' +
+            'Click "Generate" to recompute it for the current coordinates.'
+        );
+    };
+
+    /**
+     * GH-377 — the persisted programme's stamped species and/or methodology
+     * (program.meta, see the GH-377 block above isC4Species()) no longer
+     * match what this site is configured with. Same shape and same
+     * "please regenerate" outcome as the GH-371 coordinate banner; names
+     * exactly which input changed, from what to what.
+     *
+     * @param {Array<{field, was, now}>} drift - programInputsDrift() output
+     * @param {object} [meta] - the stamped meta, for its human species label
+     */
+    NutritionCalendar.renderStaleOnInputChangeBanner = function(drift, meta) {
+        const esc = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const fmtMethodology = (m) => String(m || '').toUpperCase().replace(/_/g, ' ');
+        // Prefer the label the site config actually carries for the current
+        // species (what the user picked in Settings, e.g. "Couch") over the
+        // engine key's generic name ("Bermudagrass") when it maps to that key.
+        const siteTurf = this.getSiteConfigTurf();
+        const currentLabelFor = (key) => {
+            const raws = siteTurf ? [siteTurf.species, siteTurf.overseedSpecies, siteTurf.coolOverseed, siteTurf.warmBase] : [];
+            const match = raws.find((raw) => typeof raw === 'string' && raw.trim() && this.normalizeSpecies(raw.trim()) === key);
+            return match ? match.trim() : this.formatSpecies(key);
+        };
+        const parts = (drift || []).map((d) => {
+            if (d.field === 'species') {
+                const was = (meta && typeof meta.speciesDisplay === 'string' && meta.speciesDisplay.trim())
+                    ? meta.speciesDisplay.trim() : this.formatSpecies(d.was);
+                return 'grass species (' + esc(was) + ' to ' + esc(currentLabelFor(d.now)) + ')';
+            }
+            if (d.field === 'methodology') {
+                return 'soil test methodology (' + esc(fmtMethodology(d.was)) + ' to ' + esc(fmtMethodology(d.now)) + ')';
+            }
+            return esc(d.field);
+        });
+        this._renderStaleProgramBanner(
+            'Site configuration changed',
+            'This site\'s ' + (parts.length ? parts.join(' and ') : 'configuration') +
+            ' changed since the last nutrition programme was generated. ' +
+            'Click "Generate" to recompute it for the current configuration.'
+        );
+    };
+
+    /**
+     * Shared body of the two stale-programme banners above (GH-371
+     * coordinates, GH-377 species/methodology) — one place that clears the
+     * programme, raises the "unavailable" signal and paints the warning.
+     */
+    NutritionCalendar._renderStaleProgramBanner = function(title, body) {
+        const calendar = this.elements.calendar;
+        this.program = null;
+        // Same signal renderClimateUnavailableBanner() sets — every consumer
+        // (regional integrations, word-export.js) already treats this as
+        // "no real programme, don't substitute anything" regardless of which
+        // reason produced it.
+        window.GAIP_NUTRITION_PROGRAM_UNAVAILABLE = true;
+        if (!calendar) return;
+        if (this.elements.results) this.showResults();
+        calendar.innerHTML = `
+            <div class="gilba-nut-banner gilba-nut-banner--warning">
+                <strong>${title}</strong>
+                ${body}
             </div>
         `;
     };
@@ -2121,6 +2493,37 @@
             console.warn('[NutritionCalendar] persist-debug: SKIPPED — no active site id');
             return false;
         }
+
+        // GH-371 (D01): stamp which coordinates the just-persisted
+        // nutritionCalendarProgram was actually computed against (its own
+        // meta.lat/meta.lon, set by computeProgram() from the exact
+        // collectFromState() inputs that drove that computation) into the
+        // patch itself, BEFORE branching into either persistence path below —
+        // this is the one place both paths this function documents (hub
+        // pages via GAIP_SiteConfig.mergeConfig(), and Plan/plan.blade.php's
+        // own direct PUT fallback, which never loads site-config-
+        // persistence.js at all) actually share. Stamping only inside
+        // mergeConfig() would leave Plan's own direct-PUT path — the exact
+        // page D01 is about — completely unstamped (confirmed live: a
+        // programme generated from Plan produced a NULL nutritionProgramCoords
+        // server-side). nutritionProgram (the regional-integration product
+        // object, persisted moments later via the gaip:nutrition-calendar-
+        // generated event chain) is always generated from this same
+        // calendarProgram, so it shares this one stamp rather than needing
+        // its own. Only set when the incoming programme actually carries
+        // real coordinates — never overwrites a good existing stamp with a
+        // blank one from an unrelated patch (e.g. { nzDistributor: ... }).
+        if (patch && patch.nutritionCalendarProgram && patch.nutritionCalendarProgram.meta &&
+            typeof patch.nutritionCalendarProgram.meta.lat === 'number' &&
+            typeof patch.nutritionCalendarProgram.meta.lon === 'number') {
+            patch = Object.assign({}, patch, {
+                nutritionProgramCoords: {
+                    lat: patch.nutritionCalendarProgram.meta.lat,
+                    lon: patch.nutritionCalendarProgram.meta.lon
+                }
+            });
+        }
+
         try {
             if (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.mergeConfig === 'function') {
                 const ok = window.GAIP_SiteConfig.mergeConfig(siteId, patch);
@@ -2209,6 +2612,75 @@
         if (!program || !program.annual_totals) {
             console.log('[NutritionCalendar] persist-debug: SKIPPED — no persisted program, or missing annual_totals. program=', program);
             return;
+        }
+
+        // GH-371 (D01): a coordinate write invalidates this cached programme.
+        // Compare what it was actually computed against (program.meta.lat/lon,
+        // stamped by computeProgram() itself — see that function's own
+        // comment) with the site's real current coordinates, resolved the
+        // same way the live generate() path does. On a genuine mismatch,
+        // don't render the stale copy.
+        //
+        // A live recompute here (the alternative the client asked to
+        // consider) isn't attempted: this runs from init(), before
+        // restoreConfig()'s own staggered setTimeout chain has necessarily
+        // finished populating turf identity into the DOM/state that
+        // collectFromState() would need for a trustworthy recompute, and it
+        // would need an async climate-normals fetch this function isn't
+        // structured to await. Falls back to the same "please regenerate"
+        // shape GH-245 already established for climate-unavailable, which is
+        // both safe and honest about why the panel is empty.
+        // GH-377: resolved once here and shared by both stale checks (the
+        // GH-371 coordinate one directly below, then species/methodology).
+        const _freshCoords = this.collectFromState();
+        if (program.meta && typeof program.meta.lat === 'number' && typeof program.meta.lon === 'number') {
+            if (typeof _freshCoords.latitude === 'number' && typeof _freshCoords.longitude === 'number') {
+                const _latDrift = Math.abs(program.meta.lat - _freshCoords.latitude);
+                const _lonDrift = Math.abs(program.meta.lon - _freshCoords.longitude);
+                // 0.01 degree (~1km at the equator) absorbs floating-point/
+                // display rounding noise, not a real site relocation — same
+                // tolerance used in site-config-persistence.js's carry-forward
+                // check (mergeConfig()/snapshotConfig()), kept in step
+                // deliberately.
+                if (_latDrift > 0.01 || _lonDrift > 0.01) {
+                    console.warn('[NutritionCalendar] GH-371: persisted programme was computed for (' +
+                        program.meta.lat + ',' + program.meta.lon + ') but this site\'s current ' +
+                        'coordinates are (' + _freshCoords.latitude + ',' + _freshCoords.longitude +
+                        ') — coordinates changed since this programme was generated. Not rendering the ' +
+                        'stale copy.');
+                    this.renderStaleOnCoordinateChangeBanner();
+                    return;
+                }
+            }
+        }
+
+        // GH-377: the same check for the programme's own computation inputs —
+        // species and methodology, both stamped in program.meta by
+        // computeProgram() (see the GH-377 block above isC4Species() for what
+        // is and is not compared, and why). The current side is what a
+        // regenerate would use right now: collectFromState()'s resolved
+        // values (skipped when they are only fallbacks) plus the site
+        // config's own base/overseed species and methodology. Absent stamp
+        // fields or an unresolvable current state mean "trust it" — same
+        // forward-looking rule as the coordinate check.
+        if (program.meta) {
+            const _candidates = this.collectProgramInputCandidates({
+                fresh: _freshCoords,
+                turfs: this.getSiteConfigTurf(),
+                lat: _freshCoords.latitude,
+                lon: _freshCoords.longitude,
+            });
+            const _drift = this.programInputsDrift(program.meta, _candidates);
+            if (_drift.length) {
+                console.warn('[NutritionCalendar] GH-377: persisted programme was computed for ' +
+                    _drift.map((d) => d.field + '=' + d.was).join(', ') +
+                    ' but this site is now configured with ' +
+                    _drift.map((d) => d.field + '=' + d.now).join(', ') +
+                    ' — species/methodology changed since this programme was generated. ' +
+                    'Not rendering the stale copy.');
+                this.renderStaleOnInputChangeBanner(_drift, program.meta);
+                return;
+            }
         }
 
         if (!this.elements.results) this.init();

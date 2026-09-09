@@ -386,14 +386,40 @@
                 }
             }
 
-            // No active sample for this type on the current site
-            // Check if there are ANY samples of this type; load the first one
+            // No active sample for this type on the current site.
+            // GH-372: this used to take allSamples[0] -- whichever sample
+            // happened to be FIRST in the client store's object-key order.
+            // That order is correct today only as a side effect of
+            // SampleController::index() pre-sorting its response
+            // (lab_date DESC, id DESC) and the sync pipeline
+            // (sample-persistence.js) preserving that order into the store
+            // -- nothing here actually compared dates, so a future change to
+            // either the fetch order or how samples get merged into the
+            // store (e.g. a paginated fetch, or samples arriving from more
+            // than one request) could silently pick a stale sample with no
+            // guard at all. Pick explicitly by date instead, the same
+            // `date > current.date` technique word-export-combined.js's
+            // buildZoneMap() already uses for the analogous per-zone choice.
+            // Strict `>` (not `>=`) means an exact-date tie keeps whichever
+            // candidate was encountered first in the array -- for the normal
+            // server-synced case that is already the higher-id sample
+            // (index()'s own id DESC tiebreak), so this mirrors the server's
+            // rule without needing a separate id comparison the client-side
+            // sample objects don't cleanly carry (client_uid-based ids for
+            // most samples, not the raw numeric row id).
             var allSamples = SM.getSamples(dt);
             if (allSamples && allSamples.length > 0) {
-                var firstId = allSamples[0].id || allSamples[0].sampleId;
+                var newest = allSamples[0];
+                for (var ni = 1; ni < allSamples.length; ni++) {
+                    if ((allSamples[ni].date || '') > (newest.date || '')) {
+                        newest = allSamples[ni];
+                    }
+                }
+                var firstId = newest.id || newest.sampleId;
                 if (firstId) {
                     SM.loadSample(dt, firstId);
-                    log('Auto-loaded first ' + dt + ' sample: ' + firstId);
+                    log('Auto-loaded most recent ' + dt + ' sample: ' + firstId +
+                        ' (date: ' + (newest.date || 'unknown') + ')');
                     continue;
                 }
             }
@@ -597,7 +623,41 @@
 
         // Refresh dropdown when site is switched externally (e.g. from SiteDashboard card click)
         // Must reload the active sample so form fields reflect the new site's data
-        document.addEventListener('gaip:site-changed', function() {
+        document.addEventListener('gaip:site-changed', function(e) {
+            // GH-378: record the site this event announces BEFORE the
+            // combined-export early return below. updateUI() re-dispatches
+            // gaip:site-changed whenever the active site differs from
+            // _lastDispatchedSiteId, and that shadow was only ever updated
+            // inside updateUI() itself -- so any switch made by someone other
+            // than this module (word-export-combined.js's per-sample
+            // sm.setActiveSite(), which SampleManager already announces) left
+            // it stale. During a cross-site Combined export the stale shadow
+            // made the gaip:site-config-applied listener below re-announce
+            // the switch ~450ms later (site-config-persistence.js's
+            // restoreNewSiteConfig() dispatches site-config-applied 300+150ms
+            // after the real switch), and gaip-clear-data.js's own
+            // site-changed handler then wiped the soil/water inputs that the
+            // export loop's loadSample() had already populated -- the first
+            // sample after every site switch exported as "No soil test data"
+            // with no Annual Nutrient Requirements row, while real data sat
+            // in the DB (confirmed live: Burns "Rye Nursery" K=7.6 ppm).
+            // Same-site exports never hit it because SampleManager dispatches
+            // nothing when the site does not change. Live-verified (review):
+            // the pre-fix module announces every switch twice and blanks the
+            // first sample after each switch; with this line each switch is
+            // announced exactly once and the same samples render their real
+            // values. Later samples on the same site (12th Fairway) rendered
+            // identically before and after -- the duplicate did NOT re-run
+            // site-switch-cleanup.js's clearTurfIdentity(), whose listener
+            // ignores a repeat announcement of the same site. updateUI()'s
+            // own dispatch stays: it is still the only announcement on the
+            // page-load restore path, where SampleManager.restoreFromPersistence()
+            // switches the site silently (b35fix98); a page-load announcement
+            // from SampleManager that lands before this listener is registered
+            // (init() is deferred) is simply not seen here, so that path is
+            // unchanged either way.
+            var announcedSiteId = e && e.detail && e.detail.siteId;
+            if (announcedSiteId) _lastDispatchedSiteId = announcedSiteId;
             // Skip intermediate site-changes during combined export
             if (global.GAIP_COMBINED_EXPORT_ACTIVE) return;
             updateUI();

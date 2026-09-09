@@ -47,6 +47,16 @@ Export Centre for the computed program) via the Playwright driver pattern
 established in this project (login -> navigate -> screenshot / capture
 console / download+unzip the .docx with `textutil -convert txt -stdout`).
 
+## The E2E parity fixture is a different kind of file
+
+`e2e-parity-test5-soccer.json` (GH-380) is read by
+`tests/e2e/ui-vs-export-parity.test.js`, which drives the LIVE stack. It
+pins only the identity of the site/samples and their current stored inputs
+— never an `expected` block — because that harness asserts agreement between
+the Plan page and the Word export, whatever the running code produces. If a
+sample it names is edited, update `currentInputs` there; the harness reports
+the drift as a precondition failure, not as a parity failure.
+
 ## What NOT to put here
 
 Don't fabricate a fixture's "expected" block from what you think the code

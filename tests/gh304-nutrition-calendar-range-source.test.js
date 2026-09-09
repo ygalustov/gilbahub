@@ -139,7 +139,10 @@ describe('GH-304 — renderSummary() renders the generic badge from annual_total
     test('renderSummary structural pin: badge only rendered for AA, never for N, gated on rangeSource', () => {
         const jsSrc = require('fs').readFileSync(require('path').join(__dirname, '../assets/nutrition-calendar.js'), 'utf8');
         const block = jsSrc.slice(jsSrc.indexOf("Annual Requirements (kg/ha)"), jsSrc.indexOf("n_recycled > 0 ?", jsSrc.indexOf("Annual Requirements (kg/ha)")));
-        expect(block).toMatch(/const isAA = \(meta\.methodology \|\| ''\)\.toUpperCase\(\) === 'AMMONIUM_ACETATE';/);
+        // GH-379: the AA gate now goes through the calendar's own
+        // normalizeMethodology() (one spelling of the comparison in the file)
+        // instead of a local toUpperCase() compare; still AA-only.
+        expect(block).toMatch(/const isAA = this\.normalizeMethodology\(meta\.methodology\) === 'ammonium_acetate';/);
         expect(block).toMatch(/const isGeneric = isAA && el !== 'N' && rangeSource\[el\] === 'texture-fallback';/);
         expect(block).toMatch(/gilba-nut-generic-badge/);
     });

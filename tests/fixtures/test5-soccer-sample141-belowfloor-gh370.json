@@ -1,0 +1,106 @@
+{
+  "_source": "Test5 - NZ, samples.id=141 (Soccer, soil) TEMPORARILY mutated in the dev DB on 2026-09-08 via docker exec gilba_mysql: UPDATE samples SET payload = JSON_SET(payload, '$.K', '40', '$.P', '10') WHERE id = 141 (every other field left as stored: Ca 803, Mg 129, S 75, pH 6, CEC 5.9). Restored from an in-DB backup afterwards and confirmed by direct read (payload md5 back to 1f3d576e6a730a6cd7d3eaa48f06309c, K 276 / P 40). The stored sample is the above-ceiling fixture in test5-soccer-sample141.json; this file is the one live-verified BELOW-FLOOR pass through the same site, made for GH-370's verification because no stored sample in the dev DB sits below floor and also renders through the Combined export (REVIEW-GH349-onward.md open question 8).",
+  "_verifiedVia": [
+    "db",
+    "live-plan-page-text (#plan-nut-results, Annual Requirements cards + Nutrient Delivery Summary)",
+    "live-combined-export-docx (Annual Nutrient Requirements table + K Reconciliation)",
+    "persisted site_configs.gaip.nutritionCalendarProgram written by the Plan run (deficits/annual_lift/annual_totals/annual_totals_range)"
+  ],
+  "_liveRunNotes": "Run under an isolated temporary admin login with its own last_active_site_id (the shared yuryg@ pointer was being moved by a concurrent agent). Both surfaces logged bulkDensity 1.4 / soilDepth 10 (the documented default: sample 141 carries no bulkDensity/depthCm, and no sample in the dev DB does) and resolved the S277 certificate range (deriveCode -> S277; [GH308-DEBUG]/[GH352-DEBUG] both P {20,30}, K {78.2,195.5}). The Plan run also showed 'Monthly N cap too low ... Scheduled: 180 kg/ha' with every month at N 15.0 -- unexplained in that session (site config maxNPerMonth is 50), unrelated to the P/K figures pinned here, deliberately NOT encoded as expected below.",
+  "site": {
+    "id": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+    "name": "Test5 - NZ"
+  },
+  "sample": {
+    "id": 141,
+    "label": "Soccer",
+    "sampleType": "soil",
+    "sampleDate": "2026-08-17",
+    "tissueSampleId": 144
+  },
+  "inputs": {
+    "methodology": "ammonium_acetate",
+    "species": "Perennial Ryegrass",
+    "speciesKey": "perennialRyegrass",
+    "soilTexture": "sand",
+    "annualN": 250,
+    "soilPpm": {
+      "P": 10,
+      "K": 40,
+      "Ca": 803,
+      "Mg": 129,
+      "S": 75
+    },
+    "pH": 6,
+    "CEC": 5.9,
+    "tissuePercent": {
+      "N": 4.57,
+      "P": 0.62,
+      "K": 1.05
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "_bulkDensityDepthNote": "Defaults (nutrition-calendar.js CONFIG.defaultBulkDensity/defaultSoilDepth, mirrored by nutrition-requirement-engine.js DEFAULT_BULK_DENSITY_G_CM3/DEFAULT_SOIL_DEPTH_CM). Sample 141 has no bulkDensity/depthCm field, so this is the factor both live surfaces actually used (console: 'bulkDensity: 1.4, soilDepth: 10' on both)."
+  },
+  "expected": {
+    "certificateCode": "S277",
+    "floors": {
+      "P": 20,
+      "K": 78.2
+    },
+    "ceilings": {
+      "P": 30,
+      "K": 195.5
+    },
+    "handComputedCorrection": {
+      "_formula": "(floor - current) * bulkDensity * soilDepth * 0.1 / yearsToCorrect(2)",
+      "K": 26.74,
+      "P": 7.0,
+      "_unconvertedPreGH370": {
+        "K": 19.1,
+        "P": 5.0
+      }
+    },
+    "combinedExport": {
+      "_surface": "word-export-combined.js ANR pass -> NutritionRequirementEngine_Pure.compute(); removal is tissue-ratio-governed and scaled against the species table N=180 (GH-376 divergence item 1), correction is the converted term above",
+      "annualNutrientRequirementsRow": {
+        "N": 250,
+        "P_ppm": 10,
+        "P_req": 31.4,
+        "K_ppm": 40,
+        "K_req": 68.1,
+        "S_ppm": 75,
+        "S_req": 0.0
+      },
+      "engineDecomposition": {
+        "K": { "removal": 41.4, "correctionRequired": 26.74, "annualRequirement": 68.1, "intent": "lift-to-floor" },
+        "P": { "removal": 24.4, "correctionRequired": 7.0, "annualRequirement": 31.4, "intent": "lift-to-floor" }
+      },
+      "_ifUnconverted": { "K_req": 60.5, "P_req": 29.4 }
+    },
+    "planPage": {
+      "_surface": "nutrition-calendar.js computeProgram(); removal is the same tissue ratio scaled against the site's real annualN=250, correction is the converted term above",
+      "annualRequirementCards": {
+        "N": 250,
+        "P": 41,
+        "K": 84
+      },
+      "nutrientDeliverySummary": {
+        "P": { "removal": 34, "required": 41 },
+        "K": { "removal": 57, "required": 84.2 }
+      },
+      "persistedNutritionCalendarProgram": {
+        "soilDeficitsKgHa": { "K": 53.48, "P": 14 },
+        "annual_lift": { "K": 26.74, "P": 7 },
+        "annual_removal": { "K": 57, "P": 34 },
+        "annual_totals": { "K": 84, "P": 41 },
+        "annual_totals_range_source": { "K": "certificate", "P": "certificate" }
+      }
+    },
+    "sharedCore": {
+      "_surface": "nutrition-requirement-core.js (GH-376, not yet routed in the app)",
+      "K": { "removal": 57.4, "correctionRequired": 26.74, "annualRequirement": 84.1 },
+      "P": { "removal": 33.9, "correctionRequired": 7.0, "annualRequirement": 40.9 }
+    }
+  }
+}

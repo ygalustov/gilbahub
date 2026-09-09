@@ -3005,20 +3005,24 @@
         return !!(ts && ts.critical);
     }
 
-    // GH-369: no generic foliar-K application rate is cited anywhere in this
-    // codebase (checked citation-registry.js, every *-fertiliser-products.js
-    // catalogue, and docs/instructions.md's Change log — none carries a
-    // foliar-K label rate; the existing "20-40 kg K/ha elemental" line above
-    // is itself an uncited legacy figure, and it is a SOIL-broadcast rate in
-    // any case, not a foliar one, so it isn't a valid source to borrow from
-    // even if it were cited). Per this project's rule against inventing
-    // agronomic numbers, this advisory says that plainly instead of guessing
-    // a dose — it points to whatever foliar-K product is actually in the
-    // site's own programme and its own label rate, rather than a fabricated
-    // generic kg/ha figure.
-    var TISSUE_K_CRITICAL_ADVISORY_NO_DOSE =
-        'no generic foliar-K rate is verified in this system — apply the ' +
-        'selected foliar-K product at its own label rate';
+    // GH-369 follow-up: the tissue-critical advisories carry NO dose figure.
+    //
+    // GH-369 originally tried to give the tissue-side advisory a cited flat
+    // rate, matching the soil-side "20-40 kg K/ha elemental" line. No such
+    // rate exists to cite: checked citation-registry.js, every
+    // *-fertiliser-products.js catalogue, and the Change log — none carries a
+    // foliar-K label rate, and the soil-side figure is itself uncited and a
+    // SOIL-broadcast rate in any case, so it isn't a valid source to borrow
+    // from even if it were cited. Inventing one is out per this project's
+    // rule against unverified agronomic numbers.
+    //
+    // The intermediate version said so in the report text ("no generic
+    // foliar-K rate is verified in this system — apply the selected product
+    // at its own label rate"). That was wrong for a different reason: an
+    // agronomy report a client pays for is not the place to surface the hub's
+    // own data gaps, and "use the product's label rate" states the obvious.
+    // Reverted to the plain pre-GH-369 instruction. The reasoning for why
+    // there is no number lives in this comment, where it belongs.
 
     /**
      * b35fix322 — Convert amendment decisions to nutrition-program product entries.
@@ -4695,22 +4699,27 @@
         
         // Soil deficiencies
         if (data.soil && data.soil.thresholds) {
-            // GH-369 follow-up: this "20-40 kg K/ha elemental, equiv. 48-96 kg
-            // product/ha" figure had no citation anywhere in this codebase
-            // (checked citation-registry.js and every product catalogue, same
-            // check that found no source for the tissue-side foliar-K rate a
-            // few lines below) -- it predates this project's rule against
-            // printing an agronomic number without a verifiable source. Having
-            // the tissue-side advisory say "no verified rate" right next to a
-            // soil-side advisory that prints an uncited one would be
-            // inconsistent (a reader can't tell which number to trust), so
-            // this one is now held to the same standard rather than being
-            // left as the one unflagged exception.
+            // GH-369 follow-up removed this line's "20-40 kg K/ha elemental,
+            // equiv. 48-96 kg product/ha" dose figure: it had no citation
+            // anywhere in this codebase (checked citation-registry.js and
+            // every product catalogue, same check that found no source for
+            // the tissue-side foliar-K rate a few lines below), predating
+            // this project's rule against printing an agronomic number
+            // without a verifiable source.
+            //
+            // GH-375: that follow-up's replacement wording then spelled the
+            // gap out to the reader inline ("no generic ... rate is verified
+            // in this system"), the same class of hub-data-gap commentary
+            // GH-373 removed from the tissue-side advisory below for the
+            // reason recorded in that ticket's changelog entry -- an
+            // agronomy report a paying client receives is not the place to
+            // surface the hub's own data gaps. Reverted to a plain
+            // instruction with no dose figure and no meta-commentary,
+            // matching GH-373's tissue-side wording; the reasoning for why
+            // no number is printed here lives only in this comment now, not
+            // in the client-facing text.
             if (data.soil.K && data.soil.thresholds.K && data.soil.K < data.soil.thresholds.K.min * 0.5) {
-                immediate.push('Severe K deficiency - apply potassium sulphate promptly; no generic ' +
-                    'soil-applied K correction rate is verified in this system — size the application ' +
-                    'from the soil K deficit against this site\'s own bulk density and sample depth, or ' +
-                    'per the selected product\'s label rate.');
+                immediate.push('Severe K deficiency - apply potassium sulphate promptly.');
             }
         }
         
@@ -4726,7 +4735,7 @@
             var _kTissueState = _tissueSufficiencyState('K', data);
             if (_kTissueState && _kTissueState.critical) {
                 immediate.push('Tissue K critically low (' + _kTissueState.value + '%) for ' + rangeSource +
-                    ' - apply foliar potassium promptly; ' + TISSUE_K_CRITICAL_ADVISORY_NO_DOSE + '.');
+                    ' - apply foliar potassium immediately.');
             }
             if (data.tissue.N && data.tissue.ranges.N && data.tissue.N < data.tissue.ranges.N.lo) {
                 shortTerm.push('Tissue N below ' + rangeSource + ' sufficiency (' + data.tissue.N + '%) - increase N program or apply foliar N.');
@@ -6995,6 +7004,7 @@
         // per-sample loop — which reads data.engineInputs rather than
         // duplicating this resolution — pick up the same ranges.
         var _aaRanges = null;
+        var _resolvedSoilTexture = null; // GH-379: set by the IIFE below, read into engineInputs
         (function () {
             // GH-352: this IIFE used to read window.GAIP_STATE.soil (_state.soil)
             // for methodology/soilTexture/CEC. Confirmed live (2026-09-07 test
@@ -7085,6 +7095,13 @@
                 || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
                 || _constructionTexture
                 || null;
+            // GH-379: surface the per-sample texture this IIFE resolved so the
+            // Combined export's per-sample calendar recompute
+            // (word-export-combined.js) can hand computeProgram() the same
+            // texture — its own deriveCode() otherwise ran on the calendar
+            // state's null texture and fell to the generic AA band while this
+            // very report's ANR used the certificate. See engineInputs below.
+            _resolvedSoilTexture = _soilTexture;
             console.log('[GH355-DEBUG] texture sources', '| _stTurf.construction:', _stTurf.construction,
                 '| _canonTurf.construction:', _canonTurf.construction,
                 '| _stInputs.turf.construction:', _stInputs.turf && _stInputs.turf.construction,
@@ -7155,6 +7172,10 @@
                 coordinatesDefaulted: _coordsDefaulted
             },
             aaRanges: _aaRanges,
+            // GH-379: the per-sample texture the aaRanges above were derived
+            // from (null when the AA range IIFE did not run, i.e. non-AA sites,
+            // or when no source resolved a texture).
+            soilTexture: _resolvedSoilTexture,
             overseedConfig: _overseedConfig
         };
 
@@ -9923,18 +9944,104 @@
         ensureObject(data, 'nutritionProgram');
         if (window.GAIP_NUTRITION_PROGRAM) {
             var prog = window.GAIP_NUTRITION_PROGRAM;
-            var currentSiteId = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId) 
+            var currentSiteId = (window.GAIP_SampleManager && window.GAIP_SampleManager.getActiveSiteId)
                 ? window.GAIP_SampleManager.getActiveSiteId() : null;
             var progSiteId = prog._generatedForSite || null;
-            
-            // Accept if: no site tagging yet (legacy), or site matches
-            if (!progSiteId || !currentSiteId || progSiteId === currentSiteId) {
+
+            // GH-371 (D01): cross-site staleness (progSiteId check above) is
+            // not the only way this cached global goes stale — a site-record
+            // coordinate write on the SAME site invalidates it too (the
+            // audit's own D01 finding: this exact global is what the Monthly
+            // Schedule/Nutrition Program section here reads, and it survived
+            // a coordinate change unchanged). window.GAIP_NUTRITION_PROGRAM
+            // itself carries no coordinate stamp (it's the regional
+            // integration's product-recommendation object, a different
+            // shape than nutritionCalendarProgram) — but it's always
+            // generated from the calendar programme that DOES carry one
+            // (nutrition-calendar.js's computeProgram(), stamped into
+            // meta.lat/lon), and mergeConfig() records that stamp
+            // site-wide as nutritionProgramCoords precisely so callers that
+            // only have the OTHER object can still check it. Compare
+            // against this site's real current coordinates, resolved the
+            // same way the live generate() path does.
+            var _coordsStale = false;
+            try {
+                var _currentCoords = (window.GilbaNutritionCalendar &&
+                    typeof window.GilbaNutritionCalendar.collectFromState === 'function')
+                    ? window.GilbaNutritionCalendar.collectFromState() : null;
+                var _cachedCoords = (currentSiteId && window.GAIP_SiteConfig &&
+                    typeof window.GAIP_SiteConfig.getConfig === 'function')
+                    ? (window.GAIP_SiteConfig.getConfig(currentSiteId) || {}).nutritionProgramCoords
+                    : null;
+                if (_cachedCoords && _currentCoords &&
+                    typeof _cachedCoords.lat === 'number' && typeof _currentCoords.latitude === 'number' &&
+                    typeof _cachedCoords.lon === 'number' && typeof _currentCoords.longitude === 'number') {
+                    var _latDrift = Math.abs(_cachedCoords.lat - _currentCoords.latitude);
+                    var _lonDrift = Math.abs(_cachedCoords.lon - _currentCoords.longitude);
+                    _coordsStale = (_latDrift > 0.01 || _lonDrift > 0.01);
+                }
+            } catch (_coordCheckErr) {
+                console.warn('[WordExport] GH-371: coordinate staleness check failed, proceeding without it:', _coordCheckErr && _coordCheckErr.message);
+            }
+
+            // GH-377: the same check for the programme's own computation
+            // inputs (species / methodology). Like the coordinates above,
+            // window.GAIP_NUTRITION_PROGRAM itself carries no stamp, but the
+            // calendar programme it was generated from does
+            // (nutritionCalendarProgram.meta.species/methodology, stamped by
+            // computeProgram() and persisted alongside it in the site config).
+            // Compared against what a regenerate would use right now —
+            // collectFromState()'s resolved values plus the site config's own
+            // turf — via nutrition-calendar.js's shared helpers (see the
+            // GH-377 block above isC4Species() there for the rules and the
+            // deliberate tolerances). Kept in its own try/catch so a failure
+            // here degrades to "not stale", independently of the GH-371 check.
+            var _inputsStale = false;
+            try {
+                var _NC377 = window.GilbaNutritionCalendar;
+                var _siteCfg377 = (currentSiteId && window.GAIP_SiteConfig &&
+                    typeof window.GAIP_SiteConfig.getConfig === 'function')
+                    ? (window.GAIP_SiteConfig.getConfig(currentSiteId) || {}) : null;
+                var _cachedCalendar377 = _siteCfg377 && _siteCfg377.nutritionCalendarProgram;
+                if (_cachedCalendar377 && _cachedCalendar377.meta && _NC377 &&
+                    typeof _NC377.collectFromState === 'function' &&
+                    typeof _NC377.programInputsDrift === 'function' &&
+                    typeof _NC377.collectProgramInputCandidates === 'function') {
+                    var _fresh377 = _NC377.collectFromState();
+                    var _inputDrift377 = _NC377.programInputsDrift(
+                        _cachedCalendar377.meta,
+                        _NC377.collectProgramInputCandidates({
+                            fresh: _fresh377,
+                            turfs: _siteCfg377.turf,
+                            lat: _fresh377.latitude,
+                            lon: _fresh377.longitude
+                        })
+                    );
+                    if (_inputDrift377.length) {
+                        _inputsStale = true;
+                        console.warn('[WordExport] GH-377: cached nutrition program was computed for ' +
+                            _inputDrift377.map(function (d) { return d.field + '=' + d.was; }).join(', ') +
+                            ' but this site is now configured with ' +
+                            _inputDrift377.map(function (d) { return d.field + '=' + d.now; }).join(', '));
+                    }
+                }
+            } catch (_inputCheckErr) {
+                console.warn('[WordExport] GH-377: species/methodology staleness check failed, proceeding without it:', _inputCheckErr && _inputCheckErr.message);
+            }
+
+            // Accept if: no site tagging yet (legacy), or site matches — and neither the coordinates (GH-371)
+            // nor the species/methodology (GH-377) have changed since generation.
+            if ((!progSiteId || !currentSiteId || progSiteId === currentSiteId) && !_coordsStale && !_inputsStale) {
                 data.nutritionProgram.hasData = true;
                 data.nutritionProgram.monthly = prog.monthly || [];
                 data.nutritionProgram.annualSummary = prog.annualSummary || {};
                 data.nutritionProgram.strategy = prog.strategy || {};
                 // b35fix287: include Mulder's flags for Word export section
                 data.nutritionProgram.muldersFlags = prog.muldersFlags || {};
+            } else if (_coordsStale) {
+                console.warn('[WordExport] GH-371 (D01): Skipping stale nutrition program — site coordinates changed since it was generated.');
+            } else if (_inputsStale) {
+                console.warn('[WordExport] GH-377: Skipping stale nutrition program — site species/methodology changed since it was generated.');
             } else {
                 console.warn('[WordExport] Skipping stale nutrition program, generated for', progSiteId, 'but current site is', currentSiteId);
             }
@@ -11710,10 +11817,8 @@
                     var ts = _tissueSufficiencyState(nutrient, data);
                     if (ts) {
                         var doseClause = (nutrient === 'K')
-                            ? ('apply foliar potassium promptly (' + TISSUE_K_CRITICAL_ADVISORY_NO_DOSE + ').')
-                            : ('apply phosphorus fertiliser or foliar MAP/MKP promptly; no generic ' +
-                               'foliar-P rate is verified in this system — apply the selected product ' +
-                               'at its own label rate.');
+                            ? 'apply foliar potassium immediately.'
+                            : 'apply phosphorus fertiliser or foliar MAP/MKP promptly.';
                         note = 'Tissue-informed (measured ' + nutrient + '/N ratio); tissue ' + nutrient + ' ' +
                             ts.value + '% is independently ' + (nutrient === 'K' ? 'critically low' : 'below sufficiency') +
                             ' for ' + (ts.rangeSource || 'this species') +
@@ -14854,7 +14959,6 @@
         _tissuePercentFromData: _tissuePercentFromData,
         _tissueSufficiencyState: _tissueSufficiencyState,
         _isTissueContradictionRow: _isTissueContradictionRow,
-        TISSUE_K_CRITICAL_ADVISORY_NO_DOSE: TISSUE_K_CRITICAL_ADVISORY_NO_DOSE,
 
         // GH-369: exposed for direct testing of the tissue-critical advisory
         // wording (no invented dose) alongside the other priority-actions text.

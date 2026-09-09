@@ -224,7 +224,6 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
         expect(typeof WE._tissueSufficiencyState).toBe('function');
         expect(typeof WE._isTissueContradictionRow).toBe('function');
         expect(typeof WE.generatePriorityActions).toBe('function');
-        expect(typeof WE.TISSUE_K_CRITICAL_ADVISORY_NO_DOSE).toBe('string');
     });
 
     test('_tissuePercentFromData() parses a collectData()-shaped data.tissue object, same shape both engines expect', () => {
@@ -307,20 +306,20 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
         });
     });
 
-    test('the tissue-critical advisory states plainly that no generic foliar-K rate is verified, rather than printing an invented number', () => {
-        expect(WE.TISSUE_K_CRITICAL_ADVISORY_NO_DOSE).toMatch(/no generic foliar-K rate is verified/i);
-        expect(WE.TISSUE_K_CRITICAL_ADVISORY_NO_DOSE).not.toMatch(/\d+(\.\d+)?\s*(kg|L)\s*(K)?\s*\/\s*ha/i);
-    });
-
-    test('generatePriorityActions() on the real Test5-NZ tissue reading fires the K-critical advisory with the honest no-dose note, not a fabricated rate', () => {
+    test('generatePriorityActions() on the real Test5-NZ tissue reading fires the K-critical advisory with no fabricated dose figure', () => {
         const actions = WE.generatePriorityActions({
             turf: { species: 'Perennial Ryegrass' },
             tissue: { K: 1.05, ranges: C3_RANGES, rangeSpecies: 'Perennial Ryegrass' },
         });
         const immediateText = actions.immediate.join(' | ');
         expect(immediateText).toMatch(/Tissue K critically low \(1\.05%\)/);
-        expect(immediateText).toMatch(/no generic foliar-K rate is verified/i);
-        expect(immediateText).not.toMatch(/apply foliar potassium immediately\./);
+        expect(immediateText).toMatch(/apply foliar potassium immediately\./);
+        // No dose figure of any kind: none is citable anywhere in this
+        // codebase, and the advisory must not editorialise about that gap
+        // in a client-facing report either — see word-export.js's own
+        // comment where the removed constant used to live.
+        expect(immediateText).not.toMatch(/\d+(\.\d+)?\s*(kg|L)\s*K?\s*\/\s*ha/i);
+        expect(immediateText).not.toMatch(/verified in this system|label rate/i);
     });
 
     test('generatePriorityActions() does not fire the K-critical advisory for a sufficient tissue reading', () => {
@@ -331,7 +330,7 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
         expect(actions.immediate.join(' | ')).not.toMatch(/Tissue K critically low/);
     });
 
-    test('bug 10 regression: the soil-side severe-K-deficiency advisory no longer prints an uncited dose, matching the tissue-side honesty standard', () => {
+    test('GH-375 regression: the soil-side severe-K-deficiency advisory prints a plain instruction, no uncited dose and no meta-commentary about the hub\'s own data gaps', () => {
         const actions = WE.generatePriorityActions({
             turf: { species: 'Perennial Ryegrass' },
             soil: { K: 10, thresholds: { K: { min: 100 } } },
@@ -339,7 +338,12 @@ describe('GH-369 — word-export.js: shared tissue helpers and honest no-dose ad
         const immediateText = actions.immediate.join(' | ');
         expect(immediateText).toMatch(/Severe K deficiency/);
         expect(immediateText).not.toMatch(/20-40 kg K\/ha|48-96 kg product/);
-        expect(immediateText).toMatch(/no generic soil-applied K correction rate is verified/i);
+        // GH-373 removed exactly this class of "surfacing the hub's own data
+        // gap" commentary from the tissue-side advisory; GH-375 applies the
+        // same standard here -- the soil-side line must no longer editorialise
+        // about there being no verified rate, matching the tissue-side
+        // negative assertion above.
+        expect(immediateText).not.toMatch(/verified in this system|label rate/i);
     });
 });
 
@@ -455,7 +459,7 @@ describe('GH-369 — word-export.js buildSections(): real rendering-level proof 
         }, { K: 1.05, P: 0.62 });
         expect(joined).not.toMatch(/this figure is a replacement-dose estimate/);
         expect(joined).toMatch(/Tissue K critically low/);
-        expect(joined).toMatch(/no generic foliar-K rate is verified/i);
+        expect(joined).toMatch(/apply foliar potassium immediately\./i);
     });
 
     test('the explanation DOES print when the same critical tissue reading sits next to a genuinely tissue-derived, non-ceiling K figure', () => {
@@ -477,7 +481,7 @@ describe('GH-369 — word-export.js buildSections(): real rendering-level proof 
         expect(joined).toMatch(/Phosphorus \(P\)/);
         expect(joined).toMatch(/27\.0 kg\/ha\/yr/);
         expect(joined).toMatch(/this figure is a replacement-dose estimate/);
-        expect(joined).toMatch(/no generic foliar-P rate is verified/i);
+        expect(joined).toMatch(/apply phosphorus fertiliser or foliar MAP\/MKP promptly\./i);
     });
 
     test('tissue-free export (bug 8\'s single-export analogue): no tissue data at all renders the plain K row with no note, and does not crash', () => {
@@ -547,7 +551,14 @@ describe('GH-369 — word-export-combined.js: structural pins for the shared-SSO
         expect(src).toMatch(/if \(_anyTissueDataInReconTable\) \{/);
     });
 
-    test('the new column falls back to the same honest no-dose note as the single-export advisory, not a re-invented one', () => {
-        expect(src).toMatch(/TISSUE_K_CRITICAL_ADVISORY_NO_DOSE/);
+    test('the new column\'s advisory carries no dose figure and no commentary about the system\'s own data gaps', () => {
+        // Both render sites in this file must print the plain instruction.
+        const advisories = src.match(/Apply foliar potassium[^']*/g) || [];
+        expect(advisories.length).toBeGreaterThan(0);
+        advisories.forEach((line) => {
+            expect(line).toMatch(/Apply foliar potassium immediately\./);
+            expect(line).not.toMatch(/verified in this system|label rate/i);
+            expect(line).not.toMatch(/\d+(\.\d+)?\s*(kg|L)\s*K?\s*\/\s*ha/i);
+        });
     });
 });

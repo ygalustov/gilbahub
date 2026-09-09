@@ -213,6 +213,26 @@
             var cfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
             if (Array.isArray(cfg)) cfg = {};
 
+            // GH-371 follow-up (independent review): this form never reads,
+            // edits, or otherwise legitimately needs to round-trip the
+            // cached nutrition programme -- cfg is just a full clone of
+            // whatever D.gaipConfig happened to hold at page load, and
+            // these three keys ride along as unintended baggage. Sent as-is,
+            // that clone can carry a now-stale programme (computed for the
+            // OLD coordinates, since this clone was taken before the edits
+            // below) straight back into the DB via this same save's PUT --
+            // including immediately after the sibling PATCH below has just
+            // cleared it server-side for this exact coordinate change (both
+            // requests fire together, see the Promise.all below). Stripped
+            // here so this save's PUT body can never carry them; the server
+            // side (SiteController::updateConfig()) independently also
+            // never lets a client payload overwrite these three keys with
+            // anything other than a freshly, correctly-stamped programme,
+            // so this is belt-and-braces, not the only guard.
+            delete cfg.nutritionProgram;
+            delete cfg.nutritionCalendarProgram;
+            delete cfg.nutritionProgramCoords;
+
             var _latVal = siteForm.querySelector('#stg-latitude').value;
             var _lonVal = siteForm.querySelector('#stg-longitude').value;
             var _latNum = _latVal !== '' ? parseFloat(_latVal) : null;
@@ -747,6 +767,14 @@
             // Array properties are silently dropped by JSON.stringify, so convert to object.
             if (Array.isArray(cfg)) cfg = {};
             cfg.turf = Object.assign({}, cfg.turf || {}, turf);
+
+            // GH-371 follow-up (independent review): same reasoning as the
+            // site form's save handler above -- this form doesn't touch
+            // nutrition-programme data either, so a possibly-stale
+            // D.gaipConfig clone must never carry these three keys back in.
+            delete cfg.nutritionProgram;
+            delete cfg.nutritionCalendarProgram;
+            delete cfg.nutritionProgramCoords;
 
             // soil_texture_override lives on the site model, not gaip config — save separately
             var saves = [
@@ -1538,6 +1566,19 @@
         tasks.push(apiFetch('PATCH', '/sites/' + encodeURIComponent(siteId), sitePatch));
 
         // 2. Save full turf + location + pgr config to DB gaip namespace
+        //
+        // GH-377: this body carries a (possibly new) species/methodology but
+        // never the cached nutrition programme, so the server's
+        // resolveGaipConfigWrite() (GH-371 follow-up) carries the existing DB
+        // programme forward unchanged — a programme computed under the
+        // PRE-import species then sits next to the post-import turf. That
+        // is intended here (this flow has no fresh programme to offer, and a
+        // wholesale clear would also wipe a still-valid one on a same-species
+        // import); what makes it safe is the read side: restoreConfig()
+        // (site-config-persistence.js) and restoreFromPersisted()
+        // (nutrition-calendar.js) compare the programme's stamped
+        // meta.species/methodology against the restored turf and refuse the
+        // stale copy, showing the regenerate state instead.
         tasks.push(apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', {
             config: { turf: t, location: cfg.location || {}, pgr: cfg.pgr || {} }
         }));

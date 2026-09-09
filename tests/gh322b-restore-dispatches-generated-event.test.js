@@ -23,14 +23,24 @@ const path = require('path');
 describe('GH-322 follow-up — restoreFromPersisted() dispatches gaip:nutrition-calendar-generated', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-calendar.js'), 'utf8');
 
-    function extractBlock(startMarker, maxLen) {
+    // GH-371: re-anchored to a following statement instead of a fixed
+    // character count, per this project's own lesson from three prior
+    // widenings of a similarly-shaped window elsewhere (GH-365's changelog
+    // entry) — a fixed maxLen breaks again every time unrelated code is
+    // inserted earlier in the same function (as GH-371's own D01
+    // coordinate-staleness check just did). `endMarker` names a statement
+    // that is stable regardless of how much grows before it.
+    function extractBlock(startMarker, endMarker, trailing) {
         const idx = src.indexOf(startMarker);
         expect(idx).toBeGreaterThan(-1);
-        return src.slice(idx, idx + maxLen);
+        const endIdx = src.indexOf(endMarker, idx);
+        expect(endIdx).toBeGreaterThan(idx);
+        return src.slice(idx, endIdx + endMarker.length + (trailing || 0));
     }
 
     test('restoreFromPersisted() dispatches the event after setting this.program', () => {
-        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {', 4000);
+        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {',
+            "document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated'", 200);
         const programAssignIdx = block.indexOf('this.program = program;');
         const dispatchIdx = block.indexOf("document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated'");
         expect(programAssignIdx).toBeGreaterThan(-1);
@@ -39,12 +49,20 @@ describe('GH-322 follow-up — restoreFromPersisted() dispatches gaip:nutrition-
     });
 
     test('dispatch uses the same detail shape (program) as the live generate() dispatch', () => {
-        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {', 4000);
+        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {',
+            "document.dispatchEvent(new CustomEvent('gaip:nutrition-calendar-generated'", 200);
         expect(block).toMatch(/detail:\s*\{\s*program:\s*this\.program\s*\}/);
     });
 
     test('early-return branches (already has a program, or nothing persisted) do not dispatch', () => {
-        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {', 1500);
+        // Bounded to just past the "no persisted program" early return —
+        // deliberately stops well before this.program is ever assigned, so
+        // it can't accidentally start matching content added between the
+        // early returns and the dispatch (e.g. GH-371's own coordinate
+        // check, which also `return`s early and must NOT count as a dispatch
+        // site here either).
+        const block = extractBlock('NutritionCalendar.restoreFromPersisted = function() {',
+            "console.log('[NutritionCalendar] persist-debug: SKIPPED — no persisted program, or missing annual_totals. program=', program);", 50);
         expect(block).toMatch(/if \(this\.program\) \{[\s\S]*?return;/);
         expect(block).toMatch(/if \(!program \|\| !program\.annual_totals\) \{[\s\S]*?return;/);
         // the early returns happen well before the dispatch line

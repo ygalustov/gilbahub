@@ -28,9 +28,24 @@ class SampleController extends Controller
             ? Site::pluck('id')
             : $user->sites()->pluck('sites.id');
 
+        // GH-375: was orderByDesc('lab_date')->orderByDesc('id') -- sorting on the
+        // raw, non-coalesced column. MySQL sorts NULLs last on DESC, so a sample
+        // with only a sample_date (no lab_date) landed behind every sample that
+        // has any lab_date, regardless of true chronological order -- diverging
+        // from PageController::topbarData()'s own tissue-sample choice, which
+        // orders by orderByRaw('COALESCE(lab_date, sample_date) DESC') (same
+        // file, ~line 84). On a genuine tie (equal effective date) that mismatch
+        // let this endpoint's array order disagree with topbarData()'s id-DESC
+        // tiebreak, which site-selector-ui.js's GH-372 fallback (assets/
+        // site-selector-ui.js reloadActiveSample()) then trusted for its own
+        // tiebreak, since it compares this endpoint's pre-coalesced `.date`
+        // field with strict `>` and falls back to array order otherwise. Sorting
+        // here by the same coalesced expression topbarData() uses makes the
+        // array order this endpoint returns, topbarData()'s own choice, and the
+        // client-side comparison all follow one rule.
         $query = Sample::query()->with(['site'])
             ->whereIn('site_id', $siteIds)
-            ->orderByDesc('lab_date')
+            ->orderByRaw('COALESCE(lab_date, sample_date) DESC')
             ->orderByDesc('id');
 
         if (! empty($data['site_id'])) {

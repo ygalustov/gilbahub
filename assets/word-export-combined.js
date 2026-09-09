@@ -1874,7 +1874,11 @@
 
             // Cotula S78 — engine doesn't model dicot sufficiency; keep placeholder
             // for the S78 sufficiency-table renderer downstream.
-            if (r.data.soil.methodology === 'cotula_s78' || r.data.soil.surfaceType === 'cotula_bowling_green') {
+            // GH-379: r.data.soil.methodology is upper-cased by word-export.js
+            // (this file's own ANR subtitle reads it as 'COTULA_S78' below), so
+            // the lowercase compare here never matched and only the surfaceType
+            // half of this test ever fired. Compare case-insensitively.
+            if (String(r.data.soil.methodology || '').toLowerCase() === 'cotula_s78' || r.data.soil.surfaceType === 'cotula_bowling_green') {
                 r._anr = { isCotula: true, s78: r.data.soil };
                 _cotulaCount++;
                 return;
@@ -2139,7 +2143,40 @@
                     Cu: parseFloat(r.data.soil.Cu) || 0,
                 };
                 if (r.data.soil.methodology) {
-                    perSampleInputs.methodology = r.data.soil.methodology;
+                    // GH-379: r.data.soil.methodology is word-export.js's
+                    // UPPER-CASED stamp ('AMMONIUM_ACETATE'). computeProgram()
+                    // now folds its own input, but hand it the calendar's
+                    // canonical key anyway so nothing else in this loop (the
+                    // Prebble P-deficiency threshold, the recommender contexts)
+                    // keys on a spelling the live page never produces.
+                    var _ncNorm = (window.GilbaNutritionCalendar &&
+                        typeof window.GilbaNutritionCalendar.normalizeMethodology === 'function')
+                        ? window.GilbaNutritionCalendar.normalizeMethodology(r.data.soil.methodology)
+                        : String(r.data.soil.methodology).trim().toLowerCase();
+                    if (_ncNorm) perSampleInputs.methodology = _ncNorm;
+                }
+
+                // GH-379 (found by the live re-check once the AA branch was
+                // actually reached): perSampleInputs.soilTexture / CEC came
+                // from collectFromState() on this page, where both are null,
+                // so computeProgram()'s deriveCode() could never resolve the
+                // Hill Labs certificate code and every AA sample ranged
+                // against the generic sands/others band (K 100-235) — while
+                // this same report's ANR and Soil Amendment sections had
+                // already resolved S277 (K 78.2-195.5) per sample via
+                // _buildEngineInputs(). Overlay the texture that resolution
+                // surfaced (engineInputs.soilTexture) and this sample's own
+                // CEC (data.soil.CEC, read per sample by collectData()), the
+                // same inputs the Plan page hands the calendar. Only overlay
+                // when resolved, as for tissue above — never clobber a real
+                // facility value with null.
+                var _eiTex = r.data.engineInputs && r.data.engineInputs.soilTexture;
+                if (_eiTex) {
+                    perSampleInputs.soilTexture = _eiTex;
+                }
+                var _sampleCEC = parseFloat(r.data.soil.CEC != null ? r.data.soil.CEC : r.data.soil.cec);
+                if (!isNaN(_sampleCEC) && _sampleCEC > 0) {
+                    perSampleInputs.CEC = _sampleCEC;
                 }
 
                 // GH-361 (Hoxton audit D07a): same "this sample's own data,
@@ -2545,6 +2582,10 @@
                         // NutritionPrebbleIntegration getters the live page calls, for parity
                         // rather than inventing a different source here.
                         var _pi = window.NutritionPrebbleIntegration;
+                        // GH-379: perSampleInputs.methodology is the folded
+                        // lowercase key (see the hand-off above), so this
+                        // compare is no longer defeated by word-export.js's
+                        // upper-cased stamp.
                         var _pThreshold = (perSampleInputs.methodology === 'mlsn') ? 21 : 30;
                         var _pDeficient = perSampleInputs.soilPpm && perSampleInputs.soilPpm.P != null
                             && perSampleInputs.soilPpm.P < _pThreshold;
@@ -3978,9 +4019,6 @@
                         var _wxTissue = (typeof window !== 'undefined' && window.GAIP_WordExport) || null;
                         var _kTissueState = (_wxTissue && _wxTissue._tissueSufficiencyState)
                             ? _wxTissue._tissueSufficiencyState('K', r.data) : null;
-                        var _noDoseNote = (_wxTissue && _wxTissue.TISSUE_K_CRITICAL_ADVISORY_NO_DOSE) ||
-                            'no generic foliar-K rate is verified in this system — apply the selected ' +
-                            'foliar-K product at its own label rate';
                         var _tissueLines;
                         if (!_kTissueState) {
                             _tissueLines = [{ text: '-', color: '9CA3AF' }];
@@ -4017,12 +4055,12 @@
                                 _tissueLines.push({
                                     text: 'K req (left) is this sample\'s measured K/N ratio, a ' +
                                         'replacement-dose estimate — not a statement that no action ' +
-                                        'is needed. Apply foliar potassium promptly; ' + _noDoseNote + '.',
+                                        'is needed. Apply foliar potassium immediately.',
                                     italics: true, size: 13, color: 'DC2626'
                                 });
                             } else {
                                 _tissueLines.push({
-                                    text: 'Apply foliar potassium promptly; ' + _noDoseNote + '.',
+                                    text: 'Apply foliar potassium immediately.',
                                     italics: true, size: 13, color: 'DC2626'
                                 });
                             }

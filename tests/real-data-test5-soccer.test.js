@@ -180,3 +180,102 @@ describe('Real data — Test5/Soccer (sample 141): K reconciliation classificati
         expect(result.state).not.toBe('no-need');
     });
 });
+
+describe('Real data — Test5/Soccer (sample 141): nutrition-calendar.js\'s computeProgram() — the OTHER engine — reproduces the same P/K/S ceiling (GH-374, Hoxton audit D06 / assertion 19)', () => {
+    // GH-374: real-data-test5-soccer.test.js already pinned this fixture's
+    // P/K/Ca/Mg/S ceiling through nutrition-requirement-engine.js's
+    // _calculateNutrientRequirement() (the describe block above), but
+    // nutrition-calendar.js's computeProgram() is a structurally separate
+    // implementation (GH-300's own comment: "never routed through the
+    // shared engine") with its own ceiling check. Every existing
+    // computeProgram() ceiling test (gh300, gh305, gh308, gh319) exercises K
+    // and/or S with a HAND-WRITTEN fake HillLabsSampleTypes -- grepping the
+    // whole tests/ tree for `annual_totals.P` before this addition returns
+    // zero matches, so computeProgram()'s P ceiling had no coverage at all,
+    // the exact gap the Hoxton audit's assertion 19 ("same assertion for P
+    // and S, symmetrically") flags. This block closes it with the REAL
+    // HillLabsSampleTypes/AmmoniumAcetateMethodology modules (already loaded
+    // real, not faked, earlier in this file) and the same confirmed-live
+    // fixture, rather than re-implementing the ceiling arithmetic here.
+    let NutritionCalendar;
+    let program;
+
+    beforeAll(() => {
+        global.window.GilbaGrowthPotentialEngine =
+            global.window.GilbaGrowthPotentialEngine || require('../assets/growth-potential-engine.js');
+        require('../assets/nutrition-calendar.js');
+        NutritionCalendar = global.window.GilbaNutritionCalendar;
+
+        // A plausible 12-month temperature series -- computeProgram() only
+        // requires monthlyTemps to be complete (all 12 months numeric) to
+        // pass STEP 1; the annual ceiling totals asserted below are computed
+        // in STEP 4/5 from soilPpm/aaRanges, not from these values, so their
+        // exact figures don't matter to this test the way they would to a
+        // monthly-distribution test.
+        const monthlyTemps = [19.8, 20.4, 19.1, 17, 14.7, 12.6, 11.4, 11.8, 12.9, 14.2, 16, 18.2];
+
+        program = NutritionCalendar.computeProgram({
+            annualNOverride: fixture.inputs.annualNOverride,
+            traffic: 'moderate',
+            clippingManagement: 'collected',
+            bulkDensity: 1.4,
+            soilDepth: 10,
+            methodology: fixture.inputs.methodology,
+            species: 'perennialRyegrass',
+            speciesDisplay: fixture.inputs.species,
+            soilTexture: fixture.inputs.soilTexture,
+            CEC: fixture.inputs.CEC,
+            isC4: false,
+            distribution: 'gp_weighted',
+            monthlyTemps: monthlyTemps,
+            soilPpm: fixture.inputs.soilPpm,
+        });
+    });
+
+    test('computeProgram() ran clean against the real fixture (no error, no climate-unavailable fallback)', () => {
+        expect(program.error).toBeUndefined();
+        expect(program.climateDataUnavailable).toBeUndefined();
+    });
+
+    test.each(['P', 'K', 'Ca', 'Mg', 'S'])(
+        '%s: annual_totals is zeroed by the ceiling, matching nutrition-requirement-engine.js\'s suppress-above-ceiling result for the same fixture',
+        (nutrient) => {
+            const expected = fixture.expected.nutrientRequirement[nutrient];
+            expect(expected.annualRequirement).toBe(0); // sanity: fixture itself expects a ceiling hit for every one of these
+            expect(program.annual_totals[nutrient]).toBe(0);
+        }
+    );
+
+    test('P specifically: the range source is "certificate" (S277 prints a real Olsen P range), not the texture fallback', () => {
+        expect(program.annual_totals_range_source.P).toBe('certificate');
+        expect(program.annual_totals_range.P.min).toBe(fixture.expected.ranges.P.min);
+        expect(program.annual_totals_range.P.max).toBe(fixture.expected.ranges.P.max);
+    });
+
+    test('S specifically: the range source is the generic sands fallback (S277 prints no S range at all), and it still ceilings', () => {
+        expect(program.annual_totals_range_source.S).toBe('texture-fallback');
+        expect(program.annual_totals_range.S.min).toBe(fixture.expected.ranges.S.min);
+        expect(program.annual_totals_range.S.max).toBe(fixture.expected.ranges.S.max);
+    });
+
+    test('regression guard: a P level actually below the certificate ceiling is NOT zeroed (proves the assertions above are load-bearing, not a fixture that always zeroes)', () => {
+        const belowCeiling = NutritionCalendar.computeProgram({
+            annualNOverride: fixture.inputs.annualNOverride,
+            traffic: 'moderate',
+            clippingManagement: 'collected',
+            bulkDensity: 1.4,
+            soilDepth: 10,
+            methodology: fixture.inputs.methodology,
+            species: 'perennialRyegrass',
+            speciesDisplay: fixture.inputs.species,
+            soilTexture: fixture.inputs.soilTexture,
+            CEC: fixture.inputs.CEC,
+            isC4: false,
+            distribution: 'gp_weighted',
+            monthlyTemps: [19.8, 20.4, 19.1, 17, 14.7, 12.6, 11.4, 11.8, 12.9, 14.2, 16, 18.2],
+            soilPpm: Object.assign({}, fixture.inputs.soilPpm, { P: 15 }), // real S277 floor is 20 -- 15 sits below it
+        });
+        expect(belowCeiling.error).toBeUndefined();
+        expect(belowCeiling.annual_totals.P).toBeGreaterThan(0);
+    });
+});
