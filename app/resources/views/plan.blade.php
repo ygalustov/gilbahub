@@ -1024,6 +1024,20 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
      deliberately-lightweight-page gap as GH-301/303). Must load before
      nutrition-calendar.js. --}}
 <script src="{{ $legacyAssetUrl('ammonium-acetate-methodology.js') }}"></script>
+{{-- GH-383 (D31 stage 0): the SSOT threshold/range constants. The calendar
+     carried fallback literals for MLSN/SLAN because this file was never loaded
+     on Plan — numerically identical today (MLSN S: 7 since b35fix301a), but it
+     meant the Plan page and the export could drift apart the moment the SSOT
+     changed. Verified numerically by
+     tests/gh383-nutrition-program-inputs.test.js. --}}
+<script src="{{ $legacyAssetUrl('gaip-classification-constants.js') }}"></script>
+{{-- GH-383 (D31 stage 0/2): the shared per-nutrient requirement core and the
+     shared programme input adapter. computeProgram() delegates its removal /
+     correction / ceiling-floor arithmetic and its range resolution to these,
+     so the Plan page and the Word export compute from one implementation.
+     Must load before nutrition-calendar.js. --}}
+<script src="{{ $legacyAssetUrl('nutrition-requirement-core.js') }}"></script>
+<script src="{{ $legacyAssetUrl('nutrition-program-inputs.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 {{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
      so this page doesn't need to load the entire export module just for the

@@ -80,10 +80,19 @@ describe('GH-370 — ppm deficit is converted to kg/ha before the yearly spread'
             climate: { monthlyTemps: null },
         });
         expect(r.perSample.Mg.status).toBe('Very Low');
+        // GH-383 / decision D-6: the lift target is the MLSN MINIMUM itself
+        // (the Plan page's rule), not 1.5 x the minimum. Re-derived by hand
+        // for the new rule rather than adjusted until green:
+        //   threshold 47, reading 10 -> deficit 37 ppm
+        //   37 * 1.4 g/cm3 * 10 cm * 0.1 = 51.8 kg/ha
+        //   / 3 years (Mg is an immobile cation) = 17.2667 kg/ha/yr
+        // The pre-GH-383 engine lifted to 70.5 (47 x 1.5) and produced 28.2333.
         const threshold = Engine._getMLSNThreshold('Mg', 7);
-        const target = Engine._getMLSNTarget('Mg', 7);
-        const expectedDeficitKgHa = (target - 10) * 1.4 * 10 * 0.1;
+        expect(threshold).toBe(47);
+        const expectedDeficitKgHa = (threshold - 10) * 1.4 * 10 * 0.1;
+        expect(expectedDeficitKgHa).toBeCloseTo(51.8, 6);
         expect(r.perSample.Mg.correctionRequired).toBeCloseTo(expectedDeficitKgHa / 3, 5); // Mg yearsToCorrect = 3
+        expect(r.perSample.Mg.correctionRequired).toBeCloseTo(17.2667, 3);
     });
 
     test('regression guard: Hoxton\'s own real fixture (all nutrients above ceiling) is completely unaffected -- correction stays exactly 0', () => {
@@ -120,8 +129,18 @@ describe('GH-370 — ppm deficit is converted to kg/ha before the yearly spread'
         expect(calendarSrc).toMatch(/defaultSoilDepth:\s*10,/);
         expect(calendarSrc).toMatch(/defaultBulkDensity:\s*1\.4,/);
 
+        // GH-383: the two defaults moved into the shared core, which is now
+        // the only place either engine converts a ppm deficit to kg/ha.
+        const coreSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-requirement-core.js'), 'utf8');
+        expect(coreSrc).toMatch(/DEFAULT_BULK_DENSITY_G_CM3\s*=\s*1\.4;/);
+        expect(coreSrc).toMatch(/DEFAULT_SOIL_DEPTH_CM\s*=\s*10;/);
         const engineSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-requirement-engine.js'), 'utf8');
-        expect(engineSrc).toMatch(/DEFAULT_BULK_DENSITY_G_CM3\s*=\s*1\.4;/);
-        expect(engineSrc).toMatch(/DEFAULT_SOIL_DEPTH_CM\s*=\s*10;/);
+        expect(engineSrc).toMatch(/get DEFAULT_BULK_DENSITY_G_CM3\(\) \{ return _core\(\)\.DEFAULT_BULK_DENSITY_G_CM3; \}/);
+        expect(engineSrc).toMatch(/get DEFAULT_SOIL_DEPTH_CM\(\) \{ return _core\(\)\.DEFAULT_SOIL_DEPTH_CM; \}/);
+        // Re-exported lazily, not copied: one pair of defaults in the product.
+        const Engine2 = require('../assets/nutrition-requirement-engine.js');
+        const Core2 = require('../assets/nutrition-requirement-core.js');
+        expect(Engine2.DEFAULT_BULK_DENSITY_G_CM3).toBe(Core2.DEFAULT_BULK_DENSITY_G_CM3);
+        expect(Engine2.DEFAULT_SOIL_DEPTH_CM).toBe(Core2.DEFAULT_SOIL_DEPTH_CM);
     });
 });

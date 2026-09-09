@@ -46,8 +46,13 @@ describe('GH-311 — nutrition-calendar.js exposes soil unit-conversion data + r
         expect(src).toMatch(/soilDepth:\s*inputs\.soilDepth,/);
     });
 
-    test('computeProgram() return object includes annual_totals_range: aaRanges', () => {
-        expect(src).toMatch(/annual_totals_range:\s*aaRanges,/);
+    test('computeProgram() return object includes annual_totals_range', () => {
+        // GH-384: the ranges are resolved by the shared adapter now, and the
+        // published {min,max} shape is built explicitly rather than being the
+        // resolver's own object — which also carries a methodology label and a
+        // citation that are not part of this output contract.
+        expect(src).toMatch(/annual_totals_range:\s*annualTotalsRange,/);
+        expect(src).toMatch(/annualTotalsRange\[n\] = r \? \{ min: r\.min, max: r\.max \} : null;/);
     });
 });
 

@@ -118,7 +118,7 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
     test('Combined export path (nutrition-requirement-engine.js): K req 84.1 / P req 40.9 follow the CONVERTED correction and the real-annualN removal basis (GH-370 + GH-381)', () => {
         const r = Engine.compute({
             soil: Object.assign({ methodology: 'AMMONIUM_ACETATE', pH: IN.pH, CEC: IN.CEC }, IN.soilPpm),
-            turf: { species: IN.speciesKey, clippingsCollected: true, trafficIntensity: 'moderate', nProgramKgHaYr: IN.annualN },
+            turf: { species: IN.speciesKey, clippingManagement: 'collected', nProgramKgHaYr: IN.annualN },
             climate: { monthlyTemps: null },
             aaRanges: aaRanges,
             tissuePercent: IN.tissuePercent
@@ -177,9 +177,12 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
     test('GH-376 shared core on the same inputs: same converted correction, removal on the real-N basis (K 84.1 / P 40.9)', () => {
         const c = Core.compute({
             soilValues: IN.soilPpm, species: IN.speciesKey, annualN: IN.annualN,
-            methodology: 'AMMONIUM_ACETATE', ph: IN.pH, aaRanges: aaRanges,
+            // GH-383: the core takes caller-resolved `ranges` for all three
+            // methodologies and the clipping STRING; traffic is gone from the
+            // per-nutrient path (it scales annualN upstream in the adapter).
+            methodology: 'AMMONIUM_ACETATE', ph: IN.pH, ranges: aaRanges,
             tissuePercent: IN.tissuePercent, bulkDensity: IN.bulkDensity, soilDepth: IN.soilDepth,
-            clippingsCollected: true, trafficIntensity: 'moderate'
+            clippingManagement: 'collected'
         });
         ['K', 'P'].forEach((n) => {
             expect(c.perSample[n].removal).toBe(EX.sharedCore[n].removal);
@@ -191,13 +194,13 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
     function threeWay() {
         const e = Engine.compute({
             soil: Object.assign({ methodology: 'AMMONIUM_ACETATE', pH: IN.pH }, IN.soilPpm),
-            turf: { species: IN.speciesKey, clippingsCollected: true, trafficIntensity: 'moderate', nProgramKgHaYr: IN.annualN },
+            turf: { species: IN.speciesKey, clippingManagement: 'collected', nProgramKgHaYr: IN.annualN },
             climate: { monthlyTemps: null }, aaRanges: aaRanges, tissuePercent: IN.tissuePercent
         }).perSample;
         const c = Core.compute({
             soilValues: IN.soilPpm, species: IN.speciesKey, annualN: IN.annualN, methodology: 'AMMONIUM_ACETATE',
-            ph: IN.pH, aaRanges: aaRanges, tissuePercent: IN.tissuePercent,
-            bulkDensity: IN.bulkDensity, soilDepth: IN.soilDepth, clippingsCollected: true, trafficIntensity: 'moderate'
+            ph: IN.pH, ranges: aaRanges, tissuePercent: IN.tissuePercent,
+            bulkDensity: IN.bulkDensity, soilDepth: IN.soilDepth, clippingManagement: 'collected'
         }).perSample;
         const p = Calendar.computeProgram({
             annualNOverride: IN.annualN, traffic: 'moderate', clippingManagement: 'collected',

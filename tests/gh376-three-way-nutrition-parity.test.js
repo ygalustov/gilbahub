@@ -1,39 +1,33 @@
 /**
- * GH-376 — Stage 1 of the D31 unification (PLAN-remaining-defects.md D31 /
- * Decision 11, approved by the client for Option 1). Runs the same inputs
- * through THREE implementations — the new shared, pure
- * `assets/nutrition-requirement-core.js`, and the two existing engines
- * (`nutrition-calendar.js`'s `computeProgram()`, `nutrition-requirement-
- * engine.js`'s `NutritionRequirementEngine_Pure.compute()`) — and pins
- * exactly where they agree and where they don't, per nutrient, per fixture.
+ * D31 engine parity — GH-376 (extraction) → GH-383 (the export routed through
+ * the shared core) → GH-384 (the Plan page routed through it too).
  *
- * Stage 1 note: this does NOT change either existing engine. It proves the
- * new core is a faithful, provable extraction and documents precisely which
- * named constant is responsible for each remaining three-way delta, so the
- * later cutover stage knows exactly which numbers will move and why.
+ * This file used to be a THREE-way comparison, because there were three
+ * implementations of the per-nutrient requirement: nutrition-calendar.js's
+ * computeProgram(), nutrition-requirement-engine.js's own branches, and the
+ * extracted-but-unused core. It is now a TWO-way comparison of the two
+ * SURFACES — the Plan page's calendar and the Word export's engine — both of
+ * which delegate the arithmetic to assets/nutrition-requirement-core.js.
  *
  * ===========================================================================
- * DIVERGENCE TABLE — read this before reading the test bodies below.
+ * WHAT EACH OF THE ORIGINAL FIVE DIVERGENCES BECAME
  * ===========================================================================
  *
- * | # | Cause                          | Core & Calendar | Core & Engine | Calendar & Engine | Fixture |
- * |---|---------------------------------|-----------------|----------------|--------------------|---------|
- * | 1 | N basis (real annualN vs table.N) | AGREE (both real N) | DIVERGE (~annualN/table.N ratio, e.g. 200/180=11.1%) | DIVERGE (same ~11.1%) | B, C, D |
- * | 2 | Generic ratio: species-flat (calendar, P0.10/K0.55 for ALL species) vs species-specific table (core & engine) | DIVERGE (small, e.g. K: 0.5556 vs 0.55 = ~1%) | AGREE (both use REMOVAL_RATES table) | DIVERGE (same ~1%, PRG only — larger for other species, see "species ratio" test) | B |
- * | 2b| Same, but tissue-governed (P/K only) | Tissue ratio itself already unified (GH-368) — #2 does NOT apply when tissue governs | n/a | n/a | C |
- * | 3 | pH-adjusted P floor/threshold (Spencer scaled-ladder, core & engine) vs flat, unadjusted floor (calendar, no ladder at all) | DIVERGE (large away from pH 6.0-7.5, e.g. ~13kg/ha at pH 5.0) | AGREE (both pH-adjusted) | DIVERGE (same, large) | D |
- * | 4 | Clipping-collection model: calendar's cited model (collected=1.0 baseline, returned reduces P/K 0.4/0.5) ported into core AS-IS vs engine's uncited model (not-collected=1.0 baseline, collected AMPLIFIES 2.5x, MLSN-only) | AGREE (core ported calendar's model) | DIVERGE (opposite polarity + magnitude + methodology scope) | DIVERGE | E |
- * | 5 | Traffic modifier: core is deliberately NEUTRAL (1.0 all tiers, unresolved — see module docblock) vs calendar's (0.85-1.3, applied to annualN pre-ratio) vs engine's (0.8-1.5, applied to removal, MLSN-only) | DIVERGE whenever traffic != moderate | DIVERGE whenever traffic != moderate | DIVERGE (different magnitude AND different application point) | E |
- * | — | Ceiling/floor dispatch, AA/SLAN/MLSN three-tier logic, ppm->kg/ha conversion (GH-370), tissue-ratio gate (GH-368/369), YEARS_TO_CORRECT, MLSN target multiplier (1.5x), SLAN Carrow-2004 ranges | ALL THREE AGREE | ALL THREE AGREE | ALL THREE AGREE | A |
+ * | # | Cause                                    | Closed by | How |
+ * |---|------------------------------------------|-----------|-----|
+ * | 1 | N basis (real annualN vs the species table's own N) | GH-381 + GH-383 | one `annualN`, resolved by nutrition-program-inputs.js, scales every ratio on both surfaces |
+ * | 2 | Generic ratio: the calendar's flat P 0.10 / K 0.55 for every species vs the per-species REMOVAL_RATES table | GH-384 (decision D-5) | the core's species table governs both surfaces |
+ * | 3 | pH-adjusted P floor: engine had the Spencer ladder, the calendar had none | GH-382 (SLAN) + GH-384 (MLSN, decision D-7) | one ladder, in the core, applied by the shared range resolver |
+ * | 4 | Clipping model: calendar's cited table vs the engine's uncited, MLSN-only, opposite-polarity 2.5x amplifier | GH-383 (decision D-1) | the calendar's table, in the core, on all three methodologies |
+ * | 5 | Traffic modifier: two different tables applied at two different points | GH-383 (decisions D-2/D-3) | removed from the per-nutrient path entirely; it scales annualN once, upstream |
+ * | 6 | MLSN below-threshold lift target: 1.5x the minimum vs the minimum itself | GH-383 (decision D-6) | the minimum itself, on both surfaces — the export's numbers drop, deliberately |
+ * | 7 | Ceiling at exact equality: `>` vs `>=` | GH-383 (decision D-8) | `>=` everywhere |
+ * | 8 | A nutrient with no soil reading: omitted vs removal-only | GH-383 (decision D-9) | returned as removal-only, flagged, on both |
  *
- * Items 1-2 are exactly the two named in the audit's own D31 text (N basis,
- * "removal-rate table"). Item 3 (pH-adjusted P) and item 2's
- * species-vs-flat-ratio distinction were found DURING this extraction, not
- * previously named in the audit or PLAN-remaining-defects.md — reported as
- * new findings. Items 4-5 are the audit's named "clipping factors" and
- * "traffic modifiers" — item 4 was resolved (citation asymmetry, see the
- * core's own module docblock); item 5 was deliberately left unresolved
- * (neither side cited) and is flagged for the client's ruling.
+ * The remaining, documented, unavoidable difference is ROUNDING: the calendar
+ * rounds removal to whole kg at STEP 2 and again at STEP 3 and totals to whole
+ * kg, while the core is canonical at 0.1 kg/ha. That is ±1 kg/ha and is
+ * asserted as such below — never widened.
  */
 
 'use strict';
@@ -43,19 +37,25 @@ const path = require('path');
 
 global.window = global.window || {};
 global.document = global.document || {
+    readyState: 'complete',
     addEventListener: function () {},
+    getElementById: function () { return null; },
     querySelector: function () { return null; },
     querySelectorAll: function () { return []; }
 };
 global.console = { log: function () {}, warn: function () {}, error: function () {}, info: function () {} };
 global.localStorage = { getItem: function () { return null; }, setItem: function () {} };
 
+const Core = require('../assets/nutrition-requirement-core.js');
+global.window.NutritionRequirementCore = Core;
+const Inputs = require('../assets/nutrition-program-inputs.js');
+global.window.GAIP_NutritionProgramInputs = Inputs;
+
 global.window.GilbaGrowthPotentialEngine = require('../assets/growth-potential-engine.js');
 require('../assets/nutrition-calendar.js');
 const NutritionCalendar = global.window.GilbaNutritionCalendar;
 
 const Engine = require('../assets/nutrition-requirement-engine.js');
-const Core = require('../assets/nutrition-requirement-core.js');
 
 const MONTHLY_TEMPS_0_11 = [20, 20, 18, 15, 12, 9, 8, 9, 11, 14, 17, 19];
 
@@ -63,6 +63,7 @@ function calendarInputs(overrides) {
     return Object.assign({
         annualNOverride: 200,
         traffic: 'moderate',
+        trafficModifier: 1.0,
         clippingManagement: 'collected',
         bulkDensity: 1.4,
         soilDepth: 10,
@@ -87,7 +88,8 @@ function fakeHillLabsSampleTypes(rangesByNutrient) {
     };
 }
 
-function engineInputs(overrides) {
+/** The export path: engine.compute() with the adapter-shaped inputs. */
+function exportPath(overrides) {
     const o = Object.assign({
         annualN: 200,
         species: 'perennialRyegrass',
@@ -96,229 +98,215 @@ function engineInputs(overrides) {
         soilPpm: { P: 25, K: 150, Ca: 600, Mg: 60, S: 40 },
         bulkDensity: 1.4,
         soilDepth: 10,
-        clippingsCollected: true,
-        trafficIntensity: 'moderate',
+        clippingManagement: 'collected',
         aaRanges: { P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } },
         tissuePercent: null,
     }, overrides);
-    return {
-        engine: {
-            soil: Object.assign({ methodology: o.methodology, pH: o.ph, bulkDensity: o.bulkDensity, depth: o.soilDepth }, o.soilPpm),
-            turf: { species: o.species, clippingsCollected: o.clippingsCollected, trafficIntensity: o.trafficIntensity },
-            climate: { monthlyTemps: null },
-            aaRanges: o.aaRanges,
-            tissuePercent: o.tissuePercent,
-        },
-        core: {
-            soilValues: o.soilPpm,
-            species: o.species,
-            annualN: o.annualN,
-            methodology: o.methodology,
-            ph: o.ph,
-            aaRanges: o.aaRanges,
-            tissuePercent: o.tissuePercent,
-            bulkDensity: o.bulkDensity,
-            soilDepth: o.soilDepth,
-            clippingsCollected: o.clippingsCollected,
-            trafficIntensity: o.trafficIntensity,
-        },
-    };
+    return Engine.compute({
+        soil: Object.assign({ methodology: o.methodology, pH: o.ph, bulkDensity: o.bulkDensity, depth: o.soilDepth }, o.soilPpm),
+        turf: { species: o.species, clippingManagement: o.clippingManagement, nProgramKgHaYr: o.annualN },
+        climate: { monthlyTemps: null },
+        aaRanges: o.aaRanges,
+        tissuePercent: o.tissuePercent,
+    });
 }
 
-describe('GH-376 Fixture A — real Hoxton-equivalent fixture (test5-soccer-sample141), above ceiling: ALL THREE AGREE', () => {
+describe('D31 Fixture A — real fixture (test5-soccer-sample141), every nutrient above ceiling', () => {
     const fixture = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures/test5-soccer-sample141.json'), 'utf8'));
     const aaRanges = {};
     Object.keys(fixture.expected.ranges).forEach((n) => {
         aaRanges[n] = { min: fixture.expected.ranges[n].min, max: fixture.expected.ranges[n].max };
     });
 
-    test.each(['P', 'K', 'Ca', 'Mg', 'S'])('%s: core, calendar, and engine all suppress to 0 (above ceiling)', (nutrient) => {
-        const coreR = Core.compute({
-            soilValues: fixture.inputs.soilPpm, species: 'perennialRyegrass',
-            annualN: fixture.inputs.annualNOverride, methodology: 'AMMONIUM_ACETATE',
-            ph: fixture.inputs.pH, aaRanges: aaRanges, nutrients: [nutrient]
+    test.each(['P', 'K', 'Ca', 'Mg', 'S'])('%s: both surfaces suppress to 0', (nutrient) => {
+        const eng = exportPath({
+            annualN: fixture.inputs.annualNOverride, soilPpm: fixture.inputs.soilPpm,
+            ph: fixture.inputs.pH, aaRanges: aaRanges
         });
-        const engineR = Engine._calculateNutrientRequirement(nutrient, fixture.inputs.soilPpm[nutrient], {
-            methodology: 'AMMONIUM_ACETATE', species: 'perennialRyegrass', aaRange: aaRanges[nutrient],
-        });
-
         global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes(aaRanges);
-        const calProgram = NutritionCalendar.computeProgram(calendarInputs({
+        const cal = NutritionCalendar.computeProgram(calendarInputs({
             annualNOverride: fixture.inputs.annualNOverride,
             soilPpm: fixture.inputs.soilPpm,
-            methodology: 'ammonium_acetate',
         }));
-
-        expect(coreR.perSample[nutrient].annualRequirement).toBe(0);
-        expect(engineR.annualRequirement).toBe(0);
-        expect(calProgram.annual_totals[nutrient]).toBe(0);
+        expect(eng.perSample[nutrient].annualRequirement).toBe(0);
+        expect(cal.annual_totals[nutrient]).toBe(0);
     });
 });
 
-describe('GH-376 Fixture B — AA, removal-only (within range), no tissue: N-basis (item 1) + species-ratio (item 2) isolated', () => {
-    // annualN=200 (Hoxton's real target), species table N=180 (perennialRyegrass)
-    // -> engine's non-tissue removal is FLAT (table value, unscaled); core/
-    // calendar both scale to the real 200. Clipping neutralised (collected)
-    // and traffic neutralised (moderate) so ONLY items 1/2 are visible.
-    const inputs = engineInputs({});
-
-    test('P: core and calendar AGREE (species P/N ratio 18/180=0.10 equals calendar\'s flat 0.10 exactly) -- both diverge from engine by the real N-basis fix, reproducing the audit\'s own quoted UI figure (20.0) vs export figure (18.0)', () => {
-        const coreR = Core.compute(inputs.core);
-        const engineR = Engine.compute(inputs.engine);
-
-        expect(coreR.perSample.P.removal).toBe(20.0); // 18 * 200/180
-        expect(engineR.perSample.P.removal).toBe(18.0); // table flat, unscaled -- the exact export figure the audit quotes
-        expect(coreR.perSample.P.removal).toBeCloseTo(engineR.perSample.P.removal * (200 / 180), 5);
-
-        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes(inputs.core.aaRanges);
-        const calProgram = NutritionCalendar.computeProgram(calendarInputs({}));
-        expect(calProgram.annual_removal.P).toBe(20); // matches core exactly (0.10 flat === 18/180)
-        expect(calProgram.annual_totals.P).toBe(20);  // removal-only, no lift (25 is within 20-30)
+describe('D31 Fixture B — AA, within range (removal-only), no tissue', () => {
+    test('the export path scales every ratio against the site\'s REAL annual N (divergence 1, closed)', () => {
+        const eng = exportPath({});
+        // perennialRyegrass P/N = 18/180 = 0.10 -> 20.0 at N=200. The
+        // pre-GH-381 engine printed the table's flat 18.0 here, which is the
+        // exact figure the D31 audit quotes against the UI's 20.0.
+        expect(eng.perSample.P.removal).toBe(20.0);
+        expect(eng.perSample.K.removal).toBeCloseTo(200 * (100 / 180), 1);
     });
 
-    test('K: core and calendar are CLOSE but not identical (species-specific ratio 0.5556 vs calendar\'s flat 0.55, item 2) -- both diverge from engine by the N-basis (item 1)', () => {
-        const coreR = Core.compute(inputs.core);
-        const engineR = Engine.compute(inputs.engine);
-
-        expect(coreR.perSample.K.removal).toBeCloseTo(200 * (100 / 180), 1); // 111.1 -- species-specific table ratio
-        expect(engineR.perSample.K.removal).toBe(100.0); // table flat, unscaled
-
-        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes(inputs.core.aaRanges);
-        const calProgram = NutritionCalendar.computeProgram(calendarInputs({}));
-        expect(calProgram.annual_removal.K).toBe(110); // 200 * 0.55 (calendar's flat ratio) -- NOT 111.1
-
-        // Item 2 in isolation: core vs calendar, same N basis, different ratio source.
-        expect(Math.abs(coreR.perSample.K.removal - calProgram.annual_removal.K)).toBeGreaterThan(0.5);
-        expect(Math.abs(coreR.perSample.K.removal - calProgram.annual_removal.K)).toBeLessThan(3);
-
-        // Item 1 in isolation: calendar vs engine, same (flat-ish) ratio family, different N basis.
-        // 110 (real N=200, flat 0.55) vs 100 (table N=180, flat 0.556) -- ~10% apart,
-        // matching the audit's own "land 10% apart" wording almost exactly.
-        const pctApart = Math.abs(calProgram.annual_totals.K - engineR.perSample.K.annualRequirement) / engineR.perSample.K.annualRequirement;
-        expect(pctApart).toBeGreaterThan(0.08);
-        expect(pctApart).toBeLessThan(0.12);
-    });
-});
-
-describe('GH-376 Fixture C — AA, WITH a real tissue sample: tissue ratio itself is already unified (GH-368), but the two engines STILL land ~11% apart on the scaling basis', () => {
-    // Same tissue reading nutrition-calendar.js's own GH-361 comment cites
-    // for the real Hoxton capture (P/N 0.136, K/N 0.667-ish order) -- using
-    // this repo's own cross-checked Test5-NZ tissue sample id 144 values
-    // (same ones GH-368's own test file uses) since Hoxton's raw tissue
-    // ppm/percent isn't in this repo's fixture set, only the audit's
-    // summarised ratios.
-    const TISSUE = { N: 4.57, P: 0.62, K: 1.05 };
-    const inputs = engineInputs({ tissuePercent: TISSUE });
-
-    test('P and K: tissue ratio agrees across all three inputs, but core/calendar (real N=200) vs engine (table N=180) still diverge by the N-basis alone -- this is the residual D31 gap even after the tissue-gate work', () => {
-        const coreR = Core.compute(inputs.core);
-        const engineR = Engine.compute(inputs.engine);
-        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes(inputs.core.aaRanges);
-        const calProgram = NutritionCalendar.computeProgram(calendarInputs({ tissuePercent: TISSUE }));
-
-        expect(coreR.tissueGateApplied).toBe(true);
-        expect(calProgram.tissue_gate_applied).toBe(true);
-
-        // Core and calendar: same tissue ratio, same real N=200 basis -- agree closely.
-        expect(coreR.perSample.P.removal).toBeCloseTo(calProgram.annual_removal.P, 0);
-        expect(coreR.perSample.K.removal).toBeCloseTo(calProgram.annual_removal.K, 0);
-        // K matches the exact figure GH-368's own changelog entry quotes for
-        // this tissue reading ("the calendar answered 46 kg K/ha").
-        expect(Math.round(coreR.perSample.K.removal)).toBe(46);
-        expect(Math.round(calProgram.annual_removal.K)).toBe(46);
-
-        // Engine: same tissue ratio, but scaled against table.N=180, not 200.
-        const expectedEngineP = Math.round(180 * (0.62 / 4.57) * 10) / 10;
-        const expectedEngineK = Math.round(180 * (1.05 / 4.57) * 10) / 10;
-        expect(engineR.perSample.P.removal).toBe(expectedEngineP);
-        expect(engineR.perSample.K.removal).toBe(expectedEngineK);
-
-        // The residual gap: core vs engine, ~200/180 = 1.111x apart on BOTH
-        // nutrients, despite identical tissue ratios -- this is D31's
-        // symptom surviving the tissue-gate work exactly as
-        // REVIEW-GH349-onward.md's cross-cutting question 1 already flags.
-        expect(coreR.perSample.P.removal / engineR.perSample.P.removal).toBeCloseTo(200 / 180, 2);
-        expect(coreR.perSample.K.removal / engineR.perSample.K.removal).toBeCloseTo(200 / 180, 2);
-    });
-});
-
-describe('GH-376 Fixture D — SLAN, below floor: pH-adjusted P ladder (item 3, found during extraction, not previously named)', () => {
-    test('at pH 5.0: core and engine both use the Spencer scaled-ladder floor (45ppm); calendar has no pH adjustment at all (flat 27ppm floor) -- a real, large (~13kg/ha) three-way divergence distinct from N-basis/clipping/traffic', () => {
-        const inputs = engineInputs({
-            methodology: 'SLAN', ph: 5.0, soilPpm: { P: 20, K: 150, Ca: 600, Mg: 60, S: 40 },
-            aaRanges: null,
+        // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
+    // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
+    // plain assertion.
+test('both surfaces agree on P and K removal and requirement, within the documented rounding', () => {
+        const eng = exportPath({});
+        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } });
+        const cal = NutritionCalendar.computeProgram(calendarInputs({}));
+        ['P', 'K'].forEach((n) => {
+            expect(Math.abs(eng.perSample[n].removal - cal.annual_removal[n])).toBeLessThanOrEqual(1);
+            expect(Math.abs(eng.perSample[n].annualRequirement - cal.annual_totals[n])).toBeLessThanOrEqual(1);
         });
-        const coreR = Core.compute(Object.assign({}, inputs.core, { methodology: 'SLAN' }));
-        const engineR = Engine.compute(Object.assign({}, inputs.engine, { soil: Object.assign({}, inputs.engine.soil, { methodology: 'SLAN' }) }));
-
-        expect(coreR.perSample.P.floor).toBe(45); // pH<=5.5 rung
-        expect(engineR.perSample.P.threshold).toBe(null); // SLAN uses floor/ceiling fields, not threshold
-        // Engine exposes floor via the SLAN branch's own return shape -- confirm parity directly.
-        const engineP = Engine._calculateNutrientRequirement('P', 20, { methodology: 'SLAN', species: 'perennialRyegrass', ph: 5.0 });
-        expect(engineP.floor).toBe(45);
-
-        const calProgram = NutritionCalendar.computeProgram(calendarInputs({
-            methodology: 'slan', soilPpm: { P: 20, K: 150, Ca: 600, Mg: 60, S: 40 },
-        }));
-        expect(calProgram.annual_totals_range.P.min).toBe(27); // calendar's flat, non-pH-adjusted SLAN floor
-
-        // Core and engine agree closely with each other (same pH-adjusted
-        // floor; the only residual delta between them is the N-basis, small
-        // here since collected+moderate neutralise clipping/traffic).
-        expect(coreR.perSample.P.annualRequirement).toBeCloseTo(37.5, 1);
-        expect(engineR.perSample.P.annualRequirement).toBeCloseTo(35.5, 1);
-
-        // Calendar, using the unadjusted floor, lands far below both.
-        expect(calProgram.annual_totals.P).toBe(25);
-
-        const coreVsCalendarDelta = coreR.perSample.P.annualRequirement - calProgram.annual_totals.P;
-        expect(coreVsCalendarDelta).toBeGreaterThan(10); // ~12.5kg, driven entirely by item 3
     });
 
-    test('at pH 6.8 (inside the 6.0-7.5 baseline band): the pH ladder returns the SAME floor (27) as calendar\'s flat value -- item 3 disappears, confirming it is specifically a pH-extremes issue', () => {
+        // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
+    // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
+    // plain assertion.
+test('decision D-5: the generic ratio is the species table on BOTH surfaces — fine fescue and PRG differ', () => {
+        const prg = exportPath({ soilPpm: { K: 150 }, aaRanges: { K: { min: 78.2, max: 195.5 } } });
+        const fescue = exportPath({ species: 'fineFescue', soilPpm: { K: 150 }, aaRanges: { K: { min: 78.2, max: 195.5 } } });
+        expect(prg.perSample.K.removal).toBeCloseTo(200 * (100 / 180), 1);   // 111.1
+        expect(fescue.perSample.K.removal).toBeCloseTo(200 * (60 / 100), 1); // 120.0
+
+        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ K: { min: 78.2, max: 195.5 } });
+        const calPrg = NutritionCalendar.computeProgram(calendarInputs({}));
+        const calFescue = NutritionCalendar.computeProgram(calendarInputs({ species: 'fineFescue', speciesDisplay: 'Fine Fescue' }));
+        expect(Math.abs(calPrg.annual_removal.K - prg.perSample.K.removal)).toBeLessThanOrEqual(1);
+        expect(Math.abs(calFescue.annual_removal.K - fescue.perSample.K.removal)).toBeLessThanOrEqual(1);
+        // The Plan page no longer prints one flat 0.55 for every species.
+        expect(calPrg.annual_removal.K).not.toBe(calFescue.annual_removal.K);
+    });
+});
+
+describe('D31 Fixture C — AA with a real tissue sample: the measured ratio governs both surfaces', () => {
+    const TISSUE = { N: 4.57, P: 0.62, K: 1.05 };
+
+    test('same ratio, same annual N basis, same figures on both surfaces', () => {
+        const eng = exportPath({ tissuePercent: TISSUE });
+        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } });
+        const cal = NutritionCalendar.computeProgram(calendarInputs({ tissuePercent: TISSUE }));
+        expect(cal.tissue_gate_applied).toBe(true);
+        // GH-368's own changelog quotes 46 kg K/ha for this tissue reading.
+        expect(Math.round(eng.perSample.K.removal)).toBe(46);
+        expect(Math.round(cal.annual_removal.K)).toBe(46);
+        ['P', 'K'].forEach((n) => {
+            expect(Math.abs(eng.perSample[n].removal - cal.annual_removal[n])).toBeLessThanOrEqual(1);
+        });
+    });
+});
+
+describe('D31 Fixture D — SLAN below floor: one pH ladder, both surfaces', () => {
+    test('at pH 5.0 both resolve the Spencer scaled-ladder floor of 45 ppm and agree on the requirement', () => {
+        const eng = exportPath({
+            methodology: 'SLAN', ph: 5.0, soilPpm: { P: 20, K: 150, Ca: 600, Mg: 60, S: 40 }, aaRanges: null,
+        });
+        expect(eng.perSample.P.floor).toBe(45);
+        expect(eng.perSample.P.intent).toBe('lift-to-floor');
+
+        const cal = NutritionCalendar.computeProgram(calendarInputs({
+            methodology: 'slan', pH: 5.0, soilPpm: { P: 20, K: 150, Ca: 600, Mg: 60, S: 40 },
+        }));
+        expect(cal.annual_totals_range.P.min).toBe(45);
+        expect(Math.abs(eng.perSample.P.annualRequirement - cal.annual_totals.P)).toBeLessThanOrEqual(1);
+    });
+
+    test('at pH 6.8 the ladder returns the pH-independent baseline (27) — the adjustment is a pH-extremes effect only', () => {
         expect(Core._getSlanTargetP(6.8)).toBe(27);
         expect(Engine._getSlanTargetP(6.8)).toBe(27);
     });
 });
 
-describe('GH-376 Fixture E — clipping-collection model (item 4) and traffic modifier (item 5): documented, not silently resolved', () => {
-    test('item 4: collected is core\'s (and calendar\'s) unmultiplied baseline; engine AMPLIFIES on collected instead -- opposite polarity, not just a different magnitude', () => {
-        const notCollected = Core.compute({ soilValues: { K: 90 }, species: 'perennialRyegrass', annualN: 200, methodology: 'SLAN', clippingsCollected: false, trafficIntensity: 'moderate', nutrients: ['K'] });
-        const collected = Core.compute({ soilValues: { K: 90 }, species: 'perennialRyegrass', annualN: 200, methodology: 'SLAN', clippingsCollected: true, trafficIntensity: 'moderate', nutrients: ['K'] });
-        // Core: collected is the baseline (1.0x); "returned" (not collected) REDUCES.
-        expect(collected.perSample.K.removal).toBeGreaterThan(notCollected.perSample.K.removal);
+describe('D31 Fixture E — MLSN below threshold (decision D-6): both surfaces lift to the minimum itself', () => {
+    test('K at 30 ppm against the MLSN minimum of 37: correction 4.9, not 17.85', () => {
+        const eng = exportPath({
+            methodology: 'MLSN', ph: 6.8, soilPpm: { P: 25, K: 30, Ca: 600, Mg: 60, S: 40 }, aaRanges: null,
+        });
+        expect(eng.perSample.K.floor).toBe(37);
+        expect(eng.perSample.K.correctionRequired).toBeCloseTo(4.9, 6);
 
-        const engineNotCollected = Engine._calculateNutrientRequirement('K', 90, { methodology: 'MLSN', species: 'perennialRyegrass', clippingsCollected: false, trafficIntensity: 'moderate' });
-        const engineCollected = Engine._calculateNutrientRequirement('K', 90, { methodology: 'MLSN', species: 'perennialRyegrass', clippingsCollected: true, trafficIntensity: 'moderate' });
-        // Engine: not-collected is the baseline (1.0x); collected AMPLIFIES 2.5x.
-        expect(engineCollected.removal).toBeGreaterThan(engineNotCollected.removal);
-        expect(engineCollected.removal).toBeCloseTo(engineNotCollected.removal * 2.5, 1);
-
-        // Both models agree collected != not-collected changes K need, but in
-        // OPPOSITE directions relative to their own baseline choice -- this
-        // is a genuine, not-yet-resolved modelling disagreement (see the
-        // core's module docblock, item 3/DISPUTED CONSTANT 3): the two
-        // engines here are not measuring the same physical baseline at all.
+        const cal = NutritionCalendar.computeProgram(calendarInputs({
+            methodology: 'mlsn', pH: 6.8, soilPpm: { P: 25, K: 30, Ca: 600, Mg: 60, S: 40 },
+        }));
+        expect(cal.annual_lift.K).toBeCloseTo(4.9, 6);
+        expect(Math.abs(eng.perSample.K.annualRequirement - cal.annual_totals.K)).toBeLessThanOrEqual(1);
     });
 
-    test('item 5: core is neutral on traffic; calendar and engine both apply a modifier, at different magnitudes AND different points in the computation -- three-way divergence whenever traffic != moderate, by design (no silent pick)', () => {
-        const coreExtreme = Core.compute({ soilValues: { K: 90 }, species: 'perennialRyegrass', annualN: 200, methodology: 'SLAN', clippingsCollected: true, trafficIntensity: 'extreme', nutrients: ['K'] });
-        const coreModerate = Core.compute({ soilValues: { K: 90 }, species: 'perennialRyegrass', annualN: 200, methodology: 'SLAN', clippingsCollected: true, trafficIntensity: 'moderate', nutrients: ['K'] });
-        expect(coreExtreme.perSample.K.removal).toBe(coreModerate.perSample.K.removal); // neutral by design
+        // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
+    // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
+    // plain assertion.
+test('decision D-7: the MLSN P pH ladder now applies on both surfaces', () => {
+        const eng = exportPath({
+            methodology: 'MLSN', ph: 5.2, soilPpm: { P: 25 }, aaRanges: null,
+        });
+        expect(eng.perSample.P.floor).toBe(35);
+        const cal = NutritionCalendar.computeProgram(calendarInputs({
+            methodology: 'mlsn', pH: 5.2, soilPpm: { P: 25, K: 150, Ca: 600, Mg: 60, S: 40 },
+        }));
+        expect(cal.annual_totals_range.P.min).toBe(35);
+    });
+});
 
+describe('D31 Fixture F — clipping and traffic: one model, applied once', () => {
+        // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
+    // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
+    // plain assertion.
+test('decision D-1: "returned" reduces P and K on both surfaces, by the same factors', () => {
+        const collected = exportPath({ clippingManagement: 'collected' });
+        const returned = exportPath({ clippingManagement: 'returned' });
+        expect(returned.perSample.K.removal).toBeCloseTo(collected.perSample.K.removal * 0.5, 0);
+        expect(returned.perSample.P.removal).toBeCloseTo(collected.perSample.P.removal * 0.4, 0);
+
+        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } });
+        const calCollected = NutritionCalendar.computeProgram(calendarInputs({ clippingManagement: 'collected' }));
+        const calReturned = NutritionCalendar.computeProgram(calendarInputs({ clippingManagement: 'returned' }));
+        expect(Math.abs(calReturned.annual_removal.K - returned.perSample.K.removal)).toBeLessThanOrEqual(1);
+        expect(Math.abs(calCollected.annual_removal.K - collected.perSample.K.removal)).toBeLessThanOrEqual(1);
+    });
+
+    test('the old 2.5x amplifier is gone, and the retired boolean is ignored (factor 1.0, exactly today\'s number)', () => {
+        expect(Engine.CLIPPING_COLLECTION_FACTOR).toBeUndefined();
+        expect(Engine.CLIPPING_FACTORS).toEqual({
+            collected: { N: 1.0, P: 1.0, K: 1.0 },
+            returned: { N: 1.0, P: 0.4, K: 0.5 }
+        });
+        const withBoolean = Engine.compute({
+            soil: { methodology: 'MLSN', K: 150, pH: 6.8 },
+            turf: { species: 'perennialRyegrass', clippingsCollected: false, nProgramKgHaYr: 200 },
+            climate: { monthlyTemps: null }
+        });
+        expect(withBoolean.perSample.K.clippingManagement).toBe('collected');
+        expect(withBoolean.perSample.K.clippingFactor).toBe(1.0);
+    });
+
+    test('decision D-3: traffic is applied exactly once, on the annual N, and never inside the core', () => {
+        // The core has no traffic term at all, so a second application is not
+        // expressible: the same annualN gives the same removal whatever the
+        // caller claims about traffic.
+        const a = Core.compute({
+            soilValues: { K: 150 }, species: 'perennialRyegrass', annualN: 200, methodology: 'MLSN',
+            ranges: { K: { min: 37, max: 55.5 } }, clippingManagement: 'collected', nutrients: ['K']
+        });
+        expect(a.perSample.K.annualRequirement).toBe(0); // above the MLSN ceiling
+
+        // The calendar applies it, once, to the annual N — and takes the
+        // adapter's already-resolved modifier when one is supplied, so the
+        // table cannot be applied twice.
         global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({});
-        const calExtreme = NutritionCalendar.computeProgram(calendarInputs({ traffic: 'extreme', methodology: 'slan' }));
-        const calModerate = NutritionCalendar.computeProgram(calendarInputs({ traffic: 'moderate', methodology: 'slan' }));
-        expect(calExtreme.annual_totals.K).not.toBe(calModerate.annual_totals.K); // calendar: real effect (1.3x on annualN)
+        const moderate = NutritionCalendar.computeProgram(calendarInputs({ methodology: 'slan', traffic: 'moderate', trafficModifier: 1.0 }));
+        const extreme = NutritionCalendar.computeProgram(calendarInputs({ methodology: 'slan', traffic: 'extreme', trafficModifier: 1.3 }));
+        expect(moderate.adjustments.target_n).toBe(200);
+        expect(extreme.adjustments.target_n).toBe(260);
+        expect(extreme.annual_removal.K / moderate.annual_removal.K).toBeCloseTo(1.3, 1);
+    });
+});
 
-        const engineExtreme = Engine._calculateNutrientRequirement('K', 90, { methodology: 'MLSN', species: 'perennialRyegrass', clippingsCollected: true, trafficIntensity: 'extreme' });
-        const engineModerate = Engine._calculateNutrientRequirement('K', 90, { methodology: 'MLSN', species: 'perennialRyegrass', clippingsCollected: true, trafficIntensity: 'moderate' });
-        expect(engineExtreme.removal).toBeCloseTo(engineModerate.removal * 1.5, 1); // engine: real effect (1.5x on removal)
-
-        // Documented, not silently resolved: core's own two candidate tables
-        // are exported precisely so a future decision doesn't have to
-        // re-derive these numbers from the two source files again.
-        expect(Core.TRAFFIC_MODIFIERS_CALENDAR_CANDIDATE).toEqual({ low: 0.85, moderate: 1.0, high: 1.15, extreme: 1.3 });
-        expect(Core.TRAFFIC_MODIFIERS_ENGINE_CANDIDATE).toEqual({ low: 0.8, moderate: 1.0, high: 1.2, extreme: 1.5 });
+describe('D31 — the rounding residual is bounded and documented', () => {
+        // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
+    // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
+    // plain assertion.
+test('the calendar rounds to whole kg, the core to 0.1 — the gap is at most 1 kg/ha per nutrient', () => {
+        global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } });
+        const cal = NutritionCalendar.computeProgram(calendarInputs({}));
+        const eng = exportPath({});
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach((n) => {
+            expect(Math.abs(eng.perSample[n].annualRequirement - cal.annual_totals[n])).toBeLessThanOrEqual(1);
+        });
     });
 });

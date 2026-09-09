@@ -130,35 +130,39 @@ describe('GH-305 — nutrition-summary-integration.js _resolveAARanges() falls b
     });
 });
 
-describe('GH-305 — word-export.js _aaRanges IIFE falls back to the generic range', () => {
-    const src = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
+describe('GH-305/383 — the shared adapter falls back to the generic range, and word-export.js consumes it', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
+    const exportSrc = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
 
+    // GH-383 (D31 stage 1): word-export.js's own 145-line AA-range IIFE is
+    // gone. resolveSufficiencyRanges() in nutrition-program-inputs.js is the
+    // one resolver, shared with the Plan page — which is exactly what this
+    // ticket's "the same gap exists in N places" premise was working around.
     test('structural: falls back to AmmoniumAcetateMethodology.getSufficiencyRange() when the certificate path has no range', () => {
-        const idx = src.indexOf('var _aaRanges = null;');
+        const idx = src.indexOf("if (methodology === 'ammonium_acetate') {");
         expect(idx).toBeGreaterThan(-1);
-        // GH-364: this window was a fixed character count that three separate
-        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
-        // again the moment a comment was added inside the block. Sliced to the
-        // statement that follows the IIFE instead, so the assertions below
-        // cover the whole block regardless of how it grows.
-        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
-        expect(body).toMatch(/window\.AmmoniumAcetateMethodology/);
-        expect(body).toMatch(/_aam\.getSufficiencyRange\(n, _texKey\)/);
-        expect(body).toMatch(/if \(!r && _aam/);
+        const body = src.slice(idx, src.indexOf("if (methodology === 'slan')", idx));
+        expect(body).toMatch(/w\.AmmoniumAcetateMethodology/);
+        expect(body).toMatch(/aam\.getSufficiencyRange\(n, texKey\)/);
+        expect(body).toMatch(/\} else if \(aam && typeof aam\.getSufficiencyRange === 'function'\)/);
     });
 
-    test('regression: certificate path (_hlst.deriveCode/getRangesPpm) is still attempted first, unchanged', () => {
-        const idx = src.indexOf('var _aaRanges = null;');
-        // GH-364: this window was a fixed character count that three separate
-        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
-        // again the moment a comment was added inside the block. Sliced to the
-        // statement that follows the IIFE instead, so the assertions below
-        // cover the whole block regardless of how it grows.
-        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
-        expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
-        expect(body).toMatch(/_hlst\.getRangesPpm\(_code, n,/);
-        const deriveIdx = body.indexOf('_hlst.deriveCode(');
-        const genericIdx = body.indexOf('_aam.getSufficiencyRange(');
+    test('regression: certificate path (deriveCode/getRangesPpm) is still attempted first, unchanged', () => {
+        const idx = src.indexOf("if (methodology === 'ammonium_acetate') {");
+        const body = src.slice(idx, src.indexOf("if (methodology === 'slan')", idx));
+        expect(body).toMatch(/hlst\.deriveCode\(speciesForCode,/);
+        expect(body).toMatch(/hlst\.getRangesPpm\(certificateCode, n,/);
+        const deriveIdx = body.indexOf('hlst.deriveCode(');
+        const genericIdx = body.indexOf('aam.getSufficiencyRange(');
         expect(deriveIdx).toBeLessThan(genericIdx);
+    });
+
+    test('word-export.js builds its aaRanges from the adapter\'s resolved ranges, and only for AA sites', () => {
+        const idx = exportSrc.indexOf('var _aaRanges = null;');
+        expect(idx).toBeGreaterThan(-1);
+        const body = exportSrc.slice(idx, exportSrc.indexOf('data.engineInputs = {', idx));
+        expect(body).toMatch(/_programInputs\.methodology === 'ammonium_acetate'/);
+        expect(body).not.toMatch(/HillLabsSampleTypes/);
+        expect(body).not.toMatch(/AmmoniumAcetateMethodology/);
     });
 });

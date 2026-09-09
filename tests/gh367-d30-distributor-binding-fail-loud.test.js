@@ -60,11 +60,15 @@ describe('GH-367 finding 2 — placeholder coordinates must not pass as a real l
 
 describe('GH-367 finding 1 — an unresolved distributor binding fails loudly', () => {
     test('the site-config lookup records whether it could run, separately from what it returned', () => {
-        const idx = combined.indexOf('var _siteCfgLookupOk = false;');
+        // GH-383: "the lookup could not run at all" is now caught earlier and
+        // harder — nutrition-program-inputs.js's resolveSiteProgramInputs()
+        // THROWS rather than falling back to another site's configuration, and
+        // the caller skips the sample. By the time _siteCfgLookupOk is set, a
+        // config for this site has actually been read.
+        const idx = combined.indexOf('var _siteCfgLookupOk = !!_siteCfg;');
         expect(idx).toBeGreaterThan(-1);
-        const block = combined.slice(idx, combined.indexOf('var _persistedCal', idx));
-        // Set only on the branch where getConfig actually ran.
-        expect(block).toMatch(/_siteCfg = window\.GAIP_SiteConfig\.getConfig\(r\.siteId\);\s*\n\s*_siteCfgLookupOk = true;/);
+        expect(combined).toMatch(/var _siteCfg = _NPI\.getSiteConfig\(r\.siteId\);/);
+        expect(combined).toMatch(/refusing to fall back to another site|no programme inputs for site/);
     });
 
     test('an unreadable site config skips the sample instead of defaulting to the full catalogue', () => {

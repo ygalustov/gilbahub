@@ -1668,8 +1668,42 @@
         return 'gilba_sn_sample' + (sid ? '_' + sid : '');
     }
 
+    // GH-386: the remembered sample is identified by `samples.id`, the DATABASE
+    // primary key, and it is compared as a string.
+    //
+    // The bug this replaces: both sample pickers in this file stored
+    // `sample.id` and then compared it back with `samples[j].id === persistedId`.
+    // `/api/samples` returns `id` as a JSON number and everything that comes
+    // back out of `localStorage` is a string, so `123 === '123'` was false and
+    // the match NEVER succeeded — the picker silently reopened on the first
+    // sample in the list every time. On a multi-sample site that means a
+    // Generate on the Plan page computes the programme against a sample the
+    // user did not choose, with no signal that it happened.
+    //
+    // Why the DB id and not `client_uid`, which is also in play here: client_uid
+    // is nullable (several tissue samples in the dev data have none), it is
+    // client-supplied rather than allocated, and it is not unique across sites.
+    // The DB id is the key the rest of this module already addresses samples by
+    // (`/api/samples/{id}/analyse`). It is deliberately NOT the export picker's
+    // `data-sample-uid` (`<siteId>::<client_uid|label|sample_<id>>`, built by
+    // sample-persistence.js for the client-side store) — those two schemes
+    // answer different questions and conflating them would be worse than the
+    // bug. Existing stored values are already the DB id stringified, so no
+    // migration is needed.
+    function _snSampleIdKey(id) {
+        return (id === null || id === undefined) ? null : String(id);
+    }
+
+    function _snSampleIdMatches(sample, persistedId) {
+        var a = _snSampleIdKey(sample && sample.id);
+        var b = _snSampleIdKey(persistedId);
+        return a !== null && b !== null && a === b;
+    }
+
     function _snSaveActiveId(sampleId) {
-        try { localStorage.setItem(_snStorageKey(), sampleId); } catch(e) {}
+        var key = _snSampleIdKey(sampleId);
+        if (key === null) return;
+        try { localStorage.setItem(_snStorageKey(), key); } catch(e) {}
     }
 
     function _snLoadActiveId() {
@@ -1754,7 +1788,8 @@
             var persistedIdx = -1;
             if (persistedId) {
                 for (var j = 0; j < samples.length; j++) {
-                    if (samples[j].id === persistedId) { persistedIdx = j; break; }
+                    // GH-386: string comparison — see _snSampleIdMatches().
+                    if (_snSampleIdMatches(samples[j], persistedId)) { persistedIdx = j; break; }
                 }
             }
 
@@ -1849,7 +1884,8 @@
             var persistedId = opts.getPersistedId ? opts.getPersistedId() : null;
             if (persistedId) {
                 for (var j = 0; j < samples.length; j++) {
-                    if (samples[j].id === persistedId) { activeIdx = j; break; }
+                    // GH-386: string comparison — see _snSampleIdMatches().
+                    if (_snSampleIdMatches(samples[j], persistedId)) { activeIdx = j; break; }
                 }
             }
 
@@ -1925,5 +1961,12 @@
     }
 
     global.GAIP_SoilNutritionAnalysis = { init: init, mountSampleDropdown: mountSampleDropdown };
+    // GH-386: the remembered-sample rule, exported so it can be tested directly.
+    // Both pickers in this file route their lookup through it, so there is no
+    // second comparison to drift from this one. Attached after the object
+    // literal rather than inside it because eleven existing test files load this
+    // module by string-splicing on that exact export line as a marker.
+    global.GAIP_SoilNutritionAnalysis._sampleIdMatches = _snSampleIdMatches;
+    global.GAIP_SoilNutritionAnalysis._sampleIdKey = _snSampleIdKey;
 
 }(window));

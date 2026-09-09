@@ -207,16 +207,21 @@ describe('GH-379 the result records the methodology that actually drove it, in o
 describe('GH-379 word-export-combined.js normalises the methodology at the per-sample hand-off (defence in depth)', () => {
     const src = fs.readFileSync(COMBINED_PATH, 'utf8');
 
-    test('perSampleInputs.methodology is resolved through GilbaNutritionCalendar.normalizeMethodology(), not copied raw', () => {
-        const normalised = src.indexOf('normalizeMethodology(r.data.soil.methodology)');
-        const assigned = src.indexOf('perSampleInputs.methodology =');
-        expect(normalised).toBeGreaterThan(-1);
-        expect(assigned).toBeGreaterThan(normalised);
+    // GH-383 (D31 stage 1): the fold now happens inside the shared adapter's
+    // resolveSiteProgramInputs(), which both surfaces call — a strictly
+    // stronger guarantee than folding at this one hand-off, because the Plan
+    // page goes through the same function. The raw spelling is handed to the
+    // adapter as sample.methodology and never assigned onward unfolded.
+    test('perSampleInputs.methodology is the adapter\'s folded key, not the raw upper-cased stamp', () => {
+        const assigned = src.indexOf('perSampleInputs.methodology = _siteInputs.methodology;');
+        expect(assigned).toBeGreaterThan(-1);
         expect(src).not.toMatch(/perSampleInputs\.methodology = r\.data\.soil\.methodology;/);
+        const adapterSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
+        expect(adapterSrc).toMatch(/const methodology = normalizeMethodology\(rawMethodology\) \|\| 'mlsn';/);
     });
 
     test('the Prebble P-deficiency threshold reads perSampleInputs.methodology AFTER that hand-off, so it sees the folded key', () => {
-        const handoff = src.indexOf('normalizeMethodology(r.data.soil.methodology)');
+        const handoff = src.indexOf('perSampleInputs.methodology = _siteInputs.methodology;');
         const threshold = src.indexOf('var _pThreshold = ');
         expect(handoff).toBeGreaterThan(-1);
         expect(threshold).toBeGreaterThan(handoff);
@@ -244,16 +249,22 @@ describe('GH-379 the export\'s per-sample calendar sees the same texture / CEC i
         expect(noTexture.annual_totals.K).toBe(151);
     });
 
-    test('word-export.js exposes the per-sample texture its AA range resolution used on engineInputs', () => {
+    test('word-export.js exposes the per-sample texture its range resolution used on engineInputs', () => {
         const we = fs.readFileSync(WORD_EXPORT_PATH, 'utf8');
-        expect(we).toMatch(/_resolvedSoilTexture = _soilTexture;/);
-        expect(we).toMatch(/aaRanges: _aaRanges,[\s\S]{0,400}soilTexture: _resolvedSoilTexture,/);
+        // GH-383: resolved by the shared adapter rather than by this file's own
+        // chain, and still published on engineInputs for the Combined export.
+        expect(we).toMatch(/_resolvedSoilTexture = _programInputs \? _programInputs\.soilTexture : null;/);
+        expect(we).toMatch(/soilTexture: _resolvedSoilTexture,/);
     });
 
-    test('word-export-combined.js overlays engineInputs.soilTexture and the sample\'s own CEC onto the calendar inputs, only when resolved', () => {
-        expect(src).toMatch(/var _eiTex = r\.data\.engineInputs && r\.data\.engineInputs\.soilTexture;\s*if \(_eiTex\) \{\s*perSampleInputs\.soilTexture = _eiTex;/);
-        expect(src).toMatch(/if \(!isNaN\(_sampleCEC\) && _sampleCEC > 0\) \{\s*perSampleInputs\.CEC = _sampleCEC;/);
-        // The overlay sits before the compute call it feeds.
-        expect(src.indexOf('perSampleInputs.soilTexture = _eiTex')).toBeLessThan(src.indexOf('computeProgram(perSampleInputs)'));
+    test('word-export-combined.js takes the texture and CEC from the same adapter call, per site, before the compute it feeds', () => {
+        // GH-383: no overlay any more — the per-sample calendar inputs ARE the
+        // adapter's resolution for that sample's own site, so there is nothing
+        // left to overlay onto a facility snapshot that could disagree.
+        expect(src).toMatch(/perSampleInputs\.soilTexture = _siteInputs\.soilTexture;/);
+        expect(src).toMatch(/perSampleInputs\.CEC = _siteInputs\.CEC;/);
+        expect(src).toMatch(/soilTexture: \(r\.data\.engineInputs && r\.data\.engineInputs\.soilTexture\) \|\| undefined,/);
+        expect(src.indexOf('perSampleInputs.soilTexture = _siteInputs.soilTexture'))
+            .toBeLessThan(src.indexOf('computeProgram(perSampleInputs)'));
     });
 });

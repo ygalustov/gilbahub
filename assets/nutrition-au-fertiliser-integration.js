@@ -164,8 +164,20 @@
                 return 'bowling_greens';
             }
 
-            // Map turfType + subCategory → canonical surface key
+            // Map turfType + subCategory → canonical surface key.
+            // GH-387: this mapping now lives in the shared input adapter
+            // (nutrition-program-inputs.js mapSurfaceKey), which the Word
+            // export's own recommender call resolves through too — so the Plan
+            // page and the export cannot answer this differently for the same
+            // site, which is exactly what they were doing (Plan 'golf_greens'
+            // vs export 'golf', different products from the same catalogue).
+            // The local copy below is the fallback for a page that has not
+            // loaded the adapter.
             function _mapTurfType(turfType, subCategory) {
+                var _NPI = window.GAIP_NutritionProgramInputs;
+                if (_NPI && typeof _NPI.mapSurfaceKey === 'function') {
+                    return _NPI.mapSurfaceKey(turfType, subCategory);
+                }
                 if (!turfType) return null;
                 if (turfType === 'golf') {
                     if (subCategory === 'greens') return 'golf_greens';

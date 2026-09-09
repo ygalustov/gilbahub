@@ -108,13 +108,22 @@ describe('GH-382 — SLAN P floor follows soil pH (Spencer scaled-ladder), match
         });
     });
 
-    test('defensive degradation: if the engine script were unavailable, the flat floor is used rather than crashing', () => {
+    // GH-384 (D31 stage 2) supersedes this fix's graceful-degradation path.
+    // GH-382 called nutrition-requirement-engine.js's exported ladder from the
+    // calendar and fell back to the flat 27 ppm floor when that script was not
+    // loaded — which is exactly what happened on the live Plan page, where the
+    // engine was never enqueued, so the fix was correct in the module and inert
+    // on the page it was written for. The ladder now lives in the shared core
+    // and is applied by the shared range resolver, both of which are enqueued
+    // on every page that loads the calendar. There is no silent flat-floor path
+    // left: without the core the programme is not computed at all.
+    test('the ladder no longer depends on the engine script being present', () => {
         var saved = global.window.NutritionRequirementEngine_Pure;
         try {
             global.window.NutritionRequirementEngine_Pure = undefined;
             var program = NutritionCalendar.computeProgram(baseInputs({ pH: 5.0 }));
             expect(program.error).toBeUndefined();
-            expect(program.annual_totals_range.P).toEqual({ min: 27, max: 54 });
+            expect(program.annual_totals_range.P).toEqual({ min: 45, max: 54 });
         } finally {
             global.window.NutritionRequirementEngine_Pure = saved;
         }

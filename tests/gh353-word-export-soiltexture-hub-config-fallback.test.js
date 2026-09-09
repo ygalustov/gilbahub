@@ -34,6 +34,14 @@
  * existed to restore (Hoxton audit assertion 20). construction is now the last
  * resort: still useful where nothing else resolves, never overriding a measured
  * value.
+ *
+ * GH-383 (D31 stage 1): this chain is no longer in word-export.js. It is
+ * assets/nutrition-program-inputs.js's resolveSoilTexture(), the ONE resolver
+ * both the Word export and the Plan page call — which is what the whole
+ * GH-352..364 sequence was trying to achieve by keeping two copies in step.
+ * The structural assertions below follow it there; the behavioural
+ * reimplementation at the bottom is unchanged and still encodes the same
+ * ordering.
  */
 
 'use strict';
@@ -41,28 +49,35 @@
 const fs = require('fs');
 const path = require('path');
 
-describe('GH-353/355/364 — word-export.js: soilTexture resolution order', () => {
+describe('GH-353/355/364/383 — nutrition-program-inputs.js: soilTexture resolution order', () => {
     let src;
+    let exportSrc;
     beforeAll(() => {
-        src = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
+        src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
+        exportSrc = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
     });
 
-    test('_constructionTexture maps GAIP_STATE.turf.construction sand_profile -> sand, matching hub-tissue-v3.js\'s own bucketing', () => {
-        const idx = src.indexOf('var _constructionTexture =');
+    test('GH-383: word-export.js no longer resolves a texture of its own — it reads the adapter\'s', () => {
+        expect(exportSrc).not.toMatch(/var _constructionTexture =/);
+        expect(exportSrc).toMatch(/_resolvedSoilTexture = _programInputs \? _programInputs\.soilTexture : null;/);
+    });
+
+    test('constructionTexture maps turf.construction sand_profile -> sand, matching hub-tissue-v3.js\'s own bucketing', () => {
+        const idx = src.indexOf('const constructionTexture =');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 200);
-        expect(block).toMatch(/_stTurf\.construction === 'sand_profile' \|\| _stTurf\.construction === 'sand profile'/);
+        const block = src.slice(idx, idx + 220);
+        expect(block).toMatch(/turf\.construction === 'sand_profile' \|\| turf\.construction === 'sand profile'/);
         expect(block).toMatch(/\? 'sand' : null;/);
     });
 
-    test('GH-364: this sample\'s own recorded texture first, then data.soil, then the active site\'s GAIP_HUB_CONFIG value, and only then the construction guess', () => {
-        const idx = src.indexOf('var _soilTexture = _sampleTexture');
+    test('GH-364: this sample\'s own recorded texture first, then the sample soil object, then the site config value, and only then the construction guess', () => {
+        const idx = src.indexOf("if (sampleTexture) return { value: sampleTexture, source: 'sample-snapshot' };");
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, src.indexOf(';', idx));
-        const sampleIdx = block.indexOf('_sampleTexture');
-        const dataSoilIdx = block.indexOf('data.soil &&');
-        const hubConfigIdx = block.indexOf('window.GAIP_HUB_CONFIG');
-        const constructionIdx = block.indexOf('_constructionTexture');
+        const block = src.slice(idx, src.indexOf("source: 'unresolved'", idx));
+        const sampleIdx = block.indexOf('sampleTexture');
+        const dataSoilIdx = block.indexOf('soil.soilTexture || soil.texture');
+        const hubConfigIdx = block.indexOf('GAIP_HUB_CONFIG');
+        const constructionIdx = block.indexOf('constructionTexture');
         [sampleIdx, dataSoilIdx, hubConfigIdx, constructionIdx].forEach((i) => expect(i).toBeGreaterThan(-1));
         expect(sampleIdx).toBeLessThan(dataSoilIdx);
         expect(dataSoilIdx).toBeLessThan(hubConfigIdx);
@@ -70,18 +85,19 @@ describe('GH-353/355/364 — word-export.js: soilTexture resolution order', () =
     });
 
     test('GH-364: the per-sample source is samples.soil_texture_snapshot via SampleManager, read per sample rather than once per page', () => {
-        const idx = src.indexOf('var _sampleTexture = null;');
+        const idx = src.indexOf('let sampleTexture = opts.sampleTextureSnapshot || null;');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, src.indexOf('var _soilTexture = _sampleTexture', idx));
+        const block = src.slice(idx, src.indexOf('const soil = opts.soil || {};', idx));
         expect(block).toMatch(/getActiveSample\('soil'\)/);
         expect(block).toMatch(/soilTextureSnapshot/);
     });
 
-    test('_code (deriveCode) and _texKey both use the same _soilTexture variable, not a separate re-read', () => {
-        const idx = src.indexOf('var _soilTexture = _sampleTexture');
-        const block = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
-        expect(block).toMatch(/_hlst\.deriveCode\(_species, _soilTexture\)/);
-        expect(block).toMatch(/_texKey = String\(_soilTexture \|\| ''\)/);
+    test('GH-383: deriveCode() and the sands/others bucket both read the ONE resolved texture, in the ONE resolver', () => {
+        const idx = src.indexOf('function resolveSufficiencyRanges(opts)');
+        expect(idx).toBeGreaterThan(-1);
+        const block = src.slice(idx, src.indexOf('if (methodology === \'slan\')', idx));
+        expect(block).toMatch(/aaTextureKey\(opts\.soilTexture\)/);
+        expect(block).toMatch(/hlst\.deriveCode\(speciesForCode, opts\.soilTexture \|\| null\)/);
     });
 });
 

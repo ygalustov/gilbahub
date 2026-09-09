@@ -23,6 +23,20 @@
  * ... via the amendment path"). No tissue data (the common case) falls
  * through unchanged to the pre-GH-361 generic ratio — this is additive, not
  * a behaviour change for sites without a tissue sample.
+ *
+ * GH-384 (D31 stage 2) re-derived the generic-ratio expectations below. The
+ * flat CONFIG.nutrientRatiosToN set this file pinned (P 0.10 / K 0.55) was
+ * retired by decision D-5 in favour of the per-species REMOVAL_RATES table the
+ * Word export has always used, so both surfaces answer from one table. For
+ * perennial ryegrass at annualN 200 the generic figures are, by hand:
+ *   P  18/180 = 0.10000 -> 200 x 0.10000 = 20.0   -> 20   (unchanged: P/N is
+ *                                                   0.10 in every table row)
+ *   K 100/180 = 0.55556 -> 200 x 0.55556 = 111.1  -> 111  (was 110)
+ * The tissue-governed figures are unchanged in ratio; K at the audit's Hoxton
+ * capture moves by one kg from the core's 0.1 canonicalisation:
+ *   K 3.05/4.57 = 0.66740 -> 200 x 0.66740 = 133.4792 -> 133.5 -> 134 (was 133)
+ * Both shifts are the documented +/-1 kg/ha rounding residual and the D-5
+ * ratio change, not an adjustment made to reach green.
  */
 
 'use strict';
@@ -74,9 +88,9 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         expect(program.error).toBeUndefined();
         expect(program.tissue_gate_applied).toBe(false);
         // annual_removal.P/K are pre-correction, so they isolate the ratio
-        // cleanly: round(200 * 0.10) = 20, round(200 * 0.55) = 110.
+        // cleanly: 200 x (18/180) = 20.0, 200 x (100/180) = 111.1 -> 111.
         expect(program.annual_removal.P).toBe(20);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
     });
 
     test('a real tissue sample governs instead (Test5-NZ / Hoxton-profile tissue: N 4.57, P 0.62, K 1.05)', function () {
@@ -89,9 +103,9 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         expect(program.annual_removal.P).toBe(Math.round(200 * (0.62 / 4.57)));
         expect(program.annual_removal.K).toBe(Math.round(200 * (1.05 / 4.57)));
         // Concretely: real tissue removal is HIGHER for P (27 vs the generic
-        // 20) and LOWER for K (46 vs the generic 110) than the textbook
-        // ratio this site would otherwise have used — the exact
-        // under/over-reading direction D07a describes.
+        // 20) and LOWER for K (46 vs the generic 111) than the species table
+        // this site would otherwise have used — the exact under/over-reading
+        // direction D07a describes.
         expect(program.annual_removal.P).toBe(27);
         expect(program.annual_removal.K).toBe(46);
     });
@@ -112,7 +126,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         }));
         expect(program.tissue_gate_applied).toBe(false);
         expect(program.annual_removal.P).toBe(20);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
     });
 
     test('tissue N of 0 does not engage the gate -- avoids a divide-by-zero ratio', function () {
@@ -121,7 +135,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         }));
         expect(program.tissue_gate_applied).toBe(false);
         expect(program.annual_removal.P).toBe(20);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
     });
 
     // ── GH-362: plausibility clamp on the derived ratio ──────────────────
@@ -135,7 +149,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         }));
         expect(program.tissue_gate_applied).toBe(false);
         expect(program.annual_removal.P).toBe(20);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
         // The unclamped bug would have produced ~271,000 kg P/ha here.
         expect(program.annual_removal.P).toBeLessThan(100);
     });
@@ -145,7 +159,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
             tissuePercent: { N: 4.57, P: 0.62, K: 10500 },
         }));
         expect(program.tissue_gate_applied).toBe(false);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
     });
 
     test('GH-362: an implausibly low ratio is rejected too (N in mg/kg against P/K in %)', function () {
@@ -154,7 +168,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
         }));
         expect(program.tissue_gate_applied).toBe(false);
         expect(program.annual_removal.P).toBe(20);
-        expect(program.annual_removal.K).toBe(110);
+        expect(program.annual_removal.K).toBe(111);
     });
 
     test('GH-362: a real zero tissue reading does not engage the gate (would zero the requirement)', function () {
@@ -177,6 +191,7 @@ describe('GH-361 — computeProgram() P/K removal ratio governed by real tissue 
             tissuePercent: { N: 4.57, P: 0.62, K: 3.05 },
         }));
         expect(program.tissue_gate_applied).toBe(true);
-        expect(program.annual_removal.K).toBe(Math.round(200 * (3.05 / 4.57)));
+        // 200 x (3.05/4.57) = 133.4792 -> the core's canonical 133.5 -> 134.
+        expect(program.annual_removal.K).toBe(134);
     });
 });

@@ -47,20 +47,47 @@ describe('GH-338 — nutrition-calendar.js: no soil sample is null, not 0', () =
         expect(block).not.toMatch(/return parseFloat\([^)]*\) \|\| 0;/);
     });
 
-    test('calculateDeficit() guards against a null currentPpm (was: threshold - null -> full threshold as fabricated deficit)', () => {
-        const idx = src.indexOf('NutritionCalendar.calculateDeficit = function(currentPpm, nutrient, bulkDensity, soilDepth');
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 1000);
-        expect(block).toMatch(/if \(!threshold \|\| typeof currentPpm !== 'number' \|\| currentPpm >= threshold\) return 0;/);
+    test('the null-currentPpm guard now lives in the shared core, and this file has no second copy', () => {
+        // GH-388: NutritionCalendar.calculateDeficit() is gone. GH-384 routed
+        // computeProgram() through the shared core, leaving it an unreachable
+        // second implementation of the same deficit arithmetic — and of the
+        // very guard this ticket added. The guard itself is unchanged, one
+        // level down: a reading that is not a number produces no lift at all,
+        // rather than `threshold - null` fabricating the full threshold as a
+        // maximal deficit.
+        expect(src).not.toMatch(/NutritionCalendar\.calculateDeficit = function/);
+        expect(src).not.toMatch(/NutritionCalendar\.getThresholds = function/);
+        const core = fs.readFileSync(path.join(__dirname, '../assets/nutrition-requirement-core.js'), 'utf8');
+        expect(core).toMatch(/if \(typeof currentLevel !== 'number' \|\| isNaN\(currentLevel\)\) \{/);
+        const Core = require('../assets/nutrition-requirement-core.js');
+        const r = Core._calculateNutrientRequirement('K', null, {
+            methodology: 'MLSN', species: 'perennialRyegrass', annualN: 200,
+            range: { min: 37, max: 55.5 }, bulkDensity: 1.4, soilDepth: 10,
+            clippingManagement: 'collected'
+        });
+        expect(r.correctionRequired).toBe(0);
+        expect(r.missingSoilData).toBe(true);
+        expect(r.annualRequirement).toBe(r.removal);
     });
 
     test('computeProgram() tracks missingSoilData and skips deficit/lift for those nutrients', () => {
-        const idx = src.indexOf("['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {\n            let deficit;");
-        expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 1200);
-        expect(block).toMatch(/if \(typeof currentPpm !== 'number'\) \{/);
-        expect(block).toMatch(/missingSoilData\[nutrient\] = true;/);
-        expect(block).toMatch(/deficit = 0;/);
+        // GH-384 (D31 stage 2): this rule moved into the shared core, where the
+        // Word export obeys it too (decision D-9) — pre-GH-383 the export
+        // omitted such a nutrient entirely while the Plan page showed it as
+        // removal-only. The calendar reports what the core resolved.
+        expect(src).toMatch(/const missingSoilData = _coreResult\.missingSoilData;/);
+        const core = fs.readFileSync(path.join(__dirname, '../assets/nutrition-requirement-core.js'), 'utf8');
+        expect(core).toMatch(/if \(typeof currentLevel !== 'number' \|\| isNaN\(currentLevel\)\) \{/);
+        expect(core).toMatch(/intent: 'removal-only-no-soil-data'/);
+        expect(core).toMatch(/missingSoilData: true/);
+        const Core = require('../assets/nutrition-requirement-core.js');
+        const r = Core.compute({
+            soilValues: { P: 40 }, species: 'perennialRyegrass', annualN: 200, methodology: 'MLSN',
+            ranges: { K: { min: 37, max: 55.5 } }, clippingManagement: 'collected', nutrients: ['K']
+        });
+        expect(r.missingSoilData.K).toBe(true);
+        expect(r.perSample.K.correctionRequired).toBe(0);
+        expect(r.perSample.K.annualRequirement).toBe(r.perSample.K.removal);
     });
 
     test('missing_soil_data is returned from computeProgram()', () => {

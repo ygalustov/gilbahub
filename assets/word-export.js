@@ -6748,13 +6748,18 @@
     //
     // Sources, in priority order:
     //   species:     GAIP_STATE.inputs.turf.species → GAIP_STATE.turf.(species|grassSpecies)
-    //   clippings:   GAIP_STATE.turf.clippingsCollected
-    //   traffic:     GAIP_STATE.traffic.intensity → 'moderate'
-    //   nProgram:    .gaip-nutrition-annual-n DOM input → GAIP_STATE.turf.nProgramKgHaYr
-    //                → GAIP_STATE.inputs.turf.nProgramKgHaYr → null (engine default)
     //   monthlyTemps: GilbaClimateEngine.getMonthlyData() → latitude-band fallback
     //   hemisphere:  lat-based from GAIP_STATE → 'south' default
     //   overseed:    GAIP_OVERSEED_STATE → default (no overseed)
+    //
+    // GH-383 (D31 stage 1): annual N, clipping management, traffic, turf type,
+    // methodology, texture, CEC, pH and the sufficiency ranges are NO LONGER
+    // read here. They come from assets/nutrition-program-inputs.js — the one
+    // module the Plan page resolves them from too — so the two surfaces cannot
+    // resolve the same concept from different places again. The retired reads
+    // (GAIP_STATE.turf.clippingsCollected, GAIP_STATE.traffic.intensity,
+    // .gaip-nutrition-annual-n, .gaip-n-program) are asserted gone by
+    // tests/gh383-input-contract-guard.test.js.
     // =========================================================================
     function _buildEngineInputs(data) {
         if (!data) return;
@@ -6762,7 +6767,6 @@
         var _state = window.GAIP_STATE || {};
         var _stInputs = _state.inputs || {};
         var _stTurf = _state.turf || {};
-        var _stTraffic = _state.traffic || {};
         var _canon = window.GAIP_CANONICAL_STATE || {};
         var _canonTurf = _canon.turf || {};
 
@@ -6867,23 +6871,94 @@
             return;
         }
 
-        // User-supplied N programme. b35fix312 made .gaip-nutrition-annual-n
-        // (Nutrition Program panel) the primary input, with .gaip-n-program
-        // (Site Settings) as fallback. Mirror that precedence here.
-        var _userN = null;
-        var _nEl = document.querySelector('.gaip-nutrition-annual-n');
-        if (!_nEl || !_nEl.value) {
-            _nEl = document.querySelector('.gaip-n-program, #n-program, [name="n-program"], .gaip-annual-n');
+        // GH-383 (D31 stage 1) — every programme-level input below now comes
+        // from the ONE shared adapter, assets/nutrition-program-inputs.js, the
+        // same module the Plan page's calendar resolves from. What it replaces:
+        //
+        //   annual N   was `.gaip-nutrition-annual-n` -> `.gaip-n-program` ->
+        //              GAIP_STATE.turf.nProgramKgHaYr. The first is a hidden
+        //              legacy input that nutrition-calendar.js's own
+        //              restoreFromPersisted() fills with the ACTIVE site's
+        //              target_n and then refuses to refill (it returns early
+        //              once this.program is set) — so in a multi-site Combined
+        //              export every later site silently inherited the first
+        //              site's N target. The adapter reads THIS site's own
+        //              persisted base N instead.
+        //   clipping   was `!!GAIP_STATE.turf.clippingsCollected`, a field with
+        //              no writer anywhere in assets/ or app/ — always false,
+        //              and the engine ignored it outside MLSN anyway. The
+        //              adapter reads the site's persisted
+        //              meta.clippingManagement, the value the Plan select
+        //              actually wrote.
+        //   traffic    was `GAIP_STATE.traffic.intensity`, also with no writer.
+        //              Neutral until stage 3 of the D31 plan wires the
+        //              Settings > Traffic & Wear schedule into the site config.
+        //   ranges     was the 145-line AA-only IIFE that used to live here,
+        //              with its own texture chain and its own species spelling
+        //              (the GH-352..357/GH-364/GH-379 seam). Now resolved once,
+        //              for all three methodologies, by the adapter.
+        //
+        // Every field carries a provenance stamp in `sources`, which the E2E
+        // harness compares against the Plan page's own meta.inputSources.
+        var _programInputs = null;
+        try {
+            var _NPI = window.GAIP_NutritionProgramInputs;
+            if (!_NPI) {
+                console.warn('[WordExport] GH-383: nutrition-program-inputs.js is not loaded on this page — ' +
+                    'programme inputs cannot be resolved.');
+            } else {
+                _programInputs = _NPI.resolveSiteProgramInputs({
+                    // _buildEngineInputs() runs once per sample with that
+                    // sample's site ACTIVE (the Combined export switches the
+                    // active site per entry before calling this — see the
+                    // latitude comment below), so this is per-site by
+                    // construction, the same way methodology already is.
+                    siteId: _NPI.getActiveSiteId(),
+                    soil: data.soil || null,
+                    sample: {
+                        // The species this export already resolved through its
+                        // own readiness guard above, so the range resolver and
+                        // the engine can never see two different species.
+                        species: _species,
+                        turfType: _sampleOverrideTurfType || undefined,
+                        methodology: (data.soil && data.soil.methodology) || undefined,
+                        CEC: (data.soil && (data.soil.CEC != null ? data.soil.CEC : data.soil.cec)),
+                        // Same pH read _pHForSlanP() in this file already uses,
+                        // and the same one nutrition-calendar.js uses (GH-382).
+                        pH: (data.soil && (data.soil.pH_water != null ? data.soil.pH_water : data.soil.pH))
+                    }
+                });
+            }
+        } catch (_piErr) {
+            console.warn('[WordExport] GH-383: programme input resolution failed:', _piErr && _piErr.message);
         }
-        if (_nEl && _nEl.value) {
-            var _nParsed = parseFloat(_nEl.value);
-            if (isFinite(_nParsed) && _nParsed >= 0) _userN = _nParsed;
+
+        // GH-388: fail as loudly as the Combined export does.
+        //
+        // resolveSiteProgramInputs() throws deliberately when a site's config
+        // cannot be resolved, precisely so that no surface silently computes
+        // against another site's configuration or against a species-table
+        // default. The catch above swallowed that: `_userN` stayed null, the
+        // engine fell back to REMOVAL_RATES' per-species N, `annualNSource` was
+        // null so not even the D-4b note could fire, and the client received a
+        // document full of confident figures scaled against a number nobody
+        // chose. word-export-combined.js already handles the same case
+        // correctly by skipping the sample with a warning; this is that
+        // behaviour for the single-sample path, and it is what the project's
+        // own rule asks for — show what is missing, never compute silently on
+        // a placeholder.
+        if (!_programInputs) {
+            console.warn('[WordExport] GH-388: programme inputs could not be resolved for this sample ' +
+                '(site ' + ((window.GAIP_NutritionProgramInputs &&
+                    window.GAIP_NutritionProgramInputs.getActiveSiteId &&
+                    window.GAIP_NutritionProgramInputs.getActiveSiteId()) || 'unknown') +
+                '). Omitting the nutrition sections rather than scaling them against a ' +
+                'species-table default the client never chose.');
+            data.engineInputs = null;
+            data.nutritionInputsUnavailable = true;
+            return;
         }
-        if (_userN === null) {
-            _userN = (_stTurf.nProgramKgHaYr != null) ? _stTurf.nProgramKgHaYr :
-                     (_stInputs.turf && _stInputs.turf.nProgramKgHaYr != null)
-                         ? _stInputs.turf.nProgramKgHaYr : null;
-        }
+        var _userN = _programInputs.annualN;
 
         // Latitude/longitude extraction — DOM input is authoritative for the
         // CURRENTLY ACTIVE site. Combined export switches active site (and
@@ -6993,171 +7068,60 @@
             };
         }
 
-        // GH-299 (D07 item 6): resolve a per-nutrient {P:{min,max}, K:{...}, ...}
-        // ppm map from HillLabsSampleTypes' certificate-backed SSOT, only when
-        // the site's methodology is AA — gated so MLSN/SLAN exports never even
-        // attempt this resolution. Same texture/species source GH-290's
-        // aaSampleType resolution already uses (window.GAIP_STATE.soil), so
-        // this agrees with the sample-type code the rest of the export picks.
-        // Attached to data.engineInputs (not just used locally) so both this
-        // file's own compute() call below and word-export-combined.js's
-        // per-sample loop — which reads data.engineInputs rather than
-        // duplicating this resolution — pick up the same ranges.
+        // GH-383 (D31 stage 1): the AA sufficiency-range resolution that used
+        // to live here as a 145-line IIFE — with its own texture chain, its own
+        // species spelling and its own certificate/generic fallback — is now
+        // nutrition-program-inputs.js's resolveSufficiencyRanges(), called
+        // above and shared with the Plan page. That chain was the subject of
+        // GH-352, GH-353, GH-355, GH-357, GH-364 and GH-379: six fixes whose
+        // whole content was "make this copy agree with the calendar's copy".
+        // There is now one copy.
+        //
+        // `ranges` covers all three methodologies (AA certificate/generic band,
+        // SLAN Carrow 2004 + the Spencer pH ladder, MLSN Woods 2016 + the D-7 pH
+        // ladder). `aaRanges` is kept, populated only for AA sites, because
+        // word-export-combined.js's ANR pass and several existing consumers
+        // still read that name.
+        var _resolvedRanges = _programInputs ? _programInputs.ranges : null;
+        var _resolvedSoilTexture = _programInputs ? _programInputs.soilTexture : null;
         var _aaRanges = null;
-        var _resolvedSoilTexture = null; // GH-379: set by the IIFE below, read into engineInputs
-        (function () {
-            // GH-352: this IIFE used to read window.GAIP_STATE.soil (_state.soil)
-            // for methodology/soilTexture/CEC. Confirmed live (2026-09-07 test
-            // server, debug log) that _state.soil does not exist at all at this
-            // point in collectData() -- same class of gotcha as b35fix399b found
-            // in a different file (a live global that isn't populated yet when
-            // this code runs). The methodology guard below silently returned
-            // early every time, so _aaRanges was NEVER resolved for ANY AA site
-            // going through this export path -- every P/K/S annual requirement
-            // fell through to the "no aaRange available" graceful-degradation
-            // branch in nutrition-requirement-engine.js (pure removal, no
-            // ceiling/floor ever applied), regardless of actual soil level.
-            // Confirmed: same test showed P=18/K=100/S=10 here vs the live
-            // calendar's correctly-ceilinged P=0/K=0 for the identical sample.
-            //
-            // Fixed by reading data.soil instead -- the same per-sample object
-            // this very function (_buildEngineInputs(data)) already receives,
-            // confirmed live to correctly hold methodology ('AMMONIUM_ACETATE')
-            // at this exact point, and the same object the engine.compute()
-            // call below (and code elsewhere in this file) already relies on
-            // for real soil values.
-            var _soilM = String((data.soil && data.soil.methodology) || '').toUpperCase().replace(/[\s-]+/g, '_');
-            if (_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE') return;
-            var _hlst = window.HillLabsSampleTypes;
-            // GH-353: data.soil never carries a soilTexture/texture field at all
-            // (confirmed live -- GH-352's fix log showed soilTexture: null even
-            // though this really is a sand-profile S277 site), so deriveCode()
-            // always missed the certificate and fell back to the generic
-            // sands/others band instead of the site's actual S277 range.
-            //
-            // GH-355 follow-up: window.GAIP_HUB_CONFIG.soilTexture (the first
-            // fallback tried below) ALSO came back empty for this exact live
-            // site -- confirmed via a real DB read (samples.soil_texture_snapshot
-            // = 'sand' for this sample) plus a full automated export re-run:
-            // the resulting P/K/S req numbers were still correct (0/0/0,
-            // matching the live calendar), but only because the generic
-            // sands/others band happened to agree with the real S277 range at
-            // these ppm levels -- derived code stayed null, so a borderline
-            // value could silently disagree with the live UI. _stTurf (=
-            // window.GAIP_STATE.turf, defined at the top of this function) IS
-            // reliably populated this early -- _species a few lines up already
-            // depends on it -- and turf.construction ('sand_profile' vs other)
-            // is the same site-config field hub-tissue-v3.js's own AA texture
-            // bucketing already keys off (getThresholds()-equivalent: only
-            // 'sand_profile' -> sand, everything else -> generic/others), so
-            // this reuses an established mapping rather than inventing one.
-            // GH-364: construction is now the LAST resort, not the first.
-            // GH-355 ranked it first because at the time the other two sources
-            // were both empty on this page -- GH-357 then found and fixed the
-            // real reason (ReportsController/export.blade.php never passed
-            // soilTexture through at all) and left this ordering behind it.
-            // construction is a two-way bucket ('sand_profile' -> sand, else
-            // nothing); GAIP_HUB_CONFIG.soilTexture is the site's real
-            // sites.soil_texture_override / accounts.soil_texture, one of six
-            // values. Ranking the guess above the measured value means a
-            // hybrid site (construction 'sand_profile', texture 'clay_loam')
-            // resolves S277 here while the live Plan page -- which reads only
-            // GAIP_HUB_CONFIG.soilTexture (nutrition-calendar.js has no
-            // concept of turf.construction) -- resolves the generic band, so
-            // UI and export disagree on P/K/Ca/Mg requirements. That is the
-            // parity the whole GH-352..357 chain existed to restore, and the
-            // audit asserts it explicitly (assertion 20).
-            var _constructionTexture = (_stTurf.construction === 'sand_profile' || _stTurf.construction === 'sand profile')
-                ? 'sand' : null;
-            // GH-364: this sample's OWN recorded texture first. GH-357 made
-            // GAIP_HUB_CONFIG.soilTexture work, but that global is the ACTIVE
-            // site's value, resolved once per page load -- and a combined
-            // export deliberately spans several sites (see the GH-245 follow-up
-            // 2 comment above, which resolves climate per-coordinate for that
-            // exact reason). Every sample of every site would otherwise be
-            // ranged against whichever site happened to be active when the page
-            // loaded. samples.soil_texture_snapshot is the per-sample value
-            // (GH-263/264), surfaced by sample-persistence.js as
-            // soilTextureSnapshot, and _buildEngineInputs() runs once per
-            // sample with that sample loaded — so reading it here is per-sample
-            // by construction, the same way methodology already is.
-            var _sampleTexture = null;
-            try {
-                var _smForTex = window.GAIP_SampleManager;
-                var _activeSoilSample = (_smForTex && typeof _smForTex.getActiveSample === 'function')
-                    ? _smForTex.getActiveSample('soil') : null;
-                _sampleTexture = (_activeSoilSample && _activeSoilSample.soilTextureSnapshot) || null;
-            } catch (_texErr) {
-                console.warn('[WordExport] GH-364: per-sample soil texture read failed:', _texErr && _texErr.message);
-            }
-            var _soilTexture = _sampleTexture
-                || (data.soil && (data.soil.soilTexture || data.soil.texture))
-                || (window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
-                || _constructionTexture
-                || null;
-            // GH-379: surface the per-sample texture this IIFE resolved so the
-            // Combined export's per-sample calendar recompute
-            // (word-export-combined.js) can hand computeProgram() the same
-            // texture — its own deriveCode() otherwise ran on the calendar
-            // state's null texture and fell to the generic AA band while this
-            // very report's ANR used the certificate. See engineInputs below.
-            _resolvedSoilTexture = _soilTexture;
-            console.log('[GH355-DEBUG] texture sources', '| _stTurf.construction:', _stTurf.construction,
-                '| _canonTurf.construction:', _canonTurf.construction,
-                '| _stInputs.turf.construction:', _stInputs.turf && _stInputs.turf.construction,
-                '| data.soil.soilTexture:', data.soil && data.soil.soilTexture,
-                '| GAIP_HUB_CONFIG.soilTexture:', window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture,
-                '| resolved _soilTexture:', _soilTexture,
-                '| _species (for reference):', _species);
-            var _code = (_hlst && typeof _hlst.deriveCode === 'function')
-                ? _hlst.deriveCode(_species, _soilTexture)
-                : null;
-            // GH-305 (D07 item 6, "correction for generic numbers too" -- user
-            // decision, 2026-08-24): fall back to AmmoniumAcetateMethodology.
-            // getSufficiencyRange() (same generic sands/others SSOT used
-            // elsewhere -- hub-tissue-v3.js, nutrition-calendar.js,
-            // SampleAnalysisController.php) whenever the certificate path
-            // doesn't cover a specific nutrient, so an uncertified-but-clearly-
-            // high value (e.g. Sulphur on an S277 site, whose certificate
-            // prints no Sulphur range at all) still gets a ceiling instead of
-            // recommending fertiliser it doesn't need.
-            var _aam = window.AmmoniumAcetateMethodology;
-            var _texKey = String(_soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
-            var _cec = data.soil && (data.soil.CEC ?? data.soil.cec);
-            var _ranges = {};
-            var _any = false;
+        if (_programInputs && _programInputs.methodology === 'ammonium_acetate' && _resolvedRanges) {
+            var _anyAa = false;
+            var _aa = {};
             ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
-                var r = (_code && _hlst && typeof _hlst.getRangesPpm === 'function')
-                    ? _hlst.getRangesPpm(_code, n, _cec != null ? _cec : undefined)
-                    : null;
-                if (!r && _aam && typeof _aam.getSufficiencyRange === 'function') {
-                    var _generic = _aam.getSufficiencyRange(n, _texKey);
-                    if (_generic && _generic.ranges && Array.isArray(_generic.ranges.medium) &&
-                        typeof _generic.ranges.medium[1] === 'number' && isFinite(_generic.ranges.medium[1])) {
-                        r = { min: _generic.ranges.medium[0], max: _generic.ranges.medium[1] };
-                    }
-                }
-                if (r) { _ranges[n] = r; _any = true; }
+                if (_resolvedRanges[n]) { _aa[n] = { min: _resolvedRanges[n].min, max: _resolvedRanges[n].max }; _anyAa = true; }
             });
-            if (_any) _aaRanges = _ranges;
-            // GH-352-DEBUG: kept until confirmed matching nutrition-calendar.js's
-            // [GH308-DEBUG] range/ceiling for the same site. If _soilTexture is
-            // null here (data.soil has no soilTexture/texture field either),
-            // deriveCode() falls back to its own default (S277) -- worth
-            // checking this line still resolves the SAME sample-type code the
-            // live calendar uses for this site.
-            console.log('[GH352-DEBUG] report aaRanges resolution (post-fix, reading data.soil)', '| species:', _species,
-                '| soilTexture:', _soilTexture, '| CEC:', _cec, '| derived code:', _code,
-                '| P range:', _ranges.P || null, '| K range:', _ranges.K || null, '| S range:', _ranges.S || null,
-                '| soilPpm.P:', data.soil && data.soil.P, '| soilPpm.K:', data.soil && data.soil.K, '| soilPpm.S:', data.soil && data.soil.S);
-        })();
+            if (_anyAa) _aaRanges = _aa;
+        }
+        if (_programInputs) {
+            console.log('[GH383] programme inputs resolved | site:', _programInputs.siteId,
+                '| species:', _programInputs.speciesKey, '| methodology:', _programInputs.methodology,
+                '| texture:', _programInputs.soilTexture, '| certificate:', _programInputs.certificateCode,
+                '| annualN:', _programInputs.annualN, '(base', _programInputs.annualNBase,
+                'x traffic', _programInputs.trafficModifier, ')',
+                '| clipping:', _programInputs.clippingManagement,
+                '| sources:', JSON.stringify(_programInputs.sources));
+        }
 
         data.engineInputs = {
             turf: {
                 species: _species,
-                clippingsCollected: !!_stTurf.clippingsCollected,
-                trafficIntensity: _stTraffic.intensity || 'moderate',
-                nProgramKgHaYr: _userN
+                // GH-383: the calendar's own string vocabulary, resolved from
+                // this site's persisted programme. The legacy boolean
+                // `clippingsCollected` is gone from this object entirely — the
+                // engine ignores it (see that file's facade banner).
+                clippingManagement: _programInputs ? _programInputs.clippingManagement : 'collected',
+                trafficIntensity: _programInputs ? _programInputs.trafficIntensity : 'moderate',
+                trafficModifier: _programInputs ? _programInputs.trafficModifier : 1,
+                turfType: _programInputs ? _programInputs.turfType : null,
+                // The traffic-adjusted target the engine and both monthly
+                // distributions run on, plus the Plan page's own pre-traffic
+                // base and where it came from (decision D-4b: the export
+                // prints a note when the base did not come from a generated
+                // programme).
+                nProgramKgHaYr: _userN,
+                annualNBase: _programInputs ? _programInputs.annualNBase : null,
+                annualNSource: _programInputs ? _programInputs.sources.annualN : null
             },
             climate: {
                 monthlyTemps: _monthlyTemps,
@@ -7172,9 +7136,20 @@
                 coordinatesDefaulted: _coordsDefaulted
             },
             aaRanges: _aaRanges,
-            // GH-379: the per-sample texture the aaRanges above were derived
-            // from (null when the AA range IIFE did not run, i.e. non-AA sites,
-            // or when no source resolved a texture).
+            // GH-383: the resolved sufficiency ranges for ALL methodologies,
+            // their per-nutrient provenance, and the resolved programme-input
+            // provenance map. The engine consumes `ranges`; the E2E harness
+            // compares `sources` against the Plan page's meta.inputSources.
+            ranges: _resolvedRanges,
+            rangeSources: _programInputs ? _programInputs.rangeSources : null,
+            certificateCode: _programInputs ? _programInputs.certificateCode : null,
+            methodology: _programInputs ? _programInputs.methodology : null,
+            speciesKey: _programInputs ? _programInputs.speciesKey : null,
+            CEC: _programInputs ? _programInputs.CEC : null,
+            pH: _programInputs ? _programInputs.pH : null,
+            sources: _programInputs ? _programInputs.sources : null,
+            // GH-379: the per-sample texture the ranges above were derived
+            // from (null when no source resolved a texture).
             soilTexture: _resolvedSoilTexture,
             overseedConfig: _overseedConfig
         };
@@ -9808,6 +9783,11 @@
                     soil: data.soil,
                     turf: _inputs.turf,
                     climate: _inputs.climate,
+                    // GH-383: sufficiency ranges for all three methodologies,
+                    // resolved once by nutrition-program-inputs.js. aaRanges is
+                    // still passed for the graceful-degradation path when the
+                    // adapter could not run.
+                    ranges: _inputs.ranges,
                     aaRanges: _inputs.aaRanges,
                     // GH-368 (Hoxton audit D07a): this sample's own tissue
                     // analysis, so the engine's P/K removal rate comes from
@@ -11722,6 +11702,33 @@
                 heading: HeadingLevel.HEADING_1, keepNext: true, 
                 children: [new TextRun('Annual Nutrient Requirements')] 
             }));
+
+            // GH-388 (decision D-4b): the annual N every figure in this table
+            // scales against comes from the site's own generated nutrition
+            // programme. When a site has never had one generated, the shared
+            // input adapter falls back to Settings > Turf and then to the
+            // species default — a defensible number, but not one the client
+            // chose on the Plan page, and the document must say so. GH-383
+            // added this note to the Combined export and left the single-sample
+            // export printing nothing, so a site with no programme got an
+            // unannotated document. `annualNSource` is the adapter's own
+            // provenance stamp, carried on engineInputs.turf.
+            var _gh388NSource = data.engineInputs && data.engineInputs.turf &&
+                data.engineInputs.turf.annualNSource;
+            if (_gh388NSource === 'settings-turf' || _gh388NSource === 'species-default') {
+                sections.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({
+                        text: 'Note — annual nitrogen target source: ' +
+                            (_gh388NSource === 'settings-turf' ? 'Site Settings → Turf' : 'species default') +
+                            '. No nutrition programme has been generated on the Plan page for this site, ' +
+                            'so the annual N target every requirement below is scaled against was taken ' +
+                            'from the site configuration rather than from a programme. Generate the ' +
+                            'programme on the Plan page to base these figures on your own target.',
+                        size: 16, italics: true, color: '92400E'
+                    })]
+                }));
+            }
             // b35fix331 — Item 1a residual closure (single-export ANR caption).
             //
             // Pre-fix caption: "Based on SLAN methodology with removal + deficit

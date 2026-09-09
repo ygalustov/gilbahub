@@ -41,5 +41,15 @@
       "K": 2
     }
   },
-  "mustBeBelowFloor": ["K"]
+  "mustBeBelowFloor": [
+    "K"
+  ],
+  "region": "nz",
+  "crossSite": {
+    "_why": "GH-389: per-site annual N in a multi-site Combined export was the headline fix of D31 stage 1 (GH-383) and was protected only by one manual run. Ticking a SECOND sample, from a different site with a different annual N target, is what makes the cross-site leak observable: before GH-383 every sample after the first inherited the active site's N target, because word-export.js read it from a hidden legacy input that nutrition-calendar.js's restoreFromPersisted() fills once and then refuses to refill. Burns' own target is 120 against Test5's 250, so a leak shows up as a wrong number rather than a coincidence.",
+    "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+    "name": "Burns",
+    "sampleUid": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e::Soil_25_zo0t",
+    "label": "12th Fairway"
+  }
 }

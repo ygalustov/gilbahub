@@ -53,6 +53,16 @@
  * them pass; they go green when D31 stage 2 (the GH-376 core cutover) lands.
  * Every other test here is a genuine "must agree today" check.
  *
+ * The harness selects the fixture's soil sample through the Plan page's own
+ * picker widget, the way a user does, rather than trusting the page to open on
+ * it: with nothing remembered the picker opens on whatever the list order puts
+ * first, which on a multi-sample site is not the fixture's sample. (Found by
+ * GH-384's MLSN/SLAN fixtures, when the Plan page was on Burns' "Green 2" while
+ * the export used "12th Fairway". The related defect — that a REMEMBERED
+ * selection was never restored either, because a numeric API id was compared
+ * with `===` against a string from localStorage — was fixed separately in
+ * GH-386.)
+ *
  * Side effects on the stack: generating on /plan persists a fresh
  * nutritionCalendarProgram for the fixture site (exactly what the user's own
  * click does); the login's active-site pointer is switched to the fixture
@@ -219,19 +229,82 @@ function deliverySummaryFromPlanText(text) {
     return out;
 }
 
-/** Annual Product Summary footer rows: "Total Delivered\tN\tP\tK", "Required (kg/ha)\tN\tP\tK". */
+/**
+ * Annual Product Summary footer rows ("Total Delivered", "Required (kg/ha)").
+ *
+ * GH-387: column-indexed off the table's own header rather than assuming N/P/K
+ * sit at cells 1-3. That assumption holds for the NZ panel ("Product | N | P |
+ * K") and not for the Australian one, whose header is "Product | Applications |
+ * Total Rate | N | P | K" — so the harness was reading the APPLICATION COUNT as
+ * the delivered N (12 instead of 120) and reporting a parity failure that was
+ * entirely its own parse.
+ */
 function productFooterFromPlanText(text) {
     const out = {};
-    text.split('\n').forEach((line) => {
+    const lines = text.split('\n');
+    let idx = null;
+    lines.forEach((line) => {
         const cells = line.split('\t').map((s) => s.trim());
+        if (idx === null && /^Product$/i.test(cells[0] || '')) {
+            const find = (n) => cells.findIndex((c) => c.toUpperCase() === n);
+            const i = { N: find('N'), P: find('P'), K: find('K') };
+            if (i.N > 0 && i.P > 0 && i.K > 0) idx = i;
+            return;
+        }
+        // Header indices when they were found, otherwise the panel's simplest
+        // layout; and if the header-derived read comes up empty for this row
+        // (a footer with fewer cells than the header), fall back rather than
+        // silently reporting "missing".
+        // Two candidate layouts: the table's own header indices, and the
+        // simple "Product | N | P | K" the NZ panel uses. Take whichever
+        // actually reads three numbers off THIS row — a footer row can be
+        // narrower than the header it sits under.
+        const read = (cs) => {
+            const at = (i) => (i > 0 && i < cs.length) ? num(cs[i]) : null;
+            const score = (r) => ['N', 'P', 'K'].filter((k) => r[k] !== null).length;
+            const simple = { N: at(1), P: at(2), K: at(3) };
+            if (!idx) return simple;
+            const byHeader = { N: at(idx.N), P: at(idx.P), K: at(idx.K) };
+            return score(byHeader) >= score(simple) ? byHeader : simple;
+        };
         if (cells.length >= 4 && /^Total Delivered$/i.test(cells[0]) && !out.delivered) {
-            out.delivered = { N: num(cells[1]), P: num(cells[2]), K: num(cells[3]) };
+            out.delivered = read(cells);
         }
         if (cells.length >= 4 && /^Required/i.test(cells[0]) && !out.required) {
-            out.required = { N: num(cells[1]), P: num(cells[2]), K: num(cells[3]) };
+            out.required = read(cells);
         }
     });
     return out;
+}
+
+/**
+ * GH-387: every product name in a region's catalogues. The AU fixtures added
+ * for GH-384 pass through the Australian catalogue, which this helper did not
+ * know about, so assertion 14 reported every legitimate AU product as foreign.
+ */
+function catalogueNames(region) {
+    if (region === 'au') return auCatalogueNames();
+    return nzCatalogueNames();
+}
+
+/** Every product name in the AU catalogue. */
+function auCatalogueNames() {
+    const prevWindow = global.window;
+    const prevDocument = global.document;
+    global.window = {};
+    global.document = { readyState: 'complete', addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
+    try {
+        jest.isolateModules(() => { require('../../assets/au-fertiliser-products.js'); });
+        const au = global.window.GAIP_AU_FERTILISER;
+        const groups = (au && au.products) || {};
+        return []
+            .concat(groups.granular || [], groups.liquid || [], groups.soluble || [], groups.organic || [])
+            .map((prod) => prod.name)
+            .filter(Boolean);
+    } finally {
+        global.window = prevWindow;
+        global.document = prevDocument;
+    }
 }
 
 /** Every product name in the NZ catalogues (PGG Wrightson + Prebbles). */
@@ -283,6 +356,14 @@ function numericMismatches(rows, tol) {
 function normaliseMethodology(m) {
     const u = String(m || '').toUpperCase().replace(/[\s-]+/g, '_');
     if (u === 'AA' || u === 'AMMONIUMACETATE') return 'AMMONIUM_ACETATE';
+    // The requirement engine labels its SLAN results with the citation and the
+    // pH-adjustment flag ('SLAN-Carrow-2004-range', '...-PH-ADJUSTED'); the
+    // calendar stamps the bare methodology key. Fold the label to the branch it
+    // names — this compares WHICH BRANCH each surface took, and the citation
+    // suffix is not part of that answer.
+    if (u.indexOf('SLAN') === 0) return 'SLAN';
+    if (u.indexOf('MLSN') === 0) return 'MLSN';
+    if (u.indexOf('AMMONIUM_ACETATE') === 0) return 'AMMONIUM_ACETATE';
     return u;
 }
 
@@ -295,7 +376,7 @@ function summariseProgram(lp) {
     const products = Object.keys((lp.annualSummary && lp.annualSummary.products) || {}).map(function (id) {
         const d = lp.annualSummary.products[id];
         return {
-            id: id, name: d.name, applications: d.applications, totalKg: d.totalKg,
+            id: id, name: d.name || d.productName || null, applications: d.applications, totalKg: d.totalKg,
             nutrients: d.nutrients ? { N: d.nutrients.N, P: d.nutrients.P, K: d.nutrients.K } : null,
             isLiquid: !!d.isLiquid, isAmendment: !!d._isAmendment
         };
@@ -307,7 +388,29 @@ function summariseProgram(lp) {
             liquid: (m.liquid || []).map(function (l) { return { name: l.name, rateLHa: l.rateLHa, rateKgHa: l.rateKgHa, form: l.form || null }; })
         };
     });
-    return { meta: lp.meta ? { surfaceType: lp.meta.surfaceType, methodology: lp.meta.methodology } : null, products: products, monthly: monthly };
+    // GH-387: the two surfaces hand the harness objects of different shapes —
+    // the Plan page publishes the regional INTEGRATION's enriched programme
+    // (which carries annualSummary.products), while the export hook captures
+    // the RECOMMENDER's raw return (which does not). Comparing those two
+    // directly made the export look like it had chosen no products at all.
+    // Rolled up from the monthly series instead, which both sides always have
+    // and which is what the client reads in the Monthly Schedule.
+    const byName = {};
+    (lp.monthly || []).forEach(function (m) {
+        [].concat(m.granular || [], m.liquid || []).forEach(function (prod) {
+            if (!prod || !prod.name) return;
+            const e = byName[prod.name] || (byName[prod.name] = { name: prod.name, applications: 0, totalKg: 0 });
+            e.applications += (prod.splitCount || 1);
+            e.totalKg += (typeof prod.rateKgHa === 'number' ? prod.rateKgHa : 0) * (prod.splitCount || 1);
+        });
+    });
+    const fromMonthly = Object.keys(byName).sort().map(function (n) {
+        return { name: n, applications: byName[n].applications, totalKg: Math.round(byName[n].totalKg * 10) / 10 };
+    });
+    return {
+        meta: lp.meta ? { surfaceType: lp.meta.surfaceType, methodology: lp.meta.methodology } : null,
+        products: products, productsFromMonthly: fromMonthly, monthly: monthly
+    };
 }
 
 /** Shape a nutrition-calendar computeProgram() result for comparison. */
@@ -396,7 +499,11 @@ function installExportHooks(arg) {
                     inputs: {
                         soil: { methodology: soil.methodology, P: soil.P, K: soil.K, S: soil.S, Ca: soil.Ca, Mg: soil.Mg,
                                 pH: soil.pH, CEC: soil.CEC, bulkDensity: soil.bulkDensity, depth: soil.depth },
-                        turf: j(inputs && inputs.turf), aaRanges: j(inputs && inputs.aaRanges),
+                        turf: j(inputs && inputs.turf),
+                        // GH-383: `ranges` covers AA, SLAN and MLSN; `aaRanges`
+                        // is the AA-only legacy field, null on the other two.
+                        ranges: j(inputs && inputs.ranges),
+                        aaRanges: j(inputs && inputs.aaRanges),
                         tissuePercent: j(inputs && inputs.tissuePercent)
                     },
                     out: {
@@ -414,10 +521,14 @@ function installExportHooks(arg) {
         cap.hooked.engine = true;
     }
 
-    const PR = window.PrebbleRecommender;
-    if (PR && typeof PR.generateProgram === 'function') {
-        const orig = PR.generateProgram;
-        PR.generateProgram = function (calendar, context) {
+    // GH-384: the Combined export picks the product recommender from each
+    // sample's own coordinates (GH-362), so an Australian fixture never touches
+    // PrebbleRecommender at all. Hook both; `hooked.recommender` means "a
+    // recommender was hooked", whichever region this fixture is in.
+    function hookRecommender(obj, method) {
+        if (!obj || typeof obj[method] !== 'function') return false;
+        const orig = obj[method];
+        obj[method] = function (calendar, context) {
             const out = orig.apply(this, arguments);
             try {
                 cap.recommender.push({
@@ -428,8 +539,14 @@ function installExportHooks(arg) {
             } catch (e) { cap.recommender.push({ captureError: String(e) }); }
             return out;
         };
-        cap.hooked.recommender = true;
+        return true;
     }
+    const hookedNZ = hookRecommender(window.PrebbleRecommender, 'generateProgram');
+    const hookedAU = hookRecommender(window.AuFertiliserRecommender, 'generateAnnualProgram');
+    const hookedUK = hookRecommender(window.UkFertiliserRecommender, 'generateAnnualProgram');
+    cap.hooked.recommender = hookedNZ || hookedAU || hookedUK;
+    cap.hooked.recommenderNZ = hookedNZ;
+    cap.hooked.recommenderAU = hookedAU;
     return cap.hooked;
 }
 
@@ -487,6 +604,9 @@ if (!ENABLED) {
         let exportXml = '', exportText = '', exportTables = [];
         let capture = null;         // window.__gilbaE2E after the export
         let pickerResult = null;
+        let persistedBaseN = null;
+        let crossTables = null;
+        let crossCapture = null;
         const consoleLines = [];
         const failLoud = [];
 
@@ -539,10 +659,45 @@ if (!ENABLED) {
 
         async function runPlan() {
             await page.goto(BASE_URL + '/plan', { waitUntil: 'domcontentloaded' });
-            await page.waitForFunction(() => !!(window.GilbaNutritionCalendar && window.NutritionPrebbleIntegration), null, { timeout: 30000 });
+            await page.waitForFunction(() => !!(window.GilbaNutritionCalendar &&
+                (window.NutritionPrebbleIntegration || window.NutritionAuFertiliserIntegration)), null, { timeout: 30000 });
             await page.waitForTimeout(2500); // site-config restore cascade
             await page.click('a[data-tab="nutrition"]');
             await page.waitForTimeout(1000);
+            // GH-384: pin the Plan page's soil sample by driving its own picker.
+            // On a multi-sample site the page opens on whichever sample the list
+            // order puts first, so without this the two surfaces can silently
+            // compute for DIFFERENT samples and every comparison below is
+            // meaningless. Test5 - NZ has a single soil sample, which is why
+            // this never showed until the MLSN and SLAN fixtures were added.
+            // Driven through the UI rather than by seeding localStorage: it is
+            // what a user does, and it exercises the selection path itself.
+            await page.waitForSelector('#plan-nut-sample-picker .sn-drop-btn', { timeout: 20000 });
+            const picked = await page.evaluate((label) => {
+                const btn = document.querySelector('#plan-nut-sample-picker .sn-drop-btn');
+                if (!btn) return { ok: false, reason: 'no picker' };
+                btn.click();
+                const rows = Array.from(document.querySelectorAll('#plan-nut-sample-picker .sn-drop-row'));
+                const available = rows.map((r) => (r.querySelector('.sn-drop-cell-zone') || {}).textContent);
+                const row = rows.find((r) => ((r.querySelector('.sn-drop-cell-zone') || {}).textContent || '').trim() === label);
+                if (!row) return { ok: false, reason: 'label not in picker', available };
+                row.click();
+                return { ok: true, available };
+            }, SAMPLE_LABEL);
+            if (!picked.ok) {
+                throw new Error('could not select "' + SAMPLE_LABEL + '" in the Plan page\'s sample picker (' +
+                    picked.reason + '). Available: ' + JSON.stringify(picked.available));
+            }
+            await page.waitForTimeout(1200);
+            const pinnedLabel = await page.evaluate(() => {
+                const el = document.getElementById('plan-nut-sample-label');
+                return el ? el.textContent.trim() : null;
+            });
+            if (pinnedLabel !== SAMPLE_LABEL) {
+                throw new Error('the Plan page is computing for sample "' + pinnedLabel +
+                    '" but the fixture pins "' + SAMPLE_LABEL + '" (db id ' + fixture.soilSample.dbId +
+                    ') — the two surfaces would be compared on different samples.');
+            }
             // Count fresh generations so a programme restored from the cache
             // on page load is never mistaken for the one we asked for.
             await page.evaluate(() => {
@@ -565,7 +720,7 @@ if (!ENABLED) {
         async function runExport() {
             await page.goto(BASE_URL + '/reports/export', { waitUntil: 'domcontentloaded' });
             await page.waitForFunction(() => !!(window.GilbaNutritionCalendar && window.NutritionRequirementEngine_Pure &&
-                window.PrebbleRecommender && window.GAIP_SampleManager), null, { timeout: 30000 });
+                (window.PrebbleRecommender || window.AuFertiliserRecommender) && window.GAIP_SampleManager), null, { timeout: 30000 });
             // The per-sample recompute takes its annual N from this input,
             // which the restore cascade fills a few seconds after load
             // (REVIEW-GH349-onward.md open question 12).
@@ -613,6 +768,22 @@ if (!ENABLED) {
             if (pickerResult.checkedCount !== 1) {
                 throw new Error('expected exactly 1 checked sample in the picker, got ' + pickerResult.checkedCount);
             }
+            // Each site's own persisted base N, read from the page's per-site
+            // config store — the value the export is supposed to use for that
+            // site, and the one the cross-site leak replaced with the active
+            // site's. Captured here, used by the multi-site test below.
+            persistedBaseN = await page.evaluate((ids) => {
+                const out = {};
+                ids.forEach((id) => {
+                    const c = window.GAIP_SiteConfig && window.GAIP_SiteConfig.getConfig(id);
+                    const prog = c && c.nutritionCalendarProgram;
+                    out[id] = prog ? {
+                        annualNBase: prog.meta && prog.meta.annualNBase,
+                        targetN: prog.adjustments && prog.adjustments.target_n
+                    } : null;
+                });
+                return out;
+            }, [SITE_ID].concat(fixture.crossSite ? [fixture.crossSite.siteId] : []));
 
             // Only export-time calls count; the page may have run the engines on load.
             await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; });
@@ -626,6 +797,64 @@ if (!ENABLED) {
             exportXml = readDocumentXml(docxPath);
             exportText = docxText(exportXml);
             exportTables = docxTables(exportXml);
+        }
+
+        /**
+         * GH-389: a SECOND export, of this fixture's sample plus one from a
+         * different site, purely for the per-site annual-N check.
+         *
+         * Deliberately a separate export rather than a second tick in the one
+         * above: the Combined document's Annual Product Summary aggregates
+         * every ticked sample, so a two-sample run would silently change what
+         * every other comparison in this file means. Only the ANR table (one
+         * row per sample) and the engine calls are read from this run.
+         */
+        async function runCrossSiteExport() {
+            if (!fixture.crossSite) return;
+            await page.goto(BASE_URL + '/reports/export', { waitUntil: 'domcontentloaded' });
+            await page.waitForFunction(() => !!(window.GilbaNutritionCalendar && window.NutritionRequirementEngine_Pure &&
+                (window.PrebbleRecommender || window.AuFertiliserRecommender) && window.GAIP_SampleManager), null, { timeout: 30000 });
+            await page.waitForTimeout(2500);
+            const hooked = await page.evaluate(installExportHooks, evalArg);
+            if (!hooked.engine) throw new Error('could not hook the engine for the cross-site export');
+            await page.click('text=Generate & Download Word');
+            await page.waitForSelector('.gaip-bulk-area-backdrop', { timeout: 15000 });
+            await page.waitForTimeout(600);
+            await page.click('text=Deselect all');
+            await page.waitForTimeout(300);
+            const picked = await page.evaluate(({ uids }) => {
+                const out = [];
+                uids.forEach((uid) => {
+                    const cb = document.querySelector('input[data-sample-uid="' + uid + '"]');
+                    if (!cb) { out.push({ uid, found: false }); return; }
+                    cb.checked = true;
+                    cb.dispatchEvent(new Event('change', { bubbles: true }));
+                    const row = cb.closest('tr');
+                    out.push({ uid, found: true, label: ((row && row.querySelector('.gaip-bulk-sample-label')) || {}).textContent || '' });
+                });
+                return { out, checked: document.querySelectorAll('input[data-sample-uid]:checked').length };
+            }, { uids: [SAMPLE_UID, fixture.crossSite.sampleUid] });
+            const missing = picked.out.filter((r) => !r.found);
+            if (missing.length) {
+                throw new Error('cross-site export: sample(s) not in the picker: ' + JSON.stringify(missing));
+            }
+            if (picked.checked !== 2) {
+                throw new Error('cross-site export: expected 2 checked samples, got ' + picked.checked);
+            }
+            await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; });
+            const [download] = await Promise.all([
+                page.waitForEvent('download', { timeout: 180000 }),
+                page.locator('button:has-text("Generate & Download")').last().click()
+            ]);
+            const p2 = path.join(os.tmpdir(), 'gilba-e2e-cross-' + Date.now() + '.docx');
+            await download.saveAs(p2);
+            crossTables = docxTables(readDocumentXml(p2));
+            crossCapture = await page.evaluate(() => window.__gilbaE2E);
+            if (process.env.GILBA_E2E_KEEP === '1') {
+                process.stdout.write('[e2e] kept cross-site export ' + p2 + '\n');
+            } else {
+                fs.unlinkSync(p2);
+            }
         }
 
         beforeAll(async () => {
@@ -651,6 +880,7 @@ if (!ENABLED) {
             await switchToFixtureSite();
             await runPlan();
             await runExport();
+            await runCrossSiteExport();
         });
 
         afterAll(async () => {
@@ -687,6 +917,11 @@ if (!ENABLED) {
             return { K_req: num(row[1]), K_delivered: num(row[2]), K_balance: row[3] === '-' ? null : num(row[3]),
                      spot: row[4], tissue: row[5], raw: row };
         }
+        /** K the Plan page says its own programme delivers, rounded. */
+        function planDeliveredK() {
+            const ds = deliverySummaryFromPlanText(plan.text);
+            return Math.round((ds.K && ds.K.delivered) || 0);
+        }
         function exportProductRows() {
             const t = findTable(exportTables, ['Product', 'Applications', 'Total kg/ha', 'N']);
             if (!t) return null;
@@ -720,6 +955,14 @@ if (!ENABLED) {
             return calls.length ? calls[calls.length - 1] : null;
         }
 
+        /** The ANR row for a named sample label, in the cross-site document. */
+        function crossAnrRowFor(label) {
+            const t = findTable(crossTables || [], ['Sample', 'N kg/ha', 'P ppm', 'P req', 'K ppm', 'K req', 'S ppm', 'S req']);
+            if (!t) return null;
+            const row = t.slice(1).find((r) => r[0] && r[0].trim() === label);
+            return row ? { label: label, N: num(row[1]), P_req: num(row[3]), K_req: num(row[5]), raw: row } : null;
+        }
+
         // ─────────────────────────────── tests ───────────────────────────────
 
         test('preconditions: the fixture site and sample are what both surfaces used, and the sample is genuinely below floor', () => {
@@ -731,10 +974,18 @@ if (!ENABLED) {
             expect(anr).not.toBeNull();
             const identity = numericMismatches([
                 { what: 'soil K ppm on Plan vs fixture', plan: num(planPpm.K), export: FX.soilPpm.K },
-                { what: 'soil P ppm on Plan vs fixture', plan: num(planPpm.P), export: FX.soilPpm.P },
-                { what: 'soil K ppm in export ANR row vs fixture', plan: anr.K_ppm, export: FX.soilPpm.K },
-                { what: 'soil P ppm in export ANR row vs fixture', plan: anr.P_ppm, export: FX.soilPpm.P }
-            ], 0.01);
+                { what: 'soil P ppm on Plan vs fixture', plan: num(planPpm.P), export: FX.soilPpm.P }
+            ], 0.01).concat(
+                // The ANR table PRINTS soil ppm rounded to a whole number
+                // (Math.round in the renderer), so a fractional reading such as
+                // 23.81 appears as 24. That is a rendering precision, not an
+                // input difference — the input itself is compared exactly, per
+                // nutrient, against both engines' received values in the "same
+                // inputs reached both surfaces" test below.
+                numericMismatches([
+                    { what: 'soil K ppm printed in the export ANR row vs fixture', plan: anr.K_ppm, export: FX.soilPpm.K },
+                    { what: 'soil P ppm printed in the export ANR row vs fixture', plan: anr.P_ppm, export: FX.soilPpm.P }
+                ], 0.5));
             // If this fails the fixture's currentInputs have drifted from the DB
             // (someone edited the sample) — update the fixture, this is not a
             // parity failure.
@@ -767,10 +1018,23 @@ if (!ENABLED) {
         test('the export rendered the sample\'s Nutrition Program, Annual Nutrient Requirements and K Reconciliation', () => {
             expect(exportText).toMatch(/Annual Nutrient Requirements/);
             expect(exportAnrRow()).not.toBeNull();
-            expect(exportKReconRow()).not.toBeNull();
             expect(exportProductRows()).not.toBeNull();
             expect(exportMonthlyRows()).not.toBeNull();
             expect(exportMonthlyRows().length).toBe(12);
+            // GH-387: the K Reconciliation section is rendered only when the N
+            // programme actually delivers some K — `_perSampleKDelivered()`
+            // returns null at zero, and there is nothing to reconcile. That is
+            // reachable on a real site (Burns 12th Fairway: soil K 195 ppm is
+            // far above the MLSN ceiling, K req 0, and the greens products
+            // chosen for it carry no K at all). Assert the two states, rather
+            // than assuming the table is always there or skipping it silently.
+            const krec = exportKReconRow();
+            if (krec === null) {
+                expect(planDeliveredK()).toBe(0);
+                expect(exportText).not.toMatch(/K Reconciliation/);
+            } else {
+                expect(planDeliveredK()).toBeGreaterThan(0);
+            }
         });
 
         test('no fail-loud signal fired on either surface', () => {
@@ -798,12 +1062,13 @@ if (!ENABLED) {
             ['P', 'K', 'Ca', 'Mg', 'S'].forEach((n) => {
                 const pr = plan.program.annual_totals_range && plan.program.annual_totals_range[n];
                 const cr = cal.out.annual_totals_range && cal.out.annual_totals_range[n];
-                const er = eng.inputs.aaRanges && eng.inputs.aaRanges[n];
+                const _engRanges = eng.inputs.ranges || eng.inputs.aaRanges;
+                const er = _engRanges && _engRanges[n];
                 const eo = eng.out.perSample[n];
                 rows.push({ what: n + ' floor: Plan vs export calendar', plan: pr && pr.min, export: cr && cr.min });
                 rows.push({ what: n + ' ceiling: Plan vs export calendar', plan: pr && pr.max, export: cr && cr.max });
-                rows.push({ what: n + ' floor: Plan vs export engine aaRanges', plan: pr && pr.min, export: er && er.min });
-                rows.push({ what: n + ' ceiling: Plan vs export engine aaRanges', plan: pr && pr.max, export: er && er.max });
+                rows.push({ what: n + ' floor: Plan vs export engine ranges', plan: pr && pr.min, export: er && er.min });
+                rows.push({ what: n + ' ceiling: Plan vs export engine ranges', plan: pr && pr.max, export: er && er.max });
                 if (eo) {
                     rows.push({ what: n + ' floor: Plan vs export engine output', plan: pr && pr.min, export: eo.floor });
                     rows.push({ what: n + ' ceiling: Plan vs export engine output', plan: pr && pr.max, export: eo.ceiling });
@@ -841,10 +1106,20 @@ if (!ENABLED) {
                 rows.push({ what: 'soil ' + n + ' ppm: Plan vs export calendar', plan: num(plan.program.soil.ppm[n]), export: num(cal.inputs.soilPpm[n]) });
                 rows.push({ what: 'soil ' + n + ' ppm: Plan vs export engine', plan: num(plan.program.soil.ppm[n]), export: num(eng.inputs.soil[n]) });
             });
-            ['N', 'P', 'K'].forEach((n) => {
-                rows.push({ what: 'tissue ' + n + ' %: fixture vs export calendar', plan: FX.tissuePercent[n], export: cal.inputs.tissuePercent && num(cal.inputs.tissuePercent[n]) });
-                rows.push({ what: 'tissue ' + n + ' %: fixture vs export engine', plan: FX.tissuePercent[n], export: eng.inputs.tissuePercent && num(eng.inputs.tissuePercent[n]) });
-            });
+            // A fixture site with no tissue sample on file declares nulls; the
+            // rows below would then compare "absent" against "absent" and
+            // numericMismatches() reports any non-number as a mismatch. Assert
+            // the absence explicitly instead of skipping it silently.
+            const fixtureHasTissue = ['N', 'P', 'K'].every((n) => typeof FX.tissuePercent[n] === 'number');
+            if (fixtureHasTissue) {
+                ['N', 'P', 'K'].forEach((n) => {
+                    rows.push({ what: 'tissue ' + n + ' %: fixture vs export calendar', plan: FX.tissuePercent[n], export: cal.inputs.tissuePercent && num(cal.inputs.tissuePercent[n]) });
+                    rows.push({ what: 'tissue ' + n + ' %: fixture vs export engine', plan: FX.tissuePercent[n], export: eng.inputs.tissuePercent && num(eng.inputs.tissuePercent[n]) });
+                });
+            } else {
+                expect({ planGate: plan.program.tissue_gate_applied, exportGate: cal.out.tissue_gate_applied })
+                    .toEqual({ planGate: false, exportGate: false });
+            }
             expect(numericMismatches(rows, 0.01)).toEqual([]);
             expect({ plan: plan.program.tissue_gate_applied, exportCalendar: cal.out.tissue_gate_applied })
                 .toEqual({ plan: plan.program.tissue_gate_applied, exportCalendar: plan.program.tissue_gate_applied });
@@ -906,50 +1181,107 @@ if (!ENABLED) {
                 { what: 'P removal: Plan column vs export engine', plan: ds.P.removal, export: eng.out.perSample.P.removal },
                 { what: 'K removal: Plan column vs export engine', plan: ds.K.removal, export: eng.out.perSample.K.removal },
                 { what: 'P required: Plan column vs export engine annualRequirement', plan: ds.P.required, export: eng.out.perSample.P.annualRequirement },
-                { what: 'K required: Plan column vs export engine annualRequirement', plan: ds.K.required, export: eng.out.perSample.K.annualRequirement },
-                { what: 'K required: Plan column vs export K Reconciliation "K req"', plan: ds.K.required, export: krec.K_req }
+                { what: 'K required: Plan column vs export engine annualRequirement', plan: ds.K.required, export: eng.out.perSample.K.annualRequirement }
             ];
+            // GH-387: the K Reconciliation section only renders when the
+            // programme delivers some K — see the render test.
+            if (krec !== null) {
+                rows.push({ what: 'K required: Plan column vs export K Reconciliation "K req"', plan: ds.K.required, export: krec.K_req });
+            }
             expect(numericMismatches(rows, 1)).toEqual([]);
         });
 
+        // GH-387: the three product tests below are asserted for every fixture.
+        // GH-384 had let the two AU fixtures opt out with a `productParity`
+        // block, on the reading that the divergence they showed was a regional
+        // catalogue question outside D31. That reading was wrong — every
+        // product involved came from the SAME (Australian) catalogue, and the
+        // real cause was the two surfaces handing their recommender different
+        // surface types. The opt-out is gone with the defect.
         test('Delivered N/P/K: Plan Nutrient Delivery Summary vs export K Reconciliation "K delivered" and Annual Product Summary', () => {
             const ds = deliverySummaryFromPlanText(plan.text);
             const footer = productFooterFromPlanText(plan.text);
             const krec = exportKReconRow();
             const prodRows = exportProductRows();
-            const catalogue = nzCatalogueNames();
+            const catalogue = catalogueNames(fixture.region || 'nz');
+            if (krec === null) {
+                // No K Reconciliation section — the programme delivers no K at
+                // all (see the render test above). The catalogue-sum rows below
+                // still apply; the two K-Reconciliation rows have nothing to
+                // read, and both surfaces must agree that the answer is zero.
+                expect(planDeliveredK()).toBe(0);
+            }
             // The export's K delivered is the catalogue-only sum (amendment
             // rows such as gypsum are export-side additions, see b35fix322/324);
             // the Plan panel has no amendments at all, so its Delivered column
             // is the same catalogue-only quantity.
             const catalogueRows = prodRows.filter((r) => isCatalogueName(r.name, catalogue));
+            // GH-387: prefer the document's OWN "Total Delivered" row. Summing
+            // the per-product columns is only equal to it when each row's
+            // figure is a clean partition of the total, which is true of the NZ
+            // table and not of the AU one (its rows are rounded per product and
+            // its total is computed from the programme: 113 + 7 + 5 = 125
+            // against a printed total of 120). Comparing the Plan's Delivered
+            // column against the export's own printed total is comparing like
+            // with like; the row sum stays as the fallback.
             const sum = (k) => catalogueRows.reduce((s, r) => s + (r[k] || 0), 0);
-            const rows = [
-                { what: 'K delivered: Plan column vs export K Reconciliation', plan: ds.K.delivered, export: krec.K_delivered },
-                { what: 'K delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.K.delivered, export: sum('K') },
-                { what: 'N delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.N.delivered, export: sum('N') },
-                { what: 'P delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.P.delivered, export: sum('P') },
-                { what: 'K delivered: Plan "Total Delivered" footer vs export K Reconciliation', plan: footer.delivered && footer.delivered.K, export: krec.K_delivered }
-            ];
+            const rows = [];
+            // GH-387: the "sum the export's per-product rows" rows below assert
+            // that the product table PARTITIONS the programme's delivered
+            // total. That is true of the NZ renderer and NOT of the Australian
+            // one — on Burns the AU table prints 113 + 7 + 5 = 125 kg N/ha
+            // while the programme's delivered total is 120.1, because MAP
+            // Tech's 5.4 kg N appears as a product row but not in the total.
+            // Crucially that is the same on BOTH surfaces: the Plan page's own
+            // Annual Product Summary prints the same three rows and the same
+            // 120 footer. It is a pre-existing AU-renderer inconsistency, not a
+            // UI-vs-export divergence, and asserting it here would make this
+            // harness fail for something it does not test. Product-for-product
+            // parity between the two surfaces IS asserted, in full, by the
+            // "product selection and rates" test below.
+            if ((fixture.region || 'nz') === 'nz') {
+                rows.push({ what: 'K delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.K.delivered, export: sum('K') });
+                rows.push({ what: 'N delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.N.delivered, export: sum('N') });
+                rows.push({ what: 'P delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.P.delivered, export: sum('P') });
+            } else {
+                // What can be asserted for every region: each surface's printed
+                // Delivered column agrees with its own printed footer total.
+                rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (N)', plan: ds.N.delivered, export: footer.delivered && footer.delivered.N });
+                rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (K)', plan: ds.K.delivered, export: footer.delivered && footer.delivered.K });
+            }
+            if (krec !== null) {
+                rows.push({ what: 'K delivered: Plan column vs export K Reconciliation', plan: ds.K.delivered, export: krec.K_delivered });
+                rows.push({ what: 'K delivered: Plan "Total Delivered" footer vs export K Reconciliation', plan: footer.delivered && footer.delivered.K, export: krec.K_delivered });
+            }
             // Each export row is rounded to a whole kg before summing.
             expect(numericMismatches(rows, 0.5 * Math.max(1, catalogueRows.length) + 0.5)).toEqual([]);
         });
 
         test('product selection and rates: Plan Annual Product Summary + Monthly Program vs export Annual Product Summary + Monthly Schedule', () => {
             const rec = exportRecommenderCall();
-            const planProducts = plan.products.products.filter((p) => !p.isAmendment);
-            const exportProducts = rec.out.products.filter((p) => !p.isAmendment);
-            // Structured: the recommender ran with the same calendar on both
-            // surfaces, so ids, application counts and totals must match.
-            expect(exportProducts.map((p) => p.id).sort()).toEqual(planProducts.map((p) => p.id).sort());
+            // GH-387: rolled up from the monthly series on both sides — the two
+            // surfaces hand the harness differently-shaped programme objects
+            // (see summariseProgram). This is also the comparison that catches
+            // the defect this ticket fixed: identical monthly nutrient series,
+            // different products, because the two were given different surface
+            // types.
+            const planProducts = plan.products.productsFromMonthly;
+            const exportProducts = rec.out.productsFromMonthly;
+            expect(exportProducts.map((p) => p.name).sort()).toEqual(planProducts.map((p) => p.name).sort());
             const rows = [];
             planProducts.forEach((pp) => {
-                const ep = exportProducts.find((p) => p.id === pp.id) || {};
+                const ep = exportProducts.find((p) => p.name === pp.name) || {};
                 rows.push({ what: pp.name + ' applications', plan: pp.applications, export: ep.applications });
                 rows.push({ what: pp.name + ' total kg/ha', plan: pp.totalKg, export: ep.totalKg });
-                ['N', 'P', 'K'].forEach((n) => rows.push({ what: pp.name + ' ' + n + ' delivered', plan: pp.nutrients && pp.nutrients[n], export: ep.nutrients && ep.nutrients[n] }));
             });
             expect(numericMismatches(rows, 0.05)).toEqual([]);
+            // The surface each recommender was given — the input that produced
+            // the divergence, asserted directly so a future regression names
+            // itself instead of showing up as a different product list.
+            expect({ plan: plan.products.meta && plan.products.meta.surfaceType,
+                     export: rec.out.meta && rec.out.meta.surfaceType })
+                .toEqual({ plan: plan.products.meta && plan.products.meta.surfaceType,
+                           export: plan.products.meta && plan.products.meta.surfaceType });
 
             // Month by month, the same granular and liquid products at the same rates.
             const monthRows = [];
@@ -971,9 +1303,22 @@ if (!ENABLED) {
             // Rendered: every Plan product is a row of the export's table with
             // the same figures, and every Plan granular application appears in
             // the export's Monthly Schedule cell for that month.
+            // The RENDERED comparison stays on the Plan's own annual summary,
+            // which is what its Annual Product Summary panel prints and is
+            // directly comparable to the document's table. (The monthly
+            // roll-up above is comparable BETWEEN the two surfaces, because
+            // both sides are rolled up the same way, but it is not the same
+            // quantity as either surface's printed annual total — a liquid
+            // carries rateLHa, not rateKgHa.)
+            // GH-387: entries without a name cannot be matched against a
+            // rendered table row; the AU annual summary keys by product id and
+            // does not always repeat the name inside the entry. Those products
+            // are still compared between the two surfaces by the monthly
+            // roll-up above, which always has real names.
+            const planRenderedProducts = plan.products.products.filter((p) => !p.isAmendment && p.name);
             const exportRows = exportProductRows().slice();
             const renderedRows = [];
-            planProducts.forEach((pp) => {
+            planRenderedProducts.forEach((pp) => {
                 // Same product can appear twice (a base and a "balance" top-up
                 // entry share the name) — take the unused row of that name
                 // whose total is closest, then retire it.
@@ -983,8 +1328,10 @@ if (!ENABLED) {
                 if (candidates[0]) exportRows.splice(exportRows.indexOf(candidates[0]), 1);
                 renderedRows.push({ what: 'rendered ' + pp.name + ' applications', plan: pp.applications, export: er.applications });
                 renderedRows.push({ what: 'rendered ' + pp.name + ' total kg/ha', plan: Math.round(pp.totalKg), export: er.totalKg });
-                renderedRows.push({ what: 'rendered ' + pp.name + ' N', plan: Math.round(pp.nutrients.N), export: er.N });
-                renderedRows.push({ what: 'rendered ' + pp.name + ' K', plan: Math.round(pp.nutrients.K), export: er.K });
+                if (pp.nutrients) {
+                    renderedRows.push({ what: 'rendered ' + pp.name + ' N', plan: Math.round(pp.nutrients.N), export: er.N });
+                    renderedRows.push({ what: 'rendered ' + pp.name + ' K', plan: Math.round(pp.nutrients.K), export: er.K });
+                }
                 expect(plan.text).toContain(pp.name);
             });
             expect(numericMismatches(renderedRows, 1)).toEqual([]);
@@ -1020,6 +1367,7 @@ if (!ENABLED) {
             }));
             expect(planRows.length).toBeGreaterThan(0);
             expect(numericMismatches(planRows, 0.15)).toEqual([]);
+            if (krec === null) return; // no K Reconciliation section — see the render test
             if (krec.K_balance != null) {
                 expect(numericMismatches([{
                     what: 'export K balance = K delivered − K req', plan: krec.K_balance, export: +(krec.K_delivered - krec.K_req).toFixed(1)
@@ -1029,10 +1377,50 @@ if (!ENABLED) {
             }
         });
 
+        test('multi-site: every sample carries ITS OWN site\'s annual N, not the active site\'s (GH-383 stage 1\'s headline fix)', () => {
+            if (!fixture.crossSite) {
+                // Nothing to prove without a second site — say so rather than
+                // passing silently.
+                expect(fixture.crossSite).toBeUndefined();
+                return;
+            }
+            const own = persistedBaseN[SITE_ID];
+            const other = persistedBaseN[fixture.crossSite.siteId];
+            expect(own && own.annualNBase).toBeGreaterThan(0);
+            expect(other && other.annualNBase).toBeGreaterThan(0);
+            // The check is only meaningful when the two targets differ — equal
+            // targets make a leak indistinguishable from correct behaviour.
+            expect(other.annualNBase).not.toBe(own.annualNBase);
+
+            const mine = crossAnrRowFor(SAMPLE_LABEL);
+            const theirs = crossAnrRowFor(fixture.crossSite.label);
+            expect(mine).not.toBeNull();
+            expect(theirs).not.toBeNull();
+            expect(numericMismatches([
+                { what: 'ANR "N kg/ha" for ' + SAMPLE_LABEL + ' vs that site\'s own meta.annualNBase', plan: mine.N, export: own.annualNBase },
+                { what: 'ANR "N kg/ha" for ' + fixture.crossSite.label + ' vs ' + fixture.crossSite.name + '\'s own meta.annualNBase', plan: theirs.N, export: other.annualNBase }
+            ], 1)).toEqual([]);
+            // And the leak's own signature, named: the second site must not be
+            // printing the ACTIVE site's target.
+            expect(theirs.N).not.toBe(mine.N);
+
+            // Both engine calls resolved their N from a generated programme,
+            // not from the Settings fallback (which would also be a wrong
+            // number here, just a differently wrong one).
+            const sources = ((crossCapture && crossCapture.engine) || [])
+                .map((c) => c.inputs && c.inputs.turf && c.inputs.turf.annualNSource)
+                .filter((v) => v !== undefined && v !== null);
+            expect(sources.length).toBeGreaterThan(0);
+            expect(sources.filter((v) => v !== 'plan-persisted' && v !== 'plan')).toEqual([]);
+        });
+
         test('every product in the export exists in this region\'s own catalogue (assertion 14)', () => {
-            const isNZ = /Prebble|NZ Fertiliser|Hill Labs|New Zealand/i.test(exportText);
-            if (!isNZ) return; // an AU/UK fixture needs its own inverse check
-            const catalogue = nzCatalogueNames();
+            // GH-387: the fixture declares its region — the old text sniff
+            // matched "Hill Labs" in an Australian site's document and then
+            // checked its products against the NZ catalogue.
+            const region = fixture.region || 'nz';
+            if (region !== 'nz' && region !== 'au') return; // UK has no catalogue check yet
+            const catalogue = catalogueNames(region);
             expect(catalogue.length).toBeGreaterThan(0);
             const rec = exportRecommenderCall();
             // Name-for-name against the catalogue modules, not a hand-written

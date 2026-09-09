@@ -132,21 +132,30 @@ describe('GH-299 — nutrition-summary-integration.js resolves aaRanges', () => 
 describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/word-export.js'), 'utf8');
 
-    test('_buildEngineInputs() resolves _aaRanges gated on AA methodology before touching HillLabsSampleTypes', () => {
-        const idx = src.indexOf('var _aaRanges = null;');
+    // GH-383 (D31 stage 1): the AA range resolution moved out of this file
+    // into the shared adapter, so the methodology gate is asserted there. What
+    // stays asserted HERE is that word-export.js no longer resolves ranges of
+    // its own and still threads the resolved ones onward.
+    test('the AA methodology gate lives in the shared adapter, and is checked before HillLabsSampleTypes is touched', () => {
+        const adapterSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrition-program-inputs.js'), 'utf8');
+        const idx = adapterSrc.indexOf('function resolveSufficiencyRanges(opts)');
         expect(idx).toBeGreaterThan(-1);
-        // GH-364: this window was a fixed character count that three separate
-        // commits (GH-305, GH-352, GH-355) had to widen in turn, and it broke
-        // again the moment a comment was added inside the block. Sliced to the
-        // statement that follows the IIFE instead, so the assertions below
-        // cover the whole block regardless of how it grows.
-        const body = src.slice(idx, src.indexOf('data.engineInputs = {', idx));
-        expect(body).toMatch(/if \(_soilM !== 'AA' && _soilM !== 'AMMONIUM_ACETATE'\) return;/);
-        expect(body).toMatch(/_hlst\.deriveCode\(_species,/);
-        expect(body).toMatch(/_hlst\.getRangesPpm\(_code,/);
-        const gateIdx = body.indexOf("if (_soilM !== 'AA'");
-        const hlstIdx = body.indexOf('window.HillLabsSampleTypes');
+        const body = adapterSrc.slice(idx, adapterSrc.indexOf('// Site config access', idx));
+        const gateIdx = body.indexOf("if (methodology === 'ammonium_acetate') {");
+        const hlstIdx = body.indexOf('w.HillLabsSampleTypes');
+        expect(gateIdx).toBeGreaterThan(-1);
+        expect(hlstIdx).toBeGreaterThan(-1);
         expect(gateIdx).toBeLessThan(hlstIdx);
+        expect(body).toMatch(/hlst\.deriveCode\(speciesForCode,/);
+        expect(body).toMatch(/hlst\.getRangesPpm\(certificateCode,/);
+        // _buildEngineInputs() itself must not resolve ranges any more.
+        // (word-export.js still reads HillLabsSampleTypes elsewhere, for the
+        // Soil section's sample-type CODE label — a different concern.)
+        const fnStart = src.indexOf('function _buildEngineInputs(data)');
+        const fnBody = src.slice(fnStart, src.indexOf('\n    }', src.indexOf('data.engineInputs = {', fnStart)));
+        expect(fnBody).not.toMatch(/deriveCode\(/);
+        expect(fnBody).not.toMatch(/HillLabsSampleTypes/);
+        expect(fnBody).not.toMatch(/AmmoniumAcetateMethodology/);
     });
 
     test('data.engineInputs carries aaRanges (so word-export-combined.js can inherit it)', () => {
@@ -162,8 +171,11 @@ describe('GH-299 — word-export.js resolves and threads aaRanges', () => {
     test('the single-export compute() call passes aaRanges: _inputs.aaRanges', () => {
         const idx = src.indexOf('window.NutritionRequirementEngine_Pure.compute({');
         expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 400);
+        const body = src.slice(idx, idx + 900);
         expect(body).toMatch(/aaRanges:\s*_inputs\.aaRanges/);
+        // GH-383: the same call now also carries `ranges`, the adapter's
+        // resolution for all three methodologies.
+        expect(body).toMatch(/ranges:\s*_inputs\.ranges/);
     });
 });
 
@@ -173,8 +185,9 @@ describe('GH-299 — word-export-combined.js inherits aaRanges from data.engineI
     test('the per-sample compute() call passes aaRanges: _ei.aaRanges (not a separate resolution)', () => {
         const idx = src.indexOf('_enginePure.compute({');
         expect(idx).toBeGreaterThan(-1);
-        const body = src.slice(idx, idx + 600);
+        const body = src.slice(idx, idx + 1200);
         expect(body).toMatch(/aaRanges:\s*_ei\.aaRanges/);
+        expect(body).toMatch(/ranges:\s*_ei\.ranges/);
         // Structural pin: this file does NOT call deriveCode()/getRangesPpm()
         // itself — it must inherit the already-resolved ranges, per the same
         // "inherits the fix, not a separate bug" pattern GH-290 established.

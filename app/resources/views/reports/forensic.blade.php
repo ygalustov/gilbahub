@@ -72,7 +72,12 @@
 @section('scripts')
 @php
     $hubScripts = [
-        'gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-engine.js','climate-engine-v2.js',
+        'gilba-hub-v2.js','growth-potential-engine.js',
+        // GH-383 (D31 stage 0/1): the shared per-nutrient requirement core and the
+        // shared programme input adapter both engines now route through. Must load
+        // before nutrition-requirement-engine.js and nutrition-calendar.js.
+        'nutrition-requirement-core.js','nutrition-program-inputs.js',
+        'nutrition-requirement-engine.js','climate-engine-v2.js',
         'climate-normals-service.js', // GH-245 (Hoxton audit D01-D03)
         'gaip-utils.js','species-controller.js','identity-enforcement.js','climate-engine.js',
         'weather-resilience.js','ambient-dli-engine.js','ambient-dli-integration.js',
@@ -151,7 +156,11 @@
         'gssh-operational-summary.js','shade-engine.js','global-solubles.js',
         'gaip-field-log-analysis.js','gaip-field-log.js','gaip-morning-briefing.js',
     ];
-    $headLike = ['gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-engine.js','climate-engine-v2.js'];
+    // GH-383: the core and the input adapter must EXECUTE before the engine and
+    // the calendar. Everything outside $headLike is emitted with `defer`, so a
+    // non-deferred script always runs first regardless of document order — the
+    // two new files therefore have to be head-like too.
+    $headLike = ['gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-core.js','nutrition-program-inputs.js','nutrition-requirement-engine.js','climate-engine-v2.js'];
 @endphp
 @foreach($hubScripts as $script)
     @if(is_file(base_path('../assets/'.$script)))

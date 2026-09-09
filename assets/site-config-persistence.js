@@ -448,7 +448,30 @@
     // SNAPSHOT: capture current turf + location config from DOM
     // =========================================================================
 
-    function snapshotConfig() {
+    /**
+     * Capture the current turf + location config from the DOM.
+     *
+     * @param {string} [forSiteId] The site this snapshot is FOR. Defaults to the
+     *   active site, which is what every caller but one wants.
+     *
+     * GH-385: `saveCurrentSiteConfig()` snapshots the site being switched AWAY
+     * from, while the DOM and `GAIP_SampleManager` already describe the site
+     * being switched TO. Before this argument existed, the carry-forward block
+     * at the bottom of this function read `_configs[getActiveSiteId()]` — the
+     * ARRIVING site's stored config — and compared the ARRIVING site's
+     * nutrition-programme coordinate stamp against the DEPARTING site's
+     * coordinates still sitting in `.gaip-lat`/`.gaip-lon`. Two different sites
+     * on the two sides of one comparison: it always reported a coordinate move
+     * and always dropped the programmes, and the result was then written to the
+     * departing site's slot. Reproduced live on a two-site Combined export
+     * (2026-09-09): Test5 - NZ lost its programme on the first switch, Burns on
+     * the second, and the export then took its annual N from Settings > Turf
+     * for a site that has a perfectly good programme — printing GH-383's "no
+     * nutrition programme has been generated" note on a site that has one.
+     * This is REVIEW-GH349-onward.md's open question 11, made load-bearing by
+     * GH-383.
+     */
+    function snapshotConfig(forSiteId) {
         var tp = global.GaipTurfProfile;
         var tpState = (tp && tp.state) ? tp.state : {};
 
@@ -485,11 +508,34 @@
               : undefined
         };
 
-        var location = {
-            lat:  parseFloat(domVal('.gaip-lat')) || null,
-            lon:  parseFloat(domVal('.gaip-lon')) || null,
-            name: (document.getElementById('gaip-location-search') || {}).value || ''
-        };
+        // GH-385: whose coordinates are in the DOM right now? The active site's.
+        // When this snapshot is for a DIFFERENT site (the departing half of a
+        // site switch) those coordinates belong to somebody else, so the stored
+        // ones are used instead — which is also what `saveCurrentSiteConfig()`
+        // has always substituted a few lines after calling this function
+        // (b35fix169 Fix 1). Doing it HERE rather than there is the point: the
+        // GH-371 coordinate-staleness check below runs inside this function and
+        // must see the location this snapshot will actually save.
+        //
+        // With no stored location for that site, the location is left empty
+        // rather than stamped with the active site's — an unknown location is
+        // an honest answer and a wrong one drives the climate normals and the
+        // regional product catalogue.
+        var _SM_snap = global.GAIP_SampleManager;
+        var _activeSiteId = (_SM_snap && typeof _SM_snap.getActiveSiteId === 'function')
+            ? _SM_snap.getActiveSiteId() : null;
+        var _snapSiteId = forSiteId || _activeSiteId;
+        var _isForeignSite = !!(forSiteId && _activeSiteId && forSiteId !== _activeSiteId);
+        var _storedForSnapSite = _snapSiteId ? _configs[_snapSiteId] : null;
+
+        var location = _isForeignSite
+            ? Object.assign({ lat: null, lon: null, name: '' },
+                (_storedForSnapSite && _storedForSnapSite.location) || {})
+            : {
+                lat:  parseFloat(domVal('.gaip-lat')) || null,
+                lon:  parseFloat(domVal('.gaip-lon')) || null,
+                name: (document.getElementById('gaip-location-search') || {}).value || ''
+            };
 
         // b35fix210: PGR product, date, and rate are owned by the spray log cascade —
         // site-config-persistence must not snapshot or restore them. The spray log
@@ -560,10 +606,11 @@
         //   maxNPerMonth              — "Max N per Application" cap
         //   nzDistributor             — NZ product-pool filter ('all'/'prebble'/'pgg_wrightson')
         (function () {
-            var SM_pass = global.GAIP_SampleManager;
-            var siteId = SM_pass && typeof SM_pass.getActiveSiteId === 'function'
-                ? SM_pass.getActiveSiteId() : null;
-            var existing = siteId ? _configs[siteId] : null;
+            // GH-385: the site this snapshot is FOR, not whichever site happens
+            // to be active. See the function's own docblock for what reading
+            // the active site here did to a two-site Combined export.
+            var siteId = _snapSiteId;
+            var existing = _storedForSnapSite;
 
             // GH-371 (D01): a coordinate write invalidates the cached
             // nutrition programmes. `location` above was just built fresh
@@ -1111,8 +1158,10 @@
 
         var existing = _configs[_previousSiteId];
         if (!existing) {
-            // No prior config — safe to snapshot everything (first visit)
-            var config = snapshotConfig();
+            // No prior config — safe to snapshot everything (first visit).
+            // GH-385: still scoped to the departing site, so its location is
+            // left unknown rather than stamped with the arriving site's.
+            var config = snapshotConfig(_previousSiteId);
             _configs[_previousSiteId] = config;
             saveToStorage();
             pushConfigsToServer();
@@ -1127,7 +1176,11 @@
         // DOM during a site switch because those fields already hold the incoming site's coords
         // by the time gaip:site-changed fires.  Location only updates via explicit map pin or
         // location-search events.
-        var freshSnap = snapshotConfig();
+        // GH-385: snapshot FOR the departing site. Without the argument this
+        // read the arriving site's stored config and the departing site's DOM
+        // coordinates, compared the two, and dropped both sites' nutrition
+        // programmes on every switch.
+        var freshSnap = snapshotConfig(_previousSiteId);
         var identityFields = ['turfType', 'subCategory', 'species', 'variety', 'companionSpecies'];
         for (var i = 0; i < identityFields.length; i++) {
             var field = identityFields[i];
@@ -1135,7 +1188,11 @@
                 freshSnap.turf[field] = existing.turf[field];
             }
         }
-        // Preserve stored location — DOM coords are unreliable at switch time
+        // Preserve stored location — DOM coords are unreliable at switch time.
+        // GH-385: snapshotConfig(_previousSiteId) already does this, and has to,
+        // because the coordinate-staleness check runs inside it. Kept as
+        // belt-and-braces for the case where this function is reached with the
+        // departing site also being the active one.
         if (existing.location && (existing.location.lat || existing.location.lon)) {
             freshSnap.location = existing.location;
         }
@@ -1479,7 +1536,9 @@
                     // loaded after the initial restore (e.g. construction, HOC from hub-persistence).
                     // The cascade has already written the correct species/turfType to the DOM,
                     // so snapshotConfig() now reflects the true state for this site.
-                    var freshSnap = snapshotConfig();
+                    // GH-385: named, because this runs inside a setTimeout and the
+                    // active site can have moved on by the time it fires.
+                    var freshSnap = snapshotConfig(currentId);
                     var existingConfig = _configs[currentId];
                     // Always restore saved turf identity — don't let TurfProfile's
                     // page-load cascade (which may still be finishing Federal GC or
@@ -1547,7 +1606,7 @@
                 setTimeout(function() {
                     _bootCooldown = false;
                     global.GAIP_SITE_CONFIG_PENDING = false;
-                    _configs[currentId] = snapshotConfig();
+                    _configs[currentId] = snapshotConfig(currentId); // GH-385: named — deferred callback
                     saveToStorage();
                     log('Captured initial config for', currentId, '(first visit)');
                     document.dispatchEvent(new CustomEvent('gaip:site-config-applied', {
@@ -1613,7 +1672,7 @@
             var tp = global.GaipTurfProfile;
             var isProfileLoading = tp && tp._isLoadingProfile;
             if (!_isRestoring && !_bootCooldown && !isProfileLoading && !global.GAIP_SITE_CONFIG_PENDING) {
-                _configs[currentId] = snapshotConfig();
+                _configs[currentId] = snapshotConfig(currentId); // GH-385: named
                 saveToStorage();
                 log('Auto-saved config on turf change for', currentId);
             }
@@ -1624,7 +1683,9 @@
             var detail = e.detail || {};
             var siteId = detail.siteId;
             if (!siteId) return;
-            _configs[siteId] = snapshotConfig();
+            // GH-385: an explicit save names its site, which need not be the
+            // active one.
+            _configs[siteId] = snapshotConfig(siteId);
             saveToStorage();
             log('Explicit save for', siteId, ':', JSON.stringify(_configs[siteId].turf.species), _configs[siteId].location.name);
             
@@ -1644,7 +1705,7 @@
             if (!SM) return;
             var currentId = SM.getActiveSiteId();
             if (!currentId || currentId === 'default') return;
-            var snap = snapshotConfig();
+            var snap = snapshotConfig(currentId); // GH-385: named
             // If #gaip-companion-species wasn't in DOM at snapshot time (undefined),
             // preserve whatever was previously saved rather than blanking it.
             var existing = _configs[currentId];
@@ -1671,7 +1732,7 @@
             if (!SM) return;
             var currentId = SM.getActiveSiteId();
             if (!currentId || currentId === 'default') return;
-            var snap = snapshotConfig();
+            var snap = snapshotConfig(currentId); // GH-385: named
             // b35fix233: preserve existing pgr from saved config when snapshot has no product.
             // GAIP_LAST_PGR is the SSOT for PGR data (from spray log via cascade).
             // Auto-save should never overwrite a valid saved PGR config with empty values.
@@ -1777,7 +1838,7 @@
             var SM = global.GAIP_SampleManager;
             if (!SM) return;
             var siteId = SM.getActiveSiteId();
-            _configs[siteId] = snapshotConfig();
+            _configs[siteId] = snapshotConfig(siteId); // GH-385: named
             saveToStorage();
             log('Manually saved config for', siteId);
         },

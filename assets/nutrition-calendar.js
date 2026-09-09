@@ -24,9 +24,14 @@
  *
  * Changelog:
  *   2.5.0 (b35fix304): Extract pure computeProgram(inputs). generate() is now a
- *                      thin wrapper. getThresholds / calculateDeficit accept an
- *                      explicit aaTextureKey so callers (e.g. word-export-combined
- *                      per-sample loop) can drive the calendar without DOM access.
+ *                      thin wrapper.
+ *   GH-384/GH-388:     computeProgram()'s per-nutrient arithmetic delegates to
+ *                      assets/nutrition-requirement-core.js and its sufficiency
+ *                      ranges to assets/nutrition-program-inputs.js, so this
+ *                      file and the Word export compute from one implementation.
+ *                      The private threshold tables, calculateDeficit(),
+ *                      getThresholds() and the aaTextureKey plumbing went with
+ *                      the cutover.
  */
 
 (function() {
@@ -39,31 +44,17 @@
     const CONFIG = {
         version: '2.5.0',
         
-        // Threshold tables (MLSN / SLAN / AA)
-        // b35fix301a: sourced from gaip-classification-constants.js when loaded.
-        //             MLSN S value changes from 6 to 7 here as part of the
-        //             standardisation onto the published MLSN guideline
-        //             (Woods, Stowell, Gelernter 2016, PeerJ Preprints 4:e2144v1).
-        //             Fallback literals retained for Node-test contexts without
-        //             the constants module loaded.
-        mlsnThresholds:
-            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
-             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).MLSN_THRESHOLDS ||
-            { P: 21, K: 37, Ca: 331, Mg: 47, S: 7 },
-        
-        slanThresholds:
-            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
-             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).SLAN_THRESHOLDS ||
-            { P: 40, K: 117, Ca: 750, Mg: 120, S: 12 },
+        // GH-388: the MLSN / SLAN / AA threshold tables that used to live here
+        // are gone. They were this file's private second copy of the numbers
+        // assets/nutrition-requirement-core.js holds (MLSN_THRESHOLDS,
+        // SLAN_RANGES_FALLBACK) and that the shared resolver
+        // assets/nutrition-program-inputs.js resolveSufficiencyRanges() reads
+        // from gaip-classification-constants.js — a second copy of exactly the
+        // arithmetic D31 exists to de-duplicate, left behind by GH-384's
+        // cutover with no caller anywhere in assets/, app/ or tests/. The AA
+        // texture-only single-value table went with them: the certificate /
+        // generic-band resolution replaced it at GH-308.
 
-        aaThresholds:
-            ((typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
-             (typeof globalThis !== 'undefined' && globalThis.GilbaClassificationConstants) || {}).AA_THRESHOLDS ||
-            {
-                sands:  { P: 12, K: 75,  Ca: 500, Mg: 100, S: 30 },
-                others: { P: 12, K: 100, Ca: 500, Mg: 140, S: 30 }
-            },
-        
         // Years to spread deficit correction
         yearsToCorrect: { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 },
         
@@ -116,12 +107,17 @@
         // - N:P:K tissue ratio approximately 10:1:5
         // - Ca, Mg, S from various extension sources
         // ====================================================================
-        nutrientRatiosToN: {
-            P: 0.10,    // P = 10% of N (tissue ~0.4% P vs 4% N)
-            K: 0.55,    // K = 55% of N (tissue ~2% K vs 4% N) 
-            Ca: 0.17,   // Ca = 17% of N
-            Mg: 0.08,   // Mg = 8% of N
-            S: 0.05,    // S = 5% of N
+        // GH-384 (decision D-5): RETIRED. This one flat set was applied to
+        // every species, while nutrition-requirement-engine.js used the
+        // per-species REMOVAL_RATES table for the same quantity — one of the
+        // divergences the D31 audit is about. Both surfaces now use the
+        // species table, in assets/nutrition-requirement-core.js. The numbers
+        // are kept here, unreferenced, as the record of what the Plan page
+        // printed before the cutover: K moves by -3% on bentgrass and +14% on
+        // buffalo, Ca/Mg/S move on every site, P is unchanged (P/N is 0.10 in
+        // every row of the species table too).
+        _retiredNutrientRatiosToN_gh384: {
+            P: 0.10, K: 0.55, Ca: 0.17, Mg: 0.08, S: 0.05,
         },
         
         // ====================================================================
@@ -133,7 +129,16 @@
         // NOTE: N factor is 1.0 for both modes. The user's N target already
         // accounts for their site conditions (clipping management, leaching,
         // soil type, etc.). We don't second-guess their input.
-        // P/K factors remain for informational purposes only.
+        //
+        // GH-383 comment correction: the P/K factors below were described here
+        // as "for informational purposes only... not currently applied". That
+        // was FALSE of this file's own code — computeProgram()'s STEP 3 has
+        // always applied them to adjustedRemoval, unconditionally, and Ca/Mg/S
+        // reuse the K factor. The claim mattered: it is why
+        // nutrition-requirement-engine.js was left with a different (uncited,
+        // MLSN-only, opposite-polarity) clipping model for years. Both engines
+        // now share this exact table via
+        // assets/nutrition-requirement-core.js CLIPPING_FACTORS.
         // ====================================================================
         clippingManagement: {
             collected: {
@@ -143,15 +148,21 @@
                 kFactor: 1.0,
             },
             returned: {
-                // User's N target is respected - no automatic reduction
-                // P/K factors for reference only (not currently applied)
+                // The N target is the user's own and is not reduced; P and K
+                // ARE reduced, here and in the shared core.
                 nFactor: 1.0,   // No adjustment - user knows their site
                 pFactor: 0.4,   // Reference: 60% recycling efficiency
                 kFactor: 0.5,   // Reference: 50% recycling efficiency
             },
         },
         
-        // Traffic modifiers (affects wear/recovery, hence nutrient demand)
+        // Traffic modifiers (affects wear/recovery, hence nutrient demand).
+        // GH-383: this table is now the SSOT copy in
+        // assets/nutrition-program-inputs.js TRAFFIC_MODIFIERS, which scales
+        // the annual N once for both surfaces, sports turf only (decisions
+        // D-2/D-3). Kept here only for the pre-adapter fallback path below;
+        // it must stay numerically identical to the adapter's copy, which
+        // tests/gh383-nutrition-program-inputs.test.js asserts.
         trafficModifiers: { low: 0.85, moderate: 1.0, high: 1.15, extreme: 1.3 },
         
         // Month names
@@ -178,6 +189,41 @@
         elements: {},
         config: CONFIG,
     };
+
+    // ========================================================================
+    // GH-383/GH-384 — the two shared modules this file computes through.
+    //
+    // Resolved lazily rather than captured at load time: the browser loads
+    // them as plain <script>s (see the blade script lists), Node tests require
+    // them, and a page that enqueued them after this file would otherwise lose
+    // GilbaNutritionCalendar entirely instead of failing on first use with a
+    // message that names the cause.
+    // ========================================================================
+    let _coreCached = null;
+    function _requirementCore() {
+        if (_coreCached) return _coreCached;
+        _coreCached = (typeof window !== 'undefined' && window.NutritionRequirementCore) ||
+            (typeof globalThis !== 'undefined' && globalThis.NutritionRequirementCore) || null;
+        if (!_coreCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _coreCached = require('./nutrition-requirement-core.js'); } catch (e) { /* not resolvable */ }
+        }
+        if (!_coreCached) {
+            console.warn('[NutritionCalendar] GH-384: nutrition-requirement-core.js is not loaded — ' +
+                'the nutrition programme cannot be computed. It must be enqueued before this file.');
+        }
+        return _coreCached;
+    }
+
+    let _inputsCached = null;
+    function _programInputsAdapter() {
+        if (_inputsCached) return _inputsCached;
+        _inputsCached = (typeof window !== 'undefined' && window.GAIP_NutritionProgramInputs) ||
+            (typeof globalThis !== 'undefined' && globalThis.GAIP_NutritionProgramInputs) || null;
+        if (!_inputsCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _inputsCached = require('./nutrition-program-inputs.js'); } catch (e) { /* not resolvable */ }
+        }
+        return _inputsCached;
+    }
 
     // ========================================================================
     // INITIALIZATION
@@ -285,7 +331,11 @@
                 applySample(samples[activeIdx]);
             },
             onSelect: function(sample) {
-                try { localStorage.setItem(storageKey(), sample.id); } catch (e) {}
+                // GH-386: stored as a string, explicitly — the picker compares
+                // the remembered id as a string (see soil-nutrition-analysis.js
+                // _snSampleIdMatches), and relying on localStorage's implicit
+                // coercion is what hid the mismatch in the first place.
+                try { localStorage.setItem(storageKey(), String(sample.id)); } catch (e) {}
                 applySample(sample);
                 // Convenience: if the form is already filled in, re-generate
                 // immediately so switching samples updates the visible program
@@ -448,7 +498,7 @@
         // GH-361 (Hoxton audit D07a): tissue percentages, when a tissue
         // sample exists, so computeProgram() can derive the K/P removal
         // ratio from what this plant actually contains instead of always
-        // falling back to CONFIG.nutrientRatiosToN's generic textbook
+        // falling back to the generic per-species removal-rate table's
         // composition.
         //
         // GH-362: reading `state.tissue` alone was not enough. Confirmed live
@@ -553,18 +603,55 @@
         const maxNPerMonth = parseFloat(this.elements.maxNInput?.value) || 50;
         const distribution = this.elements.distributionSelect?.value || 'gp_weighted';
         
-        // Traffic
-        const traffic = state.turf?.traffic || 'moderate';
-        
-        // Clipping management - default based on surface type
-        // Greens typically collect, fairways/sports typically return
         // b35fix386: read surfaceType from the locally-resolved `soil` const
         // (above), not `state.soil` which is undefined on the synthesised
         // state view. `soil` already prefers `state.inputs.soil`.
         const surfaceType = soil.surfaceType || state.turf?.subCategory || 'sports';
-        const defaultClippingMgmt = ['greens', 'golf_greens', 'bowling_greens', 'tees'].includes(surfaceType) 
+        const defaultClippingMgmt = ['greens', 'golf_greens', 'bowling_greens', 'tees'].includes(surfaceType)
             ? 'collected' : 'returned';
-        const clippingManagement = this.elements.clippingSelect?.value || state.turf?.clippingManagement || defaultClippingMgmt;
+
+        // GH-383 (D31 stage 1): clipping management, traffic and turf type are
+        // resolved by the ONE shared adapter, assets/nutrition-program-inputs.js
+        // — the same module word-export.js's _buildEngineInputs() resolves them
+        // from. This page's own live form is handed IN as `planForm` (rather
+        // than the adapter reaching for the DOM itself) so the adapter's
+        // precedence — live form > this site's persisted programme > default —
+        // is applied once, in one place, on whichever page the calendar runs.
+        //
+        // Deliberately NOT taken from the adapter: annualNOverride. The adapter
+        // has a fallback chain (Settings > Turf, then the species default) that
+        // the EXPORT needs for a site with no generated programme, but seeding
+        // the Plan's own input from Settings was explicitly declined (decision
+        // D-4b) — an empty Annual N Target must keep prompting the user, not
+        // silently compute against a number they never entered.
+        let _programInputs = null;
+        try {
+            const _NPI = window.GAIP_NutritionProgramInputs;
+            if (_NPI) {
+                _programInputs = _NPI.resolveSiteProgramInputs({
+                    siteId: this.getActiveSiteId(),
+                    soil: soil,
+                    sample: {
+                        species: rawSpecies || undefined,
+                        methodology: methodology || undefined,
+                        CEC: soil.CEC ?? soil.cec,
+                        pH: soil.pH_water ?? soil.pH
+                    },
+                    planForm: {
+                        annualN: parseFloat(this.elements.annualNInput?.value) || null,
+                        clippingManagement: this.elements.clippingSelect?.value || null
+                    }
+                });
+            }
+        } catch (e) {
+            console.warn('[NutritionCalendar] GH-383: programme input resolution failed:', e && e.message);
+        }
+
+        const clippingManagement = (_programInputs && _programInputs.clippingManagement) ||
+            this.elements.clippingSelect?.value || state.turf?.clippingManagement || defaultClippingMgmt;
+        const traffic = (_programInputs && _programInputs.trafficIntensity) || state.turf?.traffic || 'moderate';
+        const trafficModifier = (_programInputs && _programInputs.trafficModifier) || 1.0;
+        const turfType = (_programInputs && _programInputs.turfType) || state.turf?.turfType || null;
         
         return {
             hemisphere,
@@ -584,10 +671,9 @@
             // soil_texture_override, via the GH-294 Plan-page bridge into
             // state.inputs.soil.soilTexture) — needed for deriveCode(species,
             // soilTexture) to resolve a certificate-backed AA ceiling. Distinct
-            // from aaTextureKey (set separately by the caller via
-            // _collectAATexture(), reads the decorative/dead .gaip-aa-soil-
-            // texture DOM element per the D07 item 2 finding) — this is the
-            // real, working field.
+            // GH-388: distinct from the AA sands/others BUCKET, which the
+            // shared resolver derives from this same value — this is the
+            // site's real texture, not a bucket.
             soilTexture: soil.soilTexture || null,
             CEC: soil.CEC ?? soil.cec ?? null,
             // GH-382 (D31 divergence item 2): pH_water preferred over a
@@ -604,8 +690,19 @@
             maxNPerMonth,
             distribution,
             traffic,
+            trafficModifier,
+            turfType,
             surfaceType,
             clippingManagement,
+            // GH-383: the sufficiency ranges and per-field provenance the
+            // shared adapter resolved. computeProgram() persists the
+            // provenance as meta.inputSources so the E2E harness can compare
+            // the two surfaces' resolved input objects field by field instead
+            // of chasing a numeric difference three tables later.
+            ranges: _programInputs ? _programInputs.ranges : null,
+            rangeSources: _programInputs ? _programInputs.rangeSources : null,
+            inputSources: _programInputs ? _programInputs.sources : null,
+            annualNBase: annualNOverride,
             _speciesDefaulted: _speciesFallbackUsed,  // b35fix309 item 5: true when silent creepingBentgrass fallback fired
             // GH-377: true when no real source supplied a methodology and the
             // 'mlsn' above is only the chain's default — see the comment at the
@@ -1256,62 +1353,17 @@
         return gp;
     };
 
-    /**
-     * Calculate deficit for a nutrient based on methodology (MLSN or SLAN)
-     * @param {number} currentPpm - Current soil level
-     * @param {string} nutrient - Nutrient name (P, K, Ca, Mg, S)
-     * @param {number} bulkDensity - Soil bulk density (g/cm³)
-     * @param {number} soilDepth - Soil depth (cm)
-     * @param {string} methodology - 'mlsn' or 'slan'
-     * @returns {number} Deficit in kg/ha (0 if at or above threshold)
-     */
-    NutritionCalendar.calculateDeficit = function(currentPpm, nutrient, bulkDensity, soilDepth, methodology = 'mlsn', aaTextureKey = null) {
-        // Select threshold based on methodology
-        const thresholds = this.getThresholds(methodology, aaTextureKey);
-
-        const threshold = thresholds[nutrient];
-        // GH-338: currentPpm can be null (no soil sample, see extractPpm()) --
-        // `null >= threshold` is false for any positive threshold, which used
-        // to fall through to `threshold - null` (null coerces to 0) and
-        // return the FULL threshold as a fabricated maximal deficit. Treat
-        // "no reading" as "can't say", not "assume worst case".
-        if (!threshold || typeof currentPpm !== 'number' || currentPpm >= threshold) return 0;
-        
-        const deficit = threshold - currentPpm;
-        // Convert ppm deficit to kg/ha: ppm × bulk density × depth × 0.1
-        const kgHa = deficit * bulkDensity * soilDepth * 0.1;
-        return kgHa;
-    };
-    
-    /**
-     * Get threshold values for a methodology
-     * @param {string} methodology - 'mlsn', 'slan', or 'ammonium_acetate'
-     * @param {string|null} aaTextureKey - optional precomputed AA texture key
-     *                                     ('sands' | 'others'). When null and
-     *                                     methodology is AA, falls back to DOM
-     *                                     read. Supply the key to keep this
-     *                                     function pure (b35fix304).
-     * @returns {object} Threshold values for each nutrient
-     */
-    NutritionCalendar.getThresholds = function(methodology = 'mlsn', aaTextureKey = null) {
-        const m = (methodology || 'mlsn').toLowerCase();
-        if (m === 'slan') {
-            return { ...CONFIG.slanThresholds };
-        }
-        if (m === 'ammonium_acetate' || m === 'ammoniumacetate' || m === 'aa') {
-            // b35fix304 Task 2: prefer the explicit aaTextureKey when supplied so
-            // callers can drive this function without DOM access. Fall back to the
-            // DOM read when no key is provided (legacy behaviour).
-            let key = aaTextureKey;
-            if (key == null && typeof document !== 'undefined') {
-                const textureEl = document.querySelector('.gaip-aa-soil-texture');
-                key = (textureEl?.value || 'sands').toLowerCase();
-            }
-            key = (key === 'others') ? 'others' : 'sands';
-            return { ...CONFIG.aaThresholds[key] };
-        }
-        return { ...CONFIG.mlsnThresholds };
-    };
+    // GH-388: NutritionCalendar.calculateDeficit() and .getThresholds() are
+    // gone. GH-384 routed computeProgram() through the shared core and the
+    // shared range resolver, which left these two as an unreachable second
+    // implementation of the same deficit arithmetic and the same threshold
+    // tables. Verified before removal: no caller in assets/, app/ or tests/ —
+    // the only remaining references were prose in three test file headers and
+    // one source-text assertion, which now points at the core's equivalent
+    // (see tests/gh338-missing-soil-data.test.js). The behaviour they carried
+    // lives on: the null-not-zero guard is
+    // nutrition-requirement-core.js's `typeof currentLevel !== 'number'`
+    // branch, and the ppm -> kg/ha conversion is its ppmToKgHaFactor.
 
     /**
      * Distribute annual amount by GP weighting
@@ -1443,57 +1495,23 @@
      * - Clipping management affects all nutrient requirements
      * - MLSN deficits added on top for P, K, Ca, Mg, S
      */
-    /**
-     * b35fix304 Task 2: DOM-free helper to read ammonium-acetate soil texture key.
-     * Used by the wrapper to populate inputs.aaTextureKey so computeProgram stays pure.
-     */
-    NutritionCalendar._collectAATexture = function() {
-        if (typeof document === 'undefined') return null;
-        const textureEl = document.querySelector('.gaip-aa-soil-texture');
-        if (textureEl?.value) return String(textureEl.value).toLowerCase();
-
-        // GH-365: `.gaip-aa-soil-texture` only exists in the legacy hub markup
-        // (partials/legacy-hub-markup.blade.php). On /plan and /reports/export
-        // it is absent, so this returned the literal 'sands' default for every
-        // site -- getThresholds('ammonium_acetate', 'sands') then applied sand
-        // thresholds to clay sites silently, which is the same fabricated-input
-        // failure the GH-352..357 texture chain was about, in the one place
-        // none of those fixes touched. Resolve from the site's real texture
-        // instead, using the same substring bucketing deriveCode() and
-        // word-export.js use ('sand' anywhere -> sands).
-        //
-        // When nothing resolves this returns null and warns. Note that
-        // getThresholds() still collapses a null key to 'sands' (its own line
-        // `key = (key === 'others') ? 'others' : 'sands'`), so the effective
-        // output for a genuinely unknown texture is unchanged by this fix --
-        // deliberately, to avoid silently moving existing sites' numbers. What
-        // changes is that sites which DO have a texture now get the right
-        // bucket instead of always sand, and the unknown case is now visible
-        // in the console instead of indistinguishable from a real sand site.
-        const _state = (typeof window !== 'undefined' && window.GAIP_STATE) || {};
-        const _soil = (_state.inputs && _state.inputs.soil) || _state.soil || {};
-        const _resolved = _soil.soilTexture
-            || (typeof window !== 'undefined' && window.GAIP_HUB_CONFIG && window.GAIP_HUB_CONFIG.soilTexture)
-            || null;
-        if (!_resolved) {
-            console.warn('[NutritionCalendar] GH-365: no soil texture resolved for the AA threshold key ' +
-                '(no .gaip-aa-soil-texture element on this page, and no site texture in state/hub config). ' +
-                'getThresholds() will fall back to the sands band — that fallback is now visible rather than silent.');
-            return null;
-        }
-        return String(_resolved).toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
-    };
+    // GH-388: NutritionCalendar._collectAATexture() is gone with the AA
+    // threshold table it fed. Its whole job was to pick a 'sands' | 'others'
+    // bucket for getThresholds()'s AA branch; since GH-384 the AA range comes
+    // from the shared resolver, which does its own (identical) bucketing in
+    // nutrition-program-inputs.js aaTextureKey() off a texture resolved
+    // through one chain. `inputs.aaTextureKey` was still being computed and
+    // passed by both callers and read by nobody.
 
     /**
      * b35fix304 Task 2: Pure programme compute.
      *
      * No DOM reads, no global writes, no event dispatch.
      *
-     * @param {object} inputs - Shape returned by collectFromState(), plus
-     *                          optional aaTextureKey for AA methodology.
+     * @param {object} inputs - Shape returned by collectFromState().
      *   { hemisphere, latitude, species, isC4, soilPpm, bulkDensity, soilDepth,
      *     methodology, monthlyTemps, annualNOverride, maxNPerMonth, distribution,
-     *     traffic, surfaceType, clippingManagement, aaTextureKey? }
+     *     traffic, surfaceType, clippingManagement, ranges?, rangeSources? }
      *
      * @returns {object} Program object on success:
      *   { meta, soil, annual_totals, adjustments, program: { monthly } }
@@ -1533,323 +1551,157 @@
 
         const baseAnnualN = inputs.annualNOverride;
 
-        // Traffic modifier - only applies if explicitly high/extreme
-        const trafficMod = CONFIG.trafficModifiers[inputs.traffic] || 1.0;
+        // Traffic modifier. GH-383 (plan pitfall 4): the modifier is resolved
+        // ONCE, by assets/nutrition-program-inputs.js, and arrives as
+        // inputs.trafficModifier. The CONFIG.trafficModifiers lookup below is
+        // the pre-adapter fallback for callers that have not been migrated —
+        // numerically identical (both tables are the same five numbers) and
+        // 1.0 everywhere until stage 3 of the D31 plan wires the Settings >
+        // Traffic & Wear schedule into the site config. The modifier must be
+        // applied HERE and nowhere else: the shared core deliberately has no
+        // traffic term, because P/K/Ca/Mg/S removal already scales with
+        // annualN and a second application would double-count it.
+        const trafficMod = (typeof inputs.trafficModifier === 'number' && inputs.trafficModifier > 0)
+            ? inputs.trafficModifier
+            : (CONFIG.trafficModifiers[inputs.traffic] || 1.0);
         const annualN = Math.round(baseAnnualN * trafficMod);
 
         // ================================================================
-        // STEP 2: Calculate base nutrient removal (N-driven ratios)
+        // STEPS 2-5: removal, clipping, correction, ceiling — DELEGATED
         // ================================================================
-        // GH-361 (Hoxton audit D07a): CONFIG.nutrientRatiosToN.P/K (0.10/0.55)
-        // is a generic textbook tissue composition, not this plant's own. Where
-        // a real tissue sample is on file, its measured P/N and K/N ratios
-        // govern instead — same "tissue governs where it exists" principle
-        // already applied to soil-derived antagonism narratives (D15,
-        // hub-tissue-v3.js). The audit's Hoxton capture reads tissue P/N 0.136
-        // and K/N 0.667 against the generic 0.10/0.55, i.e. under-read removal
-        // there; the direction is per-nutrient and per-sample, not a fixed
-        // uplift (this repo's own Test5-NZ tissue has K/N 0.23, so the gate
-        // lowers K removal on that sample). Ca/Mg/S stay on the generic ratio —
-        // D07a explicitly scopes the tissue gate to P and K only, they are
-        // not in this chain via tissue at all.
+        // GH-384 (D31 stage 2). Everything from "base nutrient removal" to
+        // "final annual requirements" used to be computed here, independently
+        // of nutrition-requirement-engine.js, which computed the same three
+        // quantities its own way for the Word export. That is the audit's D31
+        // finding in one sentence ("two requirement engines, one product"), and
+        // it is what this delegation ends: both surfaces now call
+        // assets/nutrition-requirement-core.js.
         //
-        // GH-362: the derived ratio is clamped to a plausibility band before
-        // use. Tissue macros can be entered in mg/kg as well as % (see
-        // tissue-ui.js's per-nutrient unit select), and a MIXED-unit sample
-        // (N in %, P in mg/kg) yields a ratio three to four orders of
-        // magnitude too large — P/N 6200/4.57 = 1357 would turn a 200 kg N/ha
-        // programme into 271,000 kg P/ha. A ratio outside the band means the
-        // reading cannot be trusted as a ratio at all, so fall back to the
-        // generic constant and say so rather than shipping the number.
-        const tp = inputs.tissuePercent || {};
-        const RATIO_BANDS = { P: { min: 0.03, max: 0.30 }, K: { min: 0.15, max: 1.50 } };
-        const _tissueMeasured = typeof tp.N === 'number' && tp.N > 0 &&
-            typeof tp.P === 'number' && tp.P > 0 && typeof tp.K === 'number' && tp.K > 0;
-        const _rawPRatio = _tissueMeasured ? (tp.P / tp.N) : null;
-        const _rawKRatio = _tissueMeasured ? (tp.K / tp.N) : null;
-        const _ratiosPlausible = _tissueMeasured &&
-            _rawPRatio >= RATIO_BANDS.P.min && _rawPRatio <= RATIO_BANDS.P.max &&
-            _rawKRatio >= RATIO_BANDS.K.min && _rawKRatio <= RATIO_BANDS.K.max;
-        const _tissueGateEligible = _tissueMeasured && _ratiosPlausible;
-        const _pRatio = _tissueGateEligible ? _rawPRatio : CONFIG.nutrientRatiosToN.P;
-        const _kRatio = _tissueGateEligible ? _rawKRatio : CONFIG.nutrientRatiosToN.K;
-        if (_tissueGateEligible) {
-            console.log('[NutritionCalendar] GH-361 tissue gate applied: P/N=' + _pRatio.toFixed(3) +
-                ' K/N=' + _kRatio.toFixed(3) + ' (generic would have been P/N=' +
-                CONFIG.nutrientRatiosToN.P + ' K/N=' + CONFIG.nutrientRatiosToN.K + ')');
-        } else if (_tissueMeasured) {
-            console.warn('[NutritionCalendar] GH-362: tissue P/N=' + _rawPRatio.toFixed(3) +
-                ' K/N=' + _rawKRatio.toFixed(3) + ' is outside the plausibility band ' +
-                '(P ' + RATIO_BANDS.P.min + '-' + RATIO_BANDS.P.max + ', K ' + RATIO_BANDS.K.min + '-' +
-                RATIO_BANDS.K.max + ') — most likely mixed units on the tissue sample ' +
-                '(N ' + tp.N + ', P ' + tp.P + ', K ' + tp.K + '). Using the generic ratio instead.');
+        // WHAT THIS PAGE'S NUMBERS DO, AND WHY (all four are settled decisions
+        // on files/fixes/26-08-17-hoxton-v6/PLAN-D31-unify-engines.md section 9):
+        //
+        //   D-5  The generic (non-tissue) removal ratio is now the per-species
+        //        REMOVAL_RATES table (Carrow/Waddington/Rieke 2001;
+        //        Christians/Patton/Law 2017), not the one flat set this file
+        //        applied to every species (P 0.10 / K 0.55 / Ca 0.17 / Mg 0.08 /
+        //        S 0.05, Turner & Hummel 1992 — a single cool-season tissue
+        //        composition). P/N is 0.10 in every table row so P does not
+        //        move; K moves by -3% on bentgrass sites and +14% on buffalo;
+        //        Ca/Mg/S move on every site, since tissue never governs them.
+        //   D-6  Below the floor, the lift target is the floor itself — this
+        //        page's own long-standing rule, now the export's too.
+        //   D-7  The MLSN P threshold gains the pH ladder (35/28/21/32/40 by
+        //        pH) it never had here. No stored dev sample is outside the
+        //        6.0-7.5 band, so nothing moves today; it is latent, not
+        //        cosmetic.
+        //   D-8  A reading exactly AT the ceiling applies zero (`>=`), which is
+        //        what this file already did.
+        //
+        // Rounding: the core is canonical at 0.1 kg/ha and this page has always
+        // displayed whole kg. The two Math.round() calls below are the same two
+        // roundings this function did before (removal, then total), applied to
+        // the core's canonical figures — so a total can differ by 1 kg/ha from
+        // the export's one-decimal figure. That residual is asserted, not
+        // widened: see tests/gh376-three-way-nutrition-parity.test.js.
+        const _core = _requirementCore();
+        if (!_core) {
+            return { error: 'nutrition-requirement-core.js is not loaded — the nutrition programme cannot be computed' };
         }
 
-        const baseRemoval = {
-            N: annualN,
-            P: Math.round(annualN * _pRatio),
-            K: Math.round(annualN * _kRatio),
-            Ca: Math.round(annualN * CONFIG.nutrientRatiosToN.Ca),
-            Mg: Math.round(annualN * CONFIG.nutrientRatiosToN.Mg),
-            S: Math.round(annualN * CONFIG.nutrientRatiosToN.S),
-        };
+        const methodologyUsed = this.normalizeMethodology(inputs.methodology) || 'mlsn';
 
-        // ================================================================
-        // STEP 3: Apply clipping management factor
-        // ================================================================
+        // Sufficiency ranges: resolved ONCE, by the shared adapter, for all
+        // three methodologies (AA certificate/generic band, SLAN Carrow 2004 +
+        // the Spencer pH ladder, MLSN Woods 2016 + the D-7 ladder). This file
+        // used to resolve them itself, in a block that had to be kept in step
+        // with word-export.js's own copy by hand — GH-352/353/355/357/364/379.
+        // collectFromState() normally hands them in already resolved; the
+        // fallback covers direct callers (the Combined export's per-sample
+        // recompute, tests) so there is still only ONE resolver.
+        let aaRanges = inputs.ranges || null;
+        let annualRangeSource = inputs.rangeSources || null;
+        if (!aaRanges) {
+            const _NPI = _programInputsAdapter();
+            if (!_NPI) {
+                return { error: 'nutrition-program-inputs.js is not loaded — sufficiency ranges cannot be resolved' };
+            }
+            const _resolved = _NPI.resolveSufficiencyRanges({
+                methodology: methodologyUsed,
+                speciesDisplay: inputs.speciesDisplay,
+                speciesKey: inputs.species,
+                soilTexture: inputs.soilTexture,
+                CEC: inputs.CEC,
+                pH: inputs.pH
+            });
+            aaRanges = _resolved.ranges;
+            annualRangeSource = _resolved.sources;
+        }
+
+        const _coreResult = _core.compute({
+            soilValues: inputs.soilPpm,
+            species: inputs.species || inputs.speciesDisplay,
+            ph: inputs.pH,
+            methodology: methodologyUsed,
+            ranges: aaRanges,
+            tissuePercent: inputs.tissuePercent,
+            // Already traffic-adjusted (see the modifier block above). The core
+            // has no traffic term of its own, so it cannot be applied twice.
+            annualN: annualN,
+            bulkDensity: inputs.bulkDensity,
+            soilDepth: inputs.soilDepth,
+            clippingManagement: inputs.clippingManagement
+        });
+
+        // `annual_totals_range` keeps its published {min,max} shape — the core's
+        // ranges also carry a methodology label and a citation, which are
+        // internal to the computation and are not part of this output contract
+        // (nutrition-prebble-integration.js's excess-delivery check and the
+        // persisted programme both read {min,max}).
+        const annualTotalsRange = { P: null, K: null, Ca: null, Mg: null, S: null };
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
+            const r = aaRanges[n];
+            annualTotalsRange[n] = r ? { min: r.min, max: r.max } : null;
+        });
+
+        const _per = _coreResult.perSample;
+        const _tissueGateEligible = _coreResult.tissueGateApplied;
+        const missingSoilData = _coreResult.missingSoilData;
+
+        // GH-361/362 diagnostics, unchanged in intent: say when this plant's
+        // own measured composition governed the P/K ratio, and what the generic
+        // ratio would have been for THIS species (D-5 — no longer one flat pair
+        // for every species).
+        if (_tissueGateEligible) {
+            const _tp = inputs.tissuePercent || {};
+            console.log('[NutritionCalendar] GH-361 tissue gate applied: P/N=' + (_tp.P / _tp.N).toFixed(3) +
+                ' K/N=' + (_tp.K / _tp.N).toFixed(3) + ' (species-table generic would have been P/N=' +
+                (_per.P ? _per.P.removal / annualN : 0).toFixed(3) + ' K/N=' +
+                (_per.K ? _per.K.removal / annualN : 0).toFixed(3) + ')');
+        }
+
+        // Clipping factors are reported in `adjustments` exactly as before —
+        // the core applied them, this is the record of which pair it used.
         const clipMgmt = CONFIG.clippingManagement[inputs.clippingManagement] || CONFIG.clippingManagement.collected;
-        const adjustedRemoval = {
-            N: Math.round(baseRemoval.N * clipMgmt.nFactor),
-            P: Math.round(baseRemoval.P * clipMgmt.pFactor),
-            K: Math.round(baseRemoval.K * clipMgmt.kFactor),
-            Ca: Math.round(baseRemoval.Ca * clipMgmt.kFactor), // Use K factor for Ca/Mg/S
-            Mg: Math.round(baseRemoval.Mg * clipMgmt.kFactor),
-            S: Math.round(baseRemoval.S * clipMgmt.kFactor),
-        };
 
-        // ================================================================
-        // STEP 4: Resolve AA sufficiency ranges once, then calculate
-        // deficits/corrections
-        // ================================================================
+        const NUTRIENTS = ['P', 'K', 'Ca', 'Mg', 'S'];
         const deficits = {};
         const annualCorrection = {};
-        // GH-338: which P/K/Ca/Mg/S nutrients have no real soil ppm reading
-        // at all (see extractPpm()) -- deficit/lift is never computed for
-        // these (treated as "unknown", not "0 ppm"/maximally deficient), and
-        // consumers (Soil page, Nutrient Delivery Summary) should show "No
-        // soil data" rather than a confident-looking Required figure.
-        const missingSoilData = {};
-        // GH-379: resolve the methodology ONCE through the same normaliser
-        // getThresholds()/programInputsDrift() already use, and branch only
-        // on the folded key. This used to compare inputs.methodology raw
-        // against 'ammonium_acetate', while word-export.js stamps
-        // data.soil.methodology UPPER-CASED and word-export-combined.js
-        // handed that straight in as perSampleInputs.methodology -- so the
-        // Combined export's per-sample calendar silently fell through to
-        // the MLSN branch on an AA / Hill Labs S277 site (K floor 37 instead
-        // of 78.2, no lift, a different monthly K series into the product
-        // recommender) while every other section of the same document was
-        // computed on the AA basis. No caller's spelling may route this.
-        const methodologyUsed = this.normalizeMethodology(inputs.methodology) || 'mlsn';
-        const aaTextureKey = inputs.aaTextureKey != null ? inputs.aaTextureKey : null;
-        const isAAMethodology = (methodologyUsed === 'ammonium_acetate');
-
-        // GH-308 (D07 follow-up): the below-floor deficit/lift correction
-        // (this block) and the above-ceiling zeroing (formerly a separate
-        // block after STEP 5, GH-300/305) used to resolve their ranges
-        // independently -- the floor came from the old CONFIG.aaThresholds
-        // texture-only single-value table, the ceiling from deriveCode()/
-        // getRangesPpm() (certificate-first, generic fallback). Those two
-        // tables only agreed in the generic-fallback case (they happen to
-        // hold the same numbers as AmmoniumAcetateMethodology's medium-range
-        // floor); for certificate-covered sites (S277/S279/S78/S81) they
-        // could disagree substantially -- worst case Mg, where the S277/
-        // S279 certificate floor is ~37-85ppm but the old generic floor used
-        // here was 100ppm (sands) / 140ppm (others), so a certificate-
-        // 'Sufficient' Mg reading still got an unwanted lift correction while
-        // the Soil page (mlsnEngine(), GH-260) correctly showed no
-        // correction needed for the exact same sample. Resolving the range
-        // ONCE per nutrient, up front, and using its .min for the floor and
-        // .max for the ceiling means both ends can never disagree again.
-        // Non-AA methodologies (MLSN/SLAN) are untouched -- they keep calling
-        // calculateDeficit()/getThresholds() exactly as before.
-        const isSLANMethodology = (methodologyUsed === 'slan');
-        const isMLSNMethodology = !isAAMethodology && !isSLANMethodology;
-
-        const aaRanges = { P: null, K: null, Ca: null, Mg: null, S: null };
-        const annualRangeSource = { P: 'texture-fallback', K: 'texture-fallback', Ca: 'texture-fallback', Mg: 'texture-fallback', S: 'texture-fallback' };
-        if (isAAMethodology) {
-            var _hlst = (typeof window !== 'undefined') ? window.HillLabsSampleTypes : null;
-            // GH-305 (D07 item 6, "correction for generic numbers too" -- user
-            // decision, 2026-08-24): a certificate-only ceiling meant an
-            // uncertified nutrient (uncovered species/texture, OR a covered
-            // code whose certificate simply doesn't print a range for this
-            // one nutrient -- e.g. Sulphur on S277) could NEVER be zeroed,
-            // even when clearly high per the generic texture-only band --
-            // user's words: "it will be incorrect to recommend adding
-            // fertilizers if we have already high numbers". Falls back to
-            // AmmoniumAcetateMethodology.getSufficiencyRange() (the same
-            // generic sands/others SSOT hub-tissue-v3.js's texture-only
-            // aaRanges and SampleAnalysisController.php's AA_RANGES already
-            // use) whenever the certificate path (above) doesn't cover this
-            // specific nutrient. rangeSource stays 'texture-fallback' for
-            // these -- the "Generic" badge (GH-304) still applies, this only
-            // changes whether the ceiling/floor actually fire, not the
-            // labelling.
-            var _aam = (typeof window !== 'undefined') ? window.AmmoniumAcetateMethodology : null;
-            var _texKey = String(inputs.soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
-            console.log('[GH302-DEBUG] AA ceiling check | hasHLST:', !!_hlst, '| hasAAM:', !!_aam,
-                '| speciesDisplay:', inputs.speciesDisplay,
-                '| soilTexture:', inputs.soilTexture,
-                '| CEC:', inputs.CEC);
-            var _code = (_hlst && typeof _hlst.deriveCode === 'function')
-                ? _hlst.deriveCode(inputs.speciesDisplay, inputs.soilTexture || null)
-                : null;
-            console.log('[GH302-DEBUG] deriveCode result:', _code);
-            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-                var _range = (_code && _hlst && typeof _hlst.getRangesPpm === 'function')
-                    ? _hlst.getRangesPpm(_code, nutrient, inputs.CEC != null ? inputs.CEC : undefined)
-                    : null;
-                if (_range) {
-                    annualRangeSource[nutrient] = 'certificate';
-                } else if (_aam && typeof _aam.getSufficiencyRange === 'function') {
-                    var _generic = _aam.getSufficiencyRange(nutrient, _texKey);
-                    if (_generic && _generic.ranges && Array.isArray(_generic.ranges.medium) &&
-                        typeof _generic.ranges.medium[1] === 'number' && isFinite(_generic.ranges.medium[1])) {
-                        _range = { min: _generic.ranges.medium[0], max: _generic.ranges.medium[1] };
-                        // rangeSource intentionally stays 'texture-fallback' (the default).
-                    }
-                }
-                console.log('[GH308-DEBUG]', nutrient, '| range:', _range, '| soilPpm:', inputs.soilPpm[nutrient],
-                    '| source:', annualRangeSource[nutrient]);
-                aaRanges[nutrient] = _range || null;
-            });
-        } else if (isSLANMethodology) {
-            // GH-319 ("do for all"): SLAN already has a real, published,
-            // two-sided floor/ceiling range -- Carrow, R.N., Stowell, L.,
-            // Gelernter, W., Davis, S., Duncan, R.R., Skorulski, J. (2004).
-            // "Clarifying soil testing: III. SLAN sufficiency ranges and
-            // recommendations." Golf Course Management 72(1):194-198 --
-            // already exported as GilbaClassificationConstants.SLAN_RANGES
-            // and already used by nutrition-requirement-engine.js for the
-            // exact same purpose. This calendar previously only read the
-            // single-value floor (SLAN_THRESHOLDS, itself derived from
-            // SLAN_RANGES.floor) and had no ceiling concept for SLAN at
-            // all -- the same missing-ceiling gap D07 found for AA, just
-            // never extended here. Local fallback mirrors
-            // nutrition-requirement-engine.js's SLAN_RANGES_FALLBACK so
-            // this still works if the constants module isn't loaded.
-            var _gcc = (typeof window !== 'undefined' && window.GilbaClassificationConstants) || null;
-            var _slanRanges = (_gcc && _gcc.SLAN_RANGES) || {
-                P:  { floor: 27,  ceiling: 54 },
-                K:  { floor: 75,  ceiling: 176 },
-                Ca: { floor: 500, ceiling: 750 },
-                Mg: { floor: 70,  ceiling: 140 },
-                S:  { floor: 15,  ceiling: 40 },
-            };
-            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-                var r = _slanRanges[nutrient];
-                if (r && typeof r.floor === 'number' && typeof r.ceiling === 'number') {
-                    var floor = r.floor;
-                    // GH-382 (D31 divergence item 2): P's floor isn't flat --
-                    // it shifts with pH (P availability minimum at 6.0-7.5;
-                    // Fe/Al fixation acidic, Ca fixation alkaline).
-                    // nutrition-requirement-engine.js (and the GH-376 shared
-                    // core) have carried this "Spencer scaled-ladder" pH
-                    // adjustment for years, cited to Carrow et al. (2004) GCM
-                    // 72(1):194-198 for the 27ppm floor and Carrow,
-                    // Waddington & Rieke (2001) for the pH ratios -- this
-                    // file never received it, so a Plan-page SLAN site away
-                    // from neutral pH silently used the pH-independent
-                    // baseline while the export used the correct ladder,
-                    // part of the audit's own D31 finding. Call the engine's
-                    // own exported, already-cited function (word-export.js:
-                    // 8397-8404 already does exactly this, same reason)
-                    // rather than copying the ladder a third time -- degrades
-                    // to the flat floor already resolved above if the engine
-                    // script isn't loaded or pH isn't a usable number, never
-                    // guesses a pH.
-                    if (nutrient === 'P' && inputs.pH != null && !isNaN(inputs.pH) &&
-                        typeof window !== 'undefined' && window.NutritionRequirementEngine_Pure &&
-                        typeof window.NutritionRequirementEngine_Pure._getSlanTargetP === 'function') {
-                        floor = window.NutritionRequirementEngine_Pure._getSlanTargetP(inputs.pH);
-                    }
-                    aaRanges[nutrient] = { min: floor, max: r.ceiling };
-                    // Not a "generic estimate vs certificate" axis the way AA
-                    // has one (no per-site lab certificate for SLAN) -- this
-                    // is simply the one published range. Tagging
-                    // 'certificate' here only so the existing "Generic"
-                    // badge (AA-gated elsewhere) never mistakenly fires;
-                    // this value plays no other role for non-AA sites.
-                    annualRangeSource[nutrient] = 'certificate';
-                }
-            });
-        } else if (isMLSNMethodology) {
-            // GH-319 ("do for all"): MLSN (Woods, Stowell & Gelernter 2016)
-            // publishes a floor only -- no MLSN ceiling exists in the
-            // literature. This hub already has an established convention
-            // for one: nutrition-requirement-engine.js's MLSN branch uses
-            // target = threshold x 1.5 (TARGET_MULTIPLIER) as its ceiling
-            // hub-wide (Soil page/export "above target -> 0", High/
-            // Excessive status bands). Reusing that exact multiplier here
-            // rather than inventing a separate number for this table.
-            ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-                var floor = CONFIG.mlsnThresholds[nutrient];
-                if (typeof floor === 'number') {
-                    aaRanges[nutrient] = { min: floor, max: floor * 1.5 };
-                    annualRangeSource[nutrient] = 'certificate';
-                }
-            });
-        }
-
-        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(nutrient => {
-            let deficit;
-            const currentPpm = inputs.soilPpm[nutrient];
-            // GH-338: no real soil ppm for this nutrient (extractPpm()
-            // returns null, not 0, when the field is genuinely absent) --
-            // don't compute a deficit/lift at all. Removal-only still
-            // applies below (it depends on Annual N, not soil status), but
-            // this nutrient is flagged so the UI can show "No soil data"
-            // instead of implying the Required figure reflects a real
-            // reading.
-            if (typeof currentPpm !== 'number') {
-                missingSoilData[nutrient] = true;
-                deficit = 0;
-            } else if (aaRanges[nutrient]) {
-                // GH-308/319: floor now comes from the same resolved range
-                // as the ceiling below (AA certificate/generic fallback,
-                // SLAN Carrow 2004, or MLSN floor x1.5), not the old
-                // per-methodology single-value CONFIG threshold tables.
-                const floor = aaRanges[nutrient].min;
-                deficit = currentPpm < floor
-                    ? (floor - currentPpm) * inputs.bulkDensity * inputs.soilDepth * 0.1
-                    : 0;
-            } else {
-                deficit = this.calculateDeficit(
-                    currentPpm,
-                    nutrient,
-                    inputs.bulkDensity,
-                    inputs.soilDepth,
-                    methodologyUsed,
-                    aaTextureKey
-                );
-            }
-            deficits[nutrient] = deficit;
-            annualCorrection[nutrient] = deficit / (CONFIG.yearsToCorrect[nutrient] || 2);
+        const adjustedRemoval = { N: Math.round(annualN * clipMgmt.nFactor) };
+        const annualRequirements = { N: Math.round(annualN * clipMgmt.nFactor) };
+        NUTRIENTS.forEach(function (nutrient) {
+            const r = _per[nutrient];
+            adjustedRemoval[nutrient] = Math.round(r.removal);
+            annualCorrection[nutrient] = r.correctionRequired;
+            // `soil.deficits` is the raw kg/ha shortfall, before it is spread
+            // over yearsToCorrect — the same quantity calculateDeficit()
+            // returned. Consumers (the Soil page, the persisted programme) read
+            // it as such.
+            deficits[nutrient] = r.correctionRequired * (CONFIG.yearsToCorrect[nutrient] || 2);
+            annualRequirements[nutrient] = Math.round(r.annualRequirement);
         });
 
-        // ================================================================
-        // STEP 5: Calculate final annual requirements
-        // ================================================================
-        // Research: Kopp & Guillard (2002) - 33-50% N reduction with clipping return
-        const adjustedAnnualN = Math.round(annualN * clipMgmt.nFactor);
-
-        const annualRequirements = {
-            N: adjustedAnnualN,
-            P: Math.round(adjustedRemoval.P + annualCorrection.P),
-            K: Math.round(adjustedRemoval.K + annualCorrection.K),
-            Ca: Math.round(adjustedRemoval.Ca + annualCorrection.Ca),
-            Mg: Math.round(adjustedRemoval.Mg + annualCorrection.Mg),
-            S: Math.round(adjustedRemoval.S + annualCorrection.S),
-        };
-
-        // GH-300/305/319: ceiling -- zero out any nutrient at or above its
-        // resolved range's ceiling, for any methodology (AA certificate/
-        // generic, SLAN Carrow 2004, or MLSN floor x1.5). GH-308: uses the
-        // same aaRanges resolved in STEP 4 above, so floor and ceiling can
-        // never disagree. Graceful degradation to today's uncapped
-        // behaviour when aaRanges[nutrient] is null (AA: uncovered species/
-        // texture, or HillLabsSampleTypes/AmmoniumAcetateMethodology not
-        // loaded; MLSN/SLAN: GilbaClassificationConstants not loaded and no
-        // local fallback matched, which shouldn't normally happen).
-        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (nutrient) {
-            const range = aaRanges[nutrient];
-            if (range && typeof range.max === 'number' && inputs.soilPpm[nutrient] >= range.max) {
-                annualRequirements[nutrient] = 0;
-            }
-        });
+        const adjustedAnnualN = annualRequirements.N;
         console.log('[GH302-DEBUG] final annualRequirements:', annualRequirements);
-
         // Calculate monthly GP
         const monthlyGP = this.calculateMonthlyGP(inputs.monthlyTemps, inputs.isC4);
         const distributions = {};
@@ -1899,6 +1751,23 @@
                 hemisphere: inputs.hemisphere,
                 distribution: inputs.distribution,
                 clippingManagement: inputs.clippingManagement,
+                // GH-383 (D31): the annual N the user actually entered, BEFORE
+                // the traffic modifier. adjustments.target_n below stays the
+                // adjusted figure (existing consumers read it), but the restore
+                // path and the export's per-site N both read this one — without
+                // it, restoring the adjusted value into the input and
+                // regenerating would compound the modifier every time.
+                annualNBase: baseAnnualN,
+                trafficIntensity: inputs.traffic || 'moderate',
+                trafficSource: (inputs.inputSources && inputs.inputSources.trafficIntensity) || null,
+                // GH-383: where each programme-level input came from, as
+                // resolved by the shared adapter. Provenance is data: the Word
+                // export carries the same map on engineInputs.sources, and the
+                // E2E harness compares the two with toEqual, so a fourth
+                // instance of the "both surfaces read the same concept from
+                // different places" bug fails a named row rather than a
+                // numeric tolerance three tables later.
+                inputSources: inputs.inputSources || null,
                 // GH-371 (D01): the coordinates that actually drove THIS
                 // computation — i.e. inputs.latitude/longitude, which
                 // collectFromState() resolved from the DOM/state.location at
@@ -1946,7 +1815,7 @@
             // can convert the ceiling to kg/ha without re-resolving it
             // independently. null per nutrient under MLSN/SLAN or when
             // uncovered -- same graceful-degradation shape as aaRanges itself.
-            annual_totals_range: aaRanges,
+            annual_totals_range: annualTotalsRange,
             // GH-312: Removal and Lift exposed separately (previously only
             // their sum, annual_totals/"Required", was returned). Required
             // conflates three different things depending on branch (pure
@@ -1954,7 +1823,7 @@
             // the "Nutrient Delivery Summary" table's Balance calculation
             // ambiguous -- see the GH-311 follow-up discussion. Removal
             // (research-backed baseline uptake, Kopp & Guillard 2002 etc.,
-            // CONFIG.nutrientRatiosToN) is a physical quantity that happens
+            // the per-species REMOVAL_RATES table) is a physical quantity that happens
             // regardless of methodology/ceiling/floor status; Lift (deficit
             // correction spread over yearsToCorrect, "Gilba practice
             // consistent with Carrow et al. 2001") is 0 whenever current >=
@@ -2009,7 +1878,6 @@
         this.syncSoilFromDOM();
 
         let inputs = this.collectFromState();
-        inputs.aaTextureKey = this._collectAATexture();
 
         // Keep the original user-facing validation (alert + focus) in the wrapper.
         // computeProgram() also rejects annualNOverride < 50 via error object, but
@@ -2037,7 +1905,6 @@
                 this._setGenerateBusy(false);
             }
             inputs = this.collectFromState();
-            inputs.aaTextureKey = this._collectAATexture();
         }
 
         // b35fix382 INSTRUMENTATION — paired with [CombinedExport b35fix382]
@@ -2725,7 +2592,18 @@
         console.log('[NutritionCalendar] persist-debug: restoring panel from persisted program', program);
         this.program = program;
         if (this.elements.annualNInput && program.adjustments) {
-            this.elements.annualNInput.value = Math.round(program.adjustments.target_n);
+            // GH-383: restore the PRE-traffic base, not adjustments.target_n
+            // (which is base x modifier). Restoring the adjusted figure into
+            // the input and regenerating would multiply the modifier in again
+            // on every cycle. meta.annualNBase is written by computeProgram();
+            // programmes generated before GH-383 carry only target_n, so the
+            // modifier is divided back out for those.
+            const _meta = program.meta || {};
+            const _mod = (program.adjustments.traffic_modifier > 0) ? program.adjustments.traffic_modifier : 1;
+            const _base = (_meta.annualNBase > 0)
+                ? _meta.annualNBase
+                : (program.adjustments.target_n / _mod);
+            this.elements.annualNInput.value = Math.round(_base);
         }
         if (this.elements.distributionSelect && program.meta && program.meta.distribution) {
             this.elements.distributionSelect.value = program.meta.distribution;

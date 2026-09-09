@@ -1918,6 +1918,11 @@
                     // whole block already reads turf/climate from) — inherits
                     // the AA-ceiling fix rather than needing a separate
                     // resolution here, same pattern GH-290/291 established.
+                    // GH-383: sufficiency ranges for all three methodologies,
+                    // resolved once per sample by nutrition-program-inputs.js
+                    // via word-export.js's _buildEngineInputs(). aaRanges is
+                    // still passed for the graceful-degradation path.
+                    ranges: _ei.ranges,
                     aaRanges: _ei.aaRanges,
                     // GH-369: this ANR compute() call — the one that resolves
                     // r._anr.K.val, i.e. the exact number the K Reconciliation
@@ -1998,24 +2003,26 @@
         var _facilityCalendarInputs = null;
         if (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.collectFromState) {
             try {
+                // GH-388: the aaTextureKey overlay is gone with
+                // NutritionCalendar._collectAATexture(). Since GH-384 the AA
+                // sufficiency range comes from the shared resolver, which
+                // buckets the texture itself off the one texture chain; this
+                // key was computed on every export and read by nobody.
                 _facilityCalendarInputs = window.GilbaNutritionCalendar.collectFromState();
-                _facilityCalendarInputs.aaTextureKey =
-                    window.GilbaNutritionCalendar._collectAATexture
-                        ? window.GilbaNutritionCalendar._collectAATexture()
-                        : null;
             } catch (e) {
                 console.warn('[CombinedExport] Could not collect facility calendar inputs:', e.message);
             }
         }
 
-        // Not gated on _facilityCalendarInputs.annualNOverride here — that value
-        // comes from the hidden #rp-hub-runner's own .gaip-nutrition-annual-n
-        // DOM input, which this page never populates (it's not shown to the
-        // user), so it is always empty. Each sample resolves its own annual N
-        // target below (DOM value, if ever present, else the per-site persisted
-        // nutritionCalendarProgram written by Plan > Nutrition's Generate
-        // button — see NutritionCalendar.persistSiteConfigPatch()); samples
-        // with neither are skipped individually (_perSampleProgSkip).
+        // The facility snapshot supplies only the sample-independent shape of
+        // the calendar's input object (monthly temps get overlaid per sample,
+        // distribution/max-N per site). GH-383: every programme-level field on
+        // it — annual N, clipping, traffic, species, methodology, texture — is
+        // OVERWRITTEN per sample from nutrition-program-inputs.js keyed by that
+        // sample's own r.siteId, because this snapshot is built from the hidden
+        // #rp-hub-runner's DOM, which carries whichever site restored first.
+        // Samples whose site has no resolvable annual N are skipped
+        // individually (_perSampleProgSkip).
         var _perSampleProgGen = !!(
             _facilityCalendarInputs &&
             window.GilbaNutritionCalendar &&
@@ -2073,111 +2080,114 @@
 
                 var perSampleInputs = Object.assign({}, _facilityCalendarInputs);
 
-                // Resolve this sample's own site's Nutrition Program inputs from
-                // persisted state — see the _perSampleProgGen comment above for why
-                // the shared facility value (hidden DOM input) is always empty/at
-                // its default for ALL of annualNOverride, maxNPerMonth, distribution,
-                // and clippingManagement, not just the N target.
-                var _siteCfg = null;
-                // GH-367: "the lookup ran and this site has no saved config" and
-                // "the lookup could not run at all" are different answers and
-                // must not both arrive as null. The distributor binding below
-                // treats the first as a real "operator never picked one"
-                // (default 'all', matching the dropdown) and the second as
-                // unresolved -- which the audit's D30 fix shape says must be a
-                // loud failure, not a fall-through to a default catalogue.
-                var _siteCfgLookupOk = false;
-                try {
-                    if (window.GAIP_SiteConfig && typeof window.GAIP_SiteConfig.getConfig === 'function') {
-                        _siteCfg = window.GAIP_SiteConfig.getConfig(r.siteId);
-                        _siteCfgLookupOk = true;
-                    } else {
-                        console.warn('[CombinedExport] GH-367: GAIP_SiteConfig.getConfig unavailable — ' +
-                            'site config could not be read for', r.siteId);
+                // GH-383 (D31 stage 1): every programme-level input for THIS
+                // sample's site comes from the one shared adapter, keyed by
+                // r.siteId — not from the facility-level collectFromState()
+                // snapshot this object starts as a copy of.
+                //
+                // What that closes: the facility snapshot is built once, from
+                // the hidden #rp-hub-runner's own DOM, which
+                // nutrition-calendar.js's restoreFromPersisted() fills with
+                // whichever site was active first and then refuses to refill
+                // (it returns early once this.program is set). Every later
+                // site in a multi-site Combined export therefore inherited the
+                // FIRST site's annual N target — REVIEW-GH349-onward.md's open
+                // question 12, seen live as a Burns sample printing 250 kg N/ha
+                // in a Test5-active export.
+                var _NPI = window.GAIP_NutritionProgramInputs;
+                var _siteInputs = null;
+                if (_NPI) {
+                    try {
+                        _siteInputs = _NPI.resolveSiteProgramInputs({
+                            siteId: r.siteId,
+                            soil: r.data.soil || null,
+                            sample: {
+                                species: (r.data.engineInputs && r.data.engineInputs.turf && r.data.engineInputs.turf.species) || undefined,
+                                methodology: (r.data.soil && r.data.soil.methodology) || undefined,
+                                soilTexture: (r.data.engineInputs && r.data.engineInputs.soilTexture) || undefined,
+                                CEC: (r.data.soil && (r.data.soil.CEC != null ? r.data.soil.CEC : r.data.soil.cec)),
+                                pH: (r.data.soil && (r.data.soil.pH_water != null ? r.data.soil.pH_water : r.data.soil.pH))
+                            },
+                            // Never let this per-site resolution read the Plan
+                            // page's live form: this page has none, and a
+                            // hidden legacy input with the same class is
+                            // exactly the cross-site leak above.
+                            planForm: null
+                        });
+                    } catch (_piErr) {
+                        console.warn('[CombinedExport] GH-383: programme input resolution failed for site',
+                            r.siteId, '-', _piErr && _piErr.message);
                     }
-                } catch (_e) {
-                    console.warn('[CombinedExport] persist-debug: site config lookup failed for', r.siteId, _e && _e.message);
                 }
+                if (!_siteInputs) {
+                    // No adapter, or no config for this site. Do not guess with
+                    // another site's numbers — skip this sample's programme,
+                    // the same way a missing annual N target already did.
+                    console.warn('[CombinedExport] GH-383: no programme inputs for site', r.siteId,
+                        '— skipping this sample\'s per-sample programme rather than computing it ' +
+                        'against another site\'s configuration.');
+                    _perSampleProgSkip++;
+                    return;
+                }
+
+                var _siteCfg = _NPI.getSiteConfig(r.siteId);
                 var _persistedCal = _siteCfg && _siteCfg.nutritionCalendarProgram;
+                // GH-367: "the lookup ran and this site has no saved config"
+                // and "the lookup could not run at all" are different answers.
+                // GH-383 collapses the second case earlier — resolveSiteProgram
+                // Inputs() throws rather than borrowing another site's config,
+                // and the guard above skips the sample — so reaching this line
+                // means the lookup succeeded. The flag stays because the
+                // distributor binding below still gates on it.
+                var _siteCfgLookupOk = !!_siteCfg;
 
-                if (!(perSampleInputs.annualNOverride > 0)) {
-                    var _persistedN = (_persistedCal && _persistedCal.adjustments && _persistedCal.adjustments.target_n > 0)
-                        ? _persistedCal.adjustments.target_n : null;
-                    console.log('[CombinedExport] persist-debug: sample', r.sampleId, 'site', r.siteId,
-                        'facility annualNOverride empty, persisted fallback =', _persistedN);
-                    if (_persistedN > 0) {
-                        perSampleInputs.annualNOverride = _persistedN;
-                    } else {
-                        _perSampleProgSkip++;
-                        return;
-                    }
+                if (!(_siteInputs.annualN > 0)) {
+                    console.warn('[CombinedExport] GH-383: no annual N resolved for site', r.siteId,
+                        '(source', _siteInputs.sources.annualN + ') — skipping this sample\'s programme.');
+                    _perSampleProgSkip++;
+                    return;
                 }
+                perSampleInputs.annualNOverride = _siteInputs.annualN;
+                perSampleInputs.clippingManagement = _siteInputs.clippingManagement;
+                perSampleInputs.traffic = _siteInputs.trafficIntensity;
+                // GH-387: the RAW surface the calendar works in ('greens',
+                // 'soccer', ...) — the same value nutrition-calendar.js's
+                // collectFromState() resolves on the Plan page and stamps as
+                // meta.surfaceType. GH-383 assigned `turfType` here ('golf',
+                // 'sports'), which is a different field entirely: the Plan and
+                // the export then handed their product recommenders different
+                // surfaces and, on an AU site, got different products out of
+                // the same catalogue for the same sample.
+                perSampleInputs.surfaceType = _siteInputs.surfaceType || perSampleInputs.surfaceType;
+                perSampleInputs.species = _siteInputs.speciesKey || perSampleInputs.species;
+                perSampleInputs.speciesDisplay = _siteInputs.speciesDisplay || perSampleInputs.speciesDisplay;
+                perSampleInputs.methodology = _siteInputs.methodology;
+                perSampleInputs.soilTexture = _siteInputs.soilTexture;
+                perSampleInputs.CEC = _siteInputs.CEC;
+                perSampleInputs.pH = _siteInputs.pH;
 
-                // maxNPerMonth/distribution/clippingManagement: same hidden-DOM
-                // unreliability as annualNOverride above, but these three don't
-                // fail loudly (maxNPerMonth silently defaults to 50, distribution
-                // and clippingManagement fall back to a select's first option) —
-                // so unlike annualNOverride there's no natural signal to gate on.
-                // Always prefer the persisted value when one exists.
+                // maxNPerMonth and the distribution mode are not part of the
+                // requirement contract (they shape the monthly SCHEDULE, not
+                // the annual figures) and stay where they were.
                 if (_siteCfg && _siteCfg.maxNPerMonth > 0) {
                     perSampleInputs.maxNPerMonth = _siteCfg.maxNPerMonth;
                 }
-                if (_persistedCal && _persistedCal.meta) {
-                    if (_persistedCal.meta.distribution) {
-                        perSampleInputs.distribution = _persistedCal.meta.distribution;
-                    }
-                    if (_persistedCal.meta.clippingManagement) {
-                        perSampleInputs.clippingManagement = _persistedCal.meta.clippingManagement;
-                    }
+                if (_persistedCal && _persistedCal.meta && _persistedCal.meta.distribution) {
+                    perSampleInputs.distribution = _persistedCal.meta.distribution;
                 }
 
-                perSampleInputs.soilPpm = {
-                    P:  parseFloat(r.data.soil.P)  || 0,
-                    K:  parseFloat(r.data.soil.K)  || 0,
-                    Ca: parseFloat(r.data.soil.Ca) || 0,
-                    Mg: parseFloat(r.data.soil.Mg) || 0,
-                    S:  parseFloat(r.data.soil.S)  || 0,
-                    Fe: parseFloat(r.data.soil.Fe) || 0,
-                    Mn: parseFloat(r.data.soil.Mn) || 0,
-                    Zn: parseFloat(r.data.soil.Zn) || 0,
-                    Cu: parseFloat(r.data.soil.Cu) || 0,
-                };
-                if (r.data.soil.methodology) {
-                    // GH-379: r.data.soil.methodology is word-export.js's
-                    // UPPER-CASED stamp ('AMMONIUM_ACETATE'). computeProgram()
-                    // now folds its own input, but hand it the calendar's
-                    // canonical key anyway so nothing else in this loop (the
-                    // Prebble P-deficiency threshold, the recommender contexts)
-                    // keys on a spelling the live page never produces.
-                    var _ncNorm = (window.GilbaNutritionCalendar &&
-                        typeof window.GilbaNutritionCalendar.normalizeMethodology === 'function')
-                        ? window.GilbaNutritionCalendar.normalizeMethodology(r.data.soil.methodology)
-                        : String(r.data.soil.methodology).trim().toLowerCase();
-                    if (_ncNorm) perSampleInputs.methodology = _ncNorm;
-                }
-
-                // GH-379 (found by the live re-check once the AA branch was
-                // actually reached): perSampleInputs.soilTexture / CEC came
-                // from collectFromState() on this page, where both are null,
-                // so computeProgram()'s deriveCode() could never resolve the
-                // Hill Labs certificate code and every AA sample ranged
-                // against the generic sands/others band (K 100-235) — while
-                // this same report's ANR and Soil Amendment sections had
-                // already resolved S277 (K 78.2-195.5) per sample via
-                // _buildEngineInputs(). Overlay the texture that resolution
-                // surfaced (engineInputs.soilTexture) and this sample's own
-                // CEC (data.soil.CEC, read per sample by collectData()), the
-                // same inputs the Plan page hands the calendar. Only overlay
-                // when resolved, as for tissue above — never clobber a real
-                // facility value with null.
-                var _eiTex = r.data.engineInputs && r.data.engineInputs.soilTexture;
-                if (_eiTex) {
-                    perSampleInputs.soilTexture = _eiTex;
-                }
-                var _sampleCEC = parseFloat(r.data.soil.CEC != null ? r.data.soil.CEC : r.data.soil.cec);
-                if (!isNaN(_sampleCEC) && _sampleCEC > 0) {
-                    perSampleInputs.CEC = _sampleCEC;
-                }
+                // GH-383: `parseFloat(...) || 0` turned a missing reading into
+                // 0 ppm, which reads as maximally deficient against every floor
+                // and triggers the largest possible lift for a nutrient that
+                // was never measured — the exact failure GH-338 fixed on the
+                // Plan page and left standing here. validateSampleInputs()
+                // applies that same null-not-zero rule for both surfaces.
+                var _validated = _NPI.validateSampleInputs({
+                    soil: r.data.soil,
+                    bulkDensity: perSampleInputs.bulkDensity,
+                    soilDepth: perSampleInputs.soilDepth
+                });
+                perSampleInputs.soilPpm = _validated.soilPpm;
 
                 // GH-361 (Hoxton audit D07a): same "this sample's own data,
                 // not the facility default" overlay as soilPpm above, so
@@ -2431,7 +2441,13 @@
                         // monthly K profile divergence (or confirm inputs
                         // match and the difference is post-input).
                         var _options = {
-                            surfaceType: perSampleInputs.surfaceType,
+                            // GH-387: the AU recommender keys on the CANONICAL
+                            // surface key ('golf_greens', 'tees', 'fairways'),
+                            // which is what NutritionAuFertiliserIntegration's
+                            // getSurfaceType() hands it on the Plan page. Both
+                            // now come from the shared adapter's one mapping,
+                            // so the two surfaces cannot resolve it differently.
+                            surfaceType: _siteInputs.recommenderSurfaceType || perSampleInputs.surfaceType,
                             methodology: perSampleInputs.methodology,
                             distributorFilter: (window.NutritionAuFertiliserIntegration
                                 && window.NutritionAuFertiliserIntegration.selectedDistributor) || 'all',
@@ -3342,6 +3358,38 @@
             var uniqueMethods = methodLabels.filter(function(v, i, a) { return a.indexOf(v) === i; });
             var methodStr = uniqueMethods.join('/');
 
+            // GH-383 (decision D-4b): the annual N every figure in this table
+            // scales against comes from the site's own generated nutrition
+            // programme. When a site has never had one generated, the shared
+            // input adapter falls back to Settings > Turf and then to the
+            // species default — a defensible number, but not one the client
+            // chose on the Plan page, and the document must say so rather than
+            // present it as their target. `annualNSource` is the adapter's own
+            // provenance stamp, carried on engineInputs.
+            var _nFallbackSites = [];
+            anrReports.forEach(function (r) {
+                var _src = r.data && r.data.engineInputs && r.data.engineInputs.turf &&
+                    r.data.engineInputs.turf.annualNSource;
+                if (_src !== 'settings-turf' && _src !== 'species-default') return;
+                var _label = (r.siteLabel || r.data.siteName || 'this site') + ' (' +
+                    (_src === 'settings-turf' ? 'Site Settings → Turf' : 'species default') + ')';
+                if (_nFallbackSites.indexOf(_label) === -1) _nFallbackSites.push(_label);
+            });
+            if (_nFallbackSites.length) {
+                allChildren.push(new Paragraph({
+                    spacing: { after: 120 },
+                    children: [new TextRun({
+                        text: 'Note — annual nitrogen target source: ' + _nFallbackSites.join('; ') +
+                            '. No nutrition programme has been generated on the Plan page for ' +
+                            (_nFallbackSites.length > 1 ? 'these sites' : 'this site') +
+                            ', so the annual N target every requirement below is scaled against was taken ' +
+                            'from the site configuration rather than from a programme. Generate the ' +
+                            'programme on the Plan page to base these figures on your own target.',
+                        size: 16, italics: true, color: '92400E'
+                    })]
+                }));
+            }
+
             // b35fix303 Task 1: Detect cotula early so subtitle and table both agree
             // on whether reconciliation rows will render.
             var hasCotula = anrReports.some(function(r) { return r._anr && r._anr.isCotula; });
@@ -3907,10 +3955,16 @@
                                        'Balance = programme K (catalogue products only) − engine K req. ' +
                                        'Source: ' + (_capCitation || 'Carrow et al. (2004). GCM 72(1):194-198.') + '.';
                     } else if (_capMethod && /MLSN/i.test(_capMethod)) {
+                        // GH-384 (decision D-6): the lift target is the MLSN
+                        // minimum itself, not 1.5 x it. This caption still said
+                        // "lift toward target × 1.5" after the arithmetic
+                        // changed, which would have described the export's
+                        // printed figure incorrectly to the client.
                         _captionText = 'MLSN methodology (Woods et al. 2016): K req = removal + ' +
-                                       'deficit correction (lift toward target × 1.5 over 2 years) ' +
-                                       'when soil K below 37 ppm threshold. Balance = programme K ' +
-                                       '(catalogue products only) − engine K req.';
+                                       'deficit correction (lift to the 37 ppm minimum over 2 years) ' +
+                                       'when soil K is below it; within the range → removal only; ' +
+                                       'at or above the ceiling (minimum × 1.5) → zero application. ' +
+                                       'Balance = programme K (catalogue products only) − engine K req.';
                     } else {
                         _captionText = 'K delivered by the facility-level N programme compared to ' +
                                        'each sample\'s K requirement. Negative balance suggests ' +

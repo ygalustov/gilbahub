@@ -83,21 +83,21 @@ describe('word-export.js — _buildEngineInputs reads per-sample coordinates, no
     test('no longer reads window.climateMetrics.monthlyTemps directly', () => {
         const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
         expect(fnStart).toBeGreaterThan(-1);
-        const fnBody = exportSrc.slice(fnStart, fnStart + 11000);
+        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
 
         expect(fnBody).not.toMatch(/window\.climateMetrics\s*&&\s*window\.climateMetrics\.monthlyTemps/);
     });
 
     test('reads via GilbaClimateNormalsService.getResolvedSync(_lat, _lon) — per-sample coordinates', () => {
         const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, fnStart + 11000);
+        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
 
         expect(fnBody).toMatch(/GilbaClimateNormalsService\.getResolvedSync\(_lat, _lon\)/);
     });
 
     test('resolves longitude (.gaip-lon), not latitude alone — getResolvedSync needs both', () => {
         const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, fnStart + 11000);
+        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
 
         expect(fnBody).toMatch(/\.gaip-lon/);
         expect(fnBody).toMatch(/var _lon\b/);
@@ -105,7 +105,7 @@ describe('word-export.js — _buildEngineInputs reads per-sample coordinates, no
 
     test('latitude/longitude are computed before the climate lookup that depends on them', () => {
         const fnStart = exportSrc.indexOf('function _buildEngineInputs(data)');
-        const fnBody = exportSrc.slice(fnStart, fnStart + 11000);
+        const fnBody = exportSrc.slice(fnStart, exportSrc.indexOf('data.engineInputs = {', fnStart));
 
         const latIdx = fnBody.indexOf('var _lat = _latEl');
         const lookupIdx = fnBody.indexOf('getResolvedSync(_lat, _lon)');

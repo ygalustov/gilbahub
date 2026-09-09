@@ -1,0 +1,42 @@
+{
+  "_purpose": "GH-384 (D31 stage 2) second E2E fixture: an MLSN site with a nutrient genuinely BELOW the MLSN minimum, which is where decision D-6 (lift to the minimum itself, not to 1.5x it) actually bites. The Test5 - NZ fixture is ammonium-acetate and cannot exercise the MLSN branch at all.",
+  "_whyThisSample": "Burns '12th Fairway' (sample 52) reads P 18 ppm against the MLSN P minimum of 21 at its pH of 6.7 \u2014 the only stored dev sample that is below an MLSN floor and also renders through the Combined export. Before GH-383 the Plan page said P required 14 (12 removal + 2.1 lift to the minimum) and the export's ANR said 21.5 (12 + 9.45, lifting to 1.5 x the minimum); both surfaces now say 14. K 195 / Ca 1400 / Mg 151 all sit above the x1.5 ceiling and suppress to 0 on both.",
+  "_source": "docker exec gilba_mysql mysql -ugilba: sites.id, samples.id=52 (soil, client_uid Soil_25_zo0t), site_configs(gaip).turf, read 2026-09-09. If someone edits this sample, update currentInputs here \u2014 the harness then fails its precondition test with the drift rather than reporting a fake parity failure.",
+  "site": {
+    "id": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+    "name": "Burns"
+  },
+  "soilSample": {
+    "dbId": 52,
+    "clientId": "Soil_25_zo0t",
+    "label": "12th Fairway",
+    "zone": "Fairways",
+    "sampleDate": "2025-07-31"
+  },
+  "currentInputs": {
+    "methodology": "mlsn",
+    "species": "Creeping Bentgrass (Greens)",
+    "speciesKey": "creepingBentgrass",
+    "soilTexture": "loam",
+    "construction": "sand_profile",
+    "annualN": 120,
+    "soilPpm": {
+      "P": 18,
+      "K": 195,
+      "Ca": 1400,
+      "Mg": 151,
+      "S": 10
+    },
+    "pH": 6.7,
+    "CEC": 9.8,
+    "tissuePercent": {
+      "N": null,
+      "P": null,
+      "K": null
+    }
+  },
+  "mustBeBelowFloor": [
+    "P"
+  ],
+  "region": "au"
+}

@@ -1,8 +1,10 @@
 /**
- * NUTRITION REQUIREMENT ENGINE - PURE v1.2.0
+ * NUTRITION REQUIREMENT ENGINE - PURE v2.0.0 (GH-383: a facade over
+ * assets/nutrition-requirement-core.js)
  *
  * Pure-function nutrition requirement engine.
- * f({ soil, turf, climate, overseedConfig }) → { perSample, facility }
+ * f({ soil, turf, climate, ranges|aaRanges, tissuePercent, overseedConfig })
+ *   → { perSample, facility }
  *
  * Extracted from nutrition-summary-integration.js v1.1.3 (b35fix302).
  * All DOM reads and window globals REMOVED.
@@ -31,760 +33,215 @@
     'use strict';
 
     const CONFIG = {
-        version: '1.2.0',
+        version: '2.0.0-gh383',
         debug: false
     };
 
-    // MLSN minimum soil level thresholds (ppm Mehlich-3 / ammonium acetate).
-    // Source: Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines.
-    const MLSN_THRESHOLDS = { P: 21, K: 37, Ca: 331, Mg: 47, S: 7 };
-    const TARGET_MULTIPLIER = 1.5;
+    // ==========================================================================
+    // GH-383 (D31 stage 1) — THIS FILE IS NOW A FACADE.
+    //
+    // Every per-nutrient constant and every branch of the removal + correction
+    // + ceiling/floor computation that used to live here has moved to
+    // assets/nutrition-requirement-core.js, which nutrition-calendar.js also
+    // calls. There is one implementation of that arithmetic in the product;
+    // this file keeps the public API its callers depend on (the Word export,
+    // the old hub's Nutrition Summary panel, a dozen test files) and adds the
+    // facility-level annual N + GP-weighted monthly distribution the core
+    // deliberately excludes.
+    //
+    // What that cutover changed, and what it did not:
+    //   - MLSN below-threshold correction now lifts to the MLSN MINIMUM, not
+    //     to 1.5 x the minimum (decision D-6). This is the one deliberate
+    //     numeric move: the export is being aligned to the Plan page the
+    //     client has been validating. On the dev sites it takes MLSN calcium
+    //     from ~125 to ~48 kg/ha.
+    //   - Clipping management is now applied to ALL THREE methodologies, from
+    //     the calendar's cited table, keyed by the string 'collected' |
+    //     'returned' (decision D-1). The old flat CLIPPING_COLLECTION_FACTOR
+    //     of 2.5 — uncited, MLSN-only, and the opposite polarity (it AMPLIFIED
+    //     on collected instead of reducing on returned) — is gone. The legacy
+    //     boolean `turf.clippingsCollected` is IGNORED, not aliased: it has no
+    //     writer anywhere in assets/ or app/, so it has always been false, i.e.
+    //     "no information", and mapping false to 'returned' would silently
+    //     halve K removal in the old hub's panel and in every existing test
+    //     that passes it. Ignored means factor 1.0 — exactly today's number.
+    //   - Traffic is no longer applied per nutrient. The modifier scales the
+    //     annual N once, upstream, in nutrition-program-inputs.js (decisions
+    //     D-2/D-3); applying it here as well would double-count it. Both
+    //     tables always resolved to 1.0 in practice (nothing has ever written
+    //     an intensity), so no number moves today.
+    //   - The ceiling comparison is `>=` on every methodology (decision D-8).
+    //   - A nutrient with no soil reading is returned as removal-only with
+    //     missingSoilData set, instead of being omitted (decision D-9).
+    //   - Sufficiency ranges are resolved by nutrition-program-inputs.js and
+    //     passed in as `ranges`. Callers that still pass only `aaRanges` keep
+    //     working: see _rangesForCompute() below.
+    // ==========================================================================
 
-    // pH-adjusted P thresholds — Gilba augmentation accounting for reduced P
-    // availability at pH extremes. Uses ≤ semantics (inclusive upper bound on
-    // each band, first match wins). A divergence exists in hub-tissue-v3.js
-    // which uses strict inequalities; harmonisation is a separate build.
-    // Preserving ≤ semantics here matches nutrition-summary-integration.js
-    // v1.1.3, the source being extracted.
-    const P_PH_ADJUSTMENTS = [
-        { maxPh: 5.5, threshold: 35 },
-        { maxPh: 6.0, threshold: 28 },
-        { maxPh: 7.5, threshold: 21 },
-        { maxPh: 8.0, threshold: 32 },
-        { maxPh: 99,  threshold: 40 }
-    ];
-
-    function getMLSNThreshold(nutrient, ph) {
-        if (nutrient === 'P' && ph) {
-            for (const adj of P_PH_ADJUSTMENTS) {
-                if (ph <= adj.maxPh) return adj.threshold;
-            }
+    let _coreCached = null;
+    function _core() {
+        if (_coreCached) return _coreCached;
+        _coreCached = (global && global.NutritionRequirementCore) ||
+            (typeof window !== 'undefined' && window.NutritionRequirementCore) || null;
+        if (!_coreCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _coreCached = require('./nutrition-requirement-core.js'); } catch (e) { /* not resolvable */ }
         }
-        return MLSN_THRESHOLDS[nutrient] || 0;
-    }
-
-    function getMLSNTarget(nutrient, ph) {
-        return getMLSNThreshold(nutrient, ph) * TARGET_MULTIPLIER;
-    }
-
-    // Removal rates: kg/ha/yr for each macronutrient by species.
-    // Source: nutrition-summary-integration.js v1.1.3 NUTRITION_CONFIG.removalRates,
-    // which was derived from Carrow, Waddington & Rieke (2001) Turfgrass Soil
-    // Fertility & Chemical Problems and Christians, Patton & Law (2017)
-    // Fundamentals of Turfgrass Management (5th ed.) — both cited in the
-    // engine header. Duplicate 'couch' key in source (lines 87–88) dropped
-    // here; values were identical so no behaviour change.
-    const REMOVAL_RATES = {
-        bentgrass:         { N: 150, P: 15, K: 80,  Ca: 25, Mg: 12, S: 8 },
-        perennialRyegrass: { N: 180, P: 18, K: 100, Ca: 30, Mg: 15, S: 10 },
-        kentuckyBluegrass: { N: 160, P: 16, K: 90,  Ca: 28, Mg: 14, S: 9 },
-        fineFescue:        { N: 100, P: 10, K: 60,  Ca: 20, Mg: 10, S: 6 },
-        tallFescue:        { N: 140, P: 14, K: 80,  Ca: 25, Mg: 12, S: 8 },
-        couch:             { N: 200, P: 20, K: 120, Ca: 35, Mg: 18, S: 12 },
-        zoysiagrass:       { N: 120, P: 12, K: 70,  Ca: 22, Mg: 11, S: 7 },
-        kikuyu:            { N: 250, P: 25, K: 140, Ca: 40, Mg: 20, S: 14 },
-        buffalo:           { N: 80,  P: 8,  K: 50,  Ca: 15, Mg: 8,  S: 5 },
-        seashorePaspalum:  { N: 160, P: 16, K: 90,  Ca: 28, Mg: 14, S: 9 },
-        mixedCool:         { N: 160, P: 16, K: 85,  Ca: 26, Mg: 13, S: 8 },
-        mixedWarm:         { N: 180, P: 18, K: 100, Ca: 32, Mg: 16, S: 10 }
-    };
-
-    // Species alias map — maps user-supplied species strings (after normalisation
-    // to lowercase, whitespace/dash/underscore stripped, trailing 'grass' stripped)
-    // to canonical REMOVAL_RATES keys.
-    //
-    // Latent-bug fixes vs nutrition-summary-integration.js v1.1.3:
-    //   - 'zoysia'   was mapped to 'zoysia'           (no such key → fell to mixedCool)
-    //               now mapped to 'zoysiagrass'       (correct key)
-    //   - 'paspalum' was mapped to 'seashore_paspalum' (no such key → fell to mixedCool)
-    //               now mapped to 'seashorePaspalum'  (correct key)
-    // Behaviour change: zoysia and seashore paspalum sites now receive species-
-    // correct removal rates instead of cool-season defaults. Self-identity
-    // aliases added for robustness (bentgrass, kikuyu, buffalo, etc.).
-    //
-    // b35fix302b Task 11 additions: production code stores species as compact
-    // CamelCase strings (browntopBent, colonialBentgrass, chewingsFescue,
-    // hardFescue, sheepFescue, slenderCreepingRedFescue, strongCreepingRedFescue,
-    // tetraploidRyegrass, zoysiaJaponica, zoysiaMatrella, hybridcouch).
-    // Without aliases these silently fall to mixedCool/mixedWarm defaults.
-    // Alias each to the canonical REMOVAL_RATES key based on closest published
-    // turf-removal-rate match. Sources: Carrow/Waddington/Rieke (2001),
-    // Christians/Patton/Law (2017). Where no exact removal-rate study exists
-    // (e.g. browntop bent vs creeping bent), alias to the closest related
-    // species — flagged in comments where this is an approximation.
-    const SPECIES_ALIASES = {
-        'couch': 'couch', 'bermuda': 'couch', 'bermudagrass': 'couch', 'cynodon': 'couch',
-        'hybridcouch': 'couch',  // Hybrid couch (e.g. Tifway, OZ-TUFF) — same removal rates as couch
-        'bent': 'bentgrass', 'creepingbent': 'bentgrass', 'agrostis': 'bentgrass', 'bentgrass': 'bentgrass',
-        'creepingbentgrass': 'bentgrass',
-        'browntopbent': 'bentgrass',  // Browntop bent (Agrostis capillaris) — bentgrass family, similar removal
-        'colonialbent': 'bentgrass', 'colonialbentgrass': 'bentgrass',  // Colonial bent (A. capillaris)
-        'velvetbent': 'bentgrass', 'velvetbentgrass': 'bentgrass',  // Velvet bent (A. canina)
-        'prg': 'perennialRyegrass', 'rye': 'perennialRyegrass', 'ryegrass': 'perennialRyegrass',
-        'perennialrye': 'perennialRyegrass', 'perennialryegrass': 'perennialRyegrass',
-        'tetraploidryegrass': 'perennialRyegrass', 'tetraploidrye': 'perennialRyegrass',  // Diploid/tetraploid same removal
-        'kbg': 'kentuckyBluegrass', 'bluegrass': 'kentuckyBluegrass', 'poa': 'kentuckyBluegrass',
-        'kentuckybluegrass': 'kentuckyBluegrass',
-        'fescue': 'fineFescue', 'finefescue': 'fineFescue',
-        'chewings': 'fineFescue', 'chewingsfescue': 'fineFescue',
-        'hardfescue': 'fineFescue',  // Hard fescue (Festuca brevipila) — fine fescue group
-        'sheepfescue': 'fineFescue',  // Sheep fescue (F. ovina) — fine fescue group
-        'slendercreepingredfescue': 'fineFescue', 'slenderredfescue': 'fineFescue',
-        'strongcreepingredfescue': 'fineFescue', 'strongredfescue': 'fineFescue',
-        'redfescue': 'fineFescue', 'creepingredfescue': 'fineFescue',
-        'tallfescue': 'tallFescue',
-        'zoysia': 'zoysiagrass', 'zoysiagrass': 'zoysiagrass',
-        'zoysiajaponica': 'zoysiagrass',  // Z. japonica — coarse-textured zoysia
-        'zoysiamatrella': 'zoysiagrass',  // Z. matrella — fine-textured zoysia, same removal class
-        'kikuyu': 'kikuyu', 'kikuyugrass': 'kikuyu',
-        'buffalo': 'buffalo',
-        'paspalum': 'seashorePaspalum', 'seashore': 'seashorePaspalum', 'seashorepaspalum': 'seashorePaspalum'
-    };
-
-    function isC4Species(species) {
-        if (!species) return false;
-        const s = String(species).toLowerCase();
-        return s.includes('couch') || s.includes('bermuda') ||
-               s.includes('kikuyu') || s.includes('buffalo') ||
-               s.includes('zoysia') || s.includes('paspalum') ||
-               s.includes('c4') || s.includes('warm');
-    }
-
-    function normalizeSpecies(species) {
-        if (!species) return 'mixedCool';
-        // b35fix303: strip parenthetical surface-type qualifiers like "(Greens)",
-        // "(Tees)", "(Fairways)" etc. before alias matching. Without this,
-        // production strings like "Creeping Bentgrass (Greens)" fall through
-        // to mixedCool instead of bentgrass. Caught in production after b35fix302b.
-        const s = String(species).toLowerCase()
-            .replace(/\s*\([^)]*\)\s*/g, '')
-            .replace(/[\s\-_]+/g, '')
-            .replace(/grass$/, '');
-        if (SPECIES_ALIASES[s]) return SPECIES_ALIASES[s];
-        for (const key of Object.keys(REMOVAL_RATES)) {
-            if (key.toLowerCase() === s) return key;
+        if (!_coreCached) {
+            throw new Error('[NutritionRequirementEngine] nutrition-requirement-core.js is not loaded — ' +
+                'it must be enqueued before this file (see the blade script lists).');
         }
-        return isC4Species(species) ? 'mixedWarm' : 'mixedCool';
+        return _coreCached;
     }
 
-    // GH-368: same plausibility band nutrition-calendar.js applies to a
-    // tissue-derived ratio. Tissue macros can be entered in mg/kg as well as
-    // %, and a mixed-unit sample yields a ratio orders of magnitude too large.
-    const TISSUE_RATIO_BANDS = { P: { min: 0.03, max: 0.30 }, K: { min: 0.15, max: 1.50 } };
-
-    /**
-     * GH-369 follow-up (independent review) — resolve the tissue-ratio gate
-     * ONCE per sample, using nutrition-calendar.js's own all-or-nothing
-     * eligibility rule, not a separate per-nutrient check.
-     *
-     * Pre-fix, this engine decided P and K's eligibility INDEPENDENTLY of
-     * each other (each nutrient checked only its own ratio against its own
-     * band), while nutrition-calendar.js requires ALL of N/P/K present AND
-     * BOTH P/N and K/N in-band before either ratio governs — a single
-     * implausible reading (e.g. P entered in mg/kg) disables the WHOLE gate
-     * there, not just P's half of it. That divergence is live-reachable: a
-     * tissue sample with P/N implausible and K/N plausible would have this
-     * engine report K as tissue-informed while nutrition-calendar.js (and
-     * the Monthly Schedule it drives) fell back to the generic ratio for
-     * the exact same site — the ANR table and the Monthly Schedule
-     * disagreeing on whether tissue governs at all, in the same document,
-     * which is precisely the UI-vs-export divergence class GH-362 exists to
-     * close. Resolving eligibility once, by the same rule, makes the two
-     * engines agree on WHETHER tissue governs (what ratio it produces was
-     * already identical, per GH-368).
-     *
-     * Returns { eligible, pRatio, kRatio }. pRatio/kRatio are only
-     * meaningful when eligible is true.
-     */
-    function resolveTissueGate(tissuePercent) {
-        const tp = tissuePercent || {};
-        const measured = typeof tp.N === 'number' && tp.N > 0 &&
-                          typeof tp.P === 'number' && tp.P > 0 &&
-                          typeof tp.K === 'number' && tp.K > 0;
-        if (!measured) return { eligible: false, pRatio: null, kRatio: null };
-
-        const pRatio = tp.P / tp.N;
-        const kRatio = tp.K / tp.N;
-        const pBand = TISSUE_RATIO_BANDS.P, kBand = TISSUE_RATIO_BANDS.K;
-        const plausible = pRatio >= pBand.min && pRatio <= pBand.max &&
-                           kRatio >= kBand.min && kRatio <= kBand.max;
-        if (!plausible) {
-            console.warn('[NutritionRequirementEngine] GH-369: tissue P/N=' + pRatio.toFixed(3) +
-                ' K/N=' + kRatio.toFixed(3) + ' is outside the plausibility band (P ' + pBand.min + '-' +
-                pBand.max + ', K ' + kBand.min + '-' + kBand.max + ') — most likely mixed units on the ' +
-                'tissue sample. Using the generic ratio for both P and K, matching ' +
-                'nutrition-calendar.js\'s all-or-nothing rule.');
+    let _inputsCached = null;
+    function _inputs() {
+        if (_inputsCached) return _inputsCached;
+        _inputsCached = (global && global.GAIP_NutritionProgramInputs) ||
+            (typeof window !== 'undefined' && window.GAIP_NutritionProgramInputs) || null;
+        if (!_inputsCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _inputsCached = require('./nutrition-program-inputs.js'); } catch (e) { /* not resolvable */ }
         }
-        return { eligible: plausible, pRatio: pRatio, kRatio: kRatio };
+        return _inputsCached;
     }
 
-    function getRemovalRate(species, nutrient, tissueGate, annualN) {
-        const normalized = normalizeSpecies(species);
-        const table = REMOVAL_RATES[normalized] || REMOVAL_RATES.mixedCool;
+    // Re-exports: one table, one normaliser, one ladder — the core's, resolved
+    // LAZILY. Resolving at module-evaluation time would make this file's own
+    // load order a hard dependency, and a page that enqueued the core after
+    // this script would lose NutritionRequirementEngine_Pure entirely instead
+    // of failing on first use with a message that names the cause.
+    function REMOVAL_RATES_() { return _core().REMOVAL_RATES; }
 
-        // GH-381 (D31, Hoxton audit's own headline finding: "two requirement
-        // engines, one product", assertion 20). REMOVAL_RATES' two absolute
-        // numbers per species (e.g. perennialRyegrass P 18 / K 100 against
-        // N 180) always meant a ratio -- P/N 0.10, K/N 0.556, matching
-        // nutrition-calendar.js's CONFIG.nutrientRatiosToN (0.10 / 0.55)
-        // almost exactly -- but this function returned the table's raw
-        // absolute number, pinned to ITS OWN N=180 basis, instead of scaling
-        // that ratio against the site's real annual N target the way the
-        // calendar always does (`baseRemoval[nutrient] = annualN * ratio`,
-        // unconditionally, tissue-informed or not -- see
-        // nutrition-calendar.js's computeProgram()). A site whose real N
-        // target differs from the table's basis (Hoxton: 200 vs 180; this
-        // repo's Test5-NZ fixture: 250 vs 180) therefore disagreed with the
-        // UI even before GH-368 threaded tissue data in -- GH-368 fixed
-        // WHICH ratio the tissue-informed branch uses, but scaled it
-        // against the same wrong (table) basis, so the two engines still
-        // diverged by the table-N/real-N factor on every tissue-informed
-        // site. This was the engine's own internal inconsistency, not a
-        // different engineering choice from nutrition-calendar.js's: the
-        // facility half of this same file already resolves and uses the
-        // real annualN (see compute()); the per-sample half simply never
-        // received it. Fixed by threading it through and scaling both
-        // branches the same way the calendar always has.
-        //
-        // Eligibility for the tissue-informed branch comes from
-        // resolveTissueGate() above so both engines agree on WHETHER tissue
-        // governs, not just what ratio it produces (also GH-368).
-        let ratio;
-        if ((nutrient === 'P' || nutrient === 'K') && tissueGate && tissueGate.eligible) {
-            ratio = (nutrient === 'P') ? tissueGate.pRatio : tissueGate.kRatio;
-        } else {
-            const genericTableRatio = table[nutrient] / table.N;
-            ratio = isFinite(genericTableRatio) ? genericTableRatio
-                : (REMOVAL_RATES.mixedCool[nutrient] / REMOVAL_RATES.mixedCool.N);
-        }
-        const basis = (typeof annualN === 'number' && annualN > 0) ? annualN : table.N;
-        return {
-            value: Math.round(basis * ratio * 10) / 10,
-            tissueInformed: !!((nutrient === 'P' || nutrient === 'K') && tissueGate && tissueGate.eligible),
-        };
-    }
+    function getMLSNThreshold(nutrient, ph) { return _core()._getMLSNThreshold(nutrient, ph); }
+    function getMLSNTarget(nutrient, ph) { return _core()._getMLSNCeiling(nutrient, ph); }
+    function normalizeSpecies(species) { return _core()._normalizeSpecies(species); }
+    function isC4Species(species) { return _core()._isC4Species(species); }
+    function resolveTissueGate(tp) { return _core()._resolveTissueGate(tp); }
+    function normaliseMethodology(m) { return _core()._normaliseMethodology(m); }
+    function getSlanTargetP(ph) { return _core()._getSlanTargetP(ph); }
+    function getClippingFactor(n, mode) { return _core()._getClippingFactor(n, mode); }
 
-    // Years to correct a deficit. Mobile nutrients (P, K, S) correct in 2 yr;
-    // immobile cations (Ca, Mg) in 3 yr. Source: Gilba practice, consistent
-    // with Carrow et al. (2001) chapter on base saturation correction rates.
-    const YEARS_TO_CORRECT = { P: 2, K: 2, Ca: 3, Mg: 3, S: 2 };
-
-    // GH-370: same defaults nutrition-calendar.js's CONFIG.defaultBulkDensity/
-    // defaultSoilDepth use, so a caller that hasn't threaded a real per-sample
-    // reading through gets the identical fallback assumption the sibling
-    // engine already makes -- not a second, independently-invented default.
-    const DEFAULT_BULK_DENSITY_G_CM3 = 1.4;
-    const DEFAULT_SOIL_DEPTH_CM = 10;
-
-    // Clippings-collected amplifier — clippings removed from site take
-    // nutrients with them; 2.5× accounts for the full removal not replaced
-    // by decomposition. Source: nutrition-summary-integration.js v1.1.3.
-    const CLIPPING_COLLECTION_FACTOR = 2.5;
-
-    // Traffic intensity modifiers on removal rate.
-    // Source: nutrition-summary-integration.js v1.1.3.
-    const TRAFFIC_MODIFIERS = { low: 0.8, moderate: 1.0, high: 1.2, extreme: 1.5 };
-
-    // Legacy SLAN_TARGET — pre-b35fix325 single-midpoint constants (Carrow 2001).
-    //
-    // b35fix325 NOTE: K and S branches now use SLAN sufficiency ranges sourced
-    // from GilbaClassificationConstants.SLAN_RANGES.
-    // b35fix333 NOTE: those ranges were corrected from a fabricated "Throssell
-    // USGA 2009" citation to the actual published source — Carrow et al. (2004)
-    // GCM 72(1):194-198. Numbers shifted slightly: P 25-50 → 27-54; K 75-150 →
-    // 75-176; Ca 500-1000 → 500-750; Mg 60-200 → 70-140; S 12-30 → 15-40.
-    // (Option 1: single ranges set, "other soils" / high-CEC values. Sand vs
-    // other soil-type split deferred to b35fix335.)
-    // b35fix334 NOTE: P branch pH ladder (getSlanTargetP) rebased onto the
-    // Carrow 2004 floor of 27 ppm via Spencer scaled-ladder method — preserves
-    // Carrow 2001 P × pH ratios (1.676/1.324/1.000/1.514/1.892), applies them
-    // to the Carrow 2004 floor instead of the Carrow 2001 midpoint of 37. New
-    // ladder: 45/36/27/41/51 ppm at pH ≤5.5/≤6.0/6.0-7.5/≤8.0/>8.0.
-    //
-    // SLAN_TARGET is now USED ONLY as a backward-compat reference for any
-    // external readers that might import it directly — getSlanTargetP no
-    // longer references SLAN_TARGET.P (it now anchors to 27 directly).
-    //
-    // Pre-b35fix325 K target was 112 ppm — Carrow 2001 midpoint. Now superseded
-    // by SLAN_RANGES.K.{floor:75, ceiling:176} via the constants module.
+    // Legacy SLAN_TARGET — pre-b35fix325 single-midpoint constants (Carrow
+    // 2001). Kept only as a backward-compat reference for external readers;
+    // nothing in this file or the core reads it.
     const SLAN_TARGET = { P: 37, K: 112, S: 18 };
 
-    /**
-     * SLAN P target adjusted for pH availability.
-     *
-     * b35fix334 — Spencer scaled-ladder rebased on Carrow 2004 floor.
-     * Pre-b35fix334 this returned 37/49/62/56/70 ppm (Carrow 2001 midpoints
-     * at pH 5.5/6.0/6.5+/8.0/>8.0) — i.e. anchored on a Carrow 2001 midpoint
-     * that didn't match the post-b35fix333 published Carrow 2004 floor of 27.
-     *
-     * Spencer scaled-ladder method preserves the pH-availability ratios from
-     * the Carrow 2001 P×pH adjustment (which encodes well-established physical
-     * chemistry — P availability minimum at pH 6.0-7.5, fixation by Fe/Al at
-     * acidic pH and by Ca at alkaline pH), and rebases them on the Carrow
-     * 2004 published floor of 27 ppm Mehlich-3 (the value now in
-     * gaip-classification-constants.js SLAN_RANGES.P.floor).
-     *
-     * Carrow 2001 ratios (relative to pH 6.0-7.5 baseline of 37):
-     *   pH ≤ 5.5:        62/37 = 1.676 (Fe/Al fixation peak)
-     *   pH ≤ 6.0:        49/37 = 1.324
-     *   6.0 < pH ≤ 7.5:  37/37 = 1.000 (baseline = minimum fixation)
-     *   7.5 < pH ≤ 8.0:  56/37 = 1.514 (Ca fixation onset)
-     *   pH > 8.0:        70/37 = 1.892 (Ca-phosphate precipitation)
-     *
-     * Applied to Carrow 2004 floor of 27 ppm:
-     *   pH ≤ 5.5:        27 × 1.676 = 45 ppm
-     *   pH ≤ 6.0:        27 × 1.324 = 36 ppm
-     *   6.0 < pH ≤ 7.5:  27 ppm (Carrow 2004 baseline floor — Mehlich-3)
-     *   7.5 < pH ≤ 8.0:  27 × 1.514 = 41 ppm
-     *   pH > 8.0:        27 × 1.892 = 51 ppm
-     *
-     * pH-independent return = SLAN_RANGES.P.floor (27) when pH is missing —
-     * the published baseline floor with no pH adjustment, which is the
-     * most defensible default.
-     *
-     * Sources:
-     *   - Floor: Carrow, R.N., Stowell, L., Gelernter, W., Davis, S.,
-     *     Duncan, R.R., Skorulski, J. (2004). "Clarifying soil testing:
-     *     III. SLAN sufficiency ranges and recommendations." Golf Course
-     *     Management 72(1):194-198. Mehlich-3 extractant, "other soils"
-     *     value (Option 1 per b35fix333 Spencer decision).
-     *   - pH adjustment ratios: Carrow, Waddington & Rieke (2001) Turfgrass
-     *     Soil Fertility & Chemical Problems, P × pH adjustment table —
-     *     ratios extracted by Spencer scaled-ladder method (b35fix303),
-     *     rebased on Carrow 2004 floor (b35fix334).
-     *   - Underlying physical chemistry: Penn & Camberato (2019) Crit Rev
-     *     Soil Sci on pH-fixation curves; classical view — P availability
-     *     maximum at pH 6.0-7.5, with Fe/Al fixation at acidic pH and Ca
-     *     fixation at alkaline pH.
-     */
-    function getSlanTargetP(ph) {
-        // b35fix334: pH-independent default = Carrow 2004 floor (27 ppm Mehlich-3).
-        // Pre-b35fix334 this returned SLAN_TARGET.P (37) — Carrow 2001 midpoint.
-        if (ph == null || isNaN(ph)) return 27;
-        if (ph <= 5.5) return 45;            // 27 × 1.676 (Fe/Al fixation)
-        if (ph <= 6.0) return 36;            // 27 × 1.324
-        if (ph <= 7.5) return 27;            // Carrow 2004 baseline floor
-        if (ph <= 8.0) return 41;            // 27 × 1.514 (Ca fixation onset)
-        return 51;                           // 27 × 1.892 (Ca-phosphate precipitation)
+    function getRemovalRate(species, nutrient, tissueGate, annualN) {
+        // The pre-GH-383 signature allowed a missing annualN and fell back to
+        // the species table's own N. Direct callers (tests/gh368, tests/gh369)
+        // still rely on that; the core itself has no such fallback, by design.
+        const RR = REMOVAL_RATES_();
+        const table = RR[normalizeSpecies(species)] || RR.mixedCool;
+        const basis = (typeof annualN === 'number' && annualN > 0) ? annualN : table.N;
+        return _core()._getRemovalRate(species, nutrient, tissueGate, basis);
     }
 
     /**
-     * Normalise methodology key. Accepts case-insensitive variants and the
-     * common spellings used in soil lab outputs and turf-config UIs.
-     *   MLSN family:  'mlsn', 'MLSN', undefined/null (default)
-     *   AA family:    'AA', 'aa', 'ammonium acetate', 'ammonium_acetate', 'AMMONIUM_ACETATE'
-     *   SLAN family:  'slan', 'SLAN'
-     * Returns one of: 'MLSN' | 'AMMONIUM_ACETATE' | 'SLAN'
+     * The sufficiency ranges one compute()/_calculateNutrientRequirement()
+     * call should use.
+     *
+     * `ranges` (adapter-shaped) wins outright — that is what word-export.js
+     * and word-export-combined.js now pass. Otherwise:
+     *   AA   — exactly the caller's `aaRanges` map, nutrient for nutrient, so
+     *          a legacy caller's behaviour (including "this nutrient has no
+     *          range, so no ceiling ever fires") is byte-identical to before.
+     *   SLAN — the adapter's Carrow 2004 + Spencer pH ladder resolution.
+     *   MLSN — the adapter's Woods 2016 minima + the D-7 pH ladder, ceiling at
+     *          the hub-wide x1.5.
      */
-    function normaliseMethodology(methodology) {
-        if (!methodology) return 'MLSN';
-        const s = String(methodology).toUpperCase().replace(/[\s\-]+/g, '_');
-        if (s === 'AA' || s === 'AMMONIUM_ACETATE') return 'AMMONIUM_ACETATE';
-        if (s === 'SLAN') return 'SLAN';
-        return 'MLSN';
+    function _rangesForCompute(methodology, aaRanges, ph, explicitRanges) {
+        if (explicitRanges) return explicitRanges;
+        const folded = normaliseMethodology(methodology);
+        if (folded === 'AMMONIUM_ACETATE') {
+            const out = { P: null, K: null, Ca: null, Mg: null, S: null };
+            if (aaRanges) {
+                ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
+                    const r = aaRanges[n];
+                    if (r) out[n] = { min: r.min, max: r.max, label: 'AMMONIUM_ACETATE', citation: r.citation || null };
+                });
+            }
+            return out;
+        }
+        const A = _inputs();
+        if (!A) {
+            throw new Error('[NutritionRequirementEngine] nutrition-program-inputs.js is not loaded — ' +
+                'SLAN/MLSN sufficiency ranges are resolved there (GH-383).');
+        }
+        return A.resolveSufficiencyRanges({ methodology: folded, pH: ph }).ranges;
+    }
+
+    let _warnedClippingBoolean = false;
+    function _clippingFromConfig(config) {
+        if (config && config.clippingManagement) return config.clippingManagement;
+        if (config && config.clippingsCollected !== undefined && !_warnedClippingBoolean) {
+            _warnedClippingBoolean = true;
+            console.warn('[NutritionRequirementEngine] GH-383: the legacy boolean ' +
+                '`clippingsCollected` is ignored — clipping management is the string ' +
+                '`clippingManagement` (\'collected\' | \'returned\'), resolved by ' +
+                'nutrition-program-inputs.js from the site\'s persisted programme. ' +
+                'Ignoring it keeps the factor at 1.0, which is what this caller already got.');
+        }
+        return 'collected';
     }
 
     /**
-     * Per-nutrient annual requirement. Methodology dispatcher:
-     *
-     *   MLSN (default) — strict three-tier:
-     *     Above target (threshold × 1.5):  apply 0
-     *     Between threshold and target:    apply removal only
-     *     Below threshold:                 apply removal + deficit correction
-     *     pH-adjusted P threshold applies (MLSN only)
-     *     Status bands: Very Low / Low / Adequate / High / Excessive
-     *     Clippings + traffic modifiers APPLIED
-     *
-     *   AMMONIUM_ACETATE (AA) — removal-only:
-     *     Returns base species removal rate. AA-extractant thresholds aren't
-     *     calibrated to MLSN values, so deficit correction can't be derived.
-     *     Status always 'Adequate'.
-     *     Clippings + traffic modifiers NOT APPLIED (matches source).
-     *
-     *   SLAN — sufficiency-range correction:
-     *     Targets {P:37, K:112, S:18}. NO pH adjustment for P (lab-level standard).
-     *     Above target:                   apply 0
-     *     Below target:                   apply removal + (target-current)/years
-     *     Status bands: Very Low / Low / Adequate / High (no Excessive band)
-     *     Clippings + traffic modifiers NOT APPLIED (matches source).
-     *
-     * Returns kg/ha/yr rounded to 1 decimal place.
+     * Per-nutrient annual requirement — delegates to the core. Kept as a
+     * public re-export because a dozen test files and the old hub's panel call
+     * it directly with the pre-GH-383 config shape
+     * ({ methodology, species, aaRange, ph, tissuePercent, bulkDensity,
+     *    soilDepth, annualN? }).
      */
     function calculateNutrientRequirement(nutrient, currentLevel, config) {
+        config = config || {};
         const methodology = normaliseMethodology(config.methodology);
-        // GH-369: getRemovalRate() now returns { value, tissueInformed } (see
-        // its own comment) -- unpack once here so every return site below can
-        // report whether ITS annualRequirement was tissue-ratio-derived,
-        // without re-deriving the ratio/plausibility check.
-        // config.tissueGate is the pre-resolved gate calculateAllRequirements()
-        // computes once per sample (see resolveTissueGate()'s own comment).
-        // Fall back to resolving it here for callers that invoke this
-        // function directly with only config.tissuePercent set (e.g. a
-        // single-nutrient check) -- resolveTissueGate() itself is cheap and
-        // still requires all of N/P/K, so this can't reintroduce the
-        // per-nutrient-independent bug the pre-resolved path exists to avoid.
-        const _tissueGate = config.tissueGate || resolveTissueGate(config.tissuePercent);
-        const _removalInfo = getRemovalRate(config.species, nutrient, _tissueGate, config.annualN);
-        const removal = _removalInfo.value;
-        const removalTissueInformed = _removalInfo.tissueInformed;
-        const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
+        const tissueGate = config.tissueGate || resolveTissueGate(config.tissuePercent);
+        const RR = REMOVAL_RATES_();
+        const table = RR[normalizeSpecies(config.species)] || RR.mixedCool;
+        const annualN = (typeof config.annualN === 'number' && config.annualN > 0) ? config.annualN : table.N;
 
-        // GH-370: every below-floor/below-threshold correction term below is
-        // a ppm DEFICIT (soil-test units: mg nutrient per kg soil) — it is
-        // not already a kg/ha quantity, and treating it as one silently
-        // skips the conversion nutrition-calendar.js's calculateDeficit()
-        // performs correctly (`deficit_ppm * bulkDensity * soilDepth * 0.1`,
-        // a real unit conversion via the known mass of soil under one
-        // hectare to the sample depth, not an empirical multiplier). Missed
-        // here in all three methodology branches since this engine was
-        // extracted from nutrition-summary-integration.js (b35fix302),
-        // which never had this conversion either — confirmed by grep: zero
-        // occurrences of `bulkDensity` or `* 0.1` anywhere in this file
-        // before this fix. Doesn't bite on the Hoxton fixture because its
-        // P/K/Ca/Mg/S all sit above ceiling (correction term = 0 either
-        // way) -- live-wrong by roughly the missing bulkDensity x depth x
-        // 0.1 factor (order of magnitude 2-3x for a typical sand profile at
-        // 15cm) the first time a real site is genuinely below floor on this
-        // engine's path, per the D31 verification that found this.
-        const _ppmToKgHaFactor =
-            (config.bulkDensity || DEFAULT_BULK_DENSITY_G_CM3) *
-            (config.soilDepth || DEFAULT_SOIL_DEPTH_CM) * 0.1;
-
-        // ── AMMONIUM_ACETATE ──
-        // GH-299 (D07 item 6): D07's reported bug was the Annual K Requirement
-        // figure never returning 0 for an AA site whose soil K is already HIGH
-        // per the certificate range — this branch previously had no ceiling at
-        // all, always returning pure removal regardless of currentLevel. When
-        // config.aaRange ({min,max} ppm, resolved by the caller per nutrient via
-        // HillLabsSampleTypes.deriveCode()/getRangesPpm() — this engine stays a
-        // pure function, no window/DOM reads) is present and currentLevel has
-        // reached the certificate ceiling, mirror the MLSN tier's "above target
-        // -> 0" shape.
-        //
-        // GH-309 (D07 follow-up): the below-floor half was still missing —
-        // this branch always fell through to pure removal for a low reading,
-        // never adding a deficit/lift correction the way MLSN and SLAN
-        // (above) both do. That was checked against old-hub parity, not
-        // assumed: nutrition-calendar.js is the only AA-aware engine present
-        // since this repo's initial commit (i.e. what the old hub actually
-        // shipped), and it has always added a below-floor lift correction
-        // for AA, same shape as MLSN/SLAN (deficit / yearsToCorrect) — this
-        // engine didn't exist in the old hub at all (extracted from
-        // nutrition-summary-integration.js at b35fix302, which itself never
-        // had an AA branch), so its "no lift, ever" behaviour was a fresh
-        // SaaS-era decision, not inherited legacy behaviour. It also left
-        // this engine and nutrition-calendar.js returning different annual
-        // requirements for the same site/nutrient — a direct miss against
-        // the Hoxton audit's own regression-fixture assertion 20 ("UI and
-        // export return identical annual N, P and K requirements for the
-        // same site"). Adding the same lift shape here closes both gaps.
-        // Absent config.aaRange (uncovered species/texture, or a nutrient
-        // the matched sample-type code has no range for) keeps today's
-        // unconditional pure-removal behaviour -- the graceful-degradation
-        // path, unchanged.
-        if (methodology === 'AMMONIUM_ACETATE') {
-            const aaRange = config.aaRange;
-            if (aaRange && typeof aaRange.max === 'number' && currentLevel >= aaRange.max) {
-                return {
-                    nutrient: nutrient,
-                    currentLevel: currentLevel,
-                    threshold: (typeof aaRange.min === 'number') ? aaRange.min : null,
-                    target: aaRange.max,
-                    removal: removal,
-                    correctionRequired: 0,
-                    annualRequirement: 0,
-                    intent: 'suppress-above-ceiling',
-                    status: 'High',
-                    methodology: 'AMMONIUM_ACETATE',
-                    tissueInformed: removalTissueInformed
-                };
-            }
-            if (aaRange && typeof aaRange.min === 'number' && currentLevel < aaRange.min) {
-                // GH-370: ppm deficit converted to kg/ha before the yearly
-                // spread — see this function's own comment on _ppmToKgHaFactor.
-                const aaCorrection = (aaRange.min - currentLevel) * _ppmToKgHaFactor / yearsToCorrect;
-                return {
-                    nutrient: nutrient,
-                    currentLevel: currentLevel,
-                    threshold: aaRange.min,
-                    target: (typeof aaRange.max === 'number') ? aaRange.max : null,
-                    removal: removal,
-                    correctionRequired: aaCorrection,
-                    annualRequirement: Math.round((removal + aaCorrection) * 10) / 10,
-                    intent: 'lift-to-floor',
-                    status: 'Low',
-                    methodology: 'AMMONIUM_ACETATE',
-                    tissueInformed: removalTissueInformed
-                };
-            }
-            return {
-                nutrient: nutrient,
-                currentLevel: currentLevel,
-                threshold: (aaRange && typeof aaRange.min === 'number') ? aaRange.min : null,
-                target: (aaRange && typeof aaRange.max === 'number') ? aaRange.max : null,
-                removal: removal,
-                correctionRequired: 0,
-                annualRequirement: Math.round(removal * 10) / 10,
-                // GH-351: within-range AA soil is semantically identical to
-                // SLAN's 'removal-only' intent (sufficient soil, this figure
-                // is pure clipping-removal replacement, not a deficit) -- but
-                // this branch never set `intent` at all, so
-                // _classifyKReconState() (word-export.js) could never tell
-                // "sufficient soil, programme is mining reserves" (state
-                // 'trend', amber) apart from "deficient soil, spot-K gate
-                // should have fired" (state 'advisory', red). Confirmed live:
-                // an AA sample with K=276ppm (well above the AA sufficiency
-                // ceiling context) showed K req=100 (pure removal, correct)
-                // but the K Reconciliation table's negative balance rendered
-                // as a red "Advisory (~94 kg/ha), review N programme" instead
-                // of the correct amber "Trend ... soil sufficient" state.
-                // GH-365: only claim sufficiency when a range was actually
-                // resolved. This branch is reached in two semantically
-                // different cases -- soil sits inside a real aaRange
-                // (genuinely 'removal-only'), or no aaRange resolved at all
-                // (uncovered species/texture, deriveCode() returned null, the
-                // methodology modules not loaded). Labelling the second case
-                // 'removal-only'/'Adequate' makes _classifyKReconState()
-                // print "soil sufficient, programme replenishment
-                // recommended" to the client on a soil level that was never
-                // compared to anything. 'removal-only-unverified' keeps the
-                // same arithmetic (removal, no correction -- there is nothing
-                // to correct against) while letting consumers tell the two
-                // apart; status stays 'Adequate' so existing readers that
-                // only branch on status are unaffected.
-                intent: aaRange ? 'removal-only' : 'removal-only-unverified',
-                rangeResolved: !!aaRange,
-                status: 'Adequate',
-                methodology: 'AMMONIUM_ACETATE',
-                tissueInformed: removalTissueInformed
-            };
-        }
-
-        // ── SLAN: Carrow et al. 2004 sufficiency-range methodology ──
-        // b35fix333: provenance correction. PRE-b35fix333 this block cited
-        // "Throssell USGA 2009" for the SLAN ranges, but verification
-        // 2026-04-25 confirmed the Throssell papers do not contain SLAN
-        // ranges (they are GCSAA environmental-profile survey papers). The
-        // numbers were LLM-generated approximations. Source corrected to the
-        // actual published SLAN ranges paper. Numbers shifted (Option 1, single
-        // ranges set, "other soils" / high-CEC values from Carrow 2004 Table 1):
-        //   P:  25-50  → 27-54
-        //   K:  75-150 → 75-176  (floor unchanged)
-        //   Ca: 500-1000 → 500-750
-        //   Mg: 60-200 → 70-140
-        //   S:  12-30  → 15-40
-        //
-        // b35fix325: methodology consolidation. Replaces the pre-b35fix325
-        // single-midpoint Carrow-2001 SLAN (target=112 ppm K, deficit-corrected
-        // toward midpoint) with sufficiency-band:
-        //
-        //   below floor:    deficit — apply removal + lift to floor (yearsToCorrect)
-        //   floor..ceiling: sufficient — apply removal only (within range)
-        //   above ceiling:  high — apply 0 (suppress)
-        //
-        // Status terminology (Spencer 2026 decision): single Deficient band
-        // below floor, Sufficient within range, Excessive above ceiling.
-        // Distinct from MLSN's Very Low / Low / Adequate / High / Excessive bands.
-        //
-        // Source: Carrow, R.N., Stowell, L., Gelernter, W., Davis, S.,
-        //         Duncan, R.R., Skorulski, J. (2004). "Clarifying soil testing:
-        //         III. SLAN sufficiency ranges and recommendations." Golf
-        //         Course Management 72(1):194-198.
-        //
-        // Range data is sourced from GilbaClassificationConstants.SLAN_RANGES
-        // (single source of truth). If the constants module isn't loaded,
-        // fall back to inline Carrow 2004 values rather than failing — the
-        // engine must remain runnable in test contexts.
-        if (methodology === 'SLAN') {
-            // Resolve SLAN_RANGES from the canonical constants module.
-            const _gcc = (typeof window !== 'undefined' && window.GilbaClassificationConstants) ||
-                         (typeof global !== 'undefined' && global.GilbaClassificationConstants) ||
-                         null;
-            const SLAN_RANGES_FALLBACK = {
-                P:  { floor: 27,  ceiling: 54,  citation: 'Carrow et al. (2004). GCM 72(1):194-198.', methodology: 'SLAN-Carrow-2004-range' },
-                K:  { floor: 75,  ceiling: 176, citation: 'Carrow et al. (2004). GCM 72(1):194-198.', methodology: 'SLAN-Carrow-2004-range' },
-                Ca: { floor: 500, ceiling: 750, citation: 'Carrow et al. (2004). GCM 72(1):194-198.', methodology: 'SLAN-Carrow-2004-range' },
-                Mg: { floor: 70,  ceiling: 140, citation: 'Carrow et al. (2004). GCM 72(1):194-198.', methodology: 'SLAN-Carrow-2004-range' },
-                S:  { floor: 15,  ceiling: 40,  citation: 'Carrow et al. (2004). GCM 72(1):194-198.', methodology: 'SLAN-Carrow-2004-range' }
-            };
-            const SLAN_RANGES = (_gcc && _gcc.SLAN_RANGES) || SLAN_RANGES_FALLBACK;
-
-            // P pH-adjustment: the FLOOR shifts with pH (physical chemistry —
-            // P availability minimum at pH 6.0-7.5; Fe/Al fixation at acidic
-            // pH and Ca fixation at alkaline pH). Apply Spencer scaled-ladder
-            // method, anchored on the Carrow 2004 published floor.
-            //
-            // b35fix334: getSlanTargetP() rebased onto the Carrow 2004 floor
-            // of 27 ppm. Pre-b35fix334 was anchored on Carrow 2001 midpoint of
-            // 37 ppm — partly orphaned post-b35fix333 because the SSOT floor
-            // moved to 27 but the pH ladder still anchored on 37. New ladder
-            // returns 45/36/27/41/51 at pH ≤5.5/≤6.0/6.0-7.5/≤8.0/>8.0.
-            //
-            // Citation field for P branch carries compound provenance because
-            // floor source (Carrow 2004 GCM) and pH-adjustment ratio source
-            // (Carrow 2001 textbook via Spencer scaled-ladder method) are
-            // different. This is the honest description of the methodology;
-            // grouping under one citation would obscure the fact that two
-            // independent sources contribute.
-            let rangeFloor, rangeCeiling, methodLabel, citation;
-            if (nutrient === 'P') {
-                rangeFloor   = getSlanTargetP(config.ph);  // pH-adjusted Carrow 2004 floor
-                rangeCeiling = (SLAN_RANGES.P && SLAN_RANGES.P.ceiling) || 54;
-                methodLabel  = (config.ph != null && !isNaN(config.ph))
-                    ? 'SLAN-Carrow-2004-range-PH-ADJUSTED'
-                    : 'SLAN-Carrow-2004-range';
-                citation     = (config.ph != null && !isNaN(config.ph))
-                    ? 'Carrow et al. (2004) GCM 72(1):194-198 (floor); Carrow, Waddington & Rieke (2001) (pH adjustment ratios via Spencer scaled-ladder)'
-                    : ((SLAN_RANGES.P && SLAN_RANGES.P.citation) || 'Carrow et al. (2004). GCM 72(1):194-198.');
+        let range = config.range;
+        if (range === undefined) {
+            if (config.aaRange !== undefined) {
+                range = config.aaRange
+                    ? { min: config.aaRange.min, max: config.aaRange.max, label: 'AMMONIUM_ACETATE' }
+                    : null;
             } else {
-                const r = SLAN_RANGES[nutrient];
-                if (!r) {
-                    // Nutrient outside Carrow 2004's published ranges — fall through
-                    // with removal-only and a defensible 'Sufficient' status.
-                    return {
-                        nutrient: nutrient,
-                        currentLevel: currentLevel,
-                        threshold: null,
-                        target: null,
-                        floor: null,
-                        ceiling: null,
-                        removal: removal,
-                        correctionRequired: 0,
-                        annualRequirement: Math.round(removal * 10) / 10,
-                        intent: 'removal-only',
-                        status: 'Sufficient',
-                        methodology: 'SLAN-Carrow-2004-range',
-                        citation: 'Carrow et al. (2004). GCM 72(1):194-198.',
-                        tissueInformed: removalTissueInformed
-                    };
-                }
-                rangeFloor   = r.floor;
-                rangeCeiling = r.ceiling;
-                methodLabel  = r.methodology || 'SLAN-Carrow-2004-range';
-                citation     = r.citation || 'Carrow et al. (2004). GCM 72(1):194-198.';
+                range = _rangesForCompute(methodology, null, config.ph, null)[nutrient] || null;
             }
-
-            // Sufficiency-band dispatch.
-            let slanAnnual, slanCorrection, slanIntent, slanStatus;
-            if (currentLevel > rangeCeiling) {
-                slanAnnual     = 0;
-                slanCorrection = 0;
-                slanIntent     = 'suppress-above-ceiling';
-                slanStatus     = 'Excessive';
-            } else if (currentLevel >= rangeFloor) {
-                // INCLUSIVE on both bounds: at-floor and at-ceiling are Sufficient.
-                slanAnnual     = removal;
-                slanCorrection = 0;
-                slanIntent     = 'removal-only';
-                slanStatus     = 'Sufficient';
-            } else {
-                // Below floor: deficit. Lift to floor over yearsToCorrect.
-                // GH-370: ppm deficit converted to kg/ha first — see
-                // calculateNutrientRequirement()'s own comment on _ppmToKgHaFactor.
-                slanCorrection = (rangeFloor - currentLevel) * _ppmToKgHaFactor / yearsToCorrect;
-                slanAnnual     = Math.max(0, removal + slanCorrection);
-                slanIntent     = 'lift-to-floor';
-                slanStatus     = 'Deficient';
-            }
-
-            return {
-                nutrient: nutrient,
-                currentLevel: currentLevel,
-                threshold: null,            // SLAN uses range, not single threshold
-                target: null,               // legacy field — null under range methodology
-                floor: rangeFloor,          // structured intent fields (b35fix325)
-                ceiling: rangeCeiling,
-                removal: removal,
-                correctionRequired: slanCorrection,
-                annualRequirement: Math.round(slanAnnual * 10) / 10,
-                intent: slanIntent,
-                status: slanStatus,
-                methodology: methodLabel,
-                citation: citation,
-                tissueInformed: removalTissueInformed
-            };
         }
 
-        // ── MLSN (default) ──
-        const threshold = getMLSNThreshold(nutrient, config.ph);
-        const target = getMLSNTarget(nutrient, config.ph);
-        const clippingFactor = config.clippingsCollected ? CLIPPING_COLLECTION_FACTOR : 1;
-        const trafficMod = TRAFFIC_MODIFIERS[config.trafficIntensity] || 1;
-        const adjustedRemoval = removal * clippingFactor * trafficMod;
-        // GH-370: ppm deficit converted to kg/ha before the yearly spread —
-        // see calculateNutrientRequirement()'s own comment on _ppmToKgHaFactor.
-        const correctionRequired = currentLevel < threshold
-            ? (target - currentLevel) * _ppmToKgHaFactor / yearsToCorrect
-            : 0;
-
-        let annualRequirement;
-        if (currentLevel > target) {
-            annualRequirement = 0;
-        } else {
-            annualRequirement = Math.max(0, adjustedRemoval + correctionRequired);
-        }
-
-        let status = 'Adequate';
-        if (currentLevel < threshold * 0.5) status = 'Very Low';
-        else if (currentLevel < threshold) status = 'Low';
-        else if (currentLevel > target * 2) status = 'Excessive';
-        else if (currentLevel > target) status = 'High';
-
-        return {
-            nutrient: nutrient,
-            currentLevel: currentLevel,
-            threshold: threshold,
-            target: target,
-            removal: adjustedRemoval,
-            correctionRequired: correctionRequired,
-            annualRequirement: Math.round(annualRequirement * 10) / 10,
-            // GH-365: MLSN returned no `intent` at all, so every MLSN site hit
-            // _classifyKReconState()'s "unknown intent" fall-through and a
-            // sufficient soil with a negative programme balance rendered as a
-            // red "Advisory (~N kg/ha), review N programme". GH-351 fixed
-            // exactly this for the AA branches and left the DEFAULT
-            // methodology (getThresholds() falls through to MLSN) with the
-            // original bug. Mapped from the same numbers this branch already
-            // computes: above target -> requirement suppressed; below the
-            // threshold -> a real lift; in between -> removal replacement on
-            // sufficient soil.
-            intent: (currentLevel > target)
-                ? 'suppress-above-ceiling'
-                : (currentLevel < threshold ? 'lift-to-floor' : 'removal-only'),
-            status: status,
-            methodology: 'MLSN',
-            tissueInformed: removalTissueInformed
-        };
+        return _core()._calculateNutrientRequirement(nutrient, currentLevel, {
+            methodology: methodology,
+            species: config.species,
+            annualN: annualN,
+            ph: config.ph,
+            range: range,
+            tissueGate: tissueGate,
+            tissuePercent: config.tissuePercent,
+            bulkDensity: config.bulkDensity,
+            soilDepth: config.soilDepth,
+            clippingManagement: _clippingFromConfig(config)
+        });
     }
 
     function calculateAllRequirements(soilValues, config) {
         const nutrients = ['P', 'K', 'Ca', 'Mg', 'S'];
         const results = {};
-        // GH-369 follow-up: resolve the tissue gate ONCE for this sample
-        // (see resolveTissueGate()'s own comment for why this must not be
-        // decided per-nutrient) and hand the SAME resolved gate to every
-        // nutrient's config below.
         const tissueGate = resolveTissueGate(config.tissuePercent);
+        const ranges = _rangesForCompute(config.methodology, config.aaRanges, config.ph, config.ranges);
         for (const nutrient of nutrients) {
             const currentLevel = soilValues[nutrient];
-            if (currentLevel !== undefined && currentLevel !== null) {
-                // GH-299: config.aaRanges (a per-nutrient {P:{min,max}, K:{...}, ...}
-                // map, resolved by the caller) must be narrowed to a single
-                // config.aaRange for THIS nutrient before calling
-                // calculateNutrientRequirement() -- the SSOT's ranges differ per
-                // nutrient (e.g. S277's K range and Ca range are different
-                // me/100g bounds), so passing the same config unmodified to all
-                // five nutrients would apply the wrong ceiling to four of them.
-                const nutrientConfig = Object.assign({}, config, {
-                    aaRange: config.aaRanges ? (config.aaRanges[nutrient] || null) : undefined,
-                    tissueGate: tissueGate
-                });
-                results[nutrient] = calculateNutrientRequirement(nutrient, currentLevel, nutrientConfig);
-            }
+            // GH-383 / decision D-9: a nutrient with no soil reading is
+            // computed as removal-only and flagged, so both surfaces can print
+            // the same "no soil data" note against the same figure. Pre-GH-383
+            // this engine omitted the nutrient entirely while the Plan page
+            // showed removal-only — the same number, presented as absent.
+            results[nutrient] = calculateNutrientRequirement(nutrient, currentLevel, Object.assign({}, config, {
+                range: ranges[nutrient] || null,
+                tissueGate: tissueGate
+            }));
         }
         return results;
     }
-
     // ==========================================================================
     // GROWTH POTENTIAL + MONTHLY N DISTRIBUTION
     // ==========================================================================
@@ -916,31 +373,51 @@
         // "this site's annual N". Same three-tier resolution as before
         // (explicit override -> species default -> mixedCool fallback),
         // just moved earlier and no longer duplicated.
+        //
+        // GH-383: `turf.nProgramKgHaYr` is now what nutrition-program-inputs.js
+        // resolved for THIS site — the Plan page's own base N, already scaled
+        // by the traffic modifier. `turf.annualNBase` and `turf.trafficModifier`
+        // come with it so the facility object below can report the provenance
+        // of the number the export prints. Callers that do not go through the
+        // adapter (the old hub's Nutrition Summary panel, direct test calls)
+        // keep the species-table fallback they have always had.
         const normalizedSpecies = normalizeSpecies(turf.species);
+        const _RR = REMOVAL_RATES_();
         const annualN = (turf.nProgramKgHaYr != null)
             ? turf.nProgramKgHaYr
-            : (REMOVAL_RATES[normalizedSpecies]?.N || REMOVAL_RATES.mixedCool.N);
+            : (_RR[normalizedSpecies]?.N || _RR.mixedCool.N);
+        const trafficModifier = (typeof turf.trafficModifier === 'number' && turf.trafficModifier > 0)
+            ? turf.trafficModifier : 1;
+        const baseAnnualN = (typeof turf.annualNBase === 'number' && turf.annualNBase > 0)
+            ? turf.annualNBase : annualN;
 
         // Per-sample: P/K/S/Ca/Mg based on THIS sample's soil chemistry.
         // Different per green/sportsground — drives the fix for Jerry's
         // reported bug where every green got identical fert recs.
         //
-        // Methodology routes (b35fix302b extension):
-        //   MLSN (default)    → strict 3-tier with pH-adjusted P, modifiers applied
-        //   AMMONIUM_ACETATE  → removal-only, no modifiers, status always Adequate
-        //   SLAN              → sufficiency-range targets, no pH adjust, no modifiers
-        // Read from soil.methodology — case-insensitive, accepts AA/MLSN/SLAN
-        // and 'ammonium acetate'. Unknown values fall through to MLSN.
+        // GH-383: the three methodologies now differ only in WHICH range they
+        // are given and WHICH status vocabulary they print — the removal +
+        // correction + ceiling/floor arithmetic is one dispatch in the core,
+        // and clipping management applies to all three. Read from
+        // soil.methodology — case-insensitive, accepts AA/MLSN/SLAN and
+        // 'ammonium acetate'. Unknown values fall through to MLSN.
         const nutrientConfig = {
             ph: soil.pH != null ? soil.pH : 7,
             species: turf.species,
-            clippingsCollected: turf.clippingsCollected || false,
-            trafficIntensity: turf.trafficIntensity || 'moderate',
+            // GH-383 (decision D-1): the string, resolved by
+            // nutrition-program-inputs.js from the site's persisted
+            // programme. The legacy boolean is ignored — see the facade
+            // banner at the top of this file for why aliasing it would be
+            // wrong.
+            clippingManagement: turf.clippingManagement,
+            clippingsCollected: turf.clippingsCollected,
             methodology: soil.methodology || 'MLSN',
-            // GH-299 (D07 item 6): optional {P:{min,max}, K:{...}, ...} ppm map,
-            // resolved by the caller via HillLabsSampleTypes.deriveCode()/
-            // getRangesPpm() only when methodology is AA -- this engine stays
-            // pure (no window/DOM/HillLabsSampleTypes reads of its own).
+            // GH-383: sufficiency ranges resolved once by the shared adapter,
+            // for all three methodologies. `aaRanges` remains accepted for
+            // callers that have not been migrated (the old hub's panel, direct
+            // test calls) and is applied nutrient-for-nutrient, exactly as
+            // before.
+            ranges: inputs.ranges || null,
             aaRanges: inputs.aaRanges || null,
             // GH-368: {N,P,K} tissue percentages when the site has a tissue
             // sample, so the P/K removal rate comes from this plant's own
@@ -1007,6 +484,17 @@
             facility: {
                 annualN: annualN,
                 totalN: annualN,
+                // GH-383: additive provenance for the printed N. `annualN` is
+                // the traffic-adjusted figure both the ANR table and the
+                // monthly distribution use; `baseAnnualN` is the Plan page's
+                // own input before the modifier. Identical today (every
+                // modifier is 1.0 until stage 3 wires the traffic schedule),
+                // and read by the E2E harness so a future modifier cannot be
+                // applied twice unnoticed.
+                baseAnnualN: baseAnnualN,
+                trafficModifier: trafficModifier,
+                trafficIntensity: turf.trafficIntensity || 'moderate',
+                annualNSource: (turf.annualNSource || null),
                 monthlyGP: monthlyGP,
                 monthlyC3Fractions: monthlyC3Fractions,
                 monthlyN: monthlyN,
@@ -1032,12 +520,21 @@
         _calculateAllRequirements: calculateAllRequirements,
         _normaliseMethodology: normaliseMethodology,
         _getSlanTargetP: getSlanTargetP,
+        // GH-383: clipping management, re-exported from the core so callers and
+        // tests read ONE table rather than a second copy that can drift.
+        _getClippingFactor: getClippingFactor,
+        _resolveClippingManagement: function (v) { return _core()._resolveClippingManagement(v); },
+        _rangesForCompute: _rangesForCompute,
         _getSeason: getSeason,
         _calculateMonthlyC3Fractions: calculateMonthlyC3Fractions,
         _computeMonthlyGP: computeMonthlyGP,
         _distributeNGPWeighted: distributeNGPWeighted,
-        MLSN_THRESHOLDS: MLSN_THRESHOLDS,
-        REMOVAL_RATES: REMOVAL_RATES,
+        get MLSN_THRESHOLDS() { return _core().MLSN_THRESHOLDS; },
+        get REMOVAL_RATES() { return _core().REMOVAL_RATES; },
+        get YEARS_TO_CORRECT() { return _core().YEARS_TO_CORRECT; },
+        get CLIPPING_FACTORS() { return _core().CLIPPING_FACTORS; },
+        get DEFAULT_BULK_DENSITY_G_CM3() { return _core().DEFAULT_BULK_DENSITY_G_CM3; },
+        get DEFAULT_SOIL_DEPTH_CM() { return _core().DEFAULT_SOIL_DEPTH_CM; },
         SLAN_TARGET: SLAN_TARGET,
         SUMMER_INTENT_PROFILES: SUMMER_INTENT_PROFILES,
         CONFIG: CONFIG
@@ -1053,6 +550,6 @@
     // One-time load confirmation (matches convention in other engines).
     // Jerry's production protocol expects this line on page load.
     if (typeof console !== 'undefined' && console.log) {
-        console.log('[NutritionRequirementEngine_Pure] v' + CONFIG.version + ' loaded');
+        console.log('[NutritionRequirementEngine_Pure] v' + CONFIG.version + ' loaded (GH-383 — facade over nutrition-requirement-core.js)');
     }
 })(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this));

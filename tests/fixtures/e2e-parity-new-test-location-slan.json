@@ -1,0 +1,44 @@
+{
+  "_purpose": "GH-384 (D31 stage 2) third E2E fixture: a SLAN site genuinely below the Carrow 2004 floor on more than one nutrient, so the SLAN branch \u2014 including the Spencer pH-ladder P floor GH-382 added and GH-384 made live on the Plan page \u2014 is actually exercised.",
+  "_whyThisSample": "New test - location 'Putter Green' (sample 123) reads P 23.81 against the pH-adjusted SLAN P floor of 27 at pH 6.21, and K 19.31 against the SLAN K floor of 75. Federal Golf's Green 1, the obvious SLAN candidate, is inside the range on both P and K and would prove nothing.",
+  "_knownDiscrepancy": "samples.methodology_snapshot for this sample reads 'mlsn' while the site config's turf.methodology is 'slan'. The harness's methodology row reports which one each surface actually resolved; that is a finding to record, not something to paper over.",
+  "_source": "docker exec gilba_mysql mysql -ugilba: sites.id, samples.id=123 (soil, client_uid Soil_1_3cbn), site_configs(gaip).turf, read 2026-09-09.",
+  "site": {
+    "id": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+    "name": "New test - location"
+  },
+  "soilSample": {
+    "dbId": 123,
+    "clientId": "Soil_1_3cbn",
+    "label": "Putter Green",
+    "zone": "Greens",
+    "sampleDate": "2024-10-03"
+  },
+  "currentInputs": {
+    "methodology": "slan",
+    "species": "Creeping Bentgrass (Greens)",
+    "speciesKey": "creepingBentgrass",
+    "soilTexture": "loam",
+    "construction": "sand_profile",
+    "annualN": 120,
+    "soilPpm": {
+      "P": 23.81,
+      "K": 19.31,
+      "Ca": 244.93,
+      "Mg": 45.01,
+      "S": 12.84
+    },
+    "pH": 6.21,
+    "CEC": 1.73,
+    "tissuePercent": {
+      "N": null,
+      "P": null,
+      "K": null
+    }
+  },
+  "mustBeBelowFloor": [
+    "P",
+    "K"
+  ],
+  "region": "au"
+}
