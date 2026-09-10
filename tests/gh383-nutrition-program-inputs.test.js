@@ -370,8 +370,12 @@ describe('GH-383 — resolveSiteProgramInputs(): source of truth per field, with
         expect(r.trafficModifier).toBe(1.0);
         // GH-387 added `surfaceType` — the raw surface the calendar works in,
         // which the export used to take from `turfType` (a different field).
+        // GH-398 added `maxNPerMonth` and `distributionMode` — the monthly N
+        // cap and the distribution mode, which were Plan-page DOM reads until
+        // the Word export's Monthly N Distribution table started applying both.
         expect(Object.keys(r.sources).sort()).toEqual(
-            ['annualN', 'clippingManagement', 'methodology', 'soilTexture', 'species', 'surfaceType', 'trafficIntensity', 'turfType']);
+            ['annualN', 'clippingManagement', 'distributionMode', 'maxNPerMonth', 'methodology',
+             'soilTexture', 'species', 'surfaceType', 'trafficIntensity', 'turfType']);
         expect(r.surfaceType).toBe('soccer');
         expect(r.recommenderSurfaceType).toBe('soccer');
     });

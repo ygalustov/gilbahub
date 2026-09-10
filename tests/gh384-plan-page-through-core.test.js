@@ -146,9 +146,11 @@ describe('GH-384 — decision D-6: below the floor, the Plan page still lifts to
         const p = Calendar.computeProgram(inputs({ soilPpm: { P: 25, K: 45, Ca: 300, Mg: 60, S: 20 } }));
         // (331 - 300) x 1.4 x 10 x 0.1 / 3 = 14.4667, removal 200 x (30/180) = 33.3
         expect(p.annual_lift.Ca).toBeCloseTo(14.4667, 3);
-        expect(p.annual_totals.Ca).toBe(48);
+        // GH-403: annual_totals is the core's canonical 0.1 kg/ha figure now,
+        // not a whole kilogram — 33.3 + 14.4667 = 47.8, which used to print 48.
+        expect(p.annual_totals.Ca).toBeCloseTo(47.8, 1);
         // 1.5 x 331 would have given (496.5 - 300) x 1.4 / 3 = 91.7 -> 125.
-        expect(p.annual_totals.Ca).not.toBe(125);
+        expect(Math.round(p.annual_totals.Ca)).not.toBe(125);
     });
 });
 
@@ -220,6 +222,8 @@ describe('GH-384 — the published output shape is unchanged', () => {
         const p = Calendar.computeProgram(inputs({ soilPpm: { P: 25, K: null, Ca: 400, Mg: 60, S: 20 } }));
         expect(p.missing_soil_data.K).toBe(true);
         expect(p.annual_lift.K).toBe(0);
-        expect(p.annual_totals.K).toBe(p.annual_removal.K);
+        // GH-403: annual_totals keeps the core's decimal, annual_removal is
+        // still reported at whole kg — same quantity with no lift on top of it.
+        expect(Math.round(p.annual_totals.K)).toBe(p.annual_removal.K);
     });
 });

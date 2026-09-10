@@ -355,6 +355,13 @@
                 // compute the "excess delivery" check (Current + Delivered vs
                 // ceiling) without re-resolving soil state independently.
                 program.soil = calendarData.soil;
+                // GH-403: the engine's own annual requirement per nutrient
+                // (computeProgram()'s `annual_totals`), carried through so the
+                // panel's "Required" column can print THE number the Word
+                // document prints instead of re-deriving it by summing twelve
+                // separately-rounded monthly rows. Those twelve are the
+                // schedule; this is the requirement they schedule.
+                program.annual_requirements = calendarData.annual_totals;
                 program.annual_totals_range = calendarData.annual_totals_range;
                 // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                 program.annual_removal = calendarData.annual_removal;
@@ -690,13 +697,84 @@
         },
         
         /**
+         * GH-399: the one product-delivery accumulator, behind a load-order
+         * guard of the same shape as classifyBalance()'s (GH-396).
+         *
+         * A missing module is a blade misconfiguration, not a data condition.
+         * It reports itself and returns an empty accumulation rather than an
+         * invented one: an Annual Product Summary with no rows is visibly
+         * broken, while plausible-looking numbers from a second local
+         * accumulator are exactly what this ticket removed.
+         */
+        accumulateDelivery: function(monthly) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionPrebbleIntegration] GH-399: nutrition-delivery-core.js is not loaded — ' +
+                    'product delivery cannot be accumulated');
+                return { applications: [], products: {}, totals: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 } };
+            }
+            return mod.accumulate(monthly);
+        },
+
+        /**
+         * GH-401: the single rounding step this panel applies to a delivery or
+         * requirement figure, shared with the Australian and UK integrations
+         * and with the Word export so the four cannot round differently. See
+         * assets/nutrition-delivery-core.js's roundAtOutput() for why the
+         * intermediate 1 dp pass that used to sit above these renderers had to
+         * go, and for the binary-representation snap it carries.
+         */
+        roundAtOutput: function(value, decimals) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionPrebbleIntegration] GH-401: nutrition-delivery-core.js is not loaded — ' +
+                    'delivery figures cannot be rounded for display');
+                return 0;
+            }
+            return mod.roundAtOutput(value, decimals);
+        },
+
+        /**
+         * GH-403: the Annual Product Summary's nutrient columns, rows and
+         * caption alike, at the one precision that makes them add up. See
+         * assets/nutrition-delivery-core.js's formatDelivered().
+         */
+        formatDelivered: function(value) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionPrebbleIntegration] GH-403: nutrition-delivery-core.js is not loaded — ' +
+                    'delivered figures cannot be formatted for display');
+                return '—';
+            }
+            return mod.formatDelivered(value);
+        },
+
+        /**
+         * GH-403: the annual requirement this programme was built to meet — the
+         * shared engine's own figure, not a re-derivation of it from the twelve
+         * rounded monthly rows. See assets/nutrient-balance-status.js's
+         * annualRequired() for the divergence this closes.
+         */
+        annualRequired: function(program) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
+            if (!mod) {
+                console.error('[NutritionPrebbleIntegration] GH-403: nutrient-balance-status.js is not loaded — ' +
+                    'the annual requirement cannot be resolved');
+                return { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
+            }
+            return mod.annualRequired(program);
+        },
+
+        /**
          * Build HTML for product recommendations
          */
         buildRecommendationsHTML: function(program) {
             const meta = program.meta;
             const monthly = program.monthly;
-            const summary = program.annualSummary;
-            
+            // GH-399: `program.annualSummary` is deliberately not read here any
+            // more — the product rows below are built from `monthly` through
+            // the shared accumulator. See the comment at productEntries.
+
             // ================================================================
             // Determine units based on surface type
             // Sports/fairways = kg/ha, Greens/tees/bowling = g/m²
@@ -706,53 +784,41 @@
             // ================================================================
             // Calculate total nutrients delivered vs required
             // ================================================================
-            const nutrientTotals = { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
-            const nutrientRequired = { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
-            
-            monthly.forEach(m => {
-                // Sum requirements
-                nutrientRequired.N += m.requirements?.N || 0;
-                nutrientRequired.P += m.requirements?.P || 0;
-                nutrientRequired.K += m.requirements?.K || 0;
-                nutrientRequired.Ca += m.requirements?.Ca || 0;
-                nutrientRequired.Mg += m.requirements?.Mg || 0;
-                nutrientRequired.S += m.requirements?.S || 0;
-                
-                // Sum delivered from granular products (accounting for split applications)
-                m.granular.forEach(p => {
-                    const rate = p.rateKgHa || 0;
-                    const splitCount = p.splitCount || 1;
-                    const totalRate = rate * splitCount;
-                    const analysis = p.analysis || {};
-                    nutrientTotals.N += totalRate * (analysis.N || 0) / 100;
-                    nutrientTotals.P += totalRate * (analysis.P || 0) / 100;
-                    nutrientTotals.K += totalRate * (analysis.K || 0) / 100;
-                    nutrientTotals.Ca += totalRate * (analysis.Ca || 0) / 100;
-                    nutrientTotals.Mg += totalRate * (analysis.Mg || 0) / 100;
-                    nutrientTotals.S += totalRate * (analysis.S || 0) / 100;
-                });
-                
-                // Sum delivered from liquid products (accounting for split applications)
-                m.liquid.forEach(p => {
-                    const rate = p.rateKgHa || p.rateLHa || 0;
-                    const splitCount = p.splitCount || 1;
-                    const totalRate = rate * splitCount;
-                    const analysis = p.analysis || {};
-                    nutrientTotals.N += totalRate * (analysis.N || 0) / 100;
-                    nutrientTotals.P += totalRate * (analysis.P || 0) / 100;
-                    nutrientTotals.K += totalRate * (analysis.K || 0) / 100;
-                    nutrientTotals.Ca += totalRate * (analysis.Ca || 0) / 100;
-                    nutrientTotals.Mg += totalRate * (analysis.Mg || 0) / 100;
-                    nutrientTotals.S += totalRate * (analysis.S || 0) / 100;
-                });
-            });
-            
-            // Round values
-            Object.keys(nutrientTotals).forEach(k => {
-                nutrientTotals[k] = Math.round(nutrientTotals[k] * 10) / 10;
-                nutrientRequired[k] = Math.round(nutrientRequired[k] * 10) / 10;
-            });
-            
+            // GH-399: the delivered side is the shared accumulator's total.
+            // This used to be a local `rate x splitCount x analysis` loop --
+            // one of five hand-maintained copies of the same quantity across
+            // the Plan page and the two Word exports, which disagreed on
+            // phosphorus (see assets/nutrition-delivery-core.js). The
+            // arithmetic for a New Zealand programme is unchanged to the last
+            // decimal: the Prebble recommender stamps no `delivers` vector on
+            // its applications, so every nutrient still comes from the physical
+            // content, and `splitCount` is still honoured.
+            const _deliveryAcc = this.accumulateDelivery(monthly);
+            const nutrientTotals = { ..._deliveryAcc.totals };
+            // GH-403: Required is the shared engine's own annual requirement,
+            // carried through from nutrition-calendar.js as
+            // `program.annual_requirements`. It used to be the SUM of the twelve
+            // monthly rows, each already rounded to 1 dp — a different quantity
+            // from the one the Word document prints under the same column name
+            // (Test5 - NZ potassium: 136.0 here against 136.1 there). The twelve
+            // rows are the schedule; this is the requirement they schedule.
+            const nutrientRequired = this.annualRequired(program);
+
+            // GH-401: Delivered and Required are NOT rounded here. This is
+            // where a 1 dp pass used to sit, and the panel then rounded that
+            // result again for its Annual Product Summary caption — two
+            // rounding steps over one figure, so a true total of 125.46 became
+            // 125.5 and printed as 126 beside rows adding up to 125. Each cell
+            // below rounds once, from the raw sum, through the shared
+            // roundAtOutput().
+            //
+            // classifyBalance() is handed the raw values for the same reason: a
+            // verdict should not depend on a figure having passed a renderer's
+            // display rounding first. Its own `diff` keeps plain toFixed(1) /
+            // Math.round below — that figure is three terms, never went through
+            // two rounding steps, and is not what this ticket is about.
+            const _round1 = (v) => this.roundAtOutput(v, 1).toFixed(1);
+
             // GH-311/312: soil ppm + bulkDensity/soilDepth + resolved AA
             // range + Removal/Lift, carried through from calendarData via
             // computeProgram()'s output (see the program.soil/
@@ -847,8 +913,8 @@
                         <td class="prebble-cell prebble-cell--left"><strong>${nutrient}</strong></td>
                         <td class="prebble-cell prebble-cell--num">${currentDisplay}</td>
                         <td class="prebble-cell prebble-cell--num">${removalDisplay}</td>
-                        <td class="prebble-cell prebble-cell--num">${required}</td>
-                        <td class="prebble-cell prebble-cell--num prebble-cell--delivered">${delivered}</td>
+                        <td class="prebble-cell prebble-cell--num">${_round1(required)}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--delivered">${_round1(delivered)}</td>
                         <td class="prebble-cell prebble-cell--num">${rangeDisplay}</td>
                         <td class="prebble-cell prebble-cell--num nutrient-diff ${statusVisualClass(statusClass)}">${diff.toFixed(1)}</td>
                         <td class="prebble-cell prebble-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
@@ -958,8 +1024,20 @@
                 `;
             }).join('');
             
-            // Build annual summary with release type and nutrients delivered
-            const productEntries = Object.entries(summary.products);
+            // Build annual summary with release type and nutrients delivered.
+            //
+            // GH-399: the rows come from the shared accumulator's own product
+            // map rather than the recommender's `annualSummary.products`. The
+            // two are the same arithmetic on the same applications, but they
+            // are built at different moments: `annualSummary` is the
+            // recommender's working copy, accumulated before Phase 3 and then
+            // patched by the surplus reduction, which rounds each product's
+            // nutrients to 1 dp and each month's rate to a whole kg. `monthly`
+            // is what the Monthly Schedule prints and what the client applies,
+            // so `monthly` is what the totals are made of. The "(Balance)"
+            // label and the release tags the rows below print survive because
+            // the module reproduces them from the application's own flags.
+            const productEntries = Object.entries(_deliveryAcc.products);
             const summaryRows = productEntries.map(([id, data]) => {
                 // MAP Tech (soluble) uses kg/ha even though it's in liquid column
                 const isSoluble = id === 'MAPTECH' || data.name?.includes('soluble');
@@ -993,9 +1071,9 @@
                         <td class="prebble-cell prebble-cell--left">${data.name}${releaseLabel}${analysisLabel ? `<div class="prebble-cell-sub">Analysis: ${analysisLabel}</div>` : ''}</td>
                         <td class="prebble-cell prebble-cell--num">${data.applications}</td>
                         <td class="prebble-cell prebble-cell--num">${rateValue} ${unit}</td>
-                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.N)}</td>
-                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.P)}</td>
-                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${Math.round(nutrients.K)}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.N)}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.P)}</td>
+                        <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.K)}</td>
                     </tr>
                 `;
             }).join('');
@@ -1110,21 +1188,21 @@
                             <tfoot>
                                 <tr class="prebble-totals-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Total Delivered</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.N)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.P)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${Math.round(nutrientTotals.K)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.N)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.P)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><strong>${this.formatDelivered(nutrientTotals.K)}</strong></td>
                                 </tr>
                                 <tr class="prebble-required-row">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.P)}</em></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${this.formatDelivered(nutrientRequired.N)}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${this.formatDelivered(nutrientRequired.P)}</em></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono"><em>${this.formatDelivered(nutrientRequired.K)}</em></td>
                                 </tr>
                                 <tr class="prebble-balance-row--${statusVisualClass(nBal.statusClass)}">
                                     <td class="prebble-cell prebble-cell--left" colspan="3"><strong>Balance</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(nBal.statusClass)}"><strong>${Math.round(nBal.diff)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(pBal.statusClass)}"><strong>${Math.round(pBal.diff)}</strong></td>
-                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(kBal.statusClass)}"><strong>${Math.round(kBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(nBal.statusClass)}"><strong>${this.formatDelivered(nBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(pBal.statusClass)}"><strong>${this.formatDelivered(pBal.diff)}</strong></td>
+                                    <td class="prebble-cell prebble-cell--num prebble-cell--mono prebble-${statusVisualClass(kBal.statusClass)}"><strong>${this.formatDelivered(kBal.diff)}</strong></td>
                                 </tr>
                             </tfoot>
                         </table>
@@ -1553,9 +1631,9 @@
                     </td>
                     <td>${splitCount}</td>
                     <td>${rateDisplay}</td>
-                    <td style="text-align: right; font-family: monospace;">0</td>
-                    <td style="text-align: right; font-family: monospace;">0</td>
-                    <td style="text-align: right; font-family: monospace;">${spotK}</td>
+                    <td style="text-align: right; font-family: monospace;">${this.formatDelivered(0)}</td>
+                    <td style="text-align: right; font-family: monospace;">${this.formatDelivered(0)}</td>
+                    <td style="text-align: right; font-family: monospace;">${this.formatDelivered(spotK)}</td>
                 </tr>`;
         },
 

@@ -1055,17 +1055,29 @@ if (!ENABLED) {
             const ds = deliverySummaryFromPlanText(plan.text);
             return Math.round((ds.K && ds.K.delivered) || 0);
         }
-        function exportProductRows() {
+        function exportProductTable() {
             const t = findTable(exportTables, ['Product', 'Applications', 'Total kg/ha', 'N']);
-            if (!t) return null;
+            if (!t) return { rows: null, footer: null };
             const header = t[0].map((h) => h.trim());
             const col = (name) => header.indexOf(name);
-            return t.slice(1).map((r) => ({
+            const shape = (r) => ({
                 name: r[0].trim(), applications: num(r[col('Applications')]), totalKg: num(r[col('Total kg/ha')]),
                 N: num(r[col('N')]), P: col('P') >= 0 ? num(r[col('P')]) : 0, K: num(r[col('K')]),
                 Ca: col('Ca') >= 0 ? num(r[col('Ca')]) : 0, Mg: col('Mg') >= 0 ? num(r[col('Mg')]) : 0, S: col('S') >= 0 ? num(r[col('S')]) : 0
-            }));
+            });
+            const all = t.slice(1).map(shape);
+            // GH-401 gave this table the Plan page's own bold "Total Delivered"
+            // caption. It is not a product, and every caller here counts
+            // products — assertion 14 checked each row's name against the
+            // regional catalogue and would report the caption as a foreign
+            // product. Split out, exactly as the Plan-side reader already does.
+            return {
+                rows: all.filter((r) => !/^Total Delivered$/i.test(r.name)),
+                footer: all.find((r) => /^Total Delivered$/i.test(r.name)) || null
+            };
         }
+        function exportProductRows() { return exportProductTable().rows; }
+        function exportProductFooter() { return exportProductTable().footer; }
         function exportMonthlyRows() {
             const t = findTable(exportTables, ['Month', 'GP%', 'Granular Products', 'Liquid / Foliar', 'Notes']);
             if (!t) return null;
@@ -1382,12 +1394,118 @@ if (!ENABLED) {
             // footer total — the check that reads the actual rendered figures.
             rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (N)', plan: ds.N.delivered, export: footer.delivered && footer.delivered.N });
             rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (K)', plan: ds.K.delivered, export: footer.delivered && footer.delivered.K });
+            // GH-399 (stage 0): phosphorus was the one column of the three this
+            // harness never compared on either surface, and it is the one the
+            // two accumulators disagreed on.
+            rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (P)', plan: ds.P.delivered, export: footer.delivered && footer.delivered.P });
             if (krec !== null) {
                 rows.push({ what: 'K delivered: Plan column vs export K Reconciliation', plan: ds.K.delivered, export: krec.K_delivered });
                 rows.push({ what: 'K delivered: Plan "Total Delivered" footer vs export K Reconciliation', plan: footer.delivered && footer.delivered.K, export: krec.K_delivered });
             }
             // Each export row is rounded to a whole kg before summing.
             expect(numericMismatches(rows, 0.5 * Math.max(1, catalogueRows.length) + 0.5)).toEqual([]);
+        });
+
+        // GH-399 (stage 0) — the row that would have caught the SLAN gap.
+        //
+        // The test above compares the Plan's Delivered COLUMN against the SUM
+        // OF THE EXPORT'S WHOLE-KG PRODUCT ROWS, at a tolerance of
+        // 0.5 x rows + 0.5 — on the SLAN fixture that is 4.5 kg, which is why a
+        // 14.0-against-14.5 phosphorus divergence sailed through it and had to
+        // be found by eye during GH-396.
+        //
+        // This one compares the two surfaces' PRINTED DELIVERED FIGURES: the
+        // Plan's Nutrient Delivery Summary column against the export's Annual
+        // Nutrient Requirements Delivered column, both at 1 dp, tolerance 0.05.
+        // There is no room in that for two different accumulators.
+        test('Delivered per nutrient: Plan Nutrient Delivery Summary column vs export ANR Delivered column', () => {
+            const ds = deliverySummaryFromPlanText(plan.text);
+            const anr = (exportAnrRow() || {}).byNutrient || {};
+            const rows = [];
+            ['N', 'P', 'K'].forEach((n) => {
+                if (!ds[n] || !anr[n] || anr[n].delivered == null) return;
+                rows.push({ what: n + ' Delivered (1 dp): Plan Nutrient Delivery Summary vs export ANR',
+                            plan: ds[n].delivered, export: anr[n].delivered });
+            });
+            // All three nutrients must actually have been read off both
+            // surfaces — a parse that finds nothing must fail, not pass.
+            expect(rows.length).toBe(3);
+            expect(numericMismatches(rows, 0.05)).toEqual([]);
+        });
+
+        // GH-399 (stage 0) — one level below the rendered figures: the two
+        // surfaces run the SAME recommender on the SAME inputs, so its own
+        // annual `delivered` vector must come back identical to the last
+        // decimal. A mismatch here is a selection or an input divergence
+        // (GH-387's surface type, or the muldersFlags the export still does not
+        // pass — PLAN-delivery-unification.md finding F-4), not an accumulator
+        // one, and the two are worth telling apart before reading any table.
+        test('the same recommender ran on both surfaces: unrounded annual delivered vectors', () => {
+            const rec = exportRecommenderCall();
+            const planProg = plan.products;
+            const expProg = rec && rec.out;
+            const rows = [];
+            if (planProg && planProg.delivered && expProg && expProg.delivered) {
+                ['N', 'P', 'K'].forEach((k) => {
+                    if (planProg.delivered[k] == null || expProg.delivered[k] == null) return;
+                    rows.push({ what: 'recommender delivered.' + k + ': Plan vs export',
+                                plan: planProg.delivered[k], export: expProg.delivered[k] });
+                });
+            }
+            // The AU and UK recommenders publish a `delivered` vector; the NZ
+            // one does not, and there is nothing to compare there.
+            if ((fixture.region || 'nz') === 'au') {
+                expect(rows.length).toBe(3);
+            }
+            expect(numericMismatches(rows, 0.001)).toEqual([]);
+        });
+
+        // GH-399 (stage 0) — the export document against ITSELF. Its Annual
+        // Product Summary rows and its ANR Delivered column were built by two
+        // different accumulators (_extractEntryNutrients and
+        // _computeProgrammeDelivered), so one document could state a product's
+        // phosphorus in a row and omit it from the total on the next page.
+        test('the export document agrees with itself: Annual Product Summary rows vs its own ANR Delivered', () => {
+            const prodRows = exportProductRows();
+            const catalogue = catalogueNames(fixture.region || 'nz');
+            const catalogueRows = (prodRows || []).filter((r) => isCatalogueName(r.name, catalogue));
+            const anr = (exportAnrRow() || {}).byNutrient || {};
+            const sum = (k) => catalogueRows.reduce((s, r) => s + (r[k] || 0), 0);
+            const rows = [];
+            ['N', 'P', 'K'].forEach((n) => {
+                if (!anr[n] || anr[n].delivered == null) return;
+                rows.push({ what: n + ': export Annual Product Summary catalogue rows vs export ANR Delivered',
+                            plan: sum(n), export: anr[n].delivered });
+            });
+            expect(rows.length).toBe(3);
+            // Each row is printed at a whole kg, so the sum carries up to
+            // 0.5 kg of rounding per row.
+            expect(numericMismatches(rows, 0.5 * Math.max(1, catalogueRows.length) + 0.5)).toEqual([]);
+        });
+
+        // GH-401 — the row that made this comparison possible at all. Until
+        // this ticket the document's Annual Product Summary ended at the last
+        // product, so its bottom line could not be checked against its own
+        // Delivered column, nor against the Plan's caption. Both now.
+        test('the export\'s "Total Delivered" row agrees with its ANR Delivered and with the Plan\'s caption', () => {
+            const totalRow = exportProductFooter();
+            expect(totalRow).not.toBeNull();
+            const anr = (exportAnrRow() || {}).byNutrient || {};
+            const footer = productFooterFromPlanText(plan.text);
+            const rows = [];
+            ['N', 'P', 'K'].forEach((n) => {
+                if (anr[n] && anr[n].delivered != null) {
+                    rows.push({ what: n + ': export "Total Delivered" row vs export ANR Delivered',
+                                plan: totalRow[n], export: anr[n].delivered });
+                }
+                if (footer && footer.delivered && footer.delivered[n] != null) {
+                    rows.push({ what: n + ': export "Total Delivered" row vs Plan "Total Delivered" footer',
+                                plan: totalRow[n], export: footer.delivered[n] });
+                }
+            });
+            expect(rows.length).toBeGreaterThan(0);
+            // Both figures are whole kilograms rounded from the same raw sum.
+            expect(numericMismatches(rows, 0.5)).toEqual([]);
         });
 
         // GH-391: the source-level invariant behind the rendered check above.
@@ -1547,6 +1665,12 @@ if (!ENABLED) {
                 if (pp.nutrients) {
                     renderedRows.push({ what: 'rendered ' + pp.name + ' N', plan: Math.round(pp.nutrients.N), export: er.N });
                     renderedRows.push({ what: 'rendered ' + pp.name + ' K', plan: Math.round(pp.nutrients.K), export: er.K });
+                    // GH-399 (stage 0): P beside N and K. The export's row
+                    // accumulator used to top a zero P up from analysis x mass
+                    // while the Plan's printed the recommender's declaration,
+                    // so the same product could carry P in one table and not
+                    // the other.
+                    renderedRows.push({ what: 'rendered ' + pp.name + ' P', plan: Math.round(pp.nutrients.P), export: er.P });
                 }
                 expect(plan.text).toContain(pp.name);
             });

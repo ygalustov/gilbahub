@@ -24,10 +24,11 @@
  * | 7 | Ceiling at exact equality: `>` vs `>=` | GH-383 (decision D-8) | `>=` everywhere |
  * | 8 | A nutrient with no soil reading: omitted vs removal-only | GH-383 (decision D-9) | returned as removal-only, flagged, on both |
  *
- * The remaining, documented, unavoidable difference is ROUNDING: the calendar
- * rounds removal to whole kg at STEP 2 and again at STEP 3 and totals to whole
- * kg, while the core is canonical at 0.1 kg/ha. That is ±1 kg/ha and is
- * asserted as such below — never widened.
+ * The rounding difference this file used to document — the calendar rounding
+ * its totals to whole kg while the core is canonical at 0.1 kg/ha, ±1 kg/ha —
+ * is GONE as of GH-403: `annual_totals` carries the core's own figure, and the
+ * two surfaces are asserted EQUAL below, not merely close. `annual_removal`
+ * keeps its whole-kg rounding; nothing does further arithmetic on it.
  */
 
 'use strict';
@@ -152,7 +153,8 @@ test('both surfaces agree on P and K removal and requirement, within the documen
         const cal = NutritionCalendar.computeProgram(calendarInputs({}));
         ['P', 'K'].forEach((n) => {
             expect(Math.abs(eng.perSample[n].removal - cal.annual_removal[n])).toBeLessThanOrEqual(1);
-            expect(Math.abs(eng.perSample[n].annualRequirement - cal.annual_totals[n])).toBeLessThanOrEqual(1);
+            // GH-403: exact, not within 1 kg/ha — annual_totals is the core's own figure.
+            expect(cal.annual_totals[n]).toBe(eng.perSample[n].annualRequirement);
         });
     });
 
@@ -204,7 +206,7 @@ describe('D31 Fixture D — SLAN below floor: one pH ladder, both surfaces', () 
             methodology: 'slan', pH: 5.0, soilPpm: { P: 20, K: 150, Ca: 600, Mg: 60, S: 40 },
         }));
         expect(cal.annual_totals_range.P.min).toBe(45);
-        expect(Math.abs(eng.perSample.P.annualRequirement - cal.annual_totals.P)).toBeLessThanOrEqual(1);
+        expect(cal.annual_totals.P).toBe(eng.perSample.P.annualRequirement);   // GH-403: exact
     });
 
     test('at pH 6.8 the ladder returns the pH-independent baseline (27) — the adjustment is a pH-extremes effect only', () => {
@@ -225,7 +227,7 @@ describe('D31 Fixture E — MLSN below threshold (decision D-6): both surfaces l
             methodology: 'mlsn', pH: 6.8, soilPpm: { P: 25, K: 30, Ca: 600, Mg: 60, S: 40 },
         }));
         expect(cal.annual_lift.K).toBeCloseTo(4.9, 6);
-        expect(Math.abs(eng.perSample.K.annualRequirement - cal.annual_totals.K)).toBeLessThanOrEqual(1);
+        expect(cal.annual_totals.K).toBe(eng.perSample.K.annualRequirement);   // GH-403: exact
     });
 
         // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
@@ -297,16 +299,22 @@ test('decision D-1: "returned" reduces P and K on both surfaces, by the same fac
     });
 });
 
-describe('D31 — the rounding residual is bounded and documented', () => {
+describe('D31 — the rounding residual is gone', () => {
         // GH-384 (stage 2): computeProgram() now delegates to the shared core, so
     // this — the stage-2 gate, held as a `test.failing` through GH-383 — is a
     // plain assertion.
-test('the calendar rounds to whole kg, the core to 0.1 — the gap is at most 1 kg/ha per nutrient', () => {
+    //
+    // GH-403 closed it completely. The calendar used to round the core's answer
+    // to a whole kilogram on its way out, which is why this assertion allowed
+    // 1 kg/ha and why the Plan page and the Word document printed two different
+    // "Required" figures under one column name. There is nothing left between
+    // the core and either surface: the two are the same number.
+test('the two surfaces print the same annual requirement, exactly — no residual', () => {
         global.window.HillLabsSampleTypes = fakeHillLabsSampleTypes({ P: { min: 20, max: 30 }, K: { min: 78.2, max: 195.5 } });
         const cal = NutritionCalendar.computeProgram(calendarInputs({}));
         const eng = exportPath({});
         ['P', 'K', 'Ca', 'Mg', 'S'].forEach((n) => {
-            expect(Math.abs(eng.perSample[n].annualRequirement - cal.annual_totals[n])).toBeLessThanOrEqual(1);
+            expect(cal.annual_totals[n]).toBe(eng.perSample[n].annualRequirement);
         });
     });
 });

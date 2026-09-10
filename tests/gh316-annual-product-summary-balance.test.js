@@ -32,13 +32,17 @@ describe('GH-316 — nutrition-prebble-integration.js (NZ) Annual Product Summar
         // === 'sufficient' ternary; the '+' prefix was also dropped (GH-333
         // follow-up -- Balance is a projected level, not a delta).
         expect(src).toMatch(/prebble-balance-row--\$\{statusVisualClass\(nBal\.statusClass\)\}/);
-        expect(src).toMatch(/prebble-\$\{statusVisualClass\(nBal\.statusClass\)\}"><strong>\$\{Math\.round\(nBal\.diff\)\}/);
-        // GH-318: P rounded to a whole number here too (was *10/10, 1dp) --
-        // user asked to round this compact summary table uniformly, unlike
-        // the detailed Nutrient Delivery Summary table above it which keeps
-        // 1dp precision throughout.
-        expect(src).toMatch(/prebble-\$\{statusVisualClass\(pBal\.statusClass\)\}"><strong>\$\{Math\.round\(pBal\.diff\)\}/);
-        expect(src).toMatch(/prebble-\$\{statusVisualClass\(kBal\.statusClass\)\}"><strong>\$\{Math\.round\(kBal\.diff\)\}/);
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(nBal\.statusClass\)\}"><strong>\$\{this\.formatDelivered\(nBal\.diff\)\}/);
+        // GH-318: P printed to the same precision as N and K here, unlike the
+        // detailed Nutrient Delivery Summary table above it.
+        // GH-403: that shared precision is now 1 dp, through formatDelivered()
+        // — whole kilograms could not be made to add up to their own caption
+        // (Burns: rows 113 + 7 + 5, caption 126). What is pinned here is
+        // unchanged in substance: one precision for all three nutrients, and
+        // the value is the classifier's `.diff`, never a local subtraction.
+        // See tests/gh318-annual-product-summary-p-rounding.test.js.
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(pBal\.statusClass\)\}"><strong>\$\{this\.formatDelivered\(pBal\.diff\)\}/);
+        expect(src).toMatch(/prebble-\$\{statusVisualClass\(kBal\.statusClass\)\}"><strong>\$\{this\.formatDelivered\(kBal\.diff\)\}/);
     });
 
     test('the old naive (nutrientTotals.X - nutrientRequired.X) pattern is gone from the tfoot', () => {

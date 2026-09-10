@@ -334,6 +334,12 @@
             // even when soil/range data is available.
             if (program && !program.error) {
                 program.soil = calendarData.soil;
+                // GH-403: the engine's own annual requirement per nutrient
+                // (computeProgram()'s `annual_totals`), carried through so the
+                // panel's "Required" column can print THE number the Word
+                // document prints instead of re-deriving it by summing twelve
+                // separately-rounded monthly rows.
+                program.annual_requirements = calendarData.annual_totals;
                 program.annual_totals_range = calendarData.annual_totals_range;
                 // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                 program.annual_removal = calendarData.annual_removal;

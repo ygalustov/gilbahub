@@ -54,7 +54,16 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         // The helper body must construct a Paragraph with the title text,
         // a Paragraph with totals, and a Table — checked by source-pattern
         // since we are not running it here.
-        expect(exportSrc).toMatch(/'Monthly N Distribution \(GP-Weighted\)'/);
+        // GH-398: the mode is no longer hard-coded into the heading. This
+        // table used to run one distribution mode; it now honours the site's
+        // own (gp_weighted / even / front_loaded), so the label is built from
+        // it, with GP-Weighted as the fallback when no mode reached the
+        // renderer. Pinned as the composition, not as the old literal — the
+        // point of the change is that "(GP-Weighted)" must NOT be printed over
+        // a series that was distributed some other way.
+        expect(exportSrc).toMatch(/var _modeLabel = 'GP-Weighted';/);
+        expect(exportSrc).toMatch(/_MD\.modeLabel\(opts\.distributionMode\)/);
+        expect(exportSrc).toMatch(/'Monthly N Distribution \(' \+ _modeLabel \+ '\)'/);
         expect(exportSrc).toMatch(/'Total: '\s*\+/);
         expect(exportSrc).toMatch(/'\s*active growing months'/);
     });
@@ -101,8 +110,10 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         // GH-245 follow-up 3 / GH-248: opts grew a climateDataUnavailableReason
         // field, pushing the call past the original 500-char budget — widened
         // to match the 800-char budget already used for the combined-export
-        // call site's equivalent pin below.
-        const callRe = /=\s*_buildMonthlyNDistribution\(([\s\S]{0,800}?)\);/;
+        // call site's equivalent pin below. GH-398 added distributionMode and
+        // nCap with their comments; widened again rather than trimming the
+        // comments, which are the reason those two opts exist.
+        const callRe = /=\s*_buildMonthlyNDistribution\(([\s\S]{0,1400}?)\);/;
         const m = exportSrc.match(callRe);
         expect(m).toBeTruthy();
         expect(m[1]).toMatch(/siteUniformCaption:\s*false/);
@@ -113,7 +124,9 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         // for Monthly N Distribution. Those lines must be gone — the helper
         // owns them now. Look for the giveaway construction-line pattern
         // outside the helper (i.e. inside buildSections context).
-        const inlineRe = /Monthly N Distribution \(GP-Weighted\)'[\s\S]{0,200}new Paragraph\([\s\S]{0,500}children:\s*\[new TextRun\(\{\s*\n?\s*text:\s*'Total:/;
+        // GH-398: the heading literal moved into _modeLabel, so the giveaway
+        // pattern anchors on the composed title instead.
+        const inlineRe = /Monthly N Distribution \(' \+ _modeLabel \+ '\)'[\s\S]{0,200}new Paragraph\([\s\S]{0,500}children:\s*\[new TextRun\(\{\s*\n?\s*text:\s*'Total:/;
         expect(exportSrc).not.toMatch(inlineRe);
     });
 
@@ -135,8 +148,9 @@ describe('b35fix387 — Monthly N Distribution shared renderer', () => {
         // Combined-export must pass siteUniformCaption: true so the helper
         // appends the explanatory caption.
         // Window widened past 500 chars (Hoxton audit D02/D03 fix added
-        // climateDataUnavailable/climateNormalsSource to the opts object).
-        const callRe = /we\._buildMonthlyNDistribution\([\s\S]{0,800}?\)/;
+        // climateDataUnavailable/climateNormalsSource to the opts object;
+        // GH-398 added distributionMode/nCap and their comment).
+        const callRe = /we\._buildMonthlyNDistribution\([\s\S]{0,1400}?\)/;
         const m = combinedSrc.match(callRe);
         expect(m).toBeTruthy();
         expect(m[0]).toMatch(/siteUniformCaption:\s*true/);

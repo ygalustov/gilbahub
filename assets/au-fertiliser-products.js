@@ -5204,6 +5204,11 @@
          * @param {Array} liquidProducts - Array of liquid and soluble products
          * @param {Object} monthData - Month requirements including GP
          * @param {Object} context - Surface type, greens flag, etc.
+         * @returns {Object|null} The chosen product with its rate and the
+         *   nutrients that rate delivers over `applications` applications:
+         *   { id, name, brand, npk, analysis, form, release, rateLHa, rateUnit,
+         *     rateMLM2, applications, nDelivered, kDelivered, pDelivered, notes }
+         *   — `pDelivered` added GH-400; see the comment beside its calculation.
          */
         selectFoliarNitrogen: function(liquidProducts, monthData, context) {
             const gp = monthData.gp || 0.5;
@@ -5624,9 +5629,27 @@
             }
             
             const kDelivered = rate * applicationsNeeded * ((bestProduct.analysis.K || 0) / 100);
+            // GH-400: liquids carry phosphorus too. The granular sibling
+            // (selectNitrogenSource) has computed `pDelivered` from the same
+            // rate × analysis.P formula since the file's first commit; this
+            // return simply never had the field, and its call site therefore
+            // pushed a hard-coded `delivers.P = 0` onto every liquid
+            // application and never added anything to the annual `delivered.P`
+            // accumulator. Nothing decided that liquid P was worth ignoring —
+            // it was never computed. Two products on one live site alone
+            // (Greenmaster Liquid Spring & Summer 1.7% P, Long Paddock Rapid
+            // Uptake 2% P) put real phosphorus on the turf while declaring
+            // none, so the annual requirement the P scorer is handed
+            // (annualTargets.P − delivered.P, netP/annualPRemaining) was
+            // overstated by exactly that amount and a product that genuinely
+            // overshot scored as a perfect fit.
+            //
+            // `applicationsNeeded` is the multiplier for the same reason it is
+            // for N and K above: `rate` is one application's volume.
+            const pDelivered = rate * applicationsNeeded * ((bestProduct.analysis.P || 0) / 100);
             const rateUnit = bestProduct.form === 'soluble' ? 'kg/ha' : 'L/ha';
-            
-            
+
+
             return {
                 id: bestProduct.id,
                 name: bestProduct.name,
@@ -5641,10 +5664,11 @@
                 applications: applicationsNeeded,
                 nDelivered: Math.round(actualNDelivered * 10) / 10,
                 kDelivered: Math.round(kDelivered * 10) / 10,
+                pDelivered: Math.round(pDelivered * 10) / 10, // GH-400
                 notes: notes,
             };
         },
-        
+
         /**
          * selectPotassiumSource — REMOVED b35fix330
          *
@@ -6269,7 +6293,19 @@
                     if (liquidRec && liquidRec.nDelivered > 0) {
                         delivered.N += liquidRec.nDelivered;
                         delivered.K += liquidRec.kDelivered;
-                        
+                        // GH-400: and its phosphorus. Declaring it on the
+                        // application below is not enough on its own — this is
+                        // the accumulator every downstream P decision reads:
+                        // `netP` (GH-342's annual cap, `annualTargets.P −
+                        // delivered.P`), the strategic-P top-up's
+                        // `annualPRemaining`, and through them the P-delivery
+                        // scorers in selectNitrogenSource/selectFoliarNitrogen.
+                        // Without this line the requirement stays overstated by
+                        // whatever the liquids already applied, so later months
+                        // buy phosphorus the turf has already had.
+                        delivered.P += liquidRec.pDelivered || 0;
+
+
                         // Format rate display with applications count if > 1
                         const apps = liquidRec.applications || 1;
                         const rateDisplay = apps > 1 
@@ -6290,7 +6326,11 @@
                             applications: apps,
                             delivers: {
                                 N: liquidRec.nDelivered,
-                                P: 0,
+                                // GH-400: was a hard-coded 0 while the same
+                                // object's `analysis.P` carried up to 2% — the
+                                // Plan's Delivered column and the exported
+                                // Annual Product Summary both read this vector.
+                                P: liquidRec.pDelivered || 0,
                                 K: liquidRec.kDelivered,
                             },
                             notes: liquidRec.notes || (gp < 0.3 ? 'Foliar application - soil uptake limited' : ''),

@@ -62,9 +62,13 @@
         defaultSoilDepth: 10,  // cm
         defaultBulkDensity: 1.4,  // g/cm³
         
-        // Minimum GP to allocate nutrients
-        minGpThreshold: 0.10,
-        
+        // GH-398 (D31 stage 4): CONFIG.minGpThreshold is gone. The 0.10
+        // activity threshold was written here AND in
+        // nutrition-requirement-engine.js as MIN_GP_THRESHOLD, one number in
+        // two files deciding which months a programme touches. It now lives
+        // once, in assets/nutrition-monthly-distribution.js, with the
+        // weighting that reads it.
+
         // ====================================================================
         // ANNUAL N REFERENCE VALUES (for user guidance only)
         // ====================================================================
@@ -167,17 +171,11 @@
         
         // Month names
         monthNames: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
-        
-        // Season mapping (Southern Hemisphere)
-        seasonsSouth: {
-            0: 'Summer', 1: 'Summer', 2: 'Autumn', 3: 'Autumn', 4: 'Autumn',
-            5: 'Winter', 6: 'Winter', 7: 'Winter', 8: 'Spring', 9: 'Spring', 10: 'Spring', 11: 'Summer'
-        },
-        // Season mapping (Northern Hemisphere)
-        seasonsNorth: {
-            0: 'Winter', 1: 'Winter', 2: 'Spring', 3: 'Spring', 4: 'Spring',
-            5: 'Summer', 6: 'Summer', 7: 'Summer', 8: 'Autumn', 9: 'Autumn', 10: 'Autumn', 11: 'Winter'
-        }
+
+        // GH-398: the two season maps that used to sit here are gone. They
+        // were the same twelve labels nutrition-requirement-engine.js held in
+        // its own getSeason(), written once in 0-11 and once in 1-12; the
+        // shared distribution module now owns the single copy.
     };
 
     // ========================================================================
@@ -191,7 +189,8 @@
     };
 
     // ========================================================================
-    // GH-383/GH-384 — the two shared modules this file computes through.
+    // GH-383/GH-384/GH-398 — the three shared modules this file computes
+    // through.
     //
     // Resolved lazily rather than captured at load time: the browser loads
     // them as plain <script>s (see the blade script lists), Node tests require
@@ -223,6 +222,26 @@
             try { _inputsCached = require('./nutrition-program-inputs.js'); } catch (e) { /* not resolvable */ }
         }
         return _inputsCached;
+    }
+
+    // GH-398 (D31 stage 4): the GP-weighted monthly distribution, the monthly
+    // N cap and the C3/C4 blend. This file held one copy and
+    // nutrition-requirement-engine.js the other, which is why the Word export
+    // could print an uncapped monthly series for a site whose Plan programme
+    // was clamped at 15 kg N/month.
+    let _distributionCached = null;
+    function _monthlyDistribution() {
+        if (_distributionCached) return _distributionCached;
+        _distributionCached = (typeof window !== 'undefined' && window.GAIP_NutritionMonthlyDistribution) ||
+            (typeof globalThis !== 'undefined' && globalThis.GAIP_NutritionMonthlyDistribution) || null;
+        if (!_distributionCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _distributionCached = require('./nutrition-monthly-distribution.js'); } catch (e) { /* not resolvable */ }
+        }
+        if (!_distributionCached) {
+            console.warn('[NutritionCalendar] GH-398: nutrition-monthly-distribution.js is not loaded — ' +
+                'the monthly programme cannot be built. It must be enqueued before this file.');
+        }
+        return _distributionCached;
     }
 
     // ========================================================================
@@ -600,9 +619,14 @@
         
         // User overrides from form
         const annualNOverride = parseFloat(this.elements.annualNInput?.value) || null;
-        const maxNPerMonth = parseFloat(this.elements.maxNInput?.value) || 50;
-        const distribution = this.elements.distributionSelect?.value || 'gp_weighted';
-        
+        // GH-398: the raw form values. They are handed to the shared adapter
+        // below as `planForm` and come back resolved, because the Word export
+        // now runs the SAME cap and the SAME mode and has no form to read them
+        // from — see the maxNPerMonth/distribution consts after the adapter
+        // call.
+        const _formMaxN = parseFloat(this.elements.maxNInput?.value) || null;
+        const _formDistribution = this.elements.distributionSelect?.value || null;
+
         // b35fix386: read surfaceType from the locally-resolved `soil` const
         // (above), not `state.soil` which is undefined on the synthesised
         // state view. `soil` already prefers `state.inputs.soil`.
@@ -639,7 +663,9 @@
                     },
                     planForm: {
                         annualN: parseFloat(this.elements.annualNInput?.value) || null,
-                        clippingManagement: this.elements.clippingSelect?.value || null
+                        clippingManagement: this.elements.clippingSelect?.value || null,
+                        maxNPerMonth: _formMaxN,
+                        distributionMode: _formDistribution
                     }
                 });
             }
@@ -652,7 +678,14 @@
         const traffic = (_programInputs && _programInputs.trafficIntensity) || state.turf?.traffic || 'moderate';
         const trafficModifier = (_programInputs && _programInputs.trafficModifier) || 1.0;
         const turfType = (_programInputs && _programInputs.turfType) || state.turf?.turfType || null;
-        
+        // GH-398 (D31 stage 4): from the adapter, for the same reason clipping
+        // and traffic are — the Word export's Monthly N Distribution table
+        // applies this cap and this mode now, and it resolves them through the
+        // same call. Read straight from the form here and from the site config
+        // there, they would drift the moment the form was blank.
+        const maxNPerMonth = (_programInputs && _programInputs.maxNPerMonth) || _formMaxN || 50;
+        const distribution = (_programInputs && _programInputs.distributionMode) || _formDistribution || 'gp_weighted';
+
         return {
             hemisphere,
             latitude: lat,
@@ -1338,19 +1371,40 @@
     };
 
     /**
-     * Calculate monthly GP values
+     * Calculate monthly GP values (0-11).
+     *
+     * GH-398 (D31 stage 4): delegated to the shared distribution module, which
+     * builds the series through the GP engine's per-month C3 fraction rather
+     * than a whole-year C3/C4 boolean (decision 3). For a sward that is not
+     * overseeded the two are bit-for-bit identical — 'blend' computes
+     * `f * c3GP + (1 - f) * c4GP`, so f = 1 IS the C3 curve and f = 0 the C4
+     * curve — so no site without an overseed configuration moves. What the
+     * Plan page gains is the ability to describe an overseeded sward at all:
+     * a warm-season base carrying summer with oversown ryegrass carrying
+     * winter, instead of twelve months of one curve.
+     *
+     * `overseedConfig` and `hemisphere` are optional; omitted, this behaves
+     * exactly as the isC4-only signature always did.
+     *
+     * GH-245: a missing or non-numeric month still returns null for the whole
+     * series rather than defaulting to 15 degC (Hoxton audit D02/D03).
      */
-    NutritionCalendar.calculateMonthlyGP = function(monthlyTemps, isC4) {
-        // GH-245: defensive — computeProgram() already guards
-        // climateDataUnavailable before reaching here, but never silently
-        // treat a missing month as 15degC (Hoxton audit D02/D03 root cause).
-        if (!monthlyTemps) return null;
-        const gp = {};
-        for (let m = 0; m < 12; m++) {
-            if (typeof monthlyTemps[m] !== 'number') return null;
-            gp[m] = this.calculateGP(monthlyTemps[m], isC4);
-        }
-        return gp;
+    NutritionCalendar.calculateMonthlyGP = function(monthlyTemps, isC4, overseedConfig, hemisphere) {
+        const D = _monthlyDistribution();
+        if (!D) return null;
+        // The C3-on-C3 guard is inside monthlyC3Fractions() — one rule, not
+        // one per caller.
+        const overseed = (overseedConfig && overseedConfig.isOverseed)
+            ? overseedConfig
+            : { isOverseed: false, baseIsC4: !!isC4 };
+        const fractions = D.monthlyC3Fractions(overseed, hemisphere || 'south');
+        // 'zeros', not 'null', when the GP engine is absent: this file's own
+        // calculateGP() has always returned 0 in that case and distribute()'s
+        // dormancy fallback has always turned that into an even split. It is a
+        // load-order failure that cannot happen in the browser (every page that
+        // enqueues this file also enqueues growth-potential-engine.js) and
+        // changing it is not this ticket's decision to make.
+        return D.monthlyGP(monthlyTemps, fractions, { gpEngineUnavailable: 'zeros' });
     };
 
     // GH-388: NutritionCalendar.calculateDeficit() and .getThresholds() are
@@ -1365,121 +1419,34 @@
     // nutrition-requirement-core.js's `typeof currentLevel !== 'number'`
     // branch, and the ppm -> kg/ha conversion is its ppmToKgHaFactor.
 
-    /**
-     * Distribute annual amount by GP weighting
-     */
+    // ========================================================================
+    // GH-398 (D31 stage 4) — the monthly distribution moved out of this file.
+    //
+    // distributeByGP() and applyNCap() were the Plan page's half of the last
+    // duplicated engine: nutrition-requirement-engine.js carried its own
+    // distributeNGPWeighted() for the Word export's "Monthly N Distribution"
+    // table, with the same GP weighting, the same 0.10 activity threshold and
+    // the same dormancy fallback, and with no cap at all. Both now call
+    // assets/nutrition-monthly-distribution.js.
+    //
+    // The two below stay as thin delegations because they are public API —
+    // GH-279's info-icon copy, GH-354's regression test and any future caller
+    // read them by name — not because there is a second implementation left.
+    // Anything that computes a per-month share belongs in the shared module.
+    // ========================================================================
+
+    /** Distribute an annual amount across 12 months (0-11). Values are raw. */
     NutritionCalendar.distributeByGP = function(annualAmount, monthlyGP, method = 'gp_weighted') {
-        const allocations = {};
-        
-        if (method === 'even') {
-            // Even distribution
-            const monthly = annualAmount / 12;
-            for (let m = 0; m < 12; m++) {
-                allocations[m] = monthly;
-            }
-        } else if (method === 'front_loaded') {
-            // 60% in spring (months 8-10 south, 2-4 north)
-            // Simplified: weight first half more
-            const total = annualAmount;
-            for (let m = 0; m < 12; m++) {
-                const gp = monthlyGP[m] || 0;
-                allocations[m] = gp >= CONFIG.minGpThreshold ? total / 10 : 0;
-            }
-            // Boost spring months
-            [8, 9, 10].forEach(m => { allocations[m] *= 1.5; });
-        } else {
-            // GP-weighted (default)
-            let totalGP = 0;
-            for (let m = 0; m < 12; m++) {
-                if (monthlyGP[m] >= CONFIG.minGpThreshold) {
-                    totalGP += monthlyGP[m];
-                }
-            }
-            
-            if (totalGP === 0) {
-                // Fallback to even
-                const monthly = annualAmount / 12;
-                for (let m = 0; m < 12; m++) {
-                    allocations[m] = monthly;
-                }
-            } else {
-                for (let m = 0; m < 12; m++) {
-                    if (monthlyGP[m] >= CONFIG.minGpThreshold) {
-                        allocations[m] = annualAmount * (monthlyGP[m] / totalGP);
-                    } else {
-                        allocations[m] = 0;
-                    }
-                }
-            }
-        }
-        
-        return allocations;
+        return _monthlyDistribution().distribute(annualAmount, monthlyGP, method);
     };
 
     /**
-     * Apply monthly N cap with overflow redistribution.
+     * Apply the monthly N cap with overflow redistribution.
      *
      * null / undefined / 0 / '' / NaN → "no cap" (Infinity).
-     * Overflow is redistributed into months that already carry a non-zero
-     * allocation (dormant months are never eligible). If the cap is too low
-     * to absorb the overflow, the remainder is reported as `unschedulable`.
      */
     NutritionCalendar.applyNCap = function(nAllocations, maxN) {
-        const cap = (typeof maxN === 'number' && isFinite(maxN) && maxN > 0) ? maxN : Infinity;
-
-        const result = {};
-        let originalTotal = 0;
-        let overflow = 0;
-
-        for (let m = 0; m < 12; m++) {
-            const alloc = nAllocations[m] || 0;
-            originalTotal += alloc;
-            if (alloc > cap) {
-                result[m] = cap;
-                overflow += alloc - cap;
-            } else {
-                result[m] = alloc;
-            }
-        }
-
-        let redistributed = 0;
-        let unschedulable = 0;
-
-        if (overflow > 0.001) {
-            let remaining = overflow;
-            let iterations = 0;
-            while (remaining > 0.001 && iterations < 20) {
-                iterations++;
-                const eligible = [];
-                let totalHeadroom = 0;
-                for (let m = 0; m < 12; m++) {
-                    const headroom = cap - result[m];
-                    if ((nAllocations[m] || 0) > 0 && headroom > 0.001) {
-                        eligible.push({ m, headroom });
-                        totalHeadroom += headroom;
-                    }
-                }
-                if (totalHeadroom < 0.001) break;
-                const toPlace = Math.min(remaining, totalHeadroom);
-                for (const { m, headroom } of eligible) {
-                    result[m] = Math.min(cap, result[m] + toPlace * (headroom / totalHeadroom));
-                }
-                redistributed += toPlace;
-                remaining -= toPlace;
-            }
-            unschedulable = Math.max(0, remaining);
-        }
-
-        const scheduledTotal = Object.values(result).reduce((s, v) => s + v, 0);
-
-        return {
-            allocations: result,
-            capApplied: overflow > 0.001,
-            redistributed: Math.round(redistributed * 10) / 10,
-            unschedulable: Math.round(unschedulable * 10) / 10,
-            originalTotal: Math.round(originalTotal * 10) / 10,
-            scheduledTotal: Math.round(scheduledTotal * 10) / 10,
-        };
+        return _monthlyDistribution().applyNCap(nAllocations, maxN);
     };
 
     // ========================================================================
@@ -1511,7 +1478,14 @@
      * @param {object} inputs - Shape returned by collectFromState().
      *   { hemisphere, latitude, species, isC4, soilPpm, bulkDensity, soilDepth,
      *     methodology, monthlyTemps, annualNOverride, maxNPerMonth, distribution,
-     *     traffic, surfaceType, clippingManagement, ranges?, rangeSources? }
+     *     traffic, surfaceType, clippingManagement, ranges?, rangeSources?,
+     *     overseedConfig? }
+     *
+     *   GH-398: `overseedConfig` ({ isOverseed, baseIsC4, summerIntent }) is
+     *   optional and blends the monthly GP curve between C3 and C4 by season
+     *   for an oversown warm-season sward (decision 3). Omitted — which is
+     *   every caller on the Plan page, since no overseed state exists there —
+     *   `isC4` alone drives a constant fraction and the series is unchanged.
      *
      * @returns {object} Program object on success:
      *   { meta, soil, annual_totals, adjustments, program: { monthly } }
@@ -1597,12 +1571,16 @@
         //   D-8  A reading exactly AT the ceiling applies zero (`>=`), which is
         //        what this file already did.
         //
-        // Rounding: the core is canonical at 0.1 kg/ha and this page has always
-        // displayed whole kg. The two Math.round() calls below are the same two
-        // roundings this function did before (removal, then total), applied to
-        // the core's canonical figures — so a total can differ by 1 kg/ha from
-        // the export's one-decimal figure. That residual is asserted, not
-        // widened: see tests/gh376-three-way-nutrition-parity.test.js.
+        // Rounding: the core is canonical at 0.1 kg/ha, and since GH-403 so is
+        // `annual_totals`. This function used to round the core's answer twice
+        // — removal to whole kg, then the total to whole kg — which left the
+        // Plan page and the export up to 1 kg/ha apart on the same nutrient.
+        // The total's rounding is gone (see the GH-403 note at
+        // annualRequirements below); `annual_removal` keeps its whole-kg
+        // rounding, because it is a reported quantity that nothing downstream
+        // does further arithmetic on. tests/gh376-three-way-nutrition-parity.
+        // test.js asserts the two surfaces' annual requirement now agrees
+        // exactly rather than within 1 kg/ha.
         const _core = _requirementCore();
         if (!_core) {
             return { error: 'nutrition-requirement-core.js is not loaded — the nutrition programme cannot be computed' };
@@ -1697,28 +1675,54 @@
             // returned. Consumers (the Soil page, the persisted programme) read
             // it as such.
             deficits[nutrient] = r.correctionRequired * (CONFIG.yearsToCorrect[nutrient] || 2);
-            annualRequirements[nutrient] = Math.round(r.annualRequirement);
+            // GH-403: NOT rounded. This used to snap the core's annual
+            // requirement to a whole kilogram before it was distributed across
+            // the twelve months — an intermediate rounding of a value used in
+            // further arithmetic, which is exactly what GH-401 removed
+            // everywhere else. It moved the whole programme by up to 0.5 kg/ha
+            // (Westview's sulphur: 12.5 scheduled as 13) and it is why the Plan
+            // page and the Word document printed two different "Required"
+            // figures under one column name. `annual_totals` is now the core's
+            // own canonical 0.1 kg/ha answer — the same number the document's
+            // Annual Nutrient Requirements table prints — and every renderer
+            // rounds it once, at output.
+            annualRequirements[nutrient] = r.annualRequirement;
         });
 
         const adjustedAnnualN = annualRequirements.N;
         console.log('[GH302-DEBUG] final annualRequirements:', annualRequirements);
-        // Calculate monthly GP
-        const monthlyGP = this.calculateMonthlyGP(inputs.monthlyTemps, inputs.isC4);
-        const distributions = {};
-        Object.keys(annualRequirements).forEach(nutrient => {
-            distributions[nutrient] = this.distributeByGP(
-                annualRequirements[nutrient],
-                monthlyGP,
-                inputs.distribution
-            );
+        // ================================================================
+        // MONTHLY DISTRIBUTION — DELEGATED (GH-398, D31 stage 4)
+        // ================================================================
+        // The GP-weighted split, the 0.10 activity threshold, the dormancy
+        // fallback and the monthly N cap all live in
+        // assets/nutrition-monthly-distribution.js, which
+        // nutrition-requirement-engine.js now calls too. Until this ticket the
+        // export's "Monthly N Distribution" table ran a second copy of the
+        // weighting with no cap, so a site clamped at 15 kg N/month on this
+        // page printed an unclamped series in its own report.
+        //
+        // Every nutrient goes through the same call (decision 4). Values come
+        // back raw and are rounded once, at the display step below (decision
+        // 2) — the engine used to round GP to 2 dp before weighting and each
+        // month to 1 dp afterwards, which is where the two series drifted.
+        const _dist = _monthlyDistribution();
+        if (!_dist) {
+            return { error: 'nutrition-monthly-distribution.js is not loaded — the monthly programme cannot be built' };
+        }
+        const monthlyGP = this.calculateMonthlyGP(
+            inputs.monthlyTemps, inputs.isC4, inputs.overseedConfig, inputs.hemisphere);
+        const _distributed = _dist.distributeProgram({
+            annualAmounts: annualRequirements,
+            gp: monthlyGP,
+            mode: inputs.distribution,
+            maxNPerMonth: inputs.maxNPerMonth
         });
-
-        // Apply N cap
-        const nCapResult = this.applyNCap(distributions.N, inputs.maxNPerMonth);
-        distributions.N = nCapResult.allocations;
+        const distributions = _distributed.distributions;
+        const nCapResult = _distributed.nCap;
 
         // Build monthly program
-        const seasons = inputs.hemisphere === 'south' ? CONFIG.seasonsSouth : CONFIG.seasonsNorth;
+        const seasons = _dist.seasons(inputs.hemisphere);
         const monthly = [];
 
         for (let m = 0; m < 12; m++) {
@@ -1835,6 +1839,12 @@
             annual_lift: annualCorrection,
             adjustments: {
                 n_cap_applied: nCapResult.capApplied,
+                // GH-398: the cap this programme was clamped at, null when
+                // uncapped. Additive: the Word export's Monthly N Distribution
+                // table now runs the same cap, and a reader comparing the two
+                // surfaces needs to see which number did the clamping, not
+                // only that something did.
+                max_n_per_month: nCapResult.maxNPerMonth,
                 original_n_total: nCapResult.originalTotal,
                 scheduled_n_total: nCapResult.scheduledTotal,
                 n_redistributed: nCapResult.redistributed,
@@ -1997,6 +2007,24 @@
     // RENDERING
     // ========================================================================
 
+    /**
+     * GH-403 — the one rounding step applied to an annual requirement on this
+     * page.
+     *
+     * `annual_totals` carries the shared core's canonical 0.1 kg/ha figure now
+     * that computeProgram() no longer snaps it to a whole kilogram, so every
+     * surface that PRINTS it has to round it itself, once, here. One decimal is
+     * the precision the Word export's Annual Nutrient Requirements table has
+     * always printed this quantity at, and the precision the Plan's own
+     * Nutrient Delivery Summary prints beside it — so all three now read the
+     * same number rather than three roundings of it.
+     */
+    function _annualTotalForDisplay(value) {
+        const v = parseFloat(value);
+        if (!isFinite(v)) return '—';
+        return v.toFixed(1);
+    }
+
     NutritionCalendar.renderResults = function() {
         if (!this.program) return;
         
@@ -2063,7 +2091,7 @@
                             : '';
                         return `
                         <div class="gilba-nut-total${el === 'N' ? ' gilba-nut-total--n' : ''}">
-                            <div class="gilba-nut-total-val">${totals[el]}</div>
+                            <div class="gilba-nut-total-val">${_annualTotalForDisplay(totals[el])}</div>
                             <div class="gilba-nut-total-name">${el}${genericBadge}</div>
                             <div class="gilba-nut-total-unit">kg/ha/yr</div>
                         </div>
@@ -2338,7 +2366,10 @@
 
         // Totals row
         const t = p.annual_totals;
-        csv += `TOTAL,,,"${t.N}","${t.P}","${t.K}","${t.Ca}","${t.Mg}","${t.S}"\n`;
+        // GH-403: one decimal, the same step renderSummary() applies — the CSV
+        // must not print the unrounded double now that annual_totals is
+        // canonical at 0.1 kg/ha.
+        csv += `TOTAL,,,"${_annualTotalForDisplay(t.N)}","${_annualTotalForDisplay(t.P)}","${_annualTotalForDisplay(t.K)}","${_annualTotalForDisplay(t.Ca)}","${_annualTotalForDisplay(t.Mg)}","${_annualTotalForDisplay(t.S)}"\n`;
 
         // Download
         const blob = new Blob([csv], { type: 'text/csv' });

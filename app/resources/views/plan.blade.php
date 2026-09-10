@@ -1038,6 +1038,10 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
      Must load before nutrition-calendar.js. --}}
 <script src="{{ $legacyAssetUrl('nutrition-requirement-core.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-program-inputs.js') }}"></script>
+{{-- GH-398 (D31 stage 4): the shared GP-weighted monthly distribution and the
+     monthly N cap, which nutrition-calendar.js and nutrition-requirement-engine.js
+     each used to implement separately. Must load before nutrition-calendar.js. --}}
+<script src="{{ $legacyAssetUrl('nutrition-monthly-distribution.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
 {{-- GH-396: the shared Balance/Status classifier behind the Nutrient Delivery
      Summary's Balance, Range and Status columns. Read by the NZ and AU
@@ -1045,6 +1049,12 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
      table, so the two surfaces cannot describe the same sample differently.
      Must load before nutrition-prebble-integration.js. --}}
 <script src="{{ $legacyAssetUrl('nutrient-balance-status.js') }}"></script>
+{{-- GH-399: the shared product-delivery accumulator behind the Nutrient
+     Delivery Summary's Delivered column and the Annual Product Summary's rows.
+     Read by the NZ, AU and UK integrations below and by both Word exports, so
+     the Plan page and the client's document cannot state different amounts of
+     the same nutrient. Must load before nutrition-prebble-integration.js. --}}
+<script src="{{ $legacyAssetUrl('nutrition-delivery-core.js') }}"></script>
 {{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
      so this page doesn't need to load the entire export module just for the
      Nutrient Delivery Summary's Spot-K reconciliation preview. Must load

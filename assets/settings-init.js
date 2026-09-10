@@ -196,6 +196,46 @@
                 return;
             }
 
+            // GH-404: coordinates are not optional, and until now nothing said
+            // so. `sites.latitude` is a nullable column, both store() and
+            // update() validate it as `nullable`, and syncRegistry() creates a
+            // site without touching it at all -- so a site could be saved, and
+            // used, with no location.
+            //
+            // Nothing downstream then fails: climate-module-v2.js, disease-
+            // integration.js, hub-orchestrator.js, irrigation-scheduler.js and
+            // hub-tissue-v3.js each substitute a hardcoded Sydney latitude
+            // (-33.87 / -35 / -33) when they cannot resolve one, so the site
+            // gets a full, confident report -- climate, disease risk, growth
+            // potential, irrigation -- computed for somewhere it is not. For a
+            // UK or NZ site that is the wrong hemisphere and the wrong season,
+            // with nothing in the document to say so.
+            //
+            // Removing those fallbacks is its own work and is not attempted
+            // here. This is the gate that stops a site reaching them without a
+            // location in the first place, in the one place a user sets one.
+            //
+            // The gate is on the coordinates because they are what the rest of
+            // the product reads, but the message points at Location: choosing a
+            // location from the search is how the two coordinate fields get
+            // filled (see the picker below, which writes #stg-latitude and
+            // #stg-longitude), and asking someone to type a latitude by hand is
+            // asking for the wrong number. The fields stay editable for the case
+            // where a search result is close but not exact.
+            var _locName = siteForm.querySelector('#stg-location-name').value.trim();
+            var _lat = siteForm.querySelector('#stg-latitude').value.trim();
+            var _lon = siteForm.querySelector('#stg-longitude').value.trim();
+            if (_lat === '' || _lon === '' || !isFinite(parseFloat(_lat)) || !isFinite(parseFloat(_lon))) {
+                setMsg(siteMsg, _locName === ''
+                    ? 'Location is required. Search for the site in the Location field ' +
+                      'and pick a result — that fills in the coordinates, which the climate, ' +
+                      'growth potential and disease calculations are all based on.'
+                    : 'This location has no coordinates yet. Pick a result from the Location ' +
+                      'search to fill them in — the climate, growth potential and disease ' +
+                      'calculations are all based on them.', 'err');
+                return;
+            }
+
             var elevEl = siteForm.querySelector('#stg-elevation');
 
             var payload = {

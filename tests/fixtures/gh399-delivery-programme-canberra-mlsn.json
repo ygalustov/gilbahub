@@ -1,0 +1,517 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, read 2026-09-10 (GH-399)",
+  "_whyThisSample": "A second AU site with P-bearing liquids, not covered by any parity fixture; export P moves 23.5 to 22.6.",
+  "_verifiedVia": "figures pinned in the test beside this file; program.delivered / program.targets carried through unchanged from the persisted object",
+  "siteId": "019f457d-987c-7013-9dfe-e9d2bc1d972d",
+  "siteName": "Canberra",
+  "region": "au",
+  "meta": {
+    "generated": "2026-08-26T03:50:04.902Z",
+    "methodology": "mlsn",
+    "stateFilter": "all",
+    "surfaceType": "golf_greens",
+    "distributorFilter": "all"
+  },
+  "delivered": {
+    "K": 110.9,
+    "N": 184.7,
+    "P": 22.6
+  },
+  "targets": {
+    "K": 110,
+    "N": 200,
+    "P": 19.9
+  },
+  "monthly": [
+    {
+      "gp": 0.99,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "LEB-COUNTRYCLUBI2",
+          "npk": "18-3.96-14.94",
+          "name": "Country Club IV 18-9-18",
+          "brand": "Lebanon",
+          "notes": "Label max rate: 280 kg/ha (delivers 50.4 of 70.6 kg N) - 20.2 kg shortfall",
+          "weeks": 8,
+          "rateGM2": "28.0",
+          "release": "slow",
+          "analysis": {
+            "K": 14.94,
+            "N": 18,
+            "P": 3.96,
+            "Fe": 0.5,
+            "Mg": 0.5,
+            "Mn": 0.5
+          },
+          "delivers": {
+            "K": 41.8,
+            "N": 50.4,
+            "P": 11.1
+          },
+          "rateKgHa": 280
+        }
+      ],
+      "month_name": "Jan",
+      "requirements": {
+        "K": 19.4,
+        "N": 35.3,
+        "P": 3.5
+      },
+      "netRequirements": {
+        "K": 19.4,
+        "N": 35.3,
+        "P": 3.5
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.99,
+      "notes": [
+        "Slow-release covering 72% - liquid top-up only"
+      ],
+      "liquid": [
+        {
+          "id": "SOL-UREA",
+          "npk": "46-0-0",
+          "form": "soluble",
+          "name": "Urea Tech (soluble)",
+          "rate": "2x 15 kg/ha",
+          "brand": "Various",
+          "notes": "2x applications @ 15 kg/ha = 13.8 kg N",
+          "rateLHa": 15,
+          "analysis": {
+            "K": 0,
+            "N": 46,
+            "P": 0
+          },
+          "delivers": {
+            "K": 0,
+            "N": 13.8,
+            "P": 0
+          },
+          "rateMLM2": "1.5",
+          "applications": 2
+        }
+      ],
+      "season": "Summer",
+      "granular": [],
+      "month_name": "Feb",
+      "requirements": {
+        "K": 19.3,
+        "N": 35.1,
+        "P": 3.5
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 9.900000000000002,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 20.9,
+        "N": 25.2,
+        "P": 5.6
+      }
+    },
+    {
+      "gp": 0.82,
+      "notes": [],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "ICL-SIERRAFORMGT1",
+          "npk": "18-2.6-14.9",
+          "name": "Sierraform GT All Seasons 18-3-15",
+          "brand": "ICL",
+          "notes": "Label max rate: 200 kg/ha (delivers 36.0 of 58.2 kg N) - 22.2 kg shortfall",
+          "weeks": 8,
+          "rateGM2": "20.0",
+          "release": "slow",
+          "analysis": {
+            "K": 14.9,
+            "N": 18,
+            "P": 2.6,
+            "S": 5.7,
+            "Cu": 0.02,
+            "Fe": 0.5,
+            "Mg": 1.2,
+            "Mn": 0.1,
+            "Mo": 0.001,
+            "Si": 2.6,
+            "Zn": 0.02
+          },
+          "delivers": {
+            "K": 29.8,
+            "N": 36,
+            "P": 5.2
+          },
+          "rateKgHa": 200
+        }
+      ],
+      "month_name": "Mar",
+      "requirements": {
+        "K": 16,
+        "N": 29.1,
+        "P": 2.9
+      },
+      "netRequirements": {
+        "K": 16,
+        "N": 29.1,
+        "P": 2.9
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.44,
+      "notes": [
+        "Covered by previous slow-release application"
+      ],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "Apr",
+      "requirements": {
+        "K": 8.6,
+        "N": 15.6,
+        "P": 1.6
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 14.9,
+        "N": 18,
+        "P": 2.6
+      }
+    },
+    {
+      "gp": 0.12,
+      "notes": [
+        "Very low GP (12%) - minimal application recommended"
+      ],
+      "liquid": [
+        {
+          "id": "KBA-LONGPADDOCKR",
+          "npk": "11-2-10",
+          "form": "liquid",
+          "name": "Long Paddock Rapid Uptake",
+          "rate": "4x 7 L/ha",
+          "brand": "K&B Adams",
+          "notes": "4x applications @ 7 L/ha (max practical) = 3.1 kg N, shortfall 1.3 kg",
+          "rateLHa": 7,
+          "analysis": {
+            "K": 10,
+            "N": 11,
+            "P": 2
+          },
+          "delivers": {
+            "K": 2.8,
+            "N": 3.1,
+            "P": 0
+          },
+          "rateMLM2": "0.7",
+          "applications": 4
+        }
+      ],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "May",
+      "requirements": {
+        "K": 2.4,
+        "N": 4.4,
+        "P": 0.4
+      },
+      "netRequirements": {
+        "K": 2.4,
+        "N": 4.4,
+        "P": 0.4
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.04,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jun",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.03,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jul",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.04,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Aug",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.15,
+      "notes": [
+        "Low GP (15%) - foliar preferred"
+      ],
+      "liquid": [
+        {
+          "id": "ICL-GREENMASTERL",
+          "npk": "12-1.7-5",
+          "form": "liquid",
+          "name": "Greenmaster Liquid Spring & Summer",
+          "rate": "43 L/ha",
+          "brand": "ICL",
+          "notes": "Foliar application - soil uptake limited",
+          "rateLHa": 43,
+          "analysis": {
+            "B": 0.012,
+            "K": 5,
+            "N": 12,
+            "P": 1.7,
+            "Cu": 0.006,
+            "Mn": 0.012,
+            "Mo": 0.004,
+            "Zn": 0.006
+          },
+          "delivers": {
+            "K": 2.2,
+            "N": 5.2,
+            "P": 0
+          },
+          "rateMLM2": "4.3",
+          "applications": 1
+        }
+      ],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Sep",
+      "requirements": {
+        "K": 2.9,
+        "N": 5.2,
+        "P": 0.5
+      },
+      "netRequirements": {
+        "K": 2.9,
+        "N": 5.2,
+        "P": 0.5
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.4,
+      "notes": [],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "LEB-COUNTRYCLUBI2",
+          "npk": "18-3.96-14.94",
+          "name": "Country Club IV 18-9-18",
+          "brand": "Lebanon",
+          "notes": null,
+          "weeks": 8,
+          "rateGM2": "15.8",
+          "release": "slow",
+          "analysis": {
+            "K": 14.94,
+            "N": 18,
+            "P": 3.96,
+            "Fe": 0.5,
+            "Mg": 0.5,
+            "Mn": 0.5
+          },
+          "delivers": {
+            "K": 23.6,
+            "N": 28.4,
+            "P": 6.3
+          },
+          "rateKgHa": 158
+        }
+      ],
+      "month_name": "Oct",
+      "requirements": {
+        "K": 7.8,
+        "N": 14.2,
+        "P": 1.4
+      },
+      "netRequirements": {
+        "K": 7.8,
+        "N": 14.2,
+        "P": 1.4
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.77,
+      "notes": [
+        "Slow-release covering 52% - liquid top-up only"
+      ],
+      "liquid": [
+        {
+          "id": "NUT-FOLIMAXNHANC",
+          "npk": "35-0-0",
+          "form": "liquid",
+          "name": "FoliMAX N-Hancer-N",
+          "rate": "2x 20 L/ha",
+          "brand": "Nuturf",
+          "notes": "2x applications @ 20 L/ha = 14.0 kg N",
+          "rateLHa": 20,
+          "analysis": {
+            "N": 35
+          },
+          "delivers": {
+            "K": 0,
+            "N": 14,
+            "P": 0
+          },
+          "rateMLM2": "2.0",
+          "applications": 2
+        }
+      ],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Nov",
+      "requirements": {
+        "K": 15,
+        "N": 27.3,
+        "P": 2.7
+      },
+      "netRequirements": {
+        "K": 3.1999999999999993,
+        "N": 13.1,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 11.8,
+        "N": 14.2,
+        "P": 3.2
+      }
+    },
+    {
+      "gp": 0.95,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER",
+          "npk": "35-0-11",
+          "name": "Sportsmaster WSF High N 35-0-11",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "9.7",
+          "release": "quick",
+          "analysis": {
+            "K": 11,
+            "N": 35,
+            "P": 0,
+            "Fe": 0.13
+          },
+          "delivers": {
+            "K": 10.7,
+            "N": 33.8,
+            "P": 0
+          },
+          "rateKgHa": 97
+        }
+      ],
+      "month_name": "Dec",
+      "requirements": {
+        "K": 18.6,
+        "N": 33.8,
+        "P": 3.4
+      },
+      "netRequirements": {
+        "K": 9.800000000000011,
+        "N": 33.8,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    }
+  ]
+}

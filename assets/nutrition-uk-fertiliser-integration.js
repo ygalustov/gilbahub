@@ -849,6 +849,16 @@
                     return;
                 }
 
+                // GH-403: the engine's own annual requirement per nutrient
+                // (computeProgram()'s `annual_totals`), carried through so the
+                // panel's "Required" column can print THE number the Word
+                // document prints instead of re-deriving it by summing twelve
+                // separately-rounded monthly rows. Those twelve are the
+                // schedule; this is the requirement they schedule. Same
+                // carry-through as nutrition-prebble/au/nz-fertiliser-
+                // integration.js.
+                program.annual_requirements = calendarData.annual_totals;
+
                 this.lastProgram = program;
 
                 // Store globally for Word export
@@ -933,34 +943,109 @@
             return map[st] || st;
         },
 
+        /**
+         * GH-399: the one product-delivery accumulator, behind a load-order
+         * guard of the same shape as classifyBalance()'s (GH-396). A missing
+         * module is a blade misconfiguration, not a data condition: it reports
+         * itself and returns an empty accumulation rather than an invented one.
+         */
+        accumulateDelivery: function(monthly) {
+            var mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionUkFertiliserIntegration] GH-399: nutrition-delivery-core.js is not loaded — ' +
+                    'product delivery cannot be accumulated');
+                return { applications: [], products: {}, totals: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 } };
+            }
+            return mod.accumulate(monthly);
+        },
+
+        /**
+         * GH-401: the single rounding step this panel applies to a delivery or
+         * requirement figure, shared with the Australian and New Zealand
+         * integrations and with the Word export so the four cannot round
+         * differently. See assets/nutrition-delivery-core.js's roundAtOutput()
+         * for why the intermediate 1 dp pass that used to sit above these
+         * renderers had to go, and for the binary-representation snap it
+         * carries.
+         */
+        roundAtOutput: function(value, decimals) {
+            var mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionUkFertiliserIntegration] GH-401: nutrition-delivery-core.js is not loaded — ' +
+                    'delivery figures cannot be rounded for display');
+                return 0;
+            }
+            return mod.roundAtOutput(value, decimals);
+        },
+
+        /**
+         * GH-403: the Product Summary's nutrient columns, rows and caption
+         * alike, at the one precision that makes them add up. See
+         * assets/nutrition-delivery-core.js's formatDelivered().
+         */
+        formatDelivered: function(value) {
+            var mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionUkFertiliserIntegration] GH-403: nutrition-delivery-core.js is not loaded — ' +
+                    'delivered figures cannot be formatted for display');
+                return '—';
+            }
+            return mod.formatDelivered(value);
+        },
+
+        /**
+         * GH-403: the annual requirement this programme was built to meet — the
+         * shared engine's own figure, not a re-derivation of it from the twelve
+         * rounded monthly rows. See assets/nutrient-balance-status.js's
+         * annualRequired() for the divergence this closes.
+         */
+        annualRequired: function(program) {
+            var mod = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
+            if (!mod) {
+                console.error('[NutritionUkFertiliserIntegration] GH-403: nutrient-balance-status.js is not loaded — ' +
+                    'the annual requirement cannot be resolved');
+                return { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
+            }
+            return mod.annualRequired(program);
+        },
+
         buildRecommendationsHTML: function(program) {
             var meta = program.meta;
             var monthly = program.monthly;
-            var nutrientTotals, nutrientRequired;
+            // GH-403: Delivered is the shared accumulator's total, as it already
+            // is on the New Zealand and Australian panels and in the Word
+            // export. GH-399 left this one line reading the UK recommender's own
+            // `program.delivered` because the ticket moved nothing on the Plan,
+            // and recorded what it cost: the recommender rounds each
+            // application's `delivers` vector to 1 dp when it stamps it but
+            // accumulates `delivered` from the UNROUNDED values, so on the only
+            // UK development site (Test6) `delivered.P` is 27.909 and prints
+            // 27.9 above rows of its own that sum to 27.8. That is exactly the
+            // caption-contradicts-its-rows defect this ticket exists to remove,
+            // in the same table, so the one line is taken now: the rows and the
+            // caption are one accumulation. Nitrogen and potassium do not move
+            // at 1 dp; phosphorus prints 27.8, the figure its rows add up to and
+            // the figure the document already prints.
+            //
+            // Required is the shared engine's own annual requirement, carried
+            // through from nutrition-calendar.js as `program.annual_requirements`
+            // — not the recommender's `targets`, which is the SUM of the twelve
+            // monthly rows the calendar had already rounded to 1 dp, and so a
+            // different quantity from the one the Word document prints under the
+            // same column name.
+            var nutrientTotals = this.accumulateDelivery(monthly).totals;
+            var nutrientRequired = this.annualRequired(program);
 
-            if (program.delivered && program.targets) {
-                nutrientTotals = { N: program.delivered.N, P: program.delivered.P, K: program.delivered.K };
-                nutrientRequired = { N: program.targets.N, P: program.targets.P, K: program.targets.K };
-            } else {
-                nutrientTotals = { N: 0, P: 0, K: 0 };
-                nutrientRequired = { N: 0, P: 0, K: 0 };
-                monthly.forEach(function(m) {
-                    nutrientRequired.N += (m.requirements && m.requirements.N) || 0;
-                    nutrientRequired.P += (m.requirements && m.requirements.P) || 0;
-                    nutrientRequired.K += (m.requirements && m.requirements.K) || 0;
-                    (m.granular || []).forEach(function(p) {
-                        if (p.delivers) { nutrientTotals.N += p.delivers.N || 0; nutrientTotals.P += p.delivers.P || 0; nutrientTotals.K += p.delivers.K || 0; }
-                    });
-                    (m.liquid || []).forEach(function(p) {
-                        if (p.delivers) { nutrientTotals.N += p.delivers.N || 0; nutrientTotals.P += p.delivers.P || 0; nutrientTotals.K += p.delivers.K || 0; }
-                    });
-                });
-            }
-
-            ['N', 'P', 'K'].forEach(function(k) {
-                nutrientTotals[k] = Math.round(nutrientTotals[k] * 10) / 10;
-                nutrientRequired[k] = Math.round(nutrientRequired[k] * 10) / 10;
-            });
+            // GH-401: Delivered and Required are NOT rounded here. This is
+            // where a 1 dp pass used to sit, and the panel then rounded that
+            // result again for its Annual Product Summary caption — two
+            // rounding steps over one figure, so a true total of 125.46 became
+            // 125.5 and printed as 126 beside rows adding up to 125. Each cell
+            // below rounds once, from the raw figure, through the shared
+            // roundAtOutput(). The panel's own `diff` keeps plain toFixed(1) /
+            // Math.round: three terms, never double-rounded, not this ticket.
+            var self = this;
+            var _round1 = function(v) { return self.roundAtOutput(v, 1).toFixed(1); };
 
             // Nutrient summary rows
             var nutrientSummaryRows = ['N', 'P', 'K'].map(function(nutrient) {
@@ -988,8 +1073,8 @@
                 }
                 return '<tr>' +
                     '<td class="uk-fert-cell uk-fert-cell--left"><strong>' + nutrient + '</strong></td>' +
-                    '<td class="uk-fert-cell uk-fert-cell--num">' + required + '</td>' +
-                    '<td class="uk-fert-cell uk-fert-cell--num">' + delivered + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + _round1(required) + '</td>' +
+                    '<td class="uk-fert-cell uk-fert-cell--num">' + _round1(delivered) + '</td>' +
                     '<td class="uk-fert-cell uk-fert-cell--num ' + (diff >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '">' + (diff >= 0 ? '+' : '') + diff.toFixed(1) + '</td>' +
                     '<td class="uk-fert-cell uk-fert-cell--num ' + statusCls + '">' + statusText + '</td>' +
                 '</tr>';
@@ -1028,27 +1113,16 @@
                 '</tr>';
             }).join('');
 
-            // Product summary
-            var productUsage = {};
-            monthly.forEach(function(m) {
-                (m.granular || []).forEach(function(p) {
-                    if (!productUsage[p.id]) { productUsage[p.id] = { product: p, applications: 0, totalKgHa: 0, totalDelivered: { N: 0, P: 0, K: 0 } }; }
-                    productUsage[p.id].applications++;
-                    productUsage[p.id].totalKgHa += p.rateKgHa || 0;
-                    productUsage[p.id].totalDelivered.N += (p.delivers && p.delivers.N) || 0;
-                    productUsage[p.id].totalDelivered.P += (p.delivers && p.delivers.P) || 0;
-                    productUsage[p.id].totalDelivered.K += (p.delivers && p.delivers.K) || 0;
-                });
-                (m.liquid || []).forEach(function(p) {
-                    if (!productUsage[p.id]) { productUsage[p.id] = { product: p, applications: 0, totalLHa: 0, totalDelivered: { N: 0, P: 0, K: 0 } }; }
-                    productUsage[p.id].applications++;
-                    if (p.form === 'soluble') { productUsage[p.id].totalKgHa = (productUsage[p.id].totalKgHa || 0) + (p.rateLHa || 0); }
-                    else { productUsage[p.id].totalLHa = (productUsage[p.id].totalLHa || 0) + (p.rateLHa || 0); }
-                    productUsage[p.id].totalDelivered.N += (p.delivers && p.delivers.N) || 0;
-                    productUsage[p.id].totalDelivered.P += (p.delivers && p.delivers.P) || 0;
-                    productUsage[p.id].totalDelivered.K += (p.delivers && p.delivers.K) || 0;
-                });
-            });
+            // Product summary.
+            //
+            // GH-399: the fifth of five hand-maintained delivery accumulators,
+            // now the shared module's output (assets/nutrition-delivery-core.js).
+            // Identical arithmetic for a UK programme: every application here
+            // declares a `delivers` vector, so the module prints the
+            // declaration, and the recommender's per-month share for a
+            // multi-month slow release is preserved rather than being turned
+            // into the product's full physical content.
+            var productUsage = this.accumulateDelivery(monthly).products;
 
             var productEntries = Object.values(productUsage);
             var summaryRows = productEntries.map(function(p) {
@@ -1056,9 +1130,13 @@
                 var analysis = prod.analysis || {};
                 var npk = prod.npk || ((analysis.N || 0) + '-' + (analysis.P || 0) + '-' + (analysis.K || 0));
                 var supplierLabel = SUPPLIER_DISPLAY[prod.supplier] || prod.supplier || '';
-                var nD = Math.round((p.totalDelivered && p.totalDelivered.N) || 0);
-                var pD = Math.round(((p.totalDelivered && p.totalDelivered.P) || 0) * 10) / 10;
-                var kD = Math.round((p.totalDelivered && p.totalDelivered.K) || 0);
+                // GH-403: one precision for all three, formatted once by the
+                // shared helper the caption below uses — N and K used to print
+                // whole kilograms beside a P at 1 dp, and the whole-kilogram
+                // rows did not add up to their own caption.
+                var nD = self.formatDelivered((p.totalDelivered && p.totalDelivered.N) || 0);
+                var pD = self.formatDelivered((p.totalDelivered && p.totalDelivered.P) || 0);
+                var kD = self.formatDelivered((p.totalDelivered && p.totalDelivered.K) || 0);
                 var isSoluble = prod.form === 'soluble';
                 var rateStr;
                 if (p.totalLHa && !isSoluble) rateStr = Math.round(p.totalLHa) + ' L/ha';
@@ -1189,21 +1267,21 @@
                         '<tfoot>' +
                             '<tr class="uk-fert-totals-row">' +
                                 '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><strong>Total Delivered</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + Math.round(nutrientTotals.N) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + (Math.round(nutrientTotals.P * 10) / 10) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + Math.round(nutrientTotals.K) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.N) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.P) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><strong>' + self.formatDelivered(nutrientTotals.K) + '</strong></td>' +
                             '</tr>' +
                             '<tr class="uk-fert-required-row">' +
                                 '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + Math.round(nutrientRequired.N) + '</em></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + (Math.round(nutrientRequired.P * 10) / 10) + '</em></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + Math.round(nutrientRequired.K) + '</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + self.formatDelivered(nutrientRequired.N) + '</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + self.formatDelivered(nutrientRequired.P) + '</em></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono"><em>' + self.formatDelivered(nutrientRequired.K) + '</em></td>' +
                             '</tr>' +
                             '<tr class="' + (balanceN >= 0 ? 'uk-fert-balance-row--positive' : 'uk-fert-balance-row--negative') + '">' +
                                 '<td class="uk-fert-cell uk-fert-cell--left" colspan="3"><strong>Balance</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceN >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceN >= 0 ? '+' : '') + Math.round(balanceN) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceP >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceP >= 0 ? '+' : '') + (Math.round(balanceP * 10) / 10) + '</strong></td>' +
-                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceK >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceK >= 0 ? '+' : '') + Math.round(balanceK) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceN >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceN >= 0 ? '+' : '') + self.formatDelivered(balanceN) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceP >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceP >= 0 ? '+' : '') + self.formatDelivered(balanceP) + '</strong></td>' +
+                                '<td class="uk-fert-cell uk-fert-cell--num uk-fert-cell--mono ' + (balanceK >= 0 ? 'uk-fert-positive' : 'uk-fert-negative') + '"><strong>' + (balanceK >= 0 ? '+' : '') + self.formatDelivered(balanceK) + '</strong></td>' +
                             '</tr>' +
                         '</tfoot>' +
                     '</table>' +

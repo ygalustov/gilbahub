@@ -1,0 +1,133 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, namespace gaip, read 2026-09-10 (GH-400). Persisted programme generated 2026-09-10T06:30:07.480Z.",
+  "_whyThisSample": "golf greens, MLSN. Its only liquid is Ammonium Sulphate Tech, 21-0-0 \u2014 the control site: no liquid P, nothing moves.",
+  "_verifiedVia": "the twelve monthly requirement rows are the recommender INPUT, not its output: no product, rate, delivers vector or annual total is stored here, so a test cannot pass by copying the figures it is meant to derive. Expected outputs live in tests/gh400-au-liquid-phosphorus.test.js.",
+  "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+  "siteName": "Burns",
+  "region": "au",
+  "meta": {
+    "generated": "2026-09-10T06:30:07.480Z",
+    "methodology": "mlsn",
+    "stateFilter": "all",
+    "surfaceType": "golf_greens",
+    "distributorFilter": "all"
+  },
+  "options": {
+    "surfaceType": "golf_greens",
+    "stateFilter": "all",
+    "distributorFilter": "all",
+    "methodology": "mlsn",
+    "hemisphere": "south",
+    "muldersFlags": {}
+  },
+  "requirements": [
+    {
+      "month_name": "Jan",
+      "month_num": 1,
+      "season": "Summer",
+      "gp": 0.86,
+      "N": 16.7,
+      "P": 1.9,
+      "K": 0
+    },
+    {
+      "month_name": "Feb",
+      "month_num": 2,
+      "season": "Summer",
+      "gp": 0.97,
+      "N": 18.9,
+      "P": 2.2,
+      "K": 0
+    },
+    {
+      "month_name": "Mar",
+      "month_num": 3,
+      "season": "Autumn",
+      "gp": 0.95,
+      "N": 18.6,
+      "P": 2.2,
+      "K": 0
+    },
+    {
+      "month_name": "Apr",
+      "month_num": 4,
+      "season": "Autumn",
+      "gp": 0.58,
+      "N": 11.4,
+      "P": 1.3,
+      "K": 0
+    },
+    {
+      "month_name": "May",
+      "month_num": 5,
+      "season": "Autumn",
+      "gp": 0.17,
+      "N": 3.3,
+      "P": 0.4,
+      "K": 0
+    },
+    {
+      "month_name": "Jun",
+      "month_num": 6,
+      "season": "Winter",
+      "gp": 0.06,
+      "N": 0,
+      "P": 0,
+      "K": 0
+    },
+    {
+      "month_name": "Jul",
+      "month_num": 7,
+      "season": "Winter",
+      "gp": 0.04,
+      "N": 0,
+      "P": 0,
+      "K": 0
+    },
+    {
+      "month_name": "Aug",
+      "month_num": 8,
+      "season": "Winter",
+      "gp": 0.05,
+      "N": 0,
+      "P": 0,
+      "K": 0
+    },
+    {
+      "month_name": "Sep",
+      "month_num": 9,
+      "season": "Spring",
+      "gp": 0.19,
+      "N": 3.7,
+      "P": 0.4,
+      "K": 0
+    },
+    {
+      "month_name": "Oct",
+      "month_num": 10,
+      "season": "Spring",
+      "gp": 0.53,
+      "N": 10.3,
+      "P": 1.2,
+      "K": 0
+    },
+    {
+      "month_name": "Nov",
+      "month_num": 11,
+      "season": "Spring",
+      "gp": 0.92,
+      "N": 17.8,
+      "P": 2.1,
+      "K": 0
+    },
+    {
+      "month_name": "Dec",
+      "month_num": 12,
+      "season": "Summer",
+      "gp": 1,
+      "N": 19.4,
+      "P": 2.3,
+      "K": 0
+    }
+  ]
+}

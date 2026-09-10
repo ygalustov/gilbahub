@@ -69,6 +69,8 @@
             // nutrition-calendar.js.
             'nutrition-requirement-core.js',
             'nutrition-program-inputs.js',
+            // GH-398: the shared monthly distribution + N cap; before both.
+            'nutrition-monthly-distribution.js',
             'nutrition-requirement-engine.js',
             'climate-engine-v2.js',
             'climate-normals-service.js', // GH-245 (Hoxton audit D01-D03)
@@ -240,6 +242,8 @@
             'nutrition-calendar.js',
             // GH-396: shared Balance/Status classifier, see nutrient-balance-status.js
             'nutrient-balance-status.js',
+            // GH-399: shared product-delivery accumulator, see nutrition-delivery-core.js
+            'nutrition-delivery-core.js',
             'prebbles-products.js',
             'nutrition-prebble-integration.js',
             'au-fertiliser-products.js',
@@ -282,7 +286,7 @@
     {{-- GH-383: the shared core and input adapter must EXECUTE before the engine
      and the calendar. Everything outside this list is emitted with `defer`, so
      a non-deferred script always runs first regardless of document order. --}}
-    @php($headLikeScripts = ['gilba-hub-v2.js', 'growth-potential-engine.js', 'nutrition-requirement-core.js', 'nutrition-program-inputs.js', 'nutrition-requirement-engine.js', 'climate-engine-v2.js'])
+    @php($headLikeScripts = ['gilba-hub-v2.js', 'growth-potential-engine.js', 'nutrition-requirement-core.js', 'nutrition-program-inputs.js', 'nutrition-monthly-distribution.js', 'nutrition-requirement-engine.js', 'climate-engine-v2.js'])
 
     @foreach ($hubScripts as $script)
         <script src="{{ $legacyAssetUrl($script) }}" @if (! in_array($script, $headLikeScripts, true)) defer @endif></script>

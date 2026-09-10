@@ -443,6 +443,75 @@
         },
         
         /**
+         * GH-399: the one product-delivery accumulator, behind a load-order
+         * guard of the same shape as classifyBalance()'s (GH-396).
+         *
+         * A missing module is a blade misconfiguration, not a data condition.
+         * It reports itself and returns an empty accumulation rather than an
+         * invented one: an Annual Product Summary with no rows is visibly
+         * broken, while plausible-looking numbers from a second local
+         * accumulator are exactly what this ticket removed.
+         */
+        accumulateDelivery: function(monthly) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionAuFertiliserIntegration] GH-399: nutrition-delivery-core.js is not loaded — ' +
+                    'product delivery cannot be accumulated');
+                return { applications: [], products: {}, totals: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 } };
+            }
+            return mod.accumulate(monthly);
+        },
+
+        /**
+         * GH-401: the single rounding step this panel applies to a delivery or
+         * requirement figure, shared with the New Zealand and UK integrations
+         * and with the Word export so the four cannot round differently. See
+         * assets/nutrition-delivery-core.js's roundAtOutput() for why the
+         * intermediate 1 dp pass that used to sit above these renderers had to
+         * go, and for the binary-representation snap it carries.
+         */
+        roundAtOutput: function(value, decimals) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionAuFertiliserIntegration] GH-401: nutrition-delivery-core.js is not loaded — ' +
+                    'delivery figures cannot be rounded for display');
+                return 0;
+            }
+            return mod.roundAtOutput(value, decimals);
+        },
+
+        /**
+         * GH-403: the Annual Product Summary's nutrient columns, rows and
+         * caption alike, at the one precision that makes them add up. See
+         * assets/nutrition-delivery-core.js's formatDelivered().
+         */
+        formatDelivered: function(value) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!mod) {
+                console.error('[NutritionAuFertiliserIntegration] GH-403: nutrition-delivery-core.js is not loaded — ' +
+                    'delivered figures cannot be formatted for display');
+                return '—';
+            }
+            return mod.formatDelivered(value);
+        },
+
+        /**
+         * GH-403: the annual requirement this programme was built to meet — the
+         * shared engine's own figure, not a re-derivation of it from the twelve
+         * rounded monthly rows. See assets/nutrient-balance-status.js's
+         * annualRequired() for the divergence this closes.
+         */
+        annualRequired: function(program) {
+            const mod = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
+            if (!mod) {
+                console.error('[NutritionAuFertiliserIntegration] GH-403: nutrient-balance-status.js is not loaded — ' +
+                    'the annual requirement cannot be resolved');
+                return { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
+            }
+            return mod.annualRequired(program);
+        },
+
+        /**
          * Generate full program from calendar data
          * Uses intelligent release-duration tracking
          */
@@ -527,55 +596,17 @@
                     distributorFilter: distributorFilter
                 });
                 
-                // Add product usage summary
-                const productUsage = {};
-                program.monthly.forEach(m => {
-                    m.granular.forEach(p => {
-                        if (!productUsage[p.id]) {
-                            productUsage[p.id] = {
-                                product: p,
-                                brandName: p.brand,
-                                applications: 0,
-                                totalKgHa: 0,
-                                totalDelivered: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 },
-                            };
-                        }
-                        productUsage[p.id].applications++;
-                        productUsage[p.id].totalKgHa += p.rateKgHa;
-                        productUsage[p.id].totalDelivered.N += p.delivers.N || 0;
-                        productUsage[p.id].totalDelivered.P += p.delivers.P || 0;
-                        productUsage[p.id].totalDelivered.K += p.delivers.K || 0;
-                        // b35fix379: Include Ca, Mg, S for consistency with liquid products
-                        productUsage[p.id].totalDelivered.Ca += p.delivers.Ca || 0;
-                        productUsage[p.id].totalDelivered.Mg += p.delivers.Mg || 0;
-                        productUsage[p.id].totalDelivered.S += p.delivers.S || 0;
-                    });
-                    m.liquid.forEach(p => {
-                        if (!productUsage[p.id]) {
-                            productUsage[p.id] = {
-                                product: p,
-                                brandName: p.brand,
-                                applications: 0,
-                                totalLHa: 0,
-                                totalDelivered: { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 },
-                            };
-                        }
-                        productUsage[p.id].applications++;
-                        // b35fix282: solubles use kg/ha not L/ha — track separately
-                        if (p.form === 'soluble') {
-                            productUsage[p.id].totalKgHa = (productUsage[p.id].totalKgHa || 0) + (p.rateLHa || 0);
-                        } else {
-                            productUsage[p.id].totalLHa = (productUsage[p.id].totalLHa || 0) + (p.rateLHa || 0);
-                        }
-                        productUsage[p.id].totalDelivered.N += p.delivers.N || 0;
-                        productUsage[p.id].totalDelivered.P += p.delivers.P || 0;
-                        productUsage[p.id].totalDelivered.K += p.delivers.K || 0;
-                        // b35fix379: Include Ca, Mg, S for nitrate products (SOL-CANO3, SOL-MGNO3)
-                        productUsage[p.id].totalDelivered.Ca += p.delivers.Ca || 0;
-                        productUsage[p.id].totalDelivered.Mg += p.delivers.Mg || 0;
-                        productUsage[p.id].totalDelivered.S += p.delivers.S || 0;
-                    });
-                });
+                // Add product usage summary.
+                //
+                // GH-399: this loop used to be one of five hand-maintained
+                // accumulators for the same quantity (see
+                // assets/nutrition-delivery-core.js for the other four and for
+                // the phosphorus divergence they produced). It is now the
+                // shared module's output verbatim, so the Plan page's product
+                // rows and the Word export's cannot drift apart again.
+                // b35fix282 (solubles carry kg/ha in rateLHa) and b35fix379
+                // (Ca/Mg/S alongside N/P/K) both live in the module now.
+                const productUsage = this.accumulateDelivery(program.monthly).products;
                 
                 // b35fix379 DEBUG: Log collected products
                 const nitrateProducts = Object.keys(productUsage).filter(id => 
@@ -617,6 +648,13 @@
                     // delivery" check (Current + Delivered vs ceiling) without
                     // re-resolving soil state independently.
                     soil: calendarData.soil,
+                    // GH-403: the engine's own annual requirement per nutrient
+                    // (computeProgram()'s `annual_totals`), carried through so
+                    // the panel's "Required" column can print THE number the
+                    // Word document prints instead of re-deriving it by summing
+                    // twelve separately-rounded monthly rows. Those twelve are
+                    // the schedule; this is the requirement they schedule.
+                    annual_requirements: calendarData.annual_totals,
                     annual_totals_range: calendarData.annual_totals_range,
                     // GH-312: Removal/Lift, needed for the unified Balance/Status model.
                     annual_removal: calendarData.annual_removal,
@@ -810,52 +848,45 @@
             // Use pre-calculated totals if available (from new generator)
             // Otherwise calculate from monthly data
             // ================================================================
-            let nutrientTotals, nutrientRequired;
-            
-            if (program.delivered && program.targets) {
-                // New format with pre-calculated values
-                nutrientTotals = { ...program.delivered };
-                nutrientRequired = { ...program.targets };
-            } else {
-                // Calculate from monthly data
-                nutrientTotals = { N: 0, P: 0, K: 0 };
-                nutrientRequired = { N: 0, P: 0, K: 0 };
-                
-                monthly.forEach(m => {
-                    nutrientRequired.N += m.requirements?.N || 0;
-                    nutrientRequired.P += m.requirements?.P || 0;
-                    nutrientRequired.K += m.requirements?.K || 0;
-                    
-                    m.granular.forEach(p => {
-                        if (p.delivers) {
-                            nutrientTotals.N += p.delivers.N || 0;
-                            nutrientTotals.P += p.delivers.P || 0;
-                            nutrientTotals.K += p.delivers.K || 0;
-                        } else {
-                            const rate = p.rateKgHa || 0;
-                            const analysis = p.product?.analysis || p.analysis || {};
-                            nutrientTotals.N += rate * (analysis.N || 0) / 100;
-                            nutrientTotals.P += rate * (analysis.P || 0) / 100;
-                            nutrientTotals.K += rate * (analysis.K || 0) / 100;
-                        }
-                    });
-                    
-                    (m.liquid || []).forEach(p => {
-                        if (p.delivers) {
-                            nutrientTotals.N += p.delivers.N || 0;
-                            nutrientTotals.P += p.delivers.P || 0;
-                            nutrientTotals.K += p.delivers.K || 0;
-                        }
-                    });
-                });
-            }
-            
-            // Round values
-            Object.keys(nutrientTotals).forEach(k => {
-                nutrientTotals[k] = Math.round(nutrientTotals[k] * 10) / 10;
-                nutrientRequired[k] = Math.round(nutrientRequired[k] * 10) / 10;
-            });
-            
+            // GH-399: Delivered is the shared accumulator's total, not the
+            // recommender's own `program.delivered` and not a second local
+            // loop. On every Australian programme the two agree to the last
+            // decimal — both are the sum of the same declared `delivers`
+            // vectors — and `tests/gh399-nutrition-delivery-core.test.js`
+            // asserts that on real persisted programmes rather than assuming
+            // it. `program.delivered` itself is untouched and still live: the
+            // GH-342/343 netP/netK caps, the strategic-P loop and `balance`
+            // are all built on it inside the recommender.
+            //
+            // GH-403: Required is the shared engine's own annual requirement,
+            // carried through from nutrition-calendar.js as
+            // `program.annual_requirements`. It used to be the recommender's
+            // `targets` vector — the SUM of the twelve monthly rows, each
+            // already rounded to 1 dp — which is a different quantity from the
+            // one the Word document prints under the same column name (New test
+            // - location P: 14.0 here against 14.2 there). The twelve rows are
+            // the schedule; this is the requirement they schedule.
+            const _deliveryAcc = this.accumulateDelivery(monthly);
+            let nutrientTotals = {
+                N: _deliveryAcc.totals.N, P: _deliveryAcc.totals.P, K: _deliveryAcc.totals.K
+            };
+            const nutrientRequired = this.annualRequired(program);
+
+            // GH-401: Delivered and Required are NOT rounded here. This is
+            // where a 1 dp pass used to sit, and the panel then rounded that
+            // result again for its Annual Product Summary caption — two
+            // rounding steps over one figure, so a true total of 125.46 became
+            // 125.5 and printed as 126 beside rows adding up to 125. Each cell
+            // below rounds once, from the raw sum, through the shared
+            // roundAtOutput().
+            //
+            // classifyBalance() is handed the raw values for the same reason: a
+            // verdict should not depend on a figure having passed a renderer's
+            // display rounding first. Its own `diff` keeps plain toFixed(1) /
+            // Math.round below — that figure is three terms, never went through
+            // two rounding steps, and is not what this ticket is about.
+            const _round1 = (v) => this.roundAtOutput(v, 1).toFixed(1);
+
             // GH-311/312: soil ppm + bulkDensity/soilDepth + resolved AA
             // range + Removal/Lift, carried through from calendarData via
             // this file's own generateProgram(). Same fix as
@@ -931,8 +962,8 @@
                         <td class="au-fert-cell au-fert-cell--left"><strong>${nutrient}</strong></td>
                         <td class="au-fert-cell au-fert-cell--num">${currentDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num">${removalDisplay}</td>
-                        <td class="au-fert-cell au-fert-cell--num">${required}</td>
-                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--delivered">${delivered}</td>
+                        <td class="au-fert-cell au-fert-cell--num">${_round1(required)}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--delivered">${_round1(delivered)}</td>
                         <td class="au-fert-cell au-fert-cell--num">${rangeDisplay}</td>
                         <td class="au-fert-cell au-fert-cell--num nutrient-diff ${statusVisualClass(statusClass)}">${diff.toFixed(1)}</td>
                         <td class="au-fert-cell au-fert-cell--num"><span class="nutrient-status-badge nutrient-status-${statusClass}">${statusLabel}</span></td>
@@ -1002,10 +1033,12 @@
                 const analysis = product.analysis || {};
                 const npk = product.npk || `${analysis.N || 0}-${analysis.P || 0}-${analysis.K || 0}`;
                 
-                // Use pre-calculated delivered values if available
-                const nDelivered = p.totalDelivered?.N ?? Math.round((p.totalKgHa || 0) * (analysis.N || 0) / 100);
-                const pDelivered = p.totalDelivered?.P ?? Math.round((p.totalKgHa || 0) * (analysis.P || 0) / 100 * 10) / 10;
-                const kDelivered = p.totalDelivered?.K ?? Math.round((p.totalKgHa || 0) * (analysis.K || 0) / 100);
+                // Use pre-calculated delivered values if available.
+                // GH-403: the fallback no longer rounds either — the row is
+                // formatted once, below, by the same helper the caption uses.
+                const nDelivered = p.totalDelivered?.N ?? ((p.totalKgHa || 0) * (analysis.N || 0) / 100);
+                const pDelivered = p.totalDelivered?.P ?? ((p.totalKgHa || 0) * (analysis.P || 0) / 100);
+                const kDelivered = p.totalDelivered?.K ?? ((p.totalKgHa || 0) * (analysis.K || 0) / 100);
                 
                 // Format rate based on surface type and product type
                 // b35fix281: solubles are powders — always kg/ha, never L/ha
@@ -1027,9 +1060,9 @@
                         </td>
                         <td class="au-fert-cell au-fert-cell--num">${p.applications}</td>
                         <td class="au-fert-cell au-fert-cell--num">${rateStr}</td>
-                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nDelivered)}</td>
-                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(pDelivered)}</td>
-                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(kDelivered)}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nDelivered)}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(pDelivered)}</td>
+                        <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(kDelivered)}</td>
                     </tr>
                 `;
             }).join('');
@@ -1061,21 +1094,21 @@
                     <td class="au-fert-cell au-fert-cell--left">Total Delivered</td>
                     <td class="au-fert-cell au-fert-cell--num">${totalApps}</td>
                     <td class="au-fert-cell au-fert-cell--num">${totalRateStr}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.N)}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.P)}</td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${Math.round(nutrientTotals.K)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.N)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.P)}</td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono">${this.formatDelivered(nutrientTotals.K)}</td>
                 </tr>
                 <tr class="au-fert-required-row">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><em>Required (kg/ha)</em></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.N)}</em></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.P)}</em></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${Math.round(nutrientRequired.K)}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${this.formatDelivered(nutrientRequired.N)}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${this.formatDelivered(nutrientRequired.P)}</em></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono"><em>${this.formatDelivered(nutrientRequired.K)}</em></td>
                 </tr>
                 <tr class="au-fert-balance-row--${statusVisualClass(nBal.statusClass)}">
                     <td class="au-fert-cell au-fert-cell--left" colspan="3"><strong>Balance</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(nBal.statusClass)}"><strong>${Math.round(nBal.diff)}</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(pBal.statusClass)}"><strong>${Math.round(pBal.diff)}</strong></td>
-                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(kBal.statusClass)}"><strong>${Math.round(kBal.diff)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(nBal.statusClass)}"><strong>${this.formatDelivered(nBal.diff)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(pBal.statusClass)}"><strong>${this.formatDelivered(pBal.diff)}</strong></td>
+                    <td class="au-fert-cell au-fert-cell--num au-fert-cell--mono au-fert-${statusVisualClass(kBal.statusClass)}"><strong>${this.formatDelivered(kBal.diff)}</strong></td>
                 </tr>
             `;
             

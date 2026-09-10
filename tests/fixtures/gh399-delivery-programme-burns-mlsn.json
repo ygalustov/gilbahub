@@ -1,0 +1,585 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, read 2026-09-10 (GH-399)",
+  "_whyThisSample": "The MLSN parity fixture, and the control: no P-bearing liquid, so nothing about this ticket may move it.",
+  "_verifiedVia": "figures pinned in the test beside this file; program.delivered / program.targets carried through unchanged from the persisted object",
+  "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+  "siteName": "Burns / 12th Fairway",
+  "region": "au",
+  "meta": {
+    "generated": "2026-09-10T04:03:33.935Z",
+    "methodology": "mlsn",
+    "stateFilter": "all",
+    "surfaceType": "golf_greens",
+    "distributorFilter": "all"
+  },
+  "delivered": {
+    "K": 0,
+    "N": 125.5,
+    "P": 12.3
+  },
+  "targets": {
+    "K": 0,
+    "N": 120.1,
+    "P": 14
+  },
+  "monthly": [
+    {
+      "gp": 0.86,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "8.3",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 16.7,
+            "P": 0
+          },
+          "rateKgHa": 83
+        }
+      ],
+      "month_name": "Jan",
+      "requirements": {
+        "K": 0,
+        "N": 16.7,
+        "P": 1.9
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 16.7,
+        "P": 1.9
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.97,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "9.4",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 18.9,
+            "P": 0
+          },
+          "rateKgHa": 94
+        }
+      ],
+      "month_name": "Feb",
+      "requirements": {
+        "K": 0,
+        "N": 18.9,
+        "P": 2.2
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 18.9,
+        "P": 2.2
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.95,
+      "notes": [],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "9.3",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 18.6,
+            "P": 0
+          },
+          "rateKgHa": 93
+        }
+      ],
+      "month_name": "Mar",
+      "requirements": {
+        "K": 0,
+        "N": 18.6,
+        "P": 2.2
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 18.6,
+        "P": 2.2
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.58,
+      "notes": [],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "5.7",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 11.4,
+            "P": 0
+          },
+          "rateKgHa": 57
+        }
+      ],
+      "month_name": "Apr",
+      "requirements": {
+        "K": 0,
+        "N": 11.4,
+        "P": 1.3
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 11.4,
+        "P": 1.3
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.17,
+      "notes": [
+        "Low GP (17%) - foliar preferred"
+      ],
+      "liquid": [
+        {
+          "id": "SOL-AS",
+          "npk": "21-0-0",
+          "form": "soluble",
+          "name": "Ammonium Sulphate Tech (soluble)",
+          "rate": "16 kg/ha",
+          "brand": "Various",
+          "notes": "Foliar application - soil uptake limited",
+          "rateLHa": 16,
+          "analysis": {
+            "K": 0,
+            "N": 21,
+            "P": 0,
+            "S": 24
+          },
+          "delivers": {
+            "K": 0,
+            "N": 3.3,
+            "P": 0
+          },
+          "rateMLM2": "1.6",
+          "applications": 1
+        }
+      ],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "May",
+      "requirements": {
+        "K": 0,
+        "N": 3.3,
+        "P": 0.4
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 3.3,
+        "P": 0.4
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.06,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jun",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.04,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jul",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.05,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Aug",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.19,
+      "notes": [
+        "Low GP (19%) - foliar preferred"
+      ],
+      "liquid": [
+        {
+          "id": "SOL-AS",
+          "npk": "21-0-0",
+          "form": "soluble",
+          "name": "Ammonium Sulphate Tech (soluble)",
+          "rate": "18 kg/ha",
+          "brand": "Various",
+          "notes": "Foliar application - soil uptake limited",
+          "rateLHa": 18,
+          "analysis": {
+            "K": 0,
+            "N": 21,
+            "P": 0,
+            "S": 24
+          },
+          "delivers": {
+            "K": 0,
+            "N": 3.7,
+            "P": 0
+          },
+          "rateMLM2": "1.8",
+          "applications": 1
+        }
+      ],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Sep",
+      "requirements": {
+        "K": 0,
+        "N": 3.7,
+        "P": 0.4
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 3.7,
+        "P": 0.4
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.53,
+      "notes": [
+        "Strategic P application: 4.1 kg/ha (annual requirement)"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "5.2",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 10.3,
+            "P": 0
+          },
+          "rateKgHa": 52
+        },
+        {
+          "id": "VAR-MAPTECH",
+          "npk": "12-27-0",
+          "form": "granular",
+          "name": "MAP Tech",
+          "brand": "various",
+          "notes": "Strategic P application: Capped at 15 kg/ha - partial P delivery",
+          "rateGM2": "1.5",
+          "analysis": {
+            "N": 12,
+            "P": 27
+          },
+          "delivers": {
+            "K": 0,
+            "N": 1.8,
+            "P": 4.1
+          },
+          "rateKgHa": 15
+        }
+      ],
+      "month_name": "Oct",
+      "requirements": {
+        "K": 0,
+        "N": 10.3,
+        "P": 1.2
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 10.3,
+        "P": 1.2
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.92,
+      "notes": [
+        "Strategic P application: 4.1 kg/ha (annual requirement)"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "8.9",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 17.8,
+            "P": 0
+          },
+          "rateKgHa": 89
+        },
+        {
+          "id": "VAR-MAPTECH",
+          "npk": "12-27-0",
+          "form": "granular",
+          "name": "MAP Tech",
+          "brand": "various",
+          "notes": "Strategic P application: Capped at 15 kg/ha - partial P delivery",
+          "rateGM2": "1.5",
+          "analysis": {
+            "N": 12,
+            "P": 27
+          },
+          "delivers": {
+            "K": 0,
+            "N": 1.8,
+            "P": 4.1
+          },
+          "rateKgHa": 15
+        }
+      ],
+      "month_name": "Nov",
+      "requirements": {
+        "K": 0,
+        "N": 17.8,
+        "P": 2.1
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 17.8,
+        "P": 2.1
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 1,
+      "notes": [
+        "Strategic P application: 4.1 kg/ha (annual requirement)"
+      ],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "ICL-SPORTSMASTER3",
+          "npk": "20-0-0",
+          "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 2,
+          "rateGM2": "9.7",
+          "release": "quick",
+          "analysis": {
+            "K": 0,
+            "N": 20,
+            "P": 0,
+            "S": 20
+          },
+          "delivers": {
+            "K": 0,
+            "N": 19.4,
+            "P": 0
+          },
+          "rateKgHa": 97
+        },
+        {
+          "id": "VAR-MAPTECH",
+          "npk": "12-27-0",
+          "form": "granular",
+          "name": "MAP Tech",
+          "brand": "various",
+          "notes": "Strategic P application: Capped at 15 kg/ha - partial P delivery",
+          "rateGM2": "1.5",
+          "analysis": {
+            "N": 12,
+            "P": 27
+          },
+          "delivers": {
+            "K": 0,
+            "N": 1.8,
+            "P": 4.1
+          },
+          "rateKgHa": 15
+        }
+      ],
+      "month_name": "Dec",
+      "requirements": {
+        "K": 0,
+        "N": 19.4,
+        "P": 2.3
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 19.4,
+        "P": 2.3
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    }
+  ]
+}

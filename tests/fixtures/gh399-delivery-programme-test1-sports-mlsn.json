@@ -1,0 +1,466 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, read 2026-09-10 (GH-399)",
+  "_whyThisSample": "A sports surface (not greens) with P-bearing liquids; export P moves 12.8 to 12.1.",
+  "_verifiedVia": "figures pinned in the test beside this file; program.delivered / program.targets carried through unchanged from the persisted object",
+  "siteId": "019e96d8-8480-721b-ac5a-1ef8022300a2",
+  "siteName": "Test1 - Sports",
+  "region": "au",
+  "meta": {
+    "generated": "2026-09-10T02:22:32.407Z",
+    "methodology": "mlsn",
+    "stateFilter": "all",
+    "surfaceType": "soccer",
+    "distributorFilter": "all"
+  },
+  "delivered": {
+    "K": 88.4,
+    "N": 149,
+    "P": 12.1
+  },
+  "targets": {
+    "K": 66.9,
+    "N": 120,
+    "P": 12.000000000000002
+  },
+  "monthly": [
+    {
+      "gp": 0.86,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "ICL-SIERRABLENPL6",
+          "npk": "24-2.2-10.8",
+          "name": "Sierrablen Plus - Spring Starter (3mth)",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 16,
+          "rateGM2": "25.0",
+          "release": "controlled",
+          "analysis": {
+            "K": 10.8,
+            "N": 24,
+            "P": 2.2,
+            "S": 10.8
+          },
+          "delivers": {
+            "K": 27,
+            "N": 60,
+            "P": 5.5
+          },
+          "rateKgHa": 250
+        }
+      ],
+      "month_name": "Jan",
+      "requirements": {
+        "K": 9.3,
+        "N": 15,
+        "P": 1.7
+      },
+      "netRequirements": {
+        "K": 9.3,
+        "N": 15,
+        "P": 1.7
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.97,
+      "notes": [
+        "Slow-release covering 100% - liquid top-up only"
+      ],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [],
+      "month_name": "Feb",
+      "requirements": {
+        "K": 10.5,
+        "N": 15,
+        "P": 1.9
+      },
+      "netRequirements": {
+        "K": 3.75,
+        "N": 0,
+        "P": 0.5249999999999999
+      },
+      "activeFromPrevious": {
+        "K": 6.8,
+        "N": 15,
+        "P": 1.4
+      }
+    },
+    {
+      "gp": 0.95,
+      "notes": [
+        "Slow-release covering 100% - liquid top-up only"
+      ],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "Mar",
+      "requirements": {
+        "K": 10.4,
+        "N": 15,
+        "P": 1.9
+      },
+      "netRequirements": {
+        "K": 3.65,
+        "N": 0,
+        "P": 0.5249999999999999
+      },
+      "activeFromPrevious": {
+        "K": 6.8,
+        "N": 15,
+        "P": 1.4
+      }
+    },
+    {
+      "gp": 0.58,
+      "notes": [
+        "Covered by previous slow-release application"
+      ],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "Apr",
+      "requirements": {
+        "K": 6.3,
+        "N": 13.3,
+        "P": 1.1
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 6.8,
+        "N": 15,
+        "P": 1.4
+      }
+    },
+    {
+      "gp": 0.17,
+      "notes": [
+        "N shortfall: 3.4 kg/ha - product range limitation",
+        "Low GP (17%) - foliar preferred"
+      ],
+      "liquid": [
+        {
+          "id": "KBA-LONGPADDOCKS",
+          "npk": "10-2-6",
+          "form": "liquid",
+          "name": "Long Paddock Sportsturf 10-2-6",
+          "rate": "4x 15 L/ha",
+          "brand": "K&B Adams",
+          "notes": "4x applications @ 15 L/ha (max practical) = 6.0 kg N, shortfall 3.4 kg",
+          "rateLHa": 15,
+          "analysis": {
+            "K": 6,
+            "N": 10,
+            "P": 2
+          },
+          "delivers": {
+            "K": 3.6,
+            "N": 6,
+            "P": 0
+          },
+          "rateMLM2": "1.5",
+          "applications": 4
+        }
+      ],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "May",
+      "requirements": {
+        "K": 1.9,
+        "N": 9.4,
+        "P": 0.3
+      },
+      "netRequirements": {
+        "K": 1.9,
+        "N": 9.4,
+        "P": 0.3
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.06,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jun",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.04,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jul",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.05,
+      "notes": [
+        "Minimal requirements - no application needed"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Aug",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "netRequirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.19,
+      "notes": [
+        "Low GP (19%) - foliar preferred"
+      ],
+      "liquid": [
+        {
+          "id": "TC-XFACTOR1836",
+          "npk": "18-1.32-4.98",
+          "form": "liquid",
+          "name": "X Factor 18-3-6",
+          "rate": "2x 30 L/ha",
+          "brand": "Turfcare",
+          "notes": "2x applications @ 30 L/ha = 10.8 kg N",
+          "rateLHa": 30,
+          "analysis": {
+            "K": 4.98,
+            "N": 18,
+            "P": 1.32,
+            "S": 4
+          },
+          "delivers": {
+            "K": 3,
+            "N": 10.8,
+            "P": 0
+          },
+          "rateMLM2": "3.0",
+          "applications": 2
+        }
+      ],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Sep",
+      "requirements": {
+        "K": 2.1,
+        "N": 9.6,
+        "P": 0.4
+      },
+      "netRequirements": {
+        "K": 2.1,
+        "N": 9.6,
+        "P": 0.4
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.53,
+      "notes": [
+        "Strategic P application: 4.1 kg/ha (annual requirement)"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "ICL-SIERRAFORMGT3",
+          "npk": "22-2.2-9.1",
+          "name": "Sierraform GT Momentum 22-2.2-9",
+          "brand": "ICL",
+          "notes": null,
+          "weeks": 8,
+          "rateGM2": "11.5",
+          "release": "slow",
+          "analysis": {
+            "K": 9.1,
+            "N": 22,
+            "P": 2.2,
+            "S": 5.1,
+            "Cu": 0.02,
+            "Fe": 0.5,
+            "Mg": 1.2,
+            "Mn": 0.1,
+            "Mo": 0.001,
+            "Si": 1.5,
+            "Zn": 0.02
+          },
+          "delivers": {
+            "K": 10.5,
+            "N": 25.4,
+            "P": 2.5
+          },
+          "rateKgHa": 115
+        },
+        {
+          "id": "VAR-MAPTECH",
+          "npk": "12-27-0",
+          "form": "granular",
+          "name": "MAP Tech",
+          "brand": "various",
+          "notes": "Strategic P application: P supplementation",
+          "rateGM2": "1.5",
+          "analysis": {
+            "N": 12,
+            "P": 27
+          },
+          "delivers": {
+            "K": 0,
+            "N": 1.8,
+            "P": 4.1
+          },
+          "rateKgHa": 15
+        }
+      ],
+      "month_name": "Oct",
+      "requirements": {
+        "K": 5.7,
+        "N": 12.7,
+        "P": 1
+      },
+      "netRequirements": {
+        "K": 5.7,
+        "N": 12.7,
+        "P": 1
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.92,
+      "notes": [
+        "Slow-release covering 85% - liquid top-up only"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Nov",
+      "requirements": {
+        "K": 9.9,
+        "N": 15,
+        "P": 1.8
+      },
+      "netRequirements": {
+        "K": 4.65,
+        "N": 2.3000000000000007,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 5.3,
+        "N": 12.7,
+        "P": 1.3
+      }
+    },
+    {
+      "gp": 1,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "GTS-GTSSPORTSERI3",
+          "npk": "20-0-19.7",
+          "name": "GTS Sport Series High K 20-0-20",
+          "brand": "GTS",
+          "notes": null,
+          "weeks": 10,
+          "rateGM2": "22.5",
+          "release": "controlled",
+          "analysis": {
+            "K": 19.7,
+            "N": 20,
+            "S": 1.5,
+            "Fe": 3.4
+          },
+          "delivers": {
+            "K": 44.3,
+            "N": 45,
+            "P": 0
+          },
+          "rateKgHa": 225
+        }
+      ],
+      "month_name": "Dec",
+      "requirements": {
+        "K": 10.8,
+        "N": 15,
+        "P": 1.9
+      },
+      "netRequirements": {
+        "K": 10.8,
+        "N": 15,
+        "P": 0
+      },
+      "activeFromPrevious": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    }
+  ]
+}

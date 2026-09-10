@@ -204,6 +204,76 @@
     }
 
     /**
+     * GH-403 — the Required half of the pair this module classifies, resolved
+     * from a generated programme.
+     *
+     * WHY IT IS HERE. Required appeared on the Plan page and in the Word
+     * document as two different quantities under one column name: the document
+     * printed the shared engine's `annualRequirement`, while all three regional
+     * panels re-derived it by SUMMING the twelve monthly rows the calendar had
+     * already rounded to 1 dp. Those two agree only by luck — measured live,
+     * New test - location's phosphorus read 14.0 on the Plan and 14.2 in the
+     * document, Federal Golf's potassium 63.9 against 64.0, Burns' phosphorus
+     * 14.0 against 14.1.
+     *
+     * The twelve monthly rows are the SCHEDULE. This is the requirement the
+     * schedule delivers, and it is the engine's own figure — the same number,
+     * from the same shared core (nutrition-requirement-core.js), that the
+     * document's Annual Nutrient Requirements table prints. Rounding it once at
+     * output is the renderer's job, not this function's.
+     *
+     * GH-403 also removed the whole-kilogram rounding nutrition-calendar.js
+     * applied to that figure before distributing it, so `annual_totals` is now
+     * canonical at 0.1 kg/ha — which is why summing the rounded months can no
+     * longer stand in for it even approximately.
+     *
+     * FALLBACKS, in order, for a programme generated before this ticket and
+     * restored from the persisted site config: the recommender's own `targets`
+     * vector, then the sum of the monthly requirement rows. Both are the
+     * pre-GH-403 behaviour of the panel that is asking, so an old programme
+     * renders exactly as it used to rather than blank.
+     *
+     * @param {Object} program  a regional recommender's programme, with
+     *                          `annual_requirements` carried through from
+     *                          nutrition-calendar.js's `annual_totals`.
+     * @returns {{N:number,P:number,K:number,Ca:number,Mg:number,S:number}}
+     */
+    function annualRequired(program) {
+        const NUTRIENTS = ['N', 'P', 'K', 'Ca', 'Mg', 'S'];
+        const out = { N: 0, P: 0, K: 0, Ca: 0, Mg: 0, S: 0 };
+        const p = program || {};
+
+        const engine = p.annual_requirements;
+        if (engine && typeof engine === 'object') {
+            let any = false;
+            NUTRIENTS.forEach(function (n) {
+                const v = parseFloat(engine[n]);
+                if (isFinite(v)) { out[n] = v; any = true; }
+            });
+            if (any) return out;
+        }
+
+        const targets = p.targets;
+        if (targets && typeof targets === 'object') {
+            let any = false;
+            NUTRIENTS.forEach(function (n) {
+                const v = parseFloat(targets[n]);
+                if (isFinite(v)) { out[n] = v; any = true; }
+            });
+            if (any) return out;
+        }
+
+        (Array.isArray(p.monthly) ? p.monthly : []).forEach(function (m) {
+            const req = (m && m.requirements) || {};
+            NUTRIENTS.forEach(function (n) {
+                const v = parseFloat(req[n]);
+                if (isFinite(v)) out[n] += v;
+            });
+        });
+        return out;
+    }
+
+    /**
      * GH-396 (a): one soil level, printed once, in both units — kg/ha first
      * because every rate on both surfaces is kg/ha, with the certificate's
      * own ppm in brackets because that is what the client cross-checks the
@@ -217,6 +287,7 @@
 
     const API = {
         classify: classify,
+        annualRequired: annualRequired,
         visualClass: visualClass,
         statusColour: statusColour,
         formatCurrent: formatCurrent,

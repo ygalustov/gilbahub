@@ -131,14 +131,18 @@ describe('GH-379 normalizeMethodology() folds every accepted spelling to one key
 describe('GH-379 computeProgram() is case-invariant on inputs.methodology', () => {
     const base = Calendar.computeProgram(inputs('ammonium_acetate'));
 
-    test('the lowercase baseline is the live-confirmed AA result (S277 K 78.2-195.5, lift 26.74, K 136)', () => {
+    // GH-403: `annual_totals` is the shared core's canonical 0.1 kg/ha figure
+    // now — the whole-kilogram rounding that stood between the core and the
+    // monthly distribution is gone, so the live-confirmed 136 reads 136.1, the
+    // figure the Word export has printed for this sample all along.
+    test('the lowercase baseline is the live-confirmed AA result (S277 K 78.2-195.5, lift 26.74, K 136.1)', () => {
         expect(base.error).toBeUndefined();
         expect(base.annual_totals_range.K.min).toBeCloseTo(78.2, 6);
         expect(base.annual_totals_range.K.max).toBeCloseTo(195.5, 6);
         expect(base.annual_totals_range.P).toEqual({ min: 20, max: 30 });
         expect(base.annual_totals_range_source.K).toBe('certificate');
         expect(base.annual_lift.K).toBeCloseTo(26.74, 6);
-        expect(base.annual_totals.K).toBe(136);
+        expect(base.annual_totals.K).toBeCloseTo(136.1, 6);
         expect(base.annual_removal.K).toBe(109);
         const sumK = base.program.monthly.reduce((s, m) => s + m.K, 0);
         expect(sumK).toBeCloseTo(136, 0);
@@ -157,7 +161,7 @@ describe('GH-379 computeProgram() is case-invariant on inputs.methodology', () =
         expect(p.annual_totals_range.K.min).not.toBe(37);
         expect(p.annual_totals_range.K.min).toBeCloseTo(78.2, 6);
         expect(p.annual_lift.K).toBeCloseTo(26.74, 6);
-        expect(p.annual_totals.K).toBe(136);
+        expect(p.annual_totals.K).toBeCloseTo(136.1, 6);
     });
 
     test('SLAN: \'slan\' and \'SLAN\' are identical and take the SLAN (Carrow 2004) range', () => {
@@ -242,11 +246,11 @@ describe('GH-379 the export\'s per-sample calendar sees the same texture / CEC i
         const noTexture = Calendar.computeProgram(Object.assign(inputs('AMMONIUM_ACETATE'), { soilTexture: null, CEC: null }));
         expect(withTexture.annual_totals_range_source.K).toBe('certificate');
         expect(withTexture.annual_totals_range.K.min).toBeCloseTo(78.2, 6);
-        expect(withTexture.annual_totals.K).toBe(136);
+        expect(withTexture.annual_totals.K).toBeCloseTo(136.1, 6);
         // Live pre-overlay export figures: generic sands band, K 151.
         expect(noTexture.annual_totals_range_source.K).toBe('texture-fallback');
         expect(noTexture.annual_totals_range.K).toEqual({ min: 100, max: 235 });
-        expect(noTexture.annual_totals.K).toBe(151);
+        expect(noTexture.annual_totals.K).toBeCloseTo(151.4, 6);
     });
 
     test('word-export.js exposes the per-sample texture its range resolution used on engineInputs', () => {

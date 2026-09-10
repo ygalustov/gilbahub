@@ -103,6 +103,13 @@
     // ==========================================================================
     const TRAFFIC_MODIFIERS = { low: 0.85, moderate: 1.0, high: 1.15, extreme: 1.3 };
 
+    // GH-398: the two monthly-distribution defaults, taken from
+    // nutrition-calendar.js collectFromState()'s own `|| 50` and
+    // `|| 'gp_weighted'` so an unmigrated caller lands where the Plan page has
+    // always landed.
+    const DEFAULT_MAX_N_PER_MONTH = 50;
+    const DEFAULT_DISTRIBUTION_MODE = 'gp_weighted';
+
     /**
      * deriveTrafficIntensity(schedule, turfType)  — GH-394 (D31 stage 3)
      *
@@ -523,10 +530,18 @@
         const nEl = d.getElementById('plan-nut-annual-n');
         if (!nEl) return null;
         const clipEl = d.getElementById('plan-nut-clipping');
+        const maxEl = d.getElementById('plan-nut-max-n');
+        const distEl = d.getElementById('plan-nut-distribution');
         const n = parseFloat(nEl.value);
+        // GH-398: the monthly cap and the distribution mode join the contract,
+        // because the Word export's Monthly N Distribution now runs both and
+        // must run the SAME two the Plan page did.
+        const maxN = maxEl ? parseFloat(maxEl.value) : NaN;
         return {
             annualN: (isFinite(n) && n > 0) ? n : null,
-            clippingManagement: (clipEl && clipEl.value) ? clipEl.value : null
+            clippingManagement: (clipEl && clipEl.value) ? clipEl.value : null,
+            maxNPerMonth: (isFinite(maxN) && maxN > 0) ? maxN : null,
+            distributionMode: (distEl && distEl.value) ? distEl.value : null
         };
     }
 
@@ -659,6 +674,41 @@
         }
         const annualN = resolveAnnualN({ base: annualNBase, trafficModifier: traffic.modifier });
 
+        // ── monthly distribution: the cap and the mode (GH-398, D31 stage 4) ──
+        // Both used to be Plan-page-only DOM reads, which is why the Word
+        // export's monthly table ran an uncapped, always-GP-weighted split.
+        // Same precedence as every other field: this page's live form, then
+        // what the site saved, then the default the Plan form itself shows.
+        // `maxNPerMonth` sits at the top level of the gaip config, written by
+        // nutrition-calendar.js alongside the programme; the mode is stamped
+        // on the programme's own meta.
+        let maxNPerMonth = null;
+        if (planForm && planForm.maxNPerMonth > 0) {
+            maxNPerMonth = planForm.maxNPerMonth;
+            sources.maxNPerMonth = 'plan';
+        } else if (cfg.maxNPerMonth > 0) {
+            maxNPerMonth = parseFloat(cfg.maxNPerMonth);
+            sources.maxNPerMonth = 'site-config';
+        } else {
+            // nutrition-calendar.js collectFromState()'s own `|| 50` — the
+            // value a Plan page with an empty "Max N per application" field
+            // has always computed with.
+            maxNPerMonth = DEFAULT_MAX_N_PER_MONTH;
+            sources.maxNPerMonth = 'default';
+        }
+
+        let distributionMode = null;
+        if (planForm && planForm.distributionMode) {
+            distributionMode = planForm.distributionMode;
+            sources.distributionMode = 'plan';
+        } else if (persistedMeta && persistedMeta.distribution) {
+            distributionMode = persistedMeta.distribution;
+            sources.distributionMode = 'plan-persisted';
+        } else {
+            distributionMode = DEFAULT_DISTRIBUTION_MODE;
+            sources.distributionMode = 'default';
+        }
+
         // ── sufficiency ranges ──
         const resolved = resolveSufficiencyRanges({
             methodology: methodology,
@@ -686,6 +736,8 @@
             trafficModifier: traffic.modifier,
             annualNBase: annualNBase,
             annualN: annualN,
+            maxNPerMonth: maxNPerMonth,
+            distributionMode: distributionMode,
             ranges: resolved.ranges,
             rangeSources: resolved.sources,
             certificateCode: resolved.certificateCode,
@@ -696,6 +748,8 @@
     const API = {
         VERSION: VERSION,
         TRAFFIC_MODIFIERS: TRAFFIC_MODIFIERS,
+        DEFAULT_MAX_N_PER_MONTH: DEFAULT_MAX_N_PER_MONTH,
+        DEFAULT_DISTRIBUTION_MODE: DEFAULT_DISTRIBUTION_MODE,
         resolveSiteProgramInputs: resolveSiteProgramInputs,
         resolveSufficiencyRanges: resolveSufficiencyRanges,
         deriveTrafficIntensity: deriveTrafficIntensity,

@@ -74,43 +74,125 @@
         "S_req": 0.0
       },
       "engineDecomposition": {
-        "K": { "removal": 57.4, "correctionRequired": 26.74, "annualRequirement": 84.1, "intent": "lift-to-floor" },
-        "P": { "removal": 33.9, "correctionRequired": 7.0, "annualRequirement": 40.9, "intent": "lift-to-floor" }
+        "K": {
+          "removal": 57.4,
+          "correctionRequired": 26.74,
+          "annualRequirement": 84.1,
+          "intent": "lift-to-floor"
+        },
+        "P": {
+          "removal": 33.9,
+          "correctionRequired": 7.0,
+          "annualRequirement": 40.9,
+          "intent": "lift-to-floor"
+        }
       },
-      "_ifUnconverted": { "K_req": 76.5, "P_req": 38.9 }
+      "_ifUnconverted": {
+        "K_req": 76.5,
+        "P_req": 38.9
+      }
     },
     "_preGh381LiveRender": {
       "_note": "The actual live-rendered .docx figures from the original GH-370 verification pass, before GH-381's N-basis fix. Kept for history only.",
-      "annualNutrientRequirementsRow": { "N": 250, "P_req": 31.4, "K_req": 68.1 },
-      "engineDecomposition": {
-        "K": { "removal": 41.4, "correctionRequired": 26.74, "annualRequirement": 68.1, "intent": "lift-to-floor" },
-        "P": { "removal": 24.4, "correctionRequired": 7.0, "annualRequirement": 31.4, "intent": "lift-to-floor" }
+      "annualNutrientRequirementsRow": {
+        "N": 250,
+        "P_req": 31.4,
+        "K_req": 68.1
       },
-      "_ifUnconverted": { "K_req": 60.5, "P_req": 29.4 }
+      "engineDecomposition": {
+        "K": {
+          "removal": 41.4,
+          "correctionRequired": 26.74,
+          "annualRequirement": 68.1,
+          "intent": "lift-to-floor"
+        },
+        "P": {
+          "removal": 24.4,
+          "correctionRequired": 7.0,
+          "annualRequirement": 31.4,
+          "intent": "lift-to-floor"
+        }
+      },
+      "_ifUnconverted": {
+        "K_req": 60.5,
+        "P_req": 29.4
+      }
     },
     "planPage": {
       "_surface": "nutrition-calendar.js computeProgram(); removal is the same tissue ratio scaled against the site's real annualN=250, correction is the converted term above",
       "annualRequirementCards": {
         "N": 250,
-        "P": 41,
-        "K": 84
+        "P": 40.9,
+        "K": 84.1
       },
       "nutrientDeliverySummary": {
-        "P": { "removal": 34, "required": 41 },
-        "K": { "removal": 57, "required": 84.2 }
+        "P": {
+          "removal": 34,
+          "required": 40.9
+        },
+        "K": {
+          "removal": 57,
+          "required": 84.1
+        }
       },
       "persistedNutritionCalendarProgram": {
-        "soilDeficitsKgHa": { "K": 53.48, "P": 14 },
-        "annual_lift": { "K": 26.74, "P": 7 },
-        "annual_removal": { "K": 57, "P": 34 },
-        "annual_totals": { "K": 84, "P": 41 },
-        "annual_totals_range_source": { "K": "certificate", "P": "certificate" }
+        "soilDeficitsKgHa": {
+          "K": 53.48,
+          "P": 14
+        },
+        "annual_lift": {
+          "K": 26.74,
+          "P": 7
+        },
+        "annual_removal": {
+          "K": 57,
+          "P": 34
+        },
+        "annual_totals": {
+          "K": 84.1,
+          "P": 40.9
+        },
+        "annual_totals_range_source": {
+          "K": "certificate",
+          "P": "certificate"
+        }
+      },
+      "_gh403Note": "GH-403 removed the whole-kilogram rounding nutrition-calendar.js applied to the core's annual requirement before distributing it, and made the Plan panel print that requirement instead of re-deriving it by summing the twelve monthly rows. The Plan's figures below therefore MOVED, to the figures this same fixture already records for the document (combinedExport.annualNutrientRequirementsRow: K_req 84.1, P_req 40.9) -- which is the whole point of the ticket: one quantity, one number, on both surfaces. The pre-GH-403 values are kept in _preGh403PlanRender for history. They were captured live on 2026-09-08 against a temporarily mutated sample 141 that has since been restored, so the post-GH-403 figures here are RECOMPUTED from the same inputs through the same code, not re-captured in the browser; they are corroborated by the live-captured document row, which they now equal exactly.",
+      "_preGh403PlanRender": {
+        "annualRequirementCards": {
+          "N": 250,
+          "P": 41,
+          "K": 84
+        },
+        "nutrientDeliverySummary": {
+          "P": {
+            "removal": 34,
+            "required": 41
+          },
+          "K": {
+            "removal": 57,
+            "required": 84.2
+          }
+        },
+        "annual_totals": {
+          "K": 84,
+          "P": 41
+        },
+        "_whyThreeDifferentNumbers": "84 was Math.round(84.1) taken BEFORE the annual was distributed; 84.2 was the sum of the twelve monthly rows, each rounded to 1 dp, that the panel re-derived Required from; 84.1 was, and is, the engine's answer. One column name, three numbers."
       }
     },
     "sharedCore": {
       "_surface": "nutrition-requirement-core.js (GH-376, not yet routed in the app)",
-      "K": { "removal": 57.4, "correctionRequired": 26.74, "annualRequirement": 84.1 },
-      "P": { "removal": 33.9, "correctionRequired": 7.0, "annualRequirement": 40.9 }
+      "K": {
+        "removal": 57.4,
+        "correctionRequired": 26.74,
+        "annualRequirement": 84.1
+      },
+      "P": {
+        "removal": 33.9,
+        "correctionRequired": 7.0,
+        "annualRequirement": 40.9
+      }
     }
   }
 }

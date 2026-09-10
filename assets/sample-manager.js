@@ -1210,20 +1210,35 @@
         // engines (toggle-gated read in word-export.js _buildEngineInputs).
         // Same defensive try/catch as the bulk-modal version so a missing
         // GAIP_SiteConfig dependency never blocks the import itself.
-        if (_b371_anySpeciesApplied) {
-            try {
-                var sc371 = window.GAIP_SiteConfig;
-                if (sc371 && _currentSite
-                    && typeof sc371.isMultiSiteTurfEnabled === 'function'
-                    && typeof sc371.setMultiSiteTurfEnabled === 'function'
-                    && !sc371.isMultiSiteTurfEnabled(_currentSite)) {
-                    sc371.setMultiSiteTurfEnabled(_currentSite, true);
-                    log('b35fix371: auto-enabled multi-site turf for "' +
-                        _currentSite + '" because CSV import contained ' +
-                        'turf_species values for at least one row.');
-                }
-            } catch (e) { /* defensive — never block import on toggle error */ }
-        }
+        // GH-402: b35fix371 used to switch multi-site turf ON here, silently,
+        // whenever an imported CSV carried a species column. Removed — an
+        // import must not change how a site is calculated.
+        //
+        // What that switch turns on: per-sample turf profiles, where selecting
+        // a sample overwrites the site's own turf settings (type, species,
+        // variety, oversow) with the ones attached to that sample, and every
+        // figure downstream — removal rates, growth potential, product choice
+        // — is then computed for that grass instead. The user's answer to
+        // "one site, several surfaces with different grass" is a separate site
+        // per surface, each with its own turf settings; this is a second,
+        // competing model for the same question, and she has not decided
+        // whether to keep it. Meanwhile it is dormant: the toggle exists only
+        // on /hub and the three report pages, never in the new hub's Settings,
+        // and no site in the database has it on.
+        //
+        // So the danger was not the feature but the silent arming. A client
+        // whose lab file happened to carry a species column would have had the
+        // mode switched on, samples given profiles, and their calculation
+        // quietly following the sample rather than their settings — with no
+        // control anywhere in the new hub to see it or turn it off. Our own
+        // import templates carry no species column, so this was reachable only
+        // by a hand-edited file, which is why it is being disarmed rather than
+        // treated as urgent. Samples still receive `turfProfile` on import
+        // (harmless while the mode is off, and the data is worth keeping if
+        // the feature is kept); nothing acts on it.
+        //
+        // To restore: put this block back, or add a toggle to Settings. Do
+        // neither without settling whether the per-sample model should exist.
         
         // Store new samples
         // (already merged above)

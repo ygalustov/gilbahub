@@ -103,9 +103,19 @@
                                 </div>
                                 {{-- Location search spans full width, coordinates follow in the same grid --}}
                                 <div class="stg-field" style="grid-column:1/-1;position:relative;">
+                                    {{-- GH-404: required. Picking a location is what fills in the
+                                         latitude and longitude below, and those two drive the climate,
+                                         growth potential and disease calculations. A site saved without
+                                         them is computed against a hardcoded fallback latitude instead,
+                                         with nothing in the report to say so.
+                                         The form carries `novalidate`, so this attribute marks intent
+                                         and styles the field — it does not gate the save. The check
+                                         that does is in settings-init.js, and it tests the coordinates
+                                         rather than this field, so clearing them by hand is caught too.
+                                         Same arrangement as the site name directly above. --}}
                                     <label for="stg-location-name">Location (for live weather)</label>
                                     <input type="text" id="stg-location-name" name="location_name"
-                                           value="{{ $locationName ?? '' }}"
+                                           value="{{ $locationName ?? '' }}" required
                                            maxlength="255" placeholder="Search suburb, city, or venue…"
                                            autocomplete="off">
                                     <div id="stg-location-results"

@@ -3,8 +3,14 @@
  * assets/nutrition-requirement-core.js)
  *
  * Pure-function nutrition requirement engine.
- * f({ soil, turf, climate, ranges|aaRanges, tissuePercent, overseedConfig })
- *   → { perSample, facility }
+ * f({ soil, turf, climate, ranges|aaRanges, tissuePercent, overseedConfig,
+ *     distribution })
+ *   → { perSample, facility, monthlyNutrients }
+ *
+ * `distribution` is GH-398's addition: { mode, maxNPerMonth } — the monthly
+ * distribution mode and "Max N per application" cap the site's own Plan
+ * programme was built with, resolved by nutrition-program-inputs.js. Omitted,
+ * the engine behaves as it did before that ticket (gp_weighted, no cap).
  *
  * Extracted from nutrition-summary-integration.js v1.1.3 (b35fix302).
  * All DOM reads and window globals REMOVED.
@@ -33,7 +39,10 @@
     'use strict';
 
     const CONFIG = {
-        version: '2.0.0-gh383',
+        // GH-398 bumped this: the monthly series this engine returns is now
+        // capped and mode-aware, so a stored result stamped 2.0.0-gh383 was
+        // produced by the uncapped distribution and is not comparable.
+        version: '2.1.0-gh398',
         debug: false
     };
 
@@ -76,6 +85,16 @@
     //   - Sufficiency ranges are resolved by nutrition-program-inputs.js and
     //     passed in as `ranges`. Callers that still pass only `aaRanges` keep
     //     working: see _rangesForCompute() below.
+    //
+    // GH-398 (D31 stage 4) finished the job at the other end: the GP-weighted
+    // MONTHLY distribution — the last thing this file and nutrition-calendar.js
+    // each implemented separately — moved to
+    // assets/nutrition-monthly-distribution.js, along with the monthly N cap
+    // that only the calendar had. The visible consequence is that the Word
+    // export's "Monthly N Distribution" table now honours the site's own
+    // "Max N per application" limit and its own distribution mode instead of
+    // printing an uncapped GP-weighted series beside a Plan page that had
+    // clamped it.
     // ==========================================================================
 
     let _coreCached = null;
@@ -243,120 +262,95 @@
         return results;
     }
     // ==========================================================================
-    // GROWTH POTENTIAL + MONTHLY N DISTRIBUTION
+    // GROWTH POTENTIAL + MONTHLY N DISTRIBUTION — GH-398 (D31 stage 4)
     // ==========================================================================
-    // GP math is delegated to GilbaGrowthPotentialEngine (b35fix302a).
-    // This engine keeps the nutrition-programme concepts that GP doesn't own:
-    // seasonal C3/C4 fractions, N distribution weighting, active-month gating.
+    // This section used to be the export's own copy of the monthly programme:
+    // its own 0.10 activity threshold, its own GP-weighted split, its own
+    // dormancy fallback, its own season table, and no monthly N cap at all —
+    // against nutrition-calendar.js's copy of the same four things plus the
+    // cap. One document printed both series.
     //
-    // Source: nutrition-summary-integration.js v1.1.3. Previously used inline
-    // Gaussian math with σ=5.5/7 (matching PACE). Now delegates to the canonical
-    // GP engine so all GP consumers share one σ set.
+    // All of it now lives in assets/nutrition-monthly-distribution.js. What
+    // changed here, by the settled decisions:
+    //   - The monthly N cap is APPLIED (decision 1). Four of the ten dev sites
+    //     carry a 15 kg N/month cap and it binds on all four; this table used
+    //     to print the unclamped series for those sites while the Plan page
+    //     showed the clamped one.
+    //   - The distribution MODE is honoured (gp_weighted / even /
+    //     front_loaded), taken from the same site programme the Plan page
+    //     saved it in. Every current site is gp_weighted.
+    //   - GP is no longer rounded to 2 dp before weighting and the monthly
+    //     figures are no longer rounded inside the split (decision 2). Rounding
+    //     intermediates was the source of the ≤0.2 kg/month drift between the
+    //     two series; the values are rounded once, where they are built into
+    //     facility.monthlyN.
+    //   - The C3/C4 blend is unchanged, fractions included (decision 3) — it
+    //     is this engine's model that the Plan page adopted, not the reverse.
+    //
+    // Month indexing: this file's public shapes stay 1-12 (facility.monthlyGP,
+    // facility.monthlyC3Fractions, _computeMonthlyGP, _getSeason). The shared
+    // module works in 0-11 and owns the converters, so the reindex has one
+    // implementation rather than an inline one per call site — GH-363 was an
+    // inline one.
 
-    const MIN_GP_THRESHOLD = 0.10;
-
-    // Summer intent profiles for overseeded sites.
-    // Source: nutrition-summary-integration.js v1.1.3 NUTRITION_CONFIG.summerIntentProfiles.
-    const SUMMER_INTENT_PROFILES = {
-        transition: { summerC3: 0.10, transitionC3: 0.40, winterC3: 0.90 },
-        maintain:   { summerC3: 0.35, transitionC3: 0.60, winterC3: 0.90 },
-        establish:  { summerC3: 0.05, transitionC3: 0.30, winterC3: 0.85 },
-        dormant:    { summerC3: 0.10, transitionC3: 0.50, winterC3: 0.95 }
-    };
-
-    function getSeason(month, hemisphere) {
-        hemisphere = hemisphere || 'south';
-        const seasonsNorth = {
-            12: 'Winter', 1: 'Winter', 2: 'Winter',
-            3: 'Spring', 4: 'Spring', 5: 'Spring',
-            6: 'Summer', 7: 'Summer', 8: 'Summer',
-            9: 'Autumn', 10: 'Autumn', 11: 'Autumn'
-        };
-        const seasonsSouth = {
-            6: 'Winter', 7: 'Winter', 8: 'Winter',
-            9: 'Spring', 10: 'Spring', 11: 'Spring',
-            12: 'Summer', 1: 'Summer', 2: 'Summer',
-            3: 'Autumn', 4: 'Autumn', 5: 'Autumn'
-        };
-        return String(hemisphere).toLowerCase().includes('south')
-            ? seasonsSouth[month]
-            : seasonsNorth[month];
+    let _distributionCached = null;
+    function _distribution() {
+        if (_distributionCached) return _distributionCached;
+        _distributionCached = (global && global.GAIP_NutritionMonthlyDistribution) ||
+            (typeof window !== 'undefined' && window.GAIP_NutritionMonthlyDistribution) || null;
+        if (!_distributionCached && typeof module !== 'undefined' && module.exports && typeof require === 'function') {
+            try { _distributionCached = require('./nutrition-monthly-distribution.js'); } catch (e) { /* not resolvable */ }
+        }
+        if (!_distributionCached) {
+            throw new Error('[NutritionRequirementEngine] nutrition-monthly-distribution.js is not loaded — ' +
+                'it must be enqueued before this file (see the blade script lists).');
+        }
+        return _distributionCached;
     }
 
+    /** 1-12 season lookup, kept for callers; the table is the shared one. */
+    function getSeason(month, hemisphere) {
+        return _distribution().seasonFor(month - 1, hemisphere || 'south');
+    }
+
+    /** 1-12 keyed C3 fractions. */
     function calculateMonthlyC3Fractions(overseedConfig, hemisphere) {
-        const result = {};
-        if (!overseedConfig || !overseedConfig.isOverseed) {
-            const fraction = overseedConfig && overseedConfig.baseIsC4 ? 0 : 1;
-            for (let m = 1; m <= 12; m++) result[m] = fraction;
-            return result;
-        }
-        const intent = overseedConfig.summerIntent || 'transition';
-        const profile = SUMMER_INTENT_PROFILES[intent] || SUMMER_INTENT_PROFILES.transition;
-        for (let month = 1; month <= 12; month++) {
-            const season = getSeason(month, hemisphere);
-            if      (season === 'Winter') result[month] = profile.winterC3;
-            else if (season === 'Summer') result[month] = profile.summerC3;
-            else                          result[month] = profile.transitionC3;
-        }
-        return result;
+        const arr = _distribution().monthlyC3Fractions(overseedConfig, hemisphere || 'south');
+        return _distribution().toMonthMap(arr);
     }
 
     /**
-     * Monthly GP via GilbaGrowthPotentialEngine. Uses model='pace',
-     * species='blend' with per-month c3Fraction — supports pure-C3, pure-C4,
-     * and overseed scenarios through one code path. Rounds to 2dp to match
-     * source behaviour (nutrition-summary-integration.js lines 444–452).
-     * Returns null if the GP engine is not loaded (fails fast rather than
-     * producing silent zeros).
+     * Monthly GP, 1-12 keyed, via GilbaGrowthPotentialEngine (model='pace',
+     * species='blend' with a per-month c3Fraction — one code path for pure-C3,
+     * pure-C4 and overseed).
+     *
+     * GH-398: no longer rounded to 2 dp. Rounding before the weighting was one
+     * half of the drift between this table and the Plan page's; the printed GP
+     * percentage is rounded at render, as it always was.
+     *
+     * Returns null if the GP engine is not loaded, or if any month's
+     * temperature is missing — GH-245: never default a missing month to 15degC,
+     * which silently fabricated a flat ~66% profile for every site with no
+     * climate data (Hoxton audit D02/D03). compute() surfaces that as
+     * facility.climateDataUnavailable.
      */
     function computeMonthlyGP(monthlyTemps, monthlyC3Fractions) {
-        const GP = global && global.GilbaGrowthPotentialEngine;
-        if (!GP || typeof GP.compute !== 'function') return null;
-        // GH-245: no real per-site monthlyTemps — do not default missing
-        // months to 15degC. That silently fabricated a flat ~66% GP profile
-        // for every site lacking climate data (Hoxton audit D02/D03 root
-        // cause). Fail to null instead; compute() surfaces this as
-        // facility.climateDataUnavailable.
-        if (!monthlyTemps) return null;
-        const result = {};
-        for (let month = 1; month <= 12; month++) {
-            if (typeof monthlyTemps[month] !== 'number') return null;
-            const c3Frac = monthlyC3Fractions ? (monthlyC3Fractions[month] ?? 1.0) : 1.0;
-            const gp = GP.compute(monthlyTemps[month], { model: 'pace', species: 'blend', c3Fraction: c3Frac });
-            result[month] = Math.round(gp * 100) / 100;
-        }
-        return result;
+        const D = _distribution();
+        const temps = D.fromMonthMap(monthlyTemps);
+        if (!temps) return null;
+        const fractions = monthlyC3Fractions ? D.fromMonthMap(monthlyC3Fractions) : null;
+        const gp = D.monthlyGP(temps, fractions);
+        return gp ? D.toMonthMap(gp) : null;
     }
 
     /**
-     * Distributes annualN across 12 months weighted by monthly GP. Months with
-     * GP below MIN_GP_THRESHOLD (0.10) receive zero. If ALL months are below
-     * threshold (total dormancy), falls back to equal distribution so some
-     * programme still exists — matches source behaviour
-     * (nutrition-summary-integration.js lines 474–481).
+     * Distributes annualN across 12 months (1-12 keyed) weighted by monthly
+     * GP. GH-398: raw values — the caller rounds at output.
      */
     function distributeNGPWeighted(annualN, monthlyGP) {
-        let totalGP = 0;
-        for (let month = 1; month <= 12; month++) {
-            if (monthlyGP[month] >= MIN_GP_THRESHOLD) totalGP += monthlyGP[month];
-        }
-        const result = {};
-        if (totalGP === 0) {
-            const perMonth = annualN / 12;
-            for (let month = 1; month <= 12; month++) {
-                result[month] = Math.round(perMonth * 10) / 10;
-            }
-            return result;
-        }
-        for (let month = 1; month <= 12; month++) {
-            if (monthlyGP[month] >= MIN_GP_THRESHOLD) {
-                const fraction = monthlyGP[month] / totalGP;
-                result[month] = Math.round(annualN * fraction * 10) / 10;
-            } else {
-                result[month] = 0;
-            }
-        }
-        return result;
+        const D = _distribution();
+        const gp = D.fromMonthMap(monthlyGP);
+        return D.toMonthMap(D.distribute(annualN, gp, 'gp_weighted'));
     }
 
     function compute(inputs) {
@@ -448,9 +442,11 @@
         // C3-on-C3 misconfiguration guard: if isOverseed=true but baseIsC4=false,
         // the "overseed" is a C3 grass on a C3 base — no seasonal C3/C4 split
         // is meaningful. Treat as pure C3 (not overseeded). Source bug fixed.
-        const effectiveOverseed = (overseedConfig.isOverseed && overseedConfig.baseIsC4)
-            ? overseedConfig
-            : { isOverseed: false, baseIsC4: overseedConfig.baseIsC4 || false };
+        //
+        // GH-398: the guard itself moved into the shared module's
+        // monthlyC3Fractions(), because nutrition-calendar.js had to apply the
+        // same rule the moment it adopted this blended model, and one rule
+        // written twice is the whole subject of D31.
 
         // GH-245: no fallback to {} — an empty object here silently made
         // every month read as 15degC downstream. null propagates instead,
@@ -459,24 +455,71 @@
         // audit D02/D03).
         const monthlyTemps = climate.monthlyTemps || null;
         const hemisphere = climate.hemisphere || 'south';
-        const monthlyC3Fractions = calculateMonthlyC3Fractions(effectiveOverseed, hemisphere);
+        const monthlyC3Fractions = calculateMonthlyC3Fractions(overseedConfig, hemisphere);
         const monthlyGP = computeMonthlyGP(monthlyTemps, monthlyC3Fractions);
-        const nAllocations = (monthlyGP !== null)
-            ? distributeNGPWeighted(annualN, monthlyGP)
+
+        // GH-398 (D31 stage 4): the distribution mode and the monthly N cap
+        // this site's Plan programme was built with, resolved by
+        // nutrition-program-inputs.js from the same site config the Plan page
+        // saved them in. Absent — a caller that has not been migrated, e.g.
+        // the old hub's Nutrition Summary panel — the mode defaults to
+        // gp_weighted and there is no cap, which is exactly what this engine
+        // did before this ticket, so no unmigrated caller's numbers move.
+        const _dist = _distribution();
+        const distributionIn = inputs.distribution || {};
+        const distributionMode = _dist.normalizeMode(distributionIn.mode);
+        const maxNPerMonth = (typeof distributionIn.maxNPerMonth === 'number' && distributionIn.maxNPerMonth > 0)
+            ? distributionIn.maxNPerMonth : null;
+
+        // Every nutrient through the one function (decision 4). The document
+        // prints N only today; P/K/Ca/Mg/S are computed here so there is no
+        // second place left that could compute them differently.
+        const annualAmounts = { N: annualN };
+        ['P', 'K', 'Ca', 'Mg', 'S'].forEach(function (n) {
+            const r = perSample[n];
+            if (r && typeof r.annualRequirement === 'number') annualAmounts[n] = r.annualRequirement;
+        });
+
+        const distributed = (monthlyGP !== null)
+            ? _dist.distributeProgram({
+                annualAmounts: annualAmounts,
+                gp: _dist.fromMonthMap(monthlyGP),
+                mode: distributionMode,
+                maxNPerMonth: maxNPerMonth
+            })
             : null;
+        const nAllocations = distributed ? distributed.distributions.N : null;
 
         // Build monthlyN array (12 entries, Jan=0 through Dec=11). Matches
         // source format consumed by word-export and panel rendering.
+        //
+        // GH-398: the 0.1 kg rounding that used to happen inside the split
+        // happens HERE, once, on the way out — the Plan page's convention
+        // (decision 2). It is the same rounding, one step later, so a month's
+        // printed figure is unchanged except where the pre-rounded GP had
+        // shifted it.
         const monthlyN = [];
         let activeMonths = 0;
         for (let month = 1; month <= 12; month++) {
-            const n = (nAllocations && nAllocations[month] != null) ? nAllocations[month] : 0;
+            const raw = (nAllocations && nAllocations[month - 1] != null) ? nAllocations[month - 1] : 0;
+            const n = Math.round(raw * 10) / 10;
             const gp = (monthlyGP && monthlyGP[month] != null) ? monthlyGP[month] : 0;
             // != null is correct here — c3Frac of 0 (pure C4) is legitimate.
             // Source uses || 1 which is a silent bug for pure-C4 sites.
             const c3Frac = (monthlyC3Fractions[month] != null) ? monthlyC3Fractions[month] : 1;
             monthlyN.push({ n: n, gp: gp, c3Frac: c3Frac });
             if (n > 0) activeMonths++;
+        }
+
+        // The other five nutrients, 12 entries each, Jan=0 — unprinted today.
+        const monthlyNutrients = {};
+        if (distributed) {
+            Object.keys(distributed.distributions).forEach(function (nutrient) {
+                const series = distributed.distributions[nutrient];
+                const out = [];
+                for (let m = 0; m < 12; m++) out.push(Math.round((series[m] || 0) * 10) / 10);
+                monthlyNutrients[nutrient] = out;
+            });
         }
 
         return {
@@ -499,11 +542,29 @@
                 monthlyC3Fractions: monthlyC3Fractions,
                 monthlyN: monthlyN,
                 activeMonths: activeMonths,
+                // GH-398: what the monthly series was built with, and what the
+                // cap did to it. `nCap` is the shared module's own result
+                // object — the same fields nutrition-calendar.js persists as
+                // adjustments.n_cap_applied / original_n_total /
+                // scheduled_n_total / n_redistributed / n_unschedulable — so
+                // the Word export can state a clamped programme in the Plan
+                // page's own terms instead of printing a series that silently
+                // exceeds the site's own limit. null when the climate series
+                // was unavailable and nothing was distributed.
+                distributionMode: distributionMode,
+                maxNPerMonth: maxNPerMonth,
+                nCap: distributed ? distributed.nCap : null,
                 // true when no real monthly climate normals were supplied —
                 // monthlyN above is all-zero, not a computed dormancy result.
                 // Renderers must show this explicitly, not a silent empty table.
                 climateDataUnavailable: !monthlyTemps
             },
+            // GH-398 (decision 4): N plus P/K/Ca/Mg/S, each 12 entries Jan=0.
+            // N is the facility figure; the other five are THIS sample's, since
+            // that is what perSample resolved. Nothing renders them yet —
+            // whether the document should show them is a separate decision —
+            // but they exist so no caller has to distribute them itself.
+            monthlyNutrients: monthlyNutrients,
             version: CONFIG.version
         };
     }
@@ -536,7 +597,10 @@
         get DEFAULT_BULK_DENSITY_G_CM3() { return _core().DEFAULT_BULK_DENSITY_G_CM3; },
         get DEFAULT_SOIL_DEPTH_CM() { return _core().DEFAULT_SOIL_DEPTH_CM; },
         SLAN_TARGET: SLAN_TARGET,
-        SUMMER_INTENT_PROFILES: SUMMER_INTENT_PROFILES,
+        // GH-398: re-exported from the shared distribution module (lazily, as
+        // the core's tables are) — one copy of the four overseed profiles.
+        get SUMMER_INTENT_PROFILES() { return _distribution().SUMMER_INTENT_PROFILES; },
+        get MIN_GP_THRESHOLD() { return _distribution().MIN_GP_THRESHOLD; },
         CONFIG: CONFIG
     };
 

@@ -50,6 +50,13 @@
 
 'use strict';
 
+// GH-405: the size of this slice is a property of the test, not of the code it
+// checks. It was 14000, and a thirteen-line explanatory comment added inside the
+// block pushed `tableRows.push` past the end, failing an assertion whose subject
+// had not changed at all. Widened, and named, so the next person who trips it
+// widens it too rather than deleting the comment that tripped it.
+const WINDOW = 20000;
+
 const fs = require('fs');
 const path = require('path');
 
@@ -93,14 +100,14 @@ describe('GH-396 — the Annual Nutrient Requirements table carries the Plan pag
         // has a column on a table the Plan has no S row for.
         const idx = combined.indexOf("// ── Standard MLSN/SLAN/AA table ───");
         expect(idx).toBeGreaterThan(-1);
-        const block = combined.slice(idx, idx + 14000);
+        const block = combined.slice(idx, idx + WINDOW);
         expect(block).toMatch(/\['N', 'P', 'K'\]\.forEach\(function\(nut\) \{/);
         expect(block).not.toMatch(/\['P', 'K', 'S'\]\.forEach/);
     });
 
     test('samples-as-rows is kept — the sample label is on every row, nutrients run downward', () => {
         const idx = combined.indexOf("// ── Standard MLSN/SLAN/AA table ───");
-        const block = combined.slice(idx, idx + 14000);
+        const block = combined.slice(idx, idx + WINDOW);
         // One TableRow pushed per nutrient, inside the per-nutrient loop,
         // inside the per-report loop.
         expect(block).toMatch(/anrReports\.forEach\(function\(r, ri\) \{[\s\S]*\['N', 'P', 'K'\]\.forEach[\s\S]*tableRows\.push\(new TableRow/);
@@ -368,7 +375,7 @@ describe('GH-396 — the export\'s new columns are the Plan page\'s own inputs, 
 
     test('the existing † and ‡ markers still land on the Required cell', () => {
         const idx = combined.indexOf("// ── Standard MLSN/SLAN/AA table ───");
-        const block = combined.slice(idx, idx + 14000);
+        const block = combined.slice(idx, idx + WINDOW);
         expect(block).toMatch(/reqVal = reqVal \+ ' †';/);
         expect(block).toMatch(/reqVal = reqVal \+ ' ‡';/);
     });

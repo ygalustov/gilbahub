@@ -1,0 +1,2777 @@
+{
+ "_purpose": "GH-403. The ten development sites' real nutrition-programme INPUTS, so the effect of removing nutrition-calendar.js's whole-kilogram rounding of the annual requirement can be measured before and after, on every site, offline. tests/gh403-required-one-quantity.test.js loads nutrition-calendar.js twice — once as it stands, once from a copy with that one line put back — and runs both over these inputs, so 'what moved' is measured against the old code rather than transcribed.",
+ "_source": "docker exec gilba_mysql mysql -ugilba: site_configs.config.nutritionCalendarProgram for every site in namespace 'gaip', read 2026-09-10. Each site's block below is that persisted programme's own inputs, read back off it: meta (species, methodology, surface, hemisphere, distribution, annual N base, clipping, traffic), soil (ppm, bulkDensity, soilDepth), adjustments (traffic modifier, monthly N cap), the twelve monthly temperatures, and the RESOLVED sufficiency ranges (annual_totals_range + its per-nutrient source). Test5 - NZ's tissuePercent comes from its tissue sample, samples.id=144 (N 4.57 / P 0.62 / K 2).",
+ "_whyRangesArePassedIn": "Supplying `ranges` bypasses nutrition-program-inputs.js's resolver, which needs pH / CEC / texture from the sample. The ranges recorded here are the ones the live run actually resolved, so the replay uses the site's real floors and ceilings without depending on three sites whose soil samples are no longer in the dev database. nutrition-requirement-core.js reads `ph` only to stash it, never to compute, once ranges are given.",
+ "_notAnExpectedBlock": "`persisted` is the programme the live run WROTE, kept for orientation, and is deliberately not asserted equal to the replay. The stored monthly temperatures are rounded to 1 dp by computeProgram() itself, so replaying from them moves GP by up to 0.01 and a monthly row by up to 0.1 — and three of these programmes (Canberra, Russley, test4 - USA) were generated before GH-398/400 and would not reproduce under today's code anyway. What the test asserts is the BEFORE/AFTER difference on one set of inputs, which that noise cannot manufacture: both runs see the same inputs.",
+ "sites": [
+  {
+   "slug": "burns",
+   "siteName": "Burns",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "inputs": {
+    "annualNOverride": 120,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "MLSN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": 50,
+    "soilPpm": {
+     "K": 195,
+     "P": 18,
+     "S": 10,
+     "Ca": 1400,
+     "Cu": 1,
+     "Fe": 180,
+     "Mg": 151,
+     "Mn": 87.9,
+     "Zn": 3.2
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 23.1,
+     "1": 21.4,
+     "2": 18.3,
+     "3": 14.3,
+     "4": 9.7,
+     "5": 7,
+     "6": 5.8,
+     "7": 6.6,
+     "8": 10,
+     "9": 13.8,
+     "10": 17.7,
+     "11": 20.2
+    },
+    "ranges": {
+     "K": {
+      "max": 55.5,
+      "min": 37
+     },
+     "P": {
+      "max": 31.5,
+      "min": 21
+     },
+     "S": {
+      "max": 10.5,
+      "min": 7
+     },
+     "Ca": {
+      "max": 496.5,
+      "min": 331
+     },
+     "Mg": {
+      "max": 70.5,
+      "min": 47
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 0,
+     "N": 120,
+     "P": 14,
+     "S": 6,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "annual_removal": {
+     "K": 64,
+     "N": 120,
+     "P": 12,
+     "S": 6,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 2.1,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 120,
+     "applied_n": 120,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "max_n_per_month": 50,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 120,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 120,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.86,
+      "temp": 23.1,
+      "N": 16.7,
+      "P": 1.9,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.8
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.97,
+      "temp": 21.4,
+      "N": 18.9,
+      "P": 2.2,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.9
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.95,
+      "temp": 18.3,
+      "N": 18.6,
+      "P": 2.2,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.9
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.58,
+      "temp": 14.3,
+      "N": 11.4,
+      "P": 1.3,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.6
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.17,
+      "temp": 9.7,
+      "N": 3.3,
+      "P": 0.4,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.2
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.06,
+      "temp": 7,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 5.8,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.05,
+      "temp": 6.6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.19,
+      "temp": 10,
+      "N": 3.7,
+      "P": 0.4,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.2
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.53,
+      "temp": 13.8,
+      "N": 10.3,
+      "P": 1.2,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.5
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.92,
+      "temp": 17.7,
+      "N": 17.8,
+      "P": 2.1,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.9
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 1,
+      "temp": 20.2,
+      "N": 19.4,
+      "P": 2.3,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 1
+     }
+    ],
+    "generated": "2026-09-10T08:27:46.529Z"
+   }
+  },
+  {
+   "slug": "canberra",
+   "siteName": "Canberra",
+   "siteId": "019f457d-987c-7013-9dfe-e9d2bc1d972d",
+   "inputs": {
+    "annualNOverride": 200,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "MLSN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": null,
+    "soilPpm": {
+     "K": null,
+     "P": null,
+     "S": null,
+     "Ca": null,
+     "Cu": null,
+     "Fe": null,
+     "Mg": null,
+     "Mn": null,
+     "Zn": null
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 20.8,
+     "1": 19.1,
+     "2": 16.5,
+     "3": 12.9,
+     "4": 8.8,
+     "5": 6.2,
+     "6": 5.2,
+     "7": 6,
+     "8": 9.2,
+     "9": 12.5,
+     "10": 16,
+     "11": 18.2
+    },
+    "ranges": {
+     "K": {
+      "max": 55.5,
+      "min": 37
+     },
+     "P": {
+      "max": 31.5,
+      "min": 21
+     },
+     "S": {
+      "max": 10.5,
+      "min": 7
+     },
+     "Ca": {
+      "max": 496.5,
+      "min": 331
+     },
+     "Mg": {
+      "max": 70.5,
+      "min": 47
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 110,
+     "N": 200,
+     "P": 20,
+     "S": 10,
+     "Ca": 34,
+     "Mg": 16
+    },
+    "annual_removal": {
+     "K": 110,
+     "N": 200,
+     "P": 20,
+     "S": 10,
+     "Ca": 34,
+     "Mg": 16
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 200,
+     "applied_n": 200,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 200,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 200,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.99,
+      "temp": 20.8,
+      "N": 35.3,
+      "P": 3.5,
+      "K": 19.4,
+      "Ca": 6,
+      "Mg": 2.8,
+      "S": 1.8
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.99,
+      "temp": 19.1,
+      "N": 35.1,
+      "P": 3.5,
+      "K": 19.3,
+      "Ca": 6,
+      "Mg": 2.8,
+      "S": 1.8
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.82,
+      "temp": 16.5,
+      "N": 29.1,
+      "P": 2.9,
+      "K": 16,
+      "Ca": 4.9,
+      "Mg": 2.3,
+      "S": 1.5
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.44,
+      "temp": 12.9,
+      "N": 15.6,
+      "P": 1.6,
+      "K": 8.6,
+      "Ca": 2.7,
+      "Mg": 1.2,
+      "S": 0.8
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.12,
+      "temp": 8.8,
+      "N": 4.4,
+      "P": 0.4,
+      "K": 2.4,
+      "Ca": 0.8,
+      "Mg": 0.4,
+      "S": 0.2
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 6.2,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.03,
+      "temp": 5.2,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.15,
+      "temp": 9.2,
+      "N": 5.2,
+      "P": 0.5,
+      "K": 2.9,
+      "Ca": 0.9,
+      "Mg": 0.4,
+      "S": 0.3
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.4,
+      "temp": 12.5,
+      "N": 14.2,
+      "P": 1.4,
+      "K": 7.8,
+      "Ca": 2.4,
+      "Mg": 1.1,
+      "S": 0.7
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.77,
+      "temp": 16,
+      "N": 27.3,
+      "P": 2.7,
+      "K": 15,
+      "Ca": 4.6,
+      "Mg": 2.2,
+      "S": 1.4
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 0.95,
+      "temp": 18.2,
+      "N": 33.8,
+      "P": 3.4,
+      "K": 18.6,
+      "Ca": 5.7,
+      "Mg": 2.7,
+      "S": 1.7
+     }
+    ],
+    "generated": "2026-08-26T03:24:12.066Z"
+   }
+  },
+  {
+   "slug": "federal-golf",
+   "siteName": "Federal Golf",
+   "siteId": "019e96d7-36aa-707a-9879-68ab28726e12",
+   "inputs": {
+    "annualNOverride": 120,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "SLAN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": 15,
+    "soilPpm": {
+     "K": 85,
+     "P": 32,
+     "S": 12,
+     "Ca": 620,
+     "Cu": 1.2,
+     "Fe": 45,
+     "Mg": 95,
+     "Mn": 22,
+     "Zn": 3.5
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 20.8,
+     "1": 19.1,
+     "2": 16.5,
+     "3": 12.9,
+     "4": 8.8,
+     "5": 6.2,
+     "6": 5.2,
+     "7": 6,
+     "8": 9.2,
+     "9": 12.5,
+     "10": 16,
+     "11": 18.2
+    },
+    "ranges": {
+     "K": {
+      "max": 176,
+      "min": 75
+     },
+     "P": {
+      "max": 54,
+      "min": 27
+     },
+     "S": {
+      "max": 40,
+      "min": 15
+     },
+     "Ca": {
+      "max": 750,
+      "min": 500
+     },
+     "Mg": {
+      "max": 140,
+      "min": 70
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 64,
+     "N": 120,
+     "P": 12,
+     "S": 9,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_removal": {
+     "K": 64,
+     "N": 120,
+     "P": 12,
+     "S": 6,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 2.1,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 120,
+     "applied_n": 120,
+     "n_recycled": 0,
+     "n_cap_applied": true,
+     "max_n_per_month": 15,
+     "n_redistributed": 21.4,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 120,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 120,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.99,
+      "temp": 20.8,
+      "N": 15,
+      "P": 2.1,
+      "K": 11.3,
+      "Ca": 3.5,
+      "Mg": 1.8,
+      "S": 1.6
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.99,
+      "temp": 19.1,
+      "N": 15,
+      "P": 2.1,
+      "K": 11.2,
+      "Ca": 3.5,
+      "Mg": 1.8,
+      "S": 1.6
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.82,
+      "temp": 16.5,
+      "N": 15,
+      "P": 1.7,
+      "K": 9.3,
+      "Ca": 2.9,
+      "Mg": 1.5,
+      "S": 1.3
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.44,
+      "temp": 12.9,
+      "N": 12.7,
+      "P": 0.9,
+      "K": 5,
+      "Ca": 1.6,
+      "Mg": 0.8,
+      "S": 0.7
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.12,
+      "temp": 8.8,
+      "N": 9.9,
+      "P": 0.3,
+      "K": 1.4,
+      "Ca": 0.4,
+      "Mg": 0.2,
+      "S": 0.2
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 6.2,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.03,
+      "temp": 5.2,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.15,
+      "temp": 9.2,
+      "N": 10.1,
+      "P": 0.3,
+      "K": 1.7,
+      "Ca": 0.5,
+      "Mg": 0.3,
+      "S": 0.2
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.4,
+      "temp": 12.5,
+      "N": 12.3,
+      "P": 0.9,
+      "K": 4.5,
+      "Ca": 1.4,
+      "Mg": 0.7,
+      "S": 0.6
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.77,
+      "temp": 16,
+      "N": 15,
+      "P": 1.6,
+      "K": 8.7,
+      "Ca": 2.7,
+      "Mg": 1.4,
+      "S": 1.2
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 0.95,
+      "temp": 18.2,
+      "N": 15,
+      "P": 2,
+      "K": 10.8,
+      "Ca": 3.4,
+      "Mg": 1.7,
+      "S": 1.5
+     }
+    ],
+    "generated": "2026-09-10T08:27:24.366Z"
+   }
+  },
+  {
+   "slug": "new-test-location",
+   "siteName": "New test - location",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "inputs": {
+    "annualNOverride": 120,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "SLAN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": 15,
+    "soilPpm": {
+     "K": 19.31,
+     "P": 23.81,
+     "S": 12.84,
+     "Ca": 244.93,
+     "Cu": 4.88,
+     "Fe": 89.91,
+     "Mg": 45.01,
+     "Mn": 19.77,
+     "Zn": 5.99
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 21.9,
+     "1": 20.6,
+     "2": 18.8,
+     "3": 16,
+     "4": 12.7,
+     "5": 10.4,
+     "6": 9.4,
+     "7": 10.2,
+     "8": 13.1,
+     "9": 15.8,
+     "10": 18.3,
+     "11": 19.9
+    },
+    "ranges": {
+     "K": {
+      "max": 176,
+      "min": 75
+     },
+     "P": {
+      "max": 54,
+      "min": 27
+     },
+     "S": {
+      "max": 40,
+      "min": 15
+     },
+     "Ca": {
+      "max": 750,
+      "min": 500
+     },
+     "Mg": {
+      "max": 140,
+      "min": 70
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 103,
+     "N": 120,
+     "P": 14,
+     "S": 8,
+     "Ca": 139,
+     "Mg": 21
+    },
+    "annual_removal": {
+     "K": 64,
+     "N": 120,
+     "P": 12,
+     "S": 6,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_lift": {
+     "K": 38.983,
+     "P": 2.233000000000001,
+     "S": 1.5120000000000002,
+     "Ca": 119.03266666666669,
+     "Mg": 11.662
+    },
+    "adjustments": {
+     "target_n": 120,
+     "applied_n": 120,
+     "n_recycled": 0,
+     "n_cap_applied": true,
+     "max_n_per_month": 15,
+     "n_redistributed": 0.6,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 120,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 120,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.94,
+      "temp": 21.9,
+      "N": 14.5,
+      "P": 1.7,
+      "K": 12.4,
+      "Ca": 16.8,
+      "Mg": 2.5,
+      "S": 1
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.99,
+      "temp": 20.6,
+      "N": 15,
+      "P": 1.8,
+      "K": 13.1,
+      "Ca": 17.6,
+      "Mg": 2.7,
+      "S": 1
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.98,
+      "temp": 18.8,
+      "N": 14.9,
+      "P": 1.7,
+      "K": 12.8,
+      "Ca": 17.3,
+      "Mg": 2.6,
+      "S": 1
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.77,
+      "temp": 16,
+      "N": 11.9,
+      "P": 1.4,
+      "K": 10.1,
+      "Ca": 13.7,
+      "Mg": 2.1,
+      "S": 0.8
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.41,
+      "temp": 12.7,
+      "N": 6.4,
+      "P": 0.7,
+      "K": 5.4,
+      "Ca": 7.3,
+      "Mg": 1.1,
+      "S": 0.4
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.21,
+      "temp": 10.4,
+      "N": 3.4,
+      "P": 0.4,
+      "K": 2.8,
+      "Ca": 3.8,
+      "Mg": 0.6,
+      "S": 0.2
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.16,
+      "temp": 9.4,
+      "N": 2.5,
+      "P": 0.3,
+      "K": 2.1,
+      "Ca": 2.8,
+      "Mg": 0.4,
+      "S": 0.2
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.2,
+      "temp": 10.2,
+      "N": 3.2,
+      "P": 0.4,
+      "K": 2.7,
+      "Ca": 3.6,
+      "Mg": 0.5,
+      "S": 0.2
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.46,
+      "temp": 13.1,
+      "N": 7.1,
+      "P": 0.8,
+      "K": 6,
+      "Ca": 8.1,
+      "Mg": 1.2,
+      "S": 0.5
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.75,
+      "temp": 15.8,
+      "N": 11.5,
+      "P": 1.3,
+      "K": 9.9,
+      "Ca": 13.3,
+      "Mg": 2,
+      "S": 0.8
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.95,
+      "temp": 18.3,
+      "N": 14.6,
+      "P": 1.7,
+      "K": 12.5,
+      "Ca": 16.9,
+      "Mg": 2.5,
+      "S": 1
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 1,
+      "temp": 19.9,
+      "N": 15,
+      "P": 1.8,
+      "K": 13.2,
+      "Ca": 17.7,
+      "Mg": 2.7,
+      "S": 1
+     }
+    ],
+    "generated": "2026-09-10T08:28:31.479Z"
+   }
+  },
+  {
+   "slug": "russley",
+   "siteName": "Russley",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "inputs": {
+    "annualNOverride": 200,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "AMMONIUM_ACETATE",
+    "species": "creepingBentgrass",
+    "speciesDisplay": "Browntop Bent (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": null,
+    "soilPpm": {
+     "K": 156.4,
+     "P": 20,
+     "S": null,
+     "Ca": 220,
+     "Cu": null,
+     "Fe": null,
+     "Mg": 40.1,
+     "Mn": null,
+     "Zn": null
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 17.5,
+     "1": 17.1,
+     "2": 15.1,
+     "3": 11.9,
+     "4": 9.2,
+     "5": 6.6,
+     "6": 5.9,
+     "7": 7.1,
+     "8": 8.9,
+     "9": 10.8,
+     "10": 13.3,
+     "11": 15.8
+    },
+    "ranges": {
+     "K": {
+      "max": 195.5,
+      "min": 78.2
+     },
+     "P": {
+      "max": 15,
+      "min": 5
+     },
+     "S": {
+      "max": 60,
+      "min": 30
+     },
+     "Ca": {
+      "max": 800,
+      "min": 400
+     },
+     "Mg": {
+      "max": 85.39999999999999,
+      "min": 36.6
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "texture-fallback",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 110,
+     "N": 200,
+     "P": 0,
+     "S": 10,
+     "Ca": 118,
+     "Mg": 16
+    },
+    "annual_removal": {
+     "K": 110,
+     "N": 200,
+     "P": 20,
+     "S": 10,
+     "Ca": 34,
+     "Mg": 16
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 83.99999999999999,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 200,
+     "applied_n": 200,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 200,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 200,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.9,
+      "temp": 17.5,
+      "N": 39.8,
+      "P": 0,
+      "K": 21.9,
+      "Ca": 23.5,
+      "Mg": 3.2,
+      "S": 2
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.87,
+      "temp": 17.1,
+      "N": 38.6,
+      "P": 0,
+      "K": 21.2,
+      "Ca": 22.8,
+      "Mg": 3.1,
+      "S": 1.9
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.67,
+      "temp": 15.1,
+      "N": 29.7,
+      "P": 0,
+      "K": 16.4,
+      "Ca": 17.5,
+      "Mg": 2.4,
+      "S": 1.5
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.34,
+      "temp": 11.9,
+      "N": 15,
+      "P": 0,
+      "K": 8.3,
+      "Ca": 8.9,
+      "Mg": 1.2,
+      "S": 0.8
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.14,
+      "temp": 9.2,
+      "N": 6.3,
+      "P": 0,
+      "K": 3.5,
+      "Ca": 3.7,
+      "Mg": 0.5,
+      "S": 0.3
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.05,
+      "temp": 6.6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 5.9,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.06,
+      "temp": 7.1,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.13,
+      "temp": 8.9,
+      "N": 5.8,
+      "P": 0,
+      "K": 3.2,
+      "Ca": 3.4,
+      "Mg": 0.5,
+      "S": 0.3
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.25,
+      "temp": 10.8,
+      "N": 10.8,
+      "P": 0,
+      "K": 6,
+      "Ca": 6.4,
+      "Mg": 0.9,
+      "S": 0.5
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.47,
+      "temp": 13.3,
+      "N": 20.8,
+      "P": 0,
+      "K": 11.4,
+      "Ca": 12.3,
+      "Mg": 1.7,
+      "S": 1
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 0.75,
+      "temp": 15.8,
+      "N": 33.1,
+      "P": 0,
+      "K": 18.2,
+      "Ca": 19.5,
+      "Mg": 2.6,
+      "S": 1.7
+     }
+    ],
+    "generated": "2026-09-06T22:47:55.910Z"
+   }
+  },
+  {
+   "slug": "test1-sports",
+   "siteName": "Test1 - Sports",
+   "siteId": "019e96d8-8480-721b-ac5a-1ef8022300a2",
+   "inputs": {
+    "annualNOverride": 120,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "MLSN",
+    "species": "perennialRyegrass",
+    "speciesDisplay": "Perennial Ryegrass",
+    "surfaceType": "soccer",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": null,
+    "soilPpm": {
+     "K": null,
+     "P": null,
+     "S": null,
+     "Ca": null,
+     "Cu": null,
+     "Fe": null,
+     "Mg": null,
+     "Mn": null,
+     "Zn": null
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 23.1,
+     "1": 21.4,
+     "2": 18.3,
+     "3": 14.3,
+     "4": 9.7,
+     "5": 7,
+     "6": 5.8,
+     "7": 6.6,
+     "8": 10,
+     "9": 13.8,
+     "10": 17.7,
+     "11": 20.2
+    },
+    "ranges": {
+     "K": {
+      "max": 55.5,
+      "min": 37
+     },
+     "P": {
+      "max": 31.5,
+      "min": 21
+     },
+     "S": {
+      "max": 10.5,
+      "min": 7
+     },
+     "Ca": {
+      "max": 496.5,
+      "min": 331
+     },
+     "Mg": {
+      "max": 70.5,
+      "min": 47
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 67,
+     "N": 120,
+     "P": 12,
+     "S": 7,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_removal": {
+     "K": 67,
+     "N": 120,
+     "P": 12,
+     "S": 7,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 120,
+     "applied_n": 120,
+     "n_recycled": 0,
+     "n_cap_applied": true,
+     "n_redistributed": 16.3,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 120,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 120,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.86,
+      "temp": 23.1,
+      "N": 15,
+      "P": 1.7,
+      "K": 9.3,
+      "Ca": 2.8,
+      "Mg": 1.4,
+      "S": 1
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.97,
+      "temp": 21.4,
+      "N": 15,
+      "P": 1.9,
+      "K": 10.5,
+      "Ca": 3.1,
+      "Mg": 1.6,
+      "S": 1.1
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.95,
+      "temp": 18.3,
+      "N": 15,
+      "P": 1.9,
+      "K": 10.4,
+      "Ca": 3.1,
+      "Mg": 1.5,
+      "S": 1.1
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.58,
+      "temp": 14.3,
+      "N": 13.3,
+      "P": 1.1,
+      "K": 6.3,
+      "Ca": 1.9,
+      "Mg": 0.9,
+      "S": 0.7
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.17,
+      "temp": 9.7,
+      "N": 9.4,
+      "P": 0.3,
+      "K": 1.9,
+      "Ca": 0.6,
+      "Mg": 0.3,
+      "S": 0.2
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.06,
+      "temp": 7,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.04,
+      "temp": 5.8,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.05,
+      "temp": 6.6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.19,
+      "temp": 10,
+      "N": 9.6,
+      "P": 0.4,
+      "K": 2.1,
+      "Ca": 0.6,
+      "Mg": 0.3,
+      "S": 0.2
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.53,
+      "temp": 13.8,
+      "N": 12.7,
+      "P": 1,
+      "K": 5.7,
+      "Ca": 1.7,
+      "Mg": 0.9,
+      "S": 0.6
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.92,
+      "temp": 17.7,
+      "N": 15,
+      "P": 1.8,
+      "K": 9.9,
+      "Ca": 3,
+      "Mg": 1.5,
+      "S": 1
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 1,
+      "temp": 20.2,
+      "N": 15,
+      "P": 1.9,
+      "K": 10.8,
+      "Ca": 3.2,
+      "Mg": 1.6,
+      "S": 1.1
+     }
+    ],
+    "generated": "2026-09-10T00:08:36.137Z"
+   }
+  },
+  {
+   "slug": "test4-usa",
+   "siteName": "test4 - USA",
+   "siteId": "019e96f3-63d9-7170-a4cd-94a5ada95686",
+   "inputs": {
+    "annualNOverride": 120,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "SLAN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "north",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": null,
+    "soilPpm": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Cu": 0,
+     "Fe": 0,
+     "Mg": 0,
+     "Mn": 0,
+     "Zn": 0
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 10.7,
+     "1": 11.1,
+     "2": 11.7,
+     "3": 11.9,
+     "4": 12.7,
+     "5": 13.9,
+     "6": 14.8,
+     "7": 15.6,
+     "8": 16,
+     "9": 15.2,
+     "10": 13,
+     "11": 11
+    },
+    "ranges": {
+     "K": {
+      "max": 176,
+      "min": 75
+     },
+     "P": {
+      "max": 54,
+      "min": 27
+     },
+     "S": {
+      "max": 40,
+      "min": 15
+     },
+     "Ca": {
+      "max": 750,
+      "min": 500
+     },
+     "Mg": {
+      "max": 140,
+      "min": 70
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 119,
+     "N": 120,
+     "P": 31,
+     "S": 17,
+     "Ca": 253,
+     "Mg": 43
+    },
+    "annual_removal": {
+     "K": 66,
+     "N": 120,
+     "P": 12,
+     "S": 6,
+     "Ca": 20,
+     "Mg": 10
+    },
+    "annual_lift": {
+     "K": 52.5,
+     "P": 18.9,
+     "S": 10.5,
+     "Ca": 233.33333333333337,
+     "Mg": 32.666666666666664
+    },
+    "adjustments": {
+     "target_n": 120,
+     "applied_n": 120,
+     "n_recycled": 0,
+     "n_cap_applied": true,
+     "n_redistributed": 1.8,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 120,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 120,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Winter",
+      "gp": 0.24,
+      "temp": 10.7,
+      "N": 5.3,
+      "P": 1.3,
+      "K": 5,
+      "Ca": 10.6,
+      "Mg": 1.8,
+      "S": 0.7
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Winter",
+      "gp": 0.27,
+      "temp": 11.1,
+      "N": 6,
+      "P": 1.5,
+      "K": 5.7,
+      "Ca": 12.1,
+      "Mg": 2.1,
+      "S": 0.8
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Spring",
+      "gp": 0.32,
+      "temp": 11.7,
+      "N": 7,
+      "P": 1.8,
+      "K": 6.8,
+      "Ca": 14.4,
+      "Mg": 2.4,
+      "S": 1
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Spring",
+      "gp": 0.34,
+      "temp": 11.9,
+      "N": 7.4,
+      "P": 1.8,
+      "K": 7.1,
+      "Ca": 15.1,
+      "Mg": 2.6,
+      "S": 1
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Spring",
+      "gp": 0.42,
+      "temp": 12.7,
+      "N": 9.1,
+      "P": 2.3,
+      "K": 8.8,
+      "Ca": 18.7,
+      "Mg": 3.2,
+      "S": 1.3
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Summer",
+      "gp": 0.54,
+      "temp": 13.9,
+      "N": 11.5,
+      "P": 2.9,
+      "K": 11.3,
+      "Ca": 24,
+      "Mg": 4.1,
+      "S": 1.6
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Summer",
+      "gp": 0.64,
+      "temp": 14.8,
+      "N": 13.7,
+      "P": 3.5,
+      "K": 13.5,
+      "Ca": 28.8,
+      "Mg": 4.9,
+      "S": 1.9
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Summer",
+      "gp": 0.73,
+      "temp": 15.6,
+      "N": 15,
+      "P": 4,
+      "K": 15.3,
+      "Ca": 32.6,
+      "Mg": 5.5,
+      "S": 2.2
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Autumn",
+      "gp": 0.77,
+      "temp": 16,
+      "N": 15,
+      "P": 4.2,
+      "K": 16.2,
+      "Ca": 34.4,
+      "Mg": 5.9,
+      "S": 2.3
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Autumn",
+      "gp": 0.68,
+      "temp": 15.2,
+      "N": 14.5,
+      "P": 3.7,
+      "K": 14.3,
+      "Ca": 30.5,
+      "Mg": 5.2,
+      "S": 2
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Autumn",
+      "gp": 0.45,
+      "temp": 13,
+      "N": 9.7,
+      "P": 2.5,
+      "K": 9.4,
+      "Ca": 20,
+      "Mg": 3.4,
+      "S": 1.3
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Winter",
+      "gp": 0.26,
+      "temp": 11,
+      "N": 5.8,
+      "P": 1.4,
+      "K": 5.5,
+      "Ca": 11.7,
+      "Mg": 2,
+      "S": 0.8
+     }
+    ],
+    "generated": "2026-08-26T00:29:14.187Z"
+   }
+  },
+  {
+   "slug": "test5-nz",
+   "siteName": "Test5 - NZ",
+   "siteId": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "inputs": {
+    "annualNOverride": 250,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "AMMONIUM_ACETATE",
+    "species": "perennialRyegrass",
+    "speciesDisplay": "Perennial Ryegrass",
+    "surfaceType": "soccer",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": 50,
+    "soilPpm": {
+     "K": 40,
+     "P": 40,
+     "S": 75,
+     "Ca": 803,
+     "Cu": 1.3,
+     "Fe": 168,
+     "Mg": 129,
+     "Mn": 28.3,
+     "Zn": 5.7
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 19.8,
+     "1": 20.4,
+     "2": 19.1,
+     "3": 17,
+     "4": 14.7,
+     "5": 12.6,
+     "6": 11.4,
+     "7": 11.8,
+     "8": 12.9,
+     "9": 14.2,
+     "10": 16,
+     "11": 18.2
+    },
+    "ranges": {
+     "K": {
+      "max": 195.5,
+      "min": 78.2
+     },
+     "P": {
+      "max": 30,
+      "min": 20
+     },
+     "S": {
+      "max": 60,
+      "min": 30
+     },
+     "Ca": {
+      "max": 800,
+      "min": 400
+     },
+     "Mg": {
+      "max": 85.39999999999999,
+      "min": 36.6
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "texture-fallback",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": {
+     "N": 4.57,
+     "P": 0.62,
+     "K": 2.0
+    }
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 136,
+     "N": 250,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "annual_removal": {
+     "K": 109,
+     "N": 250,
+     "P": 34,
+     "S": 14,
+     "Ca": 42,
+     "Mg": 21
+    },
+    "annual_lift": {
+     "K": 26.74000000000001,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 250,
+     "applied_n": 250,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "max_n_per_month": 50,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 250,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 250,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 1,
+      "temp": 19.8,
+      "N": 30.3,
+      "P": 0,
+      "K": 16.5,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 1,
+      "temp": 20.4,
+      "N": 30.3,
+      "P": 0,
+      "K": 16.5,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.99,
+      "temp": 19.1,
+      "N": 29.9,
+      "P": 0,
+      "K": 16.3,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.86,
+      "temp": 17,
+      "N": 26.2,
+      "P": 0,
+      "K": 14.2,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.63,
+      "temp": 14.7,
+      "N": 19.2,
+      "P": 0,
+      "K": 10.4,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.41,
+      "temp": 12.6,
+      "N": 12.4,
+      "P": 0,
+      "K": 6.7,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.29,
+      "temp": 11.4,
+      "N": 8.9,
+      "P": 0,
+      "K": 4.9,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.33,
+      "temp": 11.8,
+      "N": 9.9,
+      "P": 0,
+      "K": 5.4,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.44,
+      "temp": 12.9,
+      "N": 13.3,
+      "P": 0,
+      "K": 7.2,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.58,
+      "temp": 14.2,
+      "N": 17.5,
+      "P": 0,
+      "K": 9.5,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.77,
+      "temp": 16,
+      "N": 23.3,
+      "P": 0,
+      "K": 12.7,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 0.95,
+      "temp": 18.2,
+      "N": 28.8,
+      "P": 0,
+      "K": 15.7,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     }
+    ],
+    "generated": "2026-09-10T08:28:08.687Z"
+   }
+  },
+  {
+   "slug": "test6-uk",
+   "siteName": "Test6 - UK",
+   "siteId": "019e971b-ec9d-7076-a34d-601bfcc7cb81",
+   "inputs": {
+    "annualNOverride": 200,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "MLSN",
+    "species": "bentgrass",
+    "speciesDisplay": "Creeping Bentgrass (Greens)",
+    "surfaceType": "greens",
+    "hemisphere": "north",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": null,
+    "soilPpm": {
+     "K": null,
+     "P": null,
+     "S": null,
+     "Ca": null,
+     "Cu": null,
+     "Fe": null,
+     "Mg": null,
+     "Mn": null,
+     "Zn": null
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 4.2,
+     "1": 4.3,
+     "2": 6,
+     "3": 8.9,
+     "4": 12.1,
+     "5": 15.2,
+     "6": 17.4,
+     "7": 17.2,
+     "8": 14.6,
+     "9": 11.3,
+     "10": 7.4,
+     "11": 4.8
+    },
+    "ranges": {
+     "K": {
+      "max": 55.5,
+      "min": 37
+     },
+     "P": {
+      "max": 31.5,
+      "min": 21
+     },
+     "S": {
+      "max": 10.5,
+      "min": 7
+     },
+     "Ca": {
+      "max": 496.5,
+      "min": 331
+     },
+     "Mg": {
+      "max": 70.5,
+      "min": 47
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 107,
+     "N": 200,
+     "P": 20,
+     "S": 11,
+     "Ca": 33,
+     "Mg": 16
+    },
+    "annual_removal": {
+     "K": 107,
+     "N": 200,
+     "P": 20,
+     "S": 11,
+     "Ca": 33,
+     "Mg": 16
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 200,
+     "applied_n": 200,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 200,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 200,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Winter",
+      "gp": 0.02,
+      "temp": 4.2,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Winter",
+      "gp": 0.02,
+      "temp": 4.3,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Spring",
+      "gp": 0.04,
+      "temp": 6,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Spring",
+      "gp": 0.13,
+      "temp": 8.9,
+      "N": 6.7,
+      "P": 0.7,
+      "K": 3.6,
+      "Ca": 1.1,
+      "Mg": 0.5,
+      "S": 0.4
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Spring",
+      "gp": 0.36,
+      "temp": 12.1,
+      "N": 18.7,
+      "P": 1.9,
+      "K": 10,
+      "Ca": 3.1,
+      "Mg": 1.5,
+      "S": 1
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Summer",
+      "gp": 0.69,
+      "temp": 15.2,
+      "N": 35.6,
+      "P": 3.6,
+      "K": 19,
+      "Ca": 5.9,
+      "Mg": 2.8,
+      "S": 2
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Summer",
+      "gp": 0.89,
+      "temp": 17.4,
+      "N": 46.4,
+      "P": 4.6,
+      "K": 24.8,
+      "Ca": 7.7,
+      "Mg": 3.7,
+      "S": 2.6
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Summer",
+      "gp": 0.88,
+      "temp": 17.2,
+      "N": 45.5,
+      "P": 4.5,
+      "K": 24.3,
+      "Ca": 7.5,
+      "Mg": 3.6,
+      "S": 2.5
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Autumn",
+      "gp": 0.62,
+      "temp": 14.6,
+      "N": 32.1,
+      "P": 3.2,
+      "K": 17.2,
+      "Ca": 5.3,
+      "Mg": 2.6,
+      "S": 1.8
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Autumn",
+      "gp": 0.29,
+      "temp": 11.3,
+      "N": 15,
+      "P": 1.5,
+      "K": 8,
+      "Ca": 2.5,
+      "Mg": 1.2,
+      "S": 0.8
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Autumn",
+      "gp": 0.07,
+      "temp": 7.4,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Winter",
+      "gp": 0.02,
+      "temp": 4.8,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     }
+    ],
+    "generated": "2026-09-09T22:17:14.749Z"
+   }
+  },
+  {
+   "slug": "westview",
+   "siteName": "Westview",
+   "siteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+   "inputs": {
+    "annualNOverride": 200,
+    "trafficModifier": 1,
+    "traffic": "moderate",
+    "clippingManagement": "collected",
+    "methodology": "MLSN",
+    "species": "buffalograss",
+    "speciesDisplay": "Buffalograss",
+    "surfaceType": "lawns",
+    "hemisphere": "south",
+    "distribution": "gp_weighted",
+    "maxNPerMonth": 100,
+    "soilPpm": {
+     "K": null,
+     "P": null,
+     "S": null,
+     "Ca": null,
+     "Cu": null,
+     "Fe": null,
+     "Mg": null,
+     "Mn": null,
+     "Zn": null
+    },
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "monthlyTemps": {
+     "0": 23.4,
+     "1": 21.8,
+     "2": 19.5,
+     "3": 16.2,
+     "4": 12.3,
+     "5": 9.7,
+     "6": 8.8,
+     "7": 9.9,
+     "8": 13.3,
+     "9": 16.4,
+     "10": 19.3,
+     "11": 21.3
+    },
+    "ranges": {
+     "K": {
+      "max": 55.5,
+      "min": 37
+     },
+     "P": {
+      "max": 31.5,
+      "min": 21
+     },
+     "S": {
+      "max": 10.5,
+      "min": 7
+     },
+     "Ca": {
+      "max": 496.5,
+      "min": 331
+     },
+     "Mg": {
+      "max": 70.5,
+      "min": 47
+     }
+    },
+    "rangeSources": {
+     "K": "certificate",
+     "P": "certificate",
+     "S": "certificate",
+     "Ca": "certificate",
+     "Mg": "certificate"
+    },
+    "tissuePercent": null
+   },
+   "persisted": {
+    "annual_totals": {
+     "K": 125,
+     "N": 200,
+     "P": 20,
+     "S": 13,
+     "Ca": 38,
+     "Mg": 20
+    },
+    "annual_removal": {
+     "K": 125,
+     "N": 200,
+     "P": 20,
+     "S": 13,
+     "Ca": 38,
+     "Mg": 20
+    },
+    "annual_lift": {
+     "K": 0,
+     "P": 0,
+     "S": 0,
+     "Ca": 0,
+     "Mg": 0
+    },
+    "adjustments": {
+     "target_n": 200,
+     "applied_n": 200,
+     "n_recycled": 0,
+     "n_cap_applied": false,
+     "max_n_per_month": 100,
+     "n_redistributed": 0,
+     "n_unschedulable": 0,
+     "clipping_factors": {
+      "kFactor": 1,
+      "nFactor": 1,
+      "pFactor": 1
+     },
+     "original_n_total": 200,
+     "traffic_modifier": 1,
+     "scheduled_n_total": 200,
+     "clipping_management": "collected"
+    },
+    "monthly": [
+     {
+      "month_num": 0,
+      "month_name": "Jan",
+      "season": "Summer",
+      "gp": 0.55,
+      "temp": 23.4,
+      "N": 53.3,
+      "P": 5.3,
+      "K": 33.3,
+      "Ca": 10.1,
+      "Mg": 5.3,
+      "S": 3.5
+     },
+     {
+      "month_num": 1,
+      "month_name": "Feb",
+      "season": "Summer",
+      "gp": 0.42,
+      "temp": 21.8,
+      "N": 40.5,
+      "P": 4,
+      "K": 25.3,
+      "Ca": 7.7,
+      "Mg": 4,
+      "S": 2.6
+     },
+     {
+      "month_num": 2,
+      "month_name": "Mar",
+      "season": "Autumn",
+      "gp": 0.26,
+      "temp": 19.5,
+      "N": 24.6,
+      "P": 2.5,
+      "K": 15.4,
+      "Ca": 4.7,
+      "Mg": 2.5,
+      "S": 1.6
+     },
+     {
+      "month_num": 3,
+      "month_name": "Apr",
+      "season": "Autumn",
+      "gp": 0.11,
+      "temp": 16.2,
+      "N": 10.2,
+      "P": 1,
+      "K": 6.4,
+      "Ca": 1.9,
+      "Mg": 1,
+      "S": 0.7
+     },
+     {
+      "month_num": 4,
+      "month_name": "May",
+      "season": "Autumn",
+      "gp": 0.03,
+      "temp": 12.3,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 5,
+      "month_name": "Jun",
+      "season": "Winter",
+      "gp": 0.01,
+      "temp": 9.7,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 6,
+      "month_name": "Jul",
+      "season": "Winter",
+      "gp": 0.01,
+      "temp": 8.8,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 7,
+      "month_name": "Aug",
+      "season": "Winter",
+      "gp": 0.01,
+      "temp": 9.9,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 8,
+      "month_name": "Sep",
+      "season": "Spring",
+      "gp": 0.04,
+      "temp": 13.3,
+      "N": 0,
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     {
+      "month_num": 9,
+      "month_name": "Oct",
+      "season": "Spring",
+      "gp": 0.11,
+      "temp": 16.4,
+      "N": 11,
+      "P": 1.1,
+      "K": 6.9,
+      "Ca": 2.1,
+      "Mg": 1.1,
+      "S": 0.7
+     },
+     {
+      "month_num": 10,
+      "month_name": "Nov",
+      "season": "Spring",
+      "gp": 0.25,
+      "temp": 19.3,
+      "N": 23.9,
+      "P": 2.4,
+      "K": 14.9,
+      "Ca": 4.5,
+      "Mg": 2.4,
+      "S": 1.6
+     },
+     {
+      "month_num": 11,
+      "month_name": "Dec",
+      "season": "Summer",
+      "gp": 0.38,
+      "temp": 21.3,
+      "N": 36.6,
+      "P": 3.7,
+      "K": 22.8,
+      "Ca": 6.9,
+      "Mg": 3.7,
+      "S": 2.4
+     }
+    ],
+    "generated": "2026-09-10T08:23:57.022Z"
+   }
+  }
+ ]
+}

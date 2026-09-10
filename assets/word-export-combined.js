@@ -62,6 +62,34 @@
     }
 
     /**
+     * GH-401 — one decimal, rounded ONCE, the way the Plan page's Nutrient
+     * Delivery Summary now rounds the same figure.
+     *
+     * The Annual Nutrient Requirements table printed `value.toFixed(1)` on a
+     * raw sum while the Plan page rounded to 1 dp and then again for its
+     * caption. Removing the Plan's double step (the point of this ticket) is
+     * only half of it: the two surfaces must also round the same way at the
+     * same decimal, or a sum sitting on an exact half prints 104.5 on screen
+     * and 104.4 in the document purely because `toFixed` reads the binary
+     * value and roundAtOutput() reads the decimal one. See
+     * assets/nutrition-delivery-core.js roundAtOutput() for the snap and why
+     * it is a stated policy rather than arithmetic.
+     *
+     * Returns a string, or null when the value is not a number.
+     */
+    function _round1dpForDisplay(value) {
+        var n = parseFloat(value);
+        if (!isFinite(n)) return null;
+        var mod = global.GAIP_NutritionDelivery || null;
+        if (!mod) {
+            console.error('[CombinedExport] GH-401: nutrition-delivery-core.js is not loaded — ' +
+                'figures cannot be rounded as the Plan page rounds them');
+            return n.toFixed(1);
+        }
+        return mod.roundAtOutput(n, 1).toFixed(1);
+    }
+
+    /**
      * Wait for analysis-complete event with timeout
      */
     function waitForAnalysis(timeoutMs) {
@@ -1942,7 +1970,13 @@
                                    window.GAIP_WordExport._tissuePercentFromData)
                         ? window.GAIP_WordExport._tissuePercentFromData(r.data)
                         : null,
-                    overseedConfig: _ei.overseedConfig
+                    overseedConfig: _ei.overseedConfig,
+                    // GH-398: the site's own monthly cap and distribution mode,
+                    // resolved per sample by _buildEngineInputs() through the
+                    // shared adapter — never a facility-level snapshot, which
+                    // is how a multi-site export used to inherit one site's
+                    // annual N (GH-383).
+                    distribution: _ei.distribution
                 });
                 // b35fix325: carry structured methodology fields through from
                 // the engine. _anr.K.val retained for backward compat with
@@ -2131,7 +2165,10 @@
                 }
 
                 var _siteCfg = _NPI.getSiteConfig(r.siteId);
-                var _persistedCal = _siteCfg && _siteCfg.nutritionCalendarProgram;
+                // GH-398: `_persistedCal` is gone. Its last reader was the
+                // distribution-mode read below, which now comes from the shared
+                // adapter; the config object itself is still needed for the NZ
+                // distributor binding further down.
                 // GH-367: "the lookup ran and this site has no saved config"
                 // and "the lookup could not run at all" are different answers.
                 // GH-383 collapses the second case earlier — resolveSiteProgram
@@ -2179,15 +2216,22 @@
                 perSampleInputs.CEC = _siteInputs.CEC;
                 perSampleInputs.pH = _siteInputs.pH;
 
-                // maxNPerMonth and the distribution mode are not part of the
-                // requirement contract (they shape the monthly SCHEDULE, not
-                // the annual figures) and stay where they were.
-                if (_siteCfg && _siteCfg.maxNPerMonth > 0) {
-                    perSampleInputs.maxNPerMonth = _siteCfg.maxNPerMonth;
-                }
-                if (_persistedCal && _persistedCal.meta && _persistedCal.meta.distribution) {
-                    perSampleInputs.distribution = _persistedCal.meta.distribution;
-                }
+                // GH-398 (D31 stage 4): the monthly cap and the distribution
+                // mode now come from the same adapter call as everything above,
+                // keyed by r.siteId. They used to be read here directly — the
+                // cap off _siteCfg, the mode off the persisted programme's meta
+                // — which was a second resolution of two fields the Word
+                // export's own Monthly N Distribution table also needs, and it
+                // is a second resolution of a shared concept that every defect
+                // in this area has been.
+                perSampleInputs.maxNPerMonth = _siteInputs.maxNPerMonth;
+                perSampleInputs.distribution = _siteInputs.distributionMode;
+                // And this sample's overseed configuration, so the calendar's
+                // monthly GP curve blends C3 and C4 by season for an oversown
+                // warm-season sward exactly as the engine's does (decision 3).
+                // Identical for every sward that is not overseeded, which is
+                // all ten dev sites.
+                perSampleInputs.overseedConfig = (r.data.engineInputs && r.data.engineInputs.overseedConfig) || null;
 
                 // GH-383: `parseFloat(...) || 0` turned a missing reading into
                 // 0 ppm, which reads as maximally deficient against every floor
@@ -2706,81 +2750,47 @@
                         return;
                     }
 
-                    var productUsage = null;
-                    if (perSampleProgram.annualSummary && perSampleProgram.annualSummary.products) {
-                        productUsage = perSampleProgram.annualSummary.products;
-                    } else {
-                        productUsage = {};
-                        perSampleProgram.monthly.forEach(function(m) {
-                            (m.granular || []).forEach(function(p) {
-                                if (!productUsage[p.id]) {
-                                    productUsage[p.id] = {
-                                        product: p,
-                                        brandName: p.brand,
-                                        applications: 0,
-                                        totalKgHa: 0,
-                                        // b35fix322 Bug 1 quick fix: extend totalDelivered
-                                        // to all macros + key micros so amendment self-suppression
-                                        // (P/K/S/Ca/Mg) sees programme delivery correctly.
-                                        // Previously only N/P/K were initialised → S/Ca/Mg/Fe
-                                        // additions silently failed, then `delivers` only carried
-                                        // N/P/K anyway (Bug 1 structural fix patches au-fertiliser-products.js
-                                        // to publish full analysis).
-                                        totalDelivered: { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0, Fe: 0 }
-                                    };
-                                }
-                                productUsage[p.id].applications++;
-                                productUsage[p.id].totalKgHa += (p.rateKgHa || 0);
-                                // b35fix322: derive deliveries from analysis when delivers
-                                // doesn't carry the nutrient (delivers only tracks N/P/K
-                                // for legacy reasons). analysis is the canonical source.
-                                var gAnalysis = (p.analysis) || {};
-                                ['N','P','K','S','Ca','Mg','Fe'].forEach(function(nut) {
-                                    var fromDelivers = (p.delivers && p.delivers[nut]) || 0;
-                                    var fromAnalysis = (parseFloat(gAnalysis[nut]) || 0) * (p.rateKgHa || 0) / 100;
-                                    // Prefer delivers when populated (engine-computed
-                                    // for N/P/K accounts for release timing); fall back
-                                    // to analysis-derived for the others.
-                                    var add = (fromDelivers > 0) ? fromDelivers : fromAnalysis;
-                                    productUsage[p.id].totalDelivered[nut] += add;
-                                });
-                            });
-                            (m.liquid || []).forEach(function(p) {
-                                if (!productUsage[p.id]) {
-                                    productUsage[p.id] = {
-                                        product: p,
-                                        brandName: p.brand,
-                                        applications: 0,
-                                        totalLHa: 0,
-                                        // b35fix322 Bug 1 quick fix: full totalDelivered keys.
-                                        totalDelivered: { N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0, Fe: 0 }
-                                    };
-                                }
-                                productUsage[p.id].applications++;
-                                if (p.form === 'soluble') {
-                                    productUsage[p.id].totalKgHa =
-                                        (productUsage[p.id].totalKgHa || 0) + (p.rateLHa || 0);
-                                } else {
-                                    productUsage[p.id].totalLHa =
-                                        (productUsage[p.id].totalLHa || 0) + (p.rateLHa || 0);
-                                }
-                                // b35fix322: see granular branch above for rationale.
-                                var lAnalysis = (p.analysis) || {};
-                                // For liquids the rate is L/ha or kg/ha depending on form;
-                                // analysis is %w/v or %w/w respectively. Both yield kg/ha
-                                // of nutrient when multiplied by rate × pct / 100 to first
-                                // approximation (catalogue convention used elsewhere in
-                                // word-export-combined.js for purchasing summary maths).
-                                var lRate = (p.rateLHa || 0);
-                                ['N','P','K','S','Ca','Mg','Fe'].forEach(function(nut) {
-                                    var fromDelivers = (p.delivers && p.delivers[nut]) || 0;
-                                    var fromAnalysis = (parseFloat(lAnalysis[nut]) || 0) * lRate / 100;
-                                    var add = (fromDelivers > 0) ? fromDelivers : fromAnalysis;
-                                    productUsage[p.id].totalDelivered[nut] += add;
-                                });
-                            });
-                        });
+                    // GH-399: the per-sample product rows come from the shared
+                    // delivery accumulator (assets/nutrition-delivery-core.js),
+                    // for New Zealand and Australia alike, off the SAME
+                    // `monthly` series the Plan page accumulates. The two
+                    // branches this replaces are the reason this document could
+                    // state a phosphorus figure the Plan page did not:
+                    //
+                    //   - the NZ branch printed the recommender's own
+                    //     `annualSummary.products`, its pre-Phase-3 working
+                    //     copy, where the Plan page recomputed from `monthly`;
+                    //   - the AU branch preferred a declared `delivers` value
+                    //     ONLY when it was greater than zero and otherwise
+                    //     substituted `analysis x rate`. Every Australian
+                    //     liquid declares `P: 0` (au-fertiliser-products.js),
+                    //     so that guard read a real declaration as a missing
+                    //     one and added phosphorus the Plan page did not count
+                    //     — 0.5 kg on the SLAN fixture, printed as Delivered
+                    //     14.5 against the Plan's 14.0 and as a -5% verdict
+                    //     against the Plan's -7%. It also ignored `splitCount`
+                    //     and a liquid's `applications`, so a spray applied
+                    //     four times was purchased once.
+                    //
+                    // A declared zero is a zero. Whether the Australian
+                    // recommender SHOULD declare zero phosphorus for a
+                    // phosphorus-bearing spray is a separate question, fixed at
+                    // the root under its own ticket so it can be reverted on
+                    // its own.
+                    //
+                    // ORDER MATTERS, unchanged: this runs on the catalogue-only
+                    // programme, before the amendment merge below and before
+                    // the b35fix323 schedule injection.
+                    var _deliveryMod = (global.GAIP_NutritionDelivery) || null;
+                    if (!_deliveryMod) {
+                        console.error('[CombinedExport] GH-399: nutrition-delivery-core.js is not loaded — ' +
+                            'per-sample product delivery cannot be accumulated for ' + r.sampleId);
+                        _perSampleProgFail++;
+                        return;
                     }
+                    var productUsage = _deliveryMod.catalogueProducts(
+                        _deliveryMod.accumulate(perSampleProgram.monthly).products
+                    );
 
                     // Write per-sample programme BEFORE we.buildSections runs for this report.
                     // This is the core of b35fix307 Q1 — every downstream render now sees
@@ -3947,24 +3957,12 @@
                 ];
                 tableRows.push(new TableRow({ children: hdr }));
 
-                // Colour helper for ANR soil status. Recognises both MLSN
-                // status bands (Very Low / Low / Adequate / High / Excessive)
-                // and SLAN status bands (Deficient / Sufficient / Excessive).
-                // GH-396: this colours the Current and Required cells, which
-                // are statements about the soil as sampled. The Balance and
-                // Status cells are coloured by the Plan page's own verdict
-                // palette instead (see _balanceModel below) — a different
-                // question, so a different source of colour.
-                function _anrColor(anrResult) {
-                    if (!anrResult) return '6B7280';
-                    var s = anrResult.status;
-                    // Red — deficit
-                    if (s === 'Very Low' || s === 'Low' || s === 'Deficient') return 'DC2626';
-                    // Amber — excess
-                    if (s === 'Excessive' || s === 'High') return 'F59E0B';
-                    // Green — in-range (Adequate under MLSN, Sufficient under SLAN)
-                    return '16A34A';
-                }
+                // GH-397: the soil-status colour helper that used to live here
+                // (`_anrColor`, added in GH-396 to paint Current and Required by
+                // MLSN/SLAN status band) is deleted rather than left unreferenced.
+                // Its only caller is gone, and a dead colour function is exactly
+                // what someone re-wires later without noticing the decision behind
+                // its removal. The decision is in the soilColour comment below.
 
                 // GH-396: the Plan page's Balance/Status classifier, shared
                 // through assets/nutrient-balance-status.js. Not a second
@@ -4022,10 +4020,22 @@
                         // same ones the K Reconciliation table reads.
                         var reqVal;
                         if (isN) {
-                            reqVal = (ns && ns.totalN) ? parseFloat(ns.totalN).toFixed(0) : '-';
+                            // GH-405: 1 dp, like the P and K cells beside it.
+                            // This column printed nitrogen at 0 dp and everything
+                            // else at 1 ("120" next to "14.1"), while the Plan
+                            // page printed "120.0" for the same quantity — the
+                            // same number wearing two precisions in one column,
+                            // and disagreeing with the other surface for no
+                            // reason but the format. GH-403 settled the rule for
+                            // this table (agreeing figures beat whole numbers);
+                            // nitrogen was left out of it only because it was
+                            // out of that ticket's scope, not because it differs.
+                            // Source is unchanged: still the programme's own
+                            // annual total, not the engine's annualRequirement.
+                            reqVal = (ns && ns.totalN) ? (_round1dpForDisplay(ns.totalN) || '-') : '-';
                         } else {
                             reqVal = (anrResult && anrResult.val != null)
-                                ? parseFloat(anrResult.val).toFixed(1) : '-';
+                                ? (_round1dpForDisplay(anrResult.val) || '-') : '-';
                         }
 
                         // b35fix331: † on a K Required cell the K-recon
@@ -4080,7 +4090,7 @@
                             ? _balanceModel.formatCurrent(cls.currentDisplay, cls.currentPpm)
                             : '—';
                         var removalText = (typeof removal === 'number') ? String(Math.round(removal * 10) / 10) : '—';
-                        var deliveredText = (deliveredNum != null) ? deliveredNum.toFixed(1) : '—';
+                        var deliveredText = (deliveredNum != null) ? _round1dpForDisplay(deliveredNum) : '—';
                         var rangeText = cls ? cls.rangeDisplay : '—';
                         var balanceText = cls ? cls.diff.toFixed(1) : '—';
                         var statusText = cls ? cls.statusLabel : '—';
@@ -4099,8 +4109,6 @@
                         // colour now, exactly as the Plan page's own table does; the
                         // Plan is the reference for this table's vocabulary and
                         // presentation (GH-396), and it colours nothing else either.
-                        // _anrColor is kept below: the single-sample export path and
-                        // the cotula S78 table still call it.
                         var soilColour = '111827';
 
                         tableRows.push(new TableRow({ children: [
@@ -4507,7 +4515,14 @@
                             siteUniformCaption: true,
                             climateDataUnavailable: siteNutritionSummary.climateDataUnavailable,
                             climateDataUnavailableReason: siteNutritionSummary.climateDataUnavailableReason,
-                            climateNormalsSource: siteNutritionSummary.climateNormalsSource
+                            climateNormalsSource: siteNutritionSummary.climateNormalsSource,
+                            // GH-398: this site's own distribution mode and the
+                            // result of its own monthly N cap. Per site, from
+                            // that site's nutritionSummary — the whole point of
+                            // the GH-247 per-site grouping above is that these
+                            // are not facility-level.
+                            distributionMode: siteNutritionSummary.distributionMode,
+                            nCap: siteNutritionSummary.nCap
                         }
                     );
                     _mnNodes.forEach(function(node) { allChildren.push(node); });

@@ -2675,13 +2675,27 @@
      * invisible. The b35fix323 fix put dolomite into the Monthly Schedule;
      * b35fix328 makes its delivery legible in the summary tables.
      *
-     * Strategy: prefer real measured/computed values. Use `nutrients` for
-     * N/P/K (these are tracked through programme balancing). Use
-     * `totalDelivered` for S/Ca/Mg if amendments populated it. For catalogue
-     * entries with no `totalDelivered`, derive the secondary macros from
-     * `analysis × totalKg` — the analysis array is preserved on every
-     * catalogue entry (verified b35fix317 corrections, AU fertiliser DB
-     * integration, prebbles integration).
+     * GH-399 — this is now a READER, not an accumulator. Every entry reaching
+     * it carries a complete six-key vector: catalogue entries from the shared
+     * accumulator (assets/nutrition-delivery-core.js) publish it as both
+     * `nutrients` and `totalDelivered`, and amendment entries from
+     * `_amendmentDecisionsToProducts` publish `totalDelivered`.
+     *
+     * Two derivations were deleted with that change, both of them second
+     * guesses at data the entry already carried:
+     *
+     *   - S/Ca/Mg from `analysis × totalKg` when the entry's vector was zero.
+     *     The shared accumulator derives those keys the same way, once, at the
+     *     application — where the application count is known.
+     *   - **The phosphorus top-up.** When an entry's P was exactly zero this
+     *     function replaced it with `analysis × totalKg`, so a document's own
+     *     Annual Product Summary rows showed phosphorus for the Australian
+     *     liquids while its Annual Nutrient Requirements Delivered column
+     *     (which reads `_computeProgrammeDelivered` below, and saw the honest
+     *     zero) did not. One document, two answers, on the same page. A
+     *     declared zero is a zero; whether the recommender should be declaring
+     *     zero for a phosphorus-bearing spray is a question for the
+     *     recommender, not for a rendering helper.
      *
      * Returns { N, P, K, S, Ca, Mg } in kg/ha. Always returns all six keys
      * (zero for missing). Never returns undefined or NaN — caller can sum
@@ -2715,32 +2729,6 @@
         out.S = pickNum(delivered && delivered.S, nutrients && nutrients.S);
         out.Ca = pickNum(delivered && delivered.Ca, nutrients && nutrients.Ca);
         out.Mg = pickNum(delivered && delivered.Mg, nutrients && nutrients.Mg);
-
-        var analysis = (entry.product && entry.product.analysis) || entry.analysis;
-        if (analysis && typeof analysis === 'object') {
-            // Total mass in kg/ha — granular uses totalKg/totalKgHa, liquid
-            // uses totalLHa (kg-equivalent for solubles via b35fix282
-            // catalogue convention). Either field is valid.
-            var totalMass = parseFloat(entry.totalKg);
-            if (!isFinite(totalMass) || totalMass <= 0) totalMass = parseFloat(entry.totalKgHa);
-            if (!isFinite(totalMass) || totalMass <= 0) totalMass = parseFloat(entry.totalLHa);
-            if (isFinite(totalMass) && totalMass > 0) {
-                ['S', 'Ca', 'Mg'].forEach(function(el) {
-                    if (out[el] > 0) return;  // already populated from nutrients/delivered
-                    var pct = parseFloat(analysis[el]);
-                    if (isFinite(pct) && pct > 0) {
-                        out[el] = +(totalMass * pct / 100).toFixed(2);
-                    }
-                });
-                // P top-up only if neither nutrients nor delivered carried it
-                if (out.P === 0) {
-                    var pPct = parseFloat(analysis.P);
-                    if (isFinite(pPct) && pPct > 0) {
-                        out.P = +(totalMass * pPct / 100).toFixed(2);
-                    }
-                }
-            }
-        }
 
         return out;
     }
@@ -6022,7 +6010,12 @@
                     name: p.name || (p.product && p.product.name) || 'Unknown',
                     applications: p.applications || 0,
                     totalKg: totalKg,
-                    nutrients: vec
+                    nutrients: vec,
+                    // GH-401: needed by the "Total Delivered" row below, which
+                    // is catalogue-only — an amendment is a recommendation the
+                    // programme's Balance is measured against, not part of the
+                    // programme. Same definition as _computeProgrammeDelivered.
+                    isAmendment: !!p._isAmendment
                 };
             });
 
@@ -6073,6 +6066,22 @@
 
             var summaryRows = [new TableRow({ tableHeader: true, children: headerCells })];
 
+            // GH-403: every nutrient cell in this table — the product rows and
+            // the Total Delivered caption alike — prints through one helper, at
+            // one precision, so the caption is the sum of the rows above it as
+            // printed. Burns' caption used to read 126 kg N above rows reading
+            // 113 + 7 + 5. See assets/nutrition-delivery-core.js's
+            // formatDelivered() for why the rows gained the decimal rather than
+            // the caption losing the true total.
+            var _dmFmt = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!_dmFmt) {
+                console.error('[WordExport] GH-403: nutrition-delivery-core.js is not loaded — ' +
+                    'the Annual Product Summary cannot be formatted consistently with the Plan page');
+            }
+            var _fmtDelivered = function(v) {
+                return _dmFmt ? _dmFmt.formatDelivered(v) : '—';
+            };
+
             // Pass 2: render rows
             rowsData.forEach(function(r) {
                 var n = r.nutrients;
@@ -6080,23 +6089,86 @@
                     new TableCell({ width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 22 })] })] }),
                     new TableCell({ width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 22 })] })] }),
                     new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 22 })] })] }),
-                    new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.N).toString(), size: 22 })] })] })
+                    new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.N), size: 22 })] })] })
                 ];
                 if (includeP) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.P).toString(), size: 22 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.P), size: 22 })] })] }));
                 }
-                rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.K).toString(), size: 22 })] })] }));
+                rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.K), size: 22 })] })] }));
                 if (includeCa) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Ca).toString(), size: 22 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.Ca), size: 22 })] })] }));
                 }
                 if (includeMg) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.Mg).toString(), size: 22 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.Mg), size: 22 })] })] }));
                 }
                 if (includeS) {
-                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(n.S).toString(), size: 22 })] })] }));
+                    rowCells.push(new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.S), size: 22 })] })] }));
                 }
                 summaryRows.push(new TableRow({ children: rowCells }));
             });
+
+            // ── GH-401: "Total Delivered" ────────────────────────────────────
+            // The Plan page's own Annual Product Summary has ended in a bold
+            // Total Delivered / Required / Balance block since GH-316; the
+            // document's copy of the same table stopped at the last product, so
+            // neither a reader nor the parity harness could compare the two
+            // tables' bottom lines — the very comparison the delivery
+            // unification exists to make possible. Only the total is added
+            // here: Required and Balance are per-sample soil quantities that
+            // this document already prints, in the Plan page's own words, in
+            // the Annual Nutrient Requirements table, and printing them twice
+            // in two shapes is the divergence GH-396 closed.
+            //
+            // CATALOGUE-ONLY, matching the Plan footer and the ANR Delivered
+            // column: both read _computeProgrammeDelivered, which skips
+            // _isAmendment entries, so this row equals the Delivered figure
+            // the same document prints for this sample. When an amendment row
+            // is present the rows above it therefore do NOT add up to this
+            // total, and the note below the table says so rather than leaving
+            // the reader to find the discrepancy.
+            //
+            // Rounded once, from the raw sum, through the shared
+            // roundAtOutput() — the same step the Plan footer applies to the
+            // same quantity, so the two cannot differ by a rounding rule.
+            var _catalogueRows = rowsData.filter(function(r) { return !r.isAmendment; });
+            if (_catalogueRows.length > 0) {
+                var _dm = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+                if (!_dm) {
+                    console.error('[WordExport] GH-401: nutrition-delivery-core.js is not loaded — ' +
+                        'the Annual Product Summary total cannot be rounded consistently with the Plan page');
+                }
+                var _round0 = function(v) {
+                    return _dm ? _dm.roundAtOutput(v) : Math.round(v);
+                };
+                // GH-403: the nutrient cells of this caption go through
+                // _fmtDelivered, the same helper the product rows above use, so
+                // the caption is the sum of the printed rows. Applications and
+                // Total kg/ha keep their whole-number display — they are counts
+                // and bag weights, they agree with their own rows on every
+                // development site, and a greenkeeper orders fertiliser off
+                // them.
+                var _totalApps = _catalogueRows.reduce(function(a, r) { return a + (r.applications || 0); }, 0);
+                var _totalKg = _catalogueRows.reduce(function(a, r) { return a + (r.totalKg || 0); }, 0);
+                var _totalCell = function(text) {
+                    return new TableCell({
+                        shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
+                        width: { size: nutWidth, type: WidthType.DXA },
+                        children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: text, bold: true, size: 22 })] })]
+                    });
+                };
+                var totalCells = [
+                    new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Total Delivered', bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(_totalApps), bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(_round0(_totalKg)), bold: true, size: 22 })] })] }),
+                    _totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'N')))
+                ];
+                if (includeP) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'P'))));
+                totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'K'))));
+                if (includeCa) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'Ca'))));
+                if (includeMg) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'Mg'))));
+                if (includeS) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'S'))));
+                summaryRows.push(new TableRow({ children: totalCells }));
+            }
 
             var fertColWidths = [productW, appsW, totalKgW, nutWidth];
             if (includeP) fertColWidths.push(nutWidth);
@@ -6107,9 +6179,23 @@
             var fertTableWidth = fertColWidths.reduce(function(a, b) { return a + b; }, 0);
             elements.push(new Table({ width: { size: fertTableWidth, type: WidthType.DXA }, columnWidths: fertColWidths, rows: summaryRows }));
 
+            // GH-401: only when the table actually contains an amendment row,
+            // so the ordinary document gains no caption it does not need.
+            if (rowsData.length > _catalogueRows.length) {
+                elements.push(new Paragraph({
+                    spacing: { before: 60, after: 0 },
+                    children: [new TextRun({
+                        text: 'Total Delivered covers the fertiliser programme only. Soil amendment rows above are ' +
+                              'listed for application but excluded from the total, which is the figure the Annual ' +
+                              'Nutrient Requirements table measures against.',
+                        size: 18, italics: true, color: '6B7280'
+                    })]
+                }));
+            }
+
             elements.push(new Paragraph({ children: [] }));
         }
-        
+
         // Monthly Program table
         elements.push(new Paragraph({
             spacing: { before: 200, after: 100 },
@@ -7155,6 +7241,16 @@
                 // placeholder rather than this site's saved coordinates.
                 coordinatesDefaulted: _coordsDefaulted
             },
+            // GH-398 (D31 stage 4): the monthly distribution mode and the
+            // "Max N per application" cap this site's own Plan programme was
+            // built with. Until this ticket the engine had neither — the
+            // Monthly N Distribution table printed an uncapped, always
+            // GP-weighted series beside a Plan page that had clamped it, on
+            // four of the ten dev sites.
+            distribution: {
+                mode: _programInputs ? _programInputs.distributionMode : null,
+                maxNPerMonth: _programInputs ? _programInputs.maxNPerMonth : null
+            },
             aaRanges: _aaRanges,
             // GH-383: the resolved sufficiency ranges for ALL methodologies,
             // their per-nutrient provenance, and the resolved programme-input
@@ -7342,11 +7438,18 @@
 
         var nodes = [];
 
-        // Title
+        // Title. GH-398: the heading names the mode that was actually applied.
+        // It read "(GP-Weighted)" unconditionally because this table only ever
+        // ran that one mode; now that it honours the site's own choice, a site
+        // on "Even" or "Front-loaded" would have been mislabelled.
+        var _modeLabel = 'GP-Weighted';
+        var _MD = (typeof window !== 'undefined' && window.GAIP_NutritionMonthlyDistribution) ||
+                  (typeof global !== 'undefined' && global.GAIP_NutritionMonthlyDistribution) || null;
+        if (_MD && opts.distributionMode) _modeLabel = _MD.modeLabel(opts.distributionMode);
         nodes.push(new Paragraph({
             spacing: { before: 200 },
             children: [new TextRun({
-                text: 'Monthly N Distribution (GP-Weighted)',
+                text: 'Monthly N Distribution (' + _modeLabel + ')',
                 bold: true,
                 size: titleSize
             })]
@@ -7461,6 +7564,37 @@
                 new TableRow({ children: dataCells })
             ]
         }));
+
+        // GH-398 (D31 stage 4): the monthly N cap. This table used to print an
+        // uncapped series — on Federal Golf, a peak of ~19 kg against the
+        // site's own 15 kg/month limit, while the Plan page showed the clamped
+        // [15, 15, 15, 12.7, 9.9, 0, 0, 0, 10.1, 12.3, 15, 15]. The series is
+        // now the clamped one, and these two notes are the Plan page's own two
+        // banners, in the Plan page's own words: mirrored rather than invented,
+        // because the cap can leave nitrogen that fits nowhere and that has to
+        // be stated, not absorbed into a total that no longer adds up.
+        var _cap = opts.nCap;
+        if (_cap && _cap.capApplied) {
+            var _capText;
+            if (_cap.unschedulable > 0) {
+                _capText = 'Monthly N cap too low: target ' + _cap.originalTotal + ' kg/ha — ' +
+                    _cap.unschedulable + ' kg/ha cannot be scheduled within the ' +
+                    _cap.maxNPerMonth + ' kg/ha per month cap. Scheduled: ' + _cap.scheduledTotal + ' kg/ha.';
+            } else {
+                _capText = 'Monthly N cap applied (' + _cap.maxNPerMonth + ' kg/ha per month): peak months trimmed, ' +
+                    _cap.redistributed + ' kg/ha redistributed to shoulder months. Full target of ' +
+                    _cap.originalTotal + ' kg/ha delivered.';
+            }
+            nodes.push(new Paragraph({
+                spacing: { before: 80, after: 40 },
+                children: [new TextRun({
+                    text: _capText,
+                    size: totalsSize,
+                    italics: true,
+                    color: _cap.unschedulable > 0 ? 'B45309' : '6B7280'
+                })]
+            }));
+        }
 
         // Optional site-uniform caption — combined-export uses this to
         // explain why every per-sample section shows the same monthly N
@@ -9821,7 +9955,11 @@
                     // combined export's own ANR compute() call (previously
                     // missing this entirely) can share the exact same parse.
                     tissuePercent: _tissuePercentFromData(data),
-                    overseedConfig: _inputs.overseedConfig
+                    overseedConfig: _inputs.overseedConfig,
+                    // GH-398: the site's own monthly cap and distribution mode,
+                    // so this table and the Plan page's Monthly Nutrient
+                    // Program are the same series rather than two.
+                    distribution: _inputs.distribution
                 });
 
                 data.nutritionSummary.hasData = true;
@@ -9849,6 +9987,13 @@
                 data.nutritionSummary.monthlyN = _engineResult.facility.monthlyN;
                 data.nutritionSummary.totalN = _engineResult.facility.totalN;
                 data.nutritionSummary.activeMonths = _engineResult.facility.activeMonths;
+                // GH-398: what built that series — the distribution mode, the
+                // monthly cap, and what the cap did. The table below states it
+                // in the Plan page's own words instead of printing a clamped
+                // or truncated series with no explanation.
+                data.nutritionSummary.distributionMode = _engineResult.facility.distributionMode;
+                data.nutritionSummary.maxNPerMonth = _engineResult.facility.maxNPerMonth;
+                data.nutritionSummary.nCap = _engineResult.facility.nCap;
                 data.nutritionSummary.climateDataUnavailable = _engineResult.facility.climateDataUnavailable;
                 data.nutritionSummary.climateNormalsSource = _inputs.climate.source;
                 // GH-245 follow-up 3: why, not just whether — see getReason() in
@@ -10034,7 +10179,39 @@
             if ((!progSiteId || !currentSiteId || progSiteId === currentSiteId) && !_coordsStale && !_inputsStale) {
                 data.nutritionProgram.hasData = true;
                 data.nutritionProgram.monthly = prog.monthly || [];
-                data.nutritionProgram.annualSummary = prog.annualSummary || {};
+                // GH-399: the product rows are rebuilt from `prog.monthly`
+                // through the shared delivery accumulator rather than trusting
+                // whichever `annualSummary` shape happens to be on this object.
+                //
+                // Two reasons. First, this is the same quantity the Plan page
+                // and the Combined export now compute, and it must be computed
+                // once — that is the whole ticket. Second, this global is
+                // restored from the site config on a fresh /reports/export
+                // page, so until every site regenerates its programme it can
+                // carry an annualSummary built by an older release; rebuilding
+                // makes the first export after a deploy right rather than a
+                // version behind.
+                //
+                // Amendment entries are excluded here and re-merged by the
+                // b35fix327 block below, in their own shape and in their own
+                // order — this global survives across exports within a session,
+                // so `monthly` can already contain the granular entries a
+                // previous export injected (b35fix323), and they must not be
+                // rebuilt as catalogue rows.
+                var _deliveryMod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+                if (_deliveryMod && Array.isArray(prog.monthly)) {
+                    var _acc = _deliveryMod.accumulate(prog.monthly);
+                    data.nutritionProgram.annualSummary = Object.assign({}, prog.annualSummary || {}, {
+                        products: _deliveryMod.catalogueProducts(_acc.products)
+                    });
+                } else {
+                    if (!_deliveryMod) {
+                        console.error('[WordExport] GH-399: nutrition-delivery-core.js is not loaded — ' +
+                            'falling back to the programme\'s stored annual summary, which may have been ' +
+                            'built by an older release');
+                    }
+                    data.nutritionProgram.annualSummary = prog.annualSummary || {};
+                }
                 data.nutritionProgram.strategy = prog.strategy || {};
                 // b35fix287: include Mulder's flags for Word export section
                 data.nutritionProgram.muldersFlags = prog.muldersFlags || {};
@@ -11935,7 +12112,11 @@
                         siteUniformCaption: false,
                         climateDataUnavailable: data.nutritionSummary.climateDataUnavailable,
                         climateDataUnavailableReason: data.nutritionSummary.climateDataUnavailableReason,
-                        climateNormalsSource: data.nutritionSummary.climateNormalsSource
+                        climateNormalsSource: data.nutritionSummary.climateNormalsSource,
+                        // GH-398: the mode names the heading, the cap result
+                        // states what the cap did.
+                        distributionMode: data.nutritionSummary.distributionMode,
+                        nCap: data.nutritionSummary.nCap
                     }
                 );
                 _mnNodes.forEach(function(node) { sections.push(node); });

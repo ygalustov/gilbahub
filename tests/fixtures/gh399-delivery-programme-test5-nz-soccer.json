@@ -1,0 +1,514 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, read 2026-09-10 (GH-399)",
+  "_whyThisSample": "The NZ parity fixture. The Prebble recommender declares no delivers vector at all, so every nutrient is physical content — the case the module must leave untouched.",
+  "_verifiedVia": "figures pinned in the test beside this file; program.delivered / program.targets carried through unchanged from the persisted object",
+  "siteId": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+  "siteName": "Test5 - NZ / Soccer",
+  "region": "nz",
+  "meta": {
+    "version": "1.34.0",
+    "generated": "2026-09-10T04:04:29.304Z",
+    "annualPlan": {
+      "kNote": "K target achieved",
+      "nNote": "N target achieved",
+      "delivered": {
+        "K": 175.2,
+        "N": 237.4,
+        "P": 0
+      },
+      "pStrategy": "Single application in undefined",
+      "achievement": {
+        "K": 129,
+        "N": 95
+      },
+      "annualRequirements": {
+        "K": 136.00000000000003,
+        "N": 250.00000000000009,
+        "P": 0
+      }
+    },
+    "methodology": "ammonium_acetate",
+    "surfaceType": "soccer"
+  },
+  "delivered": null,
+  "targets": null,
+  "monthly": [
+    {
+      "gp": 1,
+      "month": "Jan",
+      "notes": [
+        "Application sized for 3 month window",
+        "N balance: Ammos 22 (Nitro 22) @ 50 L/ha"
+      ],
+      "liquid": [
+        {
+          "id": "AMMOS-BAL",
+          "npk": "22-0-0",
+          "form": "liquid",
+          "name": "Ammos 22 (Nitro 22)",
+          "notes": "N balancing (+11.0 kg N/ha to hit annual target)",
+          "rateLHa": 50,
+          "analysis": {
+            "K": 0,
+            "N": 22,
+            "P": 0,
+            "S": 4
+          },
+          "rateMLM2": "5.0",
+          "kDelivered": 0,
+          "nDelivered": 11,
+          "splitCount": 1,
+          "isBalancing": true,
+          "deliveryMethod": "foliar"
+        }
+      ],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "MESA19",
+          "npk": "19-0-16",
+          "name": "MESA Country Club 100%",
+          "notes": "?? Capped at label max (200 kg/ha). Delivers 38.0 kg N/ha of 90.5 required. Supplement with foliar.",
+          "maxRate": 200,
+          "rateGM2": "20.0",
+          "release": "slow",
+          "analysis": {
+            "K": 16,
+            "N": 19,
+            "P": 0,
+            "S": 10.2,
+            "Fe": 3
+          },
+          "kBalance": -17.3,
+          "rateKgHa": 200,
+          "bagsPerHa": "8.8",
+          "longevity": "4-6 weeks",
+          "kDelivered": 32,
+          "nDelivered": 38,
+          "ratioMatch": "89%",
+          "splitCount": 1,
+          "techStatus": "reduced",
+          "releaseTech": "mesa",
+          "releaseWeeks": 9,
+          "splitRequired": false,
+          "techEfficiency": 61,
+          "preEmergentHerbicide": false
+        }
+      ],
+      "pDeficit": 0,
+      "pRequired": 0,
+      "pDelivered": 0,
+      "requirements": {
+        "K": 16.5,
+        "N": 30.3,
+        "P": 0
+      }
+    },
+    {
+      "gp": 1,
+      "month": "Feb",
+      "notes": [
+        "Covered by MESA Country Club 100% (Jan)",
+        "N balance: Ammos 22 (Nitro 22) @ 50 L/ha"
+      ],
+      "liquid": [
+        {
+          "id": "AMMOS-BAL",
+          "npk": "22-0-0",
+          "form": "liquid",
+          "name": "Ammos 22 (Nitro 22)",
+          "notes": "N balancing (+11.0 kg N/ha to hit annual target)",
+          "rateLHa": 50,
+          "analysis": {
+            "K": 0,
+            "N": 22,
+            "P": 0,
+            "S": 4
+          },
+          "rateMLM2": "5.0",
+          "kDelivered": 0,
+          "nDelivered": 11,
+          "splitCount": 1,
+          "isBalancing": true,
+          "deliveryMethod": "foliar"
+        }
+      ],
+      "season": "Summer",
+      "granular": [],
+      "coveredBy": {
+        "month": "Jan",
+        "product": "MESA Country Club 100%",
+        "remainingK": 22.4,
+        "remainingN": 26.6
+      },
+      "month_num": 1,
+      "requirements": {
+        "K": 16.5,
+        "N": 30.3,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.99,
+      "month": "Mar",
+      "notes": [
+        "Covered by MESA Country Club 100% (Jan)",
+        "Foliar top-up: 14.7 kg N/ha"
+      ],
+      "liquid": [
+        {
+          "id": "PROBAL",
+          "npk": "15-0-12",
+          "form": "liquid",
+          "name": "Pro Balance",
+          "notes": "Split into 2 applications of 49 L/ha (label max: 70 L/ha) (50L container)",
+          "capped": false,
+          "maxRate": 70,
+          "rateLHa": 50,
+          "analysis": {
+            "K": 12,
+            "N": 15,
+            "P": 0
+          },
+          "rateMLM2": "5.0",
+          "kDelivered": 12,
+          "nDelivered": 15,
+          "ratioMatch": "46%",
+          "splitCount": 2,
+          "splitRequired": true,
+          "deliveryMethod": "foliar"
+        }
+      ],
+      "season": "Autumn",
+      "granular": [],
+      "coveredBy": {
+        "month": "Jan",
+        "product": "MESA Country Club 100%",
+        "remainingK": 12.8,
+        "remainingN": 15.2
+      },
+      "month_num": 2,
+      "requirements": {
+        "K": 16.3,
+        "N": 29.9,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.86,
+      "month": "Apr",
+      "notes": [
+        "Application sized for 3 month window"
+      ],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "MESA19",
+          "npk": "19-0-16",
+          "name": "MESA Country Club 100%",
+          "notes": "Split into 2 applications of 152 kg/ha (label max: 200 kg/ha)",
+          "maxRate": 200,
+          "rateGM2": "15.2",
+          "release": "slow",
+          "analysis": {
+            "K": 16,
+            "N": 19,
+            "P": 0,
+            "S": 10.2,
+            "Fe": 3
+          },
+          "kBalance": 17.3,
+          "rateKgHa": 152,
+          "bagsPerHa": "6.7",
+          "longevity": "4-6 weeks",
+          "kDelivered": 48.6,
+          "nDelivered": 57.8,
+          "ratioMatch": "84%",
+          "splitCount": 2,
+          "techStatus": "reduced",
+          "releaseTech": "mesa",
+          "releaseWeeks": 9,
+          "splitRequired": true,
+          "techEfficiency": 69,
+          "preEmergentHerbicide": false
+        },
+        {
+          "id": "amendment:K:potassium-sulphate",
+          "npk": "0-0-0",
+          "name": "Potassium sulphate",
+          "brand": "Potassium sulphate",
+          "notes": "Amendment (single autumn application)",
+          "weeks": 1,
+          "rateGM2": "9.2",
+          "release": "standard",
+          "analysis": {
+            "K": 41.5,
+            "S": 18
+          },
+          "delivers": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "rateKgHa": 92,
+          "_nutrient": "K",
+          "splitCount": 1,
+          "_monthIndex": 3,
+          "_isAmendment": true,
+          "_appliedMonth": "April"
+        }
+      ],
+      "pDeficit": 0,
+      "pRequired": 0,
+      "pDelivered": 0,
+      "requirements": {
+        "K": 14.2,
+        "N": 26.2,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.63,
+      "month": "May",
+      "notes": [
+        "Covered by MESA Country Club 100% (Apr)"
+      ],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [],
+      "coveredBy": {
+        "month": "Apr",
+        "product": "MESA Country Club 100%",
+        "remainingK": 34.019999999999996,
+        "remainingN": 40.459999999999994
+      },
+      "month_num": 4,
+      "requirements": {
+        "K": 10.4,
+        "N": 19.2,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.41,
+      "month": "Jun",
+      "notes": [
+        "Covered by MESA Country Club 100% (Apr)"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "coveredBy": {
+        "month": "Apr",
+        "product": "MESA Country Club 100%",
+        "remainingK": 19.44,
+        "remainingN": 23.12
+      },
+      "month_num": 5,
+      "requirements": {
+        "K": 6.7,
+        "N": 12.4,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.29,
+      "month": "Jul",
+      "notes": [
+        "Low GP (29%) - winter program: Ammos 22 (Nitro 22) foliar top-up",
+        "Application sized for 3 month window"
+      ],
+      "liquid": [
+        {
+          "id": "AMMOS",
+          "npk": "22-0-0",
+          "form": "liquid",
+          "name": "Ammos 22 (Nitro 22)",
+          "notes": "Winter foliar: 30L container",
+          "rateLHa": 30,
+          "analysis": {
+            "K": 0,
+            "N": 22,
+            "P": 0,
+            "S": 4
+          },
+          "rateMLM2": "3.0",
+          "kDelivered": 0,
+          "nDelivered": 6.6,
+          "splitCount": 1,
+          "deliveryMethod": "foliar"
+        }
+      ],
+      "season": "Winter",
+      "granular": [
+        {
+          "id": "MESA19",
+          "npk": "19-0-16",
+          "name": "MESA Country Club 100%",
+          "notes": "Winter MESA: 14 kg quick + 14 kg slow",
+          "rateGM2": "15.0",
+          "release": "slow",
+          "analysis": {
+            "K": 16,
+            "N": 19,
+            "P": 0,
+            "S": 10.2,
+            "Fe": 3
+          },
+          "rateKgHa": 150,
+          "kDelivered": 24,
+          "nDelivered": 28.5,
+          "splitCount": 1,
+          "releaseTech": "mesa",
+          "releaseWeeks": 9
+        }
+      ],
+      "pDeficit": 0,
+      "pRequired": 0,
+      "pDelivered": 0,
+      "requirements": {
+        "K": 4.9,
+        "N": 8.9,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.33,
+      "month": "Aug",
+      "notes": [
+        "Covered by MESA Country Club 100% (Jul)"
+      ],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "coveredBy": {
+        "month": "Jul",
+        "product": "MESA Country Club 100%",
+        "remainingK": 16.799999999999997,
+        "remainingN": 19.95
+      },
+      "month_num": 7,
+      "requirements": {
+        "K": 5.4,
+        "N": 9.9,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.44,
+      "month": "Sep",
+      "notes": [
+        "Covered by MESA Country Club 100% (Jul)"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [],
+      "coveredBy": {
+        "month": "Jul",
+        "product": "MESA Country Club 100%",
+        "remainingK": 9.6,
+        "remainingN": 11.4
+      },
+      "month_num": 8,
+      "requirements": {
+        "K": 7.2,
+        "N": 13.3,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.58,
+      "month": "Oct",
+      "notes": [
+        "Application sized for 3 month window"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "MESA19",
+          "npk": "19-0-16",
+          "name": "MESA Country Club 100%",
+          "notes": "Split into 2 applications of 183 kg/ha (label max: 200 kg/ha)",
+          "maxRate": 200,
+          "rateGM2": "18.3",
+          "release": "slow",
+          "analysis": {
+            "K": 16,
+            "N": 19,
+            "P": 0,
+            "S": 10.2,
+            "Fe": 3
+          },
+          "kBalance": 20.7,
+          "rateKgHa": 183,
+          "bagsPerHa": "8.1",
+          "longevity": "4-6 weeks",
+          "kDelivered": 58.6,
+          "nDelivered": 69.5,
+          "ratioMatch": "68%",
+          "splitCount": 2,
+          "techStatus": "reduced",
+          "releaseTech": "mesa",
+          "releaseWeeks": 9,
+          "splitRequired": true,
+          "techEfficiency": 58,
+          "preEmergentHerbicide": false
+        }
+      ],
+      "pDeficit": 0,
+      "pRequired": 0,
+      "pDelivered": 0,
+      "requirements": {
+        "K": 9.5,
+        "N": 17.5,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.77,
+      "month": "Nov",
+      "notes": [
+        "Covered by MESA Country Club 100% (Oct)"
+      ],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [],
+      "coveredBy": {
+        "month": "Oct",
+        "product": "MESA Country Club 100%",
+        "remainingK": 41.02,
+        "remainingN": 48.65
+      },
+      "month_num": 10,
+      "requirements": {
+        "K": 12.7,
+        "N": 23.3,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.95,
+      "month": "Dec",
+      "notes": [
+        "Covered by MESA Country Club 100% (Oct)"
+      ],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [],
+      "coveredBy": {
+        "month": "Oct",
+        "product": "MESA Country Club 100%",
+        "remainingK": 23.44,
+        "remainingN": 27.8
+      },
+      "month_num": 11,
+      "requirements": {
+        "K": 15.7,
+        "N": 28.8,
+        "P": 0
+      }
+    }
+  ]
+}

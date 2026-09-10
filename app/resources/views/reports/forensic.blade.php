@@ -77,6 +77,8 @@
         // shared programme input adapter both engines now route through. Must load
         // before nutrition-requirement-engine.js and nutrition-calendar.js.
         'nutrition-requirement-core.js','nutrition-program-inputs.js',
+        // GH-398: the shared monthly distribution + N cap; before both engines.
+        'nutrition-monthly-distribution.js',
         'nutrition-requirement-engine.js','climate-engine-v2.js',
         'climate-normals-service.js', // GH-245 (Hoxton audit D01-D03)
         'gaip-utils.js','species-controller.js','identity-enforcement.js','climate-engine.js',
@@ -146,6 +148,8 @@
         // GH-396: shared Balance/Status classifier for the Plan page's Nutrient
         // Delivery Summary and the export's Annual Nutrient Requirements table.
         'nutrient-balance-status.js',
+        // GH-399: shared product-delivery accumulator, see nutrition-delivery-core.js
+        'nutrition-delivery-core.js',
         'prebbles-products.js',
         'nutrition-prebble-integration.js','au-fertiliser-products.js',
         'nutrition-au-fertiliser-integration.js','uk-fertiliser-products.js',
@@ -164,7 +168,7 @@
     // the calendar. Everything outside $headLike is emitted with `defer`, so a
     // non-deferred script always runs first regardless of document order — the
     // two new files therefore have to be head-like too.
-    $headLike = ['gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-core.js','nutrition-program-inputs.js','nutrition-requirement-engine.js','climate-engine-v2.js'];
+    $headLike = ['gilba-hub-v2.js','growth-potential-engine.js','nutrition-requirement-core.js','nutrition-program-inputs.js','nutrition-monthly-distribution.js','nutrition-requirement-engine.js','climate-engine-v2.js'];
 @endphp
 @foreach($hubScripts as $script)
     @if(is_file(base_path('../assets/'.$script)))

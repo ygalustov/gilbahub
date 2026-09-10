@@ -142,7 +142,14 @@ describe('GH-370 live-verified below-floor fixture (Test5-NZ sample 141 at K=40 
         expect(r.perSample.P.correctionRequired).toBeCloseTo((EX.floors.P - IN.soilPpm.P) * factor / 2, 6);
     });
 
-    test('Plan page path (nutrition-calendar.js computeProgram): rendered K 84 / P 41, removal 57 / 34, lift 26.74 / 7.0, certificate-sourced range', () => {
+    // GH-403: the Plan's Required was 84 on the cards and 84.2 in the Nutrient
+    // Delivery Summary while the document printed 84.1 — one column name, three
+    // numbers, because the calendar rounded the core's annual requirement to a
+    // whole kilogram before distributing it and the panel then re-derived
+    // Required by summing the twelve rounded monthly rows. Both surfaces now
+    // print the engine's own 84.1 / 40.9. The pre-GH-403 figures are kept in the
+    // fixture under planPage._preGh403PlanRender.
+    test('Plan page path (nutrition-calendar.js computeProgram): rendered K 84.1 / P 40.9, removal 57 / 34, lift 26.74 / 7.0, certificate-sourced range', () => {
         const p = Calendar.computeProgram({
             annualNOverride: IN.annualN,
             traffic: 'moderate',

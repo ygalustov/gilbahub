@@ -1,0 +1,794 @@
+{
+  "_source": "dev database site_configs.config.nutritionProgram, read 2026-09-10 (GH-399)",
+  "_whyThisSample": "The only UK site. Its recommender credits a slow release a per-month share of its content, so summing physical content would triple-count it.",
+  "_verifiedVia": "figures pinned in the test beside this file; program.delivered / program.targets carried through unchanged from the persisted object",
+  "siteId": "019e971b-ec9d-7076-a34d-601bfcc7cb81",
+  "siteName": "Test6 - UK",
+  "region": "uk",
+  "meta": {
+    "region": "uk",
+    "useGM2": false,
+    "methodology": "mlsn",
+    "surfaceType": "sports",
+    "supplierFilter": "all"
+  },
+  "delivered": {
+    "K": 125.35847690476191,
+    "N": 199.78826190476192,
+    "P": 27.909009523809523
+  },
+  "targets": {
+    "K": 106.9,
+    "N": 200,
+    "P": 20
+  },
+  "monthly": [
+    {
+      "gp": 0.02,
+      "notes": [],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Jan",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.02,
+      "notes": [],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Feb",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.04,
+      "notes": [],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [],
+      "month_name": "Mar",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.13,
+      "notes": [],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "vision-reward-crf-15-15-5",
+          "npk": "15-15-5+3MgO",
+          "name": "Vision Reward CRF 15-15-5+3%MgO (3-4 Month)",
+          "brand": "Vision Reward CRF",
+          "nForm": "urea_pcu",
+          "notes": "1-2mm CRF. 3-4 month release. 45% polymer-coated N (PolyEdge � SDS polyedge_15-15-5_msds.pdf). Pre-seeder / renovation / establishment grade. Page: Mar-Oct. Nutrient applied at 30 g/m2: N 45, P 45, K 15 kg/ha. Source: aitkens.co.uk Vision Reward CRF 15-15-5 product page.",
+          "product": {
+            "id": "vision-reward-crf-15-15-5",
+            "form": "granular",
+            "name": "Vision Reward CRF 15-15-5+3%MgO (3-4 Month)",
+            "brand": "Vision Reward CRF",
+            "nForm": "urea_pcu",
+            "notes": "1-2mm CRF. 3-4 month release. 45% polymer-coated N (PolyEdge � SDS polyedge_15-15-5_msds.pdf). Pre-seeder / renovation / establishment grade. Page: Mar-Oct. Nutrient applied at 30 g/m2: N 45, P 45, K 15 kg/ha. Source: aitkens.co.uk Vision Reward CRF 15-15-5 product page.",
+            "rates": {
+              "sportsMax": 35,
+              "sportsMin": 25,
+              "fairwaysMax": 35,
+              "fairwaysMin": 25
+            },
+            "season": [
+              "spring",
+              "summer",
+              "autumn"
+            ],
+            "release": "controlled",
+            "analysis": {
+              "K": 4.15,
+              "N": 15,
+              "P": 6.54,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 1.81
+            },
+            "rateUnit": "g/m�",
+            "supplier": "aitkens",
+            "surfaces": [
+              "fairways",
+              "sports"
+            ],
+            "verified": true,
+            "npk_label": "15-15-5+3MgO",
+            "nFormReason": "PolyEdge polymer-coated urea. 45% coated N. Low volatilisation.",
+            "rates_kg_ha": {
+              "sportsMax": 350,
+              "sportsMin": 250,
+              "fairwaysMax": 350,
+              "fairwaysMin": 250
+            },
+            "interval_weeks": 14,
+            "nFormConfidence": "auto",
+            "particleSize_mm": 1.5
+          },
+          "rateGM2": 1.5,
+          "release": "controlled",
+          "analysis": {
+            "K": 4.15,
+            "N": 15,
+            "P": 6.54,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 1.81
+          },
+          "delivers": {
+            "K": 1.9,
+            "N": 7,
+            "P": 3
+          },
+          "rateKgHa": 150,
+          "supplier": "aitkens"
+        }
+      ],
+      "month_name": "Apr",
+      "requirements": {
+        "K": 3.6,
+        "N": 6.7,
+        "P": 0.7
+      }
+    },
+    {
+      "gp": 0.36,
+      "notes": [],
+      "liquid": [],
+      "season": "Spring",
+      "granular": [
+        {
+          "id": "oas-hcote-22-3-8-fe-mg",
+          "npk": "22-3-8+0.7Fe+0.8MgO",
+          "name": "H-Cote 22-3-8+0.7Fe+0.8MgO",
+          "brand": "H-Cote",
+          "nForm": "urea_pcu",
+          "notes": "Highest coated N% in H-Cote range (91%). Minimal growth flush. Spring/summer tees and fairways.",
+          "product": {
+            "id": "oas-hcote-22-3-8-fe-mg",
+            "sgn": 175,
+            "form": "granular",
+            "name": "H-Cote 22-3-8+0.7Fe+0.8MgO",
+            "brand": "H-Cote",
+            "nForm": "urea_pcu",
+            "notes": "Highest coated N% in H-Cote range (91%). Minimal growth flush. Spring/summer tees and fairways.",
+            "rates": {
+              "teesMax": 350,
+              "teesMin": 250,
+              "sportsMax": 350,
+              "sportsMin": 250,
+              "fairwaysMax": 350,
+              "fairwaysMin": 250
+            },
+            "season": [
+              "spring",
+              "summer"
+            ],
+            "release": "controlled",
+            "analysis": {
+              "K": 6.64,
+              "N": 22,
+              "P": 1.31,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0.7,
+              "Mg": 0.48,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "oas",
+            "surfaces": [
+              "tees",
+              "fairways",
+              "sports"
+            ],
+            "verified": true,
+            "npk_label": "22-3-8+0.7Fe+0.8MgO",
+            "nBreakdown": {
+              "ammN_pct": 2,
+              "ureicN_pct": 20.5,
+              "coatedN_pct": 91
+            },
+            "nFormReason": "nBreakdown: coated N + ureic fraction confirmed",
+            "productCode": "OAI004549",
+            "releaseNotes": "Dual-coat technology. 91% coated N. Temp-triggered. Mini-granule.",
+            "interval_weeks": null,
+            "nFormConfidence": "auto",
+            "particleSize_mm": "1-2.5",
+            "releaseDuration_months": {
+              "max": 4,
+              "min": 3
+            }
+          },
+          "rateGM2": 2.5,
+          "release": "controlled",
+          "analysis": {
+            "K": 6.64,
+            "N": 22,
+            "P": 1.31,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0.7,
+            "Mg": 0.48,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 5.5,
+            "N": 18.3,
+            "P": 1.1
+          },
+          "rateKgHa": 250,
+          "supplier": "oas"
+        }
+      ],
+      "month_name": "May",
+      "requirements": {
+        "K": 10,
+        "N": 18.7,
+        "P": 1.9
+      }
+    },
+    {
+      "gp": 0.69,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "sportsmaster-spring-summer",
+          "npk": "14-5-10",
+          "name": "Sportsmaster Spring & Summer",
+          "brand": "Sportsmaster",
+          "nForm": "mixed",
+          "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+          "product": {
+            "id": "sportsmaster-spring-summer",
+            "sgn": 150,
+            "form": "granular",
+            "name": "Sportsmaster Spring & Summer",
+            "brand": "Sportsmaster",
+            "nForm": "mixed",
+            "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+            "rates": {
+              "teesMax": 500,
+              "teesMin": 250,
+              "sportsMax": 750,
+              "sportsMin": 350,
+              "fairwaysMax": 750,
+              "fairwaysMin": 350
+            },
+            "season": [
+              "spring",
+              "summer"
+            ],
+            "release": "quick",
+            "analysis": {
+              "K": 8.3,
+              "N": 14,
+              "P": 2.18,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 0,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "icl",
+            "surfaces": [
+              "fairways",
+              "sports",
+              "tees"
+            ],
+            "verified": false,
+            "npk_label": "14-5-10",
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)",
+            "interval_weeks": 6,
+            "nFormConfidence": "auto",
+            "particleSize_mm": null
+          },
+          "rateGM2": 2.5,
+          "release": "quick",
+          "analysis": {
+            "K": 8.3,
+            "N": 14,
+            "P": 2.18,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 0,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 21.1,
+            "N": 35.6,
+            "P": 5.5
+          },
+          "rateKgHa": 254,
+          "supplier": "icl"
+        }
+      ],
+      "month_name": "Jun",
+      "requirements": {
+        "K": 19,
+        "N": 35.6,
+        "P": 3.6
+      }
+    },
+    {
+      "gp": 0.89,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "sportsmaster-spring-summer",
+          "npk": "14-5-10",
+          "name": "Sportsmaster Spring & Summer",
+          "brand": "Sportsmaster",
+          "nForm": "mixed",
+          "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+          "product": {
+            "id": "sportsmaster-spring-summer",
+            "sgn": 150,
+            "form": "granular",
+            "name": "Sportsmaster Spring & Summer",
+            "brand": "Sportsmaster",
+            "nForm": "mixed",
+            "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+            "rates": {
+              "teesMax": 500,
+              "teesMin": 250,
+              "sportsMax": 750,
+              "sportsMin": 350,
+              "fairwaysMax": 750,
+              "fairwaysMin": 350
+            },
+            "season": [
+              "spring",
+              "summer"
+            ],
+            "release": "quick",
+            "analysis": {
+              "K": 8.3,
+              "N": 14,
+              "P": 2.18,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 0,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "icl",
+            "surfaces": [
+              "fairways",
+              "sports",
+              "tees"
+            ],
+            "verified": false,
+            "npk_label": "14-5-10",
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)",
+            "interval_weeks": 6,
+            "nFormConfidence": "auto",
+            "particleSize_mm": null
+          },
+          "rateGM2": 3.3,
+          "release": "quick",
+          "analysis": {
+            "K": 8.3,
+            "N": 14,
+            "P": 2.18,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 0,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 27.5,
+            "N": 46.3,
+            "P": 7.2
+          },
+          "rateKgHa": 331,
+          "supplier": "icl"
+        }
+      ],
+      "month_name": "Jul",
+      "requirements": {
+        "K": 24.8,
+        "N": 46.4,
+        "P": 4.6
+      }
+    },
+    {
+      "gp": 0.88,
+      "notes": [],
+      "liquid": [],
+      "season": "Summer",
+      "granular": [
+        {
+          "id": "sportsmaster-spring-summer",
+          "npk": "14-5-10",
+          "name": "Sportsmaster Spring & Summer",
+          "brand": "Sportsmaster",
+          "nForm": "mixed",
+          "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+          "product": {
+            "id": "sportsmaster-spring-summer",
+            "sgn": 150,
+            "form": "granular",
+            "name": "Sportsmaster Spring & Summer",
+            "brand": "Sportsmaster",
+            "nForm": "mixed",
+            "notes": "Conventional quick-release. Rapid granule breakdown. Urea + ammonium N, no chloride-K. Spring/summer outfield use.",
+            "rates": {
+              "teesMax": 500,
+              "teesMin": 250,
+              "sportsMax": 750,
+              "sportsMin": 350,
+              "fairwaysMax": 750,
+              "fairwaysMin": 350
+            },
+            "season": [
+              "spring",
+              "summer"
+            ],
+            "release": "quick",
+            "analysis": {
+              "K": 8.3,
+              "N": 14,
+              "P": 2.18,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 0,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "icl",
+            "surfaces": [
+              "fairways",
+              "sports",
+              "tees"
+            ],
+            "verified": false,
+            "npk_label": "14-5-10",
+            "nFormReason": "Sportsmaster: urea + ammonium N sources (confirmed from ICL description, no chloride-K)",
+            "interval_weeks": 6,
+            "nFormConfidence": "auto",
+            "particleSize_mm": null
+          },
+          "rateGM2": 3.3,
+          "release": "quick",
+          "analysis": {
+            "K": 8.3,
+            "N": 14,
+            "P": 2.18,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 0,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 27,
+            "N": 45.5,
+            "P": 7.1
+          },
+          "rateKgHa": 325,
+          "supplier": "icl"
+        }
+      ],
+      "month_name": "Aug",
+      "requirements": {
+        "K": 24.3,
+        "N": 45.5,
+        "P": 4.5
+      }
+    },
+    {
+      "gp": 0.62,
+      "notes": [],
+      "liquid": [
+        {
+          "id": "gm-liquid-spring-summer",
+          "form": "liquid",
+          "name": "Greenmaster Liquid Spring & Summer",
+          "rate": "38.3 L/ha",
+          "brand": "Greenmaster Liquid",
+          "notes": "High-N spring/summer liquid. Tank-mixable with other GM Liquids (except Ca-Booster). w/v analysis 14-5-7 per Pitchcare/ICL confirmed.",
+          "product": {
+            "id": "gm-liquid-spring-summer",
+            "form": "liquid",
+            "name": "Greenmaster Liquid Spring & Summer",
+            "brand": "Greenmaster Liquid",
+            "nForm": "mixed",
+            "notes": "High-N spring/summer liquid. Tank-mixable with other GM Liquids (except Ca-Booster). w/v analysis 14-5-7 per Pitchcare/ICL confirmed.",
+            "rates": {
+              "stdMax": 40,
+              "stdMin": 20
+            },
+            "season": [
+              "spring",
+              "summer"
+            ],
+            "release": "quick",
+            "analysis": {
+              "K": 4.98,
+              "N": 12,
+              "P": 1.75
+            },
+            "category": "liquid_fertiliser",
+            "rateUnit": "L/ha",
+            "supplier": "icl",
+            "surfaces": [
+              "greens",
+              "tees",
+              "fairways",
+              "sports",
+              "bowling"
+            ],
+            "verified": false,
+            "npk_label": "12-4-6+TE",
+            "nFormReason": "ICL Greenmaster Liquid: likely urea + ammonium blend (TMax); SDS needed for N-form split",
+            "releaseNotes": "ICL TMax liquid technology. w/v 14-5-7 confirmed Pitchcare/ICL.",
+            "interval_weeks": 3,
+            "nFormConfidence": "review",
+            "waterVolume_Lha": {
+              "max": 600,
+              "min": 300
+            }
+          },
+          "rateLHa": 38.3,
+          "analysis": {
+            "K": 4.98,
+            "N": 12,
+            "P": 1.75
+          },
+          "delivers": {
+            "K": 1.9,
+            "N": 4.6,
+            "P": 0.7
+          },
+          "rateUnit": "L/ha",
+          "supplier": "icl"
+        }
+      ],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "oas-premier-hg-22-3-15-te",
+          "npk": "22-3-15+TE",
+          "name": "Premier HG 22-3-15+TE",
+          "brand": "Premier HG",
+          "nForm": "urea_mu",
+          "notes": "Long-season slow-release. Methylene urea chains extend N availability. Trace element package included.",
+          "product": {
+            "id": "oas-premier-hg-22-3-15-te",
+            "sgn": 175,
+            "form": "granular",
+            "name": "Premier HG 22-3-15+TE",
+            "brand": "Premier HG",
+            "nForm": "urea_mu",
+            "notes": "Long-season slow-release. Methylene urea chains extend N availability. Trace element package included.",
+            "rates": {
+              "teesMax": 350,
+              "teesMin": 250,
+              "greensMax": 350,
+              "greensMin": 250,
+              "sportsMax": 350,
+              "sportsMin": 250,
+              "fairwaysMax": 350,
+              "fairwaysMin": 250
+            },
+            "season": [
+              "spring"
+            ],
+            "release": "slow",
+            "analysis": {
+              "K": 12.45,
+              "N": 22,
+              "P": 1.31,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 0,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "oas",
+            "surfaces": [
+              "greens",
+              "tees",
+              "fairways",
+              "sports"
+            ],
+            "verified": true,
+            "npk_label": "22-3-15+TE",
+            "nBreakdown": {
+              "ammN_pct": 4,
+              "ureicN_pct": 1.7,
+              "methyleneUreaN_pct": 16.3
+            },
+            "nFormReason": "nBreakdown: methylene urea blend",
+            "productCode": "OAI000339",
+            "releaseNotes": "Methylene urea (short/medium/long chain) + ammoniacal + ureic blend.",
+            "interval_weeks": null,
+            "nFormConfidence": "auto",
+            "particleSize_mm": "1-2.5",
+            "releaseDuration_months": {
+              "max": 6,
+              "min": 5
+            }
+          },
+          "rateGM2": 2.5,
+          "release": "slow",
+          "analysis": {
+            "K": 12.45,
+            "N": 22,
+            "P": 1.31,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 0,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 15.6,
+            "N": 27.5,
+            "P": 1.6
+          },
+          "rateKgHa": 250,
+          "supplier": "oas"
+        }
+      ],
+      "month_name": "Sep",
+      "requirements": {
+        "K": 17.2,
+        "N": 32.1,
+        "P": 3.2
+      }
+    },
+    {
+      "gp": 0.29,
+      "notes": [],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [
+        {
+          "id": "oas-premier-hg-12-3-24-mg-te",
+          "npk": "12-3-24+2.5MgO+TE",
+          "name": "Premier HG 12-3-24+2.5MgO+TE",
+          "brand": "Premier HG",
+          "nForm": "urea_mu",
+          "notes": "Very high K slow-release + Mg. Autumn hardening or spring K loading. Suitable for greens.",
+          "product": {
+            "id": "oas-premier-hg-12-3-24-mg-te",
+            "sgn": 175,
+            "form": "granular",
+            "name": "Premier HG 12-3-24+2.5MgO+TE",
+            "brand": "Premier HG",
+            "nForm": "urea_mu",
+            "notes": "Very high K slow-release + Mg. Autumn hardening or spring K loading. Suitable for greens.",
+            "rates": {
+              "teesMax": 350,
+              "teesMin": 250,
+              "greensMax": 350,
+              "greensMin": 250,
+              "sportsMax": 350,
+              "sportsMin": 250,
+              "fairwaysMax": 350,
+              "fairwaysMin": 250
+            },
+            "season": [
+              "autumn",
+              "spring"
+            ],
+            "release": "slow",
+            "analysis": {
+              "K": 19.92,
+              "N": 12,
+              "P": 1.31,
+              "S": 0,
+              "Ca": 0,
+              "Fe": 0,
+              "Mg": 1.51,
+              "Mn": 0
+            },
+            "rateUnit": "kg/ha",
+            "supplier": "oas",
+            "surfaces": [
+              "greens",
+              "tees",
+              "fairways",
+              "sports"
+            ],
+            "verified": true,
+            "npk_label": "12-3-24+2.5MgO+TE",
+            "nBreakdown": {
+              "ammN_pct": 6.2,
+              "ureicN_pct": 1.8,
+              "methyleneUreaN_pct": 4
+            },
+            "nFormReason": "nBreakdown: methylene urea blend",
+            "productCode": "OAI000341",
+            "interval_weeks": null,
+            "nFormConfidence": "auto",
+            "particleSize_mm": "1-2.5",
+            "releaseDuration_months": {
+              "max": 5,
+              "min": 4
+            }
+          },
+          "rateGM2": 2.5,
+          "release": "slow",
+          "analysis": {
+            "K": 19.92,
+            "N": 12,
+            "P": 1.31,
+            "S": 0,
+            "Ca": 0,
+            "Fe": 0,
+            "Mg": 1.51,
+            "Mn": 0
+          },
+          "delivers": {
+            "K": 24.9,
+            "N": 15,
+            "P": 1.6
+          },
+          "rateKgHa": 250,
+          "supplier": "oas"
+        }
+      ],
+      "month_name": "Oct",
+      "requirements": {
+        "K": 8,
+        "N": 15,
+        "P": 1.5
+      }
+    },
+    {
+      "gp": 0.07,
+      "notes": [],
+      "liquid": [],
+      "season": "Autumn",
+      "granular": [],
+      "month_name": "Nov",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    },
+    {
+      "gp": 0.02,
+      "notes": [],
+      "liquid": [],
+      "season": "Winter",
+      "granular": [],
+      "month_name": "Dec",
+      "requirements": {
+        "K": 0,
+        "N": 0,
+        "P": 0
+      }
+    }
+  ]
+}

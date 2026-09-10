@@ -121,9 +121,9 @@ describe.each([
         const idx = src.indexOf(`${prefix}-balance-row--\${statusVisualClass(nBal.statusClass)}`);
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 900);
-        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(nBal\\.statusClass\\)\\}"><strong>\\\$\\{Math\\.round\\(nBal\\.diff\\)\\}`));
-        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(pBal\\.statusClass\\)\\}"><strong>\\\$\\{Math\\.round\\(pBal\\.diff\\)\\}`));
-        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(kBal\\.statusClass\\)\\}"><strong>\\\$\\{Math\\.round\\(kBal\\.diff\\)\\}`));
+        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(nBal\\.statusClass\\)\\}"><strong>\\\$\\{this\\.formatDelivered\\(nBal\\.diff\\)\\}`));
+        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(pBal\\.statusClass\\)\\}"><strong>\\\$\\{this\\.formatDelivered\\(pBal\\.diff\\)\\}`));
+        expect(block).toMatch(new RegExp(`${prefix}-\\\$\\{statusVisualClass\\(kBal\\.statusClass\\)\\}"><strong>\\\$\\{this\\.formatDelivered\\(kBal\\.diff\\)\\}`));
         expect(block).not.toMatch(/diff >= 0 \? '\+' : ''/);
     });
 

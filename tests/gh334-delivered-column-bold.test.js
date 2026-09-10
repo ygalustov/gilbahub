@@ -24,7 +24,13 @@ describe.each([
 
     test('Delivered cell has the bold class, no background/colour class', () => {
         const cellClass = prefix === 'au-fert' ? 'au-fert-cell' : 'prebble-cell';
-        expect(src).toMatch(new RegExp(`<td class="${cellClass} ${cellClass}--num ${cellClass}--delivered">\\\$\\{delivered\\}</td>`));
+        // GH-401: the cell's expression changed from `${delivered}` to
+        // `${_round1(delivered)}` when the intermediate 1 dp rounding was
+        // deleted from above these renderers — the figure is the same one,
+        // rounded once at this cell instead of twice on the way to it. What
+        // this test is about is the CLASS list, so it pins that and lets the
+        // expression be any read of `delivered`.
+        expect(src).toMatch(new RegExp(`<td class="${cellClass} ${cellClass}--num ${cellClass}--delivered">\\\$\\{[^}]*delivered[^}]*\\}</td>`));
     });
 
     test('the --delivered CSS rule is font-weight only, no background or colour', () => {

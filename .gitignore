@@ -5,3 +5,8 @@ node_modules/
 # GH-390: real dev-stack login for the E2E parity harness. The .example.json
 # next to it IS tracked and shows the shape; this one holds a real password.
 tests/e2e/.e2e-credentials.json
+
+# Dev-database snapshots taken before live agent runs. Restore fodder, not
+# source — the samples/sync defect can delete rows during ordinary UI actions,
+# so a dump is taken before any run that clicks through the live stack.
+files/fixes/**/dev-db-snapshot-*.sql
