@@ -2439,6 +2439,27 @@
                         console.warn('[CombinedExport b35fix382] POST-compute log failed:', _e && _e.message);
                     }
 
+                    // ───────── GH-396: Plan-page column inputs ─────────
+                    // The Annual Nutrient Requirements table now prints the
+                    // same columns the Plan page's Nutrient Delivery Summary
+                    // does — Current, Removal, Range, Balance, Status — and it
+                    // must print them from the same place, not from a second
+                    // resolution of the same quantities. These four fields ARE
+                    // the Plan page's inputs: nutrition-prebble-integration.js
+                    // and nutrition-au-fertiliser-integration.js read exactly
+                    // `program.soil`, `program.annual_removal`,
+                    // `program.annual_totals_range` and
+                    // `program.missing_soil_data`, carried through from this
+                    // same computeProgram() call. Stashed here rather than
+                    // recomputed at render time so a sample whose recommender
+                    // later fails still has its soil columns.
+                    r._planParity = {
+                        soil: perSampleCalendar.soil || null,
+                        removal: perSampleCalendar.annual_removal || null,
+                        ranges: perSampleCalendar.annual_totals_range || null,
+                        missingSoilData: perSampleCalendar.missing_soil_data || {}
+                    };
+
                     // GH-362 superseded GH-360's guard here: the branch is now
                     // resolved per sample before this point (see the
                     // "GH-362 branch for sample" block above), so a wrong-region
@@ -3334,9 +3355,15 @@
         // to 100+ without horizontal overflow.
         //
         // Architecture:
-        //   - Main ANR table: Sample | N | P ppm | P req | K ppm | K req | S ppm | S req
+        //   - Main ANR table (GH-396): Sample | Nutrient | Current (kg/ha, ppm) |
+        //     Removal | Required | Delivered | Range | Balance | Status —
+        //     the Plan page's Nutrient Delivery Summary, column for column.
+        //     Was: Sample | N | P ppm | P req | K ppm | K req | S ppm | S req
         //   - K reconciliation extracted to a separate follow-up table (standard path only):
-        //     Sample | K req | K delivered | K balance | Spot K?
+        //     Sample | Required | Delivered | Programme vs required | Spot K?
+        //     (GH-396 renamed those three; "K balance" was Delivered −
+        //     Required, a different quantity from the Plan page's Balance,
+        //     which is now printed in the main table above under its own name)
         //   - Cotula S78 path: Sample | pH | Olsen P | K %BS | Ca %BS | Mg %BS |
         //     Na %BS | CEC | TBS | VW | K/Mg | N program
         //
@@ -3458,9 +3485,11 @@
                 return sum > 0 ? Math.round(sum) : null;
             }
             var _willRenderKReconciliation = (_facilityKDelivered != null) && !hasCotula && hasStandard;
-            var _reconSuffix = _willRenderKReconciliation
-                ? ' K reconciliation against N programme delivery shown in follow-up table.'
-                : '';
+            // GH-396: `_reconSuffix` ("K reconciliation against N programme
+            // delivery shown in follow-up table.") is gone with the caption
+            // rewrite — the new Balance sentence says the same thing and says
+            // what the two tables answer differently, so keeping both printed
+            // the cross-reference twice.
 
             // b35fix331 — Item 1a residual closure (Option B: caption + cell marker).
             //
@@ -3586,22 +3615,53 @@
                   'estimate, not a statement that no action is needed.'
                 : '';
 
+            // ────────────────────────────────────────────────────────────
+            // GH-396 — what the two new column groups mean, said once and
+            // appended to every methodology's caption.
+            //
+            // The sentence this replaces was false. It claimed the figures
+            // below were removal-replacement estimates only and expressly NOT
+            // deficit closure — but below the sufficiency floor the engine adds
+            // that year's share of the lift, and does so on every methodology.
+            // Live on Test5 - NZ: K Required 152.7 is removal 126 plus lift.
+            // Deficit closure is included, not excluded. (The retired literal
+            // is described rather than quoted, per banked lesson #29, so the
+            // regression test that greps for its absence still means something.)
+            //
+            // The Balance clause names the quantity the K Reconciliation table
+            // does NOT answer, because the same word meant two things across
+            // the two documents before this ticket. The cross-reference is
+            // conditional: on a site whose programme delivers no K there is no
+            // reconciliation table to point at.
+            // ────────────────────────────────────────────────────────────
+            var _gh396RequiredNote = ' Required is the annual removal-replacement estimate ' +
+                '(clipping uptake) plus, where the soil sits below its sufficiency floor, that ' +
+                'year\'s share of the correction needed to lift it — it is not removal alone.';
+            var _gh396BalanceNote = ' Balance is the projected soil level at season end ' +
+                '(Current + Delivered − Removal), judged against the sufficiency range' +
+                (_willRenderKReconciliation
+                    ? '; the K reconciliation table below answers a different question — whether ' +
+                      'the N programme\'s incidental K delivery covers the requirement.'
+                    : '.');
+            var _gh396UnitsNote = ' Rates are kg/ha/yr; soil levels are kg/ha with the ' +
+                'certificate\'s ppm in brackets.';
+            var _gh396Tail = _gh396RequiredNote + _gh396BalanceNote + _trendNote +
+                _tissueMarkNote + _gh396UnitsNote;
+
             var subtitleText;
             if (methodStr === 'MLSN') {
-                subtitleText = 'MLSN methodology (Woods et al. 2016): K/P/S req figures are removal-rate ' +
-                               '(replacement target). Below the MLSN floor, req = removal + deficit ' +
-                               'correction; at or above the floor, req = removal only, soil reserves ' +
-                               'are agronomically sufficient, the figure indicates the rate at which ' +
-                               'clippings are removing the nutrient, not a per-year application target.' +
-                               _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
+                subtitleText = 'MLSN methodology (Woods et al. 2016). Below the MLSN floor, ' +
+                               'Required = removal + deficit correction; at or above the floor, ' +
+                               'Required = removal only — soil reserves are agronomically sufficient ' +
+                               'and the figure is the rate at which clippings are removing the ' +
+                               'nutrient, not a per-year application target.' + _gh396Tail;
             } else if (methodStr === 'SLAN') {
-                subtitleText = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
-                               'K/P/S req figures are removal-rate (replacement target), with P pH-adjusted ' +
-                               'where pH is available. Within the sufficiency range, req = removal only ' +
-                               '(soil reserves cover the agronomic requirement); below floor, req = removal ' +
-                               '+ lift correction over years-to-correct; above ceiling, req = 0. ' +
-                               'Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001).' +
-                               _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
+                subtitleText = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198), ' +
+                               'with P pH-adjusted where pH is available. Within the sufficiency range, ' +
+                               'Required = removal only (soil reserves cover the agronomic requirement); ' +
+                               'below floor, Required = removal + lift correction over years-to-correct; ' +
+                               'above ceiling, Required = 0. Sufficiency-as-floor framing per Carrow, ' +
+                               'Waddington & Rieke (2001).' + _gh396Tail;
             } else if (methodStr === 'AA') {
                 // ────────────────────────────────────────────────────────
                 // b35fix441b / C47: AA caption reanchor (combined-export
@@ -3650,15 +3710,13 @@
                                            _b35fix441b_aaReport.data.soil.aaSampleTypeLabel) ||
                                           'TURF Ryegrass, Sand (S277)';
                 subtitleText = 'Hill Labs ' + _b35fix441b_aaCode + ' sample-type sufficiency thresholds applied (' +
-                               _b35fix441b_aaLabel + '). Cation values converted from cert-native ' +
-                               'me/100g to ppm for amendment-math comparison; cation deficit-correction ' +
-                               'recommendations appear in the Soil Amendment table above. The figures ' +
-                               'below are annual removal-replacement estimates (clipping uptake), not ' +
-                               'deficit-closure rates.' + _reconSuffix + _trendNote + _tissueMarkNote + ' All rates kg/ha/yr.';
+                               _b35fix441b_aaLabel + '). Cation values converted from certificate-native ' +
+                               'me/100g to ppm; cation deficit-correction ' +
+                               'recommendations appear in the Soil Amendment table above.' + _gh396Tail;
             } else if (methodStr === 'S78') {
                 subtitleText = 'Hill Labs S78, Turf Cotula. Sufficiency-based interpretation. MLSN does not apply to cotula.';
             } else {
-                subtitleText = 'Requirements based on ' + methodStr + ' methodology.' + _reconSuffix + ' All rates kg/ha/yr.';
+                subtitleText = 'Requirements based on ' + methodStr + ' methodology.' + _gh396Tail;
             }
             allChildren.push(new Paragraph({
                 spacing: { before: 50, after: 160 },
@@ -3817,35 +3875,86 @@
                 }));
 
             } else {
-                // ── Standard MLSN/SLAN/AA table (TRANSPOSED) ─────────────────
+                // ── Standard MLSN/SLAN/AA table ──────────────────────────────
                 //
-                // Columns: Sample | N Total | P ppm | P req | K ppm | K req | S ppm | S req
+                // GH-396. Columns: Sample | Nutrient | Current (kg/ha, ppm) |
+                // Removal | Required | Delivered | Range | Balance | Status —
+                // the Plan page's own Nutrient Delivery Summary, column for
+                // column, word for word.
                 //
-                // Main table is fixed 8-column width regardless of sample count.
-                // K reconciliation (delivered/balance/spot) extracted to a separate
-                // follow-up table below — keeps the main table narrow and separates
-                // the "what's required" concern from the "how does that compare to
-                // your programme" concern.
-                var SAMPLE_COL_W = 1800;
-                var N_COL_W = 700;
-                var PKS_PPM_COL_W = 800;
-                var PKS_REQ_COL_W = 900;
+                // What it replaced: Sample | N kg/ha | P ppm | P req | K ppm |
+                // K req | S ppm | S req. Three separate presentation defects
+                // in one table, none of them arithmetic (the two surfaces
+                // already agreed on every figure — live on Test5 - NZ, K
+                // required 136 on the Plan against 136.1 here):
+                //
+                //   (a) One measurement in two units with nothing saying so.
+                //       The report printed "K ppm 40", the Plan "Current
+                //       (kg/ha) 56". Same quantity: 40 x 1.4 x 10 x 0.1 = 56.
+                //       Now kg/ha throughout with the certificate's own ppm in
+                //       brackets, because the client cross-checks this table
+                //       against a lab certificate that is written in ppm.
+                //   (b) Two different quantities under one name. "Balance"
+                //       here meant Delivered - Required (does the N programme's
+                //       incidental K cover the requirement); on the Plan it
+                //       means Current + Delivered - Removal (the projected soil
+                //       level at season end). Both are worth printing and they
+                //       diverge exactly where it matters — Test5's phosphorus
+                //       has nothing to apply, so Delivered - Required is zero,
+                //       while the projected pool falls 56 -> 22, a fifth below
+                //       the floor. One is about this season, the other about
+                //       next. The Plan's vocabulary is the reference: Balance
+                //       keeps its meaning and joins this table; the K
+                //       Reconciliation table's column is renamed "Programme vs
+                //       required".
+                //   (c) A subset of the Plan's columns — concentration and
+                //       requirement only — which is the real reason the two
+                //       documents read as different data.
+                //
+                // b35fix316's samples-as-rows layout is KEPT and is the reason
+                // nutrients moved into rows rather than columns: a 45-sample
+                // council report in the pre-b35fix316 orientation produced a
+                // 1,464-character-wide table that ran off the page. Width here
+                // is fixed at nine columns whatever the sample count; only
+                // height grows, three rows per sample.
+                //
+                // The nutrient set is N, P and K — the three the Plan shows.
+                // S came out with the same change: it had a requirement column
+                // here and nowhere on the Plan.
+                var SAMPLE_COL_W   = 1500;
+                var NUT_COL_W      = 700;
+                var CURRENT_COL_W  = 1500;
+                var REMOVAL_COL_W  = 900;
+                var REQUIRED_COL_W = 900;
+                var DELIVERED_COL_W = 1000;
+                var RANGE_COL_W    = 1250;
+                var BALANCE_COL_W  = 900;
+                var STATUS_COL_W   = 1050;
+                var ANR_COL_WIDTHS = [SAMPLE_COL_W, NUT_COL_W, CURRENT_COL_W, REMOVAL_COL_W,
+                                      REQUIRED_COL_W, DELIVERED_COL_W, RANGE_COL_W,
+                                      BALANCE_COL_W, STATUS_COL_W];
 
                 var hdr = [
-                    _mkHdr('Sample',        SAMPLE_COL_W),
-                    _mkHdr('N kg/ha',       N_COL_W),
-                    _mkHdr('P ppm',         PKS_PPM_COL_W),
-                    _mkHdr('P req',         PKS_REQ_COL_W),
-                    _mkHdr('K ppm',         PKS_PPM_COL_W),
-                    _mkHdr('K req',         PKS_REQ_COL_W),
-                    _mkHdr('S ppm',         PKS_PPM_COL_W),
-                    _mkHdr('S req',         PKS_REQ_COL_W)
+                    _mkHdr('Sample',              SAMPLE_COL_W),
+                    _mkHdr('Nutrient',            NUT_COL_W),
+                    _mkHdr('Current (kg/ha, ppm)', CURRENT_COL_W),
+                    _mkHdr('Removal',             REMOVAL_COL_W),
+                    _mkHdr('Required',            REQUIRED_COL_W),
+                    _mkHdr('Delivered',           DELIVERED_COL_W),
+                    _mkHdr('Range',               RANGE_COL_W),
+                    _mkHdr('Balance',             BALANCE_COL_W),
+                    _mkHdr('Status',              STATUS_COL_W)
                 ];
                 tableRows.push(new TableRow({ children: hdr }));
 
-                // Colour helper for ANR status. Recognises both MLSN status
-                // bands (Very Low / Low / Adequate / High / Excessive) and
-                // SLAN status bands (Deficient / Sufficient / Excessive).
+                // Colour helper for ANR soil status. Recognises both MLSN
+                // status bands (Very Low / Low / Adequate / High / Excessive)
+                // and SLAN status bands (Deficient / Sufficient / Excessive).
+                // GH-396: this colours the Current and Required cells, which
+                // are statements about the soil as sampled. The Balance and
+                // Status cells are coloured by the Plan page's own verdict
+                // palette instead (see _balanceModel below) — a different
+                // question, so a different source of colour.
                 function _anrColor(anrResult) {
                     if (!anrResult) return '6B7280';
                     var s = anrResult.status;
@@ -3857,74 +3966,186 @@
                     return '16A34A';
                 }
 
+                // GH-396: the Plan page's Balance/Status classifier, shared
+                // through assets/nutrient-balance-status.js. Not a second
+                // implementation of it — nutrition-prebble-integration.js and
+                // nutrition-au-fertiliser-integration.js call this same
+                // function for the table this one is being brought into line
+                // with.
+                var _balanceModel = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
+                if (!_balanceModel) {
+                    console.warn('[CombinedExport] GH-396: nutrient-balance-status.js is not loaded — ' +
+                        'the Annual Nutrient Requirements table will print Balance and Status as "—" ' +
+                        'rather than classify them by some other rule.');
+                }
+
+                // GH-396: per-nutrient programme delivery, catalogue-only, from
+                // the same helper the K Reconciliation table's "K delivered"
+                // uses (word-export.js _computeProgrammeDelivered, of which
+                // _computeProgrammeKDelivered is the 'K' case). K therefore
+                // cannot be one number in this table and another in that one.
+                var _wxDeliveredHelper = (typeof window !== 'undefined' && window.GAIP_WordExport &&
+                                          window.GAIP_WordExport._computeProgrammeDelivered) || null;
+                // One resolution for all three nutrients, K included. The K
+                // Reconciliation table below reads the same sum through
+                // _perSampleKDelivered(), which rounds it to a whole number
+                // for its own display; this table prints one decimal, matching
+                // the Plan page's Delivered column exactly (175.2, not 175).
+                // Deliberately not aligned in the other direction: the rounded
+                // figure is also what the spot-K display classifier is handed,
+                // and changing that is a behaviour change, not a presentation
+                // one.
+                function _perSampleDelivered(r, nut) {
+                    var np = r && r.data && r.data.nutritionProgram;
+                    if (!np || !np.annualSummary || !np.annualSummary.products) return null;
+                    if (!_wxDeliveredHelper) return null;
+                    return _wxDeliveredHelper(np.annualSummary, nut);
+                }
+
                 anrReports.forEach(function(r, ri) {
+                    // Alternating fill runs per SAMPLE, not per row, so a
+                    // sample's three nutrient rows read as one block.
                     var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
                     var ns = r.data.nutritionSummary;
                     var soil = r.data.soil || {};
+                    var pp = r._planParity || null;
+                    var ppSoil = (pp && pp.soil) || null;
 
-                    var nVal = ns && ns.totalN ? parseFloat(ns.totalN).toFixed(0) : '-';
+                    ['N', 'P', 'K'].forEach(function(nut) {
+                        var anrResult = r._anr && r._anr[nut];   // null for N by construction
+                        var isN = (nut === 'N');
 
-                    var cells = [
-                        // Sample label — bold, left-aligned
-                        _mkCell(r.sampleLabel || r.sampleId, {
-                            fill: rowFill, bold: true, size: 20, width: SAMPLE_COL_W
-                        }),
-                        // N Total — single column, no soil ppm equivalent
-                        _mkCell(nVal, {
-                            fill: rowFill, bold: true, size: 17, align: AlignmentType.CENTER,
-                            width: N_COL_W
-                        })
-                    ];
+                        // ── Required ────────────────────────────────────────
+                        // Unchanged figures: N is the programme's own annual
+                        // total, P and K are the engine's annualRequirement —
+                        // the very numbers this table printed before, and the
+                        // same ones the K Reconciliation table reads.
+                        var reqVal;
+                        if (isN) {
+                            reqVal = (ns && ns.totalN) ? parseFloat(ns.totalN).toFixed(0) : '-';
+                        } else {
+                            reqVal = (anrResult && anrResult.val != null)
+                                ? parseFloat(anrResult.val).toFixed(1) : '-';
+                        }
 
-                    // P / K / S — each gets a (ppm, req) pair
-                    ['P', 'K', 'S'].forEach(function(nut) {
-                        var anrResult = r._anr && r._anr[nut];
-                        var ppmVal = soil[nut] != null ? soil[nut].toFixed(0) : '-';
-                        var reqVal = anrResult && anrResult.val != null
-                            ? parseFloat(anrResult.val).toFixed(1)
-                            : '-';
-
-                        // b35fix331: append † on K req cells where the K-recon
-                        // classifier returned 'trend' state (programme short of
+                        // b35fix331: † on a K Required cell the K-recon
+                        // classifier put in 'trend' state (programme short of
                         // removal but soil K sufficient — caption explains).
-                        // Only K column gets the marker; P/S have analogous
-                        // sufficiency-vs-deficit logic but Item 1a closure is
-                        // scoped to K. P/S marker treatment is a candidate
-                        // follow-up if superintendents request it.
                         if (nut === 'K' && r._b35fix331KReconState
                                         && r._b35fix331KReconState.state === 'trend'
                                         && reqVal !== '-') {
                             reqVal = reqVal + ' †';
                         }
-
-                        // GH-369 follow-up: ‡ on a P or K req cell derived
+                        // GH-369 follow-up: ‡ on a P or K Required cell derived
                         // from this sample's own tissue ratio while the same
-                        // tissue reading is independently below sufficiency —
-                        // see _tissueMarkNote above (unconditional on this
-                        // always-rendered table, unlike the K Reconciliation
-                        // table's own explanation).
+                        // tissue reading is independently below sufficiency.
                         if ((nut === 'P' || nut === 'K') && _isTissueMarked(nut, r) && reqVal !== '-') {
                             reqVal = reqVal + ' ‡';
                         }
 
-                        var statusColor = _anrColor(anrResult);
+                        // ── Plan-page columns ───────────────────────────────
+                        // Every input below is the Plan page's own: the
+                        // per-sample computeProgram() result stashed as
+                        // r._planParity. When that is absent the sample has no
+                        // programme at all, and the columns print "—" rather
+                        // than being reconstructed from a stand-in bulk density
+                        // or a second range resolution.
+                        var currentPpm = ppSoil && ppSoil.ppm && typeof ppSoil.ppm[nut] === 'number'
+                            ? ppSoil.ppm[nut]
+                            : (typeof soil[nut] === 'number' ? soil[nut] : null);
+                        var removal = (pp && pp.removal && typeof pp.removal[nut] === 'number')
+                            ? pp.removal[nut]
+                            : (anrResult && typeof anrResult.removal === 'number' ? anrResult.removal : null);
+                        var range = (pp && pp.ranges) ? pp.ranges[nut] : null;
+                        var deliveredNum = _perSampleDelivered(r, nut);
+                        var requiredNum = parseFloat(reqVal);
+                        if (!isFinite(requiredNum)) requiredNum = 0;
 
-                        cells.push(_mkCell(ppmVal, {
-                            fill: rowFill, size: 15, color: statusColor, italics: true,
-                            align: AlignmentType.CENTER, width: PKS_PPM_COL_W
-                        }));
-                        cells.push(_mkCell(reqVal, {
-                            fill: rowFill, bold: true, size: 17, color: statusColor,
-                            align: AlignmentType.CENTER, width: PKS_REQ_COL_W
-                        }));
+                        var cls = null;
+                        if (_balanceModel && pp && deliveredNum != null) {
+                            cls = _balanceModel.classify({
+                                nutrient: nut,
+                                required: requiredNum,
+                                delivered: deliveredNum,
+                                currentPpm: currentPpm,
+                                removal: removal,
+                                range: range,
+                                bulkDensity: ppSoil ? ppSoil.bulkDensity : null,
+                                soilDepth: ppSoil ? ppSoil.soilDepth : null,
+                                missingSoilData: !!(pp.missingSoilData && pp.missingSoilData[nut])
+                            });
+                        }
+
+                        var currentText = cls
+                            ? _balanceModel.formatCurrent(cls.currentDisplay, cls.currentPpm)
+                            : '—';
+                        var removalText = (typeof removal === 'number') ? String(Math.round(removal * 10) / 10) : '—';
+                        var deliveredText = (deliveredNum != null) ? deliveredNum.toFixed(1) : '—';
+                        var rangeText = cls ? cls.rangeDisplay : '—';
+                        var balanceText = cls ? cls.diff.toFixed(1) : '—';
+                        var statusText = cls ? cls.statusLabel : '—';
+                        var verdictColour = (cls && _balanceModel)
+                            ? _balanceModel.statusColour(cls.statusClass) : '6B7280';
+
+                        // GH-397: Current and Required print in plain body text.
+                        // GH-396 had coloured them by the soil's status band, which
+                        // conflated two different things: Required is an instruction
+                        // (apply this much), not a verdict on the soil, so painting
+                        // 136.1 red because the soil is low reads as though the
+                        // number itself were wrong. The soil's condition is already
+                        // stated twice in the same row — by Range and by Status — so
+                        // the colour added no information and competed with the
+                        // verdict palette next to it. Only Balance and Status carry
+                        // colour now, exactly as the Plan page's own table does; the
+                        // Plan is the reference for this table's vocabulary and
+                        // presentation (GH-396), and it colours nothing else either.
+                        // _anrColor is kept below: the single-sample export path and
+                        // the cotula S78 table still call it.
+                        var soilColour = '111827';
+
+                        tableRows.push(new TableRow({ children: [
+                            _mkCell(r.sampleLabel || r.sampleId, {
+                                fill: rowFill, bold: true, size: 17, width: SAMPLE_COL_W
+                            }),
+                            _mkCell(nut, {
+                                fill: rowFill, bold: true, size: 17,
+                                align: AlignmentType.CENTER, width: NUT_COL_W
+                            }),
+                            _mkCell(currentText, {
+                                fill: rowFill, size: 15, color: soilColour,
+                                align: AlignmentType.CENTER, width: CURRENT_COL_W
+                            }),
+                            _mkCell(removalText, {
+                                fill: rowFill, size: 17,
+                                align: AlignmentType.CENTER, width: REMOVAL_COL_W
+                            }),
+                            _mkCell(reqVal, {
+                                fill: rowFill, bold: true, size: 17, color: soilColour,
+                                align: AlignmentType.CENTER, width: REQUIRED_COL_W
+                            }),
+                            _mkCell(deliveredText, {
+                                fill: rowFill, size: 17,
+                                align: AlignmentType.CENTER, width: DELIVERED_COL_W
+                            }),
+                            _mkCell(rangeText, {
+                                fill: rowFill, size: 15, color: '6B7280',
+                                align: AlignmentType.CENTER, width: RANGE_COL_W
+                            }),
+                            _mkCell(balanceText, {
+                                fill: rowFill, bold: true, size: 17, color: verdictColour,
+                                align: AlignmentType.CENTER, width: BALANCE_COL_W
+                            }),
+                            _mkCell(statusText, {
+                                fill: rowFill, bold: true, size: 15, color: verdictColour,
+                                align: AlignmentType.CENTER, width: STATUS_COL_W
+                            })
+                        ] }));
                     });
-
-                    tableRows.push(new TableRow({ children: cells }));
                 });
 
                 allChildren.push(new Table({
-                    width: { size: 7600, type: WidthType.DXA },
-                    columnWidths: [SAMPLE_COL_W, N_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W, PKS_PPM_COL_W, PKS_REQ_COL_W],
+                    width: { size: 9700, type: WidthType.DXA },
+                    columnWidths: ANR_COL_WIDTHS,
                     rows: tableRows
                 }));
 
@@ -3965,7 +4186,7 @@
                         _captionText = 'SLAN sufficiency range (Carrow et al. 2004, GCM 72(1):194-198): ' +
                                        'K 75–176 ppm. Below floor → removal + lift correction; within ' +
                                        'range → removal only; above ceiling → zero application. ' +
-                                       'Balance = programme K (catalogue products only) − engine K req. ' +
+                                       'Programme vs required = programme K (catalogue products only) − engine K requirement. ' +
                                        'Source: ' + (_capCitation || 'Carrow et al. (2004). GCM 72(1):194-198.') + '.';
                     } else if (_capMethod && /MLSN/i.test(_capMethod)) {
                         // GH-384 (decision D-6): the lift target is the MLSN
@@ -3977,11 +4198,11 @@
                                        'deficit correction (lift to the 37 ppm minimum over 2 years) ' +
                                        'when soil K is below it; within the range → removal only; ' +
                                        'at or above the ceiling (minimum × 1.5) → zero application. ' +
-                                       'Balance = programme K (catalogue products only) − engine K req.';
+                                       'Programme vs required = programme K (catalogue products only) − engine K requirement.';
                     } else {
                         _captionText = 'K delivered by the facility-level N programme compared to ' +
-                                       'each sample\'s K requirement. Negative balance suggests ' +
-                                       'per-sample spot K supplement needed.';
+                                       'each sample\'s K requirement. A negative "Programme vs required" ' +
+                                       'suggests a per-sample spot K supplement is needed.';
                     }
                     allChildren.push(new Paragraph({
                         spacing: { after: 120 },
@@ -3995,13 +4216,25 @@
                     // the existing five to keep the table under the page's
                     // usable width (9746 DXA, per GH-255) — see that entry's
                     // own note on the same page-width constant.
+                    // GH-396: "K balance" is now "Programme vs required" and
+                    // says what it is. It was never the Plan page's Balance —
+                    // this column is Delivered − Required, i.e. whether the N
+                    // programme's incidental K covers the requirement, while
+                    // the Plan's Balance is the projected soil level at season
+                    // end. Both are printed in this document now, so the two
+                    // could not go on sharing one word. The other two columns
+                    // shed their "K " prefix to match the Annual Nutrient
+                    // Requirements table's own Required and Delivered headers —
+                    // the table is titled K Reconciliation, the nutrient was
+                    // never in doubt. Widths re-cut for the longer header,
+                    // still under the page's usable 9746 DXA (GH-255).
                     var reconRows = [new TableRow({ children: [
-                        _mkHdr('Sample',           1800),
-                        _mkHdr('K req',            1000),
-                        _mkHdr('K delivered',      1200),
-                        _mkHdr('K balance',        1200),
-                        _mkHdr('Spot K?',          2200),
-                        _mkHdr('Tissue K status',  2200)
+                        _mkHdr('Sample',                1800),
+                        _mkHdr('Required',              1000),
+                        _mkHdr('Delivered',             1100),
+                        _mkHdr('Programme vs required', 1800),
+                        _mkHdr('Spot K?',               2000),
+                        _mkHdr('Tissue K status',       2000)
                     ]})];
                     // GH-369 follow-up: only print the explanatory caption
                     // below the table when at least one row actually has
@@ -4120,7 +4353,7 @@
                             if (anrK && _wxTissue && _wxTissue._isTissueContradictionRow &&
                                 _wxTissue._isTissueContradictionRow('K', anrK.tissueInformed, anrK.intent, r.data)) {
                                 _tissueLines.push({
-                                    text: 'K req (left) is this sample\'s measured K/N ratio, a ' +
+                                    text: 'Required (left) is this sample\'s measured K/N ratio, a ' +
                                         'replacement-dose estimate — not a statement that no action ' +
                                         'is needed. Apply foliar potassium immediately.',
                                     italics: true, size: 13, color: 'DC2626'
@@ -4148,21 +4381,22 @@
                             }),
                             _mkCell(String(kDel), {
                                 fill: rowFill, size: 20, color: '6B7280', italics: true,
-                                align: AlignmentType.CENTER, width: 1200
+                                align: AlignmentType.CENTER, width: 1100
                             }),
                             _mkCell(balText, {
                                 fill: rowFill, bold: true, size: 17, color: balColor,
-                                align: AlignmentType.CENTER, width: 1200
+                                align: AlignmentType.CENTER, width: 1800
                             }),
                             _mkCell(rec, {
                                 fill: rowFill, size: 15, color: recColor, italics: true,
-                                align: AlignmentType.CENTER, width: 2200
+                                align: AlignmentType.CENTER, width: 2000
                             }),
-                            _mkMultiLineCell(_tissueLines, { fill: rowFill, width: 2200 })
+                            _mkMultiLineCell(_tissueLines, { fill: rowFill, width: 2000 })
                         ]}));
                     });
 
-                    allChildren.push(new Table({ width: { size: 9600, type: WidthType.DXA }, columnWidths: [1800, 1000, 1200, 1200, 2200, 2200], rows: reconRows }));
+                    // GH-396: widths follow the renamed headers above.
+                    allChildren.push(new Table({ width: { size: 9700, type: WidthType.DXA }, columnWidths: [1800, 1000, 1100, 1800, 2000, 2000], rows: reconRows }));
                     // GH-369 follow-up: only when at least one row actually
                     // had tissue data (_anyTissueDataInReconTable) — a fully
                     // tissue-free export would otherwise print a caption

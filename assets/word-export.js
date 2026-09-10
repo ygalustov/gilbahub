@@ -2617,7 +2617,27 @@
      *            caller decides what zero means.
      */
     function _computeProgrammeKDelivered(productMapOrSummary) {
+        return _computeProgrammeDelivered(productMapOrSummary, 'K');
+    }
+
+    /**
+     * GH-396 — the same sum, for any macro-nutrient.
+     *
+     * The Annual Nutrient Requirements table now prints a Delivered column
+     * for N, P and K, the way the Plan page's Nutrient Delivery Summary
+     * always has. Rather than write a second accumulator beside the K one
+     * (the asymmetric-engines pattern the K helper above exists to avoid),
+     * the K helper became the nutrient='K' case of this one — so a change to
+     * what counts as "delivered by the programme" cannot reach one column and
+     * miss the other two.
+     *
+     * Catalogue-only, exactly as before: entries flagged `_isAmendment` are
+     * skipped, because an amendment is a recommendation this table's Balance
+     * is meant to justify, not part of the programme it is measured against.
+     */
+    function _computeProgrammeDelivered(productMapOrSummary, nutrient) {
         if (!productMapOrSummary || typeof productMapOrSummary !== 'object') return 0;
+        if (!nutrient) return 0;
 
         // Auto-unwrap annualSummary shape: { products: {...} }
         var map = (productMapOrSummary.products && typeof productMapOrSummary.products === 'object')
@@ -2630,8 +2650,8 @@
             if (!entry) return;
             if (entry._isAmendment) return;  // catalogue-only by definition
             var n = entry.nutrients || entry.totalDelivered || {};
-            var k = parseFloat(n.K);
-            if (isFinite(k)) sum += k;
+            var v = parseFloat(n[nutrient]);
+            if (isFinite(v)) sum += v;
         });
         return sum;
     }
@@ -11764,12 +11784,27 @@
                 // ────────────────────────────────────────────────────────────
                 var _b35fix441_sampleTypeCode = (data.soil && data.soil.aaSampleType) ? data.soil.aaSampleType : 'S277';
                 var _b35fix441_sampleTypeLabel = (data.soil && data.soil.aaSampleTypeLabel) ? data.soil.aaSampleTypeLabel : 'TURF Ryegrass, Sand (S277)';
+                // ────────────────────────────────────────────────────────────
+                // GH-396: the last sentence used to claim these figures were
+                // removal-replacement estimates only and expressly NOT deficit
+                // closure. That is not what the engine computes and not what
+                // this table prints. Below the sufficiency floor, Required =
+                // removal + that year's share of the lift correction — live on
+                // Test5 - NZ, K Required 152.7 is removal 126 plus lift, so
+                // deficit closure is included, not excluded. (Retired literal
+                // described rather than quoted, banked lesson #29.) The corrected sentence is the same one the
+                // Combined export's ANR caption carries (word-export-combined
+                // .js, same ticket); the Balance / K-reconciliation half of
+                // that caption is deliberately absent here, because this
+                // single-sample table has neither column.
+                // ────────────────────────────────────────────────────────────
                 _b35fix331_caption = 'Hill Labs ' + _b35fix441_sampleTypeCode + ' sample-type sufficiency thresholds applied (' +
-                                     _b35fix441_sampleTypeLabel + '). Cation values converted from cert-native ' +
-                                     'me/100g to ppm for amendment-math comparison; cation deficit-correction ' +
-                                     'recommendations appear in the Soil Amendment table above. The figures ' +
-                                     'below are annual removal-replacement estimates (clipping uptake), not ' +
-                                     'deficit-closure rates. All rates kg/ha/yr.';
+                                     _b35fix441_sampleTypeLabel + '). Cation values converted from certificate-native ' +
+                                     'me/100g to ppm; cation deficit-correction ' +
+                                     'recommendations appear in the Soil Amendment table above. Required is the annual ' +
+                                     'removal-replacement estimate (clipping uptake) plus, where the soil sits below its ' +
+                                     'sufficiency floor, that year\'s share of the correction needed to lift it — it is not ' +
+                                     'removal alone. All rates kg/ha/yr.';
             } else if (_b35fix331_isSLAN) {
                 _b35fix331_caption = 'SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198): ' +
                                      'K/P/S figures are removal-rate (replacement target), with P pH-adjusted ' +
@@ -14955,6 +14990,9 @@
         _amendmentDecisionsToProducts: _amendmentDecisionsToProducts,
         _synthesiseKReconDecision: _synthesiseKReconDecision,
         _computeProgrammeKDelivered: _computeProgrammeKDelivered,
+        // GH-396: the per-nutrient generalisation the ANR table's Delivered
+        // column reads; _computeProgrammeKDelivered is its 'K' case.
+        _computeProgrammeDelivered: _computeProgrammeDelivered,
         _classifyKReconState: _classifyKReconState,
 
         // GH-369: shared tissue helpers — see their own comments. Exposed so

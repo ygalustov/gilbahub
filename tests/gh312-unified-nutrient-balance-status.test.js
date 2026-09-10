@@ -155,7 +155,15 @@ describe('GH-312 — nutrition-prebble-integration.js (NZ) implementation', () =
         expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('Balance formula is current + delivered - removal (not required)', () => {
         expect(block).toMatch(/const balanceKgHa = currentKgHa \+ delivered - removal;/);
@@ -196,7 +204,15 @@ describe('GH-312 — nutrition-au-fertiliser-integration.js (AU) implementation'
         expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
     });
 
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('Balance formula is current + delivered - removal (not required)', () => {
         expect(block).toMatch(/const balanceKgHa = currentKgHa \+ delivered - removal;/);

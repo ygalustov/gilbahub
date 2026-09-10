@@ -987,16 +987,63 @@ if (!ENABLED) {
 
         // ── accessors over the collected data ──
 
+        // GH-396 reshaped the Annual Nutrient Requirements table: one row per
+        // sample-and-nutrient (Sample | Nutrient | Current (kg/ha, ppm) |
+        // Removal | Required | Delivered | Range | Balance | Status) instead
+        // of one row per sample with a (ppm, req) column pair per nutrient,
+        // and the nutrient set narrowed from N/P/K/S to the Plan's N/P/K.
+        // PARSING ONLY: every expected value below is untouched, because the
+        // ticket changed no arithmetic. `N`, `P_req` and `K_req` still mean
+        // the Required figure and `P_ppm` / `K_ppm` still mean the printed
+        // soil concentration — which is now in brackets after the kg/ha
+        // figure ("56 (40 ppm)") rather than in a column of its own.
+        function anrTable() {
+            return findTable(exportTables, ['Sample', 'Nutrient', 'Current (kg/ha, ppm)', 'Removal',
+                                            'Required', 'Delivered', 'Range', 'Balance', 'Status']);
+        }
+        /** ppm out of a "56 (40 ppm)" Current cell; null when the cell is a dash. */
+        function ppmFromCurrentCell(cell) {
+            const m = /\(([-\d.]+)\s*ppm\)/.exec(String(cell || ''));
+            return m ? num(m[1]) : null;
+        }
+        function anrRowsFor(table, label) {
+            if (!table) return {};
+            const out = {};
+            table.slice(1).forEach((r) => {
+                if (!r[0] || r[0].trim() !== label) return;
+                out[String(r[1]).trim()] = {
+                    current: r[2], current_ppm: ppmFromCurrentCell(r[2]),
+                    current_kg: (String(r[2]).trim() === '—') ? null : num(String(r[2]).split('(')[0]),
+                    removal: r[3] === '—' ? null : num(r[3]),
+                    required: num(r[4]),
+                    delivered: r[5] === '—' ? null : num(r[5]),
+                    range: r[6], balance: r[7] === '—' ? null : num(r[7]), status: r[8], raw: r
+                };
+            });
+            return out;
+        }
         function exportAnrRow() {
-            const t = findTable(exportTables, ['Sample', 'N kg/ha', 'P ppm', 'P req', 'K ppm', 'K req', 'S ppm', 'S req']);
+            const t = anrTable();
             if (!t) return null;
-            const row = t.slice(1).find((r) => r[0] && r[0].trim() === SAMPLE_LABEL);
-            if (!row) return null;
-            return { N: num(row[1]), P_ppm: num(row[2]), P_req: num(row[3]), K_ppm: num(row[4]), K_req: num(row[5]),
-                     S_ppm: num(row[6]), S_req: num(row[7]), raw: row };
+            const byNut = anrRowsFor(t, SAMPLE_LABEL);
+            if (!byNut.N && !byNut.P && !byNut.K) return null;
+            return {
+                N: byNut.N ? byNut.N.required : null,
+                P_ppm: byNut.P ? byNut.P.current_ppm : null,
+                P_req: byNut.P ? byNut.P.required : null,
+                K_ppm: byNut.K ? byNut.K.current_ppm : null,
+                K_req: byNut.K ? byNut.K.required : null,
+                byNutrient: byNut,
+                raw: byNut.K ? byNut.K.raw : null
+            };
         }
         function exportKReconRow() {
-            const t = findTable(exportTables, ['Sample', 'K req', 'K delivered', 'K balance', 'Spot K?']);
+            // GH-396 renamed this table's columns to the Plan page's words:
+            // "K req" -> "Required", "K delivered" -> "Delivered", and
+            // "K balance" -> "Programme vs required", which is what that
+            // column always computed (Delivered - Required) and which the Plan
+            // page's own Balance column never meant.
+            const t = findTable(exportTables, ['Sample', 'Required', 'Delivered', 'Programme vs required', 'Spot K?']);
             if (!t) return null;
             const row = t.slice(1).find((r) => r[0] && r[0].trim() === SAMPLE_LABEL);
             if (!row) return null;
@@ -1043,10 +1090,20 @@ if (!ENABLED) {
 
         /** The ANR row for a named sample label, in the cross-site document. */
         function crossAnrRowFor(label) {
-            const t = findTable(crossTables || [], ['Sample', 'N kg/ha', 'P ppm', 'P req', 'K ppm', 'K req', 'S ppm', 'S req']);
+            // GH-396: same reshape as exportAnrRow() above, on the cross-site
+            // document. Parsing only.
+            const t = findTable(crossTables || [], ['Sample', 'Nutrient', 'Current (kg/ha, ppm)', 'Removal',
+                                                    'Required', 'Delivered', 'Range', 'Balance', 'Status']);
             if (!t) return null;
-            const row = t.slice(1).find((r) => r[0] && r[0].trim() === label);
-            return row ? { label: label, N: num(row[1]), P_req: num(row[3]), K_req: num(row[5]), raw: row } : null;
+            const byNut = anrRowsFor(t, label);
+            if (!byNut.N && !byNut.P && !byNut.K) return null;
+            return {
+                label: label,
+                N: byNut.N ? byNut.N.required : null,
+                P_req: byNut.P ? byNut.P.required : null,
+                K_req: byNut.K ? byNut.K.required : null,
+                raw: byNut
+            };
         }
 
         // ─────────────────────────────── tests ───────────────────────────────
@@ -1511,8 +1568,10 @@ if (!ENABLED) {
             // Plan (nutrition-prebble-integration.js classifyBalance, GH-312):
             //   Balance = Current + Delivered − Removal — the PROJECTED SOIL POOL
             //   in kg/ha at season end, judged against the floor/ceiling range.
-            // Export (word-export-combined.js K Reconciliation, b35fix316/325):
-            //   K balance = K delivered − K req — PROGRAMME MINUS REQUIREMENT,
+            // Export (word-export-combined.js K Reconciliation, b35fix316/325,
+            // the column GH-396 renamed from "K balance"):
+            //   Programme vs required = Delivered − Required — PROGRAMME MINUS
+            //   REQUIREMENT,
             //   i.e. how far the N programme's incidental K falls short of the
             //   engine's figure; '-' when K req is 0.
             // They are not the same quantity and must not be forced equal; what
@@ -1526,10 +1585,98 @@ if (!ENABLED) {
             }));
             expect(planRows.length).toBeGreaterThan(0);
             expect(numericMismatches(planRows, 0.15)).toEqual([]);
+
+            // GH-396: the Plan's Balance is now printed in the export too,
+            // under its own name, beside the columns it is derived from —
+            // Current, Removal, Range and Status. What is asserted here is
+            // presentation parity, not new arithmetic:
+            //
+            //   * the soil-state columns (Current in kg/ha AND the certificate
+            //     ppm in brackets, Removal, Range) must be identical across the
+            //     two surfaces — they come from one computeProgram() result;
+            //   * each surface's printed Balance must be its own printed
+            //     Current + Delivered − Removal, so neither is displaying a
+            //     number it cannot justify from its own row;
+            //   * the Status verdict (Deficit / Monitor / On Track / Excess /
+            //     No Soil Data) must agree.
+            //
+            // The Status PERCENTAGE and the Balance figure itself are compared
+            // across surfaces only as far as Delivered agrees, which is
+            // measured by its own dedicated test above at its own documented
+            // tolerance. That is not a loophole, it is a real, pre-existing gap
+            // this ticket made visible rather than caused: on the SLAN fixture
+            // (New test - location, "Putter Green") the Plan's P Delivered is
+            // 14.0 and the export's 14.5, so Balance reads 35.3 against 35.8
+            // and the same Deficit verdict prints as -7% and -5%. Cause: the
+            // export's product accumulator prefers each application's
+            // `delivers` vector when populated and falls back to
+            // analysis × rate, while the Plan always multiplies
+            // rate × splitCount × analysis; N and K agree to the last decimal
+            // on all three fixtures, P does not on this one. Out of scope for a
+            // presentation ticket — closing it moves printed figures in the
+            // Annual Product Summary and the Purchasing Summary across all
+            // three regional integrations — and reported as an open item.
+            const anrByNut = (exportAnrRow() || {}).byNutrient || {};
+            const gh396 = [];
+            const gh396Text = [];
+            const verdict = (s) => String(s == null ? '' : s).replace(/\s*\(.*$/, '').trim();
+            ['N', 'P', 'K'].forEach((n) => {
+                const planRow = ds[n];
+                const expRow = anrByNut[n];
+                if (!planRow || !expRow) {
+                    gh396Text.push({ what: n + ' row present on both surfaces', plan: !!planRow, export: !!expRow });
+                    return;
+                }
+                if (planRow.current != null && expRow.current_kg != null) {
+                    gh396.push({ what: n + ' Current (kg/ha): Plan vs export ANR', plan: planRow.current, export: expRow.current_kg });
+                }
+                if (planRow.removal != null && expRow.removal != null) {
+                    gh396.push({ what: n + ' Removal: Plan vs export ANR', plan: planRow.removal, export: expRow.removal });
+                }
+                // Self-consistency, per surface: the printed Balance is the
+                // printed row's own arithmetic.
+                if (expRow.current_kg != null && expRow.delivered != null && expRow.removal != null) {
+                    gh396.push({
+                        what: n + ' export Balance = its own Current + Delivered − Removal',
+                        plan: expRow.balance,
+                        export: +(expRow.current_kg + expRow.delivered - expRow.removal).toFixed(1)
+                    });
+                }
+                gh396Text.push({ what: n + ' Range: Plan vs export ANR', plan: planRow.range, export: expRow.range });
+                gh396Text.push({ what: n + ' Status verdict: Plan vs export ANR', plan: verdict(planRow.status), export: verdict(expRow.status) });
+            });
+            // GH-396: with GILBA_E2E_KEEP=1 the run prints the two tables side
+            // by side, so "the numbers match" can be read rather than trusted.
+            if (process.env.GILBA_E2E_KEEP === '1') {
+                process.stdout.write('[e2e] GH-396 ' + SAMPLE_LABEL +
+                    ' — Plan Nutrient Delivery Summary vs export Annual Nutrient Requirements\n');
+                ['N', 'P', 'K'].forEach((n) => {
+                    const a = ds[n] || {}; const b = anrByNut[n] || {};
+                    process.stdout.write('       ' + n +
+                        '  plan: current ' + a.current + ' | removal ' + a.removal +
+                        ' | required ' + a.required + ' | delivered ' + a.delivered +
+                        ' | range ' + a.range + ' | balance ' + a.balance + ' | ' + a.status + '\n');
+                    process.stdout.write('       ' + n +
+                        '  export: current ' + b.current + ' | removal ' + b.removal +
+                        ' | required ' + b.required + ' | delivered ' + b.delivered +
+                        ' | range ' + b.range + ' | balance ' + b.balance + ' | ' + b.status + '\n');
+                });
+            }
+            expect(numericMismatches(gh396, 0.15)).toEqual([]);
+            expect(gh396Text.filter((r) => String(r.plan) !== String(r.export))).toEqual([]);
+            // And the unit note the whole ticket turns on: a soil level is
+            // printed once, in kg/ha, with the certificate's ppm in brackets —
+            // never as a bare ppm figure the reader has to reconcile against
+            // the Plan's kg/ha by hand.
+            ['P', 'K'].forEach((n) => {
+                if (!anrByNut[n] || anrByNut[n].current_kg == null) return;
+                expect(anrByNut[n].current).toMatch(/^[\d.]+ \([\d.]+ ppm\)$/);
+            });
+
             if (krec === null) return; // no K Reconciliation section — see the render test
             if (krec.K_balance != null) {
                 expect(numericMismatches([{
-                    what: 'export K balance = K delivered − K req', plan: krec.K_balance, export: +(krec.K_delivered - krec.K_req).toFixed(1)
+                    what: 'export "Programme vs required" = Delivered − Required', plan: krec.K_balance, export: +(krec.K_delivered - krec.K_req).toFixed(1)
                 }], 0.15)).toEqual([]);
             } else {
                 expect(krec.K_req).toBe(0);

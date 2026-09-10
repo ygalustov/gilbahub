@@ -292,7 +292,11 @@
         'gaip-decision-engine.js','gaip-decision-ui.js','gaip-evidence-ui.js',
         'floating-run-button.js','card-layout-redesign.js',
         'tab-navigation.js','quick-jump-nav.js',
-        'nutrition-calendar.js','prebbles-products.js',
+        'nutrition-calendar.js',
+        // GH-396: shared Balance/Status classifier for the Plan page's Nutrient
+        // Delivery Summary and the export's Annual Nutrient Requirements table.
+        'nutrient-balance-status.js',
+        'prebbles-products.js',
         'nutrition-prebble-integration.js','au-fertiliser-products.js',
         'nutrition-au-fertiliser-integration.js','uk-fertiliser-products.js',
         'nutrition-uk-fertiliser-integration.js','aitkens-fertiliser-products.js',

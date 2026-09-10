@@ -522,7 +522,9 @@ describe('GH-369 — word-export-combined.js: structural pins for the shared-SSO
     });
 
     test('the K Reconciliation table gained a Tissue K status column', () => {
-        expect(src).toMatch(/_mkHdr\('Tissue K status',\s*2200\)/);
+        // GH-396 re-cut the column widths when "K balance" became the longer
+        // "Programme vs required"; the column itself is what this pins.
+        expect(src).toMatch(/_mkHdr\('Tissue K status',\s*2000\)/);
     });
 
     test('bug 1 fix: the K Reconciliation row and the ANR table\'s ‡ marker both route through the shared _isTissueContradictionRow SSOT, not their own inline critical/intent checks', () => {

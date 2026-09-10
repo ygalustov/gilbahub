@@ -1039,6 +1039,12 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('nutrition-requirement-core.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-program-inputs.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-calendar.js') }}"></script>
+{{-- GH-396: the shared Balance/Status classifier behind the Nutrient Delivery
+     Summary's Balance, Range and Status columns. Read by the NZ and AU
+     integrations below and by the Word export's Annual Nutrient Requirements
+     table, so the two surfaces cannot describe the same sample differently.
+     Must load before nutrition-prebble-integration.js. --}}
+<script src="{{ $legacyAssetUrl('nutrient-balance-status.js') }}"></script>
 {{-- GH-292: shared K-reconciliation decision logic, extracted from word-export.js
      so this page doesn't need to load the entire export module just for the
      Nutrient Delivery Summary's Spot-K reconciliation preview. Must load

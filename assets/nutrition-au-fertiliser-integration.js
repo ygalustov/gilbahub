@@ -873,87 +873,30 @@
             // GH-312: unified Balance/Status model -- see
             // nutrition-prebble-integration.js's classifyBalance() for the
             // full rationale (same fix, byte-identical twin).
+            // GH-396: the arithmetic and the labels moved to
+            // assets/nutrient-balance-status.js, shared with
+            // nutrition-prebble-integration.js (this file's byte-identical
+            // twin until this ticket) and with the Word export's Annual
+            // Nutrient Requirements table, which previously had no copy at
+            // all. Same model, one implementation.
+            const _balanceModel = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
             function classifyBalance(nutrient, required, delivered) {
-                // GH-338: no real soil sample for this nutrient at all --
-                // Required is removal-only (no deficit/lift was computable),
-                // not a confirmed reading. Say so plainly rather than letting
-                // it fall into the pct-based fallback below and look like a
-                // real Deficit/On Track verdict.
-                if (missingSoilDataMap[nutrient]) {
-                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data' };
+                if (!_balanceModel) {
+                    console.error('[NutritionAuFertiliserIntegration] GH-396: nutrient-balance-status.js is not loaded — ' +
+                        'Balance/Status cannot be classified for ' + nutrient);
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'Not Available' };
                 }
-                const range = rangeMap[nutrient];
-                const currentPpm = soilPpmMap[nutrient];
-                const removal = removalMap[nutrient];
-                const canCompute = range && typeof range.max === 'number' && typeof range.min === 'number'
-                    && typeof currentPpm === 'number' && typeof removal === 'number'
-                    && typeof soilBulkDensity === 'number' && typeof soilDepthCm === 'number';
-                if (!canCompute) {
-                    // GH-314: label renamed 'Met' -> 'On Track' to match the
-                    // pct-based branch just below, same as
-                    // nutrition-prebble-integration.js.
-                    if (required === 0) {
-                        return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track' };
-                    }
-                    const pct = Math.round((delivered / required) * 100);
-                    const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    // GH-333 follow-up: was `(${pct}%)` on every tier
-                    // including On Track -- a completion ratio (100% = fully
-                    // delivered) inconsistent with the range-based branch
-                    // below. Confirmed with the user: the number only
-                    // matters for Monitor/Deficit (how far off target); On
-                    // Track stays a plain label, no number, same as the
-                    // range-based branch's On Track.
-                    const deltaPct = pct - 100;
-                    const statusLabel = pct >= 90
-                        ? 'On Track'
-                        : (pct >= 70 ? 'Monitor' : 'Deficit') + ` (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
-                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel };
-                }
-                const unit = soilBulkDensity * soilDepthCm * 0.1;
-                const currentKgHa = currentPpm * unit;
-                const floorKgHa = range.min * unit;
-                const ceilingKgHa = range.max * unit;
-                const balanceKgHa = currentKgHa + delivered - removal;
-                const currentDisplay = (Math.round(currentKgHa * 10) / 10).toString();
-                // GH-313: shows what Balance is actually being compared against.
-                const rangeDisplay = `${Math.round(floorKgHa * 10) / 10}–${Math.round(ceilingKgHa * 10) / 10}`;
-                if (ceilingKgHa > 0 && balanceKgHa > ceilingKgHa) {
-                    // GH-333: was statusClass: 'deficit' -- Excess and Deficit
-                    // shared one class, so both painted the same alarming red,
-                    // even though Excess (soil already above ceiling, nothing
-                    // being added) and Deficit (intentionally corrected over
-                    // several years via Lift, see GH-308/309) are not the same
-                    // kind of "problem". Split into its own class so it can be
-                    // coloured distinctly.
-                    //
-                    // GH-333 follow-up: was a (${pct}%) suffix computed as
-                    // Balance/ceiling*100 (e.g. "266%") -- looked far more
-                    // alarming than the real overshoot, since it expressed
-                    // the whole Balance as a fraction of the ceiling rather
-                    // than just the excess itself. Now expresses only the
-                    // overage (balanceKgHa - ceilingKgHa) as a % of the
-                    // ceiling.
-                    const over = Math.round((balanceKgHa - ceilingKgHa) * 10) / 10;
-                    const overPct = Math.round((over / ceilingKgHa) * 100);
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'excess', statusLabel: `Excess (+${overPct}%)` };
-                }
-                if (balanceKgHa < floorKgHa) {
-                    // GH-314: 'Low' -> 'Deficit', same vocabulary as the
-                    // fallback branch above. GH-333 follow-up: same change as
-                    // the Excess branch above -- expresses only the shortfall
-                    // (floorKgHa - balanceKgHa) as a % of the floor, not the
-                    // whole Balance as a % of the floor.
-                    const short = Math.round((floorKgHa - balanceKgHa) * 10) / 10;
-                    const shortPct = floorKgHa > 0 ? Math.round((short / floorKgHa) * 100) : 0;
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (-${shortPct}%)` };
-                }
-                // GH-314: 'Met' -> 'On Track', same reasoning. GH-333
-                // follow-up: briefly tried a "distance from nearer edge"
-                // number here too, but confirmed with the user that On
-                // Track should just stay a plain label -- the number only
-                // matters once something is actually Deficit or Excess.
-                return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track' };
+                return _balanceModel.classify({
+                    nutrient: nutrient,
+                    required: required,
+                    delivered: delivered,
+                    currentPpm: soilPpmMap[nutrient],
+                    removal: removalMap[nutrient],
+                    range: rangeMap[nutrient],
+                    bulkDensity: soilBulkDensity,
+                    soilDepth: soilDepthCm,
+                    missingSoilData: !!missingSoilDataMap[nutrient]
+                });
             }
 
             // GH-333: 'sufficient' -> green, 'excess' -> red (genuinely
@@ -963,11 +906,12 @@
             // same urgency as a true excess and shouldn't share its red.
             // GH-338: 'no-data' -> neutral grey -- genuinely unknown, not a
             // verdict of any kind, shouldn't share Deficit's amber either.
+            // GH-396: shared with the Plan page's twin integration and the
+            // Word export through assets/nutrient-balance-status.js, so amber,
+            // red, green and grey cannot come to mean different things on the
+            // two surfaces.
             function statusVisualClass(statusClass) {
-                if (statusClass === 'sufficient') return 'positive';
-                if (statusClass === 'excess') return 'negative';
-                if (statusClass === 'no-data') return 'neutral';
-                return 'warning';
+                return _balanceModel ? _balanceModel.visualClass(statusClass) : 'neutral';
             }
 
             // Build nutrient summary rows

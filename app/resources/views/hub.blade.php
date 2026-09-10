@@ -238,6 +238,8 @@
             'tab-navigation.js',
             'quick-jump-nav.js',
             'nutrition-calendar.js',
+            // GH-396: shared Balance/Status classifier, see nutrient-balance-status.js
+            'nutrient-balance-status.js',
             'prebbles-products.js',
             'nutrition-prebble-integration.js',
             'au-fertiliser-products.js',

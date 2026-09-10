@@ -33,7 +33,15 @@ function extractBlock(src, startMarker, maxLen) {
 
 describe('GH-310 — nutrition-prebble-integration.js (NZ) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('Monitor/Deficit tiers append a delta-from-target percentage; On Track stays a plain label', () => {
         // GH-333 follow-up: was `(${pct}%)` on every tier including On Track
@@ -53,7 +61,15 @@ describe('GH-310 — nutrition-prebble-integration.js (NZ) status label includes
 
 describe('GH-310 — nutrition-au-fertiliser-integration.js (AU) status label includes percentage', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('Monitor/Deficit tiers append a delta-from-target percentage; On Track stays a plain label', () => {
         // GH-333 follow-up: was `(${pct}%)` on every tier including On Track

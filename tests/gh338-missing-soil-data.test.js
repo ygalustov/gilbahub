@@ -108,12 +108,39 @@ describe.each([
         expect(src).toMatch(/missing_soil_data:?\s*=?\s*calendarData\.missing_soil_data \|\| \{\}/);
     });
 
-    test('classifyBalance() returns an explicit no-data status before the canCompute check', () => {
+    // GH-396: classifyBalance() now delegates to the shared classifier in
+    // assets/nutrient-balance-status.js (one implementation for the NZ and AU
+    // Plan tables and the Word export's Annual Nutrient Requirements table).
+    // The flag still has to leave THIS file -- that half is pinned here -- and
+    // the early return still has to happen before the canCompute check, which
+    // is pinned against the module itself below.
+    test('classifyBalance() hands the missing-soil-data flag to the shared classifier', () => {
         const idx = src.indexOf('function classifyBalance(nutrient, required, delivered) {');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 1000);
-        expect(block).toMatch(/if \(missingSoilDataMap\[nutrient\]\) \{/);
+        const block = src.slice(idx, idx + 1600);
+        expect(block).toMatch(/missingSoilData: !!missingSoilDataMap\[nutrient\]/);
+    });
+});
+
+describe('GH-338 — the shared classifier still short-circuits on missing soil data', () => {
+    const modSrc = fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8');
+
+    test('the no-data return comes before the canCompute check', () => {
+        const idx = modSrc.indexOf('function classify(o) {');
+        expect(idx).toBeGreaterThan(-1);
+        const block = modSrc.slice(idx, idx + 1600);
+        expect(block).toMatch(/if \(missingSoilData\) \{/);
         expect(block).toMatch(/statusClass: 'no-data', statusLabel: 'No Soil Data'/);
+        expect(block.indexOf('if (missingSoilData) {')).toBeLessThan(modSrc.slice(idx).indexOf('const canCompute'));
+    });
+
+    test('the classifier is executable, and a missing reading returns No Soil Data rather than a verdict', () => {
+        const model = require('../assets/nutrient-balance-status.js');
+        const r = model.classify({ nutrient: 'P', required: 12, delivered: 0, missingSoilData: true });
+        expect(r.statusClass).toBe('no-data');
+        expect(r.statusLabel).toBe('No Soil Data');
+        expect(r.currentDisplay).toBe('—');
+        expect(r.rangeDisplay).toBe('—');
     });
 });
 

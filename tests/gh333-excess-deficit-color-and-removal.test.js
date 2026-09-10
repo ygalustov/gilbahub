@@ -57,23 +57,50 @@ describe.each([
     });
 
     test('Excess branch has its own statusClass, distinct from Deficit', () => {
-        const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+        const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
         expect(block).toMatch(/if \(ceilingKgHa > 0 && balanceKgHa > ceilingKgHa\) \{[\s\S]*?statusClass: 'excess'/);
         expect(block).toMatch(/if \(balanceKgHa < floorKgHa\) \{[\s\S]*?statusClass: 'deficit'/);
     });
 
-    test('statusVisualClass() maps sufficient/excess/deficit/no-data to positive/negative/warning/neutral', () => {
+    // GH-396: the mapping moved to assets/nutrient-balance-status.js with the
+    // classifier, so the Plan page's badge colours and the Word export's
+    // Balance/Status cell colours come from one table. This page still has to
+    // route through it -- pinned here -- and the mapping itself is executed
+    // below rather than matched as text.
+    test('statusVisualClass() delegates to the shared classifier module', () => {
         const idx = src.indexOf('function statusVisualClass(statusClass) {');
         expect(idx).toBeGreaterThan(-1);
         const block = src.slice(idx, idx + 500);
-        expect(block).toMatch(/if \(statusClass === 'sufficient'\) return 'positive';/);
-        expect(block).toMatch(/if \(statusClass === 'excess'\) return 'negative';/);
-        expect(block).toMatch(/if \(statusClass === 'no-data'\) return 'neutral';/);
-        expect(block).toMatch(/return 'warning';/);
+        expect(block).toMatch(/_balanceModel\.visualClass\(statusClass\)/);
+    });
+
+    test('the shared mapping is sufficient->positive, excess->negative, no-data->neutral, everything else->warning', () => {
+        const model = require('../assets/nutrient-balance-status.js');
+        expect(model.visualClass('sufficient')).toBe('positive');
+        expect(model.visualClass('excess')).toBe('negative');
+        expect(model.visualClass('no-data')).toBe('neutral');
+        expect(model.visualClass('deficit')).toBe('warning');
+        expect(model.visualClass('marginal')).toBe('warning');
     });
 
     test('Excess/Deficit labels show the overage/shortfall as a % of ceiling/floor, not Balance-as-%-of-ceiling/floor', () => {
-        const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+        const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
         expect(block).toMatch(/const over = Math\.round\(\(balanceKgHa - ceilingKgHa\) \* 10\) \/ 10;/);
         expect(block).toMatch(/const overPct = Math\.round\(\(over \/ ceilingKgHa\) \* 100\);/);
         expect(block).toMatch(/statusLabel: `Excess \(\+\$\{overPct\}%\)`/);
@@ -101,7 +128,15 @@ describe.each([
     });
 
     test('Excess is computed from the upper bound (ceiling = range.max * unit), not floor or Current alone', () => {
-        const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+        const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
         expect(block).toMatch(/const ceilingKgHa = range\.max \* unit;/);
         expect(block).toMatch(/if \(ceilingKgHa > 0 && balanceKgHa > ceilingKgHa\) \{/);
         expect(block).toMatch(/const over = Math\.round\(\(balanceKgHa - ceilingKgHa\) \* 10\) \/ 10;/);

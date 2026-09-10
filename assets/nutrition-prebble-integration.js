@@ -789,95 +789,37 @@
             // 90%/70% pct bands) when soil/range/removal data isn't
             // available -- MLSN/SLAN sites (this engine has no ceiling
             // concept for them) and uncovered AA species/texture.
+            // GH-396: the arithmetic and the labels moved to
+            // assets/nutrient-balance-status.js. They were duplicated here and
+            // in nutrition-au-fertiliser-integration.js, and the Word export
+            // had no copy at all -- which is why the exported report printed a
+            // subset of this table's columns, in ppm rather than kg/ha, with
+            // "balance" meaning a different quantity. Three surfaces now read
+            // one implementation; nothing about the model changed (see that
+            // file's header for the GH-312/313/314/333/338 history it carries
+            // over verbatim).
+            const _balanceModel = (typeof window !== 'undefined' && window.GAIP_NutrientBalanceStatus) || null;
             function classifyBalance(nutrient, required, delivered) {
-                // GH-338: no real soil sample for this nutrient at all --
-                // Required is removal-only (no deficit/lift was computable),
-                // not a confirmed reading. Say so plainly rather than letting
-                // it fall into the pct-based fallback below and look like a
-                // real Deficit/On Track verdict.
-                if (missingSoilDataMap[nutrient]) {
-                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data' };
+                if (!_balanceModel) {
+                    // Never classify on a guess. A missing module is a load
+                    // order defect, not a data condition, and printing an
+                    // invented verdict is the failure mode this codebase
+                    // fixes rather than tolerates.
+                    console.error('[NutritionPrebbleIntegration] GH-396: nutrient-balance-status.js is not loaded — ' +
+                        'Balance/Status cannot be classified for ' + nutrient);
+                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'Not Available' };
                 }
-                const range = rangeMap[nutrient];
-                const currentPpm = soilPpmMap[nutrient];
-                const removal = removalMap[nutrient];
-                const canCompute = range && typeof range.max === 'number' && typeof range.min === 'number'
-                    && typeof currentPpm === 'number' && typeof removal === 'number'
-                    && typeof soilBulkDensity === 'number' && typeof soilDepthCm === 'number';
-                if (!canCompute) {
-                    // Pre-GH-312 fallback. GH-314: label renamed 'Met' ->
-                    // 'On Track' to match the pct-based branch just below,
-                    // same reasoning as the canCompute branch's rename.
-                    if (required === 0) {
-                        return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track' };
-                    }
-                    const pct = Math.round((delivered / required) * 100);
-                    const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
-                    // GH-333 follow-up: was `(${pct}%)` on every tier
-                    // including On Track -- a completion ratio (100% = fully
-                    // delivered) inconsistent with the range-based branch
-                    // below. Confirmed with the user: the number only
-                    // matters for Monitor/Deficit (how far off target); On
-                    // Track stays a plain label, no number, same as the
-                    // range-based branch's On Track.
-                    const deltaPct = pct - 100;
-                    const statusLabel = pct >= 90
-                        ? 'On Track'
-                        : (pct >= 70 ? 'Monitor' : 'Deficit') + ` (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
-                    return { currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel };
-                }
-                const unit = soilBulkDensity * soilDepthCm * 0.1;
-                const currentKgHa = currentPpm * unit;
-                const floorKgHa = range.min * unit;
-                const ceilingKgHa = range.max * unit;
-                const balanceKgHa = currentKgHa + delivered - removal;
-                const currentDisplay = (Math.round(currentKgHa * 10) / 10).toString();
-                // GH-313: shows what Balance is actually being compared against
-                // -- previously the Status % implied a floor/ceiling without
-                // ever printing it, so there was no way to verify the
-                // classification without reading the source.
-                const rangeDisplay = `${Math.round(floorKgHa * 10) / 10}–${Math.round(ceilingKgHa * 10) / 10}`;
-                if (ceilingKgHa > 0 && balanceKgHa > ceilingKgHa) {
-                    // GH-333: was statusClass: 'deficit' -- Excess and Deficit
-                    // shared one class, so both painted the same alarming red,
-                    // even though Excess (soil already above ceiling, nothing
-                    // being added) and Deficit (intentionally corrected over
-                    // several years via Lift, see GH-308/309) are not the same
-                    // kind of "problem". Split into its own class so it can be
-                    // coloured distinctly.
-                    //
-                    // GH-333 follow-up: was a (${pct}%) suffix computed as
-                    // Balance/ceiling*100 (e.g. "266%") -- looked far more
-                    // alarming than the real overshoot, since it expressed
-                    // the whole Balance as a fraction of the ceiling rather
-                    // than just the excess itself. Now expresses only the
-                    // overage (balanceKgHa - ceilingKgHa) as a % of the
-                    // ceiling.
-                    const over = Math.round((balanceKgHa - ceilingKgHa) * 10) / 10;
-                    const overPct = Math.round((over / ceilingKgHa) * 100);
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'excess', statusLabel: `Excess (+${overPct}%)` };
-                }
-                if (balanceKgHa < floorKgHa) {
-                    // GH-314: 'Low' renamed to 'Deficit' to share the same
-                    // vocabulary as the pct-based fallback branch above
-                    // (On Track / Monitor / Deficit) instead of introducing
-                    // a second, new set of words for the same idea. GH-333
-                    // follow-up: same change as the Excess branch above --
-                    // expresses only the shortfall (floorKgHa - balanceKgHa)
-                    // as a % of the floor, not the whole Balance as a % of
-                    // the floor.
-                    const short = Math.round((floorKgHa - balanceKgHa) * 10) / 10;
-                    const shortPct = floorKgHa > 0 ? Math.round((short / floorKgHa) * 100) : 0;
-                    return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (-${shortPct}%)` };
-                }
-                // GH-314: 'Met' renamed to 'On Track', same reasoning --
-                // shares the fallback branch's "everything's fine" word
-                // instead of a second synonym. GH-333 follow-up: briefly
-                // tried a "distance from nearer edge" number here too, but
-                // confirmed with the user that On Track should just stay a
-                // plain label -- the number only matters once something is
-                // actually Deficit or Excess.
-                return { currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track' };
+                return _balanceModel.classify({
+                    nutrient: nutrient,
+                    required: required,
+                    delivered: delivered,
+                    currentPpm: soilPpmMap[nutrient],
+                    removal: removalMap[nutrient],
+                    range: rangeMap[nutrient],
+                    bulkDensity: soilBulkDensity,
+                    soilDepth: soilDepthCm,
+                    missingSoilData: !!missingSoilDataMap[nutrient]
+                });
             }
 
             // GH-333: 'sufficient' -> green, 'excess' -> red (genuinely
@@ -885,13 +827,12 @@
             // else ('deficit', fallback's 'marginal') -> amber -- a planned,
             // gradual correction (Lift spread over yearsToCorrect) isn't the
             // same urgency as a true excess and shouldn't share its red.
+            // GH-396: shared with the Plan page's twin integration and the
+            // Word export through assets/nutrient-balance-status.js, so amber,
+            // red, green and grey cannot come to mean different things on the
+            // two surfaces.
             function statusVisualClass(statusClass) {
-                if (statusClass === 'sufficient') return 'positive';
-                if (statusClass === 'excess') return 'negative';
-                // GH-338: 'no-data' -> neutral grey -- genuinely unknown, not
-                // a verdict, shouldn't share Deficit's amber either.
-                if (statusClass === 'no-data') return 'neutral';
-                return 'warning';
+                return _balanceModel ? _balanceModel.visualClass(statusClass) : 'neutral';
             }
 
             // Build nutrient summary rows
@@ -1234,7 +1175,9 @@
         // Surfaces the export-time _synthesiseKReconDecision SSOT (b35fix324a,
         // defined in word-export.js) into the Prebbles live preview so the
         // user can see whether spot-K will fire at export time, instead of
-        // staring at a red "K balance -28" flag with no context.
+        // staring at a red "Programme vs required -28" flag with no context.
+        // GH-396 renamed that quantity from "K balance" on both surfaces: the
+        // Plan page already had a Balance column meaning something else.
         //
         // The SSOT applies two gates:
         //   Gate 1: programme balance < BALANCE_THRESHOLD (default -20 kg/ha)
@@ -1542,13 +1485,14 @@
                 return ''; // K is in balance — no row needed.
             }
             if (reconResult.state === 'no-soil') {
-                // Educational hint when soil isn't loaded but K balance is short.
+                // Educational hint when soil isn't loaded but the programme is
+                // short of the requirement (GH-396: "K balance" until this ticket).
                 if (reconResult.balance < -20) {
                     return `
                         <tr class="krecon-info">
                             <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
                                 <svg class="gilba-icon-inline" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>
-                                K balance is short by ${Math.abs(reconResult.balance).toFixed(0)} kg/ha. Load a soil sample to see whether spot-K reconciliation will fire at export.
+                                Programme vs required is short by ${Math.abs(reconResult.balance).toFixed(0)} kg/ha. Load a soil sample to see whether spot-K reconciliation will fire at export.
                             </td>
                         </tr>`;
                 }
@@ -1559,7 +1503,7 @@
                     <tr class="krecon-suppress">
                         <td colspan="5" style="font-style: italic; font-size: 12px; color: var(--gaip-text-secondary); padding: 8px 12px;">
                             <svg class="gilba-icon-inline" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 16v-4M12 8h.01"/></svg>
-                                K balance ${reconResult.balance.toFixed(0)} kg/ha; soil K (${reconResult.soilK.toFixed(0)} ppm) at or above floor (${reconResult.soilKFloor} ppm), not supplementing per soil-K sufficiency gate.
+                                Programme vs required ${reconResult.balance.toFixed(0)} kg/ha; soil K (${reconResult.soilK.toFixed(0)} ppm) at or above floor (${reconResult.soilKFloor} ppm), not supplementing per soil-K sufficiency gate.
                         </td>
                     </tr>`;
             }

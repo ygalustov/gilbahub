@@ -51,7 +51,15 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
     // GH-312 retargeted this window to classifyBalance() -- the required===0/
     // pct-based logic GH-306 fixed now lives in that function's fallback
     // branch, not inline in the row-map callback.
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
@@ -74,7 +82,15 @@ describe('GH-306 — nutrition-prebble-integration.js (NZ)', () => {
 
 describe('GH-306 — nutrition-au-fertiliser-integration.js (AU)', () => {
     const src = fs.readFileSync(path.join(__dirname, '../assets/nutrition-au-fertiliser-integration.js'), 'utf8');
-    const block = extractBlock(src, 'function classifyBalance(nutrient, required, delivered) {', 6500);
+    const block = extractBlock(
+        // GH-396: the classifier moved to assets/nutrient-balance-status.js,
+        // shared by this integration, its AU/NZ twin and the Word export's
+        // Annual Nutrient Requirements table. Every pin below is unchanged
+        // and now reads the one implementation; that each integration still
+        // DELEGATES to it is pinned in gh396-report-plan-vocabulary.test.js,
+        // so a re-inlined local copy cannot quietly satisfy these.
+        fs.readFileSync(path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8'),
+        'function classify(o) {', 6500);
 
     test('required === 0 is a distinct branch, not routed through the percentage calc', () => {
         expect(block).toMatch(/if \(required === 0\) \{/);
