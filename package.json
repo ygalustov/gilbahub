@@ -13,7 +13,8 @@
     "test:e2e:phosphorus": "GILBA_E2E=1 jest tests/e2e/gh400-au-liquid-phosphorus-live.test.js --runInBand --testTimeout=600000",
     "test:e2e:all": "GILBA_E2E=1 jest tests/e2e --runInBand --testTimeout=600000",
     "test:e2e:volumes": "GILBA_E2E=1 jest tests/e2e/gh401-delivery-volumes-live.test.js --runInBand --testTimeout=600000",
-    "test:e2e:location": "GILBA_E2E=1 jest tests/e2e/gh404-settings-location-required-live.test.js --runInBand --testTimeout=300000"
+    "test:e2e:location": "GILBA_E2E=1 jest tests/e2e/gh404-settings-location-required-live.test.js --runInBand --testTimeout=300000",
+    "test:e2e:wizard": "GILBA_E2E=1 jest tests/e2e/gh407-wizard-nz-live.test.js --runInBand --testTimeout=300000"
   },
   "dependencies": {
     "docx": "^9.6.1",

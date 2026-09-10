@@ -4636,7 +4636,25 @@
 
                     Object.values(prog.annualSummary.products).forEach(function(p) {
                         var name = p.name || (p.product && p.product.name) || 'Unknown product';
-                        var kgHa = parseFloat(p.totalKg || p.totalKgHa || p.totalLHa || 0);
+                        // GH-406: which unit this quantity is in, decided the
+                        // same way the Plan panel decides it
+                        // (nutrition-au-fertiliser-integration.js:1047-1053):
+                        // a true liquid is litres, a soluble powder is
+                        // kilograms even though it is dissolved before
+                        // spraying. Until now the `||` chain below took
+                        // whichever field existed and the column header said
+                        // "kg" for every row, so a liquid's litres printed as
+                        // kilograms with nothing to show for it.
+                        // Not carried over from the panel: its g/m² branch for
+                        // greens. That is an application rate for a small area;
+                        // this table answers "how much to order", which is
+                        // bought by mass and volume.
+                        var _prodMeta = p.product || {};
+                        var _isSoluble = _prodMeta.form === 'soluble';
+                        var _isLiquid = !!(parseFloat(p.totalLHa) > 0) && !_isSoluble;
+                        var kgHa = _isLiquid
+                            ? parseFloat(p.totalLHa || 0)
+                            : parseFloat(p.totalKg || p.totalKgHa || p.totalLHa || 0);
                         // b35fix328: use exposed helper for full macro vector.
                         // Fallback path (older catalogue entries with only
                         // nutrients map) preserves N/P/K/S only — Ca and Mg
@@ -4660,7 +4678,10 @@
                             aggregate[name] = {
                                 kgHaSum: 0, samplesContributing: 0,
                                 N: 0, P: 0, K: 0, S: 0, Ca: 0, Mg: 0,
-                                kgAbsSum: 0
+                                kgAbsSum: 0,
+                                // GH-406: one product is one form, so this is
+                                // set once and read back when the row prints.
+                                isLiquid: _isLiquid
                             };
                         }
                         aggregate[name].kgHaSum += kgHa;
@@ -4800,7 +4821,9 @@
                     var avgKgHaColWidth = optCount === 0 ? 1700 : 1400;
 
                     rollupCols = [prodColWidth, totalKgColWidth, avgKgHaColWidth];
-                    hdrLabels = ['Product', 'Total kg', 'Total kg/ha avg'];
+                    // GH-406: the unit moved out of the header and onto each
+                    // row, because it is not the same on every row.
+                    hdrLabels = ['Product', 'Total', 'Rate avg'];
                     // N always
                     rollupCols.push(nutColWidth);
                     hdrLabels.push('N kg');
@@ -4813,7 +4836,7 @@
                     if (includeS) { rollupCols.push(nutColWidth); hdrLabels.push('S kg'); }
                 } else {
                     rollupCols = [4200, 2400, 2400];          // Product, Total kg/ha, Apps
-                    hdrLabels = ['Product', 'Total kg/ha', 'Samples'];
+                    hdrLabels = ['Product', 'Total rate', 'Samples'];   // GH-406: unit is per row
                 }
 
                 var hdrCellsRollup = hdrLabels.map(function(label, idx) {
@@ -4844,12 +4867,12 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[1], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(agg.kgAbsSum).toString(), bold: true, size: 22, color: '1F2937' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(agg.kgAbsSum).toString() + (agg.isLiquid ? ' L' : ' kg'), bold: true, size: 22, color: '1F2937' })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[2], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0), size: 22, color: '6B7280' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0) + (agg.isLiquid ? ' L/ha' : ' kg/ha'), size: 22, color: '6B7280' })] })]
                             })
                         ];
 
@@ -4882,7 +4905,7 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[1], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0), bold: true, size: 22, color: '1F2937' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0) + (agg.isLiquid ? ' L/ha' : ' kg/ha'), bold: true, size: 22, color: '1F2937' })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },

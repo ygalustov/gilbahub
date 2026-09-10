@@ -682,7 +682,11 @@
                     <label style="display: block; font-size: 12px; font-weight: 600; color: var(--gaip-text-secondary); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                         Soil Interpretation Method
                     </label>
-                    <div id="gaip-wizard-method-grid" style="display: grid; grid-template-columns: ${isNZ ? '1fr 1fr 1fr' : '1fr 1fr'}; gap: 10px;"></div>
+                    <!-- GH-407: two columns either way. It was three for NZ, when NZ meant
+                         MLSN + SLAN + Ammonium Acetate; NZ now drops MLSN, so both
+                         cases hold exactly two cards and a third column would leave
+                         a gap where a button used to be. -->
+                    <div id="gaip-wizard-method-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;"></div>
                 </div>
 
                 <div id="gaip-wizard-species-note" style="display: none; padding: 10px; background: var(--gaip-warning-bg);
@@ -767,6 +771,36 @@
                 });
             }
 
+            // GH-407: and take MLSN away, which is what Settings already does
+            // for a New Zealand site (settings.blade.php, GH-395). This step
+            // already knew the location was NZ -- it added Ammonium Acetate
+            // just above, auto-selected it below, and warned underneath if you
+            // picked something else -- but it left MLSN on the list, so it
+            // stayed one click away and the warning was the only thing between
+            // a new NZ site and the wrong methodology. Warning and offering are
+            // not the same as not offering.
+            //
+            // NZ soil labs report Olsen P and ammonium-acetate extractions;
+            // MLSN's thresholds are not defined against those numbers, so a
+            // site set up this way produces figures that look ordinary and are
+            // not comparable to anything.
+            if (isNZ) {
+                const _beforeCount = methods.length;
+                for (let _i = methods.length - 1; _i >= 0; _i--) {
+                    if (methods[_i].id === 'mlsn') methods.splice(_i, 1);
+                }
+                this._mlsnHiddenForNZ = methods.length < _beforeCount;
+                // A selection made on an earlier visit to this step, before the
+                // location was set to NZ, must not survive as a value with no
+                // button to show it.
+                if (this.data.methodology === 'mlsn') {
+                    this.data.methodology = 'ammonium_acetate';
+                    this._mlsnNormalisedForNZ = true;
+                }
+            }
+
+            if (!isNZ) { this._mlsnHiddenForNZ = false; this._mlsnNormalisedForNZ = false; }
+
             // Auto-suggest methodology based on turf type + region
             if (!this.data.methodology) {
                 if (isNZ) {
@@ -808,7 +842,15 @@
 
             const isNZ = this.isNewZealandLocation();
 
-            if (isNZ && this.data.methodology !== 'ammonium_acetate') {
+            // GH-407: say it plainly when we took a choice away, rather than
+            // letting the button vanish between one visit to this step and the
+            // next with no explanation. Same shape as the Settings notice.
+            if (this._mlsnNormalisedForNZ) {
+                noteEl.textContent = 'MLSN is not offered for New Zealand locations and the methodology ' +
+                    'has been set to Ammonium Acetate. NZ soil labs report Olsen P and ammonium-acetate ' +
+                    'extractions, and MLSN\u2019s thresholds are not defined against those numbers.';
+                noteEl.style.display = 'block';
+            } else if (isNZ && this.data.methodology !== 'ammonium_acetate') {
                 noteEl.textContent = 'Note: Most NZ soil labs (Hill Labs) use ammonium acetate extraction. ' +
                     'If your lab report shows Olsen P and NH\u2084OAc-extractable K/Ca/Mg, select Ammonium Acetate ' +
                     'for accurate threshold matching.';

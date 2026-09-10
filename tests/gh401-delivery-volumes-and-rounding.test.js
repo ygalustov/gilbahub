@@ -808,7 +808,16 @@ describe("GH-401 — the export's Annual Product Summary gains a Total Delivered
         // soil sample (the aggregator suppresses itself without one) and a
         // multi-spray liquid, so it could not be shown live on this database.
         const combined = code(readAsset('word-export-combined.js'));
-        expect(combined).toMatch(/var kgHa = parseFloat\(p\.totalKg \|\| p\.totalKgHa \|\| p\.totalLHa \|\| 0\);/);
+        // GH-406 replaced the flat `totalKg || totalKgHa || totalLHa` chain with
+        // a form-aware read, so that the row can print its own unit. The claim
+        // this test makes is unchanged and still holds: the aggregator reads the
+        // product entry's own quantity and computes nothing of its own. For a
+        // liquid the two fields carry the same number anyway — asserted at the
+        // bottom of this test — so GH-406 moved no figure, only the label.
+        expect(combined).toMatch(/var kgHa = _isLiquid/);
+        expect(combined).toMatch(/\? parseFloat\(p\.totalLHa \|\| 0\)/);
+        expect(combined).toMatch(/: parseFloat\(p\.totalKg \|\| p\.totalKgHa \|\| p\.totalLHa \|\| 0\);/);
+        expect(combined).not.toMatch(/kgHaSum \+= [^;]*compute/);
         // ...and the module publishes exactly that, counting every spray.
         const acc = delivery.accumulate([month('Aug', [], [{
             id: 'LP', name: 'LP', form: 'liquid', rateLHa: 7, applications: 4,

@@ -363,6 +363,30 @@
             ];
             if (isNZ) {
                 methods.push({ id: 'ammonium_acetate', label: 'Ammonium Acetate', desc: 'Hill Labs NZ — Olsen P + NH₄OAc extraction.' });
+                // GH-407: and take MLSN away, as Settings does (GH-395). This
+                // step already knew the location was NZ -- it just added
+                // Ammonium Acetate because of it, auto-selected it above, and
+                // warns underneath if you pick something else -- but it left
+                // MLSN on the list, so it stayed one click away and that
+                // warning was all that stood between a new NZ site and a
+                // methodology whose thresholds are not defined against the
+                // numbers NZ labs report (Olsen P, ammonium-acetate
+                // extractions). Warning and offering are not the same thing.
+                //
+                // This is the wizard the new hub actually shows. Its twin,
+                // site-setup-wizard.js, has the same step and the same fix; it
+                // is reached only from /hub and the report pages.
+                for (var _i = methods.length - 1; _i >= 0; _i--) {
+                    if (methods[_i].id === 'mlsn') methods.splice(_i, 1);
+                }
+                // A choice made before the location was set to NZ must not
+                // survive as a value with no button to show it.
+                if (this.d.methodology === 'mlsn') {
+                    this.d.methodology = 'ammonium_acetate';
+                    this._mlsnNormalisedForNZ = true;
+                }
+            } else {
+                this._mlsnNormalisedForNZ = false;
             }
 
             var methodHtml = methods.map(function (m) {
@@ -392,7 +416,7 @@
                 '</div>' +
                 '<div>' +
                 '<label style="display:block;font-size:11px;font-weight:700;color:var(--gaip-text-muted,#6b8878);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Soil interpretation method</label>' +
-                '<div style="display:grid;grid-template-columns:' + (isNZ ? '1fr 1fr 1fr' : '1fr 1fr') + ';gap:10px">' + methodHtml + '</div>' +
+                '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' + methodHtml + '</div>' +
                 '</div>' +
                 this._methodNote();
 
@@ -416,7 +440,14 @@
         _methodNote: function () {
             var isNZ  = this._isNZ();
             var msg   = '';
-            if (isNZ && this.d.methodology !== 'ammonium_acetate') {
+            // GH-407: say it plainly when a choice was taken away, rather than
+            // letting the button vanish between one visit to this step and the
+            // next with no explanation.
+            if (this._mlsnNormalisedForNZ) {
+                msg = 'MLSN is not offered for New Zealand locations and the methodology has been set to '
+                    + 'Ammonium Acetate. NZ soil labs report Olsen P and ammonium-acetate extractions, and '
+                    + 'MLSN\u2019s thresholds are not defined against those numbers.';
+            } else if (isNZ && this.d.methodology !== 'ammonium_acetate') {
                 msg = 'Most NZ soil labs (Hill Labs) use ammonium acetate extraction. If your report shows Olsen P and NH₄OAc-extractable nutrients, select Ammonium Acetate.';
             } else if (this.d.methodology === 'mlsn' && this.d.turfType !== 'golf') {
                 msg = 'MLSN was developed for sand-based golf putting greens. For sports fields or lawns, SLAN is more appropriate.';
