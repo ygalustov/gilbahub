@@ -2759,6 +2759,28 @@
             if (v.Mg > threshold) active.Mg = true;
             if (v.S > threshold) active.S = true;
         });
+
+        // GH-409: the product tables print N, P and K and stop, matching the
+        // Plan page, which has only ever had those three columns. The rule
+        // above -- show a column whenever any product happens to carry that
+        // nutrient -- gave the document a different set of columns from the
+        // screen, and a different set from one site to the next depending on
+        // which products the recommender picked. A reader comparing the two
+        // surfaces, or two sites, found the tables did not line up.
+        //
+        // Calcium, magnesium and sulphur are still COMPUTED and still
+        // accumulate exactly as before: the delivery accumulator's vectors are
+        // untouched and every other consumer of them (the Nutrient Delivery
+        // Summary, the annual requirement tables) is unaffected. This decides
+        // which columns are drawn, nothing else.
+        //
+        // Phosphorus keeps its detection: the Plan shows P unconditionally, and
+        // suppressing an all-zero P column is existing behaviour worth keeping
+        // -- flipping it to always-on would add an empty column to every
+        // nitrogen-only programme.
+        active.Ca = false;
+        active.Mg = false;
+        active.S = false;
         return active;
     }
 
@@ -7141,12 +7163,32 @@
                 baseIsC4: !!_os.isC4Base
             };
         } else {
+            // GH-408: derive the base from the site's own species. This branch
+            // set `baseIsC4: false` while the comment directly above it says a
+            // null overseed state means "pure C4 / no overseed config" -- the
+            // code contradicted its own docstring, and the consequence reached
+            // the client: a warm-season site was scored on the C3 growth-
+            // potential curve, so the document's Monthly N Distribution printed
+            // GP 90% for a Christchurch January where the Plan page printed 16%,
+            // and went on to spread the full annual N over months a warm-season
+            // sward is dormant in. The per-sample override branch below has
+            // always derived it properly; only this default did not.
+            var _defBaseIsC4 = false;
+            try {
+                var _SC0 = window.SpeciesController;
+                if (_SC0 && typeof _SC0.isC4Species === 'function' && _species) {
+                    _defBaseIsC4 = _SC0.isC4Species(_species);
+                } else if (window.NutritionRequirementCore &&
+                           typeof window.NutritionRequirementCore._isC4Species === 'function') {
+                    _defBaseIsC4 = window.NutritionRequirementCore._isC4Species(_species);
+                }
+            } catch (e) { /* defensive: fall back to the old assumption */ }
             _overseedConfig = {
                 isOverseed: false,
-                baseSpecies: null,
+                baseSpecies: _species || null,
                 overseedSpecies: null,
                 summerIntent: 'transition',
-                baseIsC4: false
+                baseIsC4: _defBaseIsC4
             };
         }
 

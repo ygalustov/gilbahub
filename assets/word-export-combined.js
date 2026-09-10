@@ -792,6 +792,21 @@
                 try {
                     var _nsIntegration = global.GilbaNutritionSummary;
                     if (_nsIntegration) {
+                        // GH-408: one classifier, the shared one the Plan and
+                        // the requirement core both use. Returns false when it
+                        // cannot resolve, which is the pre-GH-408 assumption --
+                        // no worse than before, and never a guess of its own.
+                        function _gh408IsC4(species) {
+                            if (!species) return false;
+                            try {
+                                var SC = global.SpeciesController;
+                                if (SC && typeof SC.isC4Species === 'function') return !!SC.isC4Species(species);
+                                var core = global.NutritionRequirementCore;
+                                if (core && typeof core._isC4Species === 'function') return !!core._isC4Species(species);
+                            } catch (e) { /* defensive */ }
+                            return false;
+                        }
+
                         var _turfCfg = typeof _nsIntegration.extractTurfConfig === 'function'
                             ? _nsIntegration.extractTurfConfig() : null;
                         var _monthlyTemps = typeof _nsIntegration.extractMonthlyTemps === 'function'
@@ -825,7 +840,18 @@
                             // engine instead (Hoxton audit D02/D03).
                             monthlyTemps:       _monthlyTemps,
                             climateNormalsSource: (global.climateMetrics && global.climateMetrics.monthlyTempsSource) || 'unavailable',
-                            overseedConfig:     _overseedCfg || { isOverseed: false, baseIsC4: false, summerIntent: 'transition' },
+                            // GH-408: the fallback derives the base from this
+                            // site's own species instead of asserting cool-
+                            // season. A hardcoded `baseIsC4: false` here put a
+                            // warm-season site on the C3 growth-potential curve,
+                            // which is what made the document's Monthly N
+                            // Distribution disagree with the Plan page.
+                            overseedConfig:     _overseedCfg || {
+                                isOverseed: false,
+                                baseSpecies: _turfCfg ? _turfCfg.species : null,
+                                baseIsC4: _gh408IsC4(_turfCfg ? _turfCfg.species : null),
+                                summerIntent: 'transition'
+                            },
                             userN:              _userN,
                             siteId:             entry.siteId  // self-check marker
                         };

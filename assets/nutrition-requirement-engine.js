@@ -358,8 +358,33 @@
         const soil = inputs.soil || {};
         const turf = inputs.turf || {};
         const climate = inputs.climate || {};
-        const overseedConfig = inputs.overseedConfig ||
-            { isOverseed: false, baseIsC4: false, summerIntent: 'transition' };
+        // GH-408: derive the base species from the site's own turf settings
+        // instead of assuming cool-season. `baseIsC4: false` was hardcoded
+        // here. Correcting my own first note on this line: callers DO supply
+        // `overseedConfig` -- word-export.js:9980 and word-export-combined.js
+        // both pass one -- and I concluded otherwise from a grep truncated at
+        // ten lines. Their defaults carried the same hardcoded `baseIsC4:
+        // false`, fixed alongside this one, so the whole path assumed cool-
+        // season whatever grass was configured. This default is the backstop
+        // for a caller that passes nothing. The Plan page never had the bug --
+        // nutrition-calendar.js passes `isC4` through to the same shared
+        // monthlyC3Fractions() -- so the two surfaces printed different growth
+        // potential for the same site and month, and the export's was wrong.
+        //
+        // Reported live on a Christchurch golf site set to Couch: the Plan
+        // printed GP 16% for January, the document 90%, and the document went
+        // on to schedule the full 250 kg N/ha across nine "active" months that
+        // a warm-season sward does not have at that latitude.
+        //
+        // isC4Species() already lived in this file (it delegates to the shared
+        // core, the same classifier the Plan uses); it simply was not consulted
+        // at this line. An explicitly supplied overseedConfig still wins, so a
+        // caller describing a real oversown sward is unaffected.
+        const overseedConfig = inputs.overseedConfig || {
+            isOverseed: false,
+            baseIsC4: isC4Species(turf.species),
+            summerIntent: 'transition'
+        };
 
         // GH-381 (D31, N-basis divergence): resolved ONCE, before the
         // per-sample config is built, so removal (below) and the facility
