@@ -40,6 +40,22 @@
 const fs = require('fs');
 const path = require('path');
 
+/**
+ * The P SUPPLEMENTATION block, bounded by the two section markers that
+ * actually delimit it rather than by a fixed character count.
+ *
+ * GH-391: the count-based slices (2800 / 3200 chars) failed the moment the
+ * block gained a comment, which is a test that breaks on prose rather than on
+ * behaviour. The markers below are the block's real start and end.
+ */
+function pSupplementationBlock(src) {
+    const start = src.indexOf('// P SUPPLEMENTATION (GH-331 -- strategic month, repeats if capped)');
+    const end = src.indexOf('// K SUPPLEMENTATION — REMOVED b35fix330');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    return src.slice(start, end);
+}
+
 describe('GH-331 — AU P supplementation (au-fertiliser-products.js)', () => {
     let src;
     beforeAll(() => {
@@ -81,7 +97,7 @@ describe('GH-331 — AU P supplementation (au-fertiliser-products.js)', () => {
     test('the month loop repeats P application from the designated month onward until the annual target is met', () => {
         const idx = src.indexOf('// P SUPPLEMENTATION (GH-331 -- strategic month, repeats if capped)');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 2800);
+        const block = pSupplementationBlock(src);
         expect(block).toMatch(/if \(pApplicationMonth !== null && idx >= pApplicationMonth\) \{/);
         expect(block).toMatch(/const annualPRemaining = Math\.max\(0, annualTargets\.P - delivered\.P\);/);
         expect(block).toMatch(/if \(annualPRemaining > 2\) \{/);
@@ -90,9 +106,7 @@ describe('GH-331 — AU P supplementation (au-fertiliser-products.js)', () => {
     });
 
     test('falls back to a "no suitable P source found" note rather than silently doing nothing', () => {
-        const idx = src.indexOf('// P SUPPLEMENTATION (GH-331 -- strategic month, repeats if capped)');
-        const block = src.slice(idx, idx + 3200);
-        expect(block).toMatch(/no suitable P source found/);
+        expect(pSupplementationBlock(src)).toMatch(/no suitable P source found/);
     });
 
     test('P supplementation trigger runs inside the month loop, after granular/liquid N selection, before the K-supplementation removal comment', () => {

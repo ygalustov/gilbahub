@@ -7,7 +7,7 @@
  *
  * Architecture:
  *   nutrients[] (from mlsn-progressive-disclosure.js convertMLSNToProgressive)
- *       → normaliseToBasis(nutrients, methodology)   [unit conversion]
+ *       → normaliseToBasis(nutrients)                [flatten to numeric map]
  *       → checkMuldersInteractions(normalised, context)  [interaction graph]
  *       → returns Map<nutrientSymbol, MuldersFlag[]>
  *
@@ -15,10 +15,14 @@
  * into the existing card's "why" section alongside tissue conflict badges.
  *
  * Methodology handling:
- *   MLSN / SLAN   — values already in mg/kg (ppm). No conversion needed.
- *   Ammonium acetate (Hill Labs NZ) — exchangeable cations in cmol/kg.
- *                   K, Ca, Mg, Na are converted to mg/kg for ratio checking
- *                   using atomic weights: K=39.1, Ca=40.1, Mg=24.3, Na=23.0.
+ *   None — and deliberately so. MLSN, SLAN and ammonium acetate alike reach
+ *   this file as mg/kg (ppm); the methodology stamp does not change the unit
+ *   and must not change the basis. GH-392 removed a cmol/kg → mg/kg
+ *   conversion that fired on the AA stamp and inflated already-correct
+ *   readings by 100-400x, distorting the cation ratios these rules test.
+ *   me/100g exists in this system only on the THRESHOLD side, where
+ *   HillLabsSampleTypes.getRangesPpm() converts it to ppm before comparison.
+ *   See normaliseToBasis()'s comment for the full trace.
  *
  * Interaction graph source:
  *   Marschner H (2012) Mineral Nutrition of Higher Plants, 3rd ed. Academic Press.
@@ -191,47 +195,49 @@
   ];
 
   // =========================================================================
-  // ATOMIC WEIGHTS for cmol/kg → mg/kg conversion (ammonium acetate)
-  // =========================================================================
-
-  var ATOMIC_WEIGHTS = {
-    K: 39.1,
-    Ca: 40.08,
-    Mg: 24.31,
-    Na: 22.99,
-    // Monovalent: mg/kg = cmol/kg × atomic_weight × 10
-    // Divalent:   mg/kg = cmol/kg × atomic_weight × 5
-  };
-
-  var VALENCE = { K: 1, Ca: 2, Mg: 2, Na: 1 };
-
-  // =========================================================================
   // UNIT NORMALISATION
   // =========================================================================
 
   /**
-   * Convert nutrients array to a flat mg/kg map regardless of methodology.
+   * Flatten the nutrients array to a numeric mg/kg map.
+   *
+   * GH-392: this used to branch on `methodology === 'ammonium_acetate'` and
+   * multiply every cation by `atomic weight / valence x 10`, treating AA
+   * readings as cmol/kg. Nothing in this hub feeds it cmol/kg. AA sample
+   * values are stored and compared in mg/kg (ppm) end to end:
+   * `AmmoniumAcetateMethodology`'s bands are declared `unit: 'ppm'`;
+   * `HillLabsSampleTypes.getRangesPpm()` converts the certificate-native
+   * me/100g THRESHOLDS into ppm precisely so the comparison happens in ppm —
+   * me/100g lives on the range side of the comparison, never the sample side;
+   * and `lab-report-parser.js` keeps any genuine me/100g reading under its own
+   * key (`K_me`, `CEC_meq100g`), distinct from the ppm `K` read here.
+   *
+   * The branch was therefore scaling already-correct numbers — on the dev
+   * DB's only AA site, K 40 ppm became 15 640 and Ca 803 became 160 921 — and
+   * because the multipliers differ per element (K x391, Ca x200.4, Mg x121.6)
+   * it distorted the very cation RATIOS these rules test (K:Mg inflated 3.2x),
+   * fabricating antagonisms rather than merely rescaling them.
+   *
+   * It was unreachable from the export paths only by accident: `word-export.js`
+   * upper-cases the stamp (`data.soil.methodology = ....toUpperCase()`), so the
+   * case-sensitive comparison never matched. Making that comparison
+   * case-tolerant would have made the export actively wrong; removing the
+   * branch is the fix, and it also corrects the lowercase-key callers
+   * (the AU/UK integrations, `mlsn-progressive-disclosure.js`) that did convert.
+   *
+   * The `methodology` parameter is gone with the branch — the basis is the
+   * input for every methodology.
+   *
    * @param {Array} nutrients — array of { nutrient, actual, ... }
-   * @param {string} methodology — 'mlsn' | 'slan' | 'ammonium_acetate'
    * @returns {Object} map of { K: number, Ca: number, Mg: number, ... } in mg/kg
    */
-  function normaliseToBasis(nutrients, methodology) {
+  function normaliseToBasis(nutrients) {
     var basis = {};
-    var isAA = methodology === "ammonium_acetate";
 
     nutrients.forEach(function (n) {
-      var sym = n.nutrient;
       var raw = parseFloat(n.actual);
       if (isNaN(raw) || raw <= 0) return;
-
-      if (isAA && ATOMIC_WEIGHTS[sym] && VALENCE[sym]) {
-        // cmol/kg → mg/kg
-        // mg/kg = cmol/kg × (atomic_weight / valence) × 10
-        basis[sym] = raw * (ATOMIC_WEIGHTS[sym] / VALENCE[sym]) * 10;
-      } else {
-        // MLSN / SLAN already in mg/kg
-        basis[sym] = raw;
-      }
+      basis[n.nutrient] = raw;
     });
 
     return basis;
@@ -514,8 +520,9 @@
    * @returns {{ flags, summaryBanner, nutrientBadges }}
    */
   function analyse(nutrients, context) {
-    var methodology = (context && context.methodology) || "mlsn";
-    var basis = normaliseToBasis(nutrients, methodology);
+    // GH-392: no methodology-dependent unit handling — every caller supplies
+    // mg/kg (ppm). See normaliseToBasis()'s comment.
+    var basis = normaliseToBasis(nutrients);
     var flags = checkMuldersInteractions(basis, context);
 
     // ── RECYCLED WATER OVERLAYS ──────────────────────────────────────────

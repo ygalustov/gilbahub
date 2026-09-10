@@ -441,9 +441,34 @@ function summariseProgram(lp) {
     const fromMonthly = Object.keys(byName).sort().map(function (n) {
         return { name: n, applications: byName[n].applications, totalKg: Math.round(byName[n].totalKg * 10) / 10 };
     });
+    // GH-391: the annual `delivered` vector and the `targets` it is measured
+    // against, at full precision. `delivered` is what both surfaces print as
+    // the Annual Product Summary's "Total Delivered" row; the sum of the
+    // monthly `delivers` below is what they build the product ROWS from. The
+    // two must be the same quantity, and on Burns they were not — MAP Tech's
+    // N reached every row and no total. Captured separately from `targets`
+    // because Burns' annual N target is also ~120, which makes a rendered
+    // figure alone unable to tell a correct total from the target.
+    // Only the AU/UK recommenders stamp a `delivers` vector on each
+    // application; the NZ one re-derives delivery from rate x analysis at
+    // accumulation time, so there is nothing per-application to sum there and
+    // `deliversSum` stays null rather than a misleading zero.
+    let deliversSum = null;
+    (lp.monthly || []).forEach(function (m) {
+        [].concat(m.granular || [], m.liquid || []).forEach(function (prod) {
+            const d = prod && prod.delivers;
+            if (!d) return;
+            if (!deliversSum) deliversSum = { N: 0, P: 0, K: 0 };
+            deliversSum.N += d.N || 0;
+            deliversSum.P += d.P || 0;
+            deliversSum.K += d.K || 0;
+        });
+    });
+    const jv = function (v) { return v ? { N: v.N, P: v.P, K: v.K } : null; };
     return {
         meta: lp.meta ? { surfaceType: lp.meta.surfaceType, methodology: lp.meta.methodology } : null,
-        products: products, productsFromMonthly: fromMonthly, monthly: monthly
+        products: products, productsFromMonthly: fromMonthly, monthly: monthly,
+        delivered: jv(lp.delivered), targets: jv(lp.targets), deliversSum: deliversSum
     };
 }
 
@@ -581,6 +606,33 @@ function installExportHooks(arg) {
     cap.hooked.recommender = hookedNZ || hookedAU || hookedUK;
     cap.hooked.recommenderNZ = hookedNZ;
     cap.hooked.recommenderAU = hookedAU;
+
+    // GH-392: Mulder's interaction checker. Its `basis` is the cation map every
+    // ratio rule divides, and nothing prints it, so a unit error there is
+    // invisible in the document — which is how a cmol/kg conversion survived on
+    // a hub that stores mg/kg. Captured as (input readings, resulting basis) so
+    // the harness can assert the basis IS the readings on live page data.
+    cap.mulders = [];
+    if (window.GilbaMulders && typeof window.GilbaMulders.analyse === 'function') {
+        const origAnalyse = window.GilbaMulders.analyse;
+        window.GilbaMulders.analyse = function (nutrients, context) {
+            const out = origAnalyse.apply(this, arguments);
+            try {
+                const input = {};
+                (nutrients || []).forEach(function (n) {
+                    const v = parseFloat(n && n.actual);
+                    if (!isNaN(v) && v > 0) input[n.nutrient] = v;
+                });
+                cap.mulders.push({
+                    methodology: (context && context.methodology) || null,
+                    input: input,
+                    basis: j(out && out.basis)
+                });
+            } catch (e) { cap.mulders.push({ captureError: String(e) }); }
+            return out;
+        };
+        cap.hooked.mulders = true;
+    }
     return cap.hooked;
 }
 
@@ -820,7 +872,7 @@ if (!ENABLED) {
             }, [SITE_ID].concat(fixture.crossSite ? [fixture.crossSite.siteId] : []));
 
             // Only export-time calls count; the page may have run the engines on load.
-            await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; });
+            await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; if (c.mulders) c.mulders.length = 0; });
             const [download] = await Promise.all([
                 page.waitForEvent('download', { timeout: 180000 }),
                 page.locator('button:has-text("Generate & Download")').last().click()
@@ -875,7 +927,7 @@ if (!ENABLED) {
             if (picked.checked !== 2) {
                 throw new Error('cross-site export: expected 2 checked samples, got ' + picked.checked);
             }
-            await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; });
+            await page.evaluate(() => { const c = window.__gilbaE2E; c.calendar.length = 0; c.engine.length = 0; c.recommender.length = 0; if (c.mulders) c.mulders.length = 0; });
             const [download] = await Promise.all([
                 page.waitForEvent('download', { timeout: 180000 }),
                 page.locator('button:has-text("Generate & Download")').last().click()
@@ -1250,45 +1302,118 @@ if (!ENABLED) {
             // the Plan panel has no amendments at all, so its Delivered column
             // is the same catalogue-only quantity.
             const catalogueRows = prodRows.filter((r) => isCatalogueName(r.name, catalogue));
-            // GH-387: prefer the document's OWN "Total Delivered" row. Summing
-            // the per-product columns is only equal to it when each row's
-            // figure is a clean partition of the total, which is true of the NZ
-            // table and not of the AU one (its rows are rounded per product and
-            // its total is computed from the programme: 113 + 7 + 5 = 125
-            // against a printed total of 120). Comparing the Plan's Delivered
-            // column against the export's own printed total is comparing like
-            // with like; the row sum stays as the fallback.
+            // GH-387 preferred the document's OWN "Total Delivered" row on the
+            // grounds that summing the per-product columns is only equal to it
+            // when each row is a clean partition of the total — true of the NZ
+            // table and, at the time, not of the AU one, whose rows read
+            // 113 + 7 + 5 = 125 kg N/ha against a printed total of 120.
+            //
+            // GH-391: that was not a renderer inconsistency to be tolerated, it
+            // was a real accounting defect in the AU recommender — the
+            // strategic P application (MAP Tech, 12-27-0, picked for its P)
+            // reached the monthly programme with its full `delivers` vector but
+            // added only its P to the annual `delivered` accumulator, so its
+            // 5.4 kg N was in every row and in no total. Fixed at the root, so
+            // the AU table partitions like the NZ one and the region opt-out
+            // below is gone with it.
             const sum = (k) => catalogueRows.reduce((s, r) => s + (r[k] || 0), 0);
             const rows = [];
-            // GH-387: the "sum the export's per-product rows" rows below assert
-            // that the product table PARTITIONS the programme's delivered
-            // total. That is true of the NZ renderer and NOT of the Australian
-            // one — on Burns the AU table prints 113 + 7 + 5 = 125 kg N/ha
-            // while the programme's delivered total is 120.1, because MAP
-            // Tech's 5.4 kg N appears as a product row but not in the total.
-            // Crucially that is the same on BOTH surfaces: the Plan page's own
-            // Annual Product Summary prints the same three rows and the same
-            // 120 footer. It is a pre-existing AU-renderer inconsistency, not a
-            // UI-vs-export divergence, and asserting it here would make this
-            // harness fail for something it does not test. Product-for-product
-            // parity between the two surfaces IS asserted, in full, by the
-            // "product selection and rates" test below.
-            if ((fixture.region || 'nz') === 'nz') {
-                rows.push({ what: 'K delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.K.delivered, export: sum('K') });
-                rows.push({ what: 'N delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.N.delivered, export: sum('N') });
-                rows.push({ what: 'P delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.P.delivered, export: sum('P') });
-            } else {
-                // What can be asserted for every region: each surface's printed
-                // Delivered column agrees with its own printed footer total.
-                rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (N)', plan: ds.N.delivered, export: footer.delivered && footer.delivered.N });
-                rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (K)', plan: ds.K.delivered, export: footer.delivered && footer.delivered.K });
-            }
+            rows.push({ what: 'K delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.K.delivered, export: sum('K') });
+            rows.push({ what: 'N delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.N.delivered, export: sum('N') });
+            rows.push({ what: 'P delivered: Plan column vs export Annual Product Summary catalogue rows', plan: ds.P.delivered, export: sum('P') });
+            // Each surface's printed Delivered column against its own printed
+            // footer total — the check that reads the actual rendered figures.
+            rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (N)', plan: ds.N.delivered, export: footer.delivered && footer.delivered.N });
+            rows.push({ what: 'Plan Delivered column vs Plan "Total Delivered" footer (K)', plan: ds.K.delivered, export: footer.delivered && footer.delivered.K });
             if (krec !== null) {
                 rows.push({ what: 'K delivered: Plan column vs export K Reconciliation', plan: ds.K.delivered, export: krec.K_delivered });
                 rows.push({ what: 'K delivered: Plan "Total Delivered" footer vs export K Reconciliation', plan: footer.delivered && footer.delivered.K, export: krec.K_delivered });
             }
             // Each export row is rounded to a whole kg before summing.
             expect(numericMismatches(rows, 0.5 * Math.max(1, catalogueRows.length) + 0.5)).toEqual([]);
+        });
+
+        // GH-391: the source-level invariant behind the rendered check above.
+        // The rendered figures are rounded per row and can hide a small gap;
+        // these are the recommender's own unrounded vectors on both surfaces.
+        test('the programme\'s annual "delivered" is exactly the sum of its monthly applications, on both surfaces', () => {
+            const rec = exportRecommenderCall();
+            const surfaces = [
+                { name: 'Plan page', prog: plan.products },
+                { name: 'export', prog: rec && rec.out }
+            ];
+            const rows = [];
+            surfaces.forEach((s) => {
+                if (!s.prog || !s.prog.delivered || !s.prog.deliversSum) return;
+                ['N', 'P', 'K'].forEach((k) => {
+                    rows.push({
+                        what: s.name + ': delivered.' + k + ' vs sum of monthly delivers.' + k,
+                        plan: s.prog.deliversSum[k], export: s.prog.delivered[k]
+                    });
+                });
+            });
+            // Only shapes that stamp a per-application `delivers` vector can be
+            // checked this way — that is the AU (and UK) recommender, and the AU
+            // fixtures must actually exercise it. The NZ recommender re-derives
+            // delivery from rate x analysis instead, so there is nothing
+            // per-application to sum and this test has no work to do there.
+            if ((fixture.region || 'nz') === 'au') {
+                expect(rows.length).toBeGreaterThan(0);
+            }
+            expect(numericMismatches(rows, 0.05)).toEqual([]);
+        });
+
+        // GH-391: the "Total Delivered" figure is a SUM of the programme, not
+        // the site's annual N target — a distinction the Burns fixture makes
+        // hard to see by eye, because its annual N target is 120 and its
+        // delivered N lands within a kilogram of it by design. Asserting that
+        // the printed total tracks `delivered` (and not `targets`) is what
+        // stops a future "fix" from quietly substituting one for the other.
+        test('the Plan\'s "Total Delivered" footer prints the programme\'s delivered vector, not its targets', () => {
+            const footer = productFooterFromPlanText(plan.text);
+            const prog = plan.products;
+            if (!prog || !prog.delivered || !footer.delivered) return;
+            const rows = [];
+            ['N', 'P', 'K'].forEach((k) => {
+                if (prog.delivered[k] == null || footer.delivered[k] == null) return;
+                // The unrounded programme figure goes in the label so a failure
+                // says WHICH rounding step moved the number, not just that one did.
+                rows.push({ what: 'Plan "Total Delivered" ' + k + ' vs programme delivered.' + k
+                                  + ' (unrounded ' + prog.delivered[k] + ', rows sum ' + prog.deliversSum[k] + ')',
+                            plan: Math.round(prog.delivered[k]), export: footer.delivered[k] });
+            });
+            if ((fixture.region || 'nz') === 'au') {
+                expect(rows.length).toBeGreaterThan(0);
+            }
+            // Tolerance 1, not 0: all three regional integrations round their
+            // totals twice — to 1 dp for the Nutrient Delivery Summary
+            // (`nutrientTotals[k] = Math.round(nutrientTotals[k] * 10) / 10`)
+            // and then to a whole number for this footer — so a true total in
+            // [n + 0.45, n + 0.5) prints as n + 1. Burns lands exactly there
+            // (delivered N 125.4999…, printed 126). That artefact is
+            // pre-existing, shared by the AU/NZ/UK renderers alike, and is a
+            // display-policy question, not this ticket's accounting defect; it
+            // is deliberately not papered over here. What this assertion pins
+            // is the thing that matters — the footer tracks `delivered` and
+            // not `targets`, which on this fixture differ by 6 kg N.
+            expect(numericMismatches(rows, 1)).toEqual([]);
+            // And the "Required" row is the targets vector, kept separate.
+            if (footer.required && prog.targets && prog.targets.N != null) {
+                expect(Math.abs(footer.required.N - Math.round(prog.targets.N))).toBeLessThanOrEqual(1);
+            }
+        });
+
+        // GH-392: Mulder's basis is the cation map every ratio rule divides,
+        // and no surface prints it — which is how a cmol/kg → mg/kg conversion
+        // survived on a hub that stores mg/kg. Here it is checked against the
+        // readings that produced it, on live page data, for whatever
+        // methodology this fixture resolved.
+        test('Mulder\'s interaction basis is the soil readings themselves, unconverted', () => {
+            const calls = (capture.mulders || []).filter((c) => c.basis && c.input);
+            expect(capture.hooked.mulders).toBe(true);
+            expect(calls.length).toBeGreaterThan(0);
+            const bad = calls.filter((c) => JSON.stringify(c.basis) !== JSON.stringify(c.input));
+            expect(bad).toEqual([]);
         });
 
         test('product selection and rates: Plan Annual Product Summary + Monthly Program vs export Annual Product Summary + Monthly Schedule', () => {

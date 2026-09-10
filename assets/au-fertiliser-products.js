@@ -6330,7 +6330,30 @@
                     if (annualPRemaining > 2) {
                         const pProduct = this.selectPhosphorusSource(granular, all, annualPRemaining, isGreens);
                         if (pProduct) {
+                            // GH-391: count the P source's N and K too, not
+                            // just its P. selectPhosphorusSource() returns all
+                            // three and the application pushed below declares
+                            // all three in `delivers`, but only P reached the
+                            // annual accumulator -- so every consumer that
+                            // builds its rows from the monthly applications
+                            // (the Plan page's Annual Product Summary, the
+                            // Word export's) printed a product row the
+                            // "Total Delivered" row did not contain. Live on
+                            // Burns "12th Fairway": rows 113 + 7 + 5 = 125 kg
+                            // N/ha against a printed total of 120, the 5 being
+                            // MAP Tech (12-27-0), picked here for its P.
+                            //
+                            // Not a display fix: `delivered.N` is also what
+                            // balance.N is measured against, so the missing N
+                            // was hiding a genuine over-delivery rather than
+                            // merely mis-printing one. MAP carries no K, so
+                            // the K line is a no-op on this catalogue's usual
+                            // pick; it is here because netK's annual budget
+                            // cap (GH-343) reads `delivered.K`, and a K-
+                            // bearing P source would otherwise be spent twice.
+                            delivered.N += pProduct.nDelivered;
                             delivered.P += pProduct.pDelivered;
+                            delivered.K += pProduct.kDelivered;
                             const pushTarget = (pProduct.form === 'granular') ? monthResult.granular : monthResult.liquid;
                             pushTarget.push({
                                 id: pProduct.id,
