@@ -111,7 +111,7 @@
 (function (root) {
     'use strict';
 
-    var CONFIG = { version: '1.2.0-gh403' };
+    var CONFIG = { version: '1.3.0-gh409' };
 
     /** The six keys every surface accounts for. Fe and the micros are not
      *  part of any printed "delivered" total and are left to the renderers'
@@ -410,6 +410,173 @@
         return out;
     }
 
+    /* ───────────────────────── GH-409: the printed RATE ─────────────────────
+     *
+     * The Annual Product Summary's third column. The Plan page has always
+     * printed it with its unit attached and the unit chosen per row — "40 g/m²",
+     * "90 L/ha" — while the document's copy of the same table printed a bare
+     * number under a header that said "Total kg/ha" for every row. On a golf
+     * greens site the two therefore stated the same quantity ten times apart:
+     * the Plan's "40 g/m²" against the document's "400 kg/ha".
+     *
+     * THE RULE, and the ONE place it is stated. THE SURFACE DECIDES — not the
+     * region, not which integration draws the page, not the product's packaging:
+     *
+     *   a true liquid            L/ha    litres do not become grams per m²
+     *   a fine-turf surface      g/m²    every mass rate on it, powders included
+     *   anything else            kg/ha
+     *
+     * Four renderers used to answer it, and they were four copies:
+     *
+     *   nutrition-prebble-integration.js      (New Zealand — also what the NZ
+     *                                          integration renders through)
+     *   nutrition-au-fertiliser-integration.js (Australia)
+     *   nutrition-uk-fertiliser-integration.js (UK)
+     *   word-export.js / word-export-combined.js (the document, both tables)
+     *
+     * THE CASE THEY DISAGREED ON was a SOLUBLE POWDER on a greens surface. The
+     * New Zealand panel printed it in the surface's own mass unit (MAP Tech,
+     * 20 kg/ha, prints "2 g/m²"); the Australian and UK panels printed "60 kg/ha"
+     * for Urea Tech on Federal Golf's greens, because b35fix281's "solubles are
+     * powders — always kg/ha, never L/ha" guard sat on their g/m² branch as well
+     * as on their L/ha branch. That put one row in a foreign unit in the middle
+     * of a table of g/m² rows, which is what the product owner read as an error.
+     * Settled by the owner (GH-409): the surface decides, so a soluble on a green
+     * is g/m² on every path. Nothing about the quantity changes — 60 kg/ha IS
+     * 6 g/m², same product, same dose, same amount to order.
+     *
+     * b35fix281's real point survives, in the L/ha branch: a soluble powder is
+     * never litres, whatever column of the schedule it was listed in.
+     */
+
+    /** The surfaces the Plan prints in g/m². Exactly the three renderers' own
+     *  list, matched exactly — 'cotula_bowling_green' is deliberately NOT in it,
+     *  because it is not in theirs, and the document must not print a unit the
+     *  Plan page did not. */
+    var GM2_SURFACES = ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'];
+
+    /**
+     * Does this surface print its mass rates in g/m²?
+     *
+     * @param {string} surfaceType  the programme's own `meta.surfaceType` — the
+     *                              very value the Plan renderer branched on.
+     * @param {boolean} [explicit]  `meta.useGM2`, which the AU and UK panels
+     *                              honour ahead of the list.
+     */
+    function usesGM2(surfaceType, explicit) {
+        if (explicit) return true;
+        var s = String(surfaceType == null ? '' : surfaceType).trim().toLowerCase().replace(/[\s-]+/g, '_');
+        return GM2_SURFACES.indexOf(s) !== -1;
+    }
+
+    /**
+     * Is this product dosed as a powder rather than sprayed as a volume?
+     *
+     * The union of the four renderers' own tests, so that adopting this one
+     * cannot quietly reclassify a product any of them already had right: the
+     * AU/UK panels read the catalogue's `form`, the NZ panel reads the LABEL
+     * (`id === 'MAPTECH'`, or a name saying "soluble"), and the accumulator
+     * publishes its own `isSoluble` off `form`.
+     *
+     * The union is not cosmetic. Five Prebble products — the Sportsmaster WSF
+     * range — carry `form: 'soluble'` while their names do not say so, so the NZ
+     * panel's label test misses them and prints their KILOGRAMS as "L/ha". Under
+     * `form` they are powders, which is what they are.
+     */
+    function isSolubleProduct(p) {
+        if (!p || typeof p !== 'object') return false;
+        if (p.isSoluble === true) return true;
+        if (p.form === 'soluble') return true;
+        if (p.product && p.product.form === 'soluble') return true;
+        if (p.id === 'MAPTECH') return true;
+        return /soluble/i.test(String(p.name || (p.product && p.product.name) || ''));
+    }
+
+    /**
+     * Which unit one product row prints in. The surface decides; see the block
+     * comment above.
+     *
+     * @param {object} p          an `accumulate().products` entry, a recommender's
+     *                            own annual-summary entry, or an export-side
+     *                            amendment entry (which carries `totalKgHa` and
+     *                            little else).
+     * @param {object} [opts]     { useGM2 } — fine-turf surface, see usesGM2().
+     * @returns {'L/ha'|'g/m²'|'kg/ha'}
+     */
+    function rateUnitFor(p, opts) {
+        var soluble = isSolubleProduct(p);
+        var lha = _num(p && p.totalLHa);
+        if (!lha && p && p.isLiquid && !soluble && !_num(p.totalKgHa)) lha = _num(p.totalKg);
+        if (lha > 0 && !soluble) return 'L/ha';
+        if (opts && opts.useGM2) return 'g/m²';
+        return 'kg/ha';
+    }
+
+    /**
+     * Format a per-hectare quantity in a unit rateUnitFor() returned.
+     *
+     * g/m² is the same quantity as kg/ha divided by ten and, exactly as the Plan
+     * does it, is the only one that keeps a decimal: 616 kg/ha is 61.6 g/m², and
+     * rounding that to 62 would restate the programme by 4 kg/ha.
+     */
+    function formatRate(perHa, unit) {
+        var v = _num(perHa);
+        if (unit === 'g/m²') return (Math.round(v / 10 * 10) / 10) + ' g/m²';
+        return Math.round(v) + ' ' + unit;
+    }
+
+    /**
+     * The whole cell: one product row's "Total Rate".
+     *
+     * @returns {{ value:number, unit:string, text:string }}
+     */
+    function productRate(p, opts) {
+        var unit = rateUnitFor(p, opts);
+        var perHa;
+        if (unit === 'L/ha') {
+            perHa = _num(p && p.totalLHa) || _num(p && p.totalKg);
+        } else {
+            perHa = _num(p && p.totalKgHa);
+            if (!perHa) perHa = _num(p && p.totalKg);
+        }
+        return { value: perHa, unit: unit, text: formatRate(perHa, unit) };
+    }
+
+    /**
+     * The table's own bottom line, in the Australian panel's words
+     * (nutrition-au-fertiliser-integration.js:1075-1081): the mass rates summed
+     * and printed in the surface's unit, and any spray volume added after a "+"
+     * rather than into it. Litres and kilograms are not the same quantity and
+     * this row does not pretend they are. The New Zealand panel merges these
+     * cells away entirely, so its table offers no competing convention.
+     *
+     * Bucketed by the ENTRY's own two fields, as the panel does it, not by the
+     * row's printed unit: a soluble's mass is in `totalKgHa` whichever unit its
+     * row prints in, so the two agree on every real product and this one cannot
+     * be talked into double-counting a product listed both ways.
+     */
+    function programmeTotalRate(products, opts) {
+        var kgHa = 0, lHa = 0;
+        (products || []).forEach(function (p) {
+            if (!p) return;
+            var kg = _num(p.totalKgHa), l = _num(p.totalLHa);
+            if (!kg && !l) {
+                // A programme persisted before GH-399 carries only `totalKg`.
+                // Its bucket is the row's own printed unit — nothing else here
+                // can tell litres from kilograms.
+                if (rateUnitFor(p, opts) === 'L/ha') l = _num(p.totalKg);
+                else kg = _num(p.totalKg);
+            }
+            kgHa += kg;
+            lHa += l;
+        });
+        var useGM2 = !!(opts && opts.useGM2);
+        var out = '';
+        if (kgHa > 0) out = formatRate(kgHa, useGM2 ? 'g/m²' : 'kg/ha');
+        if (lHa > 0) out += (out ? ' + ' : '') + formatRate(lHa, 'L/ha');
+        return out;
+    }
+
     var API = {
         accumulate: accumulate,
         catalogueProducts: catalogueProducts,
@@ -417,6 +584,14 @@
         formatDelivered: formatDelivered,
         DELIVERED_DP: DELIVERED_DP,
         NUTRIENTS: NUTRIENTS,
+        // GH-409 — the printed rate and its unit
+        GM2_SURFACES: GM2_SURFACES,
+        usesGM2: usesGM2,
+        isSolubleProduct: isSolubleProduct,
+        rateUnitFor: rateUnitFor,
+        formatRate: formatRate,
+        productRate: productRate,
+        programmeTotalRate: programmeTotalRate,
         CONFIG: CONFIG
     };
 

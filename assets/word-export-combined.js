@@ -2827,6 +2827,14 @@
                         annualSummary: { products: productUsage },
                         strategy: perSampleCalendar.adjustments || {},
                         muldersFlags: {},
+                        // GH-409: the recommender's own meta — `surfaceType` is
+                        // what the Plan panel branched on to print g/m² rather
+                        // than kg/ha, so the document's product tables read the
+                        // same field rather than re-deriving the surface. The
+                        // unit is a property of the surface and of nothing else,
+                        // so the recommender that produced this programme does
+                        // not need recording alongside it.
+                        meta: perSampleProgram.meta || {},
                         _generatedForSample: r.sampleId
                     };
 
@@ -4645,7 +4653,26 @@
                     ? global.GAIP_WordExport._extractEntryNutrients
                     : null;
 
+                // GH-409: the same question the Annual Product Summary asks — is
+                // this a g/m² surface — answered by the same function, per
+                // sample, because this table aggregates a whole site and a site
+                // may hold a green and a fairway, which do not share a unit.
+                // Products whose
+                // contributing samples disagree are printed in the mass unit and
+                // named in a footnote below rather than averaged into a unit
+                // half of them never used.
+                var _wxRateOpts = (global.GAIP_WordExport && typeof global.GAIP_WordExport._rateDisplayOptions === 'function')
+                    ? global.GAIP_WordExport._rateDisplayOptions
+                    : null;
+                var _delivery = global.GAIP_NutritionDelivery || null;
+                if (!_wxRateOpts || !_delivery) {
+                    console.error('[CombinedExport] GH-409: word-export.js / nutrition-delivery-core.js is not ' +
+                        'loaded — the Fertiliser Purchasing Summary cannot print the Plan page\'s units.');
+                }
+                var _mixedSurfaceProducts = [];
+
                 freshReports.forEach(function(r) {
+                    var _rateOpts = _wxRateOpts ? _wxRateOpts(r.data) : { useGM2: false };
                     var sampleArea = null;
                     if (r.data.site && r.data.site.areaHa != null) sampleArea = parseFloat(r.data.site.areaHa);
                     else if (r.data.turf && r.data.turf.areaHa != null) sampleArea = parseFloat(r.data.turf.areaHa);
@@ -4671,16 +4698,25 @@
                         // whichever field existed and the column header said
                         // "kg" for every row, so a liquid's litres printed as
                         // kilograms with nothing to show for it.
-                        // Not carried over from the panel: its g/m² branch for
-                        // greens. That is an application rate for a small area;
-                        // this table answers "how much to order", which is
-                        // bought by mass and volume.
-                        var _prodMeta = p.product || {};
-                        var _isSoluble = _prodMeta.form === 'soluble';
-                        var _isLiquid = !!(parseFloat(p.totalLHa) > 0) && !_isSoluble;
+                        // GH-409: the g/m² branch IS carried over now. GH-406
+                        // left it out, arguing that this table answers "how much
+                        // to order" and ordering happens by mass and volume; the
+                        // product owner has since looked at it beside the Plan
+                        // page and asked for the rate column to match the screen.
+                        // So the RATE columns ("Rate avg", and "Total rate" when
+                        // no area is entered) print the Plan's unit, and the
+                        // absolute "Total" column stays in kilograms and litres —
+                        // it is a purchase quantity, it has no counterpart on the
+                        // Plan, and g/m² is not a quantity you can buy.
+                        var _unit = _delivery ? _delivery.rateUnitFor(p, _rateOpts) : 'kg/ha';
+                        var _isLiquid = _unit === 'L/ha';
+                        // A soluble's mass can sit in `totalLHa` on a programme
+                        // persisted before GH-399 (the b35fix282 catalogue
+                        // convention: kg/ha carried in the litres field), which
+                        // is why that stays the last resort on the mass branch.
                         var kgHa = _isLiquid
-                            ? parseFloat(p.totalLHa || 0)
-                            : parseFloat(p.totalKg || p.totalKgHa || p.totalLHa || 0);
+                            ? parseFloat(p.totalLHa || 0) || parseFloat(p.totalKg || 0)
+                            : parseFloat(p.totalKgHa || p.totalKg || p.totalLHa || 0);
                         // b35fix328: use exposed helper for full macro vector.
                         // Fallback path (older catalogue entries with only
                         // nutrients map) preserves N/P/K/S only — Ca and Mg
@@ -4707,8 +4743,20 @@
                                 kgAbsSum: 0,
                                 // GH-406: one product is one form, so this is
                                 // set once and read back when the row prints.
-                                isLiquid: _isLiquid
+                                isLiquid: _isLiquid,
+                                // GH-409: the unit, which unlike the form is a
+                                // property of the SURFACE as well as the product.
+                                unit: _unit
                             };
+                        }
+                        if (aggregate[name].unit !== _unit) {
+                            // Two samples of this site, two surfaces, one
+                            // product. Averaging 40 g/m² with 400 kg/ha under
+                            // either label states something untrue, so the row
+                            // falls back to the mass unit both surfaces share
+                            // and says so under the table.
+                            if (_mixedSurfaceProducts.indexOf(name) === -1) _mixedSurfaceProducts.push(name);
+                            aggregate[name].unit = aggregate[name].isLiquid ? 'L/ha' : 'kg/ha';
                         }
                         aggregate[name].kgHaSum += kgHa;
                         aggregate[name].samplesContributing++;
@@ -4806,31 +4854,36 @@
                 var rNoBorder = { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' };
                 var rBorders = { top: rNoBorder, bottom: rNoBorder, left: rNoBorder, right: rNoBorder };
 
-                // b35fix328: detect which optional macro columns to render
-                // (P, Ca, Mg, S). N and K always render in the area-aware
-                // branch (existing contract). Detection uses absolute kg
-                // totals (agg.* are already kg, summed across samples) so
-                // sub-detection trace nutrients on a single product won't
-                // light up a column. Threshold floor 0.5 kg absolute — at
-                // typical procurement scales (multi-ha sites) this filters
-                // analysis-line trace elements but lets real Ca/Mg from
-                // dolomite (~210 kg Ca, ~115 kg Mg per ha) through.
+                // Which optional macro columns render (P, Ca, Mg, S). N and K
+                // have never been optional in the area-aware branch.
+                //
+                // GH-409: THE ANSWER COMES FROM word-export.js, so this table
+                // and the Annual Product Summary cannot print different column
+                // sets for the same products — N, P, K, and nothing else,
+                // matching the Plan page. b35fix328 decided it here from the
+                // aggregate's own absolute kilograms (a 0.5 kg floor), and
+                // word-export.js decided it separately from per-hectare rates (a
+                // 0.05 kg/ha floor); the two thresholds could and did disagree,
+                // and the shared helper this file already imported was never
+                // actually called. Ca and Mg from a dolomite — b35fix328's
+                // trigger case — are printed in full by the Annual Soil
+                // Amendments table, which is the table that exists to state them.
                 var aggNames = Object.keys(aggregate);
                 var _wxDetect = (global.GAIP_WordExport && typeof global.GAIP_WordExport._detectActiveNutrientColumns === 'function')
                     ? global.GAIP_WordExport._detectActiveNutrientColumns
                     : null;
-
-                var includeP = false, includeCa = false, includeMg = false, includeS = false;
-                if (anyAreaSeen) {
-                    var _absThreshold = 0.5;  // kg, absolute (post-area scaling)
-                    aggNames.forEach(function(nm) {
-                        var a = aggregate[nm];
-                        if ((a.P || 0) > _absThreshold) includeP = true;
-                        if ((a.Ca || 0) > _absThreshold) includeCa = true;
-                        if ((a.Mg || 0) > _absThreshold) includeMg = true;
-                        if ((a.S || 0) > _absThreshold) includeS = true;
-                    });
+                if (!_wxDetect) {
+                    console.error('[CombinedExport] GH-409: word-export.js is not loaded — the Fertiliser ' +
+                        'Purchasing Summary is falling back to its own column set.');
                 }
+
+                var _cols = _wxDetect
+                    ? _wxDetect(aggNames.map(function(nm) { return aggregate[nm]; }))
+                    : { P: true, Ca: false, Mg: false, S: false };
+                var includeP = anyAreaSeen && _cols.P;
+                var includeCa = anyAreaSeen && _cols.Ca;
+                var includeMg = anyAreaSeen && _cols.Mg;
+                var includeS = anyAreaSeen && _cols.S;
 
                 var rollupCols, hdrLabels;
                 if (anyAreaSeen) {
@@ -4878,6 +4931,14 @@
                 });
                 var rollupRows = [new TableRow({ children: hdrCellsRollup })];
 
+                // GH-409: one rate cell, printed the Plan page's way — the row's
+                // own unit, and g/m² carrying the decimal that a tenth of a
+                // kilogram per hectare is worth.
+                var _rateCellText = function(perHa, agg) {
+                    return _delivery ? _delivery.formatRate(perHa, agg.unit)
+                                     : (Math.round(perHa) + ' ' + (agg.isLiquid ? 'L/ha' : 'kg/ha'));
+                };
+
                 aggNames.forEach(function(name, ri) {
                     var agg = aggregate[name];
                     var rowFill = ri % 2 === 0 ? 'FFFFFF' : 'F9FAFB';
@@ -4898,7 +4959,7 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[2], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgKgHa.toFixed(0) + (agg.isLiquid ? ' L/ha' : ' kg/ha'), size: 22, color: '6B7280' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _rateCellText(avgKgHa, agg), size: 22, color: '6B7280' })] })]
                             })
                         ];
 
@@ -4931,7 +4992,7 @@
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
                                 width: { size: rollupCols[1], type: WidthType.DXA },
-                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: avgPerHa.toFixed(0) + (agg.isLiquid ? ' L/ha' : ' kg/ha'), bold: true, size: 22, color: '1F2937' })] })]
+                                children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _rateCellText(avgPerHa, agg), bold: true, size: 22, color: '1F2937' })] })]
                             }),
                             new TableCell({
                                 borders: rBorders, shading: { fill: rowFill, type: ShadingType.CLEAR },
@@ -4945,6 +5006,27 @@
 
                 allChildren.push(new Table({ width: { size: rollupCols.reduce(function(a,b){return a+b;},0), type: WidthType.DXA }, columnWidths: rollupCols, rows: rollupRows }));
                 allChildren.push(new Paragraph({ children: [] }));
+
+                // GH-409: this table aggregates every fresh sample on the site,
+                // and a site can hold a green (g/m²) and a fairway (kg/ha). Where
+                // one product came from both, the row prints kilograms — the unit
+                // both surfaces can be stated in — and says which products that
+                // applies to, rather than labelling an average in a unit half its
+                // inputs never used.
+                if (_mixedSurfaceProducts.length > 0) {
+                    allChildren.push(new Paragraph({
+                        spacing: { before: 80, after: 40 },
+                        children: [new TextRun({
+                            text: 'Rates in kg/ha for ' + _mixedSurfaceProducts.join('; ') + ': ',
+                            bold: true, size: 22, color: '6B7280'
+                        }), new TextRun({
+                            text: 'this product is applied on more than one surface type at this site ' +
+                                  '(for example a green and a fairway), which the Plan page prints in ' +
+                                  'different units. Kilograms per hectare is the unit they share.',
+                            italics: true, size: 22, color: '6B7280'
+                        })]
+                    }));
+                }
 
                 // b35fix311: exclusion footnotes — list zones dropped from
                 // procurement math so the superintendent knows what's missing

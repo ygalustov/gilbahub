@@ -778,8 +778,25 @@
             // ================================================================
             // Determine units based on surface type
             // Sports/fairways = kg/ha, Greens/tees/bowling = g/m²
+            //
+            // GH-409: the surface list and the per-row rate both come from
+            // assets/nutrition-delivery-core.js now — one statement of the rule
+            // for this panel, the Australian and UK panels, and the Word
+            // document, which between them carried four copies of it and
+            // disagreed. The fallbacks keep this panel rendering if that module
+            // is ever missing; they are the pre-GH-409 arithmetic.
             // ================================================================
-            const useGM2 = ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].includes(meta.surfaceType);
+            const _rateModel = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!_rateModel) {
+                console.error('[NutritionPrebbleIntegration] GH-409: nutrition-delivery-core.js is not loaded — ' +
+                    'product rates fall back to this panel\'s own copy of the unit rule');
+            }
+            const useGM2 = _rateModel
+                ? _rateModel.usesGM2(meta.surfaceType, meta.useGM2)
+                : ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].includes(meta.surfaceType);
+            const _rateOf = (entry) => (_rateModel
+                ? _rateModel.productRate(entry, { useGM2 }).text
+                : `${Math.round(entry.totalKg || 0)} kg/ha`);
             
             // ================================================================
             // Calculate total nutrients delivered vs required
@@ -1039,20 +1056,14 @@
             // the module reproduces them from the application's own flags.
             const productEntries = Object.entries(_deliveryAcc.products);
             const summaryRows = productEntries.map(([id, data]) => {
-                // MAP Tech (soluble) uses kg/ha even though it's in liquid column
-                const isSoluble = id === 'MAPTECH' || data.name?.includes('soluble');
-                // Use g/m² for greens/tees, kg/ha for sports/fairways
-                let unit, rateValue;
-                if (data.isLiquid && !isSoluble) {
-                    unit = 'L/ha';
-                    rateValue = Math.round(data.totalKg);
-                } else if (useGM2) {
-                    unit = 'g/m²';
-                    rateValue = Math.round(data.totalKg / 10 * 10) / 10; // kg/ha to g/m²
-                } else {
-                    unit = 'kg/ha';
-                    rateValue = Math.round(data.totalKg);
-                }
+                // GH-409: the printed rate, from the one implementation of the
+                // rule (assets/nutrition-delivery-core.js). This was one of four
+                // copies, and the copies disagreed about a soluble powder on a
+                // greens surface — see that file's GH-409 block. What moves here:
+                // the Sportsmaster WSF range carries `form: 'soluble'` while its
+                // NAME does not say so, and the label test this replaces
+                // therefore printed its kilograms as "L/ha".
+                const rateCell = _rateOf(data);
                 const techAbbrev = this.getTechAbbrev(data.releaseTech);
                 const releaseLabel = data.release === 'slow' ? ` (${techAbbrev})` : 
                                     data.release === 'standard' ? ' (QR)' : '';
@@ -1070,7 +1081,7 @@
                     <tr>
                         <td class="prebble-cell prebble-cell--left">${data.name}${releaseLabel}${analysisLabel ? `<div class="prebble-cell-sub">Analysis: ${analysisLabel}</div>` : ''}</td>
                         <td class="prebble-cell prebble-cell--num">${data.applications}</td>
-                        <td class="prebble-cell prebble-cell--num">${rateValue} ${unit}</td>
+                        <td class="prebble-cell prebble-cell--num">${rateCell}</td>
                         <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.N)}</td>
                         <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.P)}</td>
                         <td class="prebble-cell prebble-cell--num prebble-cell--mono">${this.formatDelivered(nutrients.K)}</td>

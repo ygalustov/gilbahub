@@ -1,0 +1,1322 @@
+{
+  "_comment": "GH-409 — real persisted programmes, read out of the dev database on 2026-09-10 (site_configs.config->nutritionProgram). planRates are the Total Rate cells the Plan page prints for these programmes; renderer names the integration that draws that page, which the unit no longer depends on. supersededRates records a cell that GH-409 moved, so the conversion is visible rather than remembered.",
+  "sites": [
+    {
+      "label": "Test - GC - NZ - delivery",
+      "siteId": "01a08b0b-4d6a-736d-a184-2fa1e04394b6",
+      "surfaceType": "greens",
+      "turf": {
+        "turfType": "golf",
+        "subCategory": "greens",
+        "species": "Creeping Bentgrass (Greens)"
+      },
+      "monthly": [
+        {
+          "gp": 0.9,
+          "month": "Jan",
+          "notes": [
+            "N balance: Ammos 22 (Nitro 22) @ 30 L/ha"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS-BAL",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "N balancing (+6.6 kg N/ha to hit annual target)",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "isBalancing": true,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Summer",
+          "granular": [
+            {
+              "id": "CCMDGIV",
+              "npk": "18-1.3-15",
+              "name": "CC MD IV Greens",
+              "notes": "Greens rate: 20.0 g/m� (36.0 kg N). Foliar recommended for balance.",
+              "maxRate": 200,
+              "rateGM2": "20.0",
+              "release": "slow",
+              "analysis": {
+                "K": 15,
+                "N": 18,
+                "P": 1.3,
+                "S": 7.5,
+                "Fe": 2,
+                "Mg": 2,
+                "Mn": 2
+              },
+              "kBalance": 1.3,
+              "rateKgHa": 200,
+              "bagsPerHa": "11.0",
+              "longevity": "2-4 weeks",
+              "kDelivered": 30,
+              "nDelivered": 36,
+              "ratioMatch": "96%",
+              "splitCount": 1,
+              "techStatus": "reduced",
+              "releaseTech": "mesa",
+              "releaseWeeks": 8,
+              "splitRequired": false,
+              "techEfficiency": 55,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 2.4,
+          "pRequired": 5,
+          "pDelivered": 2.6,
+          "requirements": {
+            "K": 28.7,
+            "N": 49.8,
+            "P": 5
+          }
+        },
+        {
+          "gp": 0.87,
+          "month": "Feb",
+          "notes": [
+            "N balance: Ammos 22 (Nitro 22) @ 30 L/ha"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS-BAL",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "N balancing (+6.6 kg N/ha to hit annual target)",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "isBalancing": true,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Summer",
+          "granular": [
+            {
+              "id": "CCMDGIV",
+              "npk": "18-1.3-15",
+              "name": "CC MD IV Greens",
+              "notes": "Greens rate: 20.0 g/m� (36.0 kg N). Foliar recommended for balance.",
+              "maxRate": 200,
+              "rateGM2": "20.0",
+              "release": "slow",
+              "analysis": {
+                "K": 15,
+                "N": 18,
+                "P": 1.3,
+                "S": 7.5,
+                "Fe": 2,
+                "Mg": 2,
+                "Mn": 2
+              },
+              "kBalance": 2.3,
+              "rateKgHa": 200,
+              "bagsPerHa": "11.0",
+              "longevity": "2-4 weeks",
+              "kDelivered": 30,
+              "nDelivered": 36,
+              "ratioMatch": "91%",
+              "splitCount": 1,
+              "techStatus": "reduced",
+              "releaseTech": "mesa",
+              "releaseWeeks": 8,
+              "splitRequired": false,
+              "techEfficiency": 69,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 2.1999999999999997,
+          "pRequired": 4.8,
+          "pDelivered": 2.6,
+          "requirements": {
+            "K": 27.7,
+            "N": 48.2,
+            "P": 4.8
+          }
+        },
+        {
+          "gp": 0.67,
+          "month": "Mar",
+          "notes": [
+            "Strategic P application: 19.8 kg P/ha"
+          ],
+          "liquid": [
+            {
+              "id": "MAPTECH",
+              "npk": "12-27-0",
+              "form": "soluble",
+              "name": "MAP Tech (soluble)",
+              "notes": "Dissolve 20 kg/ha in 400-600L water",
+              "rateGM2": "2.0",
+              "analysis": {
+                "K": 0,
+                "N": 12,
+                "P": 27
+              },
+              "rateKgHa": 20,
+              "pDelivered": 5.4
+            }
+          ],
+          "season": "Autumn",
+          "granular": [
+            {
+              "id": "PGG-AND-NDG-20-0-13",
+              "npk": "20-0-13",
+              "name": "Andersons Nutri DG 20-0-13",
+              "notes": "Nutri DG (0.75mm). 100% MUtech-M longer chain methylene urea (very slow release). No P. Summer formula. NK ratio favours K.",
+              "maxRate": 200,
+              "rateGM2": "18.6",
+              "release": "slow",
+              "analysis": {
+                "K": 13,
+                "N": 20,
+                "P": 0,
+                "S": 0,
+                "Fe": 0
+              },
+              "kBalance": 2.8,
+              "rateKgHa": 186,
+              "bagsPerHa": "10.3",
+              "longevity": "2-4 weeks",
+              "kDelivered": 24.2,
+              "nDelivered": 37.2,
+              "ratioMatch": "87%",
+              "splitCount": 1,
+              "techStatus": "unknown",
+              "releaseTech": "mu-m",
+              "releaseWeeks": 14,
+              "splitRequired": false,
+              "techEfficiency": 100,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 3.7,
+          "pRequired": 3.7,
+          "pDelivered": 19.8,
+          "requirements": {
+            "K": 21.4,
+            "N": 37.2,
+            "P": 3.7
+          }
+        },
+        {
+          "gp": 0.34,
+          "month": "Apr",
+          "notes": [],
+          "liquid": [],
+          "season": "Autumn",
+          "granular": [
+            {
+              "id": "PGG-AND-NDG-20-0-13",
+              "npk": "20-0-13",
+              "name": "Andersons Nutri DG 20-0-13",
+              "notes": "Min label rate: 10 g/m� (delivers 20.0 kg N)",
+              "maxRate": 200,
+              "rateGM2": "10.0",
+              "release": "slow",
+              "analysis": {
+                "K": 13,
+                "N": 20,
+                "P": 0,
+                "S": 0,
+                "Fe": 0
+              },
+              "kBalance": 2.2,
+              "rateKgHa": 100,
+              "bagsPerHa": "5.5",
+              "longevity": "2-4 weeks",
+              "kDelivered": 13,
+              "nDelivered": 20,
+              "ratioMatch": "87%",
+              "splitCount": 1,
+              "techStatus": "unknown",
+              "releaseTech": "mu-m",
+              "releaseWeeks": 14,
+              "splitRequired": false,
+              "techEfficiency": 100,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 1.9,
+          "pRequired": 1.9,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 10.8,
+            "N": 18.8,
+            "P": 1.9
+          }
+        },
+        {
+          "gp": 0.14,
+          "month": "May",
+          "notes": [
+            "Low GP (14%) - winter program: Ammos 22 (Nitro 22) foliar top-up",
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "Winter foliar: 30L container",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Autumn",
+          "granular": [],
+          "pDeficit": 0.8,
+          "pRequired": 0.8,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 4.6,
+            "N": 7.9,
+            "P": 0.8
+          }
+        },
+        {
+          "gp": 0.05,
+          "month": "Jun",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.04,
+          "month": "Jul",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.06,
+          "month": "Aug",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.13,
+          "month": "Sep",
+          "notes": [
+            "Low GP (13%) - winter program: Ammos 22 (Nitro 22) foliar top-up",
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "Winter foliar: 30L container",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Spring",
+          "granular": [],
+          "pDeficit": 0.7,
+          "pRequired": 0.7,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 4.2,
+            "N": 7.2,
+            "P": 0.7
+          }
+        },
+        {
+          "gp": 0.25,
+          "month": "Oct",
+          "notes": [
+            "Low GP (25%) - winter program: Ammos 22 (Nitro 22) foliar top-up"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "Winter foliar: 30L container",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Spring",
+          "granular": [],
+          "pDeficit": 1.4,
+          "pRequired": 1.4,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 7.8,
+            "N": 13.5,
+            "P": 1.4
+          }
+        },
+        {
+          "gp": 0.47,
+          "month": "Nov",
+          "notes": [],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [
+            {
+              "id": "PGG-AND-NDG-20-0-13",
+              "npk": "20-0-13",
+              "name": "Andersons Nutri DG 20-0-13",
+              "notes": "Nutri DG (0.75mm). 100% MUtech-M longer chain methylene urea (very slow release). No P. Summer formula. NK ratio favours K.",
+              "maxRate": 200,
+              "rateGM2": "13.0",
+              "release": "slow",
+              "analysis": {
+                "K": 13,
+                "N": 20,
+                "P": 0,
+                "S": 0,
+                "Fe": 0
+              },
+              "kBalance": 2,
+              "rateKgHa": 130,
+              "bagsPerHa": "7.2",
+              "longevity": "2-4 weeks",
+              "kDelivered": 16.9,
+              "nDelivered": 26,
+              "ratioMatch": "87%",
+              "splitCount": 1,
+              "techStatus": "unknown",
+              "releaseTech": "mu-m",
+              "releaseWeeks": 14,
+              "splitRequired": false,
+              "techEfficiency": 100,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 2.6,
+          "pRequired": 2.6,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 14.9,
+            "N": 26,
+            "P": 2.6
+          }
+        },
+        {
+          "gp": 0.75,
+          "month": "Dec",
+          "notes": [
+            "N balance: Ammos 22 (Nitro 22) @ 30 L/ha"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS-BAL",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "N balancing (+6.6 kg N/ha to hit annual target)",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "isBalancing": true,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Summer",
+          "granular": [
+            {
+              "id": "PGG-AND-NDG-20-0-13",
+              "npk": "20-0-13",
+              "name": "Andersons Nutri DG 20-0-13",
+              "notes": "Greens rate: 20.0 g/m� (40.0 kg N). Foliar recommended for balance.",
+              "maxRate": 200,
+              "rateGM2": "20.0",
+              "release": "slow",
+              "analysis": {
+                "K": 13,
+                "N": 20,
+                "P": 0,
+                "S": 0,
+                "Fe": 0
+              },
+              "kBalance": 2.2,
+              "rateKgHa": 200,
+              "bagsPerHa": "11.0",
+              "longevity": "2-4 weeks",
+              "kDelivered": 26,
+              "nDelivered": 40,
+              "ratioMatch": "87%",
+              "splitCount": 1,
+              "techStatus": "unknown",
+              "releaseTech": "mu-m",
+              "releaseWeeks": 14,
+              "splitRequired": false,
+              "techEfficiency": 100,
+              "preEmergentHerbicide": false
+            }
+          ],
+          "pDeficit": 4.1,
+          "pRequired": 4.1,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 23.8,
+            "N": 41.3,
+            "P": 4.1
+          }
+        }
+      ],
+      "planRates": {
+        "CC MD IV Greens": "40 g/m²",
+        "Ammos 22 (Nitro 22) (Balance)": "90 L/ha",
+        "Andersons Nutri DG 20-0-13": "61.6 g/m²",
+        "MAP Tech (soluble)": "2 g/m²",
+        "Ammos 22 (Nitro 22)": "90 L/ha"
+      },
+      "totalRate": "103.6 g/m² + 180 L/ha",
+      "renderer": "nutrition-prebble-integration.js"
+    },
+    {
+      "label": "Test - GC - NZ - warm season grass test",
+      "siteId": "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+      "surfaceType": "greens",
+      "turf": {
+        "turfType": "golf",
+        "subCategory": "greens",
+        "species": "Couch"
+      },
+      "monthly": [
+        {
+          "gp": 0.16,
+          "month": "Jan",
+          "notes": [
+            "Low GP (16%) - winter program: Ammos 22 (Nitro 22) foliar top-up",
+            "Low growth period - consider reducing rates or skipping application",
+            "Stress period - avoid quick-release N, favour K for hardening"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "Winter foliar: 30L container",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Summer",
+          "granular": [],
+          "pDeficit": 13.1,
+          "pRequired": 13.1,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 78.9,
+            "N": 50,
+            "P": 13.1
+          }
+        },
+        {
+          "gp": 0.14,
+          "month": "Feb",
+          "notes": [
+            "Low GP (14%) - winter program: Ammos 22 (Nitro 22) foliar top-up",
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [
+            {
+              "id": "AMMOS",
+              "npk": "22-0-0",
+              "form": "liquid",
+              "name": "Ammos 22 (Nitro 22)",
+              "notes": "Winter foliar: 30L container",
+              "rateLHa": 30,
+              "analysis": {
+                "K": 0,
+                "N": 22,
+                "P": 0,
+                "S": 4
+              },
+              "rateMLM2": "3.0",
+              "kDelivered": 0,
+              "nDelivered": 6.6,
+              "splitCount": 1,
+              "deliveryMethod": "foliar"
+            }
+          ],
+          "season": "Summer",
+          "granular": [],
+          "pDeficit": 11.9,
+          "pRequired": 11.9,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 71.1,
+            "N": 50,
+            "P": 11.9
+          }
+        },
+        {
+          "gp": 0.08,
+          "month": "Mar",
+          "notes": [
+            "Strategic P application: 25.0 kg P/ha",
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [
+            {
+              "id": "MAPTECH",
+              "npk": "12-27-0",
+              "form": "soluble",
+              "name": "MAP Tech (soluble)",
+              "notes": "Dissolve 20 kg/ha in 400-600L water",
+              "rateGM2": "2.0",
+              "analysis": {
+                "K": 0,
+                "N": 12,
+                "P": 27
+              },
+              "rateKgHa": 20,
+              "pDelivered": 5.4
+            }
+          ],
+          "season": "Autumn",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 25,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.02,
+          "month": "Apr",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Autumn",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.01,
+          "month": "May",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Autumn",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0,
+          "month": "Jun",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0,
+          "month": "Jul",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0,
+          "month": "Aug",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.01,
+          "month": "Sep",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.02,
+          "month": "Oct",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.04,
+          "month": "Nov",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.1,
+          "month": "Dec",
+          "notes": [
+            "Low growth period - consider reducing rates or skipping application"
+          ],
+          "liquid": [],
+          "season": "Summer",
+          "granular": [],
+          "pDeficit": 0,
+          "pRequired": 0,
+          "pDelivered": 0,
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        }
+      ],
+      "planRates": {
+        "Ammos 22 (Nitro 22)": "60 L/ha",
+        "MAP Tech (soluble)": "2 g/m²"
+      },
+      "totalRate": "2 g/m² + 60 L/ha",
+      "renderer": "nutrition-prebble-integration.js"
+    },
+    {
+      "label": "Federal Golf",
+      "siteId": "019e96d7-36aa-707a-9879-68ab28726e12",
+      "surfaceType": "golf_greens",
+      "turf": {
+        "turfType": "golf",
+        "subCategory": "greens",
+        "species": "Creeping Bentgrass (Greens)"
+      },
+      "monthly": [
+        {
+          "gp": 0.99,
+          "notes": [],
+          "liquid": [],
+          "season": "Summer",
+          "granular": [
+            {
+              "id": "LEB-COUNTRYCLUBI2",
+              "npk": "18-3.96-14.94",
+              "name": "Country Club IV 18-9-18",
+              "brand": "Lebanon",
+              "notes": null,
+              "weeks": 8,
+              "rateGM2": "16.7",
+              "release": "slow",
+              "analysis": {
+                "K": 14.94,
+                "N": 18,
+                "P": 3.96,
+                "Fe": 0.5,
+                "Mg": 0.5,
+                "Mn": 0.5
+              },
+              "delivers": {
+                "K": 24.9,
+                "N": 30,
+                "P": 6.6
+              },
+              "rateKgHa": 167
+            }
+          ],
+          "month_name": "Jan",
+          "requirements": {
+            "K": 11.3,
+            "N": 15,
+            "P": 2.1
+          },
+          "netRequirements": {
+            "K": 11.3,
+            "N": 15,
+            "P": 2.1
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.99,
+          "notes": [
+            "Covered by previous slow-release application"
+          ],
+          "liquid": [],
+          "season": "Summer",
+          "granular": [],
+          "month_name": "Feb",
+          "requirements": {
+            "K": 11.2,
+            "N": 15,
+            "P": 2.1
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 12.5,
+            "N": 15,
+            "P": 3.3
+          }
+        },
+        {
+          "gp": 0.82,
+          "notes": [],
+          "liquid": [],
+          "season": "Autumn",
+          "granular": [
+            {
+              "id": "LEB-COUNTRYCLUBI2",
+              "npk": "18-3.96-14.94",
+              "name": "Country Club IV 18-9-18",
+              "brand": "Lebanon",
+              "notes": null,
+              "weeks": 8,
+              "rateGM2": "16.7",
+              "release": "slow",
+              "analysis": {
+                "K": 14.94,
+                "N": 18,
+                "P": 3.96,
+                "Fe": 0.5,
+                "Mg": 0.5,
+                "Mn": 0.5
+              },
+              "delivers": {
+                "K": 24.9,
+                "N": 30,
+                "P": 6.6
+              },
+              "rateKgHa": 167
+            }
+          ],
+          "month_name": "Mar",
+          "requirements": {
+            "K": 9.3,
+            "N": 15,
+            "P": 1.7
+          },
+          "netRequirements": {
+            "K": 9.3,
+            "N": 15,
+            "P": 1.7
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.44,
+          "notes": [
+            "Covered by previous slow-release application"
+          ],
+          "liquid": [],
+          "season": "Autumn",
+          "granular": [],
+          "month_name": "Apr",
+          "requirements": {
+            "K": 5,
+            "N": 12.7,
+            "P": 0.9
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 12.5,
+            "N": 15,
+            "P": 3.3
+          }
+        },
+        {
+          "gp": 0.12,
+          "notes": [
+            "Very low GP (12%) - minimal application recommended"
+          ],
+          "liquid": [
+            {
+              "id": "SOL-UREA",
+              "npk": "46-0-0",
+              "form": "soluble",
+              "name": "Urea Tech (soluble)",
+              "rate": "2x 15 kg/ha",
+              "brand": "Various",
+              "notes": "2x applications @ 15 kg/ha = 13.8 kg N",
+              "rateLHa": 15,
+              "analysis": {
+                "K": 0,
+                "N": 46,
+                "P": 0
+              },
+              "delivers": {
+                "K": 0,
+                "N": 13.8,
+                "P": 0
+              },
+              "rateMLM2": "1.5",
+              "applications": 2
+            }
+          ],
+          "season": "Autumn",
+          "granular": [],
+          "month_name": "May",
+          "requirements": {
+            "K": 1.4,
+            "N": 9.9,
+            "P": 0.3
+          },
+          "netRequirements": {
+            "K": 1.4,
+            "N": 9.9,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.04,
+          "notes": [
+            "Minimal requirements - no application needed"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "month_name": "Jun",
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.03,
+          "notes": [
+            "Minimal requirements - no application needed"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "month_name": "Jul",
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.04,
+          "notes": [
+            "Minimal requirements - no application needed"
+          ],
+          "liquid": [],
+          "season": "Winter",
+          "granular": [],
+          "month_name": "Aug",
+          "requirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.15,
+          "notes": [
+            "Low GP (15%) - foliar preferred"
+          ],
+          "liquid": [
+            {
+              "id": "SOL-UREA",
+              "npk": "46-0-0",
+              "form": "soluble",
+              "name": "Urea Tech (soluble)",
+              "rate": "2x 15 kg/ha",
+              "brand": "Various",
+              "notes": "2x applications @ 15 kg/ha = 13.8 kg N",
+              "rateLHa": 15,
+              "analysis": {
+                "K": 0,
+                "N": 46,
+                "P": 0
+              },
+              "delivers": {
+                "K": 0,
+                "N": 13.8,
+                "P": 0
+              },
+              "rateMLM2": "1.5",
+              "applications": 2
+            }
+          ],
+          "season": "Spring",
+          "granular": [],
+          "month_name": "Sep",
+          "requirements": {
+            "K": 1.7,
+            "N": 10.1,
+            "P": 0.3
+          },
+          "netRequirements": {
+            "K": 1.7,
+            "N": 10.1,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.4,
+          "notes": [],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [
+            {
+              "id": "ICL-SPORTSMASTER",
+              "npk": "35-0-11",
+              "name": "Sportsmaster WSF High N 35-0-11",
+              "brand": "ICL",
+              "notes": "Label min rate: 50 kg/ha (delivers 17.5 kg N)",
+              "weeks": 2,
+              "rateGM2": "5.0",
+              "release": "quick",
+              "analysis": {
+                "K": 11,
+                "N": 35,
+                "P": 0,
+                "Fe": 0.13
+              },
+              "delivers": {
+                "K": 5.5,
+                "N": 17.5,
+                "P": 0
+              },
+              "rateKgHa": 50
+            }
+          ],
+          "month_name": "Oct",
+          "requirements": {
+            "K": 4.5,
+            "N": 12.3,
+            "P": 0.9
+          },
+          "netRequirements": {
+            "K": 4.5,
+            "N": 12.3,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.77,
+          "notes": [],
+          "liquid": [],
+          "season": "Spring",
+          "granular": [
+            {
+              "id": "LEB-COUNTRYCLUBM2",
+              "npk": "22-0-13.28",
+              "name": "Country Club MD 22-0-16",
+              "brand": "Lebanon",
+              "notes": null,
+              "weeks": 8,
+              "rateGM2": "13.6",
+              "release": "slow",
+              "analysis": {
+                "K": 13.28,
+                "N": 22,
+                "S": 6.2,
+                "Fe": 1.6,
+                "Mg": 0.7,
+                "Mn": 0.8
+              },
+              "delivers": {
+                "K": 18.1,
+                "N": 30,
+                "P": 0
+              },
+              "rateKgHa": 136
+            }
+          ],
+          "month_name": "Nov",
+          "requirements": {
+            "K": 8.7,
+            "N": 15,
+            "P": 1.6
+          },
+          "netRequirements": {
+            "K": 8.599999999999994,
+            "N": 15,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          }
+        },
+        {
+          "gp": 0.95,
+          "notes": [
+            "Covered by previous slow-release application"
+          ],
+          "liquid": [],
+          "season": "Summer",
+          "granular": [],
+          "month_name": "Dec",
+          "requirements": {
+            "K": 10.8,
+            "N": 15,
+            "P": 2
+          },
+          "netRequirements": {
+            "K": 0,
+            "N": 0,
+            "P": 0
+          },
+          "activeFromPrevious": {
+            "K": 9.1,
+            "N": 15,
+            "P": 0
+          }
+        }
+      ],
+      "planRates": {
+        "Country Club IV 18-9-18": "33.4 g/m²",
+        "Urea Tech (soluble)": "6 g/m²",
+        "Sportsmaster WSF High N 35-0-11": "5 g/m²",
+        "Country Club MD 22-0-16": "13.6 g/m²"
+      },
+      "totalRate": "58 g/m²",
+      "renderer": "nutrition-au-fertiliser-integration.js",
+      "supersededRates": {
+        "Urea Tech (soluble)": "60 kg/ha"
+      }
+    }
+  ]
+}

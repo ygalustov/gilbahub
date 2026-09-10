@@ -228,6 +228,21 @@ function num(s) {
     return isNaN(v) ? null : v;
 }
 
+/**
+ * GH-409 — an Annual Product Summary "Total Rate" cell, as kg/ha.
+ *
+ * The document's third column used to be a bare number under a header reading
+ * "Total kg/ha". It now prints the Plan page's own per-row unit, and on a
+ * greens site that is g/m² — the same quantity divided by ten. Everything in
+ * this file that compares the cell against a per-hectare figure goes through
+ * here, so a fine-turf fixture is comparing kilograms with kilograms.
+ */
+function rateKgHa(s) {
+    const v = num(s);
+    if (v == null) return null;
+    return /g\/m/.test(String(s)) ? v * 10 : v;
+}
+
 // ─────────────────────────── Plan-page text parsing ───────────────────────────
 
 /** "<value>\n<NUTRIENT>[Generic]\nkg/ha/yr" cards → { N, P, K, Ca, Mg, S }. */
@@ -1056,12 +1071,16 @@ if (!ENABLED) {
             return Math.round((ds.K && ds.K.delivered) || 0);
         }
         function exportProductTable() {
-            const t = findTable(exportTables, ['Product', 'Applications', 'Total kg/ha', 'N']);
+            // GH-409: "Total Rate", the Plan page's own header, with the unit on
+            // each row. `totalKg` stays a per-hectare number so every caller
+            // below is unchanged — rateKgHa() converts a greens row's g/m² back.
+            const t = findTable(exportTables, ['Product', 'Applications', 'Total Rate', 'N']);
             if (!t) return { rows: null, footer: null };
             const header = t[0].map((h) => h.trim());
             const col = (name) => header.indexOf(name);
             const shape = (r) => ({
-                name: r[0].trim(), applications: num(r[col('Applications')]), totalKg: num(r[col('Total kg/ha')]),
+                name: r[0].trim(), applications: num(r[col('Applications')]),
+                totalKg: rateKgHa(r[col('Total Rate')]), rateText: String(r[col('Total Rate')]).trim(),
                 N: num(r[col('N')]), P: col('P') >= 0 ? num(r[col('P')]) : 0, K: num(r[col('K')]),
                 Ca: col('Ca') >= 0 ? num(r[col('Ca')]) : 0, Mg: col('Mg') >= 0 ? num(r[col('Mg')]) : 0, S: col('S') >= 0 ? num(r[col('S')]) : 0
             });

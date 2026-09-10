@@ -1081,7 +1081,22 @@
             }).join('');
 
             // Monthly rows
-            var useGM2 = meta.useGM2 || ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].indexOf(meta.surfaceType) !== -1;
+            //
+            // GH-409: the surface list and the per-row rate come from
+            // assets/nutrition-delivery-core.js — one statement of the rule for
+            // this panel, the New Zealand and Australian panels, and the Word
+            // document, which between them carried four copies of it and
+            // disagreed about a soluble powder on greens. The fallbacks keep this
+            // panel rendering if that module is ever missing; they are the
+            // pre-GH-409 arithmetic.
+            var _rateModel = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!_rateModel) {
+                console.error('[NutritionUkFertiliserIntegration] GH-409: nutrition-delivery-core.js is not loaded — ' +
+                    'product rates fall back to this panel\'s own copy of the unit rule');
+            }
+            var useGM2 = _rateModel
+                ? _rateModel.usesGM2(meta.surfaceType, meta.useGM2)
+                : (meta.useGM2 || ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].indexOf(meta.surfaceType) !== -1);
 
             var monthlyRows = monthly.map(function(m) {
                 var granularList = m.granular.map(function(p) {
@@ -1137,11 +1152,14 @@
                 var nD = self.formatDelivered((p.totalDelivered && p.totalDelivered.N) || 0);
                 var pD = self.formatDelivered((p.totalDelivered && p.totalDelivered.P) || 0);
                 var kD = self.formatDelivered((p.totalDelivered && p.totalDelivered.K) || 0);
-                var isSoluble = prod.form === 'soluble';
-                var rateStr;
-                if (p.totalLHa && !isSoluble) rateStr = Math.round(p.totalLHa) + ' L/ha';
-                else if (useGM2 && !isSoluble) rateStr = (Math.round((p.totalKgHa || 0) / 10 * 10) / 10) + ' g/m\u00B2';
-                else rateStr = Math.round(p.totalKgHa || 0) + ' kg/ha';
+                // GH-409: THE SURFACE DECIDES \u2014 a soluble powder on a greens
+                // surface prints g/m\u00B2 here now, like every other mass rate in
+                // the table, instead of being the one row in kilograms.
+                // b35fix281's real point is kept, in the L/ha branch inside the
+                // helper: a soluble powder is never litres.
+                var rateStr = _rateModel
+                    ? _rateModel.productRate(p, { useGM2: useGM2 }).text
+                    : Math.round(p.totalKgHa || 0) + ' kg/ha';
 
                 return '<tr>' +
                     '<td class="uk-fert-cell uk-fert-cell--left"><strong>' + (prod.name || p.brandName || '') + '</strong>' +

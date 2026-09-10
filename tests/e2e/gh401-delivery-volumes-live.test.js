@@ -78,8 +78,15 @@ const SITES = [
         // GH-403: the caption is the same 1 dp figure as Delivered, and the rows
         // above it add up to it.
         footer: { N: 137.6, P: 18.7, K: 104.5 },
-        // product, applications, printed total rate
-        multiSpray: [{ name: 'Long Paddock Rapid Uptake', applications: 4, rate: '28 L/ha', unit: 'L/ha' }]
+        // product, applications, printed total rate, and that rate as the
+        // per-hectare quantity the programme is built from.
+        //
+        // GH-409: `rate` is what the two surfaces PRINT and `perHa` is what the
+        // recommender computed, and they are no longer the same number on a
+        // greens site — 60 kg/ha prints as "6 g/m²". They were the same before,
+        // which is why the arithmetic check below used to read the printed
+        // string; it reads `perHa` now.
+        multiSpray: [{ name: 'Long Paddock Rapid Uptake', applications: 4, rate: '28 L/ha', perHa: 28 }]
     },
     {
         key: 'federal-golf',
@@ -91,7 +98,11 @@ const SITES = [
         // GH-403: was P 11.9 / K 63.9 against a document printing 12.0 / 64.0.
         required: { N: 120.0, P: 12.0, K: 64.0 },
         footer: { N: 135.1, P: 13.2, K: 73.4 },
-        multiSpray: [{ name: 'Urea Tech (soluble)', applications: 4, rate: '60 kg/ha', unit: 'kg/ha' }]
+        // GH-409: Green 1 is a greens surface, so this soluble powder now
+        // prints in the surface's unit like every other mass rate in the table
+        // — "6 g/m²", the same 60 kg/ha it always was. It used to be the one
+        // row in kilograms in a table of g/m² rows.
+        multiSpray: [{ name: 'Urea Tech (soluble)', applications: 4, rate: '6 g/m²', perHa: 60 }]
     },
     {
         key: 'burns',
@@ -127,6 +138,19 @@ const RUN = ONLY ? SITES.filter((s) => s.key === ONLY) : SITES;
 function num(v) {
     const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''));
     return isFinite(n) ? n : null;
+}
+/**
+ * GH-409 — a "Total Rate" cell as kilograms (or litres) per hectare.
+ *
+ * The document used to print a bare number under a header that said "Total
+ * kg/ha" for every row. It now prints the Plan page's own per-row unit, which
+ * on a greens site is g/m² — a tenth of the same figure — so anything that
+ * compares this cell to a per-hectare quantity has to read the unit first.
+ */
+function rateKgHa(text) {
+    const v = num(text);
+    if (v == null) return null;
+    return /g\/m/.test(String(text)) ? v * 10 : v;
 }
 function decodeEntities(s) {
     return s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
@@ -425,7 +449,9 @@ describe('GH-401 live — ' + site.siteName, () => {
         }
         hasAnr = Object.keys(docxAnr).length === 3;
 
-        const prodT = findTable(tables, ['Product', 'Applications', 'Total kg/ha', 'N']);
+        // GH-409: the header is the Plan page's own "Total Rate" now — the unit
+        // moved onto each row, because it is not the same on every row.
+        const prodT = findTable(tables, ['Product', 'Applications', 'Total Rate', 'N']);
         docxProducts = [];
         docxTotalRow = null;
         if (prodT) {
@@ -523,11 +549,11 @@ describe('GH-401 live — ' + site.siteName, () => {
             if (docRow.applicationsText !== String(want.applications)) {
                 bad.push({ surface: 'document', name: want.name, what: 'applications', got: docRow.applicationsText, want: String(want.applications) });
             }
-            // The document's column is headed "Total kg/ha" and prints a bare
-            // number; the Plan prints the number with its unit. Compare the
-            // number, and check the Plan's unit separately — a soluble listed
-            // among the liquids must still say kg/ha (b35fix282).
-            if (num(docRow.rateText) !== num(want.rate)) {
+            // GH-409: the two cells are now the same string, unit and all. They
+            // were the same number under different labels — the document's
+            // column was headed "Total kg/ha" and printed a bare number, which
+            // on a greens site was ten times what the Plan showed beside it.
+            if (docRow.rateText !== want.rate) {
                 bad.push({ surface: 'document', name: want.name, what: 'total rate', got: docRow.rateText, want: want.rate });
             }
         });
@@ -537,6 +563,12 @@ describe('GH-401 live — ' + site.siteName, () => {
     test('the printed volume is the recommender\'s rate times its own application count', () => {
         // Derived from the programme the page generated, so this cannot pass
         // by the renderer and the recommender sharing a wrong number.
+        //
+        // GH-409: compared against `perHa`, the per-hectare quantity, and the
+        // PRINTED cell is converted into that unit rather than parsed as a bare
+        // number. The two used to be the same figure; on a greens site they are
+        // a factor of ten apart, and reading "6 g/m²" as 6 kg/ha is precisely
+        // the mistake this ticket exists to stop anyone making.
         if (!site.multiSpray.length) return;
         const bad = [];
         site.multiSpray.forEach((want) => {
@@ -544,7 +576,10 @@ describe('GH-401 live — ' + site.siteName, () => {
             if (!apps.length) { bad.push({ name: want.name, why: 'not in the programme' }); return; }
             const total = apps.reduce((a, l) => a + (l.rateLHa || l.rateKgHa || 0) * (l.applications || 1), 0);
             const count = apps.reduce((a, l) => a + (l.applications || 1), 0);
-            if (Math.abs(total - num(want.rate)) > 0.51) bad.push({ name: want.name, what: 'volume', programme: total, printed: want.rate });
+            if (Math.abs(total - want.perHa) > 0.51) bad.push({ name: want.name, what: 'volume', programme: total, expected: want.perHa });
+            if (Math.abs(rateKgHa(want.rate) - want.perHa) > 0.51) {
+                bad.push({ name: want.name, what: 'the printed cell is not that quantity', printed: want.rate, perHa: want.perHa });
+            }
             if (count !== want.applications) bad.push({ name: want.name, what: 'count', programme: count, printed: want.applications });
         });
         expect(bad).toEqual([]);
@@ -686,11 +721,19 @@ describe('GH-401 live — ' + site.siteName, () => {
 
         if (amendmentRows.length) {
             // ...and the amendments really are outside it: their mass is not
-            // in the total's "Total kg/ha" cell.
-            const amendmentMass = amendmentRows.reduce((a, r) => a + (num(r.rateText) || 0), 0);
+            // in the total row's rate cell.
+            //
+            // GH-409: read in kilograms per hectare, because the cells now
+            // carry their own units and a greens row is in g/m². Only the mass
+            // rows are summed — the total row states litres separately, after a
+            // "+", precisely so the two are never added together, and an
+            // amendment is never a spray.
+            const massOnly = (rows) => rows.filter((r) => !/L\/ha/.test(r.rateText || ''))
+                                           .reduce((a, r) => a + (rateKgHa(r.rateText) || 0), 0);
+            const amendmentMass = massOnly(amendmentRows);
             expect(amendmentMass).toBeGreaterThan(0);
-            const allMass = docxProducts.reduce((a, r) => a + (num(r.rateText) || 0), 0);
-            expect(num(docxTotalRow.rateText)).toBeLessThan(allMass);
+            const allMass = massOnly(docxProducts);
+            expect(rateKgHa(String(docxTotalRow.rateText).split('+')[0])).toBeLessThan(allMass);
             process.stdout.write('[gh401]   amendment rows excluded from the total: ' +
                 amendmentRows.map((r) => r.name).join(', ') + '\n');
         }

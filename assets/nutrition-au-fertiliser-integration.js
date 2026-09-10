@@ -973,7 +973,24 @@
             
             // Build monthly rows
             // Check surface type for units
-            const useGM2 = meta.useGM2 || ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].includes(meta.surfaceType);
+            //
+            // GH-409: the surface list and the per-row rate come from
+            // assets/nutrition-delivery-core.js — one statement of the rule for
+            // this panel, the New Zealand and UK panels, and the Word document,
+            // which between them carried four copies of it and disagreed about a
+            // soluble powder on greens. The fallbacks keep this panel rendering
+            // if that module is ever missing; they are the pre-GH-409 arithmetic.
+            const _rateModel = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            if (!_rateModel) {
+                console.error('[NutritionAuFertiliserIntegration] GH-409: nutrition-delivery-core.js is not loaded — ' +
+                    'product rates fall back to this panel\'s own copy of the unit rule');
+            }
+            const useGM2 = _rateModel
+                ? _rateModel.usesGM2(meta.surfaceType, meta.useGM2)
+                : (meta.useGM2 || ['greens', 'golf_greens', 'bowling_greens', 'tees', 'cricket_wickets'].includes(meta.surfaceType));
+            const _rateOf = (entry) => (_rateModel
+                ? _rateModel.productRate(entry, { useGM2 }).text
+                : `${Math.round(entry.totalKgHa || 0)} kg/ha`);
             
             const monthlyRows = monthly.map(m => {
                 const granularList = m.granular.map(p => {
@@ -1040,17 +1057,16 @@
                 const pDelivered = p.totalDelivered?.P ?? ((p.totalKgHa || 0) * (analysis.P || 0) / 100);
                 const kDelivered = p.totalDelivered?.K ?? ((p.totalKgHa || 0) * (analysis.K || 0) / 100);
                 
-                // Format rate based on surface type and product type
-                // b35fix281: solubles are powders — always kg/ha, never L/ha
-                const isSoluble = product && product.form === 'soluble';
-                let rateStr;
-                if (p.totalLHa && !isSoluble) {
-                    rateStr = `${Math.round(p.totalLHa)} L/ha`;
-                } else if (useGM2 && !isSoluble) {
-                    rateStr = `${Math.round((p.totalKgHa || 0) / 10 * 10) / 10} g/m²`;
-                } else {
-                    rateStr = `${Math.round(p.totalKgHa || 0)} kg/ha`;
-                }
+                // GH-409: the printed rate, from the one implementation of the
+                // rule (assets/nutrition-delivery-core.js). THE SURFACE DECIDES,
+                // so a soluble powder on a greens surface is g/m² here now — it
+                // was kg/ha, one row in a foreign unit in a table of g/m² rows,
+                // which is what the product owner read as an error. Urea Tech on
+                // Federal Golf's greens prints 6 g/m² where it printed
+                // 60 kg/ha: the same dose, stated in the unit the rows beside it
+                // use. b35fix281's real point is kept, in the L/ha branch — a
+                // soluble powder is never litres.
+                const rateStr = _rateOf(p);
                 
                 return `
                     <tr>
@@ -1067,17 +1083,27 @@
                 `;
             }).join('');
             
-            // Total row with units based on surface
+            // Total row with units based on surface.
+            // GH-409: this row is where the "mass rates in the surface's unit,
+            // spray volume after a +" convention comes from, and the Word
+            // document's own total row now prints it from the same helper. The
+            // arithmetic below is unchanged — it is the fallback, and the
+            // definition the helper was written against.
             const totalKgHa = productEntries.reduce((sum, p) => sum + (p.totalKgHa || 0), 0);
             const totalLHa = productEntries.reduce((sum, p) => sum + (p.totalLHa || 0), 0);
             const totalApps = productEntries.reduce((sum, p) => sum + (p.applications || 0), 0);
-            
-            let totalRateStr = '';
-            if (totalKgHa > 0) {
-                totalRateStr = useGM2 ? `${Math.round(totalKgHa / 10 * 10) / 10} g/m²` : `${Math.round(totalKgHa)} kg/ha`;
-            }
-            if (totalLHa > 0) {
-                totalRateStr += (totalRateStr ? ' + ' : '') + `${Math.round(totalLHa)} L/ha`;
+
+            let totalRateStr;
+            if (_rateModel) {
+                totalRateStr = _rateModel.programmeTotalRate(productEntries, { useGM2 });
+            } else {
+                totalRateStr = '';
+                if (totalKgHa > 0) {
+                    totalRateStr = useGM2 ? `${Math.round(totalKgHa / 10 * 10) / 10} g/m²` : `${Math.round(totalKgHa)} kg/ha`;
+                }
+                if (totalLHa > 0) {
+                    totalRateStr += (totalRateStr ? ' + ' : '') + `${Math.round(totalLHa)} L/ha`;
+                }
             }
             
             // GH-316: this row used the naive Delivered-Required formula

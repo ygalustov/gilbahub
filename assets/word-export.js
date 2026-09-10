@@ -2734,54 +2734,98 @@
     }
 
     /**
-     * b35fix328 — Decide which optional macro columns (P, Ca, Mg, S) to
-     * render in the Annual Product Summary / Purchasing Summary tables.
-     * N and K are always shown (existing behaviour, never optional).
+     * Which optional macro columns the product tables render — the Annual
+     * Product Summary here and the Fertiliser Purchasing Summary in
+     * word-export-combined.js. N and K have never been optional.
      *
-     * Input: array of nutrient vectors as returned by _extractEntryNutrients
-     *        (one per row that will be rendered).
-     * Output: { P: bool, Ca: bool, Mg: bool, S: bool } — true means
-     *         render the column.
+     * Output: { P: bool, Ca: bool, Mg: bool, S: bool } — true means render.
      *
-     * Rule: render a column if any row delivers > 0.05 kg/ha. The 0.05
-     * floor suppresses analyses that carry trace nutrients at sub-detection
-     * percentages (e.g. an N-K blend listed as "Mg: 0.01%" — at 200 kg/ha
-     * that's 0.02 kg/ha, agronomically meaningless and not worth a column).
+     * GH-409: THE ANSWER IS NOW FIXED — N, P, K, and nothing else.
+     *
+     * b35fix328 decided it per document instead, from the rows themselves: a
+     * column appeared whenever some product in the table carried that nutrient
+     * above 0.05 kg/ha. The consequence is what the product owner reported —
+     * one site's Annual Product Summary printed "N | P | K | Mg | S" against a
+     * Plan page that has only ever had "N | P | K", and the next site's printed
+     * a different set again, because the set followed whichever products the
+     * recommender happened to pick. Two documents for two greens could not be
+     * read side by side, and neither could be read beside the screen it came
+     * from. The Plan page is the rule (see the three renderers' own headers,
+     * e.g. nutrition-prebble-integration.js:1172-1178).
+     *
+     * PHOSPHORUS IS UNCONDITIONAL for the same reason, which is a change from
+     * the partial state this replaces: the Plan prints a P column on a
+     * nitrogen-only programme too, showing zeros, and a document whose column
+     * count depends on the programme is the defect, not a tidier table. The
+     * cost is one column of zeros on an N-only site; the benefit is that every
+     * product table in every document has the same three columns as the screen.
+     *
+     * NOTHING IS UNCALCULATED. Calcium, magnesium and sulphur still accumulate
+     * exactly as before — the delivery accumulator's vectors are untouched, and
+     * every other consumer of them (the Nutrient Delivery Summary, the Annual
+     * Nutrient Requirements table, the Annual Soil Amendments table, which is
+     * where a dolomite's Ca and Mg are actually read) is unaffected. This
+     * decides which columns are DRAWN in two tables.
+     *
+     * The parameter is kept, ignored, and the call sites keep passing their row
+     * vectors: it is the record of what the decision used to depend on, and the
+     * hook if it is ever made conditional again.
+     *
+     * @param {Array} rowVectors  per-row nutrient vectors (ignored — see above)
      */
-    function _detectActiveNutrientColumns(rowVectors) {
-        var active = { P: false, Ca: false, Mg: false, S: false };
-        if (!Array.isArray(rowVectors)) return active;
-        var threshold = 0.05;
-        rowVectors.forEach(function(v) {
-            if (!v) return;
-            if (v.P > threshold) active.P = true;
-            if (v.Ca > threshold) active.Ca = true;
-            if (v.Mg > threshold) active.Mg = true;
-            if (v.S > threshold) active.S = true;
-        });
+    function _detectActiveNutrientColumns(rowVectors) {   // eslint-disable-line no-unused-vars
+        return { P: true, Ca: false, Mg: false, S: false };
+    }
 
-        // GH-409: the product tables print N, P and K and stop, matching the
-        // Plan page, which has only ever had those three columns. The rule
-        // above -- show a column whenever any product happens to carry that
-        // nutrient -- gave the document a different set of columns from the
-        // screen, and a different set from one site to the next depending on
-        // which products the recommender picked. A reader comparing the two
-        // surfaces, or two sites, found the tables did not line up.
-        //
-        // Calcium, magnesium and sulphur are still COMPUTED and still
-        // accumulate exactly as before: the delivery accumulator's vectors are
-        // untouched and every other consumer of them (the Nutrient Delivery
-        // Summary, the annual requirement tables) is unaffected. This decides
-        // which columns are drawn, nothing else.
-        //
-        // Phosphorus keeps its detection: the Plan shows P unconditionally, and
-        // suppressing an all-zero P column is existing behaviour worth keeping
-        // -- flipping it to always-on would add an empty column to every
-        // nitrogen-only programme.
-        active.Ca = false;
-        active.Mg = false;
-        active.S = false;
-        return active;
+    /**
+     * GH-409 — the unit every product rate in this document prints in, resolved
+     * once per sample and handed to assets/nutrition-delivery-core.js's
+     * productRate()/programmeTotalRate().
+     *
+     * ONE QUESTION: IS THIS A g/m² SURFACE. The unit is a property of the
+     * surface, never of the region or of which integration drew the page, so
+     * there is nothing else to resolve — see nutrition-delivery-core.js's GH-409
+     * block for the rule and for the one case the four renderers used to
+     * disagree about.
+     *
+     * The Plan branches on the programme's own `meta.surfaceType` — the value
+     * the recommender was given and stamped ('greens' from the NZ recommender,
+     * 'golf_greens' from the AU one) — so that is read FIRST, and the document
+     * then cannot resolve the surface differently from the panel that drew the
+     * same table. The fallbacks are the ones the rest of this file already uses
+     * for the same question (data.soil.surfaceType, set from turf.subCategory at
+     * buildSections time, then the turf config itself).
+     *
+     * If NOTHING resolves, that is reported, loudly: a greens site whose surface
+     * could not be read would silently print kg/ha, which is exactly the defect
+     * this ticket closes. The kg/ha fallback stays — a document with a unit is
+     * better than a crash — but it never happens quietly.
+     */
+    function _rateDisplayOptions(data) {
+        var prog = (data && data.nutritionProgram) || {};
+        var meta = prog.meta || {};
+        var turf = (data && data.turf) || {};
+        var soil = (data && data.soil) || {};
+
+        var surfaceType = meta.surfaceType || soil.surfaceType || turf.subCategory ||
+                          turf.rawTurfType || turf.type || '';
+        if (!surfaceType) {
+            console.error('[WordExport] GH-409: no surface type for this sample — the programme carries ' +
+                'no meta.surfaceType and the turf config no subCategory/turfType, so the product tables ' +
+                'fall back to kg/ha. If this is a greens site its rates are printed ten times the figure ' +
+                'the Plan page shows.');
+        }
+
+        var _dm = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+        if (!_dm) {
+            console.error('[WordExport] GH-409: nutrition-delivery-core.js is not loaded — product rates ' +
+                'cannot be printed in the Plan page\'s units.');
+        }
+
+        return {
+            useGM2: _dm ? _dm.usesGM2(surfaceType, meta.useGM2) : false,
+            surfaceType: surfaceType || null
+        };
     }
 
     // GH-292: body moved to assets/k-reconciliation-decision.js (see that
@@ -6005,16 +6049,27 @@
         }
 
         // Annual Product Summary table
-        // b35fix328: extended from N/K-only to N/P/K/Ca/Mg/S, with optional
-        // macro columns (P, Ca, Mg, S) hidden when no product in the report
-        // delivers them above the 0.05 kg/ha noise floor. N and K columns
-        // are always shown (existing contract). Two-pass build: extract all
-        // row vectors first via _extractEntryNutrients, detect active
-        // optional columns via _detectActiveNutrientColumns, then render.
-        // This makes amendment rows (dolomite, gypsum, SOP) legible — they
-        // were the trigger case for this fix (b35fix323 dolomite row read
-        // "Total 955 / N 0 / K 0" pre-fix).
+        // b35fix328: extended from N/K-only to N/P/K/Ca/Mg/S; GH-409 fixed the
+        // column set at the Plan page's own N/P/K (see
+        // _detectActiveNutrientColumns, which the two-pass build below still
+        // asks). Two-pass: extract all row vectors first via
+        // _extractEntryNutrients, ask for the column set, then render.
+        // Amendment rows (dolomite, gypsum, SOP) stay legible through their
+        // nutrient cells — they were b35fix328's trigger case (a b35fix323
+        // dolomite row read "Total 955 / N 0 / K 0" pre-fix) and their calcium
+        // and magnesium are printed in full by the Annual Soil Amendments table.
+        //
+        // GH-409: the rate column prints the Plan's own per-row unit
+        // ("40 g/m²", "90 L/ha") under the Plan's own header, "Total Rate". It
+        // printed a bare number under "Total kg/ha" for every row, so a golf
+        // greens document stated 400 where the screen said 40.
         if (summary.products && Object.keys(summary.products).length > 0) {
+            var _rateOpts = _rateDisplayOptions(data);
+            var _delivery = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+            var _rateText = function(p) {
+                return _delivery ? _delivery.productRate(p, _rateOpts).text
+                                 : String(Math.round(parseFloat(p.totalKgHa || p.totalKg || 0) || 0)) + ' kg/ha';
+            };
             elements.push(new Paragraph({
                 spacing: { before: 200, after: 100 },
                 children: [new TextRun({ text: 'Annual Product Summary', bold: true, size: 24, color: '1F2937' })]
@@ -6032,6 +6087,12 @@
                     name: p.name || (p.product && p.product.name) || 'Unknown',
                     applications: p.applications || 0,
                     totalKg: totalKg,
+                    // GH-409: the printed cell, and the entry it was printed
+                    // from — the Total Delivered row below re-reads the entries
+                    // rather than the cells, so litres are never added to
+                    // kilograms.
+                    rateText: _rateText(p),
+                    entry: p,
                     nutrients: vec,
                     // GH-401: needed by the "Total Delivered" row below, which
                     // is catalogue-only — an amendment is a recommendation the
@@ -6046,7 +6107,7 @@
                 rowsData.map(function(r) { return r.nutrients; })
             );
 
-            // Column widths: keep Product/Applications/Total kg/ha fixed,
+            // Column widths: keep Product/Applications/Total Rate fixed,
             // distribute the remaining space across the active nutrient
             // columns. Existing widths (N=1200, K=1200) preserved when only
             // N(always) + K(always) + optional P/Ca/Mg/S. Distribute the
@@ -6057,10 +6118,14 @@
             var includeMg = activeCols.Mg;
             var includeS = activeCols.S;
             var optionalCount = (includeP ? 1 : 0) + (includeCa ? 1 : 0) + (includeMg ? 1 : 0) + (includeS ? 1 : 0);
-            // Shrink fixed columns when many nutrient columns are active
-            var productW  = optionalCount >= 2 ? 2200 : 3000;
-            var appsW     = optionalCount >= 2 ? 1100 : 1500;
-            var totalKgW  = optionalCount >= 2 ? 1100 : 1500;
+            // Shrink fixed columns when many nutrient columns are active.
+            // GH-409: the rate column gained the widest cell in the table — the
+            // total row can read "103.6 g/m² + 180 L/ha" — so it takes the space
+            // the Applications count (never more than three characters) does not
+            // need.
+            var productW  = optionalCount >= 2 ? 2200 : 2800;
+            var appsW     = optionalCount >= 2 ? 1100 : 1200;
+            var totalKgW  = optionalCount >= 2 ? 1400 : 2000;
             var fixedTotal = productW + appsW + totalKgW;
             var totalNutCols = 2 + optionalCount; // N + K + optional
             var nutWidth = optionalCount === 0 ? 1200 : Math.floor((9400 - fixedTotal) / totalNutCols);
@@ -6069,7 +6134,9 @@
             var headerCells = [
                 new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Product', bold: true, size: 22 })] })] }),
                 new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Applications', bold: true, size: 22 })] })] }),
-                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total kg/ha', bold: true, size: 22 })] })] }),
+                // GH-409: the Plan page's own header. The unit is on each row,
+                // because it is not the same on every row.
+                new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Total Rate', bold: true, size: 22 })] })] }),
                 new TableCell({ shading: { fill: 'E5E7EB', type: ShadingType.CLEAR }, width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'N', bold: true, size: 22 })] })] })
             ];
             if (includeP) {
@@ -6110,7 +6177,7 @@
                 var rowCells = [
                     new TableCell({ width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: r.name, size: 22 })] })] }),
                     new TableCell({ width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(r.applications), size: 22 })] })] }),
-                    new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: Math.round(r.totalKg).toString(), size: 22 })] })] }),
+                    new TableCell({ width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: r.rateText, size: 22 })] })] }),
                     new TableCell({ width: { size: nutWidth, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _fmtDelivered(n.N), size: 22 })] })] })
                 ];
                 if (includeP) {
@@ -6164,13 +6231,22 @@
                 };
                 // GH-403: the nutrient cells of this caption go through
                 // _fmtDelivered, the same helper the product rows above use, so
-                // the caption is the sum of the printed rows. Applications and
-                // Total kg/ha keep their whole-number display — they are counts
-                // and bag weights, they agree with their own rows on every
-                // development site, and a greenkeeper orders fertiliser off
-                // them.
+                // the caption is the sum of the printed rows. Applications keeps
+                // its whole-number display — it is a count, it agrees with its
+                // own rows on every development site.
+                //
+                // GH-409: the rate cell is the Australian panel's total row
+                // (nutrition-au-fertiliser-integration.js:1075-1081), read out
+                // of nutrition-delivery-core.js so there is one statement of it:
+                // the mass rates summed in this surface's unit, and any spray
+                // volume added after a "+" instead of into it. It used to be one
+                // number, `Math.round(sum of every row's mass)`, which added
+                // litres of Ammos to kilograms of Country Club and called the
+                // result kg/ha.
                 var _totalApps = _catalogueRows.reduce(function(a, r) { return a + (r.applications || 0); }, 0);
-                var _totalKg = _catalogueRows.reduce(function(a, r) { return a + (r.totalKg || 0); }, 0);
+                var _totalRateText = _delivery
+                    ? _delivery.programmeTotalRate(_catalogueRows.map(function(r) { return r.entry; }), _rateOpts)
+                    : String(_round0(_catalogueRows.reduce(function(a, r) { return a + (r.totalKg || 0); }, 0)));
                 var _totalCell = function(text) {
                     return new TableCell({
                         shading: { fill: 'F3F4F6', type: ShadingType.CLEAR },
@@ -6181,7 +6257,7 @@
                 var totalCells = [
                     new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: productW, type: WidthType.DXA }, children: [new Paragraph({ children: [new TextRun({ text: 'Total Delivered', bold: true, size: 22 })] })] }),
                     new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: appsW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(_totalApps), bold: true, size: 22 })] })] }),
-                    new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(_round0(_totalKg)), bold: true, size: 22 })] })] }),
+                    new TableCell({ shading: { fill: 'F3F4F6', type: ShadingType.CLEAR }, width: { size: totalKgW, type: WidthType.DXA }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: _totalRateText, bold: true, size: 22 })] })] }),
                     _totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'N')))
                 ];
                 if (includeP) totalCells.push(_totalCell(_fmtDelivered(_computeProgrammeDelivered(summary, 'P'))));
@@ -10240,6 +10316,12 @@
                 // so `monthly` can already contain the granular entries a
                 // previous export injected (b35fix323), and they must not be
                 // rebuilt as catalogue rows.
+                // GH-409: the recommender's own meta, carried through unchanged.
+                // `meta.surfaceType` is the value the Plan panel branched on
+                // when it chose g/m² over kg/ha for this same programme, so the
+                // document reads it rather than re-deriving the surface from
+                // the site record and risking a different answer.
+                data.nutritionProgram.meta = prog.meta || {};
                 var _deliveryMod = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
                 if (_deliveryMod && Array.isArray(prog.monthly)) {
                     var _acc = _deliveryMod.accumulate(prog.monthly);
@@ -15248,6 +15330,9 @@
         // amendment-as-product contract.
         _extractEntryNutrients: _extractEntryNutrients,
         _detectActiveNutrientColumns: _detectActiveNutrientColumns,
+        // GH-409: the Fertiliser Purchasing Summary resolves the same two
+        // questions for the same site, so it asks the same function.
+        _rateDisplayOptions: _rateDisplayOptions,
 
         // b35fix368: per-sample section header line. Pure helper that takes a
         // collectData()-shaped object and returns "Site · area · species".

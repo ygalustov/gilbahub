@@ -342,7 +342,9 @@ describe('GH-399 — one "Delivered" on both surfaces (' + SITE_NAME + ' / ' + S
             });
         }
 
-        const prodT = findTable(tables, ['Product', 'Applications', 'Total kg/ha', 'N']);
+        // GH-409: the column is headed 'Total Rate' now, the Plan page's own word —
+        // the unit moved onto each row because it differs from row to row.
+        const prodT = findTable(tables, ['Product', 'Applications', 'Total Rate', 'N']);
         docxProducts = [];
         if (prodT) {
             const header = prodT[0].map((h) => String(h).trim());

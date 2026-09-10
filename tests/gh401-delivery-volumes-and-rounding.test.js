@@ -613,17 +613,30 @@ describe.each(AU_SITES)('GH-401 — the rendered Plan panel, %s', (slug) => {
         expect(Number(oldFooter[1])).toBeLessThan(Number(newFooter[1]));
         expect(oldFooter[2]).not.toBe(newFooter[2]);
 
-        const oldRows = {};
-        [...before.html.matchAll(/<tr>\s*<td class="au-fert-cell au-fert-cell--left">[\s\S]*?<\/tr>/g)]
-            .forEach((m) => {
-                const c = cells(m[0]);
-                if (c.length === 6) oldRows[c[0].split('\n')[0].trim()] = c;
-            });
+        const productRows = (markup) => {
+            const out = {};
+            [...markup.matchAll(/<tr>\s*<td class="au-fert-cell au-fert-cell--left">[\s\S]*?<\/tr>/g)]
+                .forEach((m) => {
+                    const c = cells(m[0]);
+                    if (c.length === 6) out[c[0].split('\n')[0].trim()] = c;
+                });
+            return out;
+        };
+        const oldRows = productRows(before.html);
+        const newRows = productRows(html);
         moves.forEach((mv) => {
             const row = oldRows[mv.name];
             expect(row).toBeDefined();
             expect(row[1]).toBe(String(mv.wasApps));
-            expect(row[2]).toBe(mv.wasVolume + ' ' + (mv.unit === 'L' ? 'L/ha' : 'kg/ha'));
+            // GH-409: the UNIT a row prints in is decided by the surface, so it
+            // is read off the row the panel just rendered rather than rebuilt
+            // here from the product's form — which is what this line used to do,
+            // and is no longer what decides it. Federal Golf and Canberra are
+            // greens: their soluble prints "3 g/m²" where it printed "30 kg/ha".
+            // The VOLUME is still the fixture's own number, which is the claim
+            // this test makes.
+            const unit = newRows[mv.name][2].replace(/^[\d.]+\s*/, '');
+            expect(row[2]).toBe(delivery.formatRate(mv.wasVolume, unit));
         });
     });
 });
@@ -814,9 +827,15 @@ describe("GH-401 — the export's Annual Product Summary gains a Total Delivered
         // product entry's own quantity and computes nothing of its own. For a
         // liquid the two fields carry the same number anyway — asserted at the
         // bottom of this test — so GH-406 moved no figure, only the label.
+        // GH-409 kept that read and only changed which branch it takes — the
+        // unit now comes from the shared helper, which also knows about the
+        // surface, so the mass branch prefers `totalKgHa` (the accumulator's own
+        // field for it) ahead of the combined `totalKg`. Same number on every
+        // entry the accumulator produces; `totalLHa` stays the last resort for a
+        // pre-GH-399 soluble whose kilograms sat in the litres field.
         expect(combined).toMatch(/var kgHa = _isLiquid/);
-        expect(combined).toMatch(/\? parseFloat\(p\.totalLHa \|\| 0\)/);
-        expect(combined).toMatch(/: parseFloat\(p\.totalKg \|\| p\.totalKgHa \|\| p\.totalLHa \|\| 0\);/);
+        expect(combined).toMatch(/\? parseFloat\(p\.totalLHa \|\| 0\) \|\| parseFloat\(p\.totalKg \|\| 0\)/);
+        expect(combined).toMatch(/: parseFloat\(p\.totalKgHa \|\| p\.totalKg \|\| p\.totalLHa \|\| 0\);/);
         expect(combined).not.toMatch(/kgHaSum \+= [^;]*compute/);
         // ...and the module publishes exactly that, counting every spray.
         const acc = delivery.accumulate([month('Aug', [], [{
