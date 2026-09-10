@@ -1626,10 +1626,22 @@
         return 'gilba_traffic_state_' + (siteId || 'default');
     }
 
+    /**
+     * GH-394: the saved schedule now lives in the site's gaip config as
+     * `config.traffic.schedule`, so the Plan page, the Word export and a
+     * second browser all read one record. The localStorage copy is kept as a
+     * same-device mirror only; the config wins whenever it exists, because
+     * localStorage on this device can be older than what another device saved.
+     */
+    function getTrafficSchedule() {
+        var cfg = D.gaipConfig;
+        if (cfg && !Array.isArray(cfg) && cfg.traffic && cfg.traffic.schedule) return cfg.traffic.schedule;
+        try { return JSON.parse(localStorage.getItem(getTrafficStateKey()) || '{}'); } catch (e) { return {}; }
+    }
+
     function loadTrafficForm() {
         if (!trafficForm) return;
-        var saved = {};
-        try { saved = JSON.parse(localStorage.getItem(getTrafficStateKey()) || '{}'); } catch(e) {}
+        var saved = getTrafficSchedule() || {};
         function setVal(id, val) { var el = document.getElementById(id); if (el && val !== undefined && val !== null) el.value = val; }
         setVal('stg-tw-moisture',    saved.moisture);
         setVal('stg-tw-root-depth',  saved.rootDepth);
@@ -1683,14 +1695,39 @@
             };
 
             try { localStorage.setItem(getTrafficStateKey(), JSON.stringify(state)); } catch(e) {}
-            _checkAfterSave('stg-traffic-form');
+
+            // GH-394 (D31 stage 3): persist the schedule server-side as well.
+            // Until now this form wrote localStorage and nothing else, so the
+            // nutrition traffic modifier could never see it — it resolved
+            // 'moderate' x1.0 on every site — and neither could the Plan page
+            // on another device or the Word export. `config.traffic` is a
+            // top-level key deliberately, NOT `config.turf.*`: site-config-
+            // persistence.js's snapshotConfig() rebuilds `turf` from the legacy
+            // DOM on hub pages, so a turf field with no DOM twin is dropped on
+            // the first site switch. That same file's carry-forward list gained
+            // `traffic` in this ticket for exactly the same reason.
+            var _tcfg = JSON.parse(JSON.stringify(D.gaipConfig || {}));
+            // New sites initialise config as [] (PHP empty array -> JSON array).
+            if (Array.isArray(_tcfg)) _tcfg = {};
+            _tcfg.traffic = { schedule: state, savedAt: new Date().toISOString() };
+            // Same reasoning as the turf and site forms above: this form does
+            // not touch nutrition-programme data, so a possibly-stale
+            // D.gaipConfig clone must not carry these three keys back in.
+            delete _tcfg.nutritionProgram;
+            delete _tcfg.nutritionCalendarProgram;
+            delete _tcfg.nutritionProgramCoords;
 
             setSaving(trafficSaveBtn, true);
-            setMsg(trafficMsg, 'Saved.', 'ok');
-            setTimeout(function () {
-                setSaving(trafficSaveBtn, false);
-                setMsg(trafficMsg, '', '');
-            }, 2000);
+            setMsg(trafficMsg, '', '');
+            apiFetch('PUT', '/sites/' + encodeURIComponent(siteId) + '/config/gaip', { config: _tcfg })
+                .then(function () {
+                    D.gaipConfig = _tcfg;
+                    _checkAfterSave('stg-traffic-form');
+                    setMsg(trafficMsg, 'Saved.', 'ok');
+                    setTimeout(function () { setMsg(trafficMsg, '', ''); }, 2000);
+                })
+                .catch(function () { setMsg(trafficMsg, 'Save failed.', 'err'); })
+                .finally(function () { setSaving(trafficSaveBtn, false); });
         });
     }
 

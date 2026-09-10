@@ -2147,9 +2147,22 @@
                     _perSampleProgSkip++;
                     return;
                 }
-                perSampleInputs.annualNOverride = _siteInputs.annualN;
+                // GH-394 (D31 stage 3): the PRE-traffic base, plus the modifier
+                // the adapter resolved — not `_siteInputs.annualN`, which is
+                // already scaled. computeProgram() multiplies annualNOverride by
+                // the modifier itself (it is the Plan page's own single
+                // application point), so handing it the adjusted N applied the
+                // modifier a second time: 1.15 became 1.3225 on a sports site's
+                // per-sample programme in a Combined export, while the same
+                // site's ANR table — which the engine computes without
+                // re-multiplying — printed 1.15. Inert until this ticket
+                // because every site resolved 1.0; live the moment a schedule
+                // is saved, which is why it is fixed here and not later.
+                perSampleInputs.annualNOverride = _siteInputs.annualNBase;
                 perSampleInputs.clippingManagement = _siteInputs.clippingManagement;
                 perSampleInputs.traffic = _siteInputs.trafficIntensity;
+                perSampleInputs.trafficModifier = _siteInputs.trafficModifier;
+                perSampleInputs.inputSources = _siteInputs.sources;
                 // GH-387: the RAW surface the calendar works in ('greens',
                 // 'soccer', ...) — the same value nutrition-calendar.js's
                 // collectFromState() resolves on the Plan page and stamps as

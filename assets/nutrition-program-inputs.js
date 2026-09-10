@@ -37,14 +37,14 @@
  *                               display name, methodology, texture, CEC, pH —
  *                               resolved once per site, per sample.
  *
- *   deriveTrafficIntensity()    stage 3 of the D31 plan. Returns
- *                               moderate / 1.0 / 'not-wired' until the
- *                               Settings > Traffic & Wear schedule is actually
- *                               persisted in the site config; decision D-10
- *                               (matches/week > 3 -> extreme, > 1 -> high, else
- *                               moderate; unsaved schedule -> moderate; sports
- *                               turf only) is settled but deliberately NOT
- *                               implemented in this ticket.
+ *   deriveTrafficIntensity()    GH-394 (D31 stage 3): decision D-10's rule on
+ *                               the schedule Settings > Traffic & Wear now
+ *                               persists in the site config as
+ *                               config.traffic.schedule — matches/week > 3 ->
+ *                               extreme, > 1 -> high, else moderate; an unsaved
+ *                               or empty schedule -> moderate; sports turfType
+ *                               only. The modifier scales the ANNUAL N once,
+ *                               upstream, and never a nutrient.
  *
  *   resolveAnnualN()            base x traffic modifier, rounded — the
  *                               calendar's own semantics, in one place, so the
@@ -104,26 +104,52 @@
     const TRAFFIC_MODIFIERS = { low: 0.85, moderate: 1.0, high: 1.15, extreme: 1.3 };
 
     /**
-     * deriveTrafficIntensity(schedule, turfType)
+     * deriveTrafficIntensity(schedule, turfType)  — GH-394 (D31 stage 3)
      *
-     * STAGE 3 OF THE D31 PLAN — NOT WIRED IN THIS TICKET. The Settings >
-     * Traffic & Wear schedule currently lives only in
-     * localStorage['gilba_traffic_state_<siteId>'] and never reaches the site
-     * config, so there is nothing to derive from; every site resolves
-     * moderate / 1.0 today, exactly as both engines already did.
+     * The traffic modifier stopped being inert here. Until GH-394 the Settings
+     * > Traffic & Wear schedule reached only
+     * localStorage['gilba_traffic_state_<siteId>'], so nothing reached the
+     * server, the export or a second device and every site resolved
+     * moderate / 1.0. GH-394 persists the schedule in the site's gaip config
+     * as `config.traffic.schedule` and derives the level from it HERE, once,
+     * so the Plan page and the Word export can never derive it differently —
+     * precisely the input-divergence class this adapter exists to close.
      *
-     * When stage 3 lands, this function gets decision D-10's rule and nothing
-     * else changes: matches/week > 3 -> extreme, > 1 -> high, otherwise
-     * moderate; an empty or unsaved schedule -> moderate (never read a form
-     * placeholder or the legacy `.gaip-matches-week` DOM input, which carries
-     * value="2"); and the whole thing applies only to
-     * turf.turfType === 'sports'.
+     * Decision D-10, as settled by the user:
+     *   matches/week > 3 -> extreme, > 1 -> high, otherwise moderate.
+     *   An empty or unsaved schedule -> moderate, so no existing site moves
+     *   until someone actually saves a schedule.
+     *   Sports turf only (decision D-3): `turf.turfType === 'sports'`. Golf,
+     *   lawns and anything else are 1.0 whatever the schedule says, and an
+     *   absent or unrecognised turf type counts as not-sports. This is
+     *   `turfType` (golf / sports / lawns), NOT `surfaceType` (greens /
+     *   fairways / tees / sports) — GH-387 was caused by exactly that mix-up.
+     *
+     * `low` (0.85) is in the table but unreachable by this rule: the rule has
+     * no rung below `moderate`, and "nothing entered" must stay neutral rather
+     * than cut a site's nitrogen. The table keeps the level so a later rule can
+     * use it without a second table appearing somewhere else.
+     *
+     * NEVER derive from a form placeholder or from the legacy DOM input
+     * `.gaip-matches-week` (`legacy-hub-markup.blade.php` hard-codes
+     * `value="2"`, which under the `> 1` rule would silently make every sports
+     * site `high`). The only input is the SAVED schedule: settings-init.js's
+     * getNum() writes `null` for an empty field, so an untouched form persists
+     * nulls and lands on 'no-schedule' here.
      */
     function deriveTrafficIntensity(schedule, turfType) {
         if (turfType !== 'sports') {
-            return { level: 'moderate', modifier: 1.0, source: 'not-sports' };
+            return { level: 'moderate', modifier: TRAFFIC_MODIFIERS.moderate, source: 'not-sports', matchesPerWeek: null };
         }
-        return { level: 'moderate', modifier: 1.0, source: 'not-wired' };
+        const raw = (schedule && schedule.matchesPerWeek !== undefined) ? schedule.matchesPerWeek : null;
+        const matches = (raw === null || raw === undefined || raw === '') ? NaN : parseFloat(raw);
+        if (!isFinite(matches)) {
+            return { level: 'moderate', modifier: TRAFFIC_MODIFIERS.moderate, source: 'no-schedule', matchesPerWeek: null };
+        }
+        let level = 'moderate';
+        if (matches > 3) level = 'extreme';
+        else if (matches > 1) level = 'high';
+        return { level: level, modifier: TRAFFIC_MODIFIERS[level], source: 'schedule', matchesPerWeek: matches };
     }
 
     /**

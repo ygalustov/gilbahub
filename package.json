@@ -3,9 +3,12 @@
   "version": "1.0.0",
   "scripts": {
     "test": "jest",
-    "test:e2e": "GILBA_E2E=1 jest tests/e2e --runInBand --testTimeout=240000",
+    "test:e2e": "GILBA_E2E=1 jest tests/e2e/ui-vs-export-parity.test.js --runInBand --testTimeout=240000",
     "test:e2e:burns": "GILBA_E2E_FIXTURE=tests/fixtures/e2e-parity-burns-12th-fairway-mlsn.json npm run test:e2e",
-    "test:e2e:slan": "GILBA_E2E_FIXTURE=tests/fixtures/e2e-parity-new-test-location-slan.json npm run test:e2e"
+    "test:e2e:slan": "GILBA_E2E_FIXTURE=tests/fixtures/e2e-parity-new-test-location-slan.json npm run test:e2e",
+    "test:e2e:traffic": "GILBA_E2E=1 jest tests/e2e/gh394-traffic-live.test.js --runInBand --testTimeout=600000",
+    "test:e2e:methodology": "GILBA_E2E=1 jest tests/e2e/gh395-nz-methodology-gate-live.test.js --runInBand --testTimeout=300000",
+    "test:e2e:all": "GILBA_E2E=1 jest tests/e2e --runInBand --testTimeout=600000"
   },
   "dependencies": {
     "docx": "^9.6.1",

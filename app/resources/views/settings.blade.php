@@ -403,6 +403,43 @@
                                         $curMeth = $turfVal('methodology');
                                         if (!$curMeth) $curMeth = $activeSite->methodology_override ?? '';
                                         if (!$curMeth && ($isNewZealand ?? false)) $curMeth = 'ammonium_acetate';
+
+                                        // GH-395: MLSN is not offered on a New Zealand site, because it is
+                                        // the one methodology the NZ path cannot honour end to end.
+                                        // getMethodology() (nutrition-nz-fertiliser-integration.js, which
+                                        // runs only for NZ) folds everything except SLAN into ammonium
+                                        // acetate, so product selection uses AA — while the requirement
+                                        // engine reads the raw saved value out of the site config and
+                                        // branches on MLSN thresholds. Same site, two methodologies, and
+                                        // nothing on screen shows they disagree. SLAN is deliberately kept:
+                                        // it passes that fold untouched and both halves honour it, so an NZ
+                                        // site on SLAN is consistent today.
+                                        //
+                                        // Not to be confused with Controller::effectiveMethodology(), which
+                                        // does force AA for NZ coordinates but is called only by
+                                        // SettingsController for this page's own display value. The
+                                        // $turfMethodology that reaches every OTHER page comes from
+                                        // AppServiceProvider and is the raw saved value, unforced — which is
+                                        // why saving 'mlsn' here really did reach the engine.
+                                        //
+                                        // A site already saved as 'mlsn' is shown as Ammonium Acetate: that
+                                        // is what its product selection already runs on, so displaying MLSN
+                                        // would keep the disagreement on screen. Display normalisation only —
+                                        // nothing is written unless the user saves the form.
+                                        $isNZ = ($isNewZealand ?? false);
+                                        $mlsnNormalised = false;
+                                        if ($isNZ) {
+                                            unset($methOptions['mlsn']);
+                                            if ($curMeth === 'mlsn') {
+                                                // Say so rather than swapping the shown value in
+                                                // silence: the saved config still reads 'mlsn'
+                                                // until this form is saved, and a user who set it
+                                                // deliberately deserves to know it is not what the
+                                                // site computes on.
+                                                $curMeth = 'ammonium_acetate';
+                                                $mlsnNormalised = true;
+                                            }
+                                        }
                                     @endphp
                                     <select id="stg-turf-methodology" name="methodology">
                                         <option value="">— select —</option>
@@ -410,7 +447,13 @@
                                         <option value="{{ $v }}" {{ $curMeth === $v ? 'selected' : '' }}>{{ $l }}</option>
                                         @endforeach
                                     </select>
+                                    @if($mlsnNormalised)
+                                    <p class="stg-field-hint" style="color:#b45309">This site is saved as MLSN, which New Zealand sites cannot use — Ammonium Acetate is shown and is what the site already calculates on. Save to make the stored setting match.</p>
+                                    @elseif($isNZ)
+                                    <p class="stg-field-hint">New Zealand sites use Ammonium Acetate (Hill Labs) or SLAN. MLSN is not offered here — it is calibrated for Mehlich-3 extraction, not the ammonium-acetate basis Hill Labs reports against.</p>
+                                    @else
                                     <p class="stg-field-hint">MLSN: validated for sand-based greens. SLAN: standard for sports fields, fairways, and lawns.</p>
+                                    @endif
                                 </div>
                                 <div class="stg-field">
                                     <label for="stg-turf-n">Annual nitrogen (kg/ha)</label>

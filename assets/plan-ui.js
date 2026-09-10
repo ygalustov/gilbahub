@@ -434,11 +434,18 @@
         var wear = computed && computed.wear;
         var turf = siteConfig && siteConfig.turf;
 
-        // Read from the traffic form's localStorage save (new hub data path)
+        // GH-394: the Settings > Traffic & Wear schedule is persisted in the
+        // site's gaip config (config.traffic.schedule) as of D31 stage 3 — the
+        // same record the nutrition traffic modifier derives from — so read it
+        // there first and keep the localStorage mirror only as a same-device
+        // fallback for schedules saved before this ticket. Without the config
+        // read, Recovery showed "No traffic data configured" on any browser
+        // that had not itself saved the form.
         var _trafficSaved = {};
         try {
             var _tsid = (global.GAIP_HUB_CONFIG && global.GAIP_HUB_CONFIG.activeSiteId) || 'default';
-            _trafficSaved = JSON.parse(localStorage.getItem('gilba_traffic_state_' + _tsid) || '{}');
+            _trafficSaved = (siteConfig && siteConfig.traffic && siteConfig.traffic.schedule) ||
+                JSON.parse(localStorage.getItem('gilba_traffic_state_' + _tsid) || '{}');
         } catch(_) {}
 
         var matchesPerWeek  = safeNum(_trafficSaved.matchesPerWeek  || (turf && (turf.matchesPerWeek  || turf.matches_per_week  || turf.matchesWeek)),  0);

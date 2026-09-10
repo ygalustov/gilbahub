@@ -394,7 +394,12 @@
                         // comparison — which only reflects whichever page last ran
                         // snapshotConfig()'s DOM-driven fields and is not a reliable
                         // proxy for these separately-written keys.
-                        ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor'].forEach(function(key) {
+                        // GH-394: `traffic` has the same shape of writer —
+                        // exactly one (the Settings > Traffic & Wear form),
+                        // which PUTs to the server directly from a page that
+                        // never loads this module, so the server copy is never
+                        // staler than local for that key either.
+                        ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor', 'traffic'].forEach(function(key) {
                             // != null (not truthy) — appliedMonthlyN/maxNPerMonth may legitimately be 0.
                             if (serverCfg[key] != null) {
                                 local[key] = serverCfg[key];
@@ -695,7 +700,15 @@
             }
             var _dropPrograms = _staleOnCoordChange || _staleOnInputChange;
 
-            ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor'].forEach(function (key) {
+            // GH-394 (D31 stage 3): `traffic` joins the list. Settings >
+            // Traffic & Wear writes `config.traffic = { schedule, savedAt }`
+            // and nothing on a hub page rebuilds it from any DOM field, so
+            // without this line the first site switch on /reports/export would
+            // PUT a snapshot without it and the saved schedule — and with it
+            // the nutrition traffic modifier it now drives — would be gone.
+            // It is not a programme, so a coordinate/species drift must not
+            // drop it: `isProgram` stays false for this key.
+            ['nutritionProgram', 'nutritionCalendarProgram', 'appliedMonthlyN', 'maxNPerMonth', 'nzDistributor', 'traffic'].forEach(function (key) {
                 var isProgram = (key === 'nutritionProgram' || key === 'nutritionCalendarProgram');
                 result[key] = (existing && !(isProgram && _dropPrograms)) ? existing[key] : undefined;
             });
@@ -1025,10 +1038,15 @@
         setDomVal('.gaip-traffic-level', turf.trafficLevel || '');
         setDomVal('.gaip-events-per-week', turf.eventsPerWeek || '');
 
-        // Clegg hammer — saved by Plan page traffic form, not in gaip config snapshot
+        // Clegg hammer — saved by the Settings > Traffic & Wear form.
+        // GH-394: that form now persists the whole schedule server-side as
+        // config.traffic.schedule, so prefer it and fall back to the
+        // same-device localStorage mirror; on a second browser the mirror is
+        // empty and the Clegg readings used to vanish with it.
         try {
             var _cleggSid = (global.GAIP_HUB_CONFIG || {}).activeSiteId || 'default';
-            var _tst = JSON.parse(localStorage.getItem('gilba_traffic_state_' + _cleggSid) || '{}');
+            var _tst = (config.traffic && config.traffic.schedule) ||
+                JSON.parse(localStorage.getItem('gilba_traffic_state_' + _cleggSid) || '{}');
             if (_tst.cleggMean) setDomVal('.gaip-clegg-hammer', _tst.cleggMean);
             if (_tst.cleggHard) setDomVal('.gaip-clegg-max',    _tst.cleggHard);
             if (_tst.cleggSoft) setDomVal('.gaip-clegg-min',    _tst.cleggSoft);

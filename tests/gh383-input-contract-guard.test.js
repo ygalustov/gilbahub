@@ -95,7 +95,12 @@ describe('GH-383 — the Combined export resolves per site, not from a facility 
 
     test('the annual N comes from the adapter keyed by r.siteId, not from the facility DOM snapshot', () => {
         expect(combined).toMatch(/resolveSiteProgramInputs\(\{\s*\n\s*siteId: r\.siteId,/);
-        expect(combined).toMatch(/perSampleInputs\.annualNOverride = _siteInputs\.annualN;/);
+        // GH-394: the PRE-traffic base plus the modifier, because
+        // computeProgram() applies the modifier itself. Handing it
+        // `_siteInputs.annualN` (already scaled) applied it twice.
+        expect(combined).toMatch(/perSampleInputs\.annualNOverride = _siteInputs\.annualNBase;/);
+        expect(combined).toMatch(/perSampleInputs\.trafficModifier = _siteInputs\.trafficModifier;/);
+        expect(combined).not.toMatch(/perSampleInputs\.annualNOverride = _siteInputs\.annualN;/);
         expect(combined).not.toMatch(/_persistedCal\.adjustments\.target_n/);
         // and it must never be allowed to read this page's hidden legacy input
         expect(combined).toMatch(/planForm: null/);

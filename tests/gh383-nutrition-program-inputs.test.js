@@ -177,21 +177,25 @@ describe('GH-383 — resolveSoilTexture(): ONE chain, GH-364\'s order', () => {
 
 // ───────────────────────────── traffic + annual N ─────────────────────────────
 
-describe('GH-383 — traffic: settled decisions, deliberately not wired (stage 3)', () => {
+describe('GH-383 — traffic: settled decisions (rule itself wired in GH-394, see that file)', () => {
     test('the table is the calendar\'s (decision D-2)', () => {
         expect(Inputs.TRAFFIC_MODIFIERS).toEqual({ low: 0.85, moderate: 1.0, high: 1.15, extreme: 1.3 });
     });
 
     test('non-sports turf is gated out before any schedule is even looked at (decision D-3)', () => {
         expect(Inputs.deriveTrafficIntensity({ matchesPerWeek: 5 }, 'golf'))
-            .toEqual({ level: 'moderate', modifier: 1.0, source: 'not-sports' });
+            .toMatchObject({ level: 'moderate', modifier: 1.0, source: 'not-sports' });
         expect(Inputs.deriveTrafficIntensity({ matchesPerWeek: 5 }, 'lawns').source).toBe('not-sports');
     });
 
-    test('sports turf resolves neutral with source "not-wired" until stage 3 lands — never a fabricated level', () => {
+    // GH-394 replaced this file's "not-wired" premise: a sports site with a
+    // saved schedule now derives a real level. What survives unchanged, and is
+    // asserted here because it is the property GH-383 cared about, is that a
+    // site with NO saved schedule is still neutral — no existing site moved
+    // when stage 3 landed.
+    test('sports turf with no saved schedule stays neutral — never a fabricated level', () => {
         expect(Inputs.deriveTrafficIntensity(null, 'sports'))
-            .toEqual({ level: 'moderate', modifier: 1.0, source: 'not-wired' });
-        expect(Inputs.deriveTrafficIntensity({ matchesPerWeek: 5 }, 'sports').modifier).toBe(1.0);
+            .toMatchObject({ level: 'moderate', modifier: 1.0, source: 'no-schedule' });
     });
 });
 
