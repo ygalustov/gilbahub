@@ -348,7 +348,9 @@
      * methodologies (the ranges differ, the arithmetic does not, once D-6/D-8
      * are applied):
      *
-     *   currentLevel >= ceiling  -> 0                      'suppress-above-ceiling'
+     *   currentLevel >= ceiling  -> max(0, removal - (current - floor) * unit)
+     *                              'maintain-floor', or 'suppress-above-ceiling'
+     *                              when that lands on 0 (GH-415, decision B1)
      *   currentLevel <  floor    -> removal + lift-to-floor 'lift-to-floor'
      *   otherwise                -> removal                'removal-only'
      *
@@ -378,6 +380,18 @@
             (methodology === 'SLAN' ? 'SLAN-Carrow-2004-range' : methodology);
         const citation = (range && range.citation) || null;
 
+        // GH-425: the two constants the branches below divide and multiply by,
+        // hoisted so they can be REPORTED as well as used. They were computed
+        // after the missing-soil-data return and existed only as locals, so the
+        // Plan page's "how this was calculated" block had no way to print the
+        // ppm->kg/ha unit or the correction period that produced a lift without
+        // re-deriving them from its own copy of the rule. Same values, same
+        // place in the arithmetic; only their visibility changed.
+        const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
+        const ppmToKgHaFactor =
+            (config.bulkDensity || DEFAULT_BULK_DENSITY_G_CM3) *
+            (config.soilDepth || DEFAULT_SOIL_DEPTH_CM) * 0.1;
+
         const base = {
             nutrient: nutrient,
             currentLevel: currentLevel,
@@ -396,7 +410,26 @@
             rangeResolved: !!range,
             methodology: methodLabel,
             citation: citation,
-            tissueInformed: removalInfo.tissueInformed
+            tissueInformed: removalInfo.tissueInformed,
+            // GH-425 — the working behind `removal` and behind whichever branch
+            // runs below, published rather than left as locals. Every field here
+            // is a value this function already used; nothing is computed for the
+            // sake of reporting it.
+            annualNUsed: config.annualN,
+            speciesKeyUsed: normalizeSpecies(config.species),
+            removalRatio: removalInfo.ratio,
+            removalRatioSource: removalInfo.tissueInformed ? 'tissue' : 'species-table',
+            ppmToKgHaFactor: ppmToKgHaFactor,
+            yearsToCorrect: yearsToCorrect,
+            bulkDensityUsed: config.bulkDensity || DEFAULT_BULK_DENSITY_G_CM3,
+            soilDepthUsed: config.soilDepth || DEFAULT_SOIL_DEPTH_CM,
+            // Set by the branch that runs; null on the branches it does not
+            // apply to, so a reader can tell "not this branch" from "zero".
+            liftPpmGap: null,
+            liftKgHaBeforeSpread: null,
+            headroomPpm: null,
+            headroomKgHa: null,
+            maintainRaw: null
         };
 
         // Decision D-9: no soil reading — removal-only, flagged, never omitted
@@ -414,18 +447,58 @@
             });
         }
 
-        const yearsToCorrect = YEARS_TO_CORRECT[nutrient] || 2;
-        const ppmToKgHaFactor =
-            (config.bulkDensity || DEFAULT_BULK_DENSITY_G_CM3) *
-            (config.soilDepth || DEFAULT_SOIL_DEPTH_CM) * 0.1;
-
         // Decision D-8: `>=`, on every methodology.
         if (ceiling !== null && currentLevel >= ceiling) {
+            // GH-415 (decision B1, confirmed by the owner). Above the ceiling
+            // the answer used to be a flat 0, and on a narrow range that
+            // contradicted the Balance the same row printed: measured over 50
+            // generations, thirteen rows read "Required 0.0 / Delivered 0.0 /
+            // Deficit (-56%)" — the requirement model saying apply nothing and
+            // the balance model saying the season will end below the floor.
+            //
+            // It is arithmetic, not a display fault, and it appears exactly when
+            // the range is narrower in kg/ha than the season's removal:
+            // `(ceiling - floor) * unit < removal`. Twelve of Burns' twenty-six
+            // K rows sit in that window (MLSN K band 25.9 kg/ha against a
+            // removal of 64), as does Test5's phosphorus on the AA certificate.
+            //
+            // Woods' own formula closes it: apply what removal will take out of
+            // the soil beyond the part the soil can spare down to its floor,
+            //
+            //     Required = max(0, removal - (current - floor) * unit)
+            //
+            // so Required is 0 exactly when `current - removal >= floor`, which
+            // is exactly when Balance lands on or above the floor (Balance =
+            // Current + Delivered - Removal, Delivered >= 0). The two models
+            // now share floor, removal and the ppm->kg/ha unit, so they can no
+            // longer disagree about the same row.
+            //
+            // Applied identically to MLSN, SLAN and AA — only the source of the
+            // range differs between them. Woods INSIDE the range (variant B2)
+            // was measured and deliberately not taken: on SLAN and AA the floor
+            // is the bottom of a sufficiency band, not a level the soil is drawn
+            // down to, and it would move 34 rows on all three methodologies.
+            //
+            // `intent` stays 'suppress-above-ceiling' when the figure really is
+            // zero, because several renderers read that intent to mean "the
+            // printed requirement is 0" (word-export.js's tissue-explanation
+            // gate, the K reconciliation table's no-need state). The new
+            // 'maintain-floor' names the case they have never seen: above the
+            // ceiling and still asking for fertiliser.
+            const maintain = (floor !== null)
+                ? Math.max(0, removal - (currentLevel - floor) * ppmToKgHaFactor)
+                : 0;
+            const maintainRounded = round1(maintain);
             return Object.assign(base, {
                 correctionRequired: 0,
                 correctionRaw: 0,
-                annualRequirement: 0,
-                intent: 'suppress-above-ceiling',
+                // GH-425: the term inside the max() — how much of the season's
+                // removal the soil can spare down to its own floor.
+                headroomPpm: (floor !== null) ? (currentLevel - floor) : null,
+                headroomKgHa: (floor !== null) ? (currentLevel - floor) * ppmToKgHaFactor : null,
+                maintainRaw: maintain,
+                annualRequirement: maintainRounded,
+                intent: maintainRounded > 0 ? 'maintain-floor' : 'suppress-above-ceiling',
                 status: statusFor(methodology, currentLevel, floor, ceiling),
                 missingSoilData: false
             });
@@ -435,6 +508,9 @@
         if (floor !== null && currentLevel < floor) {
             const correction = (floor - currentLevel) * ppmToKgHaFactor / yearsToCorrect;
             return Object.assign(base, {
+                // GH-425: the ppm shortfall the lift is converted from.
+                liftPpmGap: floor - currentLevel,
+                liftKgHaBeforeSpread: (floor - currentLevel) * ppmToKgHaFactor,
                 correctionRequired: correction,
                 correctionRaw: correction,
                 annualRequirement: round1(Math.max(0, removal + correction)),

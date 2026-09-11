@@ -1,0 +1,65 @@
+{
+  "_source": "docker exec gilba_mysql mysql -- samples.id=127 (client_uid Soil_5_6tf3), site 01a00d5b-c67a-7281-8f0f-2d8de6676a0f 'New test - location', site_configs namespace=gaip; pulled 2026-09-11",
+  "_verifiedVia": [
+    "db",
+    "live-combined-export-docx"
+  ],
+  "_note": "The pH-outside-6.0-7.5 case GH-413 is about. The document has printed Required P 32.4 for this sample all along (the SLAN Spencer ladder puts the P floor at 51 ppm above pH 8.0); the Plan page printed 15.6, because nutrition-calendar.js's sample picker copied only the nutrient ppm into GAIP_STATE and never the pH, so collectFromState() resolved pH null and the ladder never ran there. Expected values below are the DOCUMENT's, i.e. the ones already confirmed correct, not the Plan's.",
+  "site": {
+    "id": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+    "name": "New test - location"
+  },
+  "sample": {
+    "id": 127,
+    "clientUid": "Soil_5_6tf3",
+    "label": "Green 5",
+    "sampleType": "soil",
+    "sampleDate": "2018-12-31"
+  },
+  "inputs": {
+    "methodology": "slan",
+    "species": "Creeping Bentgrass (Greens)",
+    "speciesKey": "bentgrass",
+    "annualN": 120,
+    "clippingManagement": "collected",
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "soilPpm": {
+      "P": 21.9,
+      "K": 64.9,
+      "Ca": 772,
+      "Mg": 105,
+      "S": 14
+    },
+    "pH": 8.26,
+    "CEC": 5.1
+  },
+  "expected": {
+    "_note": "SLAN P floor from the Spencer scaled ladder at pH > 8.0 is 51 ppm (27 at pH 6.0-7.5, the figure the Plan was using); the Carrow 2004 ceiling of 54 is NOT pH-adjusted, which is why the printed Range is only 3 ppm wide here. That narrowness is a property of two sources, not a fault (decision D-1) — recorded so it is not 'fixed' by accident.",
+    "ranges": {
+      "P": { "min": 51, "max": 54 },
+      "K": { "min": 75, "max": 176 }
+    },
+    "removal": {
+      "P": 12.0,
+      "K": 64.0
+    },
+    "annualRequirement": {
+      "P": 32.4,
+      "K": 71.1
+    },
+    "intent": {
+      "P": "lift-to-floor",
+      "K": "lift-to-floor"
+    },
+    "rangeKgHa": {
+      "P": "71.4–75.6",
+      "K": "105–246.4"
+    },
+    "planBeforeGh413": {
+      "_note": "What the Plan page printed for the same sample while pH was null — the pH-independent SLAN floor of 27 ppm.",
+      "pFloor": 27,
+      "annualRequirementP": 15.6
+    }
+  }
+}

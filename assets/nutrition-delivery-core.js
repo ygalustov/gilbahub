@@ -329,6 +329,13 @@
                         rateUnit: entry.rateUnit || (isLiquid ? 'L/ha' : 'kg/ha'),
                         nutrients: nutrients,
                         source: source,
+                        // GH-425: the percentages the `analysis` branch above
+                        // multiplied `mass` by, carried on the ledger line that
+                        // used them. Without it a consumer showing how a
+                        // contribution was reached has to go back to the product
+                        // map for the figure — a second lookup that can miss,
+                        // and the one number the line cannot be read without.
+                        analysisPct: analysis,
                         isBalancing: isBalancing,
                         isAmendment: isAmendment
                     });

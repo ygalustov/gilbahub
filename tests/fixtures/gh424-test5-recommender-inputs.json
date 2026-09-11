@@ -1,0 +1,419 @@
+{
+ "_source": "Captured live from tests/e2e/gh423-nz-divergence-live.test.js on 2026-09-11 — the exact objects PrebbleRecommender.generateProgram() was handed on the Plan page for Test5 - NZ / Soccer (sample 141), i.e. the b35fix426 PRE snapshot extended by GH-423 to carry the whole monthly row and the product pool.",
+ "_verifiedVia": [
+  "live-ui",
+  "live-export",
+  "db"
+ ],
+ "site": {
+  "id": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+  "name": "Test5 - NZ",
+  "lat": -36.8508827,
+  "lon": 174.7644881
+ },
+ "sample": {
+  "id": 141,
+  "label": "Soccer",
+  "cec": 5.9
+ },
+ "inputs": {
+  "context": {
+   "surfaceType": "soccer",
+   "methodology": "ammonium_acetate",
+   "soilCEC": 5.9,
+   "irrigationFrequency": "moderate",
+   "soilTemp": 13,
+   "latitude": -36.8508827,
+   "hemisphere": "southern",
+   "soilPpm": {
+    "P": "40",
+    "K": "40",
+    "Ca": "803",
+    "Mg": "129",
+    "S": "75"
+   },
+   "pDeficient": false,
+   "tissueStatus": {
+    "available": false,
+    "nutrients": {}
+   },
+   "establishment": false,
+   "seeding": false,
+   "renovation": false
+  },
+  "calendarMeta": {
+   "hemisphere": "south",
+   "latitude": -36.8508827,
+   "methodology": "ammonium_acetate",
+   "CEC": 5.9
+  },
+  "monthly": [
+   {
+    "month_num": 0,
+    "month_name": "Jan",
+    "season": "Summer",
+    "gp": 1,
+    "temp": 19.8,
+    "N": 30.3,
+    "P": 0.7,
+    "K": 16.5,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 1,
+    "month_name": "Feb",
+    "season": "Summer",
+    "gp": 1,
+    "temp": 20.4,
+    "N": 30.3,
+    "P": 0.7,
+    "K": 16.5,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 2,
+    "month_name": "Mar",
+    "season": "Autumn",
+    "gp": 0.99,
+    "temp": 19.1,
+    "N": 29.9,
+    "P": 0.7,
+    "K": 16.3,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 3,
+    "month_name": "Apr",
+    "season": "Autumn",
+    "gp": 0.86,
+    "temp": 17,
+    "N": 26.2,
+    "P": 0.6,
+    "K": 14.2,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 4,
+    "month_name": "May",
+    "season": "Autumn",
+    "gp": 0.63,
+    "temp": 14.7,
+    "N": 19.2,
+    "P": 0.5,
+    "K": 10.5,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 5,
+    "month_name": "Jun",
+    "season": "Winter",
+    "gp": 0.41,
+    "temp": 12.6,
+    "N": 12.4,
+    "P": 0.3,
+    "K": 6.7,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 6,
+    "month_name": "Jul",
+    "season": "Winter",
+    "gp": 0.29,
+    "temp": 11.4,
+    "N": 8.9,
+    "P": 0.2,
+    "K": 4.9,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 7,
+    "month_name": "Aug",
+    "season": "Winter",
+    "gp": 0.33,
+    "temp": 11.8,
+    "N": 9.9,
+    "P": 0.2,
+    "K": 5.4,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 8,
+    "month_name": "Sep",
+    "season": "Spring",
+    "gp": 0.44,
+    "temp": 12.9,
+    "N": 13.3,
+    "P": 0.3,
+    "K": 7.2,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 9,
+    "month_name": "Oct",
+    "season": "Spring",
+    "gp": 0.58,
+    "temp": 14.2,
+    "N": 17.5,
+    "P": 0.4,
+    "K": 9.5,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 10,
+    "month_name": "Nov",
+    "season": "Spring",
+    "gp": 0.77,
+    "temp": 16,
+    "N": 23.3,
+    "P": 0.6,
+    "K": 12.7,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   {
+    "month_num": 11,
+    "month_name": "Dec",
+    "season": "Summer",
+    "gp": 0.95,
+    "temp": 18.2,
+    "N": 28.8,
+    "P": 0.7,
+    "K": 15.7,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   }
+  ],
+  "poolGranularIds": [
+   "CCMDGIV00",
+   "CCLEB16",
+   "CCMDG18",
+   "CCMDGS16",
+   "CCMETH24",
+   "LEBP40",
+   "MESA",
+   "MESA19",
+   "EXPO20",
+   "PROSHI",
+   "STARPR",
+   "WOODACRE",
+   "WOOD14",
+   "WOODLT",
+   "PROFEXT",
+   "CCMDGIV",
+   "EZYRENO",
+   "MAPGRAN",
+   "KIESERITE",
+   "SIERRA24FE",
+   "SIERRAGT22M",
+   "SIERRAGT15A",
+   "CCMDG12",
+   "CCMDG22",
+   "DAP1820",
+   "SPFERTNO3",
+   "EZYLIME",
+   "EZYDOLO",
+   "EZYGYPF",
+   "EZYGYPG",
+   "BIOSEAWFL"
+  ],
+  "poolLiquidIds": [
+   "XXTRA",
+   "AMMOS",
+   "LIQPOT",
+   "PROBAL",
+   "TKOPH",
+   "STARTP",
+   "EZYFOLE",
+   "IRONM10",
+   "MICR10",
+   "MANGCH10",
+   "BIOSEAW",
+   "MAPTECH",
+   "WSF-HIGHN",
+   "WSF-HIGHK",
+   "WSF-SS",
+   "WSF-IRON",
+   "WSF-SEAMAX",
+   "SOL-UREA",
+   "SOL-SOP",
+   "SOL-AS",
+   "SOL-FESO4",
+   "SOL-MGSO4",
+   "SOL-MNSO4",
+   "VITALPK"
+  ]
+ },
+ "observed": {
+  "planSoilTempSources": {
+   "analysisCache": {
+    "max": 17.7,
+    "min": 8.1,
+    "mean": 13,
+    "current": 12.3
+   },
+   "resolved": 13
+  },
+  "exportSoilTempSources": {
+   "climateMetrics": {
+    "mean": 12.8,
+    "max": 16.5,
+    "min": 9.8,
+    "current": 13.6
+   },
+   "analysisCache": {
+    "max": 17.7,
+    "min": 8.1,
+    "mean": 13,
+    "current": 12.3
+   },
+   "resolved": 12.8
+  },
+  "planDelivered": {
+   "N": 247.6,
+   "P": 14.9,
+   "K": 180.7
+  },
+  "documentDelivered": {
+   "N": 249.7,
+   "P": 14.9,
+   "K": 163.5
+  },
+  "forecastDayMeans": {
+   "_source": "Open-Meteo hourly forecast for the site coordinates, fetched 2026-09-11 by tests/e2e/gh424-soil-temp-basis-live.test.js; each entry is one day's 24-hour mean, the same quantity hub-orchestrator.js averages over the whole window to produce climateMetrics.temperature.mean.",
+   "aucklandTest5": [
+    12.3,
+    13.2,
+    13.4,
+    13.7,
+    13.1,
+    12.8,
+    12.7
+   ],
+   "aucklandWindowMean": 13,
+   "christchurchRussleyAndGcNz": [
+    7.9,
+    8,
+    10,
+    10.5,
+    11.2,
+    11.7,
+    8
+   ],
+   "christchurchWindowMean": 9.6
+  },
+  "normalsProvenance": {
+   "source": "nasa-power",
+   "period": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)"
+  },
+  "beforeGH427": {
+   "_what": "The behaviour GH-427 replaced, recorded here because the function that produced it (PrebbleRecommender.estimateMonthlySoilTemp) is deleted by that ticket. Curve = one live forecast-window mean used as the annual mean plus a hardcoded seasonal shape scaled by latitude, indexed with a 0-based month against a 1-based pattern.",
+   "curveAtAnchor12_8": [
+    12.8,
+    19.8,
+    19.1,
+    16.3,
+    12.8,
+    10,
+    7.9,
+    7.2,
+    8.6,
+    11.4,
+    14.9,
+    17.7
+   ],
+   "curveAtAnchor13": [
+    13,
+    20,
+    19.3,
+    16.5,
+    13,
+    10.2,
+    8.1,
+    7.4,
+    8.8,
+    11.6,
+    15.1,
+    17.9
+   ],
+   "curveIfGeneratedInJanuary": [
+    19.8,
+    26.8,
+    26.1,
+    23.3,
+    19.8,
+    17,
+    14.9,
+    14.2,
+    15.6,
+    18.4,
+    21.9,
+    24.7
+   ],
+   "curveIfGeneratedInJuly": [
+    11.4,
+    18.4,
+    17.7,
+    14.9,
+    11.4,
+    8.6,
+    6.5,
+    5.8,
+    7.2,
+    10,
+    13.5,
+    16.3
+   ],
+   "productSetBandBoundariesDegC": [
+    8.65,
+    10.05,
+    12.85
+   ],
+   "deliveredByBand": {
+    "below 8.65": {
+     "N": 246.6,
+     "P": 14.9,
+     "K": 139.5
+    },
+    "8.7-10.0": {
+     "N": 249.8,
+     "P": 14.9,
+     "K": 151.5
+    },
+    "10.1-12.8": {
+     "N": 249.7,
+     "P": 14.9,
+     "K": 163.5
+    },
+    "12.9-20.0": {
+     "N": 247.6,
+     "P": 14.9,
+     "K": 180.7
+    }
+   },
+   "distinctProgrammesOverOneWeekOfForecast": 2,
+   "distinctProgrammesByMonthOfGeneration": 2
+  }
+ }
+}

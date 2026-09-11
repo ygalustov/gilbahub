@@ -275,11 +275,30 @@
     }
 
     // ==========================================================================
-    // Soil texture — ONE chain, GH-364's order: this sample's own recorded
-    // snapshot, then the sample/soil object, then the site's configured
-    // texture, then the construction bucket as a last resort. Before GH-383
-    // the Plan page read only the middle two and the export read all four in
-    // a different order, which is the GH-352..364 seam.
+    // Soil texture — ONE chain. GH-364's order put this sample's own recorded
+    // snapshot first; GH-414 (decision D-2) puts the SITE'S OVERRIDE above it.
+    //
+    // Why the order changed. `samples.soil_texture_snapshot` is stamped
+    // automatically at import (SampleController.php:389 copies the site's
+    // override, or the account's texture, onto every row as it is created) —
+    // it is a record of what the site was configured as on the day the file
+    // landed, not an observation of that sample. `sites.soil_texture_override`
+    // is what somebody chose by hand in Settings, and it is the value the Plan
+    // page has always shown. With the snapshot on top, one green could be
+    // computed against two textures on the two surfaces: Russley's soil rows
+    // all carry `loam` (their import-day stamp) while the site override says
+    // `sand`, so the Plan resolved the AA sand certificate (P 7-21) and the
+    // document the generic "others" band (P 16.8-39.2) — different ranges,
+    // different requirements and different products for one sample.
+    //
+    // The override is read from GAIP_HUB_CONFIG, which PHP renders ONCE for
+    // the page's own active site, so it is only applied when the site being
+    // resolved IS that site (`opts.siteTextureOverride`, resolved by
+    // resolveSiteProgramInputs against GAIP_HUB_CONFIG.activeSiteId — the id
+    // rendered in the same block as the texture). For any other site in a
+    // multi-site Combined export the chain is exactly what it was, snapshot
+    // first: borrowing the page's texture for another site would be the same
+    // cross-site leak this adapter exists to prevent.
     // ==========================================================================
     function resolveSoilTexture(opts) {
         opts = opts || {};
@@ -299,6 +318,8 @@
         const constructionTexture = (turf.construction === 'sand_profile' || turf.construction === 'sand profile')
             ? 'sand' : null;
 
+        // GH-414 (D-2): hand-set site override first.
+        if (opts.siteTextureOverride) return { value: opts.siteTextureOverride, source: 'site-override' };
         if (sampleTexture) return { value: sampleTexture, source: 'sample-snapshot' };
         const fromSoil = soil.soilTexture || soil.texture || null;
         if (fromSoil) return { value: fromSoil, source: 'sample-soil' };
@@ -308,8 +329,82 @@
         return { value: null, source: 'unresolved' };
     }
 
+    /**
+     * The site texture override this page carries, and only for the site the
+     * page was rendered for. GH-414 (D-2).
+     */
+    function siteTextureOverrideFor(siteId) {
+        const hub = _win().GAIP_HUB_CONFIG || {};
+        if (!hub.soilTexture) return null;
+        // No id rendered (older layout, or a test harness) — the page config
+        // can only describe one site, so treat it as the active one.
+        if (!hub.activeSiteId) return hub.soilTexture;
+        if (!siteId || String(siteId) === String(hub.activeSiteId)) return hub.soilTexture;
+        return null;
+    }
+
     function aaTextureKey(soilTexture) {
         return String(soilTexture || '').toLowerCase().indexOf('sand') !== -1 ? 'sands' : 'others';
+    }
+
+    // ==========================================================================
+    // Zone matching — GH-414.
+    //
+    // The owner's rule: a tissue result belongs to the green its soil sample
+    // came from, and to no other green. The Word export has applied that rule
+    // since b35fix_greentissue, through zone-key.js and a local buildZoneMap();
+    // the Plan page applied no rule at all — it took the site's single latest
+    // tissue analysis (plan.blade.php's GH-366 bridge, from PageController's
+    // `$tissuePercent`) and handed it to every soil sample on the site. Live on
+    // Russley that meant all three greens' programmes were built from Green 18's
+    // tissue, and on Burns all twenty-six from Green 15's.
+    //
+    // Same key derivation on both surfaces (GaipZoneKey.derive: lower-cased,
+    // dates/months/seasons stripped), same "latest wins" tie-break, one
+    // implementation. There is deliberately NO "the site has only one tissue
+    // sample, use it" fallback: that is precisely what would pair Green 1 with
+    // 18th Green, which the rule forbids.
+    // ==========================================================================
+
+    function zoneKeyFor(sampleLike) {
+        const w = _win();
+        const ZK = w.GaipZoneKey ||
+            (typeof global !== 'undefined' && global.GaipZoneKey) || null;
+        if (ZK && typeof ZK.derive === 'function') return ZK.derive(sampleLike);
+        console.warn('[NutritionInputs] GH-414: zone-key.js is not loaded — zone matching ' +
+            'cannot run, so no tissue sample will be paired with a soil sample on this page.');
+        return null;
+    }
+
+    /**
+     * buildZoneMap([{ id, label, date }]) -> { zoneKey: entry }, latest date wins.
+     * The shape word-export-combined.js's own buildZoneMap() produced, extracted
+     * so the Plan page runs the same selection rather than a second copy of it.
+     */
+    function buildZoneMap(samples) {
+        const map = {};
+        (samples || []).forEach(function (s) {
+            if (!s) return;
+            const key = zoneKeyFor(s);
+            if (!key) return;
+            const date = s.date || '';
+            if (!map[key] || date > map[key].date) {
+                map[key] = { id: s.id, label: s.label, date: date, sample: s.sample !== undefined ? s.sample : s };
+            }
+        });
+        return map;
+    }
+
+    /**
+     * The one sample in `samples` that belongs to the same zone as `zoneLabel`
+     * (latest, when a zone has several), or null when the zone has none.
+     */
+    function matchSampleToZone(samples, zoneLabel) {
+        if (!zoneLabel) return null;
+        const wanted = zoneKeyFor(zoneLabel);
+        if (!wanted) return null;
+        const map = buildZoneMap(samples);
+        return map[wanted] || null;
     }
 
     // ==========================================================================
@@ -611,6 +706,7 @@
         // ── texture / CEC / pH ──
         const tex = resolveSoilTexture({
             sampleTextureSnapshot: sample.soilTexture || null,
+            siteTextureOverride: siteTextureOverrideFor(siteId),
             soil: opts.soil || null,
             turf: turf
         });
@@ -761,6 +857,10 @@
         resolveSpeciesKey: resolveSpeciesKey,
         resolveSpeciesDisplay: resolveSpeciesDisplay,
         resolveSoilTexture: resolveSoilTexture,
+        siteTextureOverrideFor: siteTextureOverrideFor,
+        zoneKeyFor: zoneKeyFor,
+        buildZoneMap: buildZoneMap,
+        matchSampleToZone: matchSampleToZone,
         resolveSurfaceType: resolveSurfaceType,
         mapSurfaceKey: mapSurfaceKey,
         aaTextureKey: aaTextureKey,

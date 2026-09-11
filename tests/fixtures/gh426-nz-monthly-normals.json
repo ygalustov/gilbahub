@@ -1,0 +1,106 @@
+{
+ "_source": "NASA POWER Climatology API (temporal/climatology/point, community AG), fetched 2026-09-11 — the same endpoint and the same 20-year 2001-2020 product climate-normals-service.js already uses for T2M; T2M_MAX and T2M_MIN added to the same single request to obtain a monthly diurnal amplitude.",
+ "_verifiedVia": [
+  "live-api"
+ ],
+ "locations": {
+  "auckland": {
+   "name": "Test5 - NZ",
+   "lat": -36.8508827,
+   "lon": 174.7644881,
+   "soilTextureOverride": "sand",
+   "period": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+   "T2M": [
+    19.79,
+    20.38,
+    19.08,
+    17.01,
+    14.74,
+    12.63,
+    11.4,
+    11.76,
+    12.92,
+    14.24,
+    16.01,
+    18.24
+   ],
+   "T2M_MAX": [
+    28,
+    28.15,
+    26.79,
+    24.58,
+    21.57,
+    19.4,
+    17.73,
+    18.28,
+    19.51,
+    21.77,
+    24.78,
+    26.28
+   ],
+   "T2M_MIN": [
+    11.12,
+    11.58,
+    10.11,
+    8.19,
+    5.25,
+    4.09,
+    3.65,
+    3.21,
+    4.35,
+    6.1,
+    7.81,
+    8.3
+   ]
+  },
+  "christchurch": {
+   "name": "Russley / Test - GC - NZ (shared coordinates)",
+   "lat": -43.495388,
+   "lon": 172.5560607,
+   "soilTextureOverride": "sand",
+   "period": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+   "T2M": [
+    17.51,
+    17.14,
+    15.11,
+    11.93,
+    9.16,
+    6.58,
+    5.86,
+    7.07,
+    8.91,
+    10.78,
+    13.25,
+    15.82
+   ],
+   "T2M_MAX": [
+    35.25,
+    37.27,
+    32.61,
+    26.53,
+    24.38,
+    19.18,
+    18.72,
+    21.48,
+    22.45,
+    25.43,
+    30.19,
+    33.56
+   ],
+   "T2M_MIN": [
+    5.58,
+    5.42,
+    4.44,
+    1.39,
+    -1.32,
+    -5.44,
+    -2.82,
+    -2.01,
+    -2.15,
+    -1.46,
+    0.54,
+    2.66
+   ]
+  }
+ }
+}

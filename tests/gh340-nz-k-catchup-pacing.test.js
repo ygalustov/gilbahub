@@ -33,7 +33,15 @@ describe('GH-340 — prebbles-products.js: K catch-up bonus paced against elapse
     test('generateProgram() computes a pro-rata kRequiredToDate per month and passes it as annualKRequiredToDate', () => {
         const idx = src.indexOf('monthlyData.forEach((monthData, index) => {');
         expect(idx).toBeGreaterThan(-1);
-        const block = src.slice(idx, idx + 2000);
+        // GH-427: was `src.slice(idx, idx + 2000)`. A fixed character window
+        // makes this pin a hostage to comment length in the code it inspects —
+        // it went red when a comment was added above the line it looks for,
+        // with the computation itself untouched. Bound it on the end of the
+        // monthContext object instead, which is what "inside the per-month
+        // loop" actually means.
+        const end = src.indexOf('activeNutrients:', idx);
+        expect(end).toBeGreaterThan(idx);
+        const block = src.slice(idx, end);
         expect(block).toMatch(/const kRequiredToDate = monthlyData\s*\n\s*\.slice\(0, index \+ 1\)\s*\n\s*\.reduce\(\(sum, m\) => sum \+ \(m\.K \|\| 0\), 0\);/);
         expect(block).toMatch(/annualKRequiredToDate: kRequiredToDate,/);
     });

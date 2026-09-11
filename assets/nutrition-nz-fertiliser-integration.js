@@ -269,7 +269,11 @@
             var context = {
                 surfaceType:         this.getSurfaceType(),
                 methodology:         methodology,
-                soilCEC:             typeof pi.getSoilCEC === 'function'             ? pi.getSoilCEC()             : null,
+                // GH-422: the CEC THIS programme was computed against
+                // (computeProgram() -> soil.CEC), handed in rather than
+                // re-read from the page. On this page the old page-read
+                // resolved a hardcoded 8 for every New Zealand site.
+                soilCEC:             typeof pi.getSoilCEC === 'function'             ? pi.getSoilCEC(calendarData) : null,
                 irrigationFrequency: typeof pi.getIrrigationFrequency === 'function' ? pi.getIrrigationFrequency() : null,
                 soilTemp:            typeof pi.getSoilTemperature === 'function'     ? pi.getSoilTemperature()     : null,
                 latitude:            typeof pi.getLatitude === 'function'            ? pi.getLatitude()            : null,
@@ -305,6 +309,19 @@
             // against the report's PRE block for the same site/sample to find which
             // input still differs between the on-screen calc and the report recompute.
             var _b426Monthly = (calendarData.program && calendarData.program.monthly) || [];
+            // GH-423: `monthlyNKP` is a REDUCED view — month, gp, N, K, P — and
+            // for a year it was the only thing this pair compared besides the
+            // context. generateProgram() reads more than that off each row
+            // (`temp`, `month_num`, `season`) and more than that off the
+            // calendar (`meta.hemisphere`, `meta.latitude`, `soil.methodology`),
+            // and it reads the product pool, which the two surfaces build
+            // separately. A difference in any of those was invisible: two
+            // surfaces could be handed different inputs and this snapshot pair
+            // would report "no differences". `monthlyFull`, `calendarMeta` and
+            // `pool` below are everything generateProgram() actually consults,
+            // so the comparison is now of the inputs rather than of a summary
+            // of them. `monthlyNKP` is kept so the existing readers of this log
+            // still work.
             console.log('[NutritionNzFertiliserIntegration b35fix426] PRE-recommender input snapshot:\n' + JSON.stringify({
                 path: 'live-ui',
                 siteId: (window.GilbaNutritionCalendar && window.GilbaNutritionCalendar.getActiveSiteId
@@ -313,6 +330,17 @@
                 monthlyNKP: _b426Monthly.map(function(m) {
                     return { month: m.month_name || m.month, gp: +(m.gp || 0).toFixed(2), N: +(m.N || 0).toFixed(1), K: +(m.K || 0).toFixed(1), P: +(m.P || 0).toFixed(1) };
                 }),
+                monthlyFull: _b426Monthly,
+                calendarMeta: {
+                    hemisphere: calendarData.meta && calendarData.meta.hemisphere,
+                    latitude: calendarData.meta && calendarData.meta.lat,
+                    methodology: calendarData.soil && calendarData.soil.methodology,
+                    CEC: calendarData.soil && calendarData.soil.CEC,
+                },
+                pool: {
+                    granular: (window.PrebbleProducts.granular || []).map(function(p) { return p.id; }),
+                    liquid: (window.PrebbleProducts.liquid || []).map(function(p) { return p.id; }),
+                },
             }, null, 2));
 
             var program;
@@ -348,6 +376,11 @@
                 // Required for these is removal-only, not a confirmed
                 // reading, so the table should say so explicitly.
                 program.missing_soil_data = calendarData.missing_soil_data || {};
+                // GH-422: the CEC this programme's product selection was
+                // scored against, carried so the panel and the Word document
+                // can print it — and, when it is null, name it as missing
+                // instead of showing a figure that looks measured.
+                program.soilCEC = context.soilCEC;
             }
 
             if (!program || program.error) {

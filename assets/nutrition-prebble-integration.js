@@ -325,7 +325,9 @@
             const context = {
                 surfaceType: this.getSurfaceType(),
                 methodology: methodology,
-                soilCEC: this.getSoilCEC(),
+                // GH-422: read off the programme the calendar just produced,
+                // not re-read from the page — see getSoilCEC().
+                soilCEC: this.getSoilCEC(calendarData),
                 irrigationFrequency: this.getIrrigationFrequency(),
                 soilTemp: this.getSoilTemperature(),
                 latitude: this.getLatitude(),
@@ -370,6 +372,11 @@
                 // Required for these is removal-only, not a confirmed
                 // reading, so the table should say so explicitly.
                 program.missing_soil_data = calendarData.missing_soil_data || {};
+                // GH-422: the CEC this programme's product selection was
+                // scored against, carried so the panel and the Word document
+                // can print it — and, when it is null, name it as missing
+                // instead of showing a figure that looks measured.
+                program.soilCEC = context.soilCEC;
 
                 this.lastProgram = program;
                 
@@ -577,34 +584,89 @@
         },
         
         /**
-         * Get soil CEC from Hub state
-         * Low CEC (<5) = high leaching risk, favour slow release
+         * Get soil CEC (meq/100g) for the programme being recommended.
+         * Low CEC (<5) = high leaching risk, favour slow release.
+         *
+         * Returns a number, or `null` when this sample carries no CEC reading.
+         * `null` is an answer — callers must present it as "no reading", never
+         * convert it to a number.
+         *
+         * GH-422. This getter used to take no argument and resolve CEC by
+         * re-reading the page: `GAIP_STATE.soil.cec` (a slot nothing on
+         * plan.blade.php writes), then a `.gaip-cec` input (which exists only
+         * in the legacy hub markup, i.e. on the export page and never on the
+         * Plan), then a construction-type guess, and finally a hardcoded 8.
+         * The Plan therefore scored EVERY New Zealand site's leaching risk
+         * against 8 whatever the certificate said, while the export — whose
+         * hidden hub markup does carry `.gaip-cec` — passed the sample's real
+         * figure. Measured on Test5 - NZ / Soccer, whose certificate says 5.9.
+         *
+         * NOT the cause of Test5's Plan-against-document Delivered gap, though
+         * it was first reported as such. CEC reaches product selection through
+         * exactly two functions in prebbles-products.js — getReleasePreference()
+         * (bands <5 / <12 / >=12, crossed with irrigation frequency) and
+         * estimateLongevity() (bands <5 / <10 / >=10) — and 5.9 and 8 are inside
+         * the same band of both, so the recommender cannot tell them apart. Live
+         * before and after, across every audited site: not one Required,
+         * Delivered, Balance, Status, product row or monthly cell moved. What
+         * this fixes is an input that was wrong, not a figure that was wrong;
+         * see GH-422 in docs/instructions.md, and tests/gh422-soil-cec-input.test.js
+         * for the band measurement.
+         *
+         * The fix is to stop re-reading the page at all when the programme
+         * already knows: computeProgram() stamps the CEC it computed against
+         * onto `soil.CEC` (GH-421), whatever route the sample arrived by —
+         * Plan sample picker, plan.blade.php's bridge, or the export's
+         * per-sample recompute. Both surfaces now read that one value.
+         *
+         * The construction-type guesses (3 for sand, 12 for native) and the
+         * hardcoded 8 are gone and are deliberately not replaced: CEC is a
+         * measurement, and a substituted one is indistinguishable on the page
+         * from a real one.
+         *
+         * @param {Object} [calendarData] computeProgram() output for this
+         *        programme. Optional only so the legacy hub's own call sites
+         *        keep working; always pass it where it is in hand.
          */
-        getSoilCEC: function() {
-            // Try GAIP_STATE first
-            if (window.GAIP_STATE?.soil?.cec !== undefined) {
-                return parseFloat(window.GAIP_STATE.soil.cec);
-            }
-            
-            // Try form input - correct selector for gaip-cec class
-            const cecInput = document.querySelector('.gaip-cec, [name="cec"], #soil-cec');
-            if (cecInput?.value) {
-                const cec = parseFloat(cecInput.value);
-                return cec;
-            }
-            
-            // Infer from construction type
-            const construction = window.GAIP_STATE?.turf?.construction || 
-                                 window.GAIP_STATE?.soil?.construction || '';
-            
-            if (construction.includes('sand') || construction.includes('usga')) {
-                return 3; // Sand-based rootzone - low CEC
-            } else if (construction.includes('push_up') || construction.includes('native')) {
-                return 12; // Native soil - moderate CEC
-            }
-            
-            // Default to moderate (conservative)
-            return 8;
+        getSoilCEC: function(calendarData) {
+            const _num = function(v) {
+                if (v === null || v === undefined || v === '') return null;
+                const n = parseFloat(v);
+                return isFinite(n) ? n : null;
+            };
+            const _pick = function(obj) {
+                if (!obj) return null;
+                const v = (obj.CEC !== undefined && obj.CEC !== null) ? obj.CEC : obj.cec;
+                return _num(v);
+            };
+
+            // 1. The value THIS programme was computed against. Same number on
+            //    every surface, because it travels with the programme instead
+            //    of being re-derived beside it.
+            const _fromProgramme = _pick(calendarData && calendarData.soil);
+            if (_fromProgramme !== null) return _fromProgramme;
+
+            // 2. The canonical soil slot the Plan's sample picker (GH-413) and
+            //    plan.blade.php's bridge write, for a caller that has no
+            //    programme in hand (e.g. a manual regenerate()).
+            const _fromInputs = _pick(window.GAIP_STATE?.inputs?.soil);
+            if (_fromInputs !== null) return _fromInputs;
+
+            // 3. Legacy hub state.
+            const _fromState = _pick(window.GAIP_STATE?.soil);
+            if (_fromState !== null) return _fromState;
+
+            // 4. The legacy hub's own soil form field (present on the export
+            //    page via partials/legacy-hub-markup.blade.php, never on the
+            //    Plan).
+            const _fromDom = _num(document.querySelector('.gaip-cec, [name="cec"], #soil-cec')?.value);
+            if (_fromDom !== null) return _fromDom;
+
+            // No CEC reading exists for this sample. Say so; do not invent one.
+            // Callers surface this as a named missing input — see
+            // buildRecommendationsHTML()'s meta row and word-export.js's
+            // renderNutritionProgramSection() note.
+            return null;
         },
         
         /**
@@ -960,7 +1022,11 @@
                         ? '<span class="release-tag quick">QR</span>' 
                         : '';
                     const longevityTitle = p.longevity ? `Expected longevity: ${p.longevity}` : '';
-                    const effTitle = p.techEfficiency ? `Release efficiency at current soil temp: ${p.techEfficiency}%` : '';
+                    // GH-427: "current" was true of the old input — one live
+                    // forecast reading — and is not true of this one, which is
+                    // the month's own climate normal. Correcting the label, not
+                    // adding a claim: the figure and its meaning are unchanged.
+                    const effTitle = p.techEfficiency ? `Release efficiency at this month's temperature: ${p.techEfficiency}%` : '';
                     const npkDisplay = p.npk ? ` (${p.npk})` : '';
                     const splitNote = p.splitRequired ? ` [×${p.splitCount}]` : '';
                     // Use kg/ha for sports/fairways, g/m² for greens/tees
@@ -1101,6 +1167,34 @@
             const pBal = classifyBalance('P', nutrientRequired.P, nutrientTotals.P);
             const kBal = classifyBalance('K', nutrientRequired.K, nutrientTotals.K);
 
+            // GH-422: the cation exchange capacity this product selection was
+            // scored against. It is an input to the programme on screen, so it
+            // is shown beside the other two inputs already named here (surface,
+            // methodology) rather than left implicit.
+            //
+            // `null` means this sample carries no CEC reading. It is printed as
+            // exactly that, and the note below names what it costs, because the
+            // alternative — the hardcoded 8 this integration used to substitute
+            // on the Plan for every New Zealand site — is indistinguishable on
+            // the page from a measured 8.
+            const _cecValue = (program.soilCEC === undefined || program.soilCEC === null
+                || !isFinite(program.soilCEC)) ? null : program.soilCEC;
+            const cecMetaItem = `
+                        <span class="meta-item">
+                            <strong>CEC:</strong> ${_cecValue === null
+                                ? '<span class="prebble-meta-missing">no reading on this sample</span>'
+                                : (Math.round(_cecValue * 100) / 100) + ' meq/100g'}
+                        </span>`;
+            const cecMissingNote = _cecValue !== null ? '' : `
+                    <div class="gilba-nut-banner gilba-nut-banner--warning">
+                        <strong>No CEC on this soil sample</strong>
+                        Cation exchange capacity is what product selection scores leaching risk on,
+                        so this programme was built without one: the recommender applied its own
+                        medium-CEC assumption (10 meq/100g) instead of a figure measured here.
+                        Add the CEC from the lab certificate and generate again for a release-type
+                        choice matched to this rootzone.
+                    </div>`;
+
             return `
                 <div class="gilba-panel gilba-prebble-panel">
                     <div class="gilba-int-header">
@@ -1121,8 +1215,10 @@
                                 return 'MLSN';
                             })()}
                         </span>
+                        ${cecMetaItem}
                     </div>
-                    
+                    ${cecMissingNote}
+
                     <div class="prebble-section-card">
                         <h4>Monthly Program</h4>
                         <div class="gilba-table-scroll">
@@ -1792,6 +1888,14 @@
             margin-bottom: 14px;
         }
 
+        /* GH-422: an input the programme was built without, said in the row
+           that names the inputs — deliberately not styled to look like a
+           value. */
+        .prebble-meta-missing {
+            color: var(--gaip-text-muted, #6b7280);
+            font-style: italic;
+        }
+
         /* ── Monthly programme table ────────────────────────────────────────── */
         .prebble-program-table { font-size: 13px; width: 100%; table-layout: fixed; min-width: 800px; }
 
@@ -1997,7 +2101,15 @@
             body: 'Current — soil reserve now (ppm→kg/ha).\n' +
                 'Removal — turf uptake this year (research-based).\n' +
                 'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
-                'Required — Removal + Lift; 0 once soil ≥ ceiling.\n' +
+                // GH-415 (B1): above the ceiling Required is no longer a flat 0.
+                // Where the sufficiency range is narrower than the season's
+                // removal, a soil above the ceiling still ends the season below
+                // the floor, and the row used to say "Required 0.0" and
+                // "Deficit" at the same time. Woods' formula now sizes what
+                // holds the floor, so the two agree; this is the sentence that
+                // explains a non-zero Required on a soil marked High.
+                'Required — Removal + Lift; above the ceiling, only what keeps the\n' +
+                '  season from ending below the floor (0 when the soil can spare it).\n' +
                 'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
                 'Range — the floor–ceiling Balance is checked against.\n' +
                 'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',

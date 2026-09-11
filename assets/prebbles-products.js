@@ -1567,13 +1567,17 @@
                 }
             }
             
+            // GH-417: how much phosphorus the chosen product actually carries,
+            // as opposed to how much was asked for. Kept for the note and the
+            // per-month record below, both of which used to print the request.
+            let pActuallyDelivered = 0;
             if (shouldApplyP && pToApply > 0) {
                 const isEstablishment = context.establishment || context.seeding || context.renovation || false;
                 const isPDeficient = context.pDeficient || false;
-                
+
                 // Select P source - allow high-P starters for designated P month
                 const pProduct = this.selectPhosphorusSource(suitableGranular, suitableLiquid, pToApply, isEstablishment || isPDeficient || isPApplicationMonth);
-                
+
                 if (pProduct) {
                     if (pProduct.form === 'liquid' || pProduct.form === 'soluble') {
                         recommendations.liquid.push(pProduct);
@@ -1581,14 +1585,37 @@
                         recommendations.granular.push(pProduct);
                     }
                     const notePrefix = isPApplicationMonth ? 'Strategic P application' : 'P supplement';
-                    recommendations.notes.push(`${notePrefix}: ${pToApply.toFixed(1)} kg P/ha`);
+                    // GH-417: this note printed `pToApply` — the annual
+                    // phosphorus requirement this month was asked to cover — as
+                    // though it were the dose. Every P source here is rate-capped
+                    // (MAP Tech at 20 kg/ha of product, i.e. 5.4 kg P/ha), so on
+                    // Test - GC - NZ - delivery the March schedule read "Strategic
+                    // P application: 19.8 kg P/ha" above a product line supplying
+                    // 5.4, and the Couch site read 25.0 above the same 5.4. The
+                    // figure is now the product's own declared delivery, with the
+                    // request named after it so the shortfall is visible rather
+                    // than silently rounded away. The AU recommender's equivalent
+                    // note (au-fertiliser-products.js) has always printed the
+                    // delivered figure; this is that behaviour, here.
+                    pActuallyDelivered = (typeof pProduct.pDelivered === 'number' && isFinite(pProduct.pDelivered))
+                        ? pProduct.pDelivered : 0;
+                    const shortfall = pActuallyDelivered + 0.05 < pToApply;
+                    recommendations.notes.push(`${notePrefix}: ${pActuallyDelivered.toFixed(1)} kg P/ha` +
+                        (shortfall ? ` (of ${pToApply.toFixed(1)} requested)` : ''));
                 } else {
                     recommendations.notes.push(`P deficit: ${pToApply.toFixed(1)} kg/ha - consider DAP or SSP`);
                 }
             }
-            
+
             // Track P delivery in recommendations
-            recommendations.pDelivered = Math.round((pDelivered + (shouldApplyP ? pToApply : 0)) * 10) / 10;
+            // GH-417: `pToApply` (the request) counted as delivery here too.
+            // NOTE, measured: nothing reads this field — the annual accumulator
+            // the pacing decisions use (`delivered.P` in generateProgram) is
+            // built from the applied products' own analysis, not from here — so
+            // correcting it moves no figure in any table. It is corrected
+            // anyway, because a field named `pDelivered` holding a request is
+            // exactly the trap the note above fell into.
+            recommendations.pDelivered = Math.round((pDelivered + pActuallyDelivered) * 10) / 10;
             recommendations.pRequired = Math.round(pRequired * 10) / 10;
             
             // Add context notes
@@ -1699,13 +1726,55 @@
                 const coverage = coveredMonths[index];
                 const isCovered = coverage && coverage.remainingN > (monthData.N * 0.3);
                 
-                // Estimate soil temperature for this specific month
-                const monthlySoilTemp = this.estimateMonthlySoilTemp(
-                    monthData.month_num,
-                    context.latitude || calendar.meta?.latitude || -35,
-                    hemisphere,
-                    context.soilTemp
-                );
+                // GH-427: this month's own temperature, from the site's twelve
+                // monthly climate normals — the same series growth potential
+                // runs on (climate-normals-service.js: NASA POWER climatology,
+                // 20-year 2001-2020, per site coordinates). It arrives as each
+                // row's `temp` and computeProgram() refuses to build a
+                // programme at all unless all twelve are real numbers, so there
+                // is nothing to fall back to and no fallback is offered.
+                //
+                // WHAT THIS REPLACED, and why. `estimateMonthlySoilTemp()` took
+                // `context.soilTemp` — which resolves to
+                // `climateMetrics.temperature.mean`, the mean of the next few
+                // days' hourly forecast — and used it as the year's ANNUAL MEAN,
+                // then added a hardcoded seasonal shape scaled by latitude.
+                // Three faults compounded in that:
+                //
+                //   1. A live reading drove an annual plan. Test5 - NZ's own
+                //      forecast moves 12.3-13.7 degC across one week, and the
+                //      product bands sit at 8.65 / 10.05 / 12.85, so the same
+                //      sample produced two different programmes depending on the
+                //      day the report was generated.
+                //   2. A CURRENT reading was used as an ANNUAL mean, so the whole
+                //      curve moved bodily with the season of generation — 8.4
+                //      degC between a January run and a July one, every month.
+                //   3. The pattern objects were keyed 1-12 and the call passed
+                //      `month_num`, which computeProgram() writes 0-based, so
+                //      January got no deviation at all and every other month got
+                //      the previous month's. Against Auckland's own normals the
+                //      modelled curve was out by -7.0 degC in January.
+                //
+                // It was also the one input that differed between the Plan page
+                // and the document (GH-423), because the two surfaces read that
+                // live mean at different moments.
+                //
+                // MEASURED, NOT ASSUMED: feeding the normals through the hub's
+                // air-to-soil model (`estimateSoilTemp()`, climate-engine-v2.js)
+                // instead produces byte-identical programmes on every New
+                // Zealand site — at monthly resolution the heat equation's
+                // answer IS the monthly mean, because the amplitude term it adds
+                // is the diurnal residual and averages out. See GH-426.
+                //
+                // KNOWN PROPERTY, recorded here and in the change log and
+                // DELIBERATELY NOT SURFACED (owner's decision): these are AIR
+                // temperatures, and the release-efficiency curves below are
+                // written about SOIL temperature. Routing the normals through
+                // the hub's own air-to-soil model was measured and produces
+                // byte-identical programmes on every New Zealand site (GH-426),
+                // so nothing is lost by the air basis today; closing it properly
+                // would need a real soil-temperature climatology per site.
+                const monthlySoilTemp = monthData.temp;
                 
                 // GH-340: pro-rata K requirement for the months processed so
                 // far (this month included), not the full annual total -- see
@@ -3023,75 +3092,7 @@
                 currentTemp: soilTemp,
             };
         },
-        
-        /**
-         * Estimate typical soil temperature for a given month
-         * 
-         * This is essential for selecting appropriate release technologies.
-         * MU-based products won't release in winter even if current temp is mild.
-         * 
-         * @param {number} month - Month number (1-12)
-         * @param {number} latitude - Site latitude (negative for southern hemisphere)
-         * @param {string} hemisphere - 'north' or 'south'
-         * @param {number} currentTemp - Current/baseline soil temp as reference
-         * @returns {number} Estimated soil temperature in °C
-         */
-        estimateMonthlySoilTemp: function(month, latitude, hemisphere, currentTemp) {
-            // Typical monthly soil temp patterns (relative to annual mean)
-            // Positive = warmer than mean, negative = cooler
-            // Based on temperate climate soil temp curves at 50-100mm depth
-            const northernPattern = {
-                1: -8,  // Jan - coldest
-                2: -7,
-                3: -3,
-                4: 2,
-                5: 6,
-                6: 9,   // Jun - warmest
-                7: 10,  // Jul - warmest
-                8: 8,
-                9: 4,
-                10: 0,
-                11: -4,
-                12: -7,
-            };
-            
-            // Southern hemisphere is offset by 6 months
-            const southernPattern = {
-                1: 10,  // Jan - warmest (summer)
-                2: 9,
-                3: 5,
-                4: 0,
-                5: -4,
-                6: -7,  // Jun - coldest (winter)
-                7: -8,  // Jul - coldest
-                8: -6,
-                9: -2,
-                10: 3,
-                11: 7,
-                12: 9,
-            };
-            
-            const isSouth = hemisphere === 'south' || latitude < 0;
-            const pattern = isSouth ? southernPattern : northernPattern;
-            
-            // Get the monthly deviation
-            const deviation = pattern[month] || 0;
-            
-            // Estimate annual mean from current temp (rough approximation)
-            // If we have current temp, assume it represents a typical value for "now"
-            const annualMean = currentTemp || 15;
-            
-            // Scale deviation by latitude (higher latitudes have larger seasonal swings)
-            const absLat = Math.abs(latitude || 35);
-            const latitudeScale = 0.5 + (absLat / 90) * 0.5; // 0.5 at equator, 1.0 at poles
-            
-            // Calculate estimated temp
-            const estimated = annualMean + (deviation * latitudeScale);
-            
-            // Clamp to reasonable range
-            return Math.max(2, Math.min(35, Math.round(estimated * 10) / 10));
-        },
-        
+
         /**
          * Estimate product longevity based on release type and conditions
          * Returns a human-readable estimate

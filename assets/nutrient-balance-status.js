@@ -58,6 +58,27 @@
     }
 
     /**
+     * GH-425 — the terms a verdict was reached from, in one shape on every
+     * branch, so that a consumer can be shown the comparison this module
+     * actually made rather than a second write-up of the rule. `branch` names
+     * which of the five paths ran; a field a branch does not use stays null, so
+     * "not this branch" reads differently from "zero".
+     *
+     * Purely additive: no existing key changes and no verdict moves. It lives
+     * out here, not inside classify(), so that classify()'s own body stays the
+     * length and the shape the source pins in tests/gh312, gh313, gh333 and
+     * gh338 read it at.
+     */
+    function withTerms(fields, ctx) {
+        return Object.assign({
+            branch: null, unit: null, balanceKgHa: null,
+            floorKgHa: null, ceilingKgHa: null, pct: null,
+            delivered: ctx.delivered, required: ctx.required,
+            removal: (typeof ctx.removal === 'number') ? ctx.removal : null
+        }, fields);
+    }
+
+    /**
      * Classify one nutrient row.
      *
      * @param {Object} o
@@ -97,8 +118,11 @@
         // not a confirmed reading. Say so plainly rather than letting
         // it fall into the pct-based fallback below and look like a
         // real Deficit/On Track verdict.
+        // GH-425: see withTerms() above.
+        const trace = (f) => withTerms(f, { delivered, required, removal });
+
         if (missingSoilData) {
-            return { nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data', canCompute: false, currentPpm: null, currentKgHa: null };
+            return trace({ branch: 'missing-soil-data', nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'no-data', statusLabel: 'No Soil Data', canCompute: false, currentPpm: null, currentKgHa: null });
         }
         const canCompute = range && typeof range.max === 'number' && typeof range.min === 'number'
             && typeof currentPpm === 'number' && typeof removal === 'number'
@@ -110,7 +134,7 @@
             // also the branch every N row takes: nitrogen has no soil
             // sufficiency range at all.
             if (required === 0) {
-                return { nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track', canCompute: false, currentPpm: null, currentKgHa: null };
+                return trace({ branch: 'no-range-nothing-required', nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass: 'sufficient', statusLabel: 'On Track', canCompute: false, currentPpm: null, currentKgHa: null });
             }
             const pct = Math.round((delivered / required) * 100);
             const statusClass = pct >= 90 ? 'sufficient' : pct >= 70 ? 'marginal' : 'deficit';
@@ -125,7 +149,7 @@
             const statusLabel = pct >= 90
                 ? 'On Track'
                 : (pct >= 70 ? 'Monitor' : 'Deficit') + ` (${deltaPct >= 0 ? '+' : ''}${deltaPct}%)`;
-            return { nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel, canCompute: false, currentPpm: null, currentKgHa: null };
+            return trace({ branch: 'no-range-delivery-ratio', pct: pct, nutrient, currentDisplay: '—', rangeDisplay: '—', diff: delivered - required, statusClass, statusLabel, canCompute: false, currentPpm: null, currentKgHa: null });
         }
         const unit = soilBulkDensity * soilDepthCm * 0.1;
         const currentKgHa = currentPpm * unit;
@@ -156,7 +180,7 @@
             // ceiling.
             const over = Math.round((balanceKgHa - ceilingKgHa) * 10) / 10;
             const overPct = Math.round((over / ceilingKgHa) * 100);
-            return { nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'excess', statusLabel: `Excess (+${overPct}%)`, canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa };
+            return trace({ branch: 'above-ceiling', unit, balanceKgHa, nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'excess', statusLabel: `Excess (+${overPct}%)`, canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa });
         }
         if (balanceKgHa < floorKgHa) {
             // GH-314: 'Low' renamed to 'Deficit' to share the same
@@ -169,7 +193,7 @@
             // the floor.
             const short = Math.round((floorKgHa - balanceKgHa) * 10) / 10;
             const shortPct = floorKgHa > 0 ? Math.round((short / floorKgHa) * 100) : 0;
-            return { nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (-${shortPct}%)`, canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa };
+            return trace({ branch: 'below-floor', unit, balanceKgHa, nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'deficit', statusLabel: `Deficit (-${shortPct}%)`, canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa });
         }
         // GH-314: 'Met' renamed to 'On Track', same reasoning --
         // shares the fallback branch's "everything's fine" word
@@ -178,7 +202,7 @@
         // confirmed with the user that On Track should just stay a
         // plain label -- the number only matters once something is
         // actually Deficit or Excess.
-        return { nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track', canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa };
+        return trace({ branch: 'within-range', unit, balanceKgHa, nutrient, currentDisplay, rangeDisplay, diff: balanceKgHa, statusClass: 'sufficient', statusLabel: 'On Track', canCompute: true, currentPpm, currentKgHa, floorKgHa, ceilingKgHa });
     }
 
     /**

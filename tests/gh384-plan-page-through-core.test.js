@@ -174,10 +174,19 @@ describe('GH-384 — decision D-7: the MLSN P threshold now follows the pH ladde
     });
 });
 
-describe('GH-384 — decision D-8: a reading exactly at the ceiling applies zero', () => {
-    test('MLSN K exactly at 55.5 (37 x 1.5)', () => {
+describe('GH-384 — decision D-8: a reading exactly at the ceiling takes the above-ceiling branch', () => {
+    // GH-415 (decision B1) changed what that branch RETURNS, not which reading
+    // enters it. D-8 is the `>=` comparison and is untouched: a reading exactly
+    // at the ceiling is above it, on every methodology. What it now returns is
+    // Woods' maintain-the-floor figure, max(0, removal - (current - floor) x unit),
+    // which is 0 only where the soil can spare the season's removal.
+    test('MLSN K exactly at 55.5 (37 x 1.5) — the branch is entered, and on this narrow band it asks for the shortfall rather than zero', () => {
         const p = Calendar.computeProgram(inputs({ soilPpm: { P: 25, K: 55.5, Ca: 400, Mg: 60, S: 20 } }));
-        expect(p.annual_totals.K).toBe(0);
+        // removal 111.1 kg/ha against a band of only (55.5 - 37) x 1.4 x 10 x 0.1
+        // = 25.9 kg/ha, so 85.2 keeps the season from ending below the floor.
+        // Pre-GH-415 this was 0 while the same row's Balance read Deficit.
+        expect(p.annual_totals.K).toBeCloseTo(85.2, 1);
+        expect(p.annual_lift.K).toBe(0);
     });
 
     test('SLAN K exactly at the Carrow 2004 ceiling of 176', () => {
@@ -195,7 +204,13 @@ describe('GH-384 — the published output shape is unchanged', () => {
         expect(Object.keys(p).sort()).toEqual([
             'adjustments', 'annual_lift', 'annual_removal', 'annual_totals',
             'annual_totals_range', 'annual_totals_range_source', 'meta',
-            'missing_soil_data', 'program', 'soil', 'tissue_gate_applied'
+            'missing_soil_data', 'program', 'soil', 'tissue_gate_applied',
+            // GH-425, additive: the shared core's own per-nutrient working
+            // (which branch ran, the floor/ceiling it compared, the removal
+            // ratio and its source, the ppm->kg/ha unit, the lift), and the
+            // tissue reading the P/K ratio gate was judged on. Every total
+            // above is unchanged; these say how each total was reached.
+            'requirement_detail', 'tissue_percent'
         ].sort());
         expect(Object.keys(p.annual_totals).sort()).toEqual(['Ca', 'K', 'Mg', 'N', 'P', 'S']);
         // annual_totals_range keeps its {min,max} shape — the core's ranges also

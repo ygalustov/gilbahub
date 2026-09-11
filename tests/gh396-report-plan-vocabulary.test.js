@@ -366,10 +366,21 @@ describe('GH-396 — the export\'s new columns are the Plan page\'s own inputs, 
     test('with no programme for a sample the columns print a dash rather than a reconstructed guess', () => {
         const idx = combined.indexOf('var cls = null;');
         expect(idx).toBeGreaterThan(-1);
-        const block = combined.slice(idx, idx + 1400);
-        expect(block).toMatch(/if \(_balanceModel && pp && deliveredNum != null\) \{/);
+        // Widened from 1400 as GH-416's comments pushed balanceText past the
+        // end — the window is a reading frame, not part of the claim.
+        const block = combined.slice(idx, idx + 2200);
+        // GH-416 widened the gate by exactly one case: a nutrient the engine
+        // computed removal-only because it had no reading is classified "No Soil
+        // Data" even with no per-sample programme (classify() returns on
+        // missingSoilData before it reads range/bulk density/depth). Everything
+        // else still needs `pp`, so a sample with a programme that failed still
+        // prints dashes rather than a reconstruction.
+        expect(block).toMatch(/if \(_balanceModel && \(pp \|\| missingSoil \|\| isN\) && _clsDelivered != null\) \{/);
+        expect(block).toMatch(/missingSoilData: missingSoil/);
         expect(block).toMatch(/var currentText = cls\s*\n\s*\? _balanceModel\.formatCurrent/);
-        expect(block).toMatch(/var balanceText = cls \? cls\.diff\.toFixed\(1\) : '—';/);
+        // Balance still needs a real Delivered figure, so a sample with no
+        // programme prints a dash for it rather than assuming zero.
+        expect(block).toMatch(/var balanceText = \(cls && deliveredNum != null\) \? cls\.diff\.toFixed\(1\) : '—';/);
         expect(block).toMatch(/var statusText = cls \? cls\.statusLabel : '—';/);
     });
 

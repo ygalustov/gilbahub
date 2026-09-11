@@ -5999,12 +5999,41 @@
         elements.push(new Paragraph({
             spacing: { after: 200 },
             children: [new TextRun({ 
-                text: 'Monthly fertiliser recommendations based on growth potential, soil conditions, and nutrient requirements. Products are selected to match release characteristics with seasonal uptake patterns.', 
-                size: 22, 
-                color: '4B5563' 
+                text: 'Monthly fertiliser recommendations based on growth potential, soil conditions, and nutrient requirements. Products are selected to match release characteristics with seasonal uptake patterns.',
+                size: 22,
+                color: '4B5563'
             })]
         }));
-        
+
+        // GH-422: the cation exchange capacity this product selection was
+        // scored against. `program.soilCEC` is a number, or null when the
+        // sample carries no reading; it is undefined outside the New Zealand
+        // branch, where nothing reads CEC at all and this prints nothing.
+        //
+        // Printed because it is an input to the programme above, and named as
+        // missing when it is missing: the integration used to substitute a
+        // hardcoded 8 on the Plan page, which read on screen exactly like a
+        // measured 8. A substituted soil figure and a measured one must not
+        // look the same in a client's report.
+        if (program.soilCEC !== undefined) {
+            var _cecText = (program.soilCEC === null)
+                ? 'No cation exchange capacity was recorded for this sample. CEC is what product ' +
+                  'selection scores leaching risk on, so this programme was built without one and the ' +
+                  'recommender\'s own medium-CEC assumption (10 meq/100g) applied. Add the CEC from the ' +
+                  'lab certificate for a release-type choice matched to this rootzone.'
+                : 'Product release characteristics were matched against this sample\'s cation exchange ' +
+                  'capacity, ' + (Math.round(program.soilCEC * 100) / 100) + ' meq/100g.';
+            elements.push(new Paragraph({
+                spacing: { after: 200 },
+                children: [new TextRun({
+                    text: _cecText,
+                    size: 20,
+                    italics: true,
+                    color: (program.soilCEC === null) ? 'B45309' : '6B7280'
+                })]
+            }));
+        }
+
         // b35fix287: Mulder's Nutrient Interactions section
         var muldersFlags = program.muldersFlags || {};
         var allMuldersFlags = [];

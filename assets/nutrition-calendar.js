@@ -297,9 +297,104 @@
      * from Analysis > Soil & Nutrition (soil-nutrition-analysis.js) so the
      * UI matches pixel-for-pixel.
      */
+    /**
+     * GH-414 — this site's tissue analyses, all of them, with the zone each was
+     * taken from.
+     *
+     * The Plan page has never had this list. plan.blade.php's GH-366 bridge
+     * carries ONE tissue reading (PageController::topbarData() takes the site's
+     * most recent) and no zone label at all, so there was nothing to match
+     * against even in principle, and collectFromState() handed that one reading
+     * to every soil sample on the site. Same endpoint and same shape the soil
+     * picker already uses (soil-nutrition-analysis.js mountSampleDropdown), one
+     * fetch per page load.
+     *
+     * `_tissueSamples` stays null until the fetch resolves, and null means "not
+     * known", never "this site has none" — resolveZoneTissue() falls back to the
+     * pre-GH-414 chain in that case rather than silently dropping a tissue gate
+     * because a request had not come back yet.
+     */
+    NutritionCalendar._tissueSamples = null;
+    NutritionCalendar._tissueZoneMatch = null;
+
+    NutritionCalendar.loadTissueSamples = function() {
+        var self = this;
+        var siteId = this.getActiveSiteId();
+        if (!siteId || typeof fetch !== 'function') return Promise.resolve(null);
+        return fetch('/api/samples?site_id=' + encodeURIComponent(siteId) + '&sample_type=tissue&limit=100',
+            { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+            .then(function (res) {
+                var rows = (res && res.data) || [];
+                self._tissueSamples = rows.map(function (s) {
+                    var pl = s.payload || {};
+                    return {
+                        id: s.id,
+                        label: pl._label || s.client_uid || String(s.id),
+                        date: s.lab_date || s.sample_date || '',
+                        N: pl.N, P: pl.P, K: pl.K
+                    };
+                });
+                console.log('[NutritionCalendar] GH-414: ' + self._tissueSamples.length +
+                    ' tissue sample(s) on this site: ' +
+                    self._tissueSamples.map(function (t) { return t.label; }).join(', '));
+                return self._tissueSamples;
+            })
+            .catch(function (e) {
+                self._tissueSamples = null;
+                console.warn('[NutritionCalendar] GH-414: tissue sample list could not be loaded (' + e +
+                    '); falling back to the site-wide tissue reading, which is not zone-matched.');
+                return null;
+            });
+    };
+
+    /**
+     * GH-414 — the tissue analysis for THIS soil sample's zone, or none.
+     *
+     * Returns `{ applies: false }` when the rule cannot be applied at all (list
+     * not loaded, zone-key.js absent, or a soil analysis typed in by hand with
+     * no zone), in which case the caller keeps its pre-GH-414 resolution.
+     */
+    NutritionCalendar.resolveZoneTissue = function(zoneLabel) {
+        var list = this._tissueSamples;
+        var NPI = window.GAIP_NutritionProgramInputs;
+        if (!Array.isArray(list) || !NPI || typeof NPI.matchSampleToZone !== 'function' ||
+            typeof window.GaipZoneKey === 'undefined') {
+            this._tissueZoneMatch = null;
+            return { applies: false };
+        }
+        if (!zoneLabel) {
+            this._tissueZoneMatch = null;
+            return { applies: false };
+        }
+        var hit = NPI.matchSampleToZone(list, zoneLabel);
+        var num = function (v) { var n = parseFloat(v); return (isNaN(n) || n <= 0) ? null : n; };
+        this._tissueZoneMatch = {
+            zoneLabel: zoneLabel,
+            matchedLabel: hit ? hit.label : null,
+            siteHasTissue: list.length > 0
+        };
+        if (!hit) {
+            if (list.length > 0) {
+                console.log('[NutritionCalendar] GH-414: no tissue sample for zone "' + zoneLabel +
+                    '" (site has ' + list.map(function (t) { return '"' + t.label + '"'; }).join(', ') +
+                    ') — generic per-species P/K removal ratios used.');
+            }
+            return { applies: true, percent: null };
+        }
+        var src = hit.sample || {};
+        return { applies: true, percent: { N: num(src.N), P: num(src.P), K: num(src.K) } };
+    };
+
     NutritionCalendar.initSamplePicker = function() {
         var mount = document.getElementById('plan-nut-sample-picker');
         if (!mount) return;
+        // GH-414: kicked off alongside the soil picker, on the one page that has
+        // a picker at all, so the zone match has the list by the time Generate
+        // is pressed.
+        try { this.loadTissueSamples(); } catch (e) {
+            console.warn('[NutritionCalendar] GH-414: tissue sample load failed:', e && e.message);
+        }
         if (!window.GAIP_SoilNutritionAnalysis || typeof window.GAIP_SoilNutritionAnalysis.mountSampleDropdown !== 'function') {
             console.warn('[NutritionCalendar] Sample picker mount present but soil-nutrition-analysis.js not loaded');
             return;
@@ -325,12 +420,43 @@
                 P: pl.P, K: pl.K, Ca: pl.Ca, Mg: pl.Mg, S: pl.S,
                 Fe: pl.Fe, Mn: pl.Mn, Zn: pl.Zn, Cu: pl.Cu,
             };
+            // GH-413: pH, CEC and the sample's own texture snapshot travel with
+            // the ppm figures. Until this ticket only the nutrients were copied,
+            // so collectFromState()'s `soil.pH_water ?? soil.pH` read resolved
+            // null on EVERY generation and the pH-adjusted P floor (the SLAN
+            // Spencer ladder and the MLSN D-7 ladder, both applied by
+            // nutrition-program-inputs.js resolveSufficiencyRanges()) was dead
+            // on this page while the Word export applied it — two Required P
+            // figures for one sample (New test - location / Green 5, pH 8.26:
+            // 15.6 on the Plan against 32.4 in the document).
+            //
+            // Key order is the export's own: `pH_Water` is the water-suspension
+            // reading both surfaces prefer (word-export.js _pHForSlanP,
+            // nutrition-calendar.js collectFromState), `pH` is the fallback for
+            // a payload that carries only the generic key. `pH_CaCl2` is
+            // deliberately NOT a fallback — it is a different measurement on a
+            // different scale, and the ladders are defined against water pH.
+            //
+            // `soilTexture` is preserved from the existing state rather than
+            // dropped: it is the site's own override, bridged in by
+            // plan.blade.php (GH-294), and rebuilding the soil object without
+            // it was silently removing the site texture on every sample switch.
+            // `soilTextureSnapshot` is this sample's recorded texture, which
+            // resolveSoilTexture() ranks BELOW the site override (GH-414).
             var soil = Object.assign({}, ppm, {
                 ppm: ppm,
                 methodology: pl.methodology || existingSoil.methodology,
                 bulkDensity: pl.bulkDensity || existingSoil.bulkDensity,
                 depth: pl.depth || existingSoil.depth,
                 surfaceType: existingSoil.surfaceType,
+                pH: pl.pH_Water != null ? pl.pH_Water : (pl.pH != null ? pl.pH : null),
+                pH_water: pl.pH_Water != null ? pl.pH_Water : (pl.pH != null ? pl.pH : null),
+                CEC: pl.CEC != null ? pl.CEC : (pl.CEC_meq100g != null ? pl.CEC_meq100g : null),
+                soilTexture: existingSoil.soilTexture,
+                soilTextureSnapshot: sample.soil_texture_snapshot || null,
+                // GH-414: the zone this sample was taken from, so the tissue
+                // match below can require the same zone.
+                zoneLabel: pl._label || sample.client_uid || null,
             });
 
             if (!window.GAIP_STATE) window.GAIP_STATE = {};
@@ -533,29 +659,50 @@
         // in the wild are unwrapped — tissue-ui.js writes `{ tissue: {...},
         // units: {...} }` (word-export.js:8372 unwraps the same way) and the
         // hub store defaults `inputs.tissue` to `{ sampleDate, nutrients: {} }`.
-        const _tissueSlot = (state.inputs && state.inputs.tissue) || state.tissue || {};
-        const _tissueUnwrapped = _tissueSlot.tissue || _tissueSlot.nutrients || _tissueSlot;
-        const tissuePercent = {
-            N: this.extractPpm(_tissueUnwrapped, 'N'),
-            P: this.extractPpm(_tissueUnwrapped, 'P'),
-            K: this.extractPpm(_tissueUnwrapped, 'K'),
-        };
-        if (tissuePercent.N == null || tissuePercent.P == null || tissuePercent.K == null) {
-            try {
-                const SM = window.GAIP_SampleManager;
-                const activeTissue = (SM && typeof SM.getActiveSample === 'function')
-                    ? SM.getActiveSample('tissue') : null;
-                if (activeTissue) {
-                    const tSrc = activeTissue.normalized || activeTissue.rawData || {};
-                    ['N', 'P', 'K'].forEach(function (nut) {
-                        if (tissuePercent[nut] == null) {
-                            const v = parseFloat(tSrc[nut]);
-                            if (!isNaN(v) && v > 0) tissuePercent[nut] = v;
-                        }
-                    });
+        //
+        // GH-414: and the sample it comes from must be the SAME GREEN as the
+        // soil sample being computed. Neither of the two sources above knows
+        // which green it is describing: `state.inputs.tissue` is the site's
+        // single most recent tissue analysis (plan.blade.php's GH-366 bridge,
+        // from PageController::topbarData()), and SampleManager's "active"
+        // tissue sample is whichever one was loaded last. Measured live, that
+        // meant Russley built Green 1's and Green 13's programmes from Green
+        // 18's tissue, and Burns built all twenty-six from Green 15's. The Word
+        // export has paired tissue to soil by zone since b35fix_greentissue;
+        // this is that rule, from the same shared implementation
+        // (GAIP_NutritionProgramInputs.matchSampleToZone -> GaipZoneKey.derive),
+        // applied here. No pair -> no tissue, and the generic per-species
+        // removal ratio, which is the owner's rule: pairing a green with
+        // another green's tissue is worse than having none.
+        const _zoneTissue = this.resolveZoneTissue(soil.zoneLabel || null);
+        let tissuePercent;
+        if (_zoneTissue.applies) {
+            tissuePercent = _zoneTissue.percent || { N: null, P: null, K: null };
+        } else {
+            const _tissueSlot = (state.inputs && state.inputs.tissue) || state.tissue || {};
+            const _tissueUnwrapped = _tissueSlot.tissue || _tissueSlot.nutrients || _tissueSlot;
+            tissuePercent = {
+                N: this.extractPpm(_tissueUnwrapped, 'N'),
+                P: this.extractPpm(_tissueUnwrapped, 'P'),
+                K: this.extractPpm(_tissueUnwrapped, 'K'),
+            };
+            if (tissuePercent.N == null || tissuePercent.P == null || tissuePercent.K == null) {
+                try {
+                    const SM = window.GAIP_SampleManager;
+                    const activeTissue = (SM && typeof SM.getActiveSample === 'function')
+                        ? SM.getActiveSample('tissue') : null;
+                    if (activeTissue) {
+                        const tSrc = activeTissue.normalized || activeTissue.rawData || {};
+                        ['N', 'P', 'K'].forEach(function (nut) {
+                            if (tissuePercent[nut] == null) {
+                                const v = parseFloat(tSrc[nut]);
+                                if (!isNaN(v) && v > 0) tissuePercent[nut] = v;
+                            }
+                        });
+                    }
+                } catch (e) {
+                    console.warn('[NutritionCalendar] GH-362: SampleManager tissue read failed:', e && e.message);
                 }
-            } catch (e) {
-                console.warn('[NutritionCalendar] GH-362: SampleManager tissue read failed:', e && e.message);
             }
         }
 
@@ -659,7 +806,16 @@
                         species: rawSpecies || undefined,
                         methodology: methodology || undefined,
                         CEC: soil.CEC ?? soil.cec,
-                        pH: soil.pH_water ?? soil.pH
+                        pH: soil.pH_water ?? soil.pH,
+                        // GH-414: this sample's own recorded texture, handed in
+                        // the same way the Word export hands it (word-export-
+                        // combined.js's per-sample resolveSiteProgramInputs
+                        // call). resolveSoilTexture() ranks it BELOW the site's
+                        // override — GAIP_SampleManager, the other place it
+                        // reads a snapshot from, is not loaded on this page, so
+                        // without this the Plan and the export were resolving
+                        // texture from two different chains.
+                        soilTexture: soil.soilTextureSnapshot || undefined
                     },
                     planForm: {
                         annualN: parseFloat(this.elements.annualNInput?.value) || null,
@@ -707,7 +863,10 @@
             // GH-388: distinct from the AA sands/others BUCKET, which the
             // shared resolver derives from this same value — this is the
             // site's real texture, not a bucket.
-            soilTexture: soil.soilTexture || null,
+            // GH-414: the value the SHARED resolver settled on, not this page's
+            // own read of one link in the chain. Both surfaces now report the
+            // texture that actually produced their ranges.
+            soilTexture: (_programInputs && _programInputs.soilTexture) || soil.soilTexture || null,
             CEC: soil.CEC ?? soil.cec ?? null,
             // GH-382 (D31 divergence item 2): pH_water preferred over a
             // generic .pH, matching word-export.js's own established
@@ -719,6 +878,16 @@
             // never as "assume a pH".
             pH: soil.pH_water ?? soil.pH ?? null,
             monthlyTemps,
+            // GH-425: where `monthlyTemps` came from, as climate-normals-
+            // service.js stamped it (`nasa-power`, `open-meteo-fallback`,
+            // `unavailable`) and the climatology window it covers. The series
+            // drives every month's growth potential and therefore the whole
+            // shape of the programme, and nothing on the page said which of the
+            // two providers answered. Provenance only; no value moves.
+            monthlyTempsSource: climate.monthlyTempsSource ||
+                (state.climate && state.climate.monthlyTempsSource) || null,
+            monthlyTempsPeriod: climate.monthlyTempsPeriod ||
+                (state.climate && state.climate.monthlyTempsPeriod) || null,
             annualNOverride,
             maxNPerMonth,
             distribution,
@@ -1786,6 +1955,18 @@
                 // apart from "0,0" rather than silently skipping the check.
                 lat: typeof inputs.latitude === 'number' ? inputs.latitude : null,
                 lon: typeof inputs.longitude === 'number' ? inputs.longitude : null,
+                // GH-425: the monthly-normals provenance that produced
+                // `monthlyTemps` — i.e. the series every `program.monthly[m].gp`
+                // was computed from. climate-normals-service.js publishes it on
+                // window.climateMetrics, which this pure function cannot read,
+                // so collectFromState() hands it in. null for a caller that
+                // supplies its own temperatures without saying where from.
+                monthlyTempsSource: inputs.monthlyTempsSource || null,
+                monthlyTempsPeriod: inputs.monthlyTempsPeriod || null,
+                // GH-425: the cap as CONFIGURED. adjustments.max_n_per_month is
+                // the cap the distributor actually clamped at and is null when
+                // no cap was supplied at all; this is the input either way.
+                maxNPerMonth: inputs.maxNPerMonth,
             },
             soil: {
                 ppm: inputs.soilPpm,
@@ -1793,6 +1974,28 @@
                 methodology: methodologyUsed, // GH-379: folded key, see meta.methodology
                 bulkDensity: inputs.bulkDensity,
                 soilDepth: inputs.soilDepth,
+                // GH-421: the cation exchange capacity this programme was
+                // computed against, carried on the programme itself so a
+                // consumer does not have to go looking for it. The product
+                // recommenders score leaching risk on CEC, and the only way
+                // they had to obtain it was to re-read the page — a read that
+                // succeeded on one surface and fell through to an invented
+                // number on the other. Whatever route the sample took into the
+                // calendar, the value that drove THIS programme is here.
+                // `null` means no reading, and stays null: this is a soil
+                // measurement, and there is no such thing as a default one.
+                CEC: (typeof inputs.CEC === 'number' && isFinite(inputs.CEC))
+                    ? inputs.CEC
+                    : (inputs.CEC != null && isFinite(parseFloat(inputs.CEC)) ? parseFloat(inputs.CEC) : null),
+                // GH-425: the two remaining sample-level inputs that select a
+                // sufficiency range but were nowhere on the programme. pH picks
+                // the MLSN / SLAN phosphorus floor off its ladder, and the
+                // texture picks the Hill Labs certificate (or the generic band)
+                // under Ammonium Acetate. Both already drove this computation;
+                // neither could be read back off its result.
+                pH: (typeof inputs.pH === 'number' && isFinite(inputs.pH)) ? inputs.pH
+                    : (inputs.pH != null && isFinite(parseFloat(inputs.pH)) ? parseFloat(inputs.pH) : null),
+                soilTexture: inputs.soilTexture || null,
             },
             // GH-338: { P: true, K: true, ... } for nutrients with no real
             // soil ppm reading -- Required for these is removal-only (no
@@ -1806,6 +2009,22 @@
             // consumers (export disclosure, debugging) can tell the two
             // apart without re-deriving it.
             tissue_gate_applied: _tissueGateEligible,
+            // GH-425: the tissue reading the gate above was judged on, so a
+            // reader can see the two ratios rather than only the verdict. null
+            // when the site has no tissue analysis — the ordinary case.
+            tissue_percent: inputs.tissuePercent || null,
+            // GH-425: the shared requirement core's own per-nutrient working —
+            // the branch it took ('lift-to-floor' / 'maintain-floor' /
+            // 'suppress-above-ceiling' / 'removal-only' / 'removal-only-
+            // unverified' / 'removal-only-no-soil-data'), the floor and ceiling
+            // it compared against, the removal ratio and where it came from, the
+            // clipping factor, the ppm->kg/ha unit, the correction period and the
+            // lift. Everything above is a TOTAL; this is how each total was
+            // reached. Published so a consumer can show the derivation without
+            // owning a second copy of the arithmetic — see assets/plan-calc-
+            // trace.js, which is temporary, while this field is not: it is the
+            // engine describing its own result.
+            requirement_detail: _per,
             // GH-304: 'certificate' | 'texture-fallback' per P/K/Ca/Mg/S nutrient
             // (N excluded -- it has no AA sufficiency-range concept at all).
             // Only meaningful under AA; stays all-'texture-fallback' for MLSN/SLAN
@@ -2042,6 +2261,31 @@
 
         const clipLabel = meta.clippingManagement === 'collected' ? 'Collected' : 'Returned';
 
+        // GH-416 (decision D-5): a programme built with no soil analysis behind
+        // it says so, on the page, in the same place the monthly-cap banner
+        // appears. Canberra and Test1 - Sports have no soil samples at all and
+        // Westview and test4 - USA have one carrying nothing but pH; all four
+        // produced a full seven-product programme with nothing on screen to say
+        // the P/K/Ca/Mg/S figures behind it are removal estimates rather than
+        // measurements. Generate is deliberately NOT blocked — the nitrogen
+        // calendar is correct without a soil test, and "N now, sample later" is
+        // a scenario the product supports.
+        //
+        // The condition is the engine's own `missing_soil_data`, not a sample
+        // count: no sample and a pH-only sample reach the engine as the same
+        // thing (`intent: 'removal-only-no-soil-data'` on every nutrient) and
+        // must read the same way here. Both P and K, because a sample missing
+        // just one of them is a different, narrower statement.
+        const _msd = p.missing_soil_data || {};
+        const _noSoilTest = !!(_msd.P && _msd.K);
+
+        // GH-414: this zone has no tissue analysis of its own, so the P and K
+        // removal ratios came from the species table rather than from the
+        // plant. Only shown when the SITE has tissue results — on a site with
+        // none the generic ratio is not a fact worth reporting, it is the norm.
+        const _tz = this._tissueZoneMatch;
+        const _noZoneTissue = !!(_tz && _tz.siteHasTissue && !_tz.matchedLabel);
+
         summary.innerHTML = `
             <div class="gilba-nut-summary">
                 <div class="gilba-nut-meta-grid">
@@ -2062,6 +2306,19 @@
                         <div class="gilba-nut-meta-val">${clipLabel}${p.adjustments.n_recycled > 0 ? ` <span class="gilba-nut-recycled-badge">${p.adjustments.n_recycled} kg N recycled</span>` : ''}</div>
                     </div>
                 </div>
+
+                ${_noSoilTest ? `
+                    <div class="gilba-nut-banner gilba-nut-banner--warning">
+                        <strong>Built without a soil test:</strong>
+                        P/K/Ca/Mg/S are removal-only estimates; add a soil sample to size them.
+                    </div>
+                ` : ''}
+
+                ${_noZoneTissue ? `
+                    <div class="gilba-nut-banner gilba-nut-banner--warning">
+                        No tissue sample for this zone — generic P/K removal ratios used.
+                    </div>
+                ` : ''}
 
                 ${p.adjustments.n_recycled > 0 ? `
                     <div class="gilba-nut-banner gilba-nut-banner--good">

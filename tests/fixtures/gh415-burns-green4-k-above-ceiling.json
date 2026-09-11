@@ -1,0 +1,66 @@
+{
+  "_source": "docker exec gilba_mysql mysql -- samples.id=46 (client_uid Soil_19_zo0q, 'Green 4', 2025-07-31), site 019e96d8-97b7-714c-9bd6-d65b16ec7f2e 'Burns', site_configs namespace=gaip; pulled 2026-09-11",
+  "_verifiedVia": [
+    "db",
+    "live-plan-page"
+  ],
+  "_note": "One of the thirteen rows the audit found printing 'Required 0.0' and 'Deficit (-56%)' side by side. Twelve of Burns' twenty-six soil samples sit in the window where the MLSN K range is narrower in kg/ha than the season's removal — (55.5 - 37) x 1.4 = 25.9 against 64 — so the old flat zero above the ceiling left the season ending below the floor. The Balance figure below (22.8 kg/ha against a floor of 51.8) is the one read off the live Plan page during the audit.",
+  "site": {
+    "id": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+    "name": "Burns"
+  },
+  "sample": {
+    "id": 46,
+    "clientUid": "Soil_19_zo0q",
+    "label": "Green 4",
+    "sampleType": "soil",
+    "sampleDate": "2025-07-31"
+  },
+  "inputs": {
+    "methodology": "mlsn",
+    "species": "Creeping Bentgrass (Greens)",
+    "annualN": 120,
+    "clippingManagement": "collected",
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "soilPpm": {
+      "P": 32,
+      "K": 62
+    },
+    "pH": 6.9
+  },
+  "expected": {
+    "ranges": {
+      "P": { "min": 21, "max": 31.5 },
+      "K": { "min": 37, "max": 55.5 }
+    },
+    "removal": {
+      "P": 12.0,
+      "K": 64.0
+    },
+    "annualRequirement": {
+      "_note": "K: max(0, 64 - (62 - 37) x 1.4 x 10 x 0.1) = 29.0. P: max(0, 12 - (32 - 21) x 1.4) = 0, because phosphorus can spare the season's removal and still hold its floor — which is why the P row never carried the contradiction.",
+      "P": 0.0,
+      "K": 29.0
+    },
+    "intent": {
+      "P": "suppress-above-ceiling",
+      "K": "maintain-floor"
+    },
+    "status": {
+      "P": "High",
+      "K": "High"
+    },
+    "balance": {
+      "_note": "The Plan page's Nutrient Delivery Summary, K row. With nothing delivered the season still ends at 22.8 kg/ha against a floor of 51.8 — the Deficit the old Required 0.0 contradicted. Delivering the new Required lands exactly on the floor, which is what makes the two models agree by construction.",
+      "rangeKgHa": "51.8–77.7",
+      "deliveredZero": { "balanceKgHa": 22.8, "statusLabel": "Deficit (-56%)" },
+      "deliveredEqualsRequired": { "balanceKgHa": 51.8, "statusLabel": "On Track" }
+    },
+    "beforeGh415": {
+      "annualRequirementK": 0.0,
+      "intentK": "suppress-above-ceiling",
+      "statusLabelK": "Deficit (-56%)"
+    }
+  }
+}

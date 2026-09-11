@@ -92,6 +92,16 @@
             methodology:  _methodology,
             bulkDensity:  soil.bulkDensity,
             depth:        soil.depth,
+            // GH-422: this site's saved cation exchange capacity, so a Plan
+            // page reached WITHOUT the sample picker (no soil samples on the
+            // site, or a caller that generates before the picker mounts) still
+            // hands the calendar a real reading rather than nothing. The
+            // picker's own applySample() overwrites this slot with the selected
+            // sample's CEC -- including with null when that sample has none,
+            // which is the answer the export gives for the same sample and so
+            // is the answer the two surfaces must share.
+            // hub-persistence.js writes this key lower-case; accept either.
+            CEC:          (soil.CEC != null ? soil.CEC : (soil.cec != null ? soil.cec : undefined)),
             surfaceType:  turf.subCategory || turf.turfType,
             // GH-294: from Site::soil_texture_override (PageController), not
             // gaipConfig -- the AA K-reconciliation preview's deriveCode()
@@ -1037,6 +1047,11 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
      so the Plan page and the Word export compute from one implementation.
      Must load before nutrition-calendar.js. --}}
 <script src="{{ $legacyAssetUrl('nutrition-requirement-core.js') }}"></script>
+{{-- GH-414: zone identity, shared with the Word export and the trend charts.
+     The Plan pairs a tissue analysis with a soil sample by zone now, the same
+     way the export always has, so it needs the same deriver. Must load before
+     nutrition-program-inputs.js is called. --}}
+<script src="{{ $legacyAssetUrl('zone-key.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-program-inputs.js') }}"></script>
 {{-- GH-398 (D31 stage 4): the shared GP-weighted monthly distribution and the
      monthly N cap, which nutrition-calendar.js and nutrition-requirement-engine.js
@@ -1069,4 +1084,13 @@ details[open] .plan-collapsible-summary svg { transform: rotate(180deg); }
 <script src="{{ $legacyAssetUrl('aitkens-fertiliser-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nz-fertiliser-products.js') }}"></script>
 <script src="{{ $legacyAssetUrl('nutrition-nz-fertiliser-integration.js') }}"></script>
+{{-- GH-425 TEMPORARY — "How this was calculated", under the Nutrient Delivery
+     Summary. A verification aid for the agronomy rules, not a feature: it says
+     on screen that it is temporary and will be removed.
+     TO REMOVE: delete this tag and assets/plan-calc-trace.js. Nothing else
+     references it, it writes no state and changes no figure, and it must load
+     after the regional integrations because it reads the panel they render.
+     Deliberately NOT added to any reports/*.blade.php — UI only, never the Word
+     document (owner's decision). --}}
+<script src="{{ $legacyAssetUrl('plan-calc-trace.js') }}"></script>
 @endsection

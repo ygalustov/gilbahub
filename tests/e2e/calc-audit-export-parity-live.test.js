@@ -320,6 +320,14 @@ describe('Calculation audit — the document against the Plan, one sample per si
                     .filter((l) => /^(Annual|Monthly|Nutrient|Fertiliser|Soil|Growth|Product|Recommend|Executive|Summary|Programme|Program)\b/i.test(l) && l.length < 90)
                     .filter((l, i, a) => a.indexOf(l) === i).slice(0, 60);
                 rec.docx.noDataWording = (text.match(/[^\n]{0,80}(no soil|No soil|not available|insufficient|missing soil|no sample|No sample|could not|cannot be)[^\n]{0,80}/g) || []).slice(0, 10);
+                // GH-414/GH-415: the Annual Nutrient Requirements caption, which
+                // is where both tickets put their explanation of a figure the
+                // reader has not seen before — a zone computed on the generic
+                // removal ratio, and a soil above its ceiling still asking for
+                // fertiliser. Captured whole so a missing sentence is visible
+                // here rather than only in the .docx.
+                rec.docx.anrCaption = (text.split('\n').map((l) => l.trim())
+                    .filter((l) => /Required is the annual removal-replacement estimate/.test(l))[0] || null);
                 rec.docx.tableHeaders = tables.map((rows) => (rows[0] || []).slice(0, 6).join('|')).filter((h, i, a) => a.indexOf(h) === i).slice(0, 40);
                 const pHM = /pH[^\n]{0,80}/g; const phs = []; let h;
                 while ((h = pHM.exec(text)) && phs.length < 6) phs.push(h[0].trim());
@@ -347,11 +355,38 @@ describe('Calculation audit — the document against the Plan, one sample per si
         if (browser) await browser.close();
     }, 120000);
 
+    // GH-423: the pairs that legitimately produce no comparison. test4 - USA is
+    // outside both the Australian and the New Zealand catalogue boxes, so its
+    // Plan page shows no regional panel at all and there is no Delivered column
+    // to compare (GH-416 decided that deliberately). Anything else appearing in
+    // this list means a pair was silently NOT COMPARED, which is the shape this
+    // assertion exists to catch.
+    const EXPECTED_INCOMPLETE = ['test4 - USA / Green 13'];
+
     test('every pair produced both a Plan panel and a document ANR block', () => {
         const bad = RESULTS.pairs.filter((r) => r.error || !r.plan || !r.plan.summary || !r.docx || !Object.keys(r.docx.anr).length)
             .map((r) => ({ site: r.site, label: r.label, error: (r.error || '').split('\n')[0], hasPlanSummary: !!(r.plan && r.plan.summary), docxAnrKeys: r.docx ? Object.keys(r.docx.anr) : null, anrSamples: r.docx ? r.docx.anrAllSamples : null }));
         process.stdout.write('[audit-export] incomplete pairs: ' + JSON.stringify(bad, null, 1) + '\n');
-        expect(Array.isArray(bad)).toBe(true);
+        // WAS `expect(Array.isArray(bad)).toBe(true)` — which is true of every
+        // array and so could not fail. A pair whose export degraded (the
+        // per-sample recompute skipped, no Annual Nutrient Requirements table)
+        // contributed no comparisons to the test below, which skips a nutrient
+        // whenever either side is missing, and the run still reported green for
+        // it. Name the exceptions instead, so a new one is a failure.
+        expect(bad.map((b) => b.site + ' / ' + b.label).sort()).toEqual(EXPECTED_INCOMPLETE.slice().sort());
+    });
+
+    test('every pair that should be comparable actually was compared', () => {
+        // The companion to the above: not "was there data" but "did a
+        // comparison happen". Three nutrients per comparable pair.
+        const counted = RESULTS.pairs.map((r) => {
+            if (!r.plan || !r.plan.summary || !r.docx) return { pair: r.site + ' / ' + r.label, compared: 0 };
+            const n = ['N', 'P', 'K'].filter((k) => r.plan.summary[k] && r.docx.anr[k]).length;
+            return { pair: r.site + ' / ' + r.label, compared: n };
+        });
+        process.stdout.write('[audit-export] nutrients compared per pair: ' + JSON.stringify(counted) + '\n');
+        const under = counted.filter((c) => c.compared < 3 && EXPECTED_INCOMPLETE.indexOf(c.pair) < 0);
+        expect(under).toEqual([]);
     });
 
     test('Required, Delivered, Balance and Status agree between the Plan and the document', () => {

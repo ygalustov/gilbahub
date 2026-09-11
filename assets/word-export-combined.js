@@ -186,7 +186,34 @@
         // b35fix_greentissue: build zoneKey -> latest sample map for a data type,
         // so a soil zone (green) only ever picks up the water/tissue sample that
         // shares its physical zone, not merely whichever sample was inserted last.
+        // GH-414: the selection rule itself (one entry per zone key, latest date
+        // wins) now lives in nutrition-program-inputs.js, so the Plan page can
+        // apply the SAME rule when it pairs a tissue result with a soil sample —
+        // until GH-414 it applied none, and handed every soil sample on a site
+        // the site's single latest tissue analysis. This wrapper keeps the
+        // store/ids signature the rest of this file calls it with, and keeps the
+        // local fallback for the case where the shared module is not on the page.
         function buildZoneMap(store, sampleIds) {
+            var _NPI = global.GAIP_NutritionProgramInputs;
+            if (_NPI && typeof _NPI.buildZoneMap === 'function' &&
+                typeof global.GaipZoneKey !== 'undefined') {
+                // `label`/`id` are handed over exactly as deriveZoneKeyLocal()
+                // read them (GaipZoneKey.derive takes `label || id`), so the key
+                // this produces is the key this file has always produced.
+                var shared = _NPI.buildZoneMap((sampleIds || []).map(function (id) {
+                    var o = store[id];
+                    // `label` carries what deriveZoneKeyLocal() fed the deriver
+                    // (`o.label || o.id`), so the key is unchanged; `id` stays
+                    // the STORE key, which is what callers index the store by.
+                    return { id: id, label: (o && (o.label || o.id)) || null,
+                             date: (o && o.date) || '', sample: o };
+                }));
+                var out = {};
+                Object.keys(shared).forEach(function (k) {
+                    out[k] = { sampleId: shared[k].id, sampleObj: shared[k].sample, date: shared[k].date };
+                });
+                return out;
+            }
             var map = {}; // zoneKey -> { sampleId, sampleObj, date }
             for (var i = 0; i < sampleIds.length; i++) {
                 var id = sampleIds[i];
@@ -885,7 +912,15 @@
                     data: data,
                     charts: charts,
                     // b35fix310a Fix A1: forward zone provenance to render layer
-                    zoneProvenance: entry.zoneProvenance || null
+                    zoneProvenance: entry.zoneProvenance || null,
+                    // GH-414: and whether this site has tissue results at all,
+                    // and which one (if any) belongs to THIS zone. Both are
+                    // resolved once, per zone, when the entries are built; the
+                    // render layer had no way to ask afterwards, so a caption
+                    // that wanted to say "this green has no tissue of its own"
+                    // could not tell that apart from "this site has none".
+                    hasTissue: !!entry.hasTissue,
+                    tissueSampleId: entry.tissueSampleId || null
                 });
 
                 log('Collected report', (i + 1), '/', samples.length, ':', entry.siteLabel, '-', entry.sampleId);
@@ -1914,9 +1949,30 @@
         // is per-sample by the time we.buildSections is called. Every downstream
         // render sees consistent data.
         // ──────────────────────────────────────────────────────────────────
-        var anrReports = reports.filter(function(r) {
-            return r.data && r.data.soil && r.data.soil.hasData && (r.data.soil.P != null || r.data.soil.K != null);
-        });
+        // GH-416: a soil sample carrying nothing but pH is still a sample, and
+        // the document has to say what it does and does not know about it.
+        //
+        // Both the Annual Nutrient Requirements table and the Monthly N
+        // Distribution table iterate this list, so excluding those samples
+        // removed BOTH from the document — while the Annual Product Summary
+        // and the Monthly Schedule, which do not, printed a full 224.8 kg N/ha
+        // programme for Westview underneath. The reader saw the products with
+        // no statement of what they were selected against. Meanwhile the Plan
+        // page showed both, because the engine has handled a missing reading
+        // since decision D-9: the nutrient comes back removal-only with
+        // `intent: 'removal-only-no-soil-data'` and prints as "No Soil Data",
+        // which is the honest answer and the one already on screen.
+        //
+        // `soil.hasData` is set from P/K/Ca/Mg alone (word-export.js
+        // collectData), so it is false for a pH-only sample and the P/K test
+        // beside it was never the only thing excluding them.
+        function _anrEligible(r) {
+            var s = r && r.data && r.data.soil;
+            if (!s) return false;
+            if (s.hasData && (s.P != null || s.K != null)) return true;
+            return s.pH != null || s.pH_water != null;
+        }
+        var anrReports = reports.filter(_anrEligible);
 
         var _enginePure = (typeof window !== 'undefined' && window.NutritionRequirementEngine_Pure) ||
                           (typeof global !== 'undefined' && global.NutritionRequirementEngine_Pure);
@@ -2135,6 +2191,17 @@
                 ' au=' + _auAvailable + ' (branch now resolved per sample, see per-sample logs below)');
 
             anrReports.forEach(function(r) {
+                // GH-416: deliberately still `hasData`, not `_anrEligible()`.
+                // A pH-only sample now reaches the ANR and Monthly N tables, but
+                // it does NOT get a per-sample programme recomputed here: the
+                // catalogue branch below is chosen from coordinates, and for a
+                // site outside both the AU and NZ boxes (test4 - USA) `_useAU`
+                // resolves true, so recomputing would print Australian products
+                // in an American document — for a site whose Plan page shows no
+                // regional panel at all. Its Delivered column reads the
+                // programme collectData() already carried, unchanged, and the
+                // ANR renderer classifies the row's Status straight off the
+                // engine's `removal-only-no-soil-data` intent.
                 if (!r.data || !r.data.soil || !r.data.soil.hasData) { _perSampleProgSkip++; return; }
                 if (r._anr && r._anr.isCotula) { _perSampleProgSkip++; return; }
 
@@ -2241,6 +2308,24 @@
                 perSampleInputs.soilTexture = _siteInputs.soilTexture;
                 perSampleInputs.CEC = _siteInputs.CEC;
                 perSampleInputs.pH = _siteInputs.pH;
+                // GH-413: the sufficiency ranges belong in this list too, and
+                // their absence from it is why the document's Annual Nutrient
+                // Requirements table printed a Range column from one floor and
+                // a Required column from another. `perSampleInputs` starts as a
+                // copy of the FACILITY collectFromState() snapshot, whose
+                // `ranges` were resolved from the hidden #rp-hub-runner's DOM —
+                // one sample's pH, texture and methodology for every sample in
+                // the document. computeProgram() prefers `inputs.ranges` when it
+                // is present, so that stale object drove the per-sample
+                // programme (and `annual_totals_range`, which this file stashes
+                // as r._planParity.ranges and the ANR table prints), while the
+                // ANR's own Required came from engineInputs.ranges — resolved
+                // per sample. Measured on New test - location / Green 5
+                // (pH 8.26): Required computed from the pH-adjusted floor 51,
+                // Range printed from the unadjusted 27 ("37.8–75.6" beside a
+                // "Deficit (-6%)" that was scored against neither).
+                perSampleInputs.ranges = _siteInputs.ranges;
+                perSampleInputs.rangeSources = _siteInputs.rangeSources;
 
                 // GH-398 (D31 stage 4): the monthly cap and the distribution
                 // mode now come from the same adapter call as everything above,
@@ -2712,7 +2797,14 @@
                         var _prebbleContext = {
                             surfaceType: perSampleInputs.surfaceType,
                             methodology: perSampleInputs.methodology,
-                            soilCEC: _pi && typeof _pi.getSoilCEC === 'function' ? _pi.getSoilCEC() : null,
+                            // GH-422: this sample's own CEC, off the programme
+                            // just computed for it. The bare getter read the
+                            // ONE hidden `.gaip-cec` input this page carries —
+                            // whichever sample happens to be loaded into the
+                            // legacy hub form, not the sample of this
+                            // iteration — so a multi-sample export scored every
+                            // sample's leaching risk against one of them.
+                            soilCEC: _pi && typeof _pi.getSoilCEC === 'function' ? _pi.getSoilCEC(perSampleCalendar) : null,
                             irrigationFrequency: _pi && typeof _pi.getIrrigationFrequency === 'function' ? _pi.getIrrigationFrequency() : null,
                             soilTemp: _pi && typeof _pi.getSoilTemperature === 'function' ? _pi.getSoilTemperature() : null,
                             latitude: _pi && typeof _pi.getLatitude === 'function' ? _pi.getLatitude() : null,
@@ -2741,6 +2833,21 @@
                             monthlyNKP: _prebbleMonthly.map(function(m) {
                                 return { month: m.month_name || m.month, gp: +(m.gp || 0).toFixed(2), N: +(m.N || 0).toFixed(1), K: +(m.K || 0).toFixed(1), P: +(m.P || 0).toFixed(1) };
                             }),
+                            // GH-423: everything else generateProgram() reads —
+                            // see the matching note in
+                            // nutrition-nz-fertiliser-integration.js. `monthlyNKP`
+                            // alone hid `temp`, the calendar meta and the pool.
+                            monthlyFull: _prebbleMonthly,
+                            calendarMeta: {
+                                hemisphere: perSampleCalendar.meta && perSampleCalendar.meta.hemisphere,
+                                latitude: perSampleCalendar.meta && perSampleCalendar.meta.lat,
+                                methodology: perSampleCalendar.soil && perSampleCalendar.soil.methodology,
+                                CEC: perSampleCalendar.soil && perSampleCalendar.soil.CEC,
+                            },
+                            pool: {
+                                granular: (window.PrebbleProducts.granular || []).map(function(p) { return p.id; }),
+                                liquid: (window.PrebbleProducts.liquid || []).map(function(p) { return p.id; }),
+                            },
                         }, null, 2));
                         try {
                             perSampleProgram = window.PrebbleRecommender.generateProgram(perSampleCalendar, _prebbleContext);
@@ -2835,6 +2942,15 @@
                         // so the recommender that produced this programme does
                         // not need recording alongside it.
                         meta: perSampleProgram.meta || {},
+                        // GH-422: the CEC this sample's product selection was
+                        // scored against — a number, or null when the sample
+                        // carries no reading. renderNutritionProgramSection()
+                        // prints it, and names it as missing when it is null,
+                        // so the document never implies a measurement that
+                        // does not exist. Undefined outside the New Zealand
+                        // branch, where nothing reads CEC at all.
+                        soilCEC: (typeof _prebbleContext !== 'undefined' && _prebbleContext)
+                            ? _prebbleContext.soilCEC : undefined,
                         _generatedForSample: r.sampleId
                     };
 
@@ -3689,8 +3805,35 @@
                     : '.');
             var _gh396UnitsNote = ' Rates are kg/ha/yr; soil levels are kg/ha with the ' +
                 'certificate\'s ppm in brackets.';
-            var _gh396Tail = _gh396RequiredNote + _gh396BalanceNote + _trendNote +
-                _tissueMarkNote + _gh396UnitsNote;
+            // GH-415 (B1): above the ceiling Required is no longer a flat zero,
+            // and a reader who has seen the old documents needs to be told why
+            // a soil marked High is asking for fertiliser. Printed only where a
+            // row actually took that branch, so the ordinary document is
+            // unchanged.
+            var _hasMaintainFloorRows = anrReports.some(function(r) {
+                return ['P', 'K', 'S'].some(function(n) {
+                    return r._anr && r._anr[n] && r._anr[n].intent === 'maintain-floor';
+                });
+            });
+            var _gh415CeilingNote = _hasMaintainFloorRows
+                ? ' Where the soil is above its sufficiency ceiling but the season\'s removal ' +
+                  'would still take it below the floor, Required is what holds the floor ' +
+                  '(removal less what the soil can spare), not zero.'
+                : '';
+            // GH-414: a zone whose soil sample has no tissue analysis of its own
+            // is computed on the species-table P/K ratio, and says so — but only
+            // on a site that HAS tissue results, where the reader could
+            // otherwise assume every green was covered by the one they can see.
+            var _zonesWithoutTissue = anrReports.filter(function(r) {
+                return r.hasTissue && !r.tissueSampleId;
+            }).map(function(r) { return r.sampleLabel || r.sampleId; });
+            var _gh414TissueNote = _zonesWithoutTissue.length
+                ? ' No tissue sample for ' +
+                  (_zonesWithoutTissue.length === 1 ? 'this zone' : 'these zones') + ' (' +
+                  _zonesWithoutTissue.join(', ') + ') — generic P/K removal ratios used.'
+                : '';
+            var _gh396Tail = _gh396RequiredNote + _gh415CeilingNote + _gh396BalanceNote + _trendNote +
+                _tissueMarkNote + _gh414TissueNote + _gh396UnitsNote;
 
             var subtitleText;
             if (methodStr === 'MLSN') {
@@ -3704,7 +3847,14 @@
                                'with P pH-adjusted where pH is available. Within the sufficiency range, ' +
                                'Required = removal only (soil reserves cover the agronomic requirement); ' +
                                'below floor, Required = removal + lift correction over years-to-correct; ' +
-                               'above ceiling, Required = 0. Sufficiency-as-floor framing per Carrow, ' +
+                               // GH-415 (B1): "above ceiling, Required = 0" was
+                               // true until this ticket and is not any more —
+                               // above the ceiling the figure is whatever holds
+                               // the floor against the season's removal, which
+                               // is 0 only when the soil can spare it.
+                               'above ceiling, Required = whatever keeps the season from ending below ' +
+                               'the floor (0 where the soil can spare the removal). ' +
+                               'Sufficiency-as-floor framing per Carrow, ' +
                                'Waddington & Rieke (2001).' + _gh396Tail;
             } else if (methodStr === 'AA') {
                 // ────────────────────────────────────────────────────────
@@ -4100,23 +4250,71 @@
                         var removal = (pp && pp.removal && typeof pp.removal[nut] === 'number')
                             ? pp.removal[nut]
                             : (anrResult && typeof anrResult.removal === 'number' ? anrResult.removal : null);
+                        // GH-416: nitrogen has no `_anr` entry (it has no soil
+                        // sufficiency range), so with no per-sample programme
+                        // its Removal cell printed "—" beside a Plan page
+                        // showing 200. It is the same quantity on both: the
+                        // Plan's `annual_removal.N` is the resolved annual N
+                        // target times the clipping N factor, which is 1.0 for
+                        // both collected and returned, and that target is what
+                        // _buildEngineInputs() carries here.
+                        if (removal == null && isN) {
+                            var _nTarget = r.data.engineInputs && r.data.engineInputs.turf &&
+                                r.data.engineInputs.turf.nProgramKgHaYr;
+                            if (typeof _nTarget === 'number' && isFinite(_nTarget)) removal = Math.round(_nTarget);
+                        }
                         var range = (pp && pp.ranges) ? pp.ranges[nut] : null;
                         var deliveredNum = _perSampleDelivered(r, nut);
                         var requiredNum = parseFloat(reqVal);
                         if (!isFinite(requiredNum)) requiredNum = 0;
 
+                        // GH-416: a nutrient the engine computed removal-only
+                        // because there was no reading for it is "No Soil Data"
+                        // whether or not a per-sample programme exists. A
+                        // pH-only sample has no programme of its own (see the
+                        // per-sample loop's own GH-416 comment for why it is
+                        // deliberately not recomputed here), and without this
+                        // its rows printed "—" for a Status the Plan page states
+                        // plainly. classify() returns on missingSoilData before
+                        // it touches range, bulk density or depth, so the
+                        // absent Plan columns are not needed to answer it.
+                        var missingSoil = pp
+                            ? !!(pp.missingSoilData && pp.missingSoilData[nut])
+                            : !!(anrResult && anrResult.intent === 'removal-only-no-soil-data');
+
+                        // GH-416: and nitrogen, which has no sufficiency range
+                        // on either surface and therefore takes classify()'s
+                        // delivered-against-required branch — the same branch
+                        // the Plan page's N row takes. Without `isN` here, a
+                        // sample with no per-sample programme printed "—" for
+                        // an N Status the Plan page called "On Track" from the
+                        // same two numbers (Westview: 224.8 delivered against
+                        // 200.0 required, on both surfaces).
+                        //
+                        // GH-416: "no soil reading for this nutrient" is also
+                        // answerable with no programme to deliver anything —
+                        // test4 - USA has no regional catalogue, so its rows
+                        // have no Delivered figure at all, and Status printed
+                        // "—" where the honest answer is the one the engine
+                        // already gave. classify() returns on missingSoilData
+                        // before it uses `delivered` for anything but the
+                        // Balance figure, and Balance still prints "—" below
+                        // when there is nothing delivered to compute it from.
+                        var _clsDelivered = (deliveredNum != null)
+                            ? deliveredNum : (missingSoil ? 0 : null);
+
                         var cls = null;
-                        if (_balanceModel && pp && deliveredNum != null) {
+                        if (_balanceModel && (pp || missingSoil || isN) && _clsDelivered != null) {
                             cls = _balanceModel.classify({
                                 nutrient: nut,
                                 required: requiredNum,
-                                delivered: deliveredNum,
+                                delivered: _clsDelivered,
                                 currentPpm: currentPpm,
                                 removal: removal,
                                 range: range,
                                 bulkDensity: ppSoil ? ppSoil.bulkDensity : null,
                                 soilDepth: ppSoil ? ppSoil.soilDepth : null,
-                                missingSoilData: !!(pp.missingSoilData && pp.missingSoilData[nut])
+                                missingSoilData: missingSoil
                             });
                         }
 
@@ -4126,7 +4324,9 @@
                         var removalText = (typeof removal === 'number') ? String(Math.round(removal * 10) / 10) : '—';
                         var deliveredText = (deliveredNum != null) ? _round1dpForDisplay(deliveredNum) : '—';
                         var rangeText = cls ? cls.rangeDisplay : '—';
-                        var balanceText = cls ? cls.diff.toFixed(1) : '—';
+                        // GH-416: a Balance needs something delivered to be a
+                        // projection rather than an assumption of zero.
+                        var balanceText = (cls && deliveredNum != null) ? cls.diff.toFixed(1) : '—';
                         var statusText = cls ? cls.statusLabel : '—';
                         var verdictColour = (cls && _balanceModel)
                             ? _balanceModel.statusColour(cls.statusClass) : '6B7280';

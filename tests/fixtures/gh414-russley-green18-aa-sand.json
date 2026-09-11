@@ -1,0 +1,82 @@
+{
+  "_source": "docker exec gilba_mysql mysql -- samples.id=105 (soil, 'Green 18') and samples.id=142 (tissue, 'Green 18'), site 019f35f0-d912-73e5-82bd-3de0bfd4f6ce 'Russley', sites.soil_texture_override='sand', samples.soil_texture_snapshot='loam'; pulled 2026-09-11",
+  "_verifiedVia": [
+    "db",
+    "live-plan-page"
+  ],
+  "_note": "The two-textures-one-green case GH-414 is about. Every Russley soil row carries the import-day stamp soil_texture_snapshot='loam' while the site's own override says 'sand'. The Plan resolved sand (its state never carried the snapshot) and the export resolved loam (it reads the snapshot through GAIP_SampleManager), so one green was computed against the Hill Labs S279 certificate on one surface and the generic ammonium-acetate 'others' band on the other. Decision D-2: the hand-set site override outranks the automatic snapshot, so 'sand' is right and the expected block below is the Plan's, which the document now matches. Tissue sample 142 was relabelled from '18th Green' to 'Green 18' by the owner on 2026-09-11, so it pairs with this soil sample and with no other.",
+  "site": {
+    "id": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+    "name": "Russley",
+    "soilTextureOverride": "sand"
+  },
+  "sample": {
+    "id": 105,
+    "label": "Green 18",
+    "sampleType": "soil",
+    "soilTextureSnapshot": "loam"
+  },
+  "tissueSample": {
+    "id": 142,
+    "label": "Green 18",
+    "sampleDate": "2026-07-01"
+  },
+  "otherZones": [
+    { "id": 103, "label": "Green 1", "sampleType": "soil" },
+    { "id": 104, "label": "Green 13", "sampleType": "soil" }
+  ],
+  "inputs": {
+    "methodology": "ammonium_acetate",
+    "species": "Browntop Bent (Greens)",
+    "annualN": 200,
+    "clippingManagement": "collected",
+    "bulkDensity": 1.4,
+    "soilDepth": 10,
+    "soilPpm": {
+      "P": 20,
+      "K": 156.4
+    },
+    "tissuePercent": {
+      "N": 4.2,
+      "P": 0.38,
+      "K": 2.5
+    }
+  },
+  "expected": {
+    "soilTexture": "sand",
+    "soilTextureSource": "site-override",
+    "certificateCode": "S279",
+    "ranges": {
+      "P": { "min": 5, "max": 15 },
+      "K": { "min": 78.2, "max": 195.5 }
+    },
+    "rangeKgHa": {
+      "P": "7–21",
+      "K": "109.5–273.7"
+    },
+    "tissueGateApplied": true,
+    "removal": {
+      "P": 18.1,
+      "K": 119.0
+    },
+    "annualRequirement": {
+      "P": 0.0,
+      "K": 119.0
+    },
+    "withoutTissue": {
+      "_note": "Green 1 and Green 13 have no tissue analysis of their own, so from GH-414 they compute on the species-table ratio instead of Green 18's tissue. bentgrass P/N 15/150, K/N 80/150 against annual N 200.",
+      "removal": {
+        "P": 20.0,
+        "K": 106.7
+      }
+    },
+    "textureLoamWouldHaveGiven": {
+      "_note": "What the document printed before D-2: no S279 certificate for browntop on a non-sand rootzone, so the generic ammonium-acetate 'others' band, and with it a P 'Deficit (-54%)' on a green the Plan called On Track.",
+      "certificateCode": null,
+      "ranges": {
+        "P": { "min": 12, "max": 28 },
+        "K": { "min": 100, "max": 235 }
+      }
+    }
+  }
+}
