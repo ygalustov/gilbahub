@@ -275,7 +275,10 @@
                 // resolved a hardcoded 8 for every New Zealand site.
                 soilCEC:             typeof pi.getSoilCEC === 'function'             ? pi.getSoilCEC(calendarData) : null,
                 irrigationFrequency: typeof pi.getIrrigationFrequency === 'function' ? pi.getIrrigationFrequency() : null,
-                soilTemp:            typeof pi.getSoilTemperature === 'function'     ? pi.getSoilTemperature()     : null,
+                // GH-428: no `soilTemp`. The recommender overwrites it with each
+                // month's own climate normal before any selector sees it, so the
+                // one outer value reached nothing — see the note in
+                // nutrition-prebble-integration.js where getSoilTemperature() was.
                 latitude:            typeof pi.getLatitude === 'function'            ? pi.getLatitude()            : null,
                 hemisphere:          'southern',
                 soilPpm:             soilPpm,

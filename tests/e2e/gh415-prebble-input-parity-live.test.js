@@ -285,16 +285,19 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
         //     comparisons, which coerce.
         //   context.muldersFlags — `{}` against absent. prebbles-products.js
         //     never mentions the field; it is the Australian recommender's.
-        //   context.soilTemp — GH-427 removed the last thing that read it. The
-        //     per-month temperature now comes from each calendar row's own
-        //     monthly normal, and `tests/gh424-soil-temp-basis.test.js` sweeps
-        //     this field from 8.0 to 20.0 degC in tenths and gets exactly ONE
-        //     product set out, which is the evidence for calling it inert rather
-        //     than an assumption. It still differs between the surfaces (13
-        //     against 12.8 — a persisted analysis cache against a live forecast
-        //     mean) and that difference no longer reaches any figure. It is
-        //     vestigial in the three context objects that still carry it; worth
-        //     removing, but removing it is not what makes the surfaces agree.
+        //   context.soilTemp — GH-428 DELETED the field from all three context
+        //     objects and the getter behind it, so neither surface carries it
+        //     and there is nothing left to differ. It stays in this ignore list
+        //     only so that a run against an older build still reports the real
+        //     differences rather than this one. GH-427 had removed the last
+        //     thing that READ it: the per-month temperature comes from each
+        //     calendar row's own monthly normal, and
+        //     `tests/gh424-soil-temp-basis.test.js` sweeps the field 8.0-20.0
+        //     degC in tenths for exactly ONE product set, which is the evidence
+        //     for calling it inert rather than an assumption. While it existed
+        //     it differed between the surfaces (13 against 12.8 — a persisted
+        //     analysis cache against a live forecast mean) and that difference
+        //     reached no figure.
         const IGNORED = ['context.soilPpm', 'context.muldersFlags', 'context.soilTemp'];
         const real = RESULT.differences.filter((d) => IGNORED.indexOf(d.field) < 0
             && d.field.indexOf('monthly[') !== 0);
@@ -311,15 +314,16 @@ describe('GH-415 — the NZ recommender is handed the same inputs on both surfac
         // the snapshot compared is `[CombinedExport b35fix426]` — the code that
         // actually produced the .docx.
         //
-        // The two resolve soil temperature from different places:
-        // getSoilTemperature() prefers window.climateMetrics.temperature.mean
-        // (live, full stack, 12.8) and falls through on the Plan to the
+        // The two resolved soil temperature from different places:
+        // getSoilTemperature() preferred window.climateMetrics.temperature.mean
+        // (live, full stack, 12.8) and fell through on the Plan to the
         // persisted analysis cache, GAIP_DASHBOARD_DATA.computed.climate
-        // .temperature.mean (13). Soil temperature feeds
-        // getReleaseTechEfficiency() and estimateMonthlySoilTemp(), so it is a
-        // product-selection input, not a display value — it WAS, until GH-427
-        // put the per-month temperature on the site's monthly climate normals
-        // and deleted the curve that consumed this field.
+        // .temperature.mean (13). Soil temperature fed
+        // getReleaseTechEfficiency() and estimateMonthlySoilTemp(), so it was a
+        // product-selection input, not a display value — until GH-427 put the
+        // per-month temperature on the site's monthly climate normals and
+        // deleted the curve that consumed this field, and GH-428 deleted the
+        // field and the getter with it.
         expect(real).toEqual([]);
     });
 });

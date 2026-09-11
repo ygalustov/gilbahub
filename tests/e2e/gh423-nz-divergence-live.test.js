@@ -228,7 +228,7 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
             null, { timeout: 90000 });
         await page.waitForTimeout(3000);
         R.plan = parsePre(planLines, 'NutritionNzFertiliserIntegration');
-        // Every source getSoilTemperature() consults, as they stand on the Plan
+        // Every source getSoilTemperature() consulted, as they stand on the Plan
         // at the moment Generate ran — so "the Plan has no live reading" is read
         // rather than inferred from the resolution order.
         R.planTempSources = await page.evaluate(() => ({
@@ -239,7 +239,13 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
             analysisCache: window.GAIP_DASHBOARD_DATA && window.GAIP_DASHBOARD_DATA.computed
                 && window.GAIP_DASHBOARD_DATA.computed.climate
                 && window.GAIP_DASHBOARD_DATA.computed.climate.temperature,
-            resolved: window.NutritionPrebbleIntegration.getSoilTemperature(),
+            // GH-428: the getter is deleted. Kept probed-if-present so this
+            // file reports "gone" rather than throwing, and so the sources
+            // above are still recorded — they are the evidence for WHICH of
+            // them used to answer.
+            resolved: (window.NutritionPrebbleIntegration
+                && typeof window.NutritionPrebbleIntegration.getSoilTemperature === 'function')
+                ? window.NutritionPrebbleIntegration.getSoilTemperature() : 'deleted in GH-428',
         }));
         planDone = true;
 
@@ -287,7 +293,13 @@ describe('GH-423 — the Test5 - NZ divergence, located by replay', () => {
             analysisCache: window.GAIP_DASHBOARD_DATA && window.GAIP_DASHBOARD_DATA.computed
                 && window.GAIP_DASHBOARD_DATA.computed.climate
                 && window.GAIP_DASHBOARD_DATA.computed.climate.temperature,
-            resolved: window.NutritionPrebbleIntegration.getSoilTemperature(),
+            // GH-428: the getter is deleted. Kept probed-if-present so this
+            // file reports "gone" rather than throwing, and so the sources
+            // above are still recorded — they are the evidence for WHICH of
+            // them used to answer.
+            resolved: (window.NutritionPrebbleIntegration
+                && typeof window.NutritionPrebbleIntegration.getSoilTemperature === 'function')
+                ? window.NutritionPrebbleIntegration.getSoilTemperature() : 'deleted in GH-428',
         }));
         out('soil-temperature sources on the PLAN:     ' + JSON.stringify(R.planTempSources));
         out('soil-temperature sources on the EXPORT:   ' + JSON.stringify(R.docTempSources));

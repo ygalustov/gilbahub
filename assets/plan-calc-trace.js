@@ -9,6 +9,11 @@
  *   1. delete this file (assets/plan-calc-trace.js)
  *   2. delete the single <script> tag in app/resources/views/plan.blade.php
  *      marked "GH-425 TEMPORARY"
+ *   3. delete the two test files that exist only to hold this block honest:
+ *      tests/gh425-calc-trace.test.js and
+ *      tests/e2e/gh428-calc-trace-provenance-live.test.js. (GH-428's other
+ *      file, tests/gh428-outer-soil-temp.test.js, is about the recommender and
+ *      STAYS.)
  *
  * Nothing else in the codebase references this module, and it writes nothing:
  * no state, no persistence, no events, no changes to any figure on the page.
@@ -40,6 +45,14 @@
  * headline figure is compared against the cell of the rendered summary it
  * claims to explain, and a disagreement is printed in the block rather than
  * left for a reader to notice.
+ *
+ * THAT SELF-CHECK IS DISPLAYED AGAINST DISPLAYED, and GH-428 is what it cannot
+ * catch: a row printed a real, plausible number that the calculation had
+ * already discarded, and the summary table says nothing about it, so the check
+ * stayed green. `tests/e2e/gh428-calc-trace-provenance-live.test.js` is the
+ * other half — it wraps the engines in the live page, records what they were
+ * handed and what they returned, and asserts every row here against THAT. Both
+ * checks exist; they fail on different things.
  *
  * Plan page only. Not in the Word export — the owner's decision.
  *
@@ -146,8 +159,6 @@
      * @param {object} o
      *   o.calendar        NutritionCalendar.computeProgram() output
      *   o.program         the regional recommender's programme (has `monthly`)
-     *   o.context         the recommender's own context, off its
-     *                     `gaip:*-program-generated` event (optional)
      *   o.deliveryModule  window.GAIP_NutritionDelivery
      *   o.balanceModule   window.GAIP_NutrientBalanceStatus
      *   o.panelRows       what the rendered summary table prints, for the
@@ -157,7 +168,15 @@
         o = o || {};
         var calendar = o.calendar || null;
         var program = o.program || null;
-        var context = o.context || null;
+        // GH-428: `o.context` is gone. It was the recommender's INPUT context,
+        // captured off the `gaip:*-program-generated` event, and the one row
+        // that read it printed a value the recommender had already discarded.
+        // Nothing here reads an input object any more: every figure comes off
+        // the programme or the calendar the engines produced, so a field that
+        // merely sits near the calculation cannot be mistaken for one that
+        // entered it. On New Zealand sites the captured context was not even
+        // the one belonging to the programme on screen — two integrations run,
+        // and only one of them dispatches a context.
         var D = o.deliveryModule || null;
         var B = o.balanceModule || null;
 
@@ -211,7 +230,7 @@
         return {
             available: true,
             ticket: TICKET,
-            inputs: buildInputRows(calendar, program, context, detail),
+            inputs: buildInputRows(calendar, program, detail),
             nutrients: NUTRIENTS.map(function (n) {
                 return buildNutrientTrace(n, {
                     calendar: calendar, detail: detail ? detail[n] : null,
@@ -228,7 +247,7 @@
 
     // ------------------------------------------------------------------ inputs
 
-    function buildInputRows(calendar, program, context, detail) {
+    function buildInputRows(calendar, program, detail) {
         var meta = calendar.meta || {};
         var soil = calendar.soil || {};
         var adj = calendar.adjustments || {};
@@ -310,14 +329,53 @@
                 (meta.species ? meta.species : 'species') + ' growth-potential curve',
             'this is what weights the twelve monthly rates');
 
-        var hasSoilTemp = !!(context && context.soilTemp !== undefined && context.soilTemp !== null &&
-            isFinite(parseFloat(context.soilTemp)));
+        // GH-428: the twelve figures product selection ran on, off the
+        // recommender's own record of what it used (`program.soilTempSeries`,
+        // pushed from the month context the selectors are handed). This row read
+        // `context.soilTemp` — one value, resolved by the integration before the
+        // recommender was called, which `generateProgram()` overwrites with each
+        // month's own normal on every iteration. It reached no decision, and the
+        // row presented it as the figure driving product selection: on Test5 it
+        // printed 13 degC beside a normals row containing no 13. The row now
+        // cannot show a number the selection did not use, because the only place
+        // it can read one from is the selection itself.
+        //
+        // Only the New Zealand recommender has a temperature curve, and only it
+        // publishes the series; its ABSENCE is how this says so, the same
+        // absent-key test as the CEC row below.
+        var tempSeries = (program && Array.isArray(program.soilTempSeries)) ? program.soilTempSeries : null;
+        var tempsUsed = tempSeries ? tempSeries.map(function (e) {
+            return (e && typeof e === 'object') ? e.temp : e;
+        }) : null;
+        var tempsPrintable = !!(tempsUsed && tempsUsed.length === 12 &&
+            tempsUsed.every(function (t) { return t !== null && t !== undefined && isFinite(parseFloat(t)); }));
+        // Whether they ARE the normals row above is asserted here rather than
+        // assumed: if the recommender ever stops taking each month's own normal
+        // this row says so instead of printing twelve figures that look like it.
+        var normalsPrinted = monthly.length === 12
+            ? monthly.map(function (m) { return fmt(m.temp, 1); }).join(' / ') : null;
+        var usedPrinted = tempsPrintable
+            ? tempsUsed.map(function (t) { return fmt(t, 1); }).join(' / ') : null;
+        // A New Zealand programme restored from the copy saved before GH-428
+        // carries no series. `soilCEC` is the New Zealand recommender's own
+        // marker (GH-422) and is the same absent-key test the CEC row makes, so
+        // "saved before the field existed" can be told apart from "this region
+        // takes no temperature" instead of the second being printed for both.
+        var nzProgramme = !!(program && Object.prototype.hasOwnProperty.call(program, 'soilCEC'));
         row('Soil temperature (product selection)',
-            hasSoilTemp ? (fmt(context.soilTemp) + ' degC')
-                        : 'this region\'s recommender takes no soil temperature',
-            hasSoilTemp
-                ? ('SOURCE NOT AVAILABLE — the recommender resolves it internally and publishes only ' +
-                   'the value, not which of its sources answered')
+            tempsPrintable ? (usedPrinted + ' degC')
+                : (tempSeries ? 'the recommender recorded no usable series for this programme'
+                    : (nzProgramme
+                        ? 'this programme was restored from the copy saved for this site, and that copy ' +
+                          'predates the recommender publishing what it ran on — press Generate ' +
+                          'Nutrition Program to see it'
+                        : 'this region\'s recommender takes no soil temperature')),
+            tempsPrintable
+                ? (usedPrinted === normalsPrinted
+                    ? 'the recommender\'s own record of what each month\'s selection ran on — ' +
+                      'the same twelve normals as the row above'
+                    : 'the recommender\'s own record of what each month\'s selection ran on — ' +
+                      'NOT the normals row above, which is a divergence worth reporting')
                 : '—',
             'feeds the slow-release efficiency curve, not the requirement figures');
         // Only the New Zealand recommender scores on a CEC, and only it carries
@@ -707,7 +765,6 @@
     // Browser wiring — the only impure part, and the only entry point.
     // ========================================================================
 
-    var lastContext = null;
     var mountTimer = null;
 
     function findSummaryCard(doc) {
@@ -754,7 +811,6 @@
         var trace = buildTrace({
             calendar: calendar,
             program: program,
-            context: lastContext,
             deliveryModule: root.GAIP_NutritionDelivery,
             balanceModule: root.GAIP_NutrientBalanceStatus,
             panelRows: readPanelRows(card)
@@ -794,10 +850,10 @@
         ['gaip:prebble-program-generated', 'gaip:au-fertiliser-program-generated',
          'gaip:uk-fertiliser-program-generated', 'gaip:nz-fertiliser-program-generated'
         ].forEach(function (evt) {
-            doc.addEventListener(evt, function (e) {
-                lastContext = (e && e.detail && e.detail.context) || lastContext;
-                schedule();
-            });
+            // GH-428: the event's `detail.context` is deliberately ignored —
+            // see buildTrace(). These listeners exist only to know that a
+            // programme was (re)generated.
+            doc.addEventListener(evt, schedule);
         });
         doc.addEventListener('gaip:nutrition-calendar-generated', schedule);
 

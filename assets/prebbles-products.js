@@ -1713,7 +1713,17 @@
             // Track which months are "covered" by previous slow-release applications
             // Format: { coveredByProduct, coveredByMonth, remainingN, remainingK }
             const coveredMonths = new Array(12).fill(null);
-            
+
+            // GH-428: the temperature each month's product selection actually
+            // ran on, recorded as the loop below hands it over rather than
+            // re-derived afterwards. The Plan page's calculation-trace block
+            // reads THIS, so the figure it prints cannot drift from the figure
+            // that did the work. Before it existed the block read the caller's
+            // `context.soilTemp` — a single outer value that the month context
+            // overwrites on every iteration, so it reached no decision while
+            // the block presented it as the one driving selection.
+            const soilTempUsed = [];
+
             // ================================================================
             // ANNUAL PLANNING - PHASE 2: Generate monthly recommendations
             // Using APPLICATION WINDOW approach:
@@ -1799,7 +1809,17 @@
                     skipGranular: isCovered,
                     activeNutrients: coverage ? { N: coverage.remainingN, K: coverage.remainingK } : { N: 0, K: 0 },
                 };
-                
+
+                // GH-428: read off the object the selectors are handed, not off
+                // `monthData` — so if the month context ever stopped taking its
+                // temperature from the normals, what the Plan prints would move
+                // with it instead of quietly disagreeing.
+                soilTempUsed.push({
+                    month: monthData.month_name,
+                    month_num: monthData.month_num,
+                    temp: monthContext.soilTemp,
+                });
+
                 // If covered, create a simplified recommendation
                 if (isCovered) {
                     
@@ -2098,7 +2118,16 @@
                     }
                 });
             });
-            
+
+            // GH-428: publish it. Carried on the programme, so both the Plan
+            // panel and anything else reading the programme get the twelve
+            // figures selection ran on rather than a value resolved elsewhere.
+            // Only this recommender has a temperature curve at all — the
+            // Australian and UK catalogues never read one — so the field's
+            // ABSENCE is how a consumer knows a region takes no soil
+            // temperature, and it must stay absent there.
+            program.soilTempSeries = soilTempUsed;
+
             // ================================================================
             // PHASE 3: PRECISION BALANCING - Hit annual N/K targets precisely
             // ================================================================

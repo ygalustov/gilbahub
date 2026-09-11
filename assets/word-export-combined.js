@@ -2775,17 +2775,18 @@
                         // Mirror NutritionNzFertiliserIntegration.generateAndRender()'s context
                         // object as closely as the per-sample loop allows. Previously this call
                         // only passed {surfaceType, methodology, muldersFlags} — missing
-                        // soilPpm/pDeficient/latitude/soilTemp/soilCEC/irrigationFrequency/
+                        // soilPpm/pDeficient/latitude/soilCEC/irrigationFrequency/
                         // tissueStatus meant generateProgram() ran with soilPDeficient always
-                        // false and a default -35° latitude for its soil-temp/release-curve
+                        // false and a default -35° latitude for its release-curve
                         // estimate (see prebbles-products.js generateProgram), producing
                         // different product picks and "covered by"/carryover windows than what
                         // was shown on screen for the same sample. soilPpm/pDeficient now use
                         // this sample's own soil (perSampleInputs.soilPpm, built above from
-                        // r.data.soil) — the rest (CEC/irrigation/soilTemp/latitude/tissue)
+                        // r.data.soil) — the rest (CEC/irrigation/latitude/tissue)
                         // aren't sample-specific on screen either, so read via the same
                         // NutritionPrebbleIntegration getters the live page calls, for parity
-                        // rather than inventing a different source here.
+                        // rather than inventing a different source here. (`soilTemp` was in
+                        // that list until GH-428 deleted it as dead.)
                         var _pi = window.NutritionPrebbleIntegration;
                         // GH-379: perSampleInputs.methodology is the folded
                         // lowercase key (see the hand-off above), so this
@@ -2806,7 +2807,12 @@
                             // sample's leaching risk against one of them.
                             soilCEC: _pi && typeof _pi.getSoilCEC === 'function' ? _pi.getSoilCEC(perSampleCalendar) : null,
                             irrigationFrequency: _pi && typeof _pi.getIrrigationFrequency === 'function' ? _pi.getIrrigationFrequency() : null,
-                            soilTemp: _pi && typeof _pi.getSoilTemperature === 'function' ? _pi.getSoilTemperature() : null,
+                            // GH-428: no `soilTemp`. The recommender overwrites it
+                            // with each month's own climate normal before any
+                            // selector sees it — see the note in
+                            // nutrition-prebble-integration.js where
+                            // getSoilTemperature() was. This surface's copy of the
+                            // value was also the one GH-423 spent a ticket on.
                             latitude: _pi && typeof _pi.getLatitude === 'function' ? _pi.getLatitude() : null,
                             hemisphere: 'southern',
                             soilPpm: perSampleInputs.soilPpm,

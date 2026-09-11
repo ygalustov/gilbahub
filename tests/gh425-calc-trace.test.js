@@ -142,7 +142,10 @@ function trace(cal, recProgramme) {
     return Trace.buildTrace({
         calendar: cal,
         program: recProgramme || NZ_PROGRAMME,
-        context: { soilTemp: 13 },
+        // GH-428: buildTrace() no longer takes a `context`. The one row that
+        // read it printed the recommender's discarded INPUT value; the soil
+        // temperature now comes off `program.soilTempSeries`, which is what the
+        // recommender recorded itself using.
         deliveryModule: Delivery,
         balanceModule: Balance
     });

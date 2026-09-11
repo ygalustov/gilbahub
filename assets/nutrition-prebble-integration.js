@@ -329,7 +329,9 @@
                 // not re-read from the page — see getSoilCEC().
                 soilCEC: this.getSoilCEC(calendarData),
                 irrigationFrequency: this.getIrrigationFrequency(),
-                soilTemp: this.getSoilTemperature(),
+                // GH-428: no `soilTemp`. getSoilTemperature() and this field are
+                // deleted — see the note where the getter used to live, below
+                // getIrrigationFrequency().
                 latitude: this.getLatitude(),
                 hemisphere: this.getHemisphere(),
                 // Soil nutrient status
@@ -406,57 +408,37 @@
             }
         },
         
-        /**
-         * Get current soil temperature from Hub state
-         * Used to determine release technology efficiency
-         */
-        getSoilTemperature: function() {
-            // Try GAIP computed soil temp (from physics model)
-            if (window.GAIP_SOIL_TEMP?.T_50mm_mean !== undefined) {
-                return Math.round(window.GAIP_SOIL_TEMP.T_50mm_mean * 10) / 10;
-            }
-            
-            // Try sensor data
-            if (window.GAIP_STATE?.sensor?.soilTemp !== undefined) {
-                return parseFloat(window.GAIP_STATE.sensor.soilTemp);
-            }
-            
-            // Try climate metrics
-            if (window.climateMetrics?.temperature?.mean !== undefined) {
-                return window.climateMetrics.temperature.mean;
-            }
-            
-            // Try GAIP_STATE climate
-            if (window.GAIP_STATE?.climate?.temperature !== undefined) {
-                return window.GAIP_STATE.climate.temperature;
-            }
+        // GH-428: getSoilTemperature() is DELETED, and so is the `soilTemp`
+        // field it fed on every recommender context (here, in
+        // nutrition-nz-fertiliser-integration.js and in
+        // word-export-combined.js's per-sample recompute).
+        //
+        // It resolved one temperature for the whole year — a physics-model
+        // reading, then a sensor, then the live forecast mean, then the
+        // persisted analysis cache (b35fix430), then a hardcoded 15. Measured
+        // live on all four New Zealand sites, the cache branch is the one that
+        // answered: Test5 13, Russley 10.4, both GC-NZ sites 9.6. Real
+        // readings, which is exactly what made this hard to see.
+        //
+        // It reached nothing. GH-427 put product selection on each month's own
+        // climate normal, and `generateProgram()` spreads the caller's context
+        // and then overwrites `soilTemp` with that month's figure before any
+        // selector sees it (prebbles-products.js, `monthContext`) — the two
+        // functions that read a temperature, `getReleaseTechEfficiency()` and
+        // the foliar scorer, are only ever reached through that object, and
+        // `generateProgram()` is the recommender's only entry point from
+        // production code. Swept 8.0-20.0 degC in tenths the outer value yields
+        // exactly one programme (tests/gh424-soil-temp-basis.test.js), and
+        // absent entirely it yields that same one (tests/gh428-outer-soil-temp.test.js).
+        //
+        // Deleted rather than left in place, for the same reason
+        // `estimateMonthlySoilTemp()` was deleted in GH-427: a value that looks
+        // live, is plausible, and drives nothing is how a reader — and the Plan
+        // page's calculation-trace block, which printed this one as THE figure
+        // behind product selection — gets told something untrue. What the
+        // recommender actually runs on is published on the programme instead,
+        // as `soilTempSeries`.
 
-            // b35fix430: on plan.blade.php none of the live checks above ever
-            // resolve — there is no climate engine running on this lightweight
-            // page, so this always fell through to the generic 15°C default,
-            // while the report (full stack) computed a real weather-derived
-            // value via window.climateMetrics.temperature.mean. That mismatch
-            // fed a genuinely different soil temperature into the recommender's
-            // release-curve estimate, producing different product picks for the
-            // same site between the live preview and the export.
-            // hub-persistence.js's cacheAnalysisResults() snapshots that exact
-            // object into computed.climate.temperature on every full analysis
-            // run and persists it server-side (analysis_cache namespace) — read
-            // it here instead of guessing, so Plan shows the same real number
-            // the report will compute rather than a fixed placeholder.
-            var _cachedTemp = window.GAIP_DASHBOARD_DATA
-                && window.GAIP_DASHBOARD_DATA.computed
-                && window.GAIP_DASHBOARD_DATA.computed.climate
-                && window.GAIP_DASHBOARD_DATA.computed.climate.temperature;
-            if (_cachedTemp && _cachedTemp.mean != null) {
-                return _cachedTemp.mean;
-            }
-
-            // Default to moderate temp — only reached if the site has never
-            // been analysed (no cache exists yet to read a real value from).
-            return 15;
-        },
-        
         /**
          * Get soil nutrient levels (ppm) from Hub state
          * Used to determine deficiencies and product selection

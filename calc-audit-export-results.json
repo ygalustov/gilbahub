@@ -1,0 +1,6350 @@
+{
+ "generatedAt": "2026-09-11T04:49:28.990Z",
+ "pairs": [
+  {
+   "site": "New test - location",
+   "label": "Green 5",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "pickerRow": {
+    "index": 11,
+    "date": "31 Dec 2018"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 32.4,
+      "K": 71.1,
+      "Ca": 0,
+      "Mg": 9.6,
+      "S": 7.1
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 20.370000000000005,
+      "K": 7.069999999999997,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0.7000000000000001
+     },
+     "adjustments": {
+      "n_cap_applied": true,
+      "max_n_per_month": 15,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 0.6,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:49:41.192Z",
+      "version": "2.5.0",
+      "methodology": "SLAN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -34.437,
+      "lon": 150.8994,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 15
+     },
+     "range": {
+      "P": {
+       "min": 51,
+       "max": 54
+      },
+      "K": {
+       "min": 75,
+       "max": 176
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140
+      },
+      "S": {
+       "min": 15,
+       "max": 40
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": 8.26,
+     "CEC": 5.1,
+     "soilTexture": "loam",
+     "methodology": "slan",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 51,
+       "max": 54,
+       "label": "SLAN-Carrow-2004-range-PH-ADJUSTED",
+       "citation": "Carrow et al. (2004) GCM 72(1):194-198 (floor); Carrow, Waddington & Rieke (2001) (pH adjustment ratios via Spencer scaled-ladder)"
+      },
+      "K": {
+       "min": 75,
+       "max": 176,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "S": {
+       "min": 15,
+       "max": 40,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      }
+     },
+     "soilPpm": {
+      "P": 21.9,
+      "K": 64.9,
+      "Ca": 772,
+      "Mg": 105,
+      "S": 14,
+      "Fe": 172,
+      "Mn": 42,
+      "Zn": 7.6,
+      "Cu": 2.2
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 15,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "94%",
+      "N": "14.5",
+      "P": "3.9",
+      "K": "8.6"
+     },
+     {
+      "month": "Feb",
+      "gp": "99%",
+      "N": "15.0",
+      "P": "4.1",
+      "K": "9.0"
+     },
+     {
+      "month": "Mar",
+      "gp": "98%",
+      "N": "14.9",
+      "P": "4.0",
+      "K": "8.9"
+     },
+     {
+      "month": "Apr",
+      "gp": "77%",
+      "N": "11.9",
+      "P": "3.2",
+      "K": "7.0"
+     },
+     {
+      "month": "May",
+      "gp": "41%",
+      "N": "6.4",
+      "P": "1.7",
+      "K": "3.7"
+     },
+     {
+      "month": "Jun",
+      "gp": "21%",
+      "N": "3.4",
+      "P": "0.9",
+      "K": "1.9"
+     },
+     {
+      "month": "Jul",
+      "gp": "16%",
+      "N": "2.5",
+      "P": "0.7",
+      "K": "1.4"
+     },
+     {
+      "month": "Aug",
+      "gp": "20%",
+      "N": "3.2",
+      "P": "0.8",
+      "K": "1.9"
+     },
+     {
+      "month": "Sep",
+      "gp": "46%",
+      "N": "7.1",
+      "P": "1.9",
+      "K": "4.1"
+     },
+     {
+      "month": "Oct",
+      "gp": "75%",
+      "N": "11.5",
+      "P": "3.1",
+      "K": "6.8"
+     },
+     {
+      "month": "Nov",
+      "gp": "95%",
+      "N": "14.6",
+      "P": "3.9",
+      "K": "8.6"
+     },
+     {
+      "month": "Dec",
+      "gp": "100%",
+      "N": "15.0",
+      "P": "4.1",
+      "K": "9.1"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "150.0",
+      "range": "—",
+      "balance": "30.0",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "30.7",
+      "removal": "12",
+      "required": "32.4",
+      "delivered": "26.0",
+      "range": "71.4–75.6",
+      "balance": "44.7",
+      "status": "Deficit (-37%)"
+     },
+     "K": {
+      "current": "90.9",
+      "removal": "64",
+      "required": "71.1",
+      "delivered": "74.9",
+      "range": "105–246.4",
+      "balance": "101.8",
+      "status": "Deficit (-3%)"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "1",
+       "rate": "16.1 g/m²",
+       "N": "29.0",
+       "P": "6.4",
+       "K": "24.1"
+      },
+      {
+       "name": "Nutri DG 18-1-15",
+       "applications": "1",
+       "rate": "16.6 g/m²",
+       "N": "29.8",
+       "P": "1.7",
+       "K": "24.9"
+      },
+      {
+       "name": "Country Club IV 24-3-12",
+       "applications": "1",
+       "rate": "10 g/m²",
+       "N": "24.0",
+       "P": "1.3",
+       "K": "10.0"
+      },
+      {
+       "name": "Long Paddock Sportsturf 10-2-6",
+       "applications": "8",
+       "rate": "56 L/ha",
+       "N": "5.6",
+       "P": "1.2",
+       "K": "3.4"
+      },
+      {
+       "name": "Terralift Activate N 18-1-4",
+       "applications": "2",
+       "rate": "31.2 g/m²",
+       "N": "56.2",
+       "P": "3.1",
+       "K": "12.5"
+      },
+      {
+       "name": "MAP Tech",
+       "applications": "3",
+       "rate": "4.5 g/m²",
+       "N": "5.4",
+       "P": "12.3",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "150.0",
+       "P": "26.0",
+       "K": "74.9",
+       "rate": "78.4 g/m² + 56 L/ha"
+      },
+      "Required": {
+       "N": "120.0",
+       "P": "32.4",
+       "K": "71.1",
+       "rate": null
+      },
+      "Balance": {
+       "N": "30.0",
+       "P": "44.7",
+       "K": "101.8",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f::Soil_5_6tf3",
+    "text": "Green 5SoilWater",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "150.0",
+      "range": "—",
+      "balance": "30.0",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "30.7 (21.9 ppm)",
+      "removal": "12",
+      "required": "32.4",
+      "delivered": "26.0",
+      "range": "71.4–75.6",
+      "balance": "44.7",
+      "status": "Deficit (-37%)"
+     },
+     "K": {
+      "current": "90.9 (64.9 ppm)",
+      "removal": "64",
+      "required": "71.1",
+      "delivered": "74.9",
+      "range": "105–246.4",
+      "balance": "101.8",
+      "status": "Deficit (-3%)"
+     }
+    },
+    "anrAllSamples": [
+     "Green 5 / N",
+     "Green 5 / P",
+     "Green 5 / K"
+    ],
+    "monthly": [
+     {
+      "N": "15",
+      "gp": "GP 94%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 99%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 98%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 77%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 41%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 21%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 16%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 20%"
+     },
+     {
+      "N": "7",
+      "gp": "GP 46%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 75%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 95%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 100%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "1",
+       "rate": "16.1 g/m²",
+       "N": "29.0",
+       "P": "6.4",
+       "K": "24.1"
+      },
+      {
+       "name": "Nutri DG 18-1-15",
+       "applications": "1",
+       "rate": "16.6 g/m²",
+       "N": "29.8",
+       "P": "1.7",
+       "K": "24.9"
+      },
+      {
+       "name": "Country Club IV 24-3-12",
+       "applications": "1",
+       "rate": "10 g/m²",
+       "N": "24.0",
+       "P": "1.3",
+       "K": "10.0"
+      },
+      {
+       "name": "Long Paddock Sportsturf 10-2-6",
+       "applications": "8",
+       "rate": "56 L/ha",
+       "N": "5.6",
+       "P": "1.2",
+       "K": "3.4"
+      },
+      {
+       "name": "Terralift Activate N 18-1-4",
+       "applications": "2",
+       "rate": "31.2 g/m²",
+       "N": "56.2",
+       "P": "3.1",
+       "K": "12.5"
+      },
+      {
+       "name": "MAP Tech",
+       "applications": "3",
+       "rate": "4.5 g/m²",
+       "N": "5.4",
+       "P": "12.3",
+       "K": "0.0"
+      },
+      {
+       "name": "MAP Tech (soluble foliar)",
+       "applications": "1",
+       "rate": "5.6 g/m²",
+       "N": "6.7",
+       "P": "12.3",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "16",
+       "rate": "78.4 g/m² + 56 L/ha",
+       "N": "150.0",
+       "P": "26.0",
+       "K": "74.9"
+      }
+     ]
+    },
+    "capText": "Monthly N cap applied (15 kg/ha per month): peak months trimmed, 0.6 kg/ha redistributed to shoulder months. Full target of 120 kg/ha delivered.",
+    "headings": [
+     "Soil Nutrition (SLAN), Green 5",
+     "Nutrient",
+     "Soil pH: 8.26",
+     "Annual Soil Amendments",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Nutrient Trend Analysis",
+     "Soil Nutrient Trends",
+     "Soil × Water Interactions",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [],
+    "anrCaption": "SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198), with P pH-adjusted where pH is available. Within the sufficiency range, Required = removal only (soil reserves cover the agronomic requirement); below floor, Required = removal + lift correction over years-to-correct; above ceiling, Required = whatever keeps the season from ending below the floor (0 where the soil can spare the removal). Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001). Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|New test - location",
+     "pH|8.26",
+     "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|7.4:1 (Optimal)",
+     "Calcium (Ca)|75.7%",
+     "Temperature|14.9°C",
+     "EC|0.45 dS/m",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Characteristic|Rating|Scale|Assessment",
+     "Disease|Resistance|Risk Modifier|Confidence",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH 8.26 reduces plant availability of iron, manganese, zinc, and copper regardless",
+     "pH. Use chelated iron (Fe-EDDHA or Fe-EDTA), sulphate forms precipitate rapidly ab",
+     "pH 6.5.",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7, Burns/Green 1, Burns/",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=32.4 K=71.1 S=7.1 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [WordExport] b35fix327 amendment scheduled: 1 entry/entries → monthly[3] (Apr)",
+    "log: [WordExport] b35fix327 amendments merged: 1 product(s), slot=April hem=south",
+    "log: [CombinedExport] Baked ctx for New test - location - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : New test - location - Soil_5_6tf3",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample Soil_5_6tf3 site 01a00d5b-c67a-7281-8f0f-2d8de6676a0f : isNZ=false (via sample-coordinates) lat=-34.437 lon=150.8994 usePrebble=false useAU=true",
+    "log: [CombinedExport] b35fix323 amendment scheduled for Soil_5_6tf3: 1 entry/entries → monthly[3] (Apr)",
+    "log: [CombinedExport] b35fix322 amendments merged for Soil_5_6tf3: 1 product(s), slot=April hem=south",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report Soil_5_6tf3 has 224 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [3] heading: Site Information"
+   ]
+  },
+  {
+   "site": "New test - location",
+   "label": "Putter Green",
+   "siteId": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f",
+   "pickerRow": {
+    "index": 2,
+    "date": "3 Oct 2024"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 14.2,
+      "K": 103,
+      "Ca": 139,
+      "Mg": 21.3,
+      "S": 7.9
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 2.233000000000001,
+      "K": 38.983000000000004,
+      "Ca": 119.03266666666667,
+      "Mg": 11.662,
+      "S": 1.5120000000000002
+     },
+     "adjustments": {
+      "n_cap_applied": true,
+      "max_n_per_month": 15,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 0.6,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:50:03.137Z",
+      "version": "2.5.0",
+      "methodology": "SLAN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -34.437,
+      "lon": 150.8994,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 15
+     },
+     "range": {
+      "P": {
+       "min": 27,
+       "max": 54
+      },
+      "K": {
+       "min": 75,
+       "max": 176
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140
+      },
+      "S": {
+       "min": 15,
+       "max": 40
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": 6.21,
+     "CEC": 1.73,
+     "soilTexture": "loam",
+     "methodology": "slan",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 27,
+       "max": 54,
+       "label": "SLAN-Carrow-2004-range-PH-ADJUSTED",
+       "citation": "Carrow et al. (2004) GCM 72(1):194-198 (floor); Carrow, Waddington & Rieke (2001) (pH adjustment ratios via Spencer scaled-ladder)"
+      },
+      "K": {
+       "min": 75,
+       "max": 176,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "S": {
+       "min": 15,
+       "max": 40,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      }
+     },
+     "soilPpm": {
+      "P": 23.81,
+      "K": 19.31,
+      "Ca": 244.93,
+      "Mg": 45.01,
+      "S": 12.84,
+      "Fe": 89.91,
+      "Mn": 19.77,
+      "Zn": 5.99,
+      "Cu": 4.88
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 15,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "94%",
+      "N": "14.5",
+      "P": "1.7",
+      "K": "12.4"
+     },
+     {
+      "month": "Feb",
+      "gp": "99%",
+      "N": "15.0",
+      "P": "1.8",
+      "K": "13.1"
+     },
+     {
+      "month": "Mar",
+      "gp": "98%",
+      "N": "14.9",
+      "P": "1.8",
+      "K": "12.8"
+     },
+     {
+      "month": "Apr",
+      "gp": "77%",
+      "N": "11.9",
+      "P": "1.4",
+      "K": "10.1"
+     },
+     {
+      "month": "May",
+      "gp": "41%",
+      "N": "6.4",
+      "P": "0.7",
+      "K": "5.4"
+     },
+     {
+      "month": "Jun",
+      "gp": "21%",
+      "N": "3.4",
+      "P": "0.4",
+      "K": "2.8"
+     },
+     {
+      "month": "Jul",
+      "gp": "16%",
+      "N": "2.5",
+      "P": "0.3",
+      "K": "2.1"
+     },
+     {
+      "month": "Aug",
+      "gp": "20%",
+      "N": "3.2",
+      "P": "0.4",
+      "K": "2.7"
+     },
+     {
+      "month": "Sep",
+      "gp": "46%",
+      "N": "7.1",
+      "P": "0.8",
+      "K": "6.0"
+     },
+     {
+      "month": "Oct",
+      "gp": "75%",
+      "N": "11.5",
+      "P": "1.4",
+      "K": "9.9"
+     },
+     {
+      "month": "Nov",
+      "gp": "95%",
+      "N": "14.6",
+      "P": "1.7",
+      "K": "12.5"
+     },
+     {
+      "month": "Dec",
+      "gp": "100%",
+      "N": "15.0",
+      "P": "1.8",
+      "K": "13.2"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "137.6",
+      "range": "—",
+      "balance": "17.6",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "33.3",
+      "removal": "12",
+      "required": "14.2",
+      "delivered": "18.7",
+      "range": "37.8–75.6",
+      "balance": "40.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "27",
+      "removal": "64",
+      "required": "103.0",
+      "delivered": "104.5",
+      "range": "105–246.4",
+      "balance": "67.5",
+      "status": "Deficit (-36%)"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "2",
+       "rate": "32.3 g/m²",
+       "N": "58.2",
+       "P": "12.8",
+       "K": "48.3"
+      },
+      {
+       "name": "TPG Maintenance",
+       "applications": "1",
+       "rate": "22.9 g/m²",
+       "N": "29.8",
+       "P": "2.3",
+       "K": "29.8"
+      },
+      {
+       "name": "MP Spring Start",
+       "applications": "1",
+       "rate": "12.5 g/m²",
+       "N": "20.0",
+       "P": "1.3",
+       "K": "12.5"
+      },
+      {
+       "name": "Greenmaster Liquid Spring & Summer",
+       "applications": "1",
+       "rate": "21 L/ha",
+       "N": "2.5",
+       "P": "0.4",
+       "K": "1.1"
+      },
+      {
+       "name": "Long Paddock Rapid Uptake",
+       "applications": "4",
+       "rate": "28 L/ha",
+       "N": "3.1",
+       "P": "0.6",
+       "K": "2.8"
+      },
+      {
+       "name": "Country Club IV 24-3-12",
+       "applications": "1",
+       "rate": "10 g/m²",
+       "N": "24.0",
+       "P": "1.3",
+       "K": "10.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "137.6",
+       "P": "18.7",
+       "K": "104.5",
+       "rate": "77.7 g/m² + 49 L/ha"
+      },
+      "Required": {
+       "N": "120.0",
+       "P": "14.2",
+       "K": "103.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "17.6",
+       "P": "40.0",
+       "K": "67.5",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "01a00d5b-c67a-7281-8f0f-2d8de6676a0f::Soil_1_3cbn",
+    "text": "Putter GreenSoilWater",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "137.6",
+      "range": "—",
+      "balance": "17.6",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "33.3 (23.8 ppm)",
+      "removal": "12",
+      "required": "14.2",
+      "delivered": "18.7",
+      "range": "37.8–75.6",
+      "balance": "40.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "27 (19.3 ppm)",
+      "removal": "64",
+      "required": "103.0",
+      "delivered": "104.5",
+      "range": "105–246.4",
+      "balance": "67.5",
+      "status": "Deficit (-36%)"
+     }
+    },
+    "anrAllSamples": [
+     "Putter Green / N",
+     "Putter Green / P",
+     "Putter Green / K"
+    ],
+    "monthly": [
+     {
+      "N": "15",
+      "gp": "GP 94%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 99%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 98%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 77%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 41%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 21%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 16%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 20%"
+     },
+     {
+      "N": "7",
+      "gp": "GP 46%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 75%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 95%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 100%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "2",
+       "rate": "32.3 g/m²",
+       "N": "58.2",
+       "P": "12.8",
+       "K": "48.3"
+      },
+      {
+       "name": "TPG Maintenance",
+       "applications": "1",
+       "rate": "22.9 g/m²",
+       "N": "29.8",
+       "P": "2.3",
+       "K": "29.8"
+      },
+      {
+       "name": "MP Spring Start",
+       "applications": "1",
+       "rate": "12.5 g/m²",
+       "N": "20.0",
+       "P": "1.3",
+       "K": "12.5"
+      },
+      {
+       "name": "Greenmaster Liquid Spring & Summer",
+       "applications": "1",
+       "rate": "21 L/ha",
+       "N": "2.5",
+       "P": "0.4",
+       "K": "1.1"
+      },
+      {
+       "name": "Long Paddock Rapid Uptake",
+       "applications": "4",
+       "rate": "28 L/ha",
+       "N": "3.1",
+       "P": "0.6",
+       "K": "2.8"
+      },
+      {
+       "name": "Country Club IV 24-3-12",
+       "applications": "1",
+       "rate": "10 g/m²",
+       "N": "24.0",
+       "P": "1.3",
+       "K": "10.0"
+      },
+      {
+       "name": "Gypsum (CaSO₄·2H₂O)",
+       "applications": "1",
+       "rate": "83.7 g/m²",
+       "N": "0.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Magnesium sulphate (Epsom salts), soluble foliar",
+       "applications": "1",
+       "rate": "10.8 g/m²",
+       "N": "0.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "10",
+       "rate": "77.7 g/m² + 49 L/ha",
+       "N": "137.6",
+       "P": "18.7",
+       "K": "104.5"
+      }
+     ]
+    },
+    "capText": "Monthly N cap applied (15 kg/ha per month): peak months trimmed, 0.6 kg/ha redistributed to shoulder months. Full target of 120 kg/ha delivered.",
+    "headings": [
+     "Soil Nutrition (SLAN), Putter Green",
+     "Nutrient",
+     "Soil pH: 6.21",
+     "Soil pH (6.21) is within the optimal range (5.5-6.5) for Creeping Bentgrass (Greens).",
+     "Annual Soil Amendments",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Nutrient Trend Analysis",
+     "Soil Nutrient Trends",
+     "Soil × Water Interactions",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [],
+    "anrCaption": "SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198), with P pH-adjusted where pH is available. Within the sufficiency range, Required = removal only (soil reserves cover the agronomic requirement); below floor, Required = removal + lift correction over years-to-correct; above ceiling, Required = whatever keeps the season from ending below the floor (0 where the soil can spare the removal). Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001). Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|New test - location",
+     "pH|6.21",
+     "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|5.4:1 (Optimal)",
+     "Calcium (Ca)|70.8%",
+     "Temperature|14.9°C",
+     "EC|0.45 dS/m",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Characteristic|Rating|Scale|Assessment",
+     "Disease|Resistance|Risk Modifier|Confidence",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.21",
+     "pH requirements: Optimal 5.5–6.5 | Tolerance 5–7 | Acid-tolerant",
+     "pH (6.21) is within the optimal range (5.5–6.5) for Creeping Bentgrass (Greens). N"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, New test - location/Green 11, New test - location/Green 2, New test - location/Putter Green, New test - location/Green 12, New test - location/Green 7, New test - location/Green 6, New test - location/Green 4, New test - location/Green",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=14.2 K=103 S=7.9 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [WordExport] b35fix327 amendment scheduled: 2 entry/entries → monthly[3] (Apr)",
+    "log: [WordExport] b35fix327 amendments merged: 2 product(s), slot=April hem=south",
+    "log: [CombinedExport] Baked ctx for New test - location - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : New test - location - Soil_1_3cbn",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample Soil_1_3cbn site 01a00d5b-c67a-7281-8f0f-2d8de6676a0f : isNZ=false (via sample-coordinates) lat=-34.437 lon=150.8994 usePrebble=false useAU=true",
+    "log: [CombinedExport] b35fix323 amendment scheduled for Soil_1_3cbn: 2 entry/entries → monthly[3] (Apr)",
+    "log: [CombinedExport] b35fix322 amendments merged for Soil_1_3cbn: 2 product(s), slot=April hem=south",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report Soil_1_3cbn has 227 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [2] heading: Priority Actions",
+    "log: [CombinedExport]   [10] heading: Site Information"
+   ]
+  },
+  {
+   "site": "Burns",
+   "label": "12th Fairway",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "pickerRow": {
+    "index": 0,
+    "date": "31 July 2025"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 14.1,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 6.4
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 2.1,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 50,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:50:26.010Z",
+      "version": "2.5.0",
+      "methodology": "MLSN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -35.2285452,
+      "lon": 149.0022925,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 21,
+       "max": 31.5
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": 6.7,
+     "CEC": 9.8,
+     "soilTexture": "loam",
+     "methodology": "mlsn",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 21,
+       "max": 31.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      }
+     },
+     "soilPpm": {
+      "P": 18,
+      "K": 195,
+      "Ca": 1400,
+      "Mg": 151,
+      "S": 10,
+      "Fe": 180,
+      "Mn": 87.9,
+      "Zn": 3.2,
+      "Cu": 1
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "86%",
+      "N": "16.7",
+      "P": "2.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Feb",
+      "gp": "97%",
+      "N": "18.9",
+      "P": "2.2",
+      "K": "0.0"
+     },
+     {
+      "month": "Mar",
+      "gp": "95%",
+      "N": "18.6",
+      "P": "2.2",
+      "K": "0.0"
+     },
+     {
+      "month": "Apr",
+      "gp": "58%",
+      "N": "11.4",
+      "P": "1.3",
+      "K": "0.0"
+     },
+     {
+      "month": "May",
+      "gp": "17%",
+      "N": "3.3",
+      "P": "0.4",
+      "K": "0.0"
+     },
+     {
+      "month": "Jun",
+      "gp": "6%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "5%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "19%",
+      "N": "3.7",
+      "P": "0.4",
+      "K": "0.0"
+     },
+     {
+      "month": "Oct",
+      "gp": "53%",
+      "N": "10.3",
+      "P": "1.2",
+      "K": "0.0"
+     },
+     {
+      "month": "Nov",
+      "gp": "92%",
+      "N": "17.8",
+      "P": "2.1",
+      "K": "0.0"
+     },
+     {
+      "month": "Dec",
+      "gp": "100%",
+      "N": "19.4",
+      "P": "2.3",
+      "K": "0.0"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "125.5",
+      "range": "—",
+      "balance": "5.5",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "25.2",
+      "removal": "12",
+      "required": "14.1",
+      "delivered": "12.3",
+      "range": "29.4–44.1",
+      "balance": "25.5",
+      "status": "Deficit (-13%)"
+     },
+     "K": {
+      "current": "273",
+      "removal": "64",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "51.8–77.7",
+      "balance": "209.0",
+      "status": "Excess (+169%)"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+       "applications": "7",
+       "rate": "56.5 g/m²",
+       "N": "113.1",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Ammonium Sulphate Tech (soluble)",
+       "applications": "2",
+       "rate": "3.4 g/m²",
+       "N": "7.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "MAP Tech",
+       "applications": "3",
+       "rate": "4.5 g/m²",
+       "N": "5.4",
+       "P": "12.3",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "125.5",
+       "P": "12.3",
+       "K": "0.0",
+       "rate": "64.4 g/m²"
+      },
+      "Required": {
+       "N": "120.0",
+       "P": "14.1",
+       "K": "0.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "5.5",
+       "P": "25.5",
+       "K": "209.0",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e::Soil_25_zo0t",
+    "text": "12th FairwaySoilWaterTissue",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "125.5",
+      "range": "—",
+      "balance": "5.5",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "25.2 (18 ppm)",
+      "removal": "12",
+      "required": "14.1",
+      "delivered": "12.3",
+      "range": "29.4–44.1",
+      "balance": "25.5",
+      "status": "Deficit (-13%)"
+     },
+     "K": {
+      "current": "273 (195 ppm)",
+      "removal": "64",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "51.8–77.7",
+      "balance": "209.0",
+      "status": "Excess (+169%)"
+     }
+    },
+    "anrAllSamples": [
+     "12th Fairway / N",
+     "12th Fairway / P",
+     "12th Fairway / K"
+    ],
+    "monthly": [
+     {
+      "N": "17",
+      "gp": "GP 86%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 97%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 95%"
+     },
+     {
+      "N": "11",
+      "gp": "GP 58%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 17%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 6%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 5%"
+     },
+     {
+      "N": "4",
+      "gp": "GP 19%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 53%"
+     },
+     {
+      "N": "18",
+      "gp": "GP 92%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 100%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+       "applications": "7",
+       "rate": "56.5 g/m²",
+       "N": "113.1",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Ammonium Sulphate Tech (soluble)",
+       "applications": "2",
+       "rate": "3.4 g/m²",
+       "N": "7.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "MAP Tech",
+       "applications": "3",
+       "rate": "4.5 g/m²",
+       "N": "5.4",
+       "P": "12.3",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "12",
+       "rate": "64.4 g/m²",
+       "N": "125.5",
+       "P": "12.3",
+       "K": "0.0"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Soil Nutrition (MLSN), 12th Fairway",
+     "Nutrient",
+     "Soil pH: 6.7",
+     "Annual Soil Amendments",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Nutrient Trend Analysis",
+     "Soil Nutrient Trends",
+     "Soil Amendment Recommendations",
+     "Soil × Water Interactions",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [],
+    "anrCaption": "MLSN methodology (Woods et al. 2016). Below the MLSN floor, Required = removal + deficit correction; at or above the floor, Required = removal only — soil reserves are agronomically sufficient and the figure is the rate at which clippings are removing the nutrient, not a per-year application target. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range. No tissue sample for this zone (12th Fairway) — generic P/K removal ratios used. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Burns",
+     "pH|6.7",
+     "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|9.3:1 (Optimal)",
+     "Calcium (Ca)|71.4%",
+     "Temperature|9.4°C",
+     "EC|0.52 dS/m",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.7",
+     "pH requirements: Optimal 5.5–6.5 | Tolerance 5–7 | Acid-tolerant",
+     "pH (6.7) is above the optimal range (5.5–6.5) for Creeping Bentgrass (Greens), but"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 2 tissue sample(s) on this site: Green 15, Green 12",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"12th Fairway\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"12th Fairway\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"12th Fairway\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"12th Fairway\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, New test - location/Green 11, New test - location/Green 2, New test - location/Putter Green, New test - location/Green 12, New test - location/Green 7, New test - location/Green 6, New test - location/Green 4, New test - location/Green",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0.6 , using form value",
+    "log: [WordExport] nutritionSummary via engine: P=14.1 K=0 S=6.4 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Burns - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : Burns - Soil_25_zo0t",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample Soil_25_zo0t site 019e96d8-97b7-714c-9bd6-d65b16ec7f2e : isNZ=false (via sample-coordinates) lat=-35.2285452 lon=149.0022925 usePrebble=false useAU=true",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report Soil_25_zo0t has 207 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [3] heading: Site Information"
+   ]
+  },
+  {
+   "site": "Burns",
+   "label": "Green 13",
+   "siteId": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e",
+   "pickerRow": {
+    "index": 12,
+    "date": "1 July 2014"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 0,
+      "K": 26.2,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 6.4
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 50,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {
+      "S": true
+     },
+     "meta": {
+      "generated": "2026-09-11T04:50:48.126Z",
+      "version": "2.5.0",
+      "methodology": "MLSN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -35.2285452,
+      "lon": 149.0022925,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 21,
+       "max": 31.5
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": 6.9,
+     "CEC": 5,
+     "soilTexture": "loam",
+     "methodology": "mlsn",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 21,
+       "max": 31.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      }
+     },
+     "soilPpm": {
+      "P": 85.8,
+      "K": 64,
+      "Ca": 848,
+      "Mg": 74,
+      "S": null,
+      "Fe": 296,
+      "Mn": 37,
+      "Zn": 12,
+      "Cu": 3.2
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "86%",
+      "N": "16.7",
+      "P": "0.0",
+      "K": "3.6"
+     },
+     {
+      "month": "Feb",
+      "gp": "97%",
+      "N": "18.9",
+      "P": "0.0",
+      "K": "4.1"
+     },
+     {
+      "month": "Mar",
+      "gp": "95%",
+      "N": "18.6",
+      "P": "0.0",
+      "K": "4.1"
+     },
+     {
+      "month": "Apr",
+      "gp": "58%",
+      "N": "11.4",
+      "P": "0.0",
+      "K": "2.5"
+     },
+     {
+      "month": "May",
+      "gp": "17%",
+      "N": "3.3",
+      "P": "0.0",
+      "K": "0.7"
+     },
+     {
+      "month": "Jun",
+      "gp": "6%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "5%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "19%",
+      "N": "3.7",
+      "P": "0.0",
+      "K": "0.8"
+     },
+     {
+      "month": "Oct",
+      "gp": "53%",
+      "N": "10.3",
+      "P": "0.0",
+      "K": "2.2"
+     },
+     {
+      "month": "Nov",
+      "gp": "92%",
+      "N": "17.8",
+      "P": "0.0",
+      "K": "3.9"
+     },
+     {
+      "month": "Dec",
+      "gp": "100%",
+      "N": "19.4",
+      "P": "0.0",
+      "K": "4.2"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "127.3",
+      "range": "—",
+      "balance": "7.3",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "120.1",
+      "removal": "12",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "29.4–44.1",
+      "balance": "108.1",
+      "status": "Excess (+145%)"
+     },
+     "K": {
+      "current": "89.6",
+      "removal": "64",
+      "required": "26.2",
+      "delivered": "29.3",
+      "range": "51.8–77.7",
+      "balance": "54.9",
+      "status": "On Track"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club MD 20-0-10",
+       "applications": "2",
+       "rate": "35.3 g/m²",
+       "N": "70.6",
+       "P": "0.0",
+       "K": "29.3"
+      },
+      {
+       "name": "Ammonium Sulphate Tech (soluble)",
+       "applications": "3",
+       "rate": "4.4 g/m²",
+       "N": "9.2",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+       "applications": "3",
+       "rate": "23.8 g/m²",
+       "N": "47.5",
+       "P": "0.0",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "127.3",
+       "P": "0.0",
+       "K": "29.3",
+       "rate": "63.5 g/m²"
+      },
+      "Required": {
+       "N": "120.0",
+       "P": "0.0",
+       "K": "26.2",
+       "rate": null
+      },
+      "Balance": {
+       "N": "7.3",
+       "P": "108.1",
+       "K": "54.9",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "019e96d8-97b7-714c-9bd6-d65b16ec7f2e::Soil_17_7ub9",
+    "text": "Green 13SoilWaterTissue",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "127.3",
+      "range": "—",
+      "balance": "7.3",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "120.1 (85.8 ppm)",
+      "removal": "12",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "29.4–44.1",
+      "balance": "108.1",
+      "status": "Excess (+145%)"
+     },
+     "K": {
+      "current": "89.6 (64 ppm)",
+      "removal": "64",
+      "required": "26.2",
+      "delivered": "29.3",
+      "range": "51.8–77.7",
+      "balance": "54.9",
+      "status": "On Track"
+     }
+    },
+    "anrAllSamples": [
+     "Green 13 / N",
+     "Green 13 / P",
+     "Green 13 / K"
+    ],
+    "monthly": [
+     {
+      "N": "17",
+      "gp": "GP 86%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 97%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 95%"
+     },
+     {
+      "N": "11",
+      "gp": "GP 58%"
+     },
+     {
+      "N": "3",
+      "gp": "GP 17%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 6%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 5%"
+     },
+     {
+      "N": "4",
+      "gp": "GP 19%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 53%"
+     },
+     {
+      "N": "18",
+      "gp": "GP 92%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 100%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club MD 20-0-10",
+       "applications": "2",
+       "rate": "35.3 g/m²",
+       "N": "70.6",
+       "P": "0.0",
+       "K": "29.3"
+      },
+      {
+       "name": "Ammonium Sulphate Tech (soluble)",
+       "applications": "3",
+       "rate": "4.4 g/m²",
+       "N": "9.2",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sportsmaster WSF 20-0-0 + Seaweed",
+       "applications": "3",
+       "rate": "23.8 g/m²",
+       "N": "47.5",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "8",
+       "rate": "63.5 g/m²",
+       "N": "127.3",
+       "P": "0.0",
+       "K": "29.3"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Soil Nutrition (MLSN), Green 13",
+     "Nutrient",
+     "Soil pH: 6.9",
+     "Annual Soil Amendments",
+     "Growth Potential (C3)",
+     "Nutrient Trend Analysis",
+     "Soil Nutrient Trends",
+     "Soil × Water Interactions",
+     "Annual Product Summary",
+     "Product",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [],
+    "anrCaption": "MLSN methodology (Woods et al. 2016). Below the MLSN floor, Required = removal + deficit correction; at or above the floor, Required = removal only — soil reserves are agronomically sufficient and the figure is the rate at which clippings are removing the nutrient, not a per-year application target. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Where the soil is above its sufficiency ceiling but the season's removal would still take it below the floor, Required is what holds the floor (removal less what the soil can spare), not zero. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. No tissue sample for this zone (Green 13) — generic P/K removal ratios used. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Burns",
+     "pH|6.9",
+     "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
+     "Ca:Mg Ratio|11.5:1 (Optimal)",
+     "Calcium (Ca)|84.8%",
+     "Temperature|9.4°C",
+     "EC|0.52 dS/m",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Characteristic|Rating|Scale|Assessment",
+     "Disease|Resistance|Risk Modifier|Confidence",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.9",
+     "pH requirements: Optimal 5.5–6.5 | Tolerance 5–7 | Acid-tolerant",
+     "pH (6.9) is above the optimal range (5.5–6.5) for Creeping Bentgrass (Greens), but"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 2 tissue sample(s) on this site: Green 15, Green 12",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"Green 13\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"Green 13\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"Green 13\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [NutritionCalendar] GH-414: no tissue sample for zone \"Green 13\" (site has \"Green 15\", \"Green 12\") — generic per-species P/K removal ratios used.",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7, Burns/Green 1, Burns/",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=0 K=26.2 S=6.4 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Burns - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : Burns - Soil_17_7ub9",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample Soil_17_7ub9 site 019e96d8-97b7-714c-9bd6-d65b16ec7f2e : isNZ=false (via sample-coordinates) lat=-35.2285452 lon=149.0022925 usePrebble=false useAU=true",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report Soil_17_7ub9 has 229 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [2] heading: Priority Actions",
+    "log: [CombinedExport]   [8] heading: Site Information"
+   ]
+  },
+  {
+   "site": "Federal Golf",
+   "label": "Green 1",
+   "siteId": "019e96d7-36aa-707a-9879-68ab28726e12",
+   "pickerRow": {
+    "index": 0,
+    "date": "15 Jan 2025"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 9.6,
+      "S": 8.5
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 2.1
+     },
+     "adjustments": {
+      "n_cap_applied": true,
+      "max_n_per_month": 15,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 21.4,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:51:10.428Z",
+      "version": "2.5.0",
+      "methodology": "SLAN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -35.3317,
+      "lon": 149.11,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 15
+     },
+     "range": {
+      "P": {
+       "min": 27,
+       "max": 54
+      },
+      "K": {
+       "min": 75,
+       "max": 176
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140
+      },
+      "S": {
+       "min": 15,
+       "max": 40
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": "6.2",
+     "CEC": "8.5",
+     "soilTexture": "loam",
+     "methodology": "slan",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 27,
+       "max": 54,
+       "label": "SLAN-Carrow-2004-range-PH-ADJUSTED",
+       "citation": "Carrow et al. (2004) GCM 72(1):194-198 (floor); Carrow, Waddington & Rieke (2001) (pH adjustment ratios via Spencer scaled-ladder)"
+      },
+      "K": {
+       "min": 75,
+       "max": 176,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "S": {
+       "min": 15,
+       "max": 40,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      }
+     },
+     "soilPpm": {
+      "P": 32,
+      "K": 85,
+      "Ca": 620,
+      "Mg": 95,
+      "S": 12,
+      "Fe": 45,
+      "Mn": 22,
+      "Zn": 3.5,
+      "Cu": 1.2
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 15,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "99%",
+      "N": "15.0",
+      "P": "2.1",
+      "K": "11.3"
+     },
+     {
+      "month": "Feb",
+      "gp": "99%",
+      "N": "15.0",
+      "P": "2.1",
+      "K": "11.2"
+     },
+     {
+      "month": "Mar",
+      "gp": "82%",
+      "N": "15.0",
+      "P": "1.7",
+      "K": "9.3"
+     },
+     {
+      "month": "Apr",
+      "gp": "44%",
+      "N": "12.7",
+      "P": "0.9",
+      "K": "5.0"
+     },
+     {
+      "month": "May",
+      "gp": "12%",
+      "N": "9.9",
+      "P": "0.3",
+      "K": "1.4"
+     },
+     {
+      "month": "Jun",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "3%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "15%",
+      "N": "10.1",
+      "P": "0.3",
+      "K": "1.7"
+     },
+     {
+      "month": "Oct",
+      "gp": "40%",
+      "N": "12.3",
+      "P": "0.9",
+      "K": "4.5"
+     },
+     {
+      "month": "Nov",
+      "gp": "77%",
+      "N": "15.0",
+      "P": "1.6",
+      "K": "8.7"
+     },
+     {
+      "month": "Dec",
+      "gp": "95%",
+      "N": "15.0",
+      "P": "2.0",
+      "K": "10.8"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "135.1",
+      "range": "—",
+      "balance": "15.1",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "44.8",
+      "removal": "12",
+      "required": "12.0",
+      "delivered": "13.2",
+      "range": "37.8–75.6",
+      "balance": "46.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "119",
+      "removal": "64",
+      "required": "64.0",
+      "delivered": "73.4",
+      "range": "105–246.4",
+      "balance": "128.4",
+      "status": "On Track"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "2",
+       "rate": "33.4 g/m²",
+       "N": "60.0",
+       "P": "13.2",
+       "K": "49.8"
+      },
+      {
+       "name": "Urea Tech (soluble)",
+       "applications": "4",
+       "rate": "6 g/m²",
+       "N": "27.6",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sportsmaster WSF High N 35-0-11",
+       "applications": "1",
+       "rate": "5 g/m²",
+       "N": "17.5",
+       "P": "0.0",
+       "K": "5.5"
+      },
+      {
+       "name": "Country Club MD 22-0-16",
+       "applications": "1",
+       "rate": "13.6 g/m²",
+       "N": "30.0",
+       "P": "0.0",
+       "K": "18.1"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "135.1",
+       "P": "13.2",
+       "K": "73.4",
+       "rate": "58 g/m²"
+      },
+      "Required": {
+       "N": "120.0",
+       "P": "12.0",
+       "K": "64.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "15.1",
+       "P": "46.0",
+       "K": "128.4",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "019e96d7-36aa-707a-9879-68ab28726e12::Green 1",
+    "text": "Green 1Soil",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "135.1",
+      "range": "—",
+      "balance": "15.1",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "44.8 (32 ppm)",
+      "removal": "12",
+      "required": "12.0",
+      "delivered": "13.2",
+      "range": "37.8–75.6",
+      "balance": "46.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "119 (85 ppm)",
+      "removal": "64",
+      "required": "64.0",
+      "delivered": "73.4",
+      "range": "105–246.4",
+      "balance": "128.4",
+      "status": "On Track"
+     }
+    },
+    "anrAllSamples": [
+     "Green 1 / N",
+     "Green 1 / P",
+     "Green 1 / K"
+    ],
+    "monthly": [
+     {
+      "N": "15",
+      "gp": "GP 99%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 99%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 82%"
+     },
+     {
+      "N": "13",
+      "gp": "GP 44%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 12%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 3%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 15%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 40%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 77%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 95%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Country Club IV 18-9-18",
+       "applications": "2",
+       "rate": "33.4 g/m²",
+       "N": "60.0",
+       "P": "13.2",
+       "K": "49.8"
+      },
+      {
+       "name": "Urea Tech (soluble)",
+       "applications": "4",
+       "rate": "6 g/m²",
+       "N": "27.6",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sportsmaster WSF High N 35-0-11",
+       "applications": "1",
+       "rate": "5 g/m²",
+       "N": "17.5",
+       "P": "0.0",
+       "K": "5.5"
+      },
+      {
+       "name": "Country Club MD 22-0-16",
+       "applications": "1",
+       "rate": "13.6 g/m²",
+       "N": "30.0",
+       "P": "0.0",
+       "K": "18.1"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "8",
+       "rate": "58 g/m²",
+       "N": "135.1",
+       "P": "13.2",
+       "K": "73.4"
+      }
+     ]
+    },
+    "capText": "Monthly N cap applied (15 kg/ha per month): peak months trimmed, 21.4 kg/ha redistributed to shoulder months. Full target of 120 kg/ha delivered.",
+    "headings": [
+     "Soil Nutrition (SLAN), Green 1",
+     "Nutrient",
+     "Soil pH: 6.2",
+     "Soil pH (6.2) is within the optimal range (5.5-6.5) for Creeping Bentgrass (Greens).",
+     "Annual Soil Amendments",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [],
+    "anrCaption": "SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198), with P pH-adjusted where pH is available. Within the sufficiency range, Required = removal only (soil reserves cover the agronomic requirement); below floor, Required = removal + lift correction over years-to-correct; above ceiling, Required = whatever keeps the season from ending below the floor (0 where the soil can spare the removal). Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001). Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Federal Golf",
+     "pH|6.2",
+     "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|6.5:1 (Optimal)",
+     "Calcium (Ca)|36.5%",
+     "Temperature|9.9°C",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Disease|Risk|Level",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.2",
+     "pH requirements: Optimal 5.5–6.5 | Tolerance 5–7 | Acid-tolerant",
+     "pH (6.2) is within the optimal range (5.5–6.5) for Creeping Bentgrass (Greens). Nu"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7, Burns/Green 1, Burns/",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0 , using form value",
+    "log: [WordExport] nutritionSummary via engine: P=12 K=64 S=8.5 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Federal Golf - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : Federal Golf - Green 1",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample Green 1 site 019e96d7-36aa-707a-9879-68ab28726e12 : isNZ=false (via sample-coordinates) lat=-35.3317 lon=149.11 usePrebble=false useAU=true",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report Green 1 has 174 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [3] heading: Site Information",
+    "log: [CombinedExport]   [6] heading: Soil Nutrition",
+    "log: [CombinedExport]   [29] heading: __heading__",
+    "log: [CombinedExport]   [35] heading: __heading__",
+    "log: [CombinedExport]   [41] heading: Climate & Growth Conditions"
+   ]
+  },
+  {
+   "site": "test4 - USA",
+   "label": "Green 13",
+   "siteId": "019e96f3-63d9-7170-a4cd-94a5ada95686",
+   "pickerRow": {
+    "index": 0,
+    "date": "12 Aug 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 9.6,
+      "S": 6.4
+     },
+     "annual_removal": {
+      "N": 120,
+      "P": 12,
+      "K": 64,
+      "Ca": 20,
+      "Mg": 10,
+      "S": 6
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": true,
+      "max_n_per_month": 15,
+      "original_n_total": 120,
+      "scheduled_n_total": 120,
+      "n_redistributed": 1.8,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 120,
+      "applied_n": 120,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {
+      "P": true,
+      "K": true,
+      "Ca": true,
+      "Mg": true,
+      "S": true
+     },
+     "meta": {
+      "generated": "2026-09-11T04:51:31.792Z",
+      "version": "2.5.0",
+      "methodology": "SLAN",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "north",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 120,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": 37.6191145,
+      "lon": -122.3816274,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 15
+     },
+     "range": {
+      "P": {
+       "min": 27,
+       "max": 54
+      },
+      "K": {
+       "min": 75,
+       "max": 176
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140
+      },
+      "S": {
+       "min": 15,
+       "max": 40
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": "6.5",
+     "CEC": null,
+     "soilTexture": "loam",
+     "methodology": "slan",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 27,
+       "max": 54,
+       "label": "SLAN-Carrow-2004-range-PH-ADJUSTED",
+       "citation": "Carrow et al. (2004) GCM 72(1):194-198 (floor); Carrow, Waddington & Rieke (2001) (pH adjustment ratios via Spencer scaled-ladder)"
+      },
+      "K": {
+       "min": 75,
+       "max": 176,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "Mg": {
+       "min": 70,
+       "max": 140,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      },
+      "S": {
+       "min": 15,
+       "max": 40,
+       "label": "SLAN-Carrow-2004-range",
+       "citation": "Carrow et al. (2004). GCM 72(1):194-198."
+      }
+     },
+     "soilPpm": {
+      "P": null,
+      "K": null,
+      "Ca": null,
+      "Mg": null,
+      "S": null,
+      "Fe": null,
+      "Mn": null,
+      "Zn": null,
+      "Cu": null
+     },
+     "annualNOverride": 120,
+     "maxNPerMonth": 15,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "24%",
+      "N": "5.3",
+      "P": "0.5",
+      "K": "2.7"
+     },
+     {
+      "month": "Feb",
+      "gp": "27%",
+      "N": "6.0",
+      "P": "0.6",
+      "K": "3.1"
+     },
+     {
+      "month": "Mar",
+      "gp": "32%",
+      "N": "7.0",
+      "P": "0.7",
+      "K": "3.6"
+     },
+     {
+      "month": "Apr",
+      "gp": "34%",
+      "N": "7.4",
+      "P": "0.7",
+      "K": "3.8"
+     },
+     {
+      "month": "May",
+      "gp": "42%",
+      "N": "9.1",
+      "P": "0.9",
+      "K": "4.7"
+     },
+     {
+      "month": "Jun",
+      "gp": "54%",
+      "N": "11.5",
+      "P": "1.1",
+      "K": "6.1"
+     },
+     {
+      "month": "Jul",
+      "gp": "64%",
+      "N": "13.7",
+      "P": "1.4",
+      "K": "7.3"
+     },
+     {
+      "month": "Aug",
+      "gp": "73%",
+      "N": "15.0",
+      "P": "1.5",
+      "K": "8.2"
+     },
+     {
+      "month": "Sep",
+      "gp": "77%",
+      "N": "15.0",
+      "P": "1.6",
+      "K": "8.7"
+     },
+     {
+      "month": "Oct",
+      "gp": "68%",
+      "N": "14.5",
+      "P": "1.4",
+      "K": "7.7"
+     },
+     {
+      "month": "Nov",
+      "gp": "45%",
+      "N": "9.7",
+      "P": "1.0",
+      "K": "5.1"
+     },
+     {
+      "month": "Dec",
+      "gp": "26%",
+      "N": "5.8",
+      "P": "0.6",
+      "K": "3.0"
+     }
+    ],
+    "summary": null,
+    "products": null,
+    "regionBadge": []
+   },
+   "exportAnnualN": "120",
+   "exportPick": {
+    "found": true,
+    "uid": "019e96f3-63d9-7170-a4cd-94a5ada95686::sample_122",
+    "text": "Green 13Soil",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "120",
+      "required": "120.0",
+      "delivered": "—",
+      "range": "—",
+      "balance": "—",
+      "status": "—"
+     },
+     "P": {
+      "current": "—",
+      "removal": "12",
+      "required": "12.0",
+      "delivered": "—",
+      "range": "—",
+      "balance": "—",
+      "status": "No Soil Data"
+     },
+     "K": {
+      "current": "—",
+      "removal": "64",
+      "required": "64.0",
+      "delivered": "—",
+      "range": "—",
+      "balance": "—",
+      "status": "No Soil Data"
+     }
+    },
+    "anrAllSamples": [
+     "Green 13 / N",
+     "Green 13 / P",
+     "Green 13 / K"
+    ],
+    "monthly": [
+     {
+      "N": "5",
+      "gp": "GP 24%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 27%"
+     },
+     {
+      "N": "7",
+      "gp": "GP 32%"
+     },
+     {
+      "N": "7",
+      "gp": "GP 34%"
+     },
+     {
+      "N": "9",
+      "gp": "GP 42%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 54%"
+     },
+     {
+      "N": "14",
+      "gp": "GP 64%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 73%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 77%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 68%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 45%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 26%"
+     }
+    ],
+    "products": null,
+    "capText": "Monthly N cap applied (15 kg/ha per month): peak months trimmed, 1.8 kg/ha redistributed to shoulder months. Full target of 120 kg/ha delivered.",
+    "headings": [
+     "Growth Potential (C3)",
+     "Annual Nutrient Requirements",
+     "Nutrient",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "• No soil test data - MLSN recommendations estimated"
+    ],
+    "anrCaption": "SLAN sufficiency methodology (Carrow et al. 2004, GCM 72(1):194-198), with P pH-adjusted where pH is available. Within the sufficiency range, Required = removal only (soil reserves cover the agronomic requirement); below floor, Required = removal + lift correction over years-to-correct; above ceiling, Required = whatever keeps the season from ending below the floor (0 where the soil can spare the removal). Sufficiency-as-floor framing per Carrow, Waddington & Rieke (2001). Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|test4 - USA",
+     "Temperature|17.0°C",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Jan|Feb|Mar|Apr|May|Jun"
+    ],
+    "pHMentions": [
+     "pH-adjusted where pH is available. Within the sufficiency range, Required = remova",
+     "pH 7 or pH 8.1) to extract exchangeable cations (K, Ca, Mg, Na). Combined with Ols",
+     "pH 8.1 variant is particularly suited to soils with higher pH. Sufficiency ranges",
+     "pH 8.5. Developed for calcareous soils but widely used in New Zealand and Australi"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Federal Golf/Green 1, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7,",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=12 K=64 S=6.4 totalN=120 species=Creeping Bentgrass (Greens) hem=north climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for test4 - USA - species=Creeping Bentgrass (Greens) hem=north overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [WordExport] No trace data, skipping trace chart. Fe: undefined Mn: undefined",
+    "log: [CombinedExport] Collected report 1 / 1 : test4 - USA - sample_122",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=0 failed=0 skipped=1 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report sample_122 has 131 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [2] heading: Priority Actions",
+    "log: [CombinedExport]   [7] heading: Site Information",
+    "log: [CombinedExport]   [10] heading: Climate & Growth Conditions",
+    "log: [CombinedExport]   [14] heading: Performance Impact Analysis",
+    "log: [CombinedExport]   [19] heading: References & Methodology",
+    "log: [CombinedExport]   Cut point found at index 19 : References & Methodology"
+   ]
+  },
+  {
+   "site": "Test5 - NZ",
+   "label": "Soccer",
+   "siteId": "019e96f3-9294-72be-a13c-7fa7427afd5a",
+   "pickerRow": {
+    "index": 0,
+    "date": "17 Aug 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 250,
+      "P": 5.9,
+      "K": 136.1,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "annual_removal": {
+      "N": 250,
+      "P": 34,
+      "K": 109,
+      "Ca": 42,
+      "Mg": 21,
+      "S": 14
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 26.740000000000006,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 50,
+      "original_n_total": 250,
+      "scheduled_n_total": 250,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 250,
+      "applied_n": 250,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:51:52.505Z",
+      "version": "2.5.0",
+      "methodology": "AMMONIUM_ACETATE",
+      "species": "perennialRyegrass",
+      "speciesDisplay": "Perennial Ryegrass",
+      "surfaceType": "soccer",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 250,
+      "trafficIntensity": "moderate",
+      "trafficSource": "schedule",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "schedule",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -36.8508827,
+      "lon": 174.7644881,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 20,
+       "max": 30
+      },
+      "K": {
+       "min": 78.2,
+       "max": 195.5
+      },
+      "Ca": {
+       "min": 400,
+       "max": 800
+      },
+      "Mg": {
+       "min": 36.6,
+       "max": 85.39999999999999
+      },
+      "S": {
+       "min": 30,
+       "max": 60
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "texture-fallback"
+     }
+    },
+    "inputs": {
+     "pH": "6",
+     "CEC": "5.9",
+     "soilTexture": "sand",
+     "methodology": "ammonium_acetate",
+     "species": "perennialRyegrass",
+     "surfaceType": "soccer",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 20,
+       "max": 30,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S277"
+      },
+      "K": {
+       "min": 78.2,
+       "max": 195.5,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S277"
+      },
+      "Ca": {
+       "min": 400,
+       "max": 800,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S277"
+      },
+      "Mg": {
+       "min": 36.6,
+       "max": 85.39999999999999,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S277"
+      },
+      "S": {
+       "min": 30,
+       "max": 60,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (sands)"
+      }
+     },
+     "soilPpm": {
+      "P": 40,
+      "K": 40,
+      "Ca": 803,
+      "Mg": 129,
+      "S": 75,
+      "Fe": 168,
+      "Mn": 28.3,
+      "Zn": 5.7,
+      "Cu": 1.3
+     },
+     "annualNOverride": 250,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "100%",
+      "N": "30.3",
+      "P": "0.7",
+      "K": "16.5"
+     },
+     {
+      "month": "Feb",
+      "gp": "100%",
+      "N": "30.3",
+      "P": "0.7",
+      "K": "16.5"
+     },
+     {
+      "month": "Mar",
+      "gp": "99%",
+      "N": "29.9",
+      "P": "0.7",
+      "K": "16.3"
+     },
+     {
+      "month": "Apr",
+      "gp": "86%",
+      "N": "26.2",
+      "P": "0.6",
+      "K": "14.2"
+     },
+     {
+      "month": "May",
+      "gp": "63%",
+      "N": "19.2",
+      "P": "0.5",
+      "K": "10.5"
+     },
+     {
+      "month": "Jun",
+      "gp": "41%",
+      "N": "12.4",
+      "P": "0.3",
+      "K": "6.7"
+     },
+     {
+      "month": "Jul",
+      "gp": "29%",
+      "N": "8.9",
+      "P": "0.2",
+      "K": "4.9"
+     },
+     {
+      "month": "Aug",
+      "gp": "33%",
+      "N": "9.9",
+      "P": "0.2",
+      "K": "5.4"
+     },
+     {
+      "month": "Sep",
+      "gp": "44%",
+      "N": "13.3",
+      "P": "0.3",
+      "K": "7.2"
+     },
+     {
+      "month": "Oct",
+      "gp": "58%",
+      "N": "17.5",
+      "P": "0.4",
+      "K": "9.5"
+     },
+     {
+      "month": "Nov",
+      "gp": "77%",
+      "N": "23.3",
+      "P": "0.6",
+      "K": "12.7"
+     },
+     {
+      "month": "Dec",
+      "gp": "95%",
+      "N": "28.8",
+      "P": "0.7",
+      "K": "15.7"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "247.6",
+      "range": "—",
+      "balance": "-2.4",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "56",
+      "removal": "34",
+      "required": "5.9",
+      "delivered": "14.9",
+      "range": "28–42",
+      "balance": "36.9",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "56",
+      "removal": "109",
+      "required": "136.1",
+      "delivered": "180.7",
+      "range": "109.5–273.7",
+      "balance": "127.7",
+      "status": "On Track"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "MESA Country Club 100% (MESA)",
+       "applications": "4",
+       "rate": "654 kg/ha",
+       "N": "124.3",
+       "P": "0.0",
+       "K": "104.6"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (Balance)",
+       "applications": "1",
+       "rate": "50 L/ha",
+       "N": "11.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Pro Balance (QR)",
+       "applications": "4",
+       "rate": "200 L/ha",
+       "N": "30.0",
+       "P": "0.0",
+       "K": "24.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (QR)",
+       "applications": "1",
+       "rate": "30 L/ha",
+       "N": "6.6",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sports Fert NO3 +TE (QR)",
+       "applications": "2",
+       "rate": "498 kg/ha",
+       "N": "69.7",
+       "P": "14.9",
+       "K": "34.9"
+      },
+      {
+       "name": "Sportsmaster WSF High K (QR)",
+       "applications": "2",
+       "rate": "40 L/ha",
+       "N": "6.0",
+       "P": "0.0",
+       "K": "17.2"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "247.6",
+       "P": "14.9",
+       "K": "180.7",
+       "rate": null
+      },
+      "Required": {
+       "N": "250.0",
+       "P": "5.9",
+       "K": "136.1",
+       "rate": null
+      },
+      "Balance": {
+       "N": "-2.4",
+       "P": "36.9",
+       "K": "127.7",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "NZ"
+    ]
+   },
+   "exportAnnualN": "250",
+   "exportPick": {
+    "found": true,
+    "uid": "019e96f3-9294-72be-a13c-7fa7427afd5a::sample_141",
+    "text": "SoccerSoilTissue",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "247.6",
+      "range": "—",
+      "balance": "-2.4",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "56 (40 ppm)",
+      "removal": "34",
+      "required": "5.9",
+      "delivered": "14.9",
+      "range": "28–42",
+      "balance": "36.9",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "56 (40 ppm)",
+      "removal": "109",
+      "required": "136.1",
+      "delivered": "180.7",
+      "range": "109.5–273.7",
+      "balance": "127.7",
+      "status": "On Track"
+     }
+    },
+    "anrAllSamples": [
+     "Soccer / N",
+     "Soccer / P",
+     "Soccer / K"
+    ],
+    "monthly": [
+     {
+      "N": "30",
+      "gp": "GP 100%"
+     },
+     {
+      "N": "30",
+      "gp": "GP 100%"
+     },
+     {
+      "N": "30",
+      "gp": "GP 99%"
+     },
+     {
+      "N": "26",
+      "gp": "GP 86%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 63%"
+     },
+     {
+      "N": "12",
+      "gp": "GP 41%"
+     },
+     {
+      "N": "9",
+      "gp": "GP 29%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 33%"
+     },
+     {
+      "N": "13",
+      "gp": "GP 44%"
+     },
+     {
+      "N": "18",
+      "gp": "GP 58%"
+     },
+     {
+      "N": "23",
+      "gp": "GP 77%"
+     },
+     {
+      "N": "29",
+      "gp": "GP 95%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "MESA Country Club 100%",
+       "applications": "4",
+       "rate": "654 kg/ha",
+       "N": "124.3",
+       "P": "0.0",
+       "K": "104.6"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (Balance)",
+       "applications": "1",
+       "rate": "50 L/ha",
+       "N": "11.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Pro Balance",
+       "applications": "4",
+       "rate": "200 L/ha",
+       "N": "30.0",
+       "P": "0.0",
+       "K": "24.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22)",
+       "applications": "1",
+       "rate": "30 L/ha",
+       "N": "6.6",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Sports Fert NO3 +TE",
+       "applications": "2",
+       "rate": "498 kg/ha",
+       "N": "69.7",
+       "P": "14.9",
+       "K": "34.9"
+      },
+      {
+       "name": "Sportsmaster WSF High K",
+       "applications": "2",
+       "rate": "40 L/ha",
+       "N": "6.0",
+       "P": "0.0",
+       "K": "17.2"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "14",
+       "rate": "1152 kg/ha + 320 L/ha",
+       "N": "247.6",
+       "P": "14.9",
+       "K": "180.7"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Soil Nutrition (AMMONIUM_ACETATE), Soccer",
+     "Soil pH: 6",
+     "Soil pH (6) is within the optimal range (6-7) for Perennial Ryegrass.",
+     "Annual Soil Amendments",
+     "Nutrient",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Soil Amendment Recommendations",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "ories NZ). MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. The table below shows the three f"
+    ],
+    "anrCaption": "Hill Labs S277 sample-type sufficiency thresholds applied (TURF Ryegrass, Sand (S277)). Cation values converted from certificate-native me/100g to ppm; cation deficit-correction recommendations appear in the Soil Amendment table above. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Where the soil is above its sufficiency ceiling but the season's removal would still take it below the floor, Required is what holds the floor (removal less what the soil can spare), not zero. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Test5 - NZ",
+     "pH|6",
+     "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|6.2:1 (Optimal)",
+     "Temperature|12.8°C",
+     "Nitrogen (N)|4.57%",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH 8.1) + Olsen P method (Hill Laboratories NZ). MLSN and SLAN guidelines are cali",
+     "pH 8.1 (cations) + Olsen P (NaHCO₃)",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 1 tissue sample(s) on this site: Soccer",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "warning: [PrebbleRecommender] MESA Country Club 100%: Rate capped - only delivering 38.0 of 90.5 kg N/ha required",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: false | balancingMonths available (gp>=0.4): 10 | monthsToUse (capped at 3): 1 | ammos found: true | per-app cap: 20",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, test4 - USA/Green 13, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7,",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0 , using form value",
+    "log: [WordExport] nutritionSummary via engine: P=5.9 K=136.1 S=0 totalN=250 species=Perennial Ryegrass hem=south climateLive=true overseed=false"
+   ]
+  },
+  {
+   "site": "Russley",
+   "label": "Green 18",
+   "siteId": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce",
+   "pickerRow": {
+    "index": 0,
+    "date": "1 Aug 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 200,
+      "P": 0,
+      "K": 119,
+      "Ca": 117.3,
+      "Mg": 16,
+      "S": 10.7
+     },
+     "annual_removal": {
+      "N": 200,
+      "P": 18,
+      "K": 119,
+      "Ca": 33,
+      "Mg": 16,
+      "S": 11
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 84.00000000000001,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 50,
+      "original_n_total": 200,
+      "scheduled_n_total": 200,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 200,
+      "applied_n": 200,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {
+      "S": true
+     },
+     "meta": {
+      "generated": "2026-09-11T04:52:13.962Z",
+      "version": "2.5.0",
+      "methodology": "AMMONIUM_ACETATE",
+      "species": "creepingBentgrass",
+      "speciesDisplay": "Browntop Bent (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 200,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -43.495388,
+      "lon": 172.5560607,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 5,
+       "max": 15
+      },
+      "K": {
+       "min": 78.2,
+       "max": 195.5
+      },
+      "Ca": {
+       "min": 400,
+       "max": 800
+      },
+      "Mg": {
+       "min": 36.6,
+       "max": 85.39999999999999
+      },
+      "S": {
+       "min": 30,
+       "max": 60
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "texture-fallback"
+     }
+    },
+    "inputs": {
+     "pH": null,
+     "CEC": null,
+     "soilTexture": "sand",
+     "methodology": "ammonium_acetate",
+     "species": "creepingBentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 5,
+       "max": 15,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S279"
+      },
+      "K": {
+       "min": 78.2,
+       "max": 195.5,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S279"
+      },
+      "Ca": {
+       "min": 400,
+       "max": 800,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S279"
+      },
+      "Mg": {
+       "min": 36.6,
+       "max": 85.39999999999999,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Hill Laboratories sufficiency certificate S279"
+      },
+      "S": {
+       "min": 30,
+       "max": 60,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (sands)"
+      }
+     },
+     "soilPpm": {
+      "P": 20,
+      "K": 156.4,
+      "Ca": 220,
+      "Mg": 40.1,
+      "S": null,
+      "Fe": null,
+      "Mn": null,
+      "Zn": null,
+      "Cu": null
+     },
+     "annualNOverride": 200,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "90%",
+      "N": "39.8",
+      "P": "0.0",
+      "K": "23.7"
+     },
+     {
+      "month": "Feb",
+      "gp": "87%",
+      "N": "38.6",
+      "P": "0.0",
+      "K": "22.9"
+     },
+     {
+      "month": "Mar",
+      "gp": "67%",
+      "N": "29.7",
+      "P": "0.0",
+      "K": "17.7"
+     },
+     {
+      "month": "Apr",
+      "gp": "34%",
+      "N": "15.0",
+      "P": "0.0",
+      "K": "9.0"
+     },
+     {
+      "month": "May",
+      "gp": "14%",
+      "N": "6.3",
+      "P": "0.0",
+      "K": "3.8"
+     },
+     {
+      "month": "Jun",
+      "gp": "5%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "6%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "13%",
+      "N": "5.8",
+      "P": "0.0",
+      "K": "3.4"
+     },
+     {
+      "month": "Oct",
+      "gp": "25%",
+      "N": "10.8",
+      "P": "0.0",
+      "K": "6.4"
+     },
+     {
+      "month": "Nov",
+      "gp": "47%",
+      "N": "20.8",
+      "P": "0.0",
+      "K": "12.4"
+     },
+     {
+      "month": "Dec",
+      "gp": "75%",
+      "N": "33.1",
+      "P": "0.0",
+      "K": "19.7"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "200",
+      "required": "200.0",
+      "delivered": "200.2",
+      "range": "—",
+      "balance": "0.2",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "28",
+      "removal": "18",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "7–21",
+      "balance": "10.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "219",
+      "removal": "119",
+      "required": "119.0",
+      "delivered": "118.4",
+      "range": "109.5–273.7",
+      "balance": "218.4",
+      "status": "On Track"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Andersons Nutri DG 20-0-13 (SR)",
+       "applications": "6",
+       "rate": "91.1 g/m²",
+       "N": "182.2",
+       "P": "0.0",
+       "K": "118.4"
+      },
+      {
+       "name": "FoliMAX N-Forcer-N (QR)",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "18.0",
+       "P": "0.0",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "200.2",
+       "P": "0.0",
+       "K": "118.4",
+       "rate": null
+      },
+      "Required": {
+       "N": "200.0",
+       "P": "0.0",
+       "K": "119.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "0.2",
+       "P": "10.0",
+       "K": "218.4",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "NZ"
+    ]
+   },
+   "exportAnnualN": "200",
+   "exportPick": {
+    "found": true,
+    "uid": "019f35f0-d912-73e5-82bd-3de0bfd4f6ce::sample_105",
+    "text": "Green 18SoilWaterTissue",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "200",
+      "required": "200.0",
+      "delivered": "200.2",
+      "range": "—",
+      "balance": "0.2",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "28 (20 ppm)",
+      "removal": "18",
+      "required": "0.0",
+      "delivered": "0.0",
+      "range": "7–21",
+      "balance": "10.0",
+      "status": "On Track"
+     },
+     "K": {
+      "current": "219 (156.4 ppm)",
+      "removal": "119",
+      "required": "119.0",
+      "delivered": "118.4",
+      "range": "109.5–273.7",
+      "balance": "218.4",
+      "status": "On Track"
+     }
+    },
+    "anrAllSamples": [
+     "Green 18 / N",
+     "Green 18 / P",
+     "Green 18 / K"
+    ],
+    "monthly": [
+     {
+      "N": "40",
+      "gp": "GP 90%"
+     },
+     {
+      "N": "39",
+      "gp": "GP 87%"
+     },
+     {
+      "N": "30",
+      "gp": "GP 67%"
+     },
+     {
+      "N": "15",
+      "gp": "GP 34%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 14%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 5%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 6%"
+     },
+     {
+      "N": "6",
+      "gp": "GP 13%"
+     },
+     {
+      "N": "11",
+      "gp": "GP 25%"
+     },
+     {
+      "N": "21",
+      "gp": "GP 47%"
+     },
+     {
+      "N": "33",
+      "gp": "GP 75%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Andersons Nutri DG 20-0-13",
+       "applications": "6",
+       "rate": "91.1 g/m²",
+       "N": "182.2",
+       "P": "0.0",
+       "K": "118.4"
+      },
+      {
+       "name": "FoliMAX N-Forcer-N",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "18.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Gypsum (CaSO₄·2H₂O)",
+       "applications": "1",
+       "rate": "60.9 g/m²",
+       "N": "0.0",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "9",
+       "rate": "91.1 g/m² + 90 L/ha",
+       "N": "200.2",
+       "P": "0.0",
+       "K": "118.4"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Soil Nutrition (AMMONIUM_ACETATE), Green 18",
+     "Annual Soil Amendments",
+     "Nutrient",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Soil Amendment Recommendations",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "ories NZ). MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. The table below shows the three f"
+    ],
+    "anrCaption": "Hill Labs S277 sample-type sufficiency thresholds applied (TURF Ryegrass, Sand (S277)). Cation values converted from certificate-native me/100g to ppm; cation deficit-correction recommendations appear in the Soil Amendment table above. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Russley",
+     "Phosphorus (P)|20 ppm",
+     "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Temperature|9.2°C",
+     "Nitrogen (N)|4.2%",
+     "EC|0.5 dS/m",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Date|Product|Active Ingredient|Rate|Zone|Category",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH 8.1) + Olsen P method (Hill Laboratories NZ). MLSN and SLAN guidelines are cali",
+     "pH 8.1 (cations) + Olsen P (NaHCO₃)",
+     "pH 8.1) for cations. Sufficiency ranges are calibrated for New Zealand soil condit",
+     "pH-neutral; gypsum also delivers S to address Ca deficiency.",
+     "pH 8.1)). Results from mixed-extractant panels will produce unreliable ratios.",
+     "pH, CEC, organic matter content, construction type, and water quality. Products ar"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 1 tissue sample(s) on this site: Green 18",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Test5 - NZ/Soccer, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7, Bu",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0 , using form value",
+    "log: [WordExport] nutritionSummary via engine: P=0 K=119 S=10.7 totalN=200 species=Browntop Bent (Greens) hem=south climateLive=true overseed=false",
+    "log: [WordExport] b35fix327 amendment scheduled: 1 entry/entries → monthly[3] (unknown)",
+    "log: [WordExport] b35fix327 amendments merged: 1 product(s), slot=April hem=south",
+    "log: [CombinedExport] Baked ctx for Russley - species=Browntop Bent (Greens) hem=south overseed=false base=Browntop Bent (Greens)",
+    "log: [WordExport] No trace data, skipping trace chart. Fe: undefined Mn: undefined",
+    "log: [CombinedExport] Collected report 1 / 1 : Russley - sample_105",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample sample_105 site 019f35f0-d912-73e5-82bd-3de0bfd4f6ce : isNZ=true (via sample-coordinates) lat=-43.495388 lon=172.5560607 usePrebble=true useAU=false",
+    "log: [CombinedExport] nzdist-debug per-sample: {sampleId: sample_105, siteId: 019f35f0-d912-73e5-82bd-3de0bfd4f6ce, hasSiteCfg: true, resolvedDistributor: pgg_wrightson, swapped: true}",
+    "log: [CombinedExport] b35fix323 amendment scheduled for sample_105: 1 entry/entries → monthly[3] (unknown)",
+    "log: [CombinedExport] b35fix322 amendments merged for sample_105: 1 product(s), slot=April hem=south",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report sample_105 has 203 sections"
+   ]
+  },
+  {
+   "site": "Test - GC - NZ - delivery",
+   "label": "18th Green",
+   "siteId": "01a08b0b-4d6a-736d-a184-2fa1e04394b6",
+   "pickerRow": {
+    "index": 0,
+    "date": "15 Aug 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 250,
+      "P": 25,
+      "K": 143.8,
+      "Ca": 0,
+      "Mg": 41,
+      "S": 25.9
+     },
+     "annual_removal": {
+      "N": 250,
+      "P": 25,
+      "K": 133,
+      "Ca": 42,
+      "Mg": 20,
+      "S": 13
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 10.500000000000002,
+      "Ca": 0,
+      "Mg": 21.000000000000004,
+      "S": 12.600000000000001
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 50,
+      "original_n_total": 250,
+      "scheduled_n_total": 250,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 250,
+      "applied_n": 250,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:52:35.180Z",
+      "version": "2.5.0",
+      "methodology": "AMMONIUM_ACETATE",
+      "species": "bentgrass",
+      "speciesDisplay": "Creeping Bentgrass (Greens)",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 250,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -43.495388,
+      "lon": 172.5560607,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 12,
+       "max": 28
+      },
+      "K": {
+       "min": 100,
+       "max": 235
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 140,
+       "max": 250
+      },
+      "S": {
+       "min": 30,
+       "max": 60
+      }
+     },
+     "rangeSource": {
+      "P": "texture-fallback",
+      "K": "texture-fallback",
+      "Ca": "texture-fallback",
+      "Mg": "texture-fallback",
+      "S": "texture-fallback"
+     }
+    },
+    "inputs": {
+     "pH": "6.3",
+     "CEC": "8.5",
+     "soilTexture": "loam",
+     "methodology": "ammonium_acetate",
+     "species": "bentgrass",
+     "surfaceType": "greens",
+     "isC4": false,
+     "ranges": {
+      "P": {
+       "min": 12,
+       "max": 28,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "K": {
+       "min": 100,
+       "max": 235,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "Mg": {
+       "min": 140,
+       "max": 250,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "S": {
+       "min": 30,
+       "max": 60,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      }
+     },
+     "soilPpm": {
+      "P": 18,
+      "K": 85,
+      "Ca": 820,
+      "Mg": 95,
+      "S": 12,
+      "Fe": 48,
+      "Mn": 24,
+      "Zn": 3.8,
+      "Cu": 1.1
+     },
+     "annualNOverride": 250,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "90%",
+      "N": "49.8",
+      "P": "5.0",
+      "K": "28.7"
+     },
+     {
+      "month": "Feb",
+      "gp": "87%",
+      "N": "48.2",
+      "P": "4.8",
+      "K": "27.7"
+     },
+     {
+      "month": "Mar",
+      "gp": "67%",
+      "N": "37.2",
+      "P": "3.7",
+      "K": "21.4"
+     },
+     {
+      "month": "Apr",
+      "gp": "34%",
+      "N": "18.8",
+      "P": "1.9",
+      "K": "10.8"
+     },
+     {
+      "month": "May",
+      "gp": "14%",
+      "N": "7.9",
+      "P": "0.8",
+      "K": "4.6"
+     },
+     {
+      "month": "Jun",
+      "gp": "5%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "6%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "13%",
+      "N": "7.2",
+      "P": "0.7",
+      "K": "4.2"
+     },
+     {
+      "month": "Oct",
+      "gp": "25%",
+      "N": "13.5",
+      "P": "1.4",
+      "K": "7.8"
+     },
+     {
+      "month": "Nov",
+      "gp": "47%",
+      "N": "26.0",
+      "P": "2.6",
+      "K": "14.9"
+     },
+     {
+      "month": "Dec",
+      "gp": "75%",
+      "N": "41.3",
+      "P": "4.1",
+      "K": "23.8"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "237.2",
+      "range": "—",
+      "balance": "-12.8",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "25.2",
+      "removal": "25",
+      "required": "25.0",
+      "delivered": "10.6",
+      "range": "16.8–39.2",
+      "balance": "10.8",
+      "status": "Deficit (-36%)"
+     },
+     "K": {
+      "current": "119",
+      "removal": "133",
+      "required": "143.8",
+      "delivered": "140.1",
+      "range": "140–329",
+      "balance": "126.1",
+      "status": "Deficit (-10%)"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "CC MD IV Greens (MESA)",
+       "applications": "2",
+       "rate": "40 g/m²",
+       "N": "72.0",
+       "P": "5.2",
+       "K": "60.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (Balance)",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "19.8",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Andersons Nutri DG 20-0-13 (SR)",
+       "applications": "4",
+       "rate": "61.6 g/m²",
+       "N": "123.2",
+       "P": "0.0",
+       "K": "80.1"
+      },
+      {
+       "name": "MAP Tech (soluble) (QR)",
+       "applications": "1",
+       "rate": "2 g/m²",
+       "N": "2.4",
+       "P": "5.4",
+       "K": "0.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (QR)",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "19.8",
+       "P": "0.0",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "237.2",
+       "P": "10.6",
+       "K": "140.1",
+       "rate": null
+      },
+      "Required": {
+       "N": "250.0",
+       "P": "25.0",
+       "K": "143.8",
+       "rate": null
+      },
+      "Balance": {
+       "N": "-12.8",
+       "P": "10.8",
+       "K": "126.1",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "NZ"
+    ]
+   },
+   "exportAnnualN": "250",
+   "exportPick": {
+    "found": true,
+    "uid": "01a08b0b-4d6a-736d-a184-2fa1e04394b6::sample_155",
+    "text": "18th GreenSoil",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "237.2",
+      "range": "—",
+      "balance": "-12.8",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "25.2 (18 ppm)",
+      "removal": "25",
+      "required": "25.0",
+      "delivered": "10.6",
+      "range": "16.8–39.2",
+      "balance": "10.8",
+      "status": "Deficit (-36%)"
+     },
+     "K": {
+      "current": "119 (85 ppm)",
+      "removal": "133",
+      "required": "143.8",
+      "delivered": "140.1",
+      "range": "140–329",
+      "balance": "126.1",
+      "status": "Deficit (-10%)"
+     }
+    },
+    "anrAllSamples": [
+     "18th Green / N",
+     "18th Green / P",
+     "18th Green / K"
+    ],
+    "monthly": [
+     {
+      "N": "50",
+      "gp": "GP 90%"
+     },
+     {
+      "N": "48",
+      "gp": "GP 87%"
+     },
+     {
+      "N": "37",
+      "gp": "GP 67%"
+     },
+     {
+      "N": "19",
+      "gp": "GP 34%"
+     },
+     {
+      "N": "8",
+      "gp": "GP 14%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 5%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 6%"
+     },
+     {
+      "N": "7",
+      "gp": "GP 13%"
+     },
+     {
+      "N": "14",
+      "gp": "GP 25%"
+     },
+     {
+      "N": "26",
+      "gp": "GP 47%"
+     },
+     {
+      "N": "41",
+      "gp": "GP 75%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "CC MD IV Greens",
+       "applications": "2",
+       "rate": "40 g/m²",
+       "N": "72.0",
+       "P": "5.2",
+       "K": "60.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22) (Balance)",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "19.8",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Andersons Nutri DG 20-0-13",
+       "applications": "4",
+       "rate": "61.6 g/m²",
+       "N": "123.2",
+       "P": "0.0",
+       "K": "80.1"
+      },
+      {
+       "name": "MAP Tech (soluble)",
+       "applications": "1",
+       "rate": "2 g/m²",
+       "N": "2.4",
+       "P": "5.4",
+       "K": "0.0"
+      },
+      {
+       "name": "Ammos 22 (Nitro 22)",
+       "applications": "3",
+       "rate": "90 L/ha",
+       "N": "19.8",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "13",
+       "rate": "103.6 g/m² + 180 L/ha",
+       "N": "237.2",
+       "P": "10.6",
+       "K": "140.1"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Soil Nutrition (AMMONIUM_ACETATE), 18th Green",
+     "Soil pH: 6.3",
+     "Soil pH (6.3) is within the optimal range (5.5-6.5) for Creeping Bentgrass (Greens).",
+     "Annual Soil Amendments",
+     "Nutrient",
+     "Soil deficit",
+     "Programme delivers",
+     "Product",
+     "Growth Potential (C3)",
+     "Soil Amendment Recommendations",
+     "Annual Product Summary",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C3)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "ories NZ). MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. The table below shows the three f"
+    ],
+    "anrCaption": "Hill Labs S277 sample-type sufficiency thresholds applied (TURF Ryegrass, Sand (S277)). Cation values converted from certificate-native me/100g to ppm; cation deficit-correction recommendations appear in the Soil Amendment table above. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Test - GC - NZ - delivery",
+     "pH|6.3",
+     "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
+     "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
+     "Ca:Mg Ratio|8.6:1 (Optimal)",
+     "Temperature|9.2°C",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH 8.1) + Olsen P method (Hill Laboratories NZ). MLSN and SLAN guidelines are cali",
+     "pH 8.1 (cations) + Olsen P (NaHCO₃)",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.3"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Russley/Green 18, Russley/Green 13, Russley/Green 1, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3,",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=25 K=143.8 S=25.9 totalN=250 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Test - GC - NZ - delivery - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
+    "log: [CombinedExport] Collected report 1 / 1 : Test - GC - NZ - delivery - sample_155",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample sample_155 site 01a08b0b-4d6a-736d-a184-2fa1e04394b6 : isNZ=true (via sample-coordinates) lat=-43.495388 lon=172.5560607 usePrebble=true useAU=false",
+    "log: [CombinedExport] nzdist-debug per-sample: {sampleId: sample_155, siteId: 01a08b0b-4d6a-736d-a184-2fa1e04394b6, hasSiteCfg: true, resolvedDistributor: all, swapped: true}",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 5 | monthsToUse (capped at 3): 3 | ammos found: true | per-app cap: 8",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)"
+   ]
+  },
+  {
+   "site": "Test - GC - NZ - warm season grass test",
+   "label": "Main Oval",
+   "siteId": "01a08ae6-8a43-7004-99a6-8cddfc69b9cb",
+   "pickerRow": {
+    "index": 0,
+    "date": "15 Aug 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 250,
+      "P": 25,
+      "K": 150,
+      "Ca": 0,
+      "Mg": 31.8,
+      "S": 23.4
+     },
+     "annual_removal": {
+      "N": 250,
+      "P": 25,
+      "K": 150,
+      "Ca": 44,
+      "Mg": 23,
+      "S": 15
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 9.333333333333334,
+      "S": 8.4
+     },
+     "adjustments": {
+      "n_cap_applied": true,
+      "max_n_per_month": 50,
+      "original_n_total": 250,
+      "scheduled_n_total": 100,
+      "n_redistributed": 0,
+      "n_unschedulable": 150,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 250,
+      "applied_n": 250,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {},
+     "meta": {
+      "generated": "2026-09-11T04:52:56.395Z",
+      "version": "2.5.0",
+      "methodology": "AMMONIUM_ACETATE",
+      "species": "bermuda",
+      "speciesDisplay": "Couch",
+      "surfaceType": "greens",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 250,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -43.495388,
+      "lon": 172.5560607,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 50
+     },
+     "range": {
+      "P": {
+       "min": 12,
+       "max": 28
+      },
+      "K": {
+       "min": 100,
+       "max": 235
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750
+      },
+      "Mg": {
+       "min": 140,
+       "max": 250
+      },
+      "S": {
+       "min": 30,
+       "max": 60
+      }
+     },
+     "rangeSource": {
+      "P": "texture-fallback",
+      "K": "texture-fallback",
+      "Ca": "texture-fallback",
+      "Mg": "texture-fallback",
+      "S": "texture-fallback"
+     }
+    },
+    "inputs": {
+     "pH": "6.2",
+     "CEC": "9.2",
+     "soilTexture": "loam",
+     "methodology": "ammonium_acetate",
+     "species": "bermuda",
+     "surfaceType": "greens",
+     "isC4": true,
+     "ranges": {
+      "P": {
+       "min": 12,
+       "max": 28,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "K": {
+       "min": 100,
+       "max": 235,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "Ca": {
+       "min": 500,
+       "max": 750,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "Mg": {
+       "min": 140,
+       "max": 250,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      },
+      "S": {
+       "min": 30,
+       "max": 60,
+       "label": "AMMONIUM_ACETATE",
+       "citation": "Ammonium-acetate generic sufficiency band (others)"
+      }
+     },
+     "soilPpm": {
+      "P": 22,
+      "K": 110,
+      "Ca": 950,
+      "Mg": 120,
+      "S": 18,
+      "Fe": 42,
+      "Mn": 32,
+      "Zn": 4.5,
+      "Cu": 1.4
+     },
+     "annualNOverride": 250,
+     "maxNPerMonth": 50,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "16%",
+      "N": "50.0",
+      "P": "13.1",
+      "K": "78.9"
+     },
+     {
+      "month": "Feb",
+      "gp": "14%",
+      "N": "50.0",
+      "P": "11.9",
+      "K": "71.1"
+     },
+     {
+      "month": "Mar",
+      "gp": "8%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Apr",
+      "gp": "2%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "May",
+      "gp": "1%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jun",
+      "gp": "0%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "0%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "0%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "1%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Oct",
+      "gp": "2%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Nov",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Dec",
+      "gp": "10%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "15.6",
+      "range": "—",
+      "balance": "-234.4",
+      "status": "Deficit (-94%)"
+     },
+     "P": {
+      "current": "30.8",
+      "removal": "25",
+      "required": "25.0",
+      "delivered": "5.4",
+      "range": "16.8–39.2",
+      "balance": "11.2",
+      "status": "Deficit (-33%)"
+     },
+     "K": {
+      "current": "154",
+      "removal": "150",
+      "required": "150.0",
+      "delivered": "0.0",
+      "range": "140–329",
+      "balance": "4.0",
+      "status": "Deficit (-97%)"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Ammos 22 (Nitro 22) (QR)",
+       "applications": "2",
+       "rate": "60 L/ha",
+       "N": "13.2",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "MAP Tech (soluble) (QR)",
+       "applications": "1",
+       "rate": "2 g/m²",
+       "N": "2.4",
+       "P": "5.4",
+       "K": "0.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "15.6",
+       "P": "5.4",
+       "K": "0.0",
+       "rate": null
+      },
+      "Required": {
+       "N": "250.0",
+       "P": "25.0",
+       "K": "150.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "-234.4",
+       "P": "11.2",
+       "K": "4.0",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "NZ"
+    ]
+   },
+   "exportAnnualN": "250",
+   "exportPick": {
+    "found": true,
+    "uid": "01a08ae6-8a43-7004-99a6-8cddfc69b9cb::sample_154",
+    "text": "Main OvalSoil",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "250",
+      "required": "250.0",
+      "delivered": "15.6",
+      "range": "—",
+      "balance": "-234.4",
+      "status": "Deficit (-94%)"
+     },
+     "P": {
+      "current": "30.8 (22 ppm)",
+      "removal": "25",
+      "required": "25.0",
+      "delivered": "5.4",
+      "range": "16.8–39.2",
+      "balance": "11.2",
+      "status": "Deficit (-33%)"
+     },
+     "K": {
+      "current": "154 (110 ppm)",
+      "removal": "150",
+      "required": "150.0",
+      "delivered": "0.0",
+      "range": "140–329",
+      "balance": "4.0",
+      "status": "Deficit (-97%)"
+     }
+    },
+    "anrAllSamples": [
+     "Main Oval / N",
+     "Main Oval / P",
+     "Main Oval / K"
+    ],
+    "monthly": [
+     {
+      "N": "50",
+      "gp": "GP 16%"
+     },
+     {
+      "N": "50",
+      "gp": "GP 14%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 8%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 2%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 1%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 0%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 0%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 0%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 1%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 2%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 10%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Ammos 22 (Nitro 22)",
+       "applications": "2",
+       "rate": "60 L/ha",
+       "N": "13.2",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "MAP Tech (soluble)",
+       "applications": "1",
+       "rate": "2 g/m²",
+       "N": "2.4",
+       "P": "5.4",
+       "K": "0.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "3",
+       "rate": "2 g/m² + 60 L/ha",
+       "N": "15.6",
+       "P": "5.4",
+       "K": "0.0"
+      }
+     ]
+    },
+    "capText": "Monthly N cap too low: target 250 kg/ha — 150 kg/ha cannot be scheduled within the 50 kg/ha per month cap. Scheduled: 100 kg/ha.",
+    "headings": [
+     "Soil Nutrition (AMMONIUM_ACETATE), Main Oval",
+     "Soil pH: 6.2",
+     "Soil pH (6.2) is within the optimal range (6-7) for Couch.",
+     "Annual Soil Amendments",
+     "Growth Potential (C4)",
+     "Soil Amendment Recommendations",
+     "Annual Product Summary",
+     "Product",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Nutrient",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C4)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "ories NZ). MLSN and SLAN guidelines are calibrated for Mehlich-3 extraction and cannot be directly applied to Ammonium Acetate results. The table below shows the three f",
+     "\tMonthly N cap too low: target 250 kg/ha — 150 kg/ha cannot be scheduled within the 50 kg/ha per month cap. Scheduled: 100 kg/ha."
+    ],
+    "anrCaption": "Hill Labs S277 sample-type sufficiency thresholds applied (TURF Ryegrass, Sand (S277)). Cation values converted from certificate-native me/100g to ppm; cation deficit-correction recommendations appear in the Soil Amendment table above. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Test - GC - NZ - warm season grass test",
+     "pH|6.2",
+     "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
+     "Ca:Mg Ratio|7.9:1 (Optimal)",
+     "Temperature|9.2°C",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH",
+     "pH 8.1) + Olsen P method (Hill Laboratories NZ). MLSN and SLAN guidelines are cali",
+     "pH 8.1 (cations) + Olsen P (NaHCO₃)",
+     "pH, organic matter, and redox conditions all modify uptake.",
+     "pH and CEC Context",
+     "pH: 6.2"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Test - GC - NZ - delivery/18th Green, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=25 K=150 S=23.4 totalN=250 species=Couch hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Test - GC - NZ - warm season grass test - species=Couch hem=south overseed=false base=Couch",
+    "log: [CombinedExport] Collected report 1 / 1 : Test - GC - NZ - warm season grass test - sample_154",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] GH-362 branch for sample sample_154 site 01a08ae6-8a43-7004-99a6-8cddfc69b9cb : isNZ=true (via sample-coordinates) lat=-43.495388 lon=172.5560607 usePrebble=true useAU=false",
+    "log: [CombinedExport] nzdist-debug per-sample: {sampleId: sample_154, siteId: 01a08ae6-8a43-7004-99a6-8cddfc69b9cb, hasSiteCfg: true, resolvedDistributor: all, swapped: true}",
+    "log: [GH348-DEBUG] N balancing plan | isGreens: true | balancingMonths available (gp>=0.4): 0 | monthsToUse (capped at 3): 0 | ammos found: true | per-app cap: 8",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)"
+   ]
+  },
+  {
+   "site": "Westview",
+   "label": "Backyard",
+   "siteId": "019f7d28-50ed-71e2-b817-c252b0160460",
+   "pickerRow": {
+    "index": 0,
+    "date": "27 July 2026"
+   },
+   "plan": {
+    "program": {
+     "annual_totals": {
+      "N": 200,
+      "P": 20,
+      "K": 125,
+      "Ca": 37.5,
+      "Mg": 20,
+      "S": 12.5
+     },
+     "annual_removal": {
+      "N": 200,
+      "P": 20,
+      "K": 125,
+      "Ca": 38,
+      "Mg": 20,
+      "S": 13
+     },
+     "annual_lift": {
+      "P": 0,
+      "K": 0,
+      "Ca": 0,
+      "Mg": 0,
+      "S": 0
+     },
+     "adjustments": {
+      "n_cap_applied": false,
+      "max_n_per_month": 100,
+      "original_n_total": 200,
+      "scheduled_n_total": 200,
+      "n_redistributed": 0,
+      "n_unschedulable": 0,
+      "traffic_modifier": 1,
+      "clipping_management": "collected",
+      "clipping_factors": {
+       "nFactor": 1,
+       "pFactor": 1,
+       "kFactor": 1
+      },
+      "target_n": 200,
+      "applied_n": 200,
+      "n_recycled": 0
+     },
+     "missing_soil_data": {
+      "P": true,
+      "K": true,
+      "Ca": true,
+      "Mg": true,
+      "S": true
+     },
+     "meta": {
+      "generated": "2026-09-11T04:53:17.345Z",
+      "version": "2.5.0",
+      "methodology": "MLSN",
+      "species": "buffalograss",
+      "speciesDisplay": "Buffalograss",
+      "surfaceType": "lawns",
+      "hemisphere": "south",
+      "distribution": "gp_weighted",
+      "clippingManagement": "collected",
+      "annualNBase": 200,
+      "trafficIntensity": "moderate",
+      "trafficSource": "not-sports",
+      "inputSources": {
+       "turfType": "site-config",
+       "surfaceType": "sample",
+       "species": "sample",
+       "methodology": "sample",
+       "soilTexture": "site-override",
+       "clippingManagement": "plan",
+       "trafficIntensity": "not-sports",
+       "annualN": "plan",
+       "maxNPerMonth": "plan",
+       "distributionMode": "plan"
+      },
+      "lat": -34.0745713,
+      "lon": 150.7828294,
+      "monthlyTempsSource": "nasa-power",
+      "monthlyTempsPeriod": "20-year Meteorological and Solar Monthly & Annual Climatologies (January 2001 - December 2020)",
+      "maxNPerMonth": 100
+     },
+     "range": {
+      "P": {
+       "min": 21,
+       "max": 31.5
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5
+      }
+     },
+     "rangeSource": {
+      "P": "certificate",
+      "K": "certificate",
+      "Ca": "certificate",
+      "Mg": "certificate",
+      "S": "certificate"
+     }
+    },
+    "inputs": {
+     "pH": "6.5",
+     "CEC": null,
+     "soilTexture": "clay_loam",
+     "methodology": "mlsn",
+     "species": "buffalograss",
+     "surfaceType": "lawns",
+     "isC4": true,
+     "ranges": {
+      "P": {
+       "min": 21,
+       "max": 31.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "K": {
+       "min": 37,
+       "max": 55.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Ca": {
+       "min": 331,
+       "max": 496.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "Mg": {
+       "min": 47,
+       "max": 70.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      },
+      "S": {
+       "min": 7,
+       "max": 10.5,
+       "label": "MLSN",
+       "citation": "Woods, Stowell & Gelernter (2016), PACE Turf MLSN guidelines."
+      }
+     },
+     "soilPpm": {
+      "P": null,
+      "K": null,
+      "Ca": null,
+      "Mg": null,
+      "S": null,
+      "Fe": null,
+      "Mn": null,
+      "Zn": null,
+      "Cu": null
+     },
+     "annualNOverride": 200,
+     "maxNPerMonth": 100,
+     "trafficModifier": 1
+    },
+    "monthly": [
+     {
+      "month": "Jan",
+      "gp": "55%",
+      "N": "53.3",
+      "P": "5.3",
+      "K": "33.3"
+     },
+     {
+      "month": "Feb",
+      "gp": "42%",
+      "N": "40.5",
+      "P": "4.0",
+      "K": "25.3"
+     },
+     {
+      "month": "Mar",
+      "gp": "26%",
+      "N": "24.6",
+      "P": "2.5",
+      "K": "15.4"
+     },
+     {
+      "month": "Apr",
+      "gp": "11%",
+      "N": "10.2",
+      "P": "1.0",
+      "K": "6.4"
+     },
+     {
+      "month": "May",
+      "gp": "3%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jun",
+      "gp": "1%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Jul",
+      "gp": "1%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Aug",
+      "gp": "1%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Sep",
+      "gp": "4%",
+      "N": "0.0",
+      "P": "0.0",
+      "K": "0.0"
+     },
+     {
+      "month": "Oct",
+      "gp": "11%",
+      "N": "11.0",
+      "P": "1.1",
+      "K": "6.9"
+     },
+     {
+      "month": "Nov",
+      "gp": "25%",
+      "N": "23.9",
+      "P": "2.4",
+      "K": "14.9"
+     },
+     {
+      "month": "Dec",
+      "gp": "38%",
+      "N": "36.6",
+      "P": "3.7",
+      "K": "22.8"
+     }
+    ],
+    "summary": {
+     "N": {
+      "current": "—",
+      "removal": "200",
+      "required": "200.0",
+      "delivered": "224.8",
+      "range": "—",
+      "balance": "24.8",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "—",
+      "removal": "20",
+      "required": "20.0",
+      "delivered": "21.4",
+      "range": "—",
+      "balance": "1.4",
+      "status": "No Soil Data"
+     },
+     "K": {
+      "current": "—",
+      "removal": "125",
+      "required": "125.0",
+      "delivered": "154.1",
+      "range": "—",
+      "balance": "29.1",
+      "status": "No Soil Data"
+     }
+    },
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Simplot Best Pro Prills",
+       "applications": "1",
+       "rate": "400 kg/ha",
+       "N": "48.0",
+       "P": "12.0",
+       "K": "52.0"
+      },
+      {
+       "name": "Intec Colourphyll K",
+       "applications": "1",
+       "rate": "35 L/ha",
+       "N": "5.3",
+       "P": "0.0",
+       "K": "3.5"
+      },
+      {
+       "name": "Greenmaster Liquid High N",
+       "applications": "1",
+       "rate": "66 L/ha",
+       "N": "16.5",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Greenmaster Liquid Advance - Spring and Summer",
+       "applications": "3",
+       "rate": "240 L/ha",
+       "N": "33.8",
+       "P": "4.8",
+       "K": "14.2"
+      },
+      {
+       "name": "FoliMAX NRG-NK",
+       "applications": "5",
+       "rate": "250 L/ha",
+       "N": "47.8",
+       "P": "0.0",
+       "K": "31.8"
+      },
+      {
+       "name": "Greenmaster Liquid Spring & Summer",
+       "applications": "1",
+       "rate": "92 L/ha",
+       "N": "11.0",
+       "P": "1.6",
+       "K": "4.6"
+      },
+      {
+       "name": "GTS Sport Series Colour Plus 20-0-16",
+       "applications": "1",
+       "rate": "300 kg/ha",
+       "N": "62.4",
+       "P": "3.0",
+       "K": "48.0"
+      }
+     ],
+     "footer": {
+      "Total Delivered": {
+       "N": "224.8",
+       "P": "21.4",
+       "K": "154.1",
+       "rate": "700 kg/ha + 683 L/ha"
+      },
+      "Required": {
+       "N": "200.0",
+       "P": "20.0",
+       "K": "125.0",
+       "rate": null
+      },
+      "Balance": {
+       "N": "24.8",
+       "P": "1.4",
+       "K": "29.1",
+       "rate": null
+      }
+     }
+    },
+    "regionBadge": [
+     "AU"
+    ]
+   },
+   "exportAnnualN": "200",
+   "exportPick": {
+    "found": true,
+    "uid": "019f7d28-50ed-71e2-b817-c252b0160460::sample_118",
+    "text": "BackyardSoil",
+    "checked": 1
+   },
+   "docx": {
+    "anr": {
+     "N": {
+      "current": "—",
+      "removal": "200",
+      "required": "200.0",
+      "delivered": "224.8",
+      "range": "—",
+      "balance": "24.8",
+      "status": "On Track"
+     },
+     "P": {
+      "current": "—",
+      "removal": "20",
+      "required": "20.0",
+      "delivered": "21.4",
+      "range": "—",
+      "balance": "1.4",
+      "status": "No Soil Data"
+     },
+     "K": {
+      "current": "—",
+      "removal": "125",
+      "required": "125.0",
+      "delivered": "154.1",
+      "range": "—",
+      "balance": "29.1",
+      "status": "No Soil Data"
+     }
+    },
+    "anrAllSamples": [
+     "Backyard / N",
+     "Backyard / P",
+     "Backyard / K"
+    ],
+    "monthly": [
+     {
+      "N": "53",
+      "gp": "GP 55%"
+     },
+     {
+      "N": "41",
+      "gp": "GP 42%"
+     },
+     {
+      "N": "25",
+      "gp": "GP 26%"
+     },
+     {
+      "N": "10",
+      "gp": "GP 11%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 3%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 1%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 1%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 1%"
+     },
+     {
+      "N": "0",
+      "gp": "GP 4%"
+     },
+     {
+      "N": "11",
+      "gp": "GP 11%"
+     },
+     {
+      "N": "24",
+      "gp": "GP 25%"
+     },
+     {
+      "N": "37",
+      "gp": "GP 38%"
+     }
+    ],
+    "products": {
+     "header": [
+      "Product",
+      "Applications",
+      "Total Rate",
+      "N",
+      "P",
+      "K"
+     ],
+     "rows": [
+      {
+       "name": "Simplot Best Pro Prills",
+       "applications": "1",
+       "rate": "400 kg/ha",
+       "N": "48.0",
+       "P": "12.0",
+       "K": "52.0"
+      },
+      {
+       "name": "Intec Colourphyll K",
+       "applications": "1",
+       "rate": "35 L/ha",
+       "N": "5.3",
+       "P": "0.0",
+       "K": "3.5"
+      },
+      {
+       "name": "Greenmaster Liquid High N",
+       "applications": "1",
+       "rate": "66 L/ha",
+       "N": "16.5",
+       "P": "0.0",
+       "K": "0.0"
+      },
+      {
+       "name": "Greenmaster Liquid Advance - Spring and Summer",
+       "applications": "3",
+       "rate": "240 L/ha",
+       "N": "33.8",
+       "P": "4.8",
+       "K": "14.2"
+      },
+      {
+       "name": "FoliMAX NRG-NK",
+       "applications": "5",
+       "rate": "250 L/ha",
+       "N": "47.8",
+       "P": "0.0",
+       "K": "31.8"
+      },
+      {
+       "name": "Greenmaster Liquid Spring & Summer",
+       "applications": "1",
+       "rate": "92 L/ha",
+       "N": "11.0",
+       "P": "1.6",
+       "K": "4.6"
+      },
+      {
+       "name": "GTS Sport Series Colour Plus 20-0-16",
+       "applications": "1",
+       "rate": "300 kg/ha",
+       "N": "62.4",
+       "P": "3.0",
+       "K": "48.0"
+      },
+      {
+       "name": "Total Delivered",
+       "applications": "13",
+       "rate": "700 kg/ha + 683 L/ha",
+       "N": "224.8",
+       "P": "21.4",
+       "K": "154.1"
+      }
+     ]
+    },
+    "capText": null,
+    "headings": [
+     "Growth Potential (C4)",
+     "Annual Product Summary",
+     "Product",
+     "Monthly Schedule",
+     "Annual Nutrient Requirements",
+     "Nutrient",
+     "Programme vs required",
+     "Monthly N Distribution (GP-Weighted)",
+     "Soil Nutrition",
+     "Growth Potential & Climate",
+     "Soil Structure"
+    ],
+    "gpMentions": [
+     "Growth Potential (C4)",
+     "Growth Potential & Climate",
+     "Growth Potential (2005)"
+    ],
+    "distributionHeading": "Monthly N Distribution (GP-Weighted)",
+    "noDataWording": [
+     "• No soil test data - MLSN recommendations estimated"
+    ],
+    "anrCaption": "MLSN methodology (Woods et al. 2016). Below the MLSN floor, Required = removal + deficit correction; at or above the floor, Required = removal only — soil reserves are agronomically sufficient and the figure is the rate at which clippings are removing the nutrient, not a per-year application target. Required is the annual removal-replacement estimate (clipping uptake) plus, where the soil sits below its sufficiency floor, that year's share of the correction needed to lift it — it is not removal alone. Balance is the projected soil level at season end (Current + Delivered − Removal), judged against the sufficiency range; the K reconciliation table below answers a different question — whether the N programme's incidental K delivery covers the requirement. Rates are kg/ha/yr; soil levels are kg/ha with the certificate's ppm in brackets.",
+    "tableHeaders": [
+     "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
+     "Site|Westview",
+     "Temperature|14.7°C",
+     "Product|Applications|Total Rate|N|P|K",
+     "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
+     "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
+     "Jan|Feb|Mar|Apr|May|Jun",
+     "Product|Total rate|Samples"
+    ],
+    "pHMentions": [
+     "pH 7 or pH 8.1) to extract exchangeable cations (K, Ca, Mg, Na). Combined with Ols",
+     "pH 8.1 variant is particularly suited to soils with higher pH. Sufficiency ranges",
+     "pH 8.5. Developed for calcareous soils but widely used in New Zealand and Australi"
+    ]
+   },
+   "console": [
+    "log: [NutritionCalendar] GH-414: 0 tissue sample(s) on this site: ",
+    "log: [CombinedExport] Export All button injected into gaip-export-controls",
+    "info: [CombinedExport] Zone \"12th fairway\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"putter green\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 10\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 4\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 4 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(4)}",
+    "info: [CombinedExport] Zone \"green 13\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 8\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 3 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(3)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"019e96d8-97b7-714c-9bd6-d65b16ec7f2e\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 12\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "info: [CombinedExport] Zone \"green 7\" on site \"01a00d5b-c67a-7281-8f0f-2d8de6676a0f\" has 2 soil samples, latest drives recommendations, all samples feed trend analysis. {winner: Object, candidates: Array(2)}",
+    "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Test - GC - NZ - warm season grass test/Main Oval, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, B",
+    "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
+    "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
+    "log: [WordExport] nutritionSummary via engine: P=20 K=125 S=12.5 totalN=200 species=Buffalograss hem=south climateLive=true overseed=false",
+    "log: [CombinedExport] Baked ctx for Westview - species=Buffalograss hem=south overseed=false base=Buffalograss",
+    "log: [WordExport] No trace data, skipping trace chart. Fe: undefined Mn: undefined",
+    "log: [CombinedExport] Collected report 1 / 1 : Westview - sample_118",
+    "log: [CombinedExport] per-sample ANR: engine=1 cotula=0 failed=0 (total=1)",
+    "log: [CombinedExport] GH-362 recommender availability: prebble=true au=true (branch now resolved per sample, see per-sample logs below)",
+    "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=0 failed=0 skipped=1 (total samples=1)",
+    "log: [WordExport] Logo check: not found",
+    "log: [CombinedExport] Report sample_118 has 133 sections",
+    "log: [CombinedExport]   Stripping 2 leading title paragraphs",
+    "log: [CombinedExport]   [3] heading: Site Information",
+    "log: [CombinedExport]   [6] heading: Climate & Growth Conditions",
+    "log: [CombinedExport]   [10] heading: Performance Impact Analysis",
+    "log: [CombinedExport]   [15] heading: __heading__",
+    "log: [CombinedExport]   [24] heading: References & Methodology",
+    "log: [CombinedExport]   Cut point found at index 24 : References & Methodology"
+   ]
+  }
+ ]
+}

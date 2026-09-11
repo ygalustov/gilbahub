@@ -1,0 +1,583 @@
+{
+ "_source": "tests/e2e/gh428-outer-soil-temp-live.test.js with GILBA_GH428_RECORD=1",
+ "_recorded": "2026-09-11T04:30:55.696Z",
+ "_what": "Each New Zealand site's Plan-page programme, recorded so GH-428 can prove that removing the dead outer soil temperature moved no printed figure.",
+ "sites": {
+  "test5": {
+   "annualRequired": {
+    "N": 250,
+    "P": 5.9,
+    "K": 136.1,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   "summaryTable": {
+    "N": [
+     "—",
+     "250",
+     "250.0",
+     "247.6",
+     "—",
+     "-2.4",
+     "On Track"
+    ],
+    "P": [
+     "56",
+     "34",
+     "5.9",
+     "14.9",
+     "28–42",
+     "36.9",
+     "On Track"
+    ],
+    "K": [
+     "56",
+     "109",
+     "136.1",
+     "180.7",
+     "109.5–273.7",
+     "127.7",
+     "On Track"
+    ]
+   },
+   "deliveryTotals": {
+    "N": 247.57999999999998,
+    "P": 14.94,
+    "K": 180.7,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 69.908
+   },
+   "monthly": [
+    {
+     "month": "Jan",
+     "granular": [
+      "MESA Country Club 100% x1 @ 200 kg/ha"
+     ],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 50 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Feb",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": "MESA Country Club 100% (Jan)"
+    },
+    {
+     "month": "Mar",
+     "granular": [],
+     "liquid": [
+      "Pro Balance x2 @ 50 L/ha"
+     ],
+     "coveredBy": "MESA Country Club 100% (Jan)"
+    },
+    {
+     "month": "Apr",
+     "granular": [
+      "MESA Country Club 100% x2 @ 152 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "May",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": "MESA Country Club 100% (Apr)"
+    },
+    {
+     "month": "Jun",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": "MESA Country Club 100% (Apr)"
+    },
+    {
+     "month": "Jul",
+     "granular": [
+      "MESA Country Club 100% x1 @ 150 kg/ha"
+     ],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Aug",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": "MESA Country Club 100% (Jul)"
+    },
+    {
+     "month": "Sep",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": "MESA Country Club 100% (Jul)"
+    },
+    {
+     "month": "Oct",
+     "granular": [
+      "Sports Fert NO3 +TE x2 @ 249 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Nov",
+     "granular": [],
+     "liquid": [
+      "Sportsmaster WSF High K x2 @ 20 L/ha"
+     ],
+     "coveredBy": "Sports Fert NO3 +TE (Oct)"
+    },
+    {
+     "month": "Dec",
+     "granular": [],
+     "liquid": [
+      "Pro Balance x2 @ 50 L/ha"
+     ],
+     "coveredBy": "Sports Fert NO3 +TE (Oct)"
+    }
+   ],
+   "annualProducts": [
+    "AMMOS: Ammos 22 (Nitro 22) x1 30",
+    "AMMOS-BAL: Ammos 22 (Nitro 22) (Balance) x1 50",
+    "MESA19: MESA Country Club 100% x4 654",
+    "PROBAL: Pro Balance x4 200",
+    "SPFERTNO3: Sports Fert NO3 +TE x2 498",
+    "WSF-HIGHK: Sportsmaster WSF High K x2 40"
+   ]
+  },
+  "russley": {
+   "annualRequired": {
+    "N": 200,
+    "P": 0,
+    "K": 119,
+    "Ca": 117.3,
+    "Mg": 16,
+    "S": 10.7
+   },
+   "summaryTable": {
+    "N": [
+     "—",
+     "200",
+     "200.0",
+     "199.7",
+     "—",
+     "-0.3",
+     "On Track"
+    ],
+    "P": [
+     "28",
+     "18",
+     "0.0",
+     "2.8",
+     "7–21",
+     "12.8",
+     "On Track"
+    ],
+    "K": [
+     "219",
+     "119",
+     "119.0",
+     "115.7",
+     "109.5–273.7",
+     "215.7",
+     "On Track"
+    ]
+   },
+   "deliveryTotals": {
+    "N": 200.2,
+    "P": 0,
+    "K": 118.42999999999999,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 0
+   },
+   "monthly": [
+    {
+     "month": "Jan",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 199 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Feb",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 193 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Mar",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 149 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Apr",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 100 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "May",
+     "granular": [],
+     "liquid": [
+      "FoliMAX N-Forcer-N x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Jun",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Jul",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Aug",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Sep",
+     "granular": [],
+     "liquid": [
+      "FoliMAX N-Forcer-N x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Oct",
+     "granular": [],
+     "liquid": [
+      "FoliMAX N-Forcer-N x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Nov",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 104 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Dec",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 166 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    }
+   ],
+   "annualProducts": [
+    "PGG-AND-NDG-20-0-13: Andersons Nutri DG 20-0-13 x6 911",
+    "PGG-FM-N-FORCER: FoliMAX N-Forcer-N x3 90"
+   ]
+  },
+  "gc-delivery": {
+   "annualRequired": {
+    "N": 250,
+    "P": 25,
+    "K": 143.8,
+    "Ca": 0,
+    "Mg": 41,
+    "S": 25.9
+   },
+   "summaryTable": {
+    "N": [
+     "—",
+     "250",
+     "250.0",
+     "230.6",
+     "—",
+     "-19.4",
+     "On Track"
+    ],
+    "P": [
+     "25.2",
+     "25",
+     "25.0",
+     "19.0",
+     "16.8–39.2",
+     "19.2",
+     "On Track"
+    ],
+    "K": [
+     "119",
+     "133",
+     "143.8",
+     "157.2",
+     "140–329",
+     "143.2",
+     "On Track"
+    ]
+   },
+   "deliveryTotals": {
+    "N": 237.2,
+    "P": 10.600000000000001,
+    "K": 140.07999999999998,
+    "Ca": 0,
+    "Mg": 8,
+    "S": 37.2
+   },
+   "monthly": [
+    {
+     "month": "Jan",
+     "granular": [
+      "CC MD IV Greens x1 @ 200 kg/ha"
+     ],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Feb",
+     "granular": [
+      "CC MD IV Greens x1 @ 200 kg/ha"
+     ],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Mar",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 186 kg/ha"
+     ],
+     "liquid": [
+      "MAP Tech (soluble) x1 @ 20 kg/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Apr",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 100 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "May",
+     "granular": [],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Jun",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Jul",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Aug",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Sep",
+     "granular": [],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Oct",
+     "granular": [],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Nov",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 130 kg/ha"
+     ],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Dec",
+     "granular": [
+      "Andersons Nutri DG 20-0-13 x1 @ 200 kg/ha"
+     ],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    }
+   ],
+   "annualProducts": [
+    "AMMOS: Ammos 22 (Nitro 22) x3 90",
+    "AMMOS-BAL: Ammos 22 (Nitro 22) (Balance) x3 90",
+    "CCMDGIV: CC MD IV Greens x2 400",
+    "MAPTECH: MAP Tech (soluble) x1 20",
+    "PGG-AND-NDG-20-0-13: Andersons Nutri DG 20-0-13 x4 616"
+   ]
+  },
+  "gc-warm": {
+   "annualRequired": {
+    "N": 250,
+    "P": 25,
+    "K": 150,
+    "Ca": 0,
+    "Mg": 31.8,
+    "S": 23.4
+   },
+   "summaryTable": {
+    "N": [
+     "—",
+     "250",
+     "250.0",
+     "15.6",
+     "—",
+     "-234.4",
+     "Deficit (-94%)"
+    ],
+    "P": [
+     "30.8",
+     "25",
+     "25.0",
+     "5.4",
+     "16.8–39.2",
+     "11.2",
+     "Deficit (-33%)"
+    ],
+    "K": [
+     "154",
+     "150",
+     "150.0",
+     "0.0",
+     "140–329",
+     "4.0",
+     "Deficit (-97%)"
+    ],
+    "Programme vs required -150 kg/ha; soil K (110 ppm) at or above floor (100 ppm), not supplementing per soil-K sufficiency gate.": []
+   },
+   "deliveryTotals": {
+    "N": 15.6,
+    "P": 5.4,
+    "K": 0,
+    "Ca": 0,
+    "Mg": 0,
+    "S": 2.4
+   },
+   "monthly": [
+    {
+     "month": "Jan",
+     "granular": [],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Feb",
+     "granular": [],
+     "liquid": [
+      "Ammos 22 (Nitro 22) x1 @ 30 L/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Mar",
+     "granular": [],
+     "liquid": [
+      "MAP Tech (soluble) x1 @ 20 kg/ha"
+     ],
+     "coveredBy": null
+    },
+    {
+     "month": "Apr",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "May",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Jun",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Jul",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Aug",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Sep",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Oct",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Nov",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    },
+    {
+     "month": "Dec",
+     "granular": [],
+     "liquid": [],
+     "coveredBy": null
+    }
+   ],
+   "annualProducts": [
+    "AMMOS: Ammos 22 (Nitro 22) x2 60",
+    "MAPTECH: MAP Tech (soluble) x1 20"
+   ]
+  }
+ }
+}

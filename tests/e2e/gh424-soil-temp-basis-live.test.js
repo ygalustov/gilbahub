@@ -127,7 +127,7 @@ describe('GH-424 — the climate basis under New Zealand product selection', () 
 
                 // The same request dashboard-init.js / the orchestrator's weather
                 // fetch make, so the window mean below is the quantity
-                // getSoilTemperature() would resolve.
+                // getSoilTemperature() would have resolved (GH-428 deleted it).
                 let forecast = null;
                 try {
                     const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lat
@@ -152,7 +152,12 @@ describe('GH-424 — the climate basis under New Zealand product selection', () 
                     monthlyTemps: cm.monthlyTemps,
                     programMonthlyTemps: prog && prog.program && prog.program.monthly.map((m) => m.temp),
                     liveTemperature: cm.temperature,
-                    resolvedSoilTemp: window.NutritionPrebbleIntegration.getSoilTemperature(),
+                    // GH-428: the getter is deleted, so this records "gone"
+                    // rather than throwing. The sources above still stand and
+                    // are what this file was written to read.
+                    resolvedSoilTemp: (window.NutritionPrebbleIntegration
+                        && typeof window.NutritionPrebbleIntegration.getSoilTemperature === 'function')
+                        ? window.NutritionPrebbleIntegration.getSoilTemperature() : 'deleted in GH-428',
                     forecastWindowMean: windowMean,
                     forecastDayMeans: dayMeans,
                 };
