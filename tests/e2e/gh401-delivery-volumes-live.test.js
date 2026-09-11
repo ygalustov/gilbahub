@@ -124,10 +124,23 @@ const SITES = [
         siteName: 'Test5 - NZ',
         sampleClientId: null,
         sampleLabel: 'Soccer',
-        delivered: { N: 237.4, P: 0, K: 175.2 },
+        // GH-430: re-pinned to what both surfaces now print. Was
+        // Delivered/footer 237.4 / 0 / 175.2 and Required P 0.
+        // Two tickets moved these and neither re-pinned this file. GH-415
+        // (maintain-floor) took Test5's phosphorus REQUIREMENT from 0.0 to 5.9,
+        // which pulled a phosphorus product into the programme and moved the
+        // Plan's Delivered to 247.6 N / 14.9 P / 180.7 K; the document stayed at
+        // 249.7 / 163.5 until GH-427 put product selection on the site's own
+        // monthly normals, after which it equals the Plan. Confirmed before
+        // re-pinning, on this run: the two cross-surface tests in this file
+        // pass — Required is the same STRING on both, and the document's total
+        // row equals its own ANR Delivered — and the plan-vs-document Delivered
+        // check inside the test below reported no disagreement. Only the
+        // fixture was stale.
+        delivered: { N: 247.6, P: 14.9, K: 180.7 },
         // GH-403: was K 136.0 against a document printing 136.1.
-        required: { N: 250.0, P: 0, K: 136.1 },
-        footer: { N: 237.4, P: 0, K: 175.2 },
+        required: { N: 250.0, P: 5.9, K: 136.1 },
+        footer: { N: 247.6, P: 14.9, K: 180.7 },
         multiSpray: []
     }
 ];

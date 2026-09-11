@@ -558,8 +558,18 @@
                 ? (counted + (counted === 1 ? ' application carries ' : ' applications carry ') + n)
                 : 'no application in this programme carries ' + n,
             fmt(c.delivery.totals[n]) + ' kg/ha',
-            'these lines add up to the total; an amendment line is listed and marked, and is not counted, ' +
-            'because it is added at export rather than by the programme');
+            // GH-429: the note now says why an amendment is excluded, in the
+            // reader's terms rather than ours. It used to open with "these
+            // lines add up to the total" and immediately contradict itself,
+            // and it explained the exclusion as "added at export rather than
+            // by the programme" -- our plumbing, which tells an agronomist
+            // nothing. It also printed on every nutrient, including the ones
+            // with no amendment line to explain.
+            lines.some(function (l) { return l.excluded; })
+                ? 'the total is the sum of the lines above. Amendments — gypsum, lime, Epsom salts — are '
+                  + 'shown in the product table but not counted here. They are applied to correct the soil '
+                  + 'itself, and counting them towards delivery would cancel the deficiency that called for them.'
+                : 'the total is the sum of the lines above');
         s.lines = lines;
     }
 

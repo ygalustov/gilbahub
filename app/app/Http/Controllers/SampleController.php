@@ -156,12 +156,25 @@ class SampleController extends Controller
                     }
                 }
 
+                // GH-430: this loop upserts what the push contains and deletes
+                // nothing. It used to end with reconcileMissingSnapshotSamples(),
+                // which soft-deleted every sample of this (site, sample_type)
+                // that the push did not name -- treating the request as "here is
+                // my complete picture, make the database match". The push is
+                // never the complete picture: samples restored from the server
+                // carry `values` and the loop below reads only `rawData`, so a
+                // tab that has just added one sample sends a keep-list of one,
+                // and one ordinary Capture, edit or lab import destroyed the
+                // rest of the site. Reproduced on the dev stack as
+                // `synced: 1, deleted: 6`; 87 of 147 rows already bore the mark.
+                // Consequence, accepted until per-record writes land: deleting a
+                // sample in the hub reached the database only through this
+                // mechanism, so hub-side deletion is now inert and a deleted
+                // sample returns on reload.
                 foreach (self::VALID_TYPES as $sampleType) {
                     if (! array_key_exists($sampleType, $siteData) || ! is_array($siteData[$sampleType])) {
                         continue;
                     }
-
-                    $clientUids = [];
 
                     foreach ($siteData[$sampleType] as $sampleKey => $sampleData) {
                         if (! is_array($sampleData)) {
@@ -207,8 +220,6 @@ class SampleController extends Controller
                             continue;
                         }
 
-                        $clientUids[] = $clientUid;
-
                         $this->saveSampleRecord(
                             $site,
                             $site->account_id,
@@ -228,8 +239,6 @@ class SampleController extends Controller
 
                         $synced++;
                     }
-
-                    $deleted += $this->reconcileMissingSnapshotSamples($site->id, $sampleType, $clientUids, $user->id);
                 }
             }
         });
@@ -422,38 +431,6 @@ class SampleController extends Controller
         $this->trimSiteSummaryRing($site->id, $sample->sample_type);
 
         return $sample;
-    }
-
-    private function reconcileMissingSnapshotSamples(string $siteId, string $sampleType, array $clientUids, int $userId): int
-    {
-        $clientUids = array_values(array_unique(array_filter($clientUids, fn ($value) => is_string($value) && $value !== '')));
-
-        // Empty list means the caller has no samples for this type — skip rather than
-        // wiping everything. An explicit clearSiteData already handles bulk deletion.
-        if ($clientUids === []) {
-            return 0;
-        }
-
-        $query = Sample::query()
-            ->where('site_id', $siteId)
-            ->where('sample_type', $sampleType)
-            ->whereNotNull('client_uid')
-            ->whereNotIn('client_uid', $clientUids);
-
-        $sampleIds = $query->pluck('id');
-        if ($sampleIds->isEmpty()) {
-            return 0;
-        }
-
-        Sample::query()->whereKey($sampleIds)->update([
-            'modified_by_user_id' => $userId,
-            'updated_at' => now(),
-        ]);
-
-        SiteSummary::query()->whereIn('source_sample_id', $sampleIds)->delete();
-        Sample::query()->whereKey($sampleIds)->delete();
-
-        return $sampleIds->count();
     }
 
     private function samplePayload(Sample $sample): array

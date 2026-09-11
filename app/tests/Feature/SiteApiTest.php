@@ -353,7 +353,15 @@ class SiteApiTest extends TestCase
     }
 
 
-    public function test_authenticated_user_sync_reconciles_deleted_samples(): void
+    /**
+     * GH-430: this test was the inverse -- it asserted that a second push which
+     * omitted green_2 soft-deleted it (`deleted: 1`). That was the data-loss
+     * defect itself, pinned as a feature: the browser's push is not a complete
+     * picture of the site (samples restored from the server carry `values`,
+     * which sync() skips), so "absent from the push" never meant "deleted by the
+     * user". It now asserts the opposite.
+     */
+    public function test_authenticated_user_sync_does_not_delete_samples_absent_from_the_push(): void
     {
         $user = User::factory()->create();
         $site = $this->createSiteForUser($user, [
@@ -425,25 +433,38 @@ class SiteApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.synced', 1)
-            ->assertJsonPath('data.deleted', 1);
+            ->assertJsonPath('data.deleted', 0);
 
-        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('sample_type', 'soil')->count());
-        $this->assertSoftDeleted('samples', [
+        $this->assertSame(2, Sample::query()->where('site_id', $site->id)->where('sample_type', 'soil')->count());
+        $this->assertDatabaseHas('samples', [
             'id' => $green2Id,
             'client_uid' => 'green_2',
+            'deleted_at' => null,
         ]);
-        $this->assertSoftDeleted('site_summaries', [
+        $this->assertDatabaseHas('site_summaries', [
             'source_sample_id' => $green2Id,
+            'deleted_at' => null,
         ]);
 
         $this->actingAs($user)
             ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
+            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.client_uid', 'green_1')
-            ->assertJsonPath('data.0.payload.K', 44);
+            ->assertJsonPath('data.0.payload.K', 44)
+            ->assertJsonPath('data.1.client_uid', 'green_2');
     }
 
+    /**
+     * GH-430: the soft delete is now performed explicitly on the model. It used
+     * to be produced by omitting green_1 from a push, which is exactly the
+     * behaviour that was removed. What is pinned here is unchanged and still
+     * current: saveSampleRecord() matches on (site, type, client_uid) with
+     * withTrashed() and restores. The per-record-writes stage inverts this --
+     * a re-push must not bring back a row the user deleted -- and this test
+     * flips with it, once a real DELETE /api/samples/{id} exists to delete
+     * through.
+     */
     public function test_authenticated_user_sync_can_restore_soft_deleted_sample(): void
     {
         $user = User::factory()->create();
@@ -468,27 +489,6 @@ class SiteApiTest extends TestCase
                                     'K' => 41,
                                 ],
                             ],
-                            // GH-359: a second sample is required alongside
-                            // green_1 so the follow-up sync below sends a
-                            // non-empty soil array. reconcileMissingSnapshot
-                            // Samples() (GH-194) deliberately skips deletion
-                            // whenever a sample type's array is completely
-                            // empty -- confirmed via git history that's an
-                            // intentional safety guard against a client
-                            // sending `soil: []` because it failed to load
-                            // its local data, not because the user actually
-                            // deleted everything. This test predates that
-                            // guard and previously relied on the exact
-                            // behavior it was written to prevent.
-                            'green_2' => [
-                                'id' => 'green_2',
-                                'date' => '2026-04-26',
-                                'rawData' => [
-                                    'label' => 'Green 2',
-                                    'zone' => 'green',
-                                    'K' => 55,
-                                ],
-                            ],
                         ],
                         'water' => [],
                         'tissue' => [],
@@ -501,58 +501,24 @@ class SiteApiTest extends TestCase
         $sampleId = Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->value('id');
         $this->assertNotNull($sampleId);
 
-        $this->actingAs($user)
-            ->withSession(['_token' => 'test-token'])
-            ->postJson('/api/samples/sync', [
-                '_token' => 'test-token',
-                'allSites' => [
-                    $site->id => [
-                        // green_1 omitted (but green_2 still present, so the
-                        // soil array isn't empty) -- exercises real per-
-                        // sample reconciliation rather than the GH-194
-                        // whole-type-empty guard. green_2's date is bumped
-                        // on every re-sync in this test (same as green_1's
-                        // own re-sync below) -- SQLite's dynamic typing
-                        // doesn't truncate a full datetime string written
-                        // into a DATE-affinity column the way MySQL does,
-                        // so re-sending the exact same lab_date string
-                        // across two syncs makes site_summaries' firstOrNew()
-                        // lookup miss its own previously-inserted row and
-                        // attempt a duplicate insert -- a SQLite-only test
-                        // artifact confirmed absent against the real MySQL
-                        // schema (lab_date column type: date), not a
-                        // production bug worth chasing here.
-                        'soil' => [
-                            'green_2' => [
-                                'id' => 'green_2',
-                                'date' => '2026-04-27',
-                                'rawData' => [
-                                    'label' => 'Green 2',
-                                    'zone' => 'green',
-                                    'K' => 55,
-                                ],
-                            ],
-                        ],
-                        'water' => [],
-                        'tissue' => [],
-                        'loi' => [],
-                    ],
-                ],
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.deleted', 1);
-
+        Sample::query()->findOrFail($sampleId)->delete();
         $this->assertSoftDeleted('samples', ['id' => $sampleId]);
 
+        // The same client_uid comes back in a later push -- a re-import of the
+        // same lab file, or a sample saved again under the same name.
+        // green_1's date is bumped on the re-push: SQLite's dynamic typing does
+        // not truncate a full datetime written into a DATE-affinity column the
+        // way MySQL does, so re-sending the exact same lab_date across two syncs
+        // makes site_summaries' firstOrNew() lookup miss its own previously
+        // inserted row and attempt a duplicate insert -- a SQLite-only test
+        // artifact confirmed absent against the real MySQL schema (lab_date
+        // column type: date), not a production bug worth chasing here.
         $this->actingAs($user)
             ->withSession(['_token' => 'test-token'])
             ->postJson('/api/samples/sync', [
                 '_token' => 'test-token',
                 'allSites' => [
                     $site->id => [
-                        // green_2 must stay present here too, otherwise this
-                        // sync would itself soft-delete it via the same
-                        // per-sample reconciliation exercised above.
                         'soil' => [
                             'green_1' => [
                                 'id' => 'green_1',
@@ -563,15 +529,6 @@ class SiteApiTest extends TestCase
                                     'K' => 47,
                                 ],
                             ],
-                            'green_2' => [
-                                'id' => 'green_2',
-                                'date' => '2026-04-29',
-                                'rawData' => [
-                                    'label' => 'Green 2',
-                                    'zone' => 'green',
-                                    'K' => 55,
-                                ],
-                            ],
                         ],
                         'water' => [],
                         'tissue' => [],
@@ -580,19 +537,21 @@ class SiteApiTest extends TestCase
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('data.synced', 2)
+            ->assertJsonPath('data.synced', 1)
             ->assertJsonPath('data.deleted', 0);
 
         $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
         $this->assertDatabaseHas('samples', [
             'id' => $sampleId,
             'client_uid' => 'green_1',
+            'deleted_at' => null,
         ]);
 
         $this->actingAs($user)
             ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
             ->assertOk()
-            ->assertJsonCount(2, 'data');
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.payload.K', 47);
     }
 
     public function test_authenticated_user_can_list_site_summaries(): void

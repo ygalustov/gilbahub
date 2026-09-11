@@ -15,7 +15,8 @@
     "test:e2e:volumes": "GILBA_E2E=1 jest tests/e2e/gh401-delivery-volumes-live.test.js --runInBand --testTimeout=600000",
     "test:e2e:location": "GILBA_E2E=1 jest tests/e2e/gh404-settings-location-required-live.test.js --runInBand --testTimeout=300000",
     "test:e2e:wizard": "GILBA_E2E=1 jest tests/e2e/gh407-wizard-nz-live.test.js --runInBand --testTimeout=300000",
-    "test:e2e:units": "GILBA_E2E=1 jest tests/e2e/gh409-product-table-units-live.test.js --runInBand --testTimeout=600000"
+    "test:e2e:units": "GILBA_E2E=1 jest tests/e2e/gh409-product-table-units-live.test.js --runInBand --testTimeout=600000",
+    "test:e2e:samples": "GILBA_E2E=1 jest tests/e2e/gh430-samples-sync-no-snapshot-delete-live.test.js --runInBand --testTimeout=600000"
   },
   "dependencies": {
     "docx": "^9.6.1",
