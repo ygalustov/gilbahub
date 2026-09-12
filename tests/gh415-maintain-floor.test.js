@@ -232,9 +232,17 @@ describe('GH-415 — the same rule on all three methodologies, and B2 not taken'
 
 describe('GH-415 — the client-facing explanation exists', () => {
     test('the Delivery Summary popover says why a soil above the ceiling can still ask for fertiliser', () => {
-        const prebble = fs.readFileSync(
-            path.join(__dirname, '../assets/nutrition-prebble-integration.js'), 'utf8');
-        expect(prebble).toMatch(/above the ceiling, only what keeps the/);
+        // GH-433: this used to read nutrition-prebble-integration.js, which
+        // held one of TWO copies of the legend. It passed throughout, while the
+        // copy in nutrition-au-fertiliser-integration.js — loaded second, and
+        // therefore the one the reader actually saw on every page — still said
+        // "Required — Removal + Lift; 0 once soil >= ceiling." Reading the file
+        // that owns the entry is what makes this assertion about the popover
+        // rather than about one of its drafts.
+        const owner = fs.readFileSync(
+            path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8');
+        expect(owner).toMatch(/above the ceiling, only what keeps the/);
+        expect(owner).not.toMatch(/0 once soil ≥ ceiling/);
     });
 
     test('the document caption says it too, and no longer claims Required is 0 above the ceiling', () => {

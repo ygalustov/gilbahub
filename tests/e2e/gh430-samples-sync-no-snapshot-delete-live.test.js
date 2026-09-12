@@ -357,12 +357,88 @@ if (!ENABLED) {
             expect(uids).toContain(CAPTURE_NAME);
         }, 300000);
 
-        test('a row that was already soft-deleted is not resurrected', () => {
+        // GH-431: this used to be the whole of the resurrection check, and it
+        // could not fail. PRE_TRASHED_UID is seeded through POST /api/samples
+        // and marked deleted BEFORE the browser loads, so GET /api/samples never
+        // returns it, the tab never holds it, and no push can name it. "A row
+        // nobody mentioned stayed deleted" is true by construction. It is kept
+        // below as what it actually pins -- an untouched row stays untouched --
+        // and the real case it was standing in for is the test after it.
+        test('a row nobody pushed stays deleted', () => {
             const [row] = sql("SELECT IFNULL(deleted_at,'-') FROM samples WHERE site_id = '"
                 + scratchSiteId + "' AND client_uid = '" + PRE_TRASHED_UID + "';");
-            process.stdout.write('[gh430] pre-trashed row deleted_at: ' + row[0] + '\n');
+            process.stdout.write('[gh430] never-pushed trashed row deleted_at: ' + row[0] + '\n');
             expect(row[0]).not.toBe('-');
         });
+
+        /**
+         * GH-431 — the case that matters, and the one the assertion above could
+         * not reach: a sample this tab DOES hold with `rawData`, deleted through
+         * the Data page's own per-record endpoint, must stay deleted when the
+         * tab pushes again.
+         *
+         * CAPTURE_NAME is the right subject precisely because the tab created
+         * it: it sits in the store with `rawData`, so it is in every subsequent
+         * push. Before the fix the next push called restore() on it and the
+         * sample came back under a button that says "This cannot be undone".
+         */
+        test('a sample the tab still holds, deleted on the Data page, stays deleted', async () => {
+            const [[capturedId]] = [sql("SELECT id FROM samples WHERE site_id = '" + scratchSiteId
+                + "' AND client_uid = '" + CAPTURE_NAME + "' AND deleted_at IS NULL;")];
+            expect(capturedId).toBeDefined();
+            const dbId = capturedId[0];
+
+            // The tab really does carry it as a pushable sample. If this stops
+            // being true the test below would pass for the wrong reason, so it
+            // is asserted rather than assumed.
+            const held = await page.evaluate(({ siteId, name }) => {
+                const soil = (window.GAIP_SampleManager.getAllSamples().allSites[siteId] || {}).soil || {};
+                const s = soil[name];
+                return s ? {
+                    hasRawData: !!(s.rawData && Object.keys(s.rawData).length),
+                    hasValues: !!(s.values && Object.keys(s.values).length),
+                } : null;
+            }, { siteId: scratchSiteId, name: CAPTURE_NAME });
+            process.stdout.write('[gh430] tab holds ' + CAPTURE_NAME + ': ' + JSON.stringify(held) + '\n');
+            expect(held).not.toBeNull();
+            expect(held.hasRawData).toBe(true);
+
+            // DataController::destroy() resolves the row through the user's
+            // ACTIVE site, which the Data page has set by the time its Delete
+            // button is reachable. Re-asserted here because the steps above
+            // navigate and import, and a 404 from a drifted active site would
+            // look like the deletion having been refused.
+            await api('PATCH', '/api/active-site', { site_id: scratchSiteId });
+            const del = await api('DELETE', '/api/data/entry/' + dbId);
+            process.stdout.write('[gh430] DELETE /api/data/entry/' + dbId + ' -> ' + del.status + '\n');
+            expect(del.status).toBe(200);
+            const [afterDelete] = sql("SELECT IFNULL(deleted_at,'-') FROM samples WHERE id = " + dbId + ';');
+            expect(afterDelete[0]).not.toBe('-');
+
+            // Any ordinary mutation makes the tab push its whole store again.
+            const produced = await syncsCausedBy('push after the Data-page delete', async () => {
+                await page.evaluate((uid) => {
+                    const SM = window.GAIP_SampleManager;
+                    SM.loadSample('soil', uid);
+                    const ph = document.querySelector('.gaip-soil-ph');
+                    ph.value = '7.3';
+                    ph.dispatchEvent(new Event('input', { bubbles: true }));
+                    ph.dispatchEvent(new Event('change', { bubbles: true }));
+                    SM.updateSample('soil', uid, SM.captureRawForm ? SM.captureRawForm('soil') : null);
+                }, SEED_UIDS[1]);
+            });
+            expect(produced.length).toBeGreaterThan(0);
+            expect(produced.some((c) => (c.body.skipped || 0) > 0)).toBe(true);
+
+            const [afterPush] = sql("SELECT IFNULL(deleted_at,'-') FROM samples WHERE id = " + dbId + ';');
+            process.stdout.write('[gh430] ' + CAPTURE_NAME + ' deleted_at after the push: ' + afterPush[0]
+                + (afterPush[0] === '-' ? '  <-- RESURRECTED' : '  <-- stayed deleted') + '\n');
+            expect(afterPush[0]).not.toBe('-');
+            expect(liveUids(scratchSiteId)).not.toContain(CAPTURE_NAME);
+            // and it did not quietly become a second row under the same name
+            expect(sql("SELECT COUNT(*) FROM samples WHERE site_id = '" + scratchSiteId
+                + "' AND client_uid = '" + CAPTURE_NAME + "';")[0][0]).toBe('1');
+        }, 300000);
 
         test('no sample outside the scratch site changed state', () => {
             const after = corpusState(scratchSiteId);

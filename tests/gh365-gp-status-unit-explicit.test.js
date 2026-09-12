@@ -98,15 +98,69 @@ describe('GH-365 — call sites use the entry point matching their own unit', ()
         'word-export.js',
     ];
 
-    test.each(percentCallers)('%s uses the percentage API only', (file) => {
+    // GH-436: these two tests were BOTH negative — "does not call the legacy
+    // API" and "does not call the other unit's API". A file that stopped
+    // calling GAIP_GPStatus altogether and inlined its own thresholds and
+    // colours satisfied both, which is exactly what CLAUDE.md forbids
+    // ("Never hardcode a separate GP threshold/palette ... load gp-status.js
+    // and call it"). Proven by mutation: replacing daily-dashboard.js's
+    // GAIP_GPStatus.getLevelPct( call with an inline
+    // `v>=65?'high':v>=45?'moderate':'low'` left both green. Each list now
+    // asserts the positive too.
+    const CANON = { high: 70, moderate: 40 };
+
+    test.each(percentCallers)('%s uses the percentage API, and only that', (file) => {
         const src = read(file);
+        // positive: it really does route through the shared module
+        expect(src).toMatch(/GAIP_GPStatus\.(getLevelPct|getColorPct|getColorDocxPct|getLabelPct)\(/);
         expect(src).not.toMatch(/GAIP_GPStatus\.(getLevel|getColor|getColorDocx|getLabel)\(/);
         expect(src).not.toMatch(/GAIP_GPStatus\.(getLevelFrac|getColorFrac|getColorDocxFrac|getLabelFrac)\(/);
     });
 
-    test.each(fractionCallers)('%s uses the fraction API only', (file) => {
+    test.each(fractionCallers)('%s uses the fraction API, and only that', (file) => {
         const src = read(file);
+        expect(src).toMatch(/GAIP_GPStatus\.(getLevelFrac|getColorFrac|getColorDocxFrac|getLabelFrac)\(/);
         expect(src).not.toMatch(/GAIP_GPStatus\.(getLevel|getColor|getColorDocx|getLabel)\(/);
         expect(src).not.toMatch(/GAIP_GPStatus\.(getLevelPct|getColorPct|getColorDocxPct|getLabelPct)\(/);
+    });
+
+    test.each(percentCallers.concat(fractionCallers))(
+        '%s inline fallback, where it has one, quotes the module\'s own thresholds', (file) => {
+            const src = read(file);
+            // Several call sites keep a literal ternary beside the module call
+            // for the case where gp-status.js has not loaded. That is allowed;
+            // a fallback that has DRIFTED is not, because it is then a second
+            // palette wearing the module's name. Only ternaries that decide a
+            // GP level are looked at — the files also colour disease severity
+            // and DLI suitability on their own scales, which is out of scope by
+            // design and is why a blanket hex search is the wrong test here.
+            // Only the lines that ALSO name GAIP_GPStatus: these files score
+            // disease, stress, irrigation and VWC on their own scales with the
+            // same ternary shape, and none of those are growth potential.
+            const quoted = [];
+            src.split('\n').forEach((line) => {
+                if (!/GAIP_GPStatus\./.test(line)) return;
+                const re = /([0-9.]+)\s*\?\s*['"](high|moderate)['"]/g;
+                let m;
+                while ((m = re.exec(line))) quoted.push({ value: parseFloat(m[1]), level: m[2] });
+            });
+            if (!quoted.length) return; // no fallback — the better state
+            quoted.forEach((q) => {
+                const asPct = q.value <= 1 ? Math.round(q.value * 1000) / 10 : q.value;
+                expect(asPct).toBe(q.level === 'high' ? CANON.high : CANON.moderate);
+            });
+        });
+
+    test('CANON is the module\'s own pair, not two numbers typed twice', () => {
+        // Everything above is measured against CANON, so CANON has to be the
+        // module's. Read back through the module's own behaviour: moving the
+        // threshold in gp-status.js fails this line rather than leaving the
+        // assertions above pinned to a stale 70/40.
+        expect(GP.HIGH_THRESHOLD).toBe(CANON.high);
+        expect(GP.MODERATE_THRESHOLD).toBe(CANON.moderate);
+        expect(GP.getLevelPct(CANON.high)).toBe('high');
+        expect(GP.getLevelPct(CANON.high - 0.1)).toBe('moderate');
+        expect(GP.getLevelPct(CANON.moderate)).toBe('moderate');
+        expect(GP.getLevelPct(CANON.moderate - 0.1)).toBe('low');
     });
 });

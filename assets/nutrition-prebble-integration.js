@@ -1028,10 +1028,21 @@
                     : '';
                 
                 const liquidList = m.liquid.map(p => {
-                    // Handle different liquid types: standard liquid (L/ha), soluble (kg/ha in spray tank)
+                    // Handle different liquid types: standard liquid (L/ha), soluble (mass in spray tank)
+                    // GH-434: a soluble is a MASS, so on a fine-turf surface it
+                    // is g/m² like every other mass in this programme. This cell
+                    // printed it in kg/ha unconditionally, which put it at odds
+                    // with the Annual Product Summary three tables below on the
+                    // SAME page — MAP Tech reads "2 g/m²" there and read
+                    // "20 kg/ha" here — and with GH-409's rule that the surface
+                    // decides the unit. Found while making the Word document's
+                    // Monthly Schedule agree with this table: the document could
+                    // not match both of this page's own answers at once.
                     let rate;
                     if (p.form === 'soluble') {
-                        rate = p.rateKgHa ? `${p.rateKgHa} kg/ha` : (p.rateGM2 ? `${p.rateGM2}g/m²` : '');
+                        rate = (useGM2 && p.rateGM2)
+                            ? `${p.rateGM2}g/m²`
+                            : (p.rateKgHa ? `${p.rateKgHa} kg/ha` : (p.rateGM2 ? `${p.rateGM2}g/m²` : ''));
                     } else {
                         rate = p.rateLHa ? `${p.rateLHa} L/ha` : (p.rateGM2 ? `${p.rateGM2}g/m²` : '');
                     }
@@ -2077,26 +2088,13 @@
     // mechanism already active on this page (dashboard-init.js's
     // initInfoPopovers(), loaded by plan.blade.php) -- same component
     // soil-nutrition-analysis.js uses, no new popover infrastructure needed.
-    window.GAIP_GLOSSARY = Object.assign(window.GAIP_GLOSSARY || {}, {
-        'prebble-nutrient-delivery-summary': {
-            title: 'Nutrient Delivery Summary',
-            body: 'Current — soil reserve now (ppm→kg/ha).\n' +
-                'Removal — turf uptake this year (research-based).\n' +
-                'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
-                // GH-415 (B1): above the ceiling Required is no longer a flat 0.
-                // Where the sufficiency range is narrower than the season's
-                // removal, a soil above the ceiling still ends the season below
-                // the floor, and the row used to say "Required 0.0" and
-                // "Deficit" at the same time. Woods' formula now sizes what
-                // holds the floor, so the two agree; this is the sentence that
-                // explains a non-zero Required on a soil marked High.
-                'Required — Removal + Lift; above the ceiling, only what keeps the\n' +
-                '  season from ending below the floor (0 when the soil can spare it).\n' +
-                'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
-                'Range — the floor–ceiling Balance is checked against.\n' +
-                'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',
-        },
-    });
+    //
+    // GH-433: the entry itself now lives in assets/nutrient-balance-status.js,
+    // which registers it on load. It was duplicated here and in
+    // nutrition-au-fertiliser-integration.js under the same key; GH-415 updated
+    // this copy only, and the Australian file -- loaded second everywhere --
+    // put the pre-GH-415 sentence back over it on every page. The module that
+    // computes Balance and Status is the one that gets to describe them.
 
     // ========================================================================
     // INITIALIZATION

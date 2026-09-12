@@ -96,6 +96,36 @@ const AU_FILES = [
 ];
 
 /**
+ * GH-436: word-export.js, really loaded, so its own readers can be CALLED
+ * rather than described. It touches a few browser globals at load time that
+ * makeSandbox() does not stub (localStorage, navigator, location, the docx
+ * library) — none of them reached by the pure functions this file exercises.
+ */
+function loadWordExport() {
+    const sandbox = {
+        console: { log: noop, warn: noop, info: noop, error: noop },
+        document: {
+            head: stubEl(), body: stubEl(),
+            getElementById: () => null, querySelector: () => null, querySelectorAll: () => [],
+            addEventListener: noop, createElement: stubEl
+        },
+        setTimeout: noop, clearTimeout: noop, Date, Math, JSON,
+        docx: {}, localStorage: { getItem: () => null, setItem: noop, removeItem: noop },
+        navigator: { userAgent: 'node' }, location: { href: '' }, fetch: () => Promise.resolve()
+    };
+    sandbox.window = sandbox;
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(readAsset('nutrition-delivery-core.js'), sandbox, { filename: 'nutrition-delivery-core.js' });
+    vm.runInContext(readAsset('word-export.js'), sandbox, { filename: 'word-export.js' });
+    if (!sandbox.GAIP_WordExport) {
+        throw new Error('GH-436: word-export.js did not publish GAIP_WordExport — if the global was '
+            + 'renamed, rename it here too rather than dropping the call.');
+    }
+    return sandbox.GAIP_WordExport;
+}
+
+/**
  * The one line that carries stage 3. Removing it from a COPY of the real
  * source reproduces the pre-GH-401 behaviour exactly, so "what moved" below is
  * measured against the old code rather than transcribed from a note.
@@ -847,22 +877,41 @@ describe("GH-401 — the export's Annual Product Summary gains a Total Delivered
     });
 
     test('the arithmetic: the total equals the sum of the catalogue rows', () => {
-        // _computeProgrammeDelivered is the export's own reader; run it over a
-        // product map of the shape the shared accumulator produces, with one
-        // amendment mixed in, and check both halves of the claim.
-        const wx = { products: {
+        // GH-436: this used to say in its own comment that it ran
+        // _computeProgrammeDelivered, and then not run it — it defined a local
+        // `sum()` reduce and asserted on that, i.e. it tested Array.reduce.
+        // Every behavioural defect in the export's own reader (wrong nutrient
+        // key, wrong nutrients/totalDelivered precedence, a dropped isFinite
+        // guard) went through it. The real function is loaded and called now.
+        const wx = loadWordExport();
+        const compute = wx._computeProgrammeDelivered;
+        expect(typeof compute).toBe('function');
+
+        const summary = { products: {
             A: { nutrients: { N: 58.2, P: 13.1, K: 48.3 } },
             B: { nutrients: { N: 29.8, P: 1.5, K: 29.8 } },
             DOLOMITE: { _isAmendment: true, totalDelivered: { N: 0, P: 0, K: 0, Ca: 180, Mg: 90 } }
         } };
-        const sum = (n) => Object.keys(wx.products)
-            .filter((id) => !wx.products[id]._isAmendment)
-            .reduce((a, id) => a + (wx.products[id].nutrients[n] || 0), 0);
-        expect(sum('N')).toBeCloseTo(88, 6);
-        expect(delivery.roundAtOutput(sum('K'))).toBe(78);
+
+        expect(compute(summary, 'N')).toBeCloseTo(88, 6);
+        expect(delivery.roundAtOutput(compute(summary, 'K'))).toBe(78);
         // Ca comes only from the amendment, so the programme total is zero even
         // though the table shows 180 in that row — which is the case the
-        // caption exists for.
-        expect(sum('Ca')).toBe(0);
+        // caption exists for. This is the assertion the amendment skip is for.
+        expect(compute(summary, 'Ca')).toBe(0);
+
+        // It unwraps the { products } shape and accepts a bare map alike.
+        expect(compute(summary.products, 'N')).toBeCloseTo(88, 6);
+
+        // totalDelivered is read when nutrients is absent — the amendment
+        // shape — and nutrients wins when both are present, which is the
+        // precedence the renderer depends on.
+        expect(compute({ X: { totalDelivered: { N: 5 } } }, 'N')).toBe(5);
+        expect(compute({ X: { nutrients: { N: 5 }, totalDelivered: { N: 99 } } }, 'N')).toBe(5);
+
+        // Junk is skipped rather than turning the total into NaN.
+        expect(compute({ X: { nutrients: { N: 'not a number' } }, Y: { nutrients: { N: 3 } } }, 'N')).toBe(3);
+        expect(compute(null, 'N')).toBe(0);
+        expect(compute(summary, null)).toBe(0);
     });
 });

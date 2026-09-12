@@ -4,7 +4,8 @@
  * Nutrient Delivery Summary. DELETE WHEN THE FIGURES ARE SIGNED OFF.
  * ============================================================================
  *
- * HOW TO REMOVE IT, completely, in two steps:
+ * HOW TO REMOVE IT, completely, in three steps (GH-438: the heading said two
+ * and then listed three):
  *
  *   1. delete this file (assets/plan-calc-trace.js)
  *   2. delete the single <script> tag in app/resources/views/plan.blade.php
@@ -297,8 +298,32 @@
         row('Sample CEC', (soil.CEC === null || soil.CEC === undefined)
                 ? 'no reading on this sample' : (fmt(soil.CEC) + ' meq/100g'),
             (soil.CEC === null || soil.CEC === undefined) ? '—' : 'the selected soil sample');
-        row('Bulk density / soil depth', fmt(soil.bulkDensity) + ' g/cm3 / ' + fmt(soil.soilDepth) + ' cm',
-            'the selected soil sample, or the engine default where it carries none',
+        // GH-438: the source column said "the selected soil sample, or the
+        // engine default where it carries none" — both possibilities, leaving
+        // the reader to guess which one produced the figure beside it. The
+        // input adapter already publishes the answer (nutrition-program-inputs.js
+        // stamps bulkDensityDefaulted / soilDepthDefaulted), and the core
+        // records what it actually used, so the row can say it. This matters
+        // here more than on most rows: these two numbers set the ppm->kg/ha
+        // factor, and through it every lift and every headroom term below.
+        var bdDefaulted = meta.bulkDensityDefaulted;
+        var sdDefaulted = meta.soilDepthDefaulted;
+        var bdWord = (bdDefaulted === true) ? 'the engine default — this sample carries no bulk density'
+            : (bdDefaulted === false) ? 'the selected soil sample'
+            : 'the selected soil sample, or the engine default where it carries none';
+        var sdWord = (sdDefaulted === true) ? 'the engine default — this sample carries no sampling depth'
+            : (sdDefaulted === false) ? 'the selected soil sample'
+            : null;
+        // GH-438: the figures are the ones the core RECORDS HAVING USED, not
+        // the raw inputs. computeProgram() leaves `soil.bulkDensity` undefined
+        // when the sample carries none — the default is substituted inside the
+        // core at the point of use — so this row printed "— g/cm3 / — cm" and
+        // then, one line below, "1 ppm = 1.4 kg/ha in this rootzone". Two
+        // statements about the same rootzone, one of them blank.
+        var bdUsed = (pDetail && pDetail.bulkDensityUsed != null) ? pDetail.bulkDensityUsed : soil.bulkDensity;
+        var sdUsed = (pDetail && pDetail.soilDepthUsed != null) ? pDetail.soilDepthUsed : soil.soilDepth;
+        row('Bulk density / soil depth', fmt(bdUsed) + ' g/cm3 / ' + fmt(sdUsed) + ' cm',
+            (sdWord && sdWord !== bdWord) ? ('density: ' + bdWord + '; depth: ' + sdWord) : bdWord,
             pDetail ? ('1 ppm = ' + fmt(pDetail.ppmToKgHaFactor) + ' kg/ha in this rootzone') : null);
 
         var hasTissue = !!(tissue && (typeof tissue.N === 'number' || typeof tissue.P === 'number' ||
@@ -752,8 +777,24 @@
             h.push('<div class="gaip-ctrace-unavail">The summary table could not be read, so the figures ' +
                 'above were not cross-checked against it.</div>');
         } else if (trace.checks.allOk) {
+            // GH-438: this line used to stop at "All N figures match the
+            // Nutrient Delivery Summary cell they explain", which reads to a
+            // client as an independent verification of the figures. It is not:
+            // the block calls the same two shared modules over the same
+            // programme object the summary was drawn from, so most of these
+            // comparisons are the same value against itself, and the check can
+            // only catch the panel having been drawn from a DIFFERENT programme
+            // (a stale panel after a site switch). GH-428 is the standing proof:
+            // a row printed a real but discarded soil temperature and this
+            // check stayed green throughout, because the summary says nothing
+            // about soil temperature. What it checks is now said on the line
+            // itself rather than in this file's header.
             h.push('<div class="gaip-ctrace-ok">All ' + trace.checks.rows.length +
-                ' figures match the Nutrient Delivery Summary cell they explain.</div>');
+                ' figures match the Nutrient Delivery Summary cell they explain.</div>' +
+                '<div class="gaip-ctrace-note">This compares what is printed here with what is printed ' +
+                'above, and both are read from the same calculation — so it catches this block reading a ' +
+                'different programme from the table, not an error inside the calculation itself. The ' +
+                'inputs section above is not covered by it at all.</div>');
         } else {
             h.push('<div class="gaip-ctrace-bad">These figures do NOT match the summary above. ' +
                 'Trust the summary, not this block, and report the difference.</div>');

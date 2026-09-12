@@ -40,7 +40,9 @@ try {
 const BASE_URL = process.env.GILBA_E2E_URL || credentials.url || 'http://127.0.0.1:8080';
 const EMAIL = process.env.GILBA_E2E_EMAIL || credentials.email;
 const PASSWORD = process.env.GILBA_E2E_PASSWORD || credentials.password;
-const OUT = process.env.GILBA_AUDIT_OUT || path.join(__dirname, '../../calc-audit-export-results.json');
+// GH-437: see calc-audit-all-sites-live.test.js — output is an artefact, not
+// source, and no longer lands on a tracked path.
+const OUT = process.env.GILBA_AUDIT_OUT || path.join(__dirname, '../../calc-audit/export-results.json');
 
 const DEFAULT_PAIRS = [
     'New test - location::Green 5',      // SLAN, pH 8.26 — the pH ladder should move the P floor
@@ -345,6 +347,7 @@ describe('Calculation audit — the document against the Plan, one sample per si
                 rec.console = consoleLines.slice(0, 30);
                 line('ERROR ' + rec.error.split('\n')[0]);
             }
+            fs.mkdirSync(path.dirname(OUT), { recursive: true });
             fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
         }
         process.stdout.write('[audit-export] wrote ' + OUT + '\n');

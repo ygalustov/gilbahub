@@ -10,3 +10,14 @@ tests/e2e/.e2e-credentials.json
 # source — the samples/sync defect can delete rows during ordinary UI actions,
 # so a dump is taken before any run that clicks through the live stack.
 files/fixes/**/dev-db-snapshot-*.sql
+
+# GH-437: output of the calculation-audit harnesses
+# (tests/e2e/calc-audit-*-live.test.js). Measurement artefacts, regenerated on
+# every run — they were written to the repository ROOT as tracked files, so a
+# 2.1 MB diff appeared in `git status` beside whatever code change the run was
+# measuring. The two old paths are listed as well, so that a working copy which
+# still has them does not keep reporting them until they are removed with
+# `git rm --cached calc-audit-results.json calc-audit-export-results.json`.
+calc-audit/
+calc-audit-results.json
+calc-audit-export-results.json

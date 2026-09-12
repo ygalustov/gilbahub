@@ -171,6 +171,135 @@ class Gh430SamplesNoSnapshotDeleteTest extends TestCase
     }
 
     /**
+     * GH-431: the exception that makes the refusal safe. A Settings import
+     * sends clearSiteData:true and the bundle in ONE request; the wipe runs
+     * first, so by the time the upsert loop reaches a sample whose client_uid
+     * already existed on this site, that row is soft-deleted. Refusing to
+     * restore it there would drop every re-imported sample on the floor -- the
+     * import would report rows it did not write.
+     *
+     * The third sample here, d3, is deleted BEFORE the import and is in the
+     * file: an import is a whole-site replacement by the owner's decision, so
+     * the file is the new truth and a row deleted last week must come back with
+     * everything else. Restricting the exception to the ids the request itself
+     * deleted would have lost exactly that row, silently.
+     */
+    public function test_clear_site_data_import_relands_the_same_client_uids(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, ['name' => 'Reimport Site', 'slug' => 'reimport-site-431']);
+
+        $this->pushSoil($user, $site, ['d1', 'd2', 'd3']);
+        $d3 = Sample::query()->where('site_id', $site->id)->where('client_uid', 'd3')->firstOrFail();
+        $d3->delete();
+        $this->assertSoftDeleted('samples', ['id' => $d3->id]);
+
+        $before = Sample::query()->withTrashed()->where('site_id', $site->id)->pluck('id', 'client_uid');
+        $this->assertCount(3, $before);
+
+        // The same two zone names come back in the imported file.
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'clearSiteData' => true,
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'd1' => ['id' => 'd1', 'date' => '2026-08-01', 'rawData' => ['label' => 'D1', 'K' => 91]],
+                            'd2' => ['id' => 'd2', 'date' => '2026-08-02', 'rawData' => ['label' => 'D2', 'K' => 92]],
+                            'd3' => ['id' => 'd3', 'date' => '2026-08-03', 'rawData' => ['label' => 'D3', 'K' => 93]],
+                        ],
+                        'water' => [], 'tissue' => [], 'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 3)
+            ->assertJsonPath('data.deleted', 2)
+            ->assertJsonPath('data.skipped', 0);
+
+        // All three live again, on their original rows, carrying the file's
+        // values — including d3, which was already deleted before the import.
+        $this->assertSame(3, Sample::query()->where('site_id', $site->id)->count());
+        $this->assertSame(0, Sample::query()->onlyTrashed()->where('site_id', $site->id)->count());
+        foreach (['d1' => 91, 'd2' => 92, 'd3' => 93] as $uid => $k) {
+            $row = Sample::query()->where('site_id', $site->id)->where('client_uid', $uid)->firstOrFail();
+            $this->assertSame($before[$uid], $row->id);
+            $this->assertSame($k, $row->payload['K']);
+        }
+    }
+
+    /**
+     * GH-431: the refusal itself, at the level the endpoint sees it. The Data
+     * page's own delete is covered live in
+     * tests/e2e/review-sample-delete-resurrection-live.test.js.
+     */
+    public function test_a_sample_deleted_elsewhere_is_not_restored_by_a_push(): void
+    {
+        $user = User::factory()->create();
+        $site = $this->createSiteForUser($user, ['name' => 'No Undelete', 'slug' => 'no-undelete-431']);
+
+        $this->pushSoil($user, $site, ['e1', 'e2']);
+        $e1 = Sample::query()->where('site_id', $site->id)->where('client_uid', 'e1')->firstOrFail();
+
+        // What the Data page does. DataController::destroy() resolves the row
+        // through the user's ACTIVE site, which the page has already set.
+        $user->forceFill(['last_active_site_id' => $site->id])->save();
+        $this->actingAs($user)
+            ->withSession(['_token' => 'test-token'])
+            ->deleteJson('/api/data/entry/'.$e1->id, ['_token' => 'test-token'])
+            ->assertOk();
+        $this->assertSoftDeleted('samples', ['id' => $e1->id]);
+
+        // The tab that still holds e1 pushes again, twice.
+        $this->pushSoil($user, $site, ['e1', 'e2'], 2)->assertJsonPath('data.skipped', 1);
+        $this->pushSoil($user, $site, ['e1', 'e2'], 3)->assertJsonPath('data.skipped', 1);
+
+        $this->assertSoftDeleted('samples', ['id' => $e1->id]);
+        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->count());
+        $this->assertSame(1, Sample::query()->withTrashed()->where('site_id', $site->id)->where('client_uid', 'e1')->count());
+    }
+
+    /**
+     * GH-432: sync() is a write endpoint and must ask what the user may do with
+     * the site, like every other writer does. A viewer could upsert samples
+     * here, and with clearSiteData:true hard-delete the site's spray_logs and
+     * field_log_entries.
+     */
+    public function test_a_viewer_cannot_write_or_clear_through_sync(): void
+    {
+        $owner = User::factory()->create();
+        $site = $this->createSiteForUser($owner, ['name' => 'Viewer Site', 'slug' => 'viewer-site-432']);
+        $this->pushSoil($owner, $site, ['f1', 'f2']);
+
+        $viewer = User::factory()->create();
+        $site->users()->attach($viewer->id, ['role' => 'viewer']);
+
+        $this->actingAs($viewer)
+            ->withSession(['_token' => 'test-token'])
+            ->postJson('/api/samples/sync', [
+                '_token' => 'test-token',
+                'clearSiteData' => true,
+                'allSites' => [
+                    $site->id => [
+                        'soil' => [
+                            'f3' => ['id' => 'f3', 'date' => '2026-09-01', 'rawData' => ['label' => 'F3', 'K' => 70]],
+                        ],
+                        'water' => [], 'tissue' => [], 'loi' => [],
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.synced', 0)
+            ->assertJsonPath('data.deleted', 0)
+            ->assertJsonPath('data.forbidden', 1);
+
+        $this->assertSame(2, Sample::query()->where('site_id', $site->id)->count());
+        $this->assertSame(0, Sample::query()->where('site_id', $site->id)->where('client_uid', 'f3')->count());
+    }
+
+    /**
      * $round bumps the date each re-push. SQLite's dynamic typing does not
      * truncate a datetime written into a DATE-affinity column the way MySQL
      * does, so re-sending an identical lab_date across two syncs makes

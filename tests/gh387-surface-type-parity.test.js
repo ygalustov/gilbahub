@@ -149,17 +149,82 @@ describe('GH-387 — both surfaces read the one resolution', () => {
         expect(au).toMatch(/return _NPI\.mapSurfaceKey\(turfType, subCategory\);/);
     });
 
-    test('the adapter\'s mapping and the AU integration\'s local fallback agree, rung for rung', () => {
-        // The fallback exists for a page that has not loaded the adapter; if
-        // the two ever disagree the bug comes straight back.
+    /**
+     * GH-436: this test used to slice `_mapTurfType`'s body out of the file and
+     * assert `body.toContain("'golf_greens'")` — substring presence. It never
+     * called either mapping and never compared them, and its third assertion
+     * was `Inputs.mapSurfaceKey.length === 2`, an arity check, repeated six
+     * times inside the loop. Proven vacuous by mutation: swapping the `greens`
+     * and `tees` rungs in the fallback, so a golf green resolves to 'tees' and
+     * draws a different product set from the same catalogue, left every
+     * assertion green.
+     *
+     * The fallback is a nested function inside a closure, so it cannot simply
+     * be imported. It is EVALUATED from its own source instead — the real text,
+     * not a transcription — with the adapter absent, which is the only
+     * condition under which that branch runs in production.
+     */
+    function loadFallbackMapper() {
         const au = read('nutrition-au-fertiliser-integration.js');
-        const body = au.slice(au.indexOf('function _mapTurfType'), au.indexOf('// Primary: legacy turf profile component'));
-        [['golf', 'greens', 'golf_greens'], ['golf', 'tees', 'tees'], ['golf', 'fairways', 'fairways'],
-         ['golf', 'surrounds', 'fairways'], ['bowling', null, 'bowling_greens'], ['cricket', null, 'cricket_wickets']]
-            .forEach(([, sub, expected]) => {
-                expect(body).toContain("'" + expected + "'");
-                if (sub) expect(body).toContain("'" + sub + "'");
-                expect(Inputs.mapSurfaceKey.length).toBe(2);
-            });
+        const start = au.indexOf('function _mapTurfType');
+        const end = au.indexOf('// Primary: legacy turf profile component');
+        if (start === -1 || end === -1 || end <= start) {
+            throw new Error('GH-436: _mapTurfType was not found in nutrition-au-fertiliser-integration.js — '
+                + 'if it was renamed or moved, update this anchor rather than deleting the comparison.');
+        }
+        const body = au.slice(start, end);
+        // `window` with no adapter on it: the fallback branch, which is the
+        // half this test exists to compare.
+        // eslint-disable-next-line no-new-func
+        const make = new Function('window', body + '; return _mapTurfType;');
+        return { fn: make({}), body };
+    }
+
+    test('the adapter\'s mapping and the AU integration\'s local fallback agree, rung for rung', () => {
+        const { fn: fallback } = loadFallbackMapper();
+
+        // Every rung, plus the shapes that decide the default arms: an
+        // unlisted golf sub-category, a bare turf type, a missing turf type,
+        // and the 'bowls' spelling the adapter also accepts.
+        const CASES = [
+            ['golf', 'greens'], ['golf', 'tees'], ['golf', 'fairways'], ['golf', 'surrounds'],
+            ['golf', 'rough'], ['golf', null], ['golf', undefined], ['golf', ''],
+            ['bowling', null], ['bowling', 'greens'], ['bowls', null],
+            ['cricket', null], ['cricket', 'wickets'],
+            ['sports', null], ['sports', 'soccer'], ['lawns', null], ['lawns', 'backyard'],
+            [null, 'greens'], [undefined, undefined], ['', 'greens'],
+        ];
+
+        const disagreements = [];
+        CASES.forEach(([turf, sub]) => {
+            const a = Inputs.mapSurfaceKey(turf, sub);
+            const b = fallback(turf, sub);
+            if (a !== b) disagreements.push(JSON.stringify([turf, sub]) + ': adapter ' + a + ' vs fallback ' + b);
+        });
+        if (disagreements.length) {
+            process.stdout.write('[gh387] adapter/fallback disagreements:\n      '
+                + disagreements.join('\n      ') + '\n');
+        }
+        expect(disagreements).toEqual([]);
+
+        // And the mapping is the one the catalogue is keyed on, so "they agree"
+        // cannot be satisfied by both being wrong in the same way.
+        expect(Inputs.mapSurfaceKey('golf', 'greens')).toBe('golf_greens');
+        expect(Inputs.mapSurfaceKey('golf', 'tees')).toBe('tees');
+        expect(Inputs.mapSurfaceKey('golf', 'fairways')).toBe('fairways');
+        expect(Inputs.mapSurfaceKey('golf', 'surrounds')).toBe('fairways');
+        expect(Inputs.mapSurfaceKey('bowling', null)).toBe('bowling_greens');
+        expect(Inputs.mapSurfaceKey('cricket', null)).toBe('cricket_wickets');
+    });
+
+    test('the fallback really is the no-adapter branch — it delegates when one is there', () => {
+        // Otherwise the comparison above could be measuring the delegation
+        // rather than the local rungs, and a broken fallback would hide behind
+        // a working adapter.
+        const { body } = loadFallbackMapper();
+        // eslint-disable-next-line no-new-func
+        const withAdapter = new Function('window', body + '; return _mapTurfType;')(
+            { GAIP_NutritionProgramInputs: { mapSurfaceKey: () => '__delegated__' } });
+        expect(withAdapter('golf', 'greens')).toBe('__delegated__');
     });
 });

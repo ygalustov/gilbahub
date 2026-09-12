@@ -66,6 +66,13 @@ const AA = JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures/gh414-russley-green18-aa-sand.json'), 'utf8'));
 const NZ_PROGRAMME = JSON.parse(fs.readFileSync(
     path.join(__dirname, 'fixtures/gh399-delivery-programme-test5-nz-soccer.json'), 'utf8'));
+// GH-436: the New Zealand fixture above carries no application that DECLARES a
+// nitrogen figure (its one declared entry is the injected potassium-sulphate
+// amendment, which declares no N), so the trace block's "declared by the
+// recommender" branch could not be reached through it. Every Australian
+// programme takes that branch; Burns has twelve.
+const DECLARED_PROGRAMME = JSON.parse(fs.readFileSync(
+    path.join(__dirname, 'fixtures/gh399-delivery-programme-burns-mlsn.json'), 'utf8'));
 // The one live-verified below-floor pass through an Ammonium Acetate site in
 // the development database (GH-370). Russley's own P sits above its certificate
 // ceiling, so the lift branch needs this fixture rather than an invented ppm.
@@ -374,14 +381,46 @@ describe('GH-425 — the block reads those values rather than working them out',
             Trace._fmt(first.analysisPct.N) + '% = ' + Trace._fmt(first.nutrients.N));
     });
 
+    /**
+     * GH-436: this ran zero assertions on every run. It looked for an
+     * application with `source.N === 'declared' && nutrients.N` in
+     * NZ_PROGRAMME, and the ONE declared entry in that fixture is the injected
+     * potassium-sulphate amendment, whose `nutrients.N` is 0 — so the `&&`
+     * failed, `declared` was always undefined and `if (!declared) return`
+     * ended the test before it asserted anything. The declared branch of the
+     * block's Delivered lines — the branch every Australian programme takes —
+     * was covered by nothing.
+     *
+     * The fix is a fixture that HAS one. DECLARED_PROGRAMME is the Burns
+     * programme, twelve declared nitrogen applications, and the count is
+     * asserted before the branch is, so the test cannot go quiet again.
+     */
     test('a declared contribution says it was declared, and does not restate it as arithmetic', () => {
-        const t = trace(programme());
-        const acc = Delivery.accumulate(NZ_PROGRAMME.monthly);
-        const declared = acc.applications.find((a) => a.source.N === 'declared' && a.nutrients.N);
-        if (!declared) return;                        // fixture-dependent
-        const line = (stepLike(t, 'N', /^Delivered/).lines || [])
-            .find((l) => l.name === declared.name);
-        expect(line.how).toBe('declared by the recommender: ' + Trace._fmt(declared.nutrients.N));
+        const acc = Delivery.accumulate(DECLARED_PROGRAMME.monthly);
+        const declaredAll = acc.applications.filter((a) => a.source.N === 'declared' && a.nutrients.N);
+        // The subject exists — this is what the old `if (!declared) return`
+        // silently stood in for.
+        expect(declaredAll.length).toBeGreaterThan(0);
+
+        const t = trace(programme(), DECLARED_PROGRAMME);
+        const lines = stepLike(t, 'N', /^Delivered/).lines || [];
+        expect(lines.length).toBeGreaterThan(0);
+
+        let checked = 0;
+        declaredAll.forEach((declared) => {
+            // Matched on month AND name: Burns applies the same product in
+            // several months at different rates, so matching on name alone
+            // compares January's line with December's figure.
+            const line = lines.find((l) => l.name === declared.name &&
+                String(l.month) === String(declared.month));
+            if (!line) return;
+            expect(line.how).toBe('declared by the recommender: ' + Trace._fmt(declared.nutrients.N));
+            // and it must NOT restate it as mass x analysis%, which is the
+            // other branch and the thing this test is named for
+            expect(line.how).not.toMatch(/%\s*=/);
+            checked++;
+        });
+        expect(checked).toBeGreaterThan(0);
     });
 
     test('the nitrogen chain is the programme\'s own adjustments block, step by step', () => {

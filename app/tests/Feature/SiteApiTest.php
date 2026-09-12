@@ -456,16 +456,22 @@ class SiteApiTest extends TestCase
     }
 
     /**
-     * GH-430: the soft delete is now performed explicitly on the model. It used
-     * to be produced by omitting green_1 from a push, which is exactly the
-     * behaviour that was removed. What is pinned here is unchanged and still
-     * current: saveSampleRecord() matches on (site, type, client_uid) with
-     * withTrashed() and restores. The per-record-writes stage inverts this --
-     * a re-push must not bring back a row the user deleted -- and this test
-     * flips with it, once a real DELETE /api/samples/{id} exists to delete
-     * through.
+     * GH-431: this test is the inverse of what it was, and its own GH-430
+     * docblock predicted the flip -- "a re-push must not bring back a row the
+     * user deleted -- and this test flips with it, once a real
+     * DELETE /api/samples/{id} exists to delete through". The endpoint it was
+     * waiting for already existed: the Data page deletes per record through
+     * DELETE /api/data/entry/{id} (DataController::destroy), under a button
+     * that says "This cannot be undone". So the restore this used to assert was
+     * live client behaviour, not a dormant future: measured on the dev stack,
+     * delete -> deleted_at set -> one ordinary push -> deleted_at NULL.
+     *
+     * A push is the browser's cache, not a user action. It may create and it
+     * may update; it may not resurrect. The one exception -- a clearSiteData
+     * import re-landing the client_uids it wiped in the same request -- is
+     * covered in Gh430SamplesNoSnapshotDeleteTest.
      */
-    public function test_authenticated_user_sync_can_restore_soft_deleted_sample(): void
+    public function test_authenticated_user_sync_does_not_restore_a_deleted_sample(): void
     {
         $user = User::factory()->create();
         $site = $this->createSiteForUser($user, [
@@ -504,8 +510,8 @@ class SiteApiTest extends TestCase
         Sample::query()->findOrFail($sampleId)->delete();
         $this->assertSoftDeleted('samples', ['id' => $sampleId]);
 
-        // The same client_uid comes back in a later push -- a re-import of the
-        // same lab file, or a sample saved again under the same name.
+        // The same client_uid comes back in a later push -- the stale tab that
+        // still holds green_1 with `rawData` and pushes it on every mutation.
         // green_1's date is bumped on the re-push: SQLite's dynamic typing does
         // not truncate a full datetime written into a DATE-affinity column the
         // way MySQL does, so re-sending the exact same lab_date across two syncs
@@ -537,21 +543,22 @@ class SiteApiTest extends TestCase
                 ],
             ])
             ->assertOk()
-            ->assertJsonPath('data.synced', 1)
-            ->assertJsonPath('data.deleted', 0);
+            ->assertJsonPath('data.synced', 0)
+            ->assertJsonPath('data.deleted', 0)
+            ->assertJsonPath('data.skipped', 1);
 
-        $this->assertSame(1, Sample::query()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
-        $this->assertDatabaseHas('samples', [
-            'id' => $sampleId,
-            'client_uid' => 'green_1',
-            'deleted_at' => null,
-        ]);
+        // Still exactly one row, still deleted, and still carrying the value it
+        // had when it was deleted: the push neither restored it nor wrote
+        // through to it, and it did not insert a second row under the same
+        // client_uid either.
+        $this->assertSame(1, Sample::query()->withTrashed()->where('site_id', $site->id)->where('client_uid', 'green_1')->count());
+        $this->assertSoftDeleted('samples', ['id' => $sampleId]);
+        $this->assertSame(41, Sample::query()->withTrashed()->find($sampleId)->payload['K']);
 
         $this->actingAs($user)
             ->getJson('/api/samples?site_id='.$site->id.'&sample_type=soil')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.payload.K', 47);
+            ->assertJsonCount(0, 'data');
     }
 
     public function test_authenticated_user_can_list_site_summaries(): void

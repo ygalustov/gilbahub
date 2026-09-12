@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-09-11T04:49:28.990Z",
+ "generatedAt": "2026-09-11T07:08:53.645Z",
  "pairs": [
   {
    "site": "New test - location",
@@ -54,7 +54,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:49:41.192Z",
+      "generated": "2026-09-11T07:09:06.020Z",
       "version": "2.5.0",
       "methodology": "SLAN",
       "species": "bentgrass",
@@ -574,7 +574,7 @@
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
      "Ca:Mg Ratio|7.4:1 (Optimal)",
      "Calcium (Ca)|75.7%",
-     "Temperature|14.9°C",
+     "Temperature|15.1°C",
      "EC|0.45 dS/m",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
@@ -679,7 +679,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:50:03.137Z",
+      "generated": "2026-09-11T07:09:28.025Z",
       "version": "2.5.0",
       "methodology": "SLAN",
       "species": "bentgrass",
@@ -1208,7 +1208,7 @@
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
      "Ca:Mg Ratio|5.4:1 (Optimal)",
      "Calcium (Ca)|70.8%",
-     "Temperature|14.9°C",
+     "Temperature|15.1°C",
      "EC|0.45 dS/m",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
@@ -1313,7 +1313,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:50:26.010Z",
+      "generated": "2026-09-11T07:09:49.003Z",
       "version": "2.5.0",
       "methodology": "MLSN",
       "species": "bentgrass",
@@ -1777,10 +1777,12 @@
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
      "Ca:Mg Ratio|9.3:1 (Optimal)",
      "Calcium (Ca)|71.4%",
-     "Temperature|9.4°C",
+     "Temperature|9.5°C",
      "EC|0.52 dS/m",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Characteristic|Rating|Scale|Assessment",
+     "Disease|Resistance|Risk Modifier|Confidence",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
      "Jan|Feb|Mar|Apr|May|Jun",
      "Product|Total rate|Samples"
@@ -1813,7 +1815,6 @@
     "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, New test - location/Green 11, New test - location/Green 2, New test - location/Putter Green, New test - location/Green 12, New test - location/Green 7, New test - location/Green 6, New test - location/Green 4, New test - location/Green",
     "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
     "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
-    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0.6 , using form value",
     "log: [WordExport] nutritionSummary via engine: P=14.1 K=0 S=6.4 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
     "log: [CombinedExport] Baked ctx for Burns - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
     "log: [CombinedExport] Collected report 1 / 1 : Burns - Soil_25_zo0t",
@@ -1822,9 +1823,10 @@
     "log: [CombinedExport] GH-362 branch for sample Soil_25_zo0t site 019e96d8-97b7-714c-9bd6-d65b16ec7f2e : isNZ=false (via sample-coordinates) lat=-35.2285452 lon=149.0022925 usePrebble=false useAU=true",
     "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
     "log: [WordExport] Logo check: not found",
-    "log: [CombinedExport] Report Soil_25_zo0t has 207 sections",
+    "log: [CombinedExport] Report Soil_25_zo0t has 224 sections",
     "log: [CombinedExport]   Stripping 2 leading title paragraphs",
-    "log: [CombinedExport]   [3] heading: Site Information"
+    "log: [CombinedExport]   [3] heading: Site Information",
+    "log: [CombinedExport]   [6] heading: Soil Nutrition"
    ]
   },
   {
@@ -1882,7 +1884,7 @@
       "S": true
      },
      "meta": {
-      "generated": "2026-09-11T04:50:48.126Z",
+      "generated": "2026-09-11T07:10:09.901Z",
       "version": "2.5.0",
       "methodology": "MLSN",
       "species": "bentgrass",
@@ -2343,7 +2345,7 @@
      "Nutrient|Measured|MLSN Min|MLSN Status|SLAN Range|SLAN Status",
      "Ca:Mg Ratio|11.5:1 (Optimal)",
      "Calcium (Ca)|84.8%",
-     "Temperature|9.4°C",
+     "Temperature|9.5°C",
      "EC|0.52 dS/m",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
@@ -2448,7 +2450,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:51:10.428Z",
+      "generated": "2026-09-11T07:10:30.854Z",
       "version": "2.5.0",
       "methodology": "SLAN",
       "species": "bentgrass",
@@ -2929,6 +2931,8 @@
      "Temperature|9.9°C",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
+     "Characteristic|Rating|Scale|Assessment",
+     "Disease|Resistance|Risk Modifier|Confidence",
      "Disease|Risk|Level",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
      "Sample|Required|Delivered|Programme vs required|Spot K?|Tissue K status",
@@ -2958,7 +2962,6 @@
     "log: [CombinedExport] enumerateSamples(all): 35 zones across 9 sites, Burns/Rye Nursery, Burns/12th Fairway, Burns/Putter Green, Burns/Green 15, Burns/Green 10, Burns/Green 4, Burns/Green 2, Burns/Green 13, Burns/Green 8, Burns/Green 16, Burns/Green 3, Burns/Green 11, Burns/Green 7, Burns/Green 1, Burns/",
     "log: [CombinedExport] Starting combined export for 1 samples across 1 sites",
     "log: [CombinedExport] Climate normals pre-resolved for 1 site(s) in this export",
-    "warning: [WordExport] c3Fraction state/form mismatch, state: 1 form: 0 , using form value",
     "log: [WordExport] nutritionSummary via engine: P=12 K=64 S=8.5 totalN=120 species=Creeping Bentgrass (Greens) hem=south climateLive=true overseed=false",
     "log: [CombinedExport] Baked ctx for Federal Golf - species=Creeping Bentgrass (Greens) hem=south overseed=false base=Creeping Bentgrass (Greens)",
     "log: [CombinedExport] Collected report 1 / 1 : Federal Golf - Green 1",
@@ -2967,13 +2970,14 @@
     "log: [CombinedExport] GH-362 branch for sample Green 1 site 019e96d7-36aa-707a-9879-68ab28726e12 : isNZ=false (via sample-coordinates) lat=-35.3317 lon=149.11 usePrebble=false useAU=true",
     "log: [CombinedExport] b35fix307 per-sample programme (hoisted): ok=1 failed=0 skipped=0 (total samples=1)",
     "log: [WordExport] Logo check: not found",
-    "log: [CombinedExport] Report Green 1 has 174 sections",
+    "log: [CombinedExport] Report Green 1 has 195 sections",
     "log: [CombinedExport]   Stripping 2 leading title paragraphs",
     "log: [CombinedExport]   [3] heading: Site Information",
     "log: [CombinedExport]   [6] heading: Soil Nutrition",
     "log: [CombinedExport]   [29] heading: __heading__",
     "log: [CombinedExport]   [35] heading: __heading__",
-    "log: [CombinedExport]   [41] heading: Climate & Growth Conditions"
+    "log: [CombinedExport]   [41] heading: Climate & Growth Conditions",
+    "log: [CombinedExport]   [45] heading: Performance Impact Analysis"
    ]
   },
   {
@@ -3035,7 +3039,7 @@
       "S": true
      },
      "meta": {
-      "generated": "2026-09-11T04:51:31.792Z",
+      "generated": "2026-09-11T07:10:51.967Z",
       "version": "2.5.0",
       "methodology": "SLAN",
       "species": "bentgrass",
@@ -3356,7 +3360,7 @@
     "tableHeaders": [
      "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
      "Site|test4 - USA",
-     "Temperature|17.0°C",
+     "Temperature|17.4°C",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
      "Jan|Feb|Mar|Apr|May|Jun"
     ],
@@ -3453,7 +3457,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:51:52.505Z",
+      "generated": "2026-09-11T07:11:12.716Z",
       "version": "2.5.0",
       "methodology": "AMMONIUM_ACETATE",
       "species": "perennialRyegrass",
@@ -3965,7 +3969,7 @@
      "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
      "Ca:Mg Ratio|6.2:1 (Optimal)",
-     "Temperature|12.8°C",
+     "Temperature|12.7°C",
      "Nitrogen (N)|4.57%",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
@@ -4071,7 +4075,7 @@
       "S": true
      },
      "meta": {
-      "generated": "2026-09-11T04:52:13.962Z",
+      "generated": "2026-09-11T07:11:34.003Z",
       "version": "2.5.0",
       "methodology": "AMMONIUM_ACETATE",
       "species": "creepingBentgrass",
@@ -4524,7 +4528,7 @@
      "Phosphorus (P)|20 ppm",
      "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
-     "Temperature|9.2°C",
+     "Temperature|9.0°C",
      "Nitrogen (N)|4.2%",
      "EC|0.5 dS/m",
      "Product|Applications|Total Rate|N|P|K",
@@ -4630,7 +4634,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:52:35.180Z",
+      "generated": "2026-09-11T07:11:55.244Z",
       "version": "2.5.0",
       "methodology": "AMMONIUM_ACETATE",
       "species": "bentgrass",
@@ -5126,7 +5130,7 @@
      "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
      "Nutrient|Soil deficit\n(kg/ha)|Programme delivers\n(kg/ha)|Residual\n(kg/ha)|Product|Theoretical\n(kg/ha)",
      "Ca:Mg Ratio|8.6:1 (Optimal)",
-     "Temperature|9.2°C",
+     "Temperature|9.0°C",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
@@ -5229,7 +5233,7 @@
      },
      "missing_soil_data": {},
      "meta": {
-      "generated": "2026-09-11T04:52:56.395Z",
+      "generated": "2026-09-11T07:12:16.566Z",
       "version": "2.5.0",
       "methodology": "AMMONIUM_ACETATE",
       "species": "bermuda",
@@ -5674,7 +5678,7 @@
      "pH|6.2",
      "Framework|Extractant|Philosophy|AU/NZ/UK use|Compatible with this sample?",
      "Ca:Mg Ratio|7.9:1 (Optimal)",
-     "Temperature|9.2°C",
+     "Temperature|9.0°C",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",
@@ -5782,7 +5786,7 @@
       "S": true
      },
      "meta": {
-      "generated": "2026-09-11T04:53:17.345Z",
+      "generated": "2026-09-11T07:12:37.349Z",
       "version": "2.5.0",
       "methodology": "MLSN",
       "species": "buffalograss",
@@ -6299,7 +6303,7 @@
     "tableHeaders": [
      "Gilba Agronomic Intelligence Hub\nCombined Analysis Report",
      "Site|Westview",
-     "Temperature|14.7°C",
+     "Temperature|14.6°C",
      "Product|Applications|Total Rate|N|P|K",
      "Month|GP%|Granular Products|Liquid / Foliar|Notes",
      "Sample|Nutrient|Current (kg/ha, ppm)|Removal|Required|Delivered",

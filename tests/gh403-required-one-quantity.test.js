@@ -441,7 +441,10 @@ function renderAu(slug, annualRequirements) {
         delivered: raw.delivered,
         balance: raw.balance
     });
-    return { html, acc, errors: sandbox.__errors };
+    // GH-436: `targets` is returned so the fallback branch can be asserted
+    // against the figures it is supposed to fall back TO, not merely against a
+    // shape like /^\d+\.\d$/ that a wrong number also satisfies.
+    return { html, acc, errors: sandbox.__errors, targets: raw.targets };
 }
 
 function productRows(html) {
@@ -512,11 +515,14 @@ describe.each(AU_SITES)('GH-403 — the rendered Required cell, %s', (slug) => {
     let engineRequired;
     let printed;
     let printedFromOldProgramme;
+    let oldTargets;
 
     beforeAll(() => {
         engineRequired = bySlug[slug].after.annual_totals;
         printed = rowAfter(renderAu(slug, engineRequired).html, '<em>Required (kg/ha)</em>');
-        printedFromOldProgramme = rowAfter(renderAu(slug).html, '<em>Required (kg/ha)</em>');
+        const old = renderAu(slug);
+        printedFromOldProgramme = rowAfter(old.html, '<em>Required (kg/ha)</em>');
+        oldTargets = old.targets;
     });
 
     test('it prints the engine\'s annual requirement, at the document\'s precision', () => {
@@ -530,8 +536,27 @@ describe.each(AU_SITES)('GH-403 — the rendered Required cell, %s', (slug) => {
         // The graceful-degradation branch: a programme persisted before this
         // ticket and restored from the site config falls back to `targets`, so
         // an old panel keeps rendering its old figure rather than blanking.
+        //
+        // GH-436: this loop read `printedFromOldProgramme[1]` — a literal index
+        // — while naming its loop variable `i`, so it asserted the NITROGEN
+        // cell three times and never looked at phosphorus or potassium. A blank,
+        // NaN or wrongly-formatted Required P or Required K on this branch went
+        // straight through, on all six Australian sites.
         expect(printedFromOldProgramme).not.toBeNull();
-        ['N', 'P', 'K'].forEach((i) => expect(printedFromOldProgramme[1]).toMatch(/^\d+\.\d$/));
+        ['N', 'P', 'K'].forEach((n, i) => {
+            expect(printedFromOldProgramme[1 + i]).toMatch(/^\d+\.\d$/);
+        });
+        // The fallback is the recommender's own `targets`, so the three cells
+        // must be those three figures and not the engine's — otherwise the
+        // branch under test was not the branch that ran. Asserted without an
+        // `if`: a guard here would make the whole test optional on the data,
+        // which is how the version above came to check nothing.
+        expect(oldTargets).toBeDefined();
+        ['N', 'P', 'K'].forEach((n, i) => {
+            expect(typeof oldTargets[n]).toBe('number');
+            expect(printedFromOldProgramme[1 + i])
+                .toBe(delivery.roundAtOutput(oldTargets[n], 1).toFixed(1));
+        });
     });
 });
 

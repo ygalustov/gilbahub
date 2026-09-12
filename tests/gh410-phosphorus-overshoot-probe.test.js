@@ -57,6 +57,12 @@ function summarise(slug) {
         targetP: round1((prog.targets && prog.targets.P) || 0),
         deliveredP: round1((prog.delivered && prog.delivered.P) || 0),
         balanceP: round1((prog.balance && prog.balance.P) || 0),
+        // GH-436: `gap` was never set, so the table below printed the literal
+        // string "undefined" in its own gap column and its
+        // `sort((a,b) => b.gap - a.gap)` compared NaN and did nothing -- the
+        // "worst overshoot first" table was neither sorted nor showing a gap.
+        // It is the table the GH-410 plan quotes.
+        gap: round1(((prog.delivered && prog.delivered.P) || 0) - requiredP),
         prog,
         fx,
     };
@@ -74,8 +80,16 @@ describe('GH-410 probe — phosphorus delivered against phosphorus required', ()
                 + String(r.deliveredP).padStart(10)
                 + String(r.gap).padStart(7) + '\n');
         });
-        // Measurement, not a pin: every site produced a number.
+        // GH-436: measurement, not a pin — but the apparatus is asserted, so
+        // the table cannot print "undefined" or come out unsorted again and
+        // still pass. The old assertion checked only that deliveredP was a
+        // number, which said nothing about the two things this table is for.
         expect(results.every((r) => Number.isFinite(r.deliveredP))).toBe(true);
+        expect(results.every((r) => Number.isFinite(r.gap))).toBe(true);
+        expect(results.every((r) => Math.abs(r.gap - (r.deliveredP - r.requiredP)) < 0.051)).toBe(true);
+        for (let i = 1; i < sorted.length; i++) {
+            expect(sorted[i - 1].gap).toBeGreaterThanOrEqual(sorted[i].gap);
+        }
     });
 
     test('measure the gap on every site', () => {

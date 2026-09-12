@@ -152,7 +152,16 @@ describe('GH-312 — nutrition-prebble-integration.js (NZ) implementation', () =
 
     test('info icon present on the table title, wired to the glossary entry', () => {
         expect(src).toMatch(/Nutrient Delivery Summary <button class="db-info-icon" data-info="prebble-nutrient-delivery-summary"/);
-        expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
+        // GH-433: the entry itself is no longer in this file. Both integrations
+        // used to carry a copy under the same key, and each of these two tests
+        // asserted its OWN file's copy -- so the pair pinned the divergence
+        // rather than detecting it when GH-415 rewrote one of them. The button
+        // stays here; the entry it points at is asserted once, where it lives.
+        const owner = fs.readFileSync(
+            path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8');
+        expect(owner).toMatch(/GLOSSARY_KEY = 'prebble-nutrient-delivery-summary'/);
+        expect(owner).toMatch(/GLOSSARY_ENTRY = \{/);
+        expect(src).not.toMatch(/GAIP_GLOSSARY\s*=\s*Object\.assign/);
     });
 
     const block = extractBlock(
@@ -201,7 +210,16 @@ describe('GH-312 — nutrition-au-fertiliser-integration.js (AU) implementation'
 
     test('info icon present on the table title, wired to the glossary entry', () => {
         expect(src).toMatch(/Nutrient Delivery Summary <button class="db-info-icon" data-info="prebble-nutrient-delivery-summary"/);
-        expect(src).toMatch(/'prebble-nutrient-delivery-summary':\s*\{/);
+        // GH-433: the entry itself is no longer in this file. Both integrations
+        // used to carry a copy under the same key, and each of these two tests
+        // asserted its OWN file's copy -- so the pair pinned the divergence
+        // rather than detecting it when GH-415 rewrote one of them. The button
+        // stays here; the entry it points at is asserted once, where it lives.
+        const owner = fs.readFileSync(
+            path.join(__dirname, '../assets/nutrient-balance-status.js'), 'utf8');
+        expect(owner).toMatch(/GLOSSARY_KEY = 'prebble-nutrient-delivery-summary'/);
+        expect(owner).toMatch(/GLOSSARY_ENTRY = \{/);
+        expect(src).not.toMatch(/GAIP_GLOSSARY\s*=\s*Object\.assign/);
     });
 
     const block = extractBlock(

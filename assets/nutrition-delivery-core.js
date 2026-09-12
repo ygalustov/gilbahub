@@ -584,6 +584,87 @@
         return out;
     }
 
+    /**
+     * GH-434 — ONE MONTH'S APPLICATION, as that month's row prints it.
+     *
+     * `productRate()` above answers for an ANNUAL summary entry (`totalKgHa` /
+     * `totalLHa`). The Monthly Schedule asks a different question about a
+     * different object: the per-application row a recommender pushed onto
+     * `monthly[i].granular` / `.liquid`, which carries `rateKgHa`, `rateGM2`,
+     * `rateLHa` and a count. word-export.js had no helper for it and printed
+     * `rateKgHa + ' kg/ha'` unconditionally, so on a greens site the document's
+     * Monthly Schedule said 40 kg/ha where its own Annual Product Summary (moved
+     * onto productRate() by GH-409) and the Plan's Monthly Programme both said
+     * 4 g/m² — a factor of ten, inside one document, on the table the client
+     * orders fertiliser off.
+     *
+     * WHY THIS HONOURS A PRE-FORMATTED STRING FIRST. The three Plan panels do
+     * not agree on how to write a repeated application: the Australian and UK
+     * recommenders hand the row a finished `rate` / `rateDisplay` that already
+     * reads "4x 7 L/ha", and their panels print it verbatim; the New Zealand
+     * panel builds its own text and appends " [x4]". A single invented
+     * convention here would match neither. Taking the recommender's own string
+     * when there is one, and building the New Zealand form when there is not,
+     * makes each region's document match that region's own Plan page rather
+     * than a third style belonging to nobody.
+     *
+     * @param {object} p      a monthly `granular` / `liquid` entry
+     * @param {object} [opts] { useGM2 } — see usesGM2()
+     * @returns {{ text:string, unit:string|null, value:number|null, count:number }}
+     */
+    function applicationRate(p, opts) {
+        if (!p || typeof p !== 'object') return { text: '', unit: null, value: null, count: 1 };
+
+        var count = _num(p.applications) || (p.splitRequired ? _num(p.splitCount) : 0) || _num(p.splitCount) || 1;
+        if (count < 1) count = 1;
+
+        // 1 — the recommender already wrote it (AU/UK). Its count is in there.
+        if (typeof p.rate === 'string' && p.rate.trim() !== '' && p.rate.trim() !== '-') {
+            return { text: p.rate.trim(), unit: null, value: null, count: count };
+        }
+        if (p.rateDisplay && p.rateDisplay.value !== undefined && p.rateDisplay.value !== null) {
+            return {
+                text: String(p.rateDisplay.value) + ' ' + String(p.rateDisplay.unit || ''),
+                unit: p.rateDisplay.unit || null,
+                value: _num(p.rateDisplay.value),
+                count: count
+            };
+        }
+
+        // 2 — build it, in the New Zealand panel's words.
+        var soluble = isSolubleProduct(p);
+        var lHa = _num(p.rateLHa);
+        var kgHa = _num(p.rateKgHa);
+        var gM2 = _num(p.rateGM2);
+        var useGM2 = !!(opts && opts.useGM2);
+
+        var unit = null, value = null;
+        if (lHa > 0 && !soluble) {
+            unit = 'L/ha';
+            value = lHa;
+        } else if (soluble && kgHa <= 0 && lHa > 0) {
+            // The Prebble catalogue carries a soluble's KILOGRAMS in rateLHa;
+            // isSolubleProduct() is what stops that being printed as litres.
+            unit = useGM2 && gM2 > 0 ? 'g/m²' : 'kg/ha';
+            value = unit === 'g/m²' ? gM2 : lHa;
+        } else if (useGM2 && gM2 > 0) {
+            unit = 'g/m²';
+            value = gM2;
+        } else if (kgHa > 0) {
+            unit = 'kg/ha';
+            value = kgHa;
+        } else if (gM2 > 0) {
+            unit = 'g/m²';
+            value = gM2;
+        } else {
+            return { text: '', unit: null, value: null, count: count };
+        }
+
+        var text = String(value) + ' ' + unit;
+        if (count > 1) text += ' [×' + count + ']';
+        return { text: text, unit: unit, value: value, count: count };
+    }
+
     var API = {
         accumulate: accumulate,
         catalogueProducts: catalogueProducts,
@@ -598,6 +679,7 @@
         rateUnitFor: rateUnitFor,
         formatRate: formatRate,
         productRate: productRate,
+        applicationRate: applicationRate,
         programmeTotalRate: programmeTotalRate,
         CONFIG: CONFIG
     };

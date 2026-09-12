@@ -309,6 +309,47 @@
         return String(currentDisplay) + ' (' + round1(currentPpm) + ' ppm)';
     }
 
+    /**
+     * GH-433 — the legend for the table this module classifies, owned here
+     * because this module owns the words.
+     *
+     * It used to live in BOTH nutrition-prebble-integration.js and
+     * nutrition-au-fertiliser-integration.js, registered under the same
+     * glossary key with `Object.assign`, on the recorded assumption that the
+     * two files were "byte-identical twins" so whichever loaded first would
+     * win harmlessly. GH-415 rewrote one of them and not the other, and
+     * `Object.assign` replaces a key rather than merging into it, so the stale
+     * sentence — "Required — Removal + Lift; 0 once soil >= ceiling." — won on
+     * EVERY page, New Zealand included, because the Australian file is loaded
+     * second in all five blade templates that load either. The popover under
+     * the Nutrient Delivery Summary therefore told the reader that Required is
+     * zero above the ceiling while the rows beneath it printed the non-zero
+     * figures GH-415 had just introduced.
+     *
+     * One copy, in the module both panels already depend on for the numbers the
+     * legend describes, loaded before both everywhere. There is no twin left to
+     * drift.
+     */
+    const GLOSSARY_KEY = 'prebble-nutrient-delivery-summary';
+    const GLOSSARY_ENTRY = {
+        title: 'Nutrient Delivery Summary',
+        body: 'Current — soil reserve now (ppm→kg/ha).\n' +
+            'Removal — turf uptake this year (research-based).\n' +
+            'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
+            // GH-415 (B1): above the ceiling Required is no longer a flat 0.
+            // Where the sufficiency range is narrower than the season's
+            // removal, a soil above the ceiling still ends the season below
+            // the floor, and the row used to say "Required 0.0" and
+            // "Deficit" at the same time. Woods' formula now sizes what
+            // holds the floor, so the two agree; this is the sentence that
+            // explains a non-zero Required on a soil marked High.
+            'Required — Removal + Lift; above the ceiling, only what keeps the\n' +
+            '  season from ending below the floor (0 when the soil can spare it).\n' +
+            'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
+            'Range — the floor–ceiling Balance is checked against.\n' +
+            'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',
+    };
+
     const API = {
         classify: classify,
         annualRequired: annualRequired,
@@ -317,11 +358,15 @@
         formatCurrent: formatCurrent,
         ppmToKgHa: ppmToKgHa,
         VISUAL_COLOURS: VISUAL_COLOURS,
-        CONFIG: CONFIG
+        CONFIG: CONFIG,
+        GLOSSARY_KEY: GLOSSARY_KEY,
+        GLOSSARY_ENTRY: GLOSSARY_ENTRY
     };
 
     if (typeof window !== 'undefined') {
         window.GAIP_NutrientBalanceStatus = API;
+        window.GAIP_GLOSSARY = window.GAIP_GLOSSARY || {};
+        window.GAIP_GLOSSARY[GLOSSARY_KEY] = GLOSSARY_ENTRY;
     }
     if (typeof module !== 'undefined' && module.exports) {
         module.exports = API;

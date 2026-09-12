@@ -447,6 +447,46 @@ describe('GH-409 live — ' + site.siteName, () => {
         expect(docUnits).toEqual(planUnits);
     });
 
+    // GH-434: the cells this file has been printing since GH-409 and calling
+    // "ALSO READ, AND NOT YET ASSERTED" are now asserted. The divergence they
+    // recorded was real — plan "@ 20.0g/m²" against document "@ 200 kg/ha" —
+    // and it was the same defect as defect 2 one table lower, in the table the
+    // client orders fertiliser off.
+    test('defect 3 — the Monthly Schedule prints the Plan\'s rate, not ten times it', () => {
+        expect(docxMonthly.length).toBeGreaterThan(0);
+        const rateOf = (cell) => {
+            const m = /@\s*([0-9.]+)\s*(g\/m²|kg\/ha|L\/ha)/.exec(cell || '');
+            return m ? { value: parseFloat(m[1]), unit: m[2] } : null;
+        };
+        const bad = [];
+        planMonthly.forEach((pm, i) => {
+            const dm = (docxMonthly || [])[i];
+            if (!dm) return;
+            [['granular', pm.granular, dm.granular], ['liquid', pm.liquid, dm.liquid]].forEach(([which, planCell, docCell]) => {
+                const p = rateOf(planCell);
+                const d = rateOf(docCell);
+                if (!p || !d) return;
+                if (p.unit !== d.unit || Math.abs(p.value - d.value) > 0.05) {
+                    bad.push(pm.month + ' ' + which + ': plan "' + planCell + '" vs document "' + docCell + '"');
+                }
+            });
+        });
+        if (bad.length) process.stdout.write('[gh409] monthly-schedule mismatches:\n      ' + bad.join('\n      ') + '\n');
+        expect(bad).toEqual([]);
+    });
+
+    test('defect 3 — and on a greens site it prints no mass rate in kg/ha', () => {
+        const units = [];
+        (docxMonthly || []).forEach((dm) => {
+            const re = /@\s*[0-9.]+\s*(g\/m²|kg\/ha|L\/ha)/g;
+            let m;
+            while ((m = re.exec((dm.granular || '') + ' ' + (dm.liquid || '')))) units.push(m[1]);
+        });
+        process.stdout.write('[gh409] monthly-schedule units: ' + JSON.stringify(units) + '\n');
+        expect(units.length).toBeGreaterThan(0);
+        expect(units.every((u) => u === 'g/m²' || u === 'L/ha')).toBe(true);
+    });
+
     test('the total row states its litres apart from its kilograms', () => {
         expect(docxTotalRow).not.toBeNull();
         // A greens site's mass total is in g/m², and any spray volume follows a

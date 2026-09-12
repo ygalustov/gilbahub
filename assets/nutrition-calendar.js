@@ -709,6 +709,17 @@
         // Soil parameters
         const bulkDensity = parseFloat(soil.bulkDensity) || CONFIG.defaultBulkDensity;
         const soilDepth = parseFloat(soil.depth) || CONFIG.defaultSoilDepth;
+        // GH-438: whether each of those two is the sample's own reading or the
+        // engine's default. They set the ppm->kg/ha factor and through it every
+        // lift and headroom term, so "which one is this" is a real question
+        // about the figures, not a diagnostic. nutrition-program-inputs.js's
+        // validateSampleInputs() already computed exactly this pair for the
+        // export path and nothing on the Plan page could see it, so the Plan's
+        // calculation-trace row had to name both possibilities and let the
+        // reader guess. Same test as the line above it, so the flag cannot
+        // disagree with the value it describes.
+        const _bulkDensityDefaulted = !(parseFloat(soil.bulkDensity) > 0);
+        const _soilDepthDefaulted = !(parseFloat(soil.depth) > 0);
         
         // Methodology
         // Cotula/bowls: force ammonium_acetate regardless of what soil.methodology says.
@@ -904,6 +915,15 @@
             ranges: _programInputs ? _programInputs.ranges : null,
             rangeSources: _programInputs ? _programInputs.rangeSources : null,
             inputSources: _programInputs ? _programInputs.sources : null,
+            // GH-438: deliberately NOT folded into inputSources. That map is
+            // compared field for field between the Plan page and the Word
+            // export by tests/e2e/ui-vs-export-parity.test.js, and the export
+            // resolves these two flags on its own path
+            // (nutrition-program-inputs.js validateSampleInputs()), so adding
+            // keys to one side only would fail parity on a provenance
+            // difference that is not one. They travel as their own fields.
+            bulkDensityDefaulted: _bulkDensityDefaulted,
+            soilDepthDefaulted: _soilDepthDefaulted,
             annualNBase: annualNOverride,
             _speciesDefaulted: _speciesFallbackUsed,  // b35fix309 item 5: true when silent creepingBentgrass fallback fired
             // GH-377: true when no real source supplied a methodology and the
@@ -1941,6 +1961,22 @@
                 // different places" bug fails a named row rather than a
                 // numeric tolerance three tables later.
                 inputSources: inputs.inputSources || null,
+                // GH-438: whether bulk density and sampling depth are the
+                // sample's own readings or the engine's defaults. They set the
+                // ppm->kg/ha factor, so the Plan's calculation-trace block can
+                // now name the source of the two numbers behind every lift and
+                // headroom term instead of offering the reader both options.
+                // Derived here as well as carried: collectFromState() resolves
+                // them for the Plan page's own generate(), but computeProgram()
+                // is also called directly (the export path, the tests), and a
+                // flag that is only sometimes populated is worse than none --
+                // it would read as "measured" wherever it was simply absent.
+                // Same `> 0` test the value itself is resolved by, so the flag
+                // and the number it describes cannot disagree.
+                bulkDensityDefaulted: (inputs.bulkDensityDefaulted === true) ||
+                    !(parseFloat(inputs.bulkDensity) > 0),
+                soilDepthDefaulted: (inputs.soilDepthDefaulted === true) ||
+                    !(parseFloat(inputs.soilDepth) > 0),
                 // GH-371 (D01): the coordinates that actually drove THIS
                 // computation — i.e. inputs.latitude/longitude, which
                 // collectFromState() resolved from the DOM/state.location at

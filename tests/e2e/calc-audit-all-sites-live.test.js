@@ -50,7 +50,11 @@ try {
 const BASE_URL = process.env.GILBA_E2E_URL || credentials.url || 'http://127.0.0.1:8080';
 const EMAIL = process.env.GILBA_E2E_EMAIL || credentials.email;
 const PASSWORD = process.env.GILBA_E2E_PASSWORD || credentials.password;
-const OUT = process.env.GILBA_AUDIT_OUT || path.join(__dirname, '../../calc-audit-results.json');
+// GH-437: the default output lives in a gitignored directory. It used to be
+// written to the repository root as a TRACKED file, so every run of this
+// harness put a 2.1 MB diff in `git status` alongside the code change it was
+// measuring -- a measurement artefact presented as a source edit.
+const OUT = process.env.GILBA_AUDIT_OUT || path.join(__dirname, '../../calc-audit/results.json');
 const SITE_FILTER = (process.env.GILBA_AUDIT_SITES || '').split(',').map((s) => s.trim()).filter(Boolean);
 const MAX_SAMPLES = parseInt(process.env.GILBA_AUDIT_MAX_SAMPLES || '0', 10) || 0;
 // The UK integration is out of scope by the owner's decision.
@@ -380,9 +384,11 @@ describe('Calculation audit — every site, every live soil sample, on the Plan 
                 rec.error = String(e && e.stack || e);
                 line('ERROR ' + rec.error.split('\n')[0]);
             }
+            fs.mkdirSync(path.dirname(OUT), { recursive: true });
             fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
         }
-        fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
+        fs.mkdirSync(path.dirname(OUT), { recursive: true });
+            fs.writeFileSync(OUT, JSON.stringify(RESULTS, null, 1));
         process.stdout.write('[audit] wrote ' + OUT + '\n');
     }, 3600000);
 

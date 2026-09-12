@@ -130,9 +130,11 @@ class SampleController extends Controller
             : $user->sites()->pluck('sites.id')->all();
         $synced = 0;
         $deleted = 0;
+        $skipped = 0;
+        $forbidden = 0;
         $siteLabels = [];
 
-        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, $sourceFile, &$synced, &$deleted, &$siteLabels) {
+        DB::transaction(function () use ($data, $siteIds, $user, $clearSiteData, $sourceFile, &$synced, &$deleted, &$skipped, &$forbidden, &$siteLabels) {
             foreach ($data['allSites'] as $siteId => $siteData) {
                 if (! is_string($siteId) || ! in_array($siteId, $siteIds, true) || ! is_array($siteData)) {
                     continue;
@@ -142,6 +144,39 @@ class SampleController extends Controller
                 if (! $site || ! $site->account) {
                     continue;
                 }
+
+                // GH-432: this was the one endpoint that writes sample data
+                // without asking what the user may do with the site. Every
+                // other writer checks -- store() and update() here,
+                // DataController::destroy(), SprayLogController::destroy(),
+                // SiteController::update() -- but sync() filtered on
+                // $user->sites() alone, which is membership at ANY role. A
+                // viewer could therefore upsert samples, and with
+                // clearSiteData:true hard-delete the site's spray_logs and
+                // field_log_entries. Skipped rather than aborted so one
+                // read-only site in a multi-site push does not fail the push
+                // for the sites the user really can edit; $forbidden is what
+                // makes the skip visible instead of silent.
+                if (! $user->canEditSite($site)) {
+                    $forbidden++;
+                    continue;
+                }
+
+                // GH-431: what this request may bring back from the dead.
+                //
+                // An ordinary push may bring back NOTHING (an empty list): it is
+                // the browser's cache, not a user action, and it must not undo a
+                // deletion made on the Data page or on another device.
+                //
+                // A clearSiteData request is the Settings import, which the
+                // owner has settled means "wipe the site and load the file" --
+                // an explicit, announced, whole-site replacement. There `null`
+                // means restore whatever the file names, including a row that
+                // was already soft-deleted before the import began. Restricting
+                // it to the ids this request itself deleted would silently drop
+                // any sample in the file whose zone name matched an older
+                // deletion: the import would report rows it had not written.
+                $restorableTrashedIds = $clearSiteData ? null : [];
 
                 if ($clearSiteData) {
                     DB::table('spray_logs')->where('site_id', $siteId)->delete();
@@ -167,10 +202,21 @@ class SampleController extends Controller
                 // and one ordinary Capture, edit or lab import destroyed the
                 // rest of the site. Reproduced on the dev stack as
                 // `synced: 1, deleted: 6`; 87 of 147 rows already bore the mark.
-                // Consequence, accepted until per-record writes land: deleting a
-                // sample in the hub reached the database only through this
-                // mechanism, so hub-side deletion is now inert and a deleted
-                // sample returns on reload.
+                //
+                // GH-431 closes the other half. GH-430's note here said that
+                // deletion was inert "until per-record writes land", on the
+                // reading that a sample could only ever be deleted by going
+                // missing from a push. That reading was wrong: the Data page's
+                // DELETE /api/data/entry/{id} (DataController::destroy) is a
+                // real per-record delete, it already shipped, and its button
+                // says "This cannot be undone" -- and then saveSampleRecord()
+                // called restore() on the next ordinary push, because the
+                // browser that imported the sample still holds it with
+                // `rawData`. Measured on the dev stack: delete -> deleted_at
+                // set -> one push -> deleted_at NULL. The upsert below now
+                // restores nothing on an ordinary push, and counts the
+                // refusals as `skipped`; the clearSiteData import is the one
+                // request that may, for the reason set out just above.
                 foreach (self::VALID_TYPES as $sampleType) {
                     if (! array_key_exists($sampleType, $siteData) || ! is_array($siteData[$sampleType])) {
                         continue;
@@ -220,7 +266,7 @@ class SampleController extends Controller
                             continue;
                         }
 
-                        $this->saveSampleRecord(
+                        $saved = $this->saveSampleRecord(
                             $site,
                             $site->account_id,
                             $user->id,
@@ -234,8 +280,20 @@ class SampleController extends Controller
                                 'lab_name' => $sampleData['labName'] ?? '',
                                 'lab_ref' => $sampleData['labRef'] ?? '',
                                 'depth_mm' => isset($payload['depth_mm']) && is_numeric($payload['depth_mm']) ? (int) $payload['depth_mm'] : null,
-                            ]
+                            ],
+                            $restorableTrashedIds
                         );
+
+                        // GH-431: the row is soft-deleted and this request did
+                        // not delete it, so the user deleted it somewhere else
+                        // -- on the Data page, on another device. Report it
+                        // rather than swallowing it: a browser whose cache still
+                        // holds the sample will push it on every mutation, and
+                        // `skipped` is what says so out loud.
+                        if ($saved === null) {
+                            $skipped++;
+                            continue;
+                        }
 
                         $synced++;
                     }
@@ -257,6 +315,12 @@ class SampleController extends Controller
             'data' => [
                 'synced' => $synced,
                 'deleted' => $deleted,
+                // GH-431: pushed rows that are soft-deleted in the database and
+                // were left that way. Not an error; the number a stale tab keeps
+                // producing until its cache is refreshed.
+                'skipped' => $skipped,
+                // GH-432: sites in the push the user may see but not edit.
+                'forbidden' => $forbidden,
             ],
         ]);
     }
@@ -364,7 +428,21 @@ class SampleController extends Controller
         ]);
     }
 
-    private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta): Sample
+    /**
+     * GH-431: $restorableTrashedIds decides what happens when the (site, type,
+     * client_uid) this call names is already soft-deleted.
+     *
+     *   null  — restore it. This is an explicit, per-record user action
+     *           (POST /api/samples): re-adding a sample under an identity that
+     *           once existed is a create, and it belongs on the same row.
+     *   array — restore it ONLY if its id is in the list, otherwise return null
+     *           and write nothing. An ordinary POST /api/samples/sync passes an
+     *           empty array, because a push is the browser's cache and not a
+     *           user action: it must never undo a deletion the user made
+     *           elsewhere. A clearSiteData import passes null instead — see
+     *           sync(), where the distinction is made and explained.
+     */
+    private function saveSampleRecord(Site $site, int $accountId, int $userId, string $sampleType, ?string $clientUid, array $payload, array $meta, ?array $restorableTrashedIds = null): ?Sample
     {
         if ($clientUid !== null && $clientUid !== '') {
             $attributes = [
@@ -374,6 +452,10 @@ class SampleController extends Controller
             ];
             $sample = Sample::query()->withTrashed()->firstOrNew($attributes);
             if ($sample->trashed()) {
+                if ($restorableTrashedIds !== null
+                    && ! in_array($sample->id, $restorableTrashedIds, false)) {
+                    return null;
+                }
                 $sample->restore();
             }
             if (! $sample->exists) {

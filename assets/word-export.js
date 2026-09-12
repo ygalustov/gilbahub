@@ -6354,15 +6354,35 @@
             })
         ];
 
+        // GH-434: the Monthly Schedule prints the surface's unit, like every
+        // other table in this document and like the Plan page beside it.
+        // It hardcoded kg/ha for granulars and L/ha for liquids, so a greens
+        // document stated 40 kg/ha under a Plan page and an Annual Product
+        // Summary — its own, three paragraphs above — that both said 4 g/m².
+        // GH-409 moved the product tables onto the shared unit rule and left
+        // this renderer behind, which made the document internally inconsistent
+        // where before it had at least been uniformly wrong.
+        var _schedRateOpts = _rateDisplayOptions(data);
+        var _schedDelivery = (typeof window !== 'undefined' && window.GAIP_NutritionDelivery) || null;
+        if (!_schedDelivery) {
+            console.error('[WordExport] GH-434: nutrition-delivery-core.js is not loaded — the Monthly ' +
+                'Schedule cannot print rates in the Plan page\'s units.');
+        }
+        var _schedRate = function(p) {
+            if (_schedDelivery) return _schedDelivery.applicationRate(p, _schedRateOpts).text;
+            // Pre-GH-434 wording, kept only for the unloaded-module path the
+            // console.error above announces.
+            return p.rateKgHa ? p.rateKgHa + ' kg/ha' : '';
+        };
+
         monthly.forEach(function(m) {
             var gpPct = Math.round((m.gp || 0) * 100);
 
             var granularProducts = [];
             if (m.granular && m.granular.length > 0) {
                 m.granular.forEach(function(g) {
-                    var rate = g.rateKgHa ? g.rateKgHa + ' kg/ha' : '';
-                    var splits = g.splitCount > 1 ? ' ×' + g.splitCount : '';
-                    granularProducts.push(g.name + (rate ? ' @ ' + rate : '') + splits);
+                    var rate = _schedRate(g);
+                    granularProducts.push(g.name + (rate ? ' @ ' + rate : ''));
                 });
             }
             var liquidProducts = [];
@@ -6371,9 +6391,12 @@
                     // b35fix322 Bug 2b: soluble products are dosed by mass not
                     // volume. rateLHa carries the kg/ha number for solubles
                     // (catalogue convention — see calculateLiquidApplication
-                    // which keys off form). Display unit must follow form.
-                    var unit = (l.form === 'soluble') ? 'kg/ha' : 'L/ha';
-                    var rate = l.rateLHa ? l.rateLHa + ' ' + unit : '';
+                    // which keys off form). applicationRate() carries that rule
+                    // over as isSolubleProduct(), widened to the five
+                    // Sportsmaster WSF products whose `form` says soluble while
+                    // their names do not — this renderer's own `l.form ===
+                    // 'soluble'` test printed their kilograms as "L/ha".
+                    var rate = _schedRate(l);
                     liquidProducts.push(l.name + (rate ? ' @ ' + rate : ''));
                 });
             }

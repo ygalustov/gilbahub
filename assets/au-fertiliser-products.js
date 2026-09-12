@@ -5792,41 +5792,19 @@
             };
         },
         
-        /**
-         * Determine if slow-release granular is appropriate for current conditions
-         * Returns efficiency factor (0-1) based on GP and soil temp
-         */
-        getSlowReleaseEfficiency: function(gp, soilTemp) {
-            // Slow-release products need biological activity or warmth to release
-            // At low GP / cold temps, they don't work effectively
-            
-            let efficiency = 1.0;
-            
-            // GP-based efficiency
-            if (gp < 0.15) {
-                efficiency *= 0.3; // Very low GP - slow release won't work
-            } else if (gp < 0.3) {
-                efficiency *= 0.6; // Low GP - reduced efficiency
-            } else if (gp < 0.5) {
-                efficiency *= 0.85; // Moderate GP - slight reduction
-            }
-            // High GP (≥ 0.5) - full efficiency
-            
-            // Soil temp adjustment (if provided)
-            if (soilTemp !== undefined) {
-                if (soilTemp < 8) {
-                    efficiency *= 0.4; // Very cold - microbial activity minimal
-                } else if (soilTemp < 12) {
-                    efficiency *= 0.7; // Cold - reduced activity
-                } else if (soilTemp < 15) {
-                    efficiency *= 0.85; // Cool - slight reduction
-                }
-                // 15°C+ - full efficiency
-            }
-            
-            return efficiency;
-        },
-        
+        // GH-435: getSlowReleaseEfficiency(gp, soilTemp) was deleted here. It
+        // was never called -- not by this file, not by the integration, not by
+        // either export -- and it was the only thing in the Australian
+        // catalogue that read a soil temperature. It is deleted rather than
+        // left in place for the same reason GH-427 deleted
+        // estimateMonthlySoilTemp(): an unreachable function that branches on an
+        // input the Australian recommender does not take is how it gets called
+        // again by someone who assumes it is live. It also made the Plan page's
+        // calculation-trace row "this region's recommender takes no soil
+        // temperature" look wrong to anyone who grepped for one. Australian
+        // release efficiency is GP-weighted only; that is a property of the
+        // catalogue, and it is now visible as one.
+
         /**
          * Calculate liquid/soluble application to deliver target N
          * Returns application details including rate, N delivered, and any shortfall
@@ -6407,7 +6385,30 @@
                                 delivers: { N: pProduct.nDelivered, P: pProduct.pDelivered, K: pProduct.kDelivered },
                                 notes: `Strategic P application: ${pProduct.notes}`,
                             });
-                            monthResult.notes.push(`Strategic P application: ${pProduct.pDelivered.toFixed(1)} kg/ha (annual requirement)`);
+                            // GH-435: the note names the shortfall when the dose
+                            // is capped, as the New Zealand recommender's
+                            // equivalent has since GH-417. It read
+                            // "4.1 kg/ha (annual requirement)" -- the delivered
+                            // figure, correctly, under a caption asserting it
+                            // IS the annual requirement. selectPhosphorusSource()
+                            // rate-caps every source (MAP Tech at 15 kg/ha of
+                            // product on greens is 4.1 kg P/ha), so on an
+                            // Australian greens site phosphorus cannot exceed
+                            // about 12.3 kg/ha/year however much the soil asks
+                            // for: Burns Green 10 requires 26.3 and receives
+                            // 12.3, with each month's note calling its 4.1 the
+                            // annual requirement and the annual shortfall stated
+                            // nowhere. The unit is spelled kg P/ha for the same
+                            // reason it is on the New Zealand side -- "kg/ha"
+                            // beside a product rate reads as product mass.
+                            const _pDelivered = pProduct.pDelivered || 0;
+                            const _pCapped = _pDelivered + 0.05 < annualPRemaining;
+                            monthResult.notes.push(
+                                `Strategic P application: ${_pDelivered.toFixed(1)} kg P/ha` +
+                                (_pCapped
+                                    ? ` (of ${annualPRemaining.toFixed(1)} requested)`
+                                    : ' (annual requirement)')
+                            );
                         } else {
                             monthResult.notes.push(`P deficit: ${annualPRemaining.toFixed(1)} kg/ha - no suitable P source found`);
                         }

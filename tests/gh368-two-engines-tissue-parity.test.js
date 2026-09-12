@@ -75,29 +75,70 @@ describe('GH-368 — nutrition-requirement-engine.js honours the tissue gate too
     });
 });
 
-describe('GH-368 — the two engines now agree on the same measurement', () => {
-    // The calendar engine's own rule, from nutrition-calendar.js STEP 2:
-    // removal = annualN * (tissueX / tissueN), same plausibility bands.
-    function calendarRatio(nutrient, tissue) {
-        const generic = { P: 0.10, K: 0.55 }[nutrient];
-        const bands = { P: { min: 0.03, max: 0.30 }, K: { min: 0.15, max: 1.50 } }[nutrient];
-        if (!tissue || !(tissue.N > 0) || !(tissue[nutrient] > 0)) return generic;
-        const r = tissue[nutrient] / tissue.N;
-        return (r >= bands.min && r <= bands.max) ? r : generic;
+/**
+ * GH-436 — this block claimed "the two engines now agree" while loading ONE of
+ * them. `nutrition-calendar.js` was never required; `calendarRatio()` was a
+ * hand transcription of the calendar's rule, with its own hardcoded generic
+ * ratios {P: 0.10, K: 0.55} and its own plausibility bands, written into the
+ * test file. So it compared one real engine against a copy of the other engine
+ * frozen at the moment the test was written — the shape that cannot detect the
+ * divergence it is named after, because the calendar can change and the copy
+ * cannot. The `toBeLessThanOrEqual(1)` tolerance in the second test would have
+ * absorbed a whole kilogram of drift on top.
+ *
+ * Since GH-383/384 there is a real shared answer to compare against:
+ * `nutrition-requirement-core.js` owns the removal ratio and the tissue gate,
+ * and BOTH engines route through it. The comparison is now engine against core,
+ * both loaded, with no rule retyped here.
+ */
+describe('GH-368 — the two engines now agree, measured against the shared core', () => {
+    const Core = require('../assets/nutrition-requirement-core.js');
+
+    /** The core's own answer, through its own public entry points. */
+    function coreRemoval(nutrient, tissuePercent, annualN) {
+        const gate = Core._resolveTissueGate
+            ? Core._resolveTissueGate(tissuePercent || null)
+            : null;
+        return Core._getRemovalRate('perennialRyegrass', nutrient, gate, annualN);
     }
 
-    test.each(['P', 'K'])('%s: both engines apply the same ratio to their own N basis', (nutrient) => {
-        const ratio = calendarRatio(nutrient, TISSUE);
-        // Requirement engine: scales the species table's N (180).
-        expect(removalFor(nutrient, TISSUE)).toBe(Math.round(180 * ratio * 10) / 10);
-        // The ratio itself is the measured one, not the generic.
-        expect(ratio).toBeCloseTo(TISSUE[nutrient] / TISSUE.N, 6);
+    test('the core exposes the pieces this comparison needs — no silent no-op', () => {
+        expect(typeof Core._getRemovalRate).toBe('function');
+        expect(typeof Core._resolveTissueGate).toBe('function');
+        expect(Core.REMOVAL_RATES.perennialRyegrass).toEqual(
+            expect.objectContaining({ N: expect.any(Number), P: expect.any(Number), K: expect.any(Number) }));
     });
 
-    test.each(['P', 'K'])('%s: with no tissue both fall back to the same generic ratio', (nutrient) => {
-        const ratio = calendarRatio(nutrient, null);
-        // 180 * 0.10 = 18 and 180 * 0.55 = 99, against the table's 18 and 100 --
-        // the table rounds K's ratio to 0.556, so allow a kilogram of drift.
-        expect(Math.abs(removalFor(nutrient, null) - 180 * ratio)).toBeLessThanOrEqual(1);
+    test.each(['P', 'K'])('%s: with a tissue sample, engine and core return the same removal', (nutrient) => {
+        const N = Core.REMOVAL_RATES.perennialRyegrass.N;
+        const fromCore = coreRemoval(nutrient, TISSUE, N);
+        const fromEngine = removalFor(nutrient, TISSUE);
+        process.stdout.write('[gh368] ' + nutrient + ' with tissue — engine ' + fromEngine
+            + ', core ' + fromCore.value + ' (ratio ' + fromCore.ratio.toFixed(4)
+            + ', tissue-informed ' + fromCore.tissueInformed + ')\n');
+        expect(fromEngine).toBe(fromCore.value);
+        // and the gate really engaged, so "they agree" is not both declining it
+        expect(fromCore.tissueInformed).toBe(true);
+        expect(fromCore.ratio).toBeCloseTo(TISSUE[nutrient] / TISSUE.N, 6);
+    });
+
+    test.each(['P', 'K'])('%s: with no tissue, engine and core return the same species-table removal', (nutrient) => {
+        const N = Core.REMOVAL_RATES.perennialRyegrass.N;
+        const fromCore = coreRemoval(nutrient, null, N);
+        const fromEngine = removalFor(nutrient, null);
+        process.stdout.write('[gh368] ' + nutrient + ' no tissue — engine ' + fromEngine
+            + ', core ' + fromCore.value + '\n');
+        // Exact, not within a kilogram: one implementation cannot be a kilogram
+        // away from itself, and the old tolerance is what let a real drift hide.
+        expect(fromEngine).toBe(fromCore.value);
+        expect(fromCore.tissueInformed).toBe(false);
+    });
+
+    test.each(['P', 'K'])('%s: a rejected tissue reading is rejected identically by both', (nutrient) => {
+        const N = Core.REMOVAL_RATES.perennialRyegrass.N;
+        const outOfBand = Object.assign({}, TISSUE, { [nutrient]: TISSUE[nutrient] * 10000 });
+        const fromCore = coreRemoval(nutrient, outOfBand, N);
+        expect(removalFor(nutrient, outOfBand)).toBe(fromCore.value);
+        expect(fromCore.tissueInformed).toBe(false);
     });
 });

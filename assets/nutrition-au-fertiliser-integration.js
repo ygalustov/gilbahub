@@ -1557,22 +1557,18 @@
     styleEl.textContent = styles;
     document.head.appendChild(styleEl);
 
-    // GH-312: same glossary key as nutrition-prebble-integration.js (this
-    // file's byte-identical twin) -- Object.assign merge is idempotent, so
-    // whichever of the two files loads first registers it, harmless if both
-    // do (both always load together per plan.blade.php/hub.blade.php).
-    window.GAIP_GLOSSARY = Object.assign(window.GAIP_GLOSSARY || {}, {
-        'prebble-nutrient-delivery-summary': {
-            title: 'Nutrient Delivery Summary',
-            body: 'Current — soil reserve now (ppm→kg/ha).\n' +
-                'Removal — turf uptake this year (research-based).\n' +
-                'Lift — correction toward the floor; 0 once soil ≥ floor.\n' +
-                'Required — Removal + Lift; 0 once soil ≥ ceiling.\n' +
-                'Balance — projected reserve at season end: Current + Delivered − Removal.\n' +
-                'Range — the floor–ceiling Balance is checked against.\n' +
-                'Status — Deficit (below floor) / On Track (in range) / Excess (above ceiling).',
-        },
-    });
+    // GH-433: this file used to register the same glossary key as
+    // nutrition-prebble-integration.js, on the reasoning recorded here that the
+    // two were "byte-identical twins" and that `Object.assign` therefore made
+    // the duplicate harmless. Object.assign REPLACES a key, it does not merge
+    // into it, so the claim only held while the bodies matched -- and GH-415
+    // rewrote the New Zealand copy's "Required" line and left this one saying
+    // "0 once soil >= ceiling". This file is loaded after that one in all five
+    // blade templates that load either, so the stale sentence won everywhere,
+    // including on New Zealand Plan pages, directly above the non-zero Required
+    // figures GH-415 had introduced. The entry now lives once, in
+    // assets/nutrient-balance-status.js, which both panels already call for the
+    // numbers the legend explains.
 
     // ========================================================================
     // INITIALIZATION

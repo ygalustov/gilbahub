@@ -217,27 +217,65 @@ describe('GH-424 — the month of generation no longer changes the year', () => 
     });
 });
 
-describe('GH-424 — option 3: the same normals growth potential runs on', () => {
-    /** Replaces the synthetic curve with the month's own recorded normal. */
-    function withNormals(fn) {
-        const orig = R.estimateMonthlySoilTemp;
-        R.estimateMonthlySoilTemp = function (month) {
-            const t = NORMALS[month];
-            return (typeof t === 'number' && isFinite(t)) ? t : orig.apply(this, arguments);
-        };
-        try { return fn(); } finally { R.estimateMonthlySoilTemp = orig; }
-    }
+/**
+ * GH-436 — this block used to measure nothing, and it is the third instance of
+ * the same fault in one week.
+ *
+ * It carried a `withNormals()` helper that monkey-patched
+ * `R.estimateMonthlySoilTemp`, ran the recommender three times "under option 3"
+ * and asserted the three agreed. GH-427 DELETED that function — this very file
+ * asserts `expect(R.estimateMonthlySoilTemp).toBeUndefined()` sixty lines above
+ * — so the patch was assigned to a property nothing reads, received zero calls,
+ * and `base === opt3a === opt3b === opt3c` by construction. The same fault was
+ * found and fixed in gh426's option replays when GH-427 landed; this file was
+ * left behind, and it went on PRINTING an "option 3" row that was the baseline
+ * row, which is worse than silence because the GH-424/426/427 planning quoted
+ * those printed figures.
+ *
+ * There is nothing to patch any more because option 3 is what ships: the
+ * per-month temperature is `monthData.temp`, the site's own climate normal.
+ * So the claim is asserted directly — vary the thing that used to matter and
+ * show the programme does not move — and the absence of a patch target is
+ * asserted as the REASON, rather than silently standing in for the measurement.
+ */
+describe('GH-424 — option 3 is what ships: the anchor cannot move the programme', () => {
+    test('there is no synthetic curve left to patch, which is why nothing varies', () => {
+        expect(R.estimateMonthlySoilTemp).toBeUndefined();
+        const src = fs.readFileSync(path.join(__dirname, '../assets/prebbles-products.js'), 'utf8');
+        expect(src).toMatch(/const monthlySoilTemp = monthData\.temp;/);
+    });
 
-    test('what the programme becomes, and that it no longer depends on the anchor at all', () => {
-        const base = run(calendar(), contextAt(12.8));
-        const opt3a = withNormals(() => run(calendar(), contextAt(12.8)));
-        const opt3b = withNormals(() => run(calendar(), contextAt(13)));
-        const opt3c = withNormals(() => run(calendar(), contextAt(19)));
-        process.stdout.write('[gh424] current (anchor 12.8): ' + JSON.stringify(delivered(base)) + '  ' + productSet(base) + '\n');
-        process.stdout.write('[gh424] option 3            : ' + JSON.stringify(delivered(opt3a)) + '  ' + productSet(opt3a) + '\n');
-        // The point of option 3: the live reading stops mattering.
-        expect(productSet(opt3a)).toBe(productSet(opt3b));
-        expect(productSet(opt3a)).toBe(productSet(opt3c));
-        expect(delivered(opt3a)).toEqual(delivered(opt3c));
+    test('the live anchor is varied across its whole plausible range and moves nothing', () => {
+        // The anchors: the reading the old code would have used, the two
+        // neighbours a week of forecast produced, and the summer/winter
+        // extremes. If any of these moved the programme the recommender would
+        // still be reading a live value somewhere.
+        const ANCHORS = [8.0, 12.8, 13, 14.2, 19, 20.8];
+        const runs = ANCHORS.map((a) => ({ anchor: a, prog: run(calendar(), contextAt(a)) }));
+        runs.forEach((r) => process.stdout.write('[gh424] anchor ' + String(r.anchor).padStart(5)
+            + ': ' + JSON.stringify(delivered(r.prog)) + '  ' + productSet(r.prog) + '\n'));
+
+        const first = runs[0];
+        runs.slice(1).forEach((r) => {
+            expect(productSet(r.prog)).toBe(productSet(first.prog));
+            expect(delivered(r.prog)).toEqual(delivered(first.prog));
+        });
+
+        // And the apparatus is real: the runs did produce a programme, so
+        // "they all agree" is not six empty results agreeing.
+        expect(productSet(first.prog).length).toBeGreaterThan(0);
+        expect(Object.keys(delivered(first.prog)).length).toBeGreaterThan(0);
+    });
+
+    test('the temperatures the selectors were handed are the normals, not the anchor', () => {
+        // The positive half, and the one assertion that would have caught the
+        // original defect: what the calculation CONSUMED, rather than what the
+        // programme came out as.
+        const prog = run(calendar(), contextAt(12.8));
+        const series = (prog.soilTempSeries || []).map((e) => (e && typeof e === 'object') ? e.temp : e);
+        process.stdout.write('[gh424] temperatures consumed: ' + JSON.stringify(series) + '\n');
+        expect(series.length).toBeGreaterThan(0);
+        series.forEach((t) => expect(NORMALS).toContain(t));
+        expect(series).not.toContain(12.8);
     });
 });
